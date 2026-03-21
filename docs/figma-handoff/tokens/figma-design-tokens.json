@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "name": "School SaaS Arabic RTL",
+    "version": "1.0.0",
+    "direction": "rtl",
+    "source": "school-app codebase"
+  },
+  "primitives": {
+    "color": {
+      "indigo": {
+        "950": "#1F1547",
+        "800": "#4C2F9E",
+        "700": "#6C4AB6",
+        "400": "#9B7EDC"
+      },
+      "sky": {
+        "700": "#1D4ED8",
+        "600": "#2563EB",
+        "400": "#60A5FA",
+        "200": "#BFDBFE"
+      },
+      "surface": {
+        "0": "#FFFFFF",
+        "25": "#FAFAFE",
+        "50": "#F8F6FF",
+        "75": "#F5F3FF",
+        "100": "#F0EEFF"
+      },
+      "neutral": {
+        "950": "#0F172A",
+        "700": "#334155",
+        "500": "#64748B",
+        "400": "#94A3B8"
+      },
+      "success": {
+        "700": "#065F46",
+        "500": "#10B981",
+        "100": "#D1FAE5"
+      },
+      "warning": {
+        "700": "#92400E",
+        "500": "#F59E0B",
+        "100": "#FEF3C7"
+      },
+      "danger": {
+        "700": "#991B1B",
+        "500": "#EF4444",
+        "100": "#FEE2E2"
+      },
+      "info": {
+        "700": "#1E40AF",
+        "100": "#DBEAFE"
+      },
+      "canvas": {
+        "light": "#F6F8FC",
+        "dark": "#0F1220"
+      }
+    },
+    "spacing": {
+      "0": 0,
+      "1": 4,
+      "2": 8,
+      "3": 12,
+      "4": 16,
+      "5": 20,
+      "6": 24,
+      "8": 32,
+      "10": 40,
+      "12": 48
+    },
+    "radius": {
+      "sm": 8,
+      "md": 10,
+      "lg": 12,
+      "xl": 14,
+      "2xl": 18,
+      "pill": 999
+    },
+    "shadow": {
+      "sm": "0 2px 8px rgba(108,74,182,0.06)",
+      "md": "0 8px 24px rgba(15,23,42,0.12)",
+      "lg": "0 20px 60px rgba(0,0,0,0.20)"
+    },
+    "font": {
+      "family": "Manrope",
+      "weights": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700,
+        "extrabold": 800
+      },
+      "sizes": {
+        "11": 11,
+        "12": 12,
+        "14": 14,
+        "16": 16,
+        "18": 18,
+        "20": 20,
+        "24": 24,
+        "32": 32
+      }
+    }
+  },
+  "semantic": {
+    "light": {
+      "bg": {
+        "canvas": "{primitives.color.canvas.light}",
+        "surface": "{primitives.color.surface.0}",
+        "subtle": "{primitives.color.surface.50}",
+        "sidebarStart": "#EDE8FA",
+        "sidebarEnd": "#E0D8F8",
+        "primary": "{primitives.color.indigo.800}",
+        "primaryHover": "{primitives.color.indigo.700}",
+        "brandStart": "{primitives.color.sky.600}",
+        "brandEnd": "{primitives.color.sky.700}"
+      },
+      "text": {
+        "primary": "{primitives.color.neutral.950}",
+        "secondary": "{primitives.color.neutral.500}",
+        "muted": "{primitives.color.neutral.400}",
+        "brand": "{primitives.color.indigo.800}",
+        "inverse": "#FFFFFF"
+      },
+      "border": {
+        "default": "rgba(108,74,182,0.12)",
+        "soft": "rgba(108,74,182,0.08)"
+      },
+      "state": {
+        "successBg": "{primitives.color.success.100}",
+        "successText": "{primitives.color.success.700}",
+        "warningBg": "{primitives.color.warning.100}",
+        "warningText": "{primitives.color.warning.700}",
+        "dangerBg": "{primitives.color.danger.100}",
+        "dangerText": "{primitives.color.danger.700}",
+        "infoBg": "{primitives.color.info.100}",
+        "infoText": "{primitives.color.info.700}"
+      }
+    },
+    "dark": {
+      "bg": {
+        "canvas": "#0F1220",
+        "surface": "#171C2C",
+        "subtle": "#1F2638",
+        "sidebarStart": "#1A2133",
+        "sidebarEnd": "#171E2F"
+      },
+      "text": {
+        "primary": "#F2F4FF",
+        "secondary": "#A8B0C8",
+        "muted": "#9AA3BF",
+        "inverse": "#FFFFFF"
+      },
+      "border": {
+        "default": "rgba(169,139,239,0.24)",
+        "soft": "rgba(169,139,239,0.16)"
+      }
+    }
+  },
+  "components": {
+    "sidebar": {
+      "width": 220,
+      "itemHeight": 40,
+      "itemRadius": "{primitives.radius.md}",
+      "itemPaddingX": 14
+    },
+    "topbar": {
+      "height": 64,
+      "paddingX": 24,
+      "paddingY": 12
+    },
+    "button": {
+      "height": {
+        "sm": 36,
+        "md": 40,
+        "lg": 44
+      },
+      "radius": {
+        "sm": 9,
+        "md": 11,
+        "lg": 14
+      }
+    },
+    "card": {
+      "radius": "{primitives.radius.lg}",
+      "padding": 16,
+      "shadow": "{primitives.shadow.sm}"
+    },
+    "input": {
+      "height": 42,
+      "radius": 9
+    },
+    "modal": {
+      "radius": 18,
+      "padding": 24,
+      "width": {
+        "sm": 480,
+        "md": 720,
+        "lg": 1120
+      }
+    },
+    "table": {
+      "headerHeight": 44,
+      "rowHeight": 48,
+      "cellPaddingX": 14,
+      "cellPaddingY": 10
+    }
+  }
+}

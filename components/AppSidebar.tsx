@@ -1,0 +1,84 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { signOutClient } from "@/lib/auth";
+import { useRole } from "@/hooks/useRole";
+import { getSidebarItemsForRole, isPathMatch } from "@/types/roles";
+import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
+import { UltrathinkLogo } from "@/components/UltrathinkLogo";
+import {
+  SCHOOL_SCOPE_CHANGE_EVENT,
+  buildPathWithSchoolScope,
+  isSuperAdminSchoolScopedPath,
+  readSchoolScopeFromWindow,
+} from "@/lib/school-scope";
+
+interface AppSidebarProps {
+  currentPath: string;
+  containerClassName?: string;
+  navClassName?: string;
+  separatorClassName?: string;
+}
+
+export function AppSidebar({
+  currentPath,
+  containerClassName = "sidebar",
+  navClassName = "nav",
+  separatorClassName = "sep",
+}: AppSidebarProps) {
+  const { role } = useRole();
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+  const [scopedSchoolId, setScopedSchoolId] = useState<string | null>(() => readSchoolScopeFromWindow());
+
+  const navItems = useMemo(() => getSidebarItemsForRole(role), [role]);
+
+  useEffect(() => {
+    const syncScopedSchool = () => {
+      const nextSchoolId = readSchoolScopeFromWindow();
+      setScopedSchoolId(nextSchoolId);
+    };
+
+    syncScopedSchool();
+    window.addEventListener("popstate", syncScopedSchool);
+    window.addEventListener(SCHOOL_SCOPE_CHANGE_EVENT, syncScopedSchool);
+    return () => {
+      window.removeEventListener("popstate", syncScopedSchool);
+      window.removeEventListener(SCHOOL_SCOPE_CHANGE_EVENT, syncScopedSchool);
+    };
+  }, [pathname]);
+
+  async function handleLogout() {
+    await signOutClient();
+    window.location.href = localizeAppPath("/login", locale);
+  }
+
+  return (
+    <div className={containerClassName}>
+      <div className="logo">
+        <UltrathinkLogo size={34} title="منصة إدارة المدرسة" subtitle="النظام المدرسي الموحد" />
+      </div>
+
+      {navItems.map((item) => (
+        <Link
+          key={item.id}
+          href={
+            role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
+              ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
+              : localizeAppPath(item.href, locale)
+          }
+          className={`${navClassName}${isPathMatch(currentPath, item.href) ? " active" : ""}`}
+        >
+          {item.label}
+        </Link>
+      ))}
+
+      <div className={separatorClassName} />
+      <button type="button" className={`${navClassName} danger`} onClick={handleLogout}>
+        تسجيل الخروج
+      </button>
+    </div>
+  );
+}

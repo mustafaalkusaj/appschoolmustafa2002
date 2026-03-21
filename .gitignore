@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+.next_tmp_build_*/
+.next_bak_*/
 
 # production
 /build
@@ -23,6 +25,9 @@
 # misc
 .DS_Store
 *.pem
+.claude/
+.vscode/
+*.code-workspace
 
 # debug
 npm-debug.log*
