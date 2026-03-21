@@ -44,6 +44,14 @@ import {
   House,
   BadgeCheck,
   Ban,
+  History,
+  Activity,
+  Calendar,
+  GitBranch,
+  FileDown,
+  FileUp,
+  Command,
+  Flag,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/toast";
@@ -61,7 +69,32 @@ import { SCHOOL_BRAND } from "@/lib/branding";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { PERMISSION_GROUPS } from "@/types/roles";
 
-type ActiveTab = "overview" | "schools" | "users" | "subscriptions";
+// New Components
+import { AuditLogTab } from "./components/AuditLogTab";
+import { SettingsTab } from "./components/SettingsTab";
+import { RolesTab } from "./components/RolesTab";
+import { TrashTab } from "./components/TrashTab";
+import { NotificationsTab } from "./components/NotificationsTab";
+import { MonitoringTab } from "./components/MonitoringTab";
+import { AcademicTab } from "./components/AcademicTab";
+import { BranchesTab } from "./components/BranchesTab";
+import { logAction } from "@/lib/audit";
+import { exportToCSV } from "@/lib/export";
+
+type ActiveTab = 
+  | "overview" 
+  | "schools" 
+  | "users" 
+  | "subscriptions"
+  | "audit"
+  | "settings"
+  | "roles"
+  | "trash"
+  | "notifications"
+  | "monitoring"
+  | "academic"
+  | "branches";
+
 type SchoolPlan = "basic" | "premium" | "enterprise";
 type SubscriptionStatus = "active" | "suspended" | "inactive" | "expired";
 
@@ -126,6 +159,14 @@ const TAB_ITEMS: Array<{
   { id: "schools", label: "المدارس", hint: "إدارة المدارس", icon: School },
   { id: "users", label: "المستخدمون", hint: "الصلاحيات والأدوار", icon: Users },
   { id: "subscriptions", label: "الاشتراكات", hint: "المتابعة والتجديد", icon: CreditCard },
+  { id: "audit", label: "سجل العمليات", hint: "مراقبة الإجراءات", icon: History },
+  { id: "settings", label: "الإعدادات", hint: "تهيئة النظام", icon: Settings2 },
+  { id: "roles", label: "الأدوار", hint: "إدارة الصلاحيات", icon: ShieldCheck },
+  { id: "trash", label: "سلة المهملات", hint: "استعادة البيانات", icon: Trash2 },
+  { id: "notifications", label: "التنبيهات", hint: "إشعارات النظام", icon: Bell },
+  { id: "monitoring", label: "مراقبة النظام", hint: "الصحة والتشغيل", icon: Activity },
+  { id: "academic", label: "الأعوام الدراسية", hint: "إدارة الفترات", icon: Calendar },
+  { id: "branches", label: "الفروع", hint: "إدارة فروع المدارس", icon: GitBranch },
 ];
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -388,10 +429,11 @@ export default function SuperAdminPage() {
 
     try {
       const [schoolsResponse, usersResponse, subscriptionsResponse] = await Promise.all([
-        supabase.from("schools").select("*").order("created_at", { ascending: false }),
+        supabase.from("schools").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
         supabase
           .from("user_profiles")
           .select("*, schools(name)")
+          .is("deleted_at", null)
           .order("created_at", { ascending: false }),
         supabase
           .from("subscriptions")
@@ -494,6 +536,13 @@ export default function SuperAdminPage() {
 
       if (subscriptionResponse.error) throw subscriptionResponse.error;
 
+      await logAction({
+        action_type: "update",
+        entity_type: "school",
+        entity_id: id,
+        summary: `${!current ? "تفعيل" : "إيقاف"} المدرسة وتعديل حالة الاشتراك`,
+      });
+
       flashSuccess(!current ? "تم تفعيل المدرسة بنجاح." : "تم إيقاف المدرسة بنجاح.");
       await fetchAll();
     } catch (toggleError) {
@@ -520,6 +569,14 @@ export default function SuperAdminPage() {
       if (editSchool) {
         const response = await supabase.from("schools").update(payload).eq("id", editSchool.id);
         if (response.error) throw response.error;
+
+        await logAction({
+          action_type: "update",
+          entity_type: "school",
+          entity_id: editSchool.id,
+          summary: `تعديل بيانات المدرسة: ${payload.name}`,
+        });
+
         flashSuccess("تم تحديث بيانات المدرسة.");
       } else {
         const { data: newSchool, error: schoolError } = await supabase
@@ -529,6 +586,13 @@ export default function SuperAdminPage() {
           .single();
 
         if (schoolError) throw schoolError;
+
+        await logAction({
+          action_type: "create",
+          entity_type: "school",
+          entity_id: newSchool.id,
+          summary: `إنشاء مدرسة جديدة: ${payload.name}`,
+        });
 
         const { error: subscriptionError } = await supabase.from("subscriptions").insert({
           school_id: newSchool.id,
@@ -580,6 +644,14 @@ export default function SuperAdminPage() {
       if (editUser) {
         const response = await supabase.from("user_profiles").update(payload).eq("id", editUser.id);
         if (response.error) throw response.error;
+
+        await logAction({
+          action_type: "update",
+          entity_type: "user",
+          entity_id: editUser.id,
+          summary: `تعديل بيانات المستخدم: ${payload.full_name || payload.email}`,
+        });
+
         flashSuccess("تم تحديث بيانات المستخدم.");
       } else {
         if (!userForm.password) {
@@ -598,6 +670,12 @@ export default function SuperAdminPage() {
             body?.error?.message || body?.message || `فشل إنشاء المستخدم (${response.status}).`,
           );
         }
+
+        await logAction({
+          action_type: "create",
+          entity_type: "user",
+          summary: `إنشاء مستخدم جديد: ${payload.full_name || payload.email}`,
+        });
 
         flashSuccess("تمت إضافة المستخدم بنجاح.");
       }
@@ -622,6 +700,13 @@ export default function SuperAdminPage() {
 
       if (response.error) throw response.error;
 
+      await logAction({
+        action_type: "subscription_renew",
+        entity_type: "subscription",
+        entity_id: schoolId,
+        summary: `تجديد اشتراك مدرسة (سنة واحدة)`,
+      });
+
       flashSuccess("تم تجديد الاشتراك لمدة سنة كاملة.");
       await fetchAll();
     } catch (extendError) {
@@ -633,17 +718,25 @@ export default function SuperAdminPage() {
     if (!deleteTarget) return;
 
     try {
-      const deleteSubscriptions = await supabase
-        .from("subscriptions")
-        .delete()
-        .eq("school_id", deleteTarget.id);
+      const { data: userData } = await supabase.auth.getUser();
+      const deleteSchoolResponse = await supabase
+        .from("schools")
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          deleted_by: userData.user?.id 
+        })
+        .eq("id", deleteTarget.id);
 
-      if (deleteSubscriptions.error) throw deleteSubscriptions.error;
-
-      const deleteSchoolResponse = await supabase.from("schools").delete().eq("id", deleteTarget.id);
       if (deleteSchoolResponse.error) throw deleteSchoolResponse.error;
 
-      flashSuccess("تم حذف المدرسة بنجاح.");
+      await logAction({
+        action_type: "delete",
+        entity_type: "school",
+        entity_id: deleteTarget.id,
+        summary: `حذف مدرسة (نقل للسلة): ${deleteTarget.name}`,
+      });
+
+      flashSuccess("تم نقل المدرسة إلى سلة المهملات.");
       setDeleteTarget(null);
       await fetchAll();
     } catch (deleteError) {
@@ -928,7 +1021,7 @@ export default function SuperAdminPage() {
                   <button
                     type="button"
                     className="ui-button ui-button--secondary inline-flex items-center gap-2"
-                    onClick={() => setActiveTab("subscriptions")}
+                    onClick={() => setActiveTab("notifications")}
                     title="التنبيهات"
                   >
                     <Bell size={18} />
@@ -1372,6 +1465,14 @@ export default function SuperAdminPage() {
                         <button
                           type="button"
                           className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                          onClick={() => exportToCSV(filteredSchools, "schools")}
+                        >
+                          <FileDown size={16} />
+                          تصدير
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center gap-2"
                           onClick={() => void fetchAll()}
                         >
                           <RefreshCw size={16} />
@@ -1531,14 +1632,24 @@ export default function SuperAdminPage() {
                     title={`إدارة المستخدمين (${filteredUsers.length})`}
                     description="إدارة المستخدمين والأدوار والصلاحيات المخصصة مع إبقاء تدفق الإنشاء والتعديل الحالي."
                     actions={
-                      <button
-                        type="button"
-                        className="ui-button ui-button--primary inline-flex items-center gap-2"
-                        onClick={openCreateUser}
-                      >
-                        <UserRoundPlus size={16} />
-                        إضافة مستخدم
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                          onClick={() => exportToCSV(filteredUsers, "users")}
+                        >
+                          <FileDown size={16} />
+                          تصدير
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--primary inline-flex items-center gap-2"
+                          onClick={openCreateUser}
+                        >
+                          <UserRoundPlus size={16} />
+                          إضافة مستخدم
+                        </button>
+                      </div>
                     }
                   >
                     {filteredUsers.length === 0 ? (
@@ -1748,6 +1859,15 @@ export default function SuperAdminPage() {
                     )}
                   </SectionCard>
                 ) : null}
+
+                {activeTab === "audit" ? <AuditLogTab /> : null}
+                {activeTab === "settings" ? <SettingsTab /> : null}
+                {activeTab === "roles" ? <RolesTab /> : null}
+                {activeTab === "trash" ? <TrashTab /> : null}
+                {activeTab === "notifications" ? <NotificationsTab /> : null}
+                {activeTab === "monitoring" ? <MonitoringTab /> : null}
+                {activeTab === "academic" ? <AcademicTab /> : null}
+                {activeTab === "branches" ? <BranchesTab /> : null}
               </>
             )}
           </div>
