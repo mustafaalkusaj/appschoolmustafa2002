@@ -1,4 +1,4 @@
-export const ROLES = ["super_admin", "admin", "employee", "teacher"] as const;
+export const ROLES = ["super_admin", "admin", "employee"] as const;
 
 export type UserRole = (typeof ROLES)[number];
 
@@ -10,12 +10,9 @@ export const ALL_PERMISSIONS = [
   "view_payments",
   "add_payments",
   "delete_payments",
-  "view_salaries",
-  "manage_salaries",
   "manage_schools",
   "manage_subscriptions",
   "view_audit_logs",
-  "manage_settings",
   "manage_branches",
   "view_monitoring",
   "full_access",
@@ -30,7 +27,6 @@ const LEGACY_ROLE_MAP: Record<string, UserRole> = {
   manager: "admin",
   accountant: "admin",
   employee: "employee",
-  teacher: "teacher",
 };
 
 export function normalizeUserRole(role: string | null | undefined): UserRole {
@@ -48,8 +44,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "view_payments",
     "add_payments",
     "delete_payments",
-    "view_salaries",
-    "manage_salaries",
     "manage_branches",
   ],
   employee: [
@@ -58,11 +52,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "edit_students",
     "view_payments",
     "add_payments",
-  ],
-  teacher: [
-    "view_students",
-    "view_payments",
-    "view_salaries",
   ],
 };
 
@@ -80,18 +69,11 @@ export const PERMISSION_GROUPS: Array<{
     ],
   },
   {
-    title: "الحسابات ",
+    title: "الحسابات",
     permissions: [
-      { key: "view_payments", label: "عرض الحسابات " },
-      { key: "add_payments", label: "إضافة الحسابات " },
-      { key: "delete_payments", label: "حذف الحسابات " },
-    ],
-  },
-  {
-    title: "الرواتب",
-    permissions: [
-      { key: "view_salaries", label: "عرض الرواتب" },
-      { key: "manage_salaries", label: "إدارة الرواتب" },
+      { key: "view_payments", label: "عرض الحسابات" },
+      { key: "add_payments", label: "إضافة الحسابات" },
+      { key: "delete_payments", label: "حذف الحسابات" },
     ],
   },
   {
@@ -104,7 +86,6 @@ export const PERMISSION_GROUPS: Array<{
       { key: "manage_schools", label: "إدارة المدارس المشتركة" },
       { key: "manage_subscriptions", label: "إدارة الاشتراكات" },
       { key: "view_audit_logs", label: "عرض سجل العمليات" },
-      { key: "manage_settings", label: "إدارة إعدادات النظام" },
       { key: "view_monitoring", label: "مراقبة صحة النظام" },
       { key: "full_access", label: "صلاحية كاملة (Super Admin)" },
     ],
@@ -115,10 +96,7 @@ export function buildTemplatePermissions(role: UserRole): Permission[] {
   return [...ROLE_PERMISSIONS[role]];
 }
 
-export function normalizePermissions(
-  input: unknown,
-  role: UserRole,
-): Permission[] {
+export function normalizePermissions(input: unknown, role: UserRole): Permission[] {
   if (!Array.isArray(input) || input.length === 0) {
     return buildTemplatePermissions(role);
   }
@@ -191,30 +169,22 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pathPrefix: "/subscriptions", roles: ["super_admin"], requiresActiveSchool: false },
   {
     pathPrefix: "/dashboard",
-    roles: ["super_admin", "admin", "employee", "teacher"],
+    roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
   },
   {
     pathPrefix: "/students",
-    roles: ["super_admin", "admin", "employee", "teacher"],
-    readOnlyRoles: ["teacher"],
+    roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
   },
   {
     pathPrefix: "/payments",
-    roles: ["super_admin", "admin", "employee", "teacher"],
-    readOnlyRoles: ["teacher"],
+    roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
   },
   {
     pathPrefix: "/expenses",
     roles: ["super_admin", "admin"],
-    requiresActiveSchool: true,
-  },
-  {
-    pathPrefix: "/salaries",
-    roles: ["super_admin", "admin", "teacher"],
-    readOnlyRoles: ["teacher"],
     requiresActiveSchool: true,
   },
   {
@@ -229,7 +199,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   },
   {
     pathPrefix: "/",
-    roles: ["super_admin", "admin", "employee", "teacher"],
+    roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
   },
 ];
@@ -237,7 +207,6 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
 export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pathPrefix: "/students", permissions: ["view_students"] },
   { pathPrefix: "/payments", permissions: ["view_payments"] },
-  { pathPrefix: "/salaries", permissions: ["view_salaries"] },
   { pathPrefix: "/schools", permissions: ["manage_schools"] },
   { pathPrefix: "/subscriptions", permissions: ["manage_subscriptions"] },
   { pathPrefix: "/super-admin", permissions: ["full_access"] },
@@ -247,7 +216,6 @@ export const DEFAULT_PATH_BY_ROLE: Record<UserRole, string> = {
   super_admin: "/super-admin",
   admin: "/dashboard",
   employee: "/dashboard",
-  teacher: "/dashboard",
 };
 
 export interface SidebarItem {
@@ -262,7 +230,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     id: "dashboard",
     label: "لوحة التحكم",
     href: "/dashboard",
-    roles: ["super_admin", "admin", "employee", "teacher"],
+    roles: ["super_admin", "admin", "employee"],
   },
   {
     id: "super-admin",
@@ -280,25 +248,19 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     id: "students",
     label: "الطلاب",
     href: "/students",
-    roles: ["super_admin", "admin", "employee", "teacher"],
+    roles: ["super_admin", "admin", "employee"],
   },
   {
     id: "payments",
-    label: "الحسابات ",
+    label: "الحسابات",
     href: "/payments",
-    roles: ["super_admin", "admin", "employee", "teacher"],
+    roles: ["super_admin", "admin", "employee"],
   },
   {
     id: "expenses",
     label: "المصروفات",
     href: "/expenses",
     roles: ["super_admin", "admin"],
-  },
-  {
-    id: "salaries",
-    label: "الرواتب",
-    href: "/salaries",
-    roles: ["super_admin", "admin", "teacher"],
   },
   {
     id: "attendance",

@@ -10,7 +10,7 @@ import {
 } from "@/lib/rbac-session";
 import { createRouteSupabaseClient } from "@/lib/supabase-server";
 
-export async function POST(request: Request) {
+export async function POST() {
   if (!hasRBACSecret()) {
     return NextResponse.json(
       { ok: false, message: "RBAC secret is not configured on server." },

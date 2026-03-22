@@ -32,7 +32,6 @@ import {
   RefreshCw,
   School,
   Search,
-  Settings2,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -73,7 +72,6 @@ import { PERMISSION_GROUPS } from "@/types/roles";
 
 // New Components
 import { AuditLogTab } from "./components/AuditLogTab";
-import { SettingsTab } from "./components/SettingsTab";
 import { RolesTab } from "./components/RolesTab";
 import { TrashTab } from "./components/TrashTab";
 import { NotificationsTab } from "./components/NotificationsTab";
@@ -88,7 +86,6 @@ type ActiveTab =
   | "users" 
   | "subscriptions"
   | "audit"
-  | "settings"
   | "roles"
   | "trash"
   | "notifications"
@@ -160,7 +157,6 @@ const TAB_ITEMS: Array<{
   { id: "users", label: "المستخدمون", hint: "الصلاحيات والأدوار", icon: Users },
   { id: "subscriptions", label: "الاشتراكات", hint: "المتابعة والتجديد", icon: CreditCard },
   { id: "audit", label: "سجل العمليات", hint: "مراقبة الإجراءات", icon: History },
-  { id: "settings", label: "الإعدادات", hint: "تهيئة النظام", icon: Settings2 },
   { id: "roles", label: "الأدوار", hint: "إدارة الصلاحيات", icon: ShieldCheck },
   { id: "trash", label: "سلة المهملات", hint: "استعادة البيانات", icon: Trash2 },
   { id: "notifications", label: "التنبيهات", hint: "إشعارات النظام", icon: Bell },
@@ -884,10 +880,6 @@ export default function SuperAdminPage() {
       name: "موظف",
       value: users.filter((user) => user.role === "employee").length,
     },
-    {
-      name: "مدرس",
-      value: users.filter((user) => user.role === "teacher").length,
-    },
   ];
 
   const subscriptionHealthData = [
@@ -1134,8 +1126,8 @@ export default function SuperAdminPage() {
                         type="button"
                         className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-bold text-[var(--text-secondary)] transition hover:bg-[rgba(79,140,255,0.08)] hover:text-[var(--text-primary)]"
                       >
-                        <Settings2 size={16} />
-                        إعدادات الحساب
+                        <BadgeCheck size={16} />
+                        الملف الشخصي
                       </button>
                       <button
                         type="button"
@@ -1961,7 +1953,6 @@ export default function SuperAdminPage() {
                 ) : null}
 
                 {activeTab === "audit" ? <AuditLogTab infrastructure={infrastructure} /> : null}
-                {activeTab === "settings" ? <SettingsTab infrastructure={infrastructure} /> : null}
                 {activeTab === "roles" ? <RolesTab infrastructure={infrastructure} schools={schools.map((school) => ({ id: school.id, name: school.name }))} /> : null}
                 {activeTab === "trash" ? <TrashTab infrastructure={infrastructure} /> : null}
                 {activeTab === "notifications" ? <NotificationsTab infrastructure={infrastructure} /> : null}
@@ -2103,7 +2094,6 @@ export default function SuperAdminPage() {
                   <option value="super_admin">المدير العام</option>
                   <option value="admin">مدير مدرسة</option>
                   <option value="employee">موظف</option>
-                  <option value="teacher">مدرس</option>
                 </select>
               </div>
 

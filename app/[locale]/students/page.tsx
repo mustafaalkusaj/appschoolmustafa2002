@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
@@ -46,14 +46,9 @@ export default function StudentsPage() {
 
   const [classFees, setClassFees] = useState<any[]>([]);
 
-  const [form, setForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",guardian_phone:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
-  const [editForm, setEditForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",guardian_phone:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
+  const [form, setForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
+  const [editForm, setEditForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
 
-  useEffect(() => {
-    if (!profile || schoolScope.scopeLoading) return;
-    void fetchStudents();
-    void fetchClassFees();
-  }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
   useEffect(()=>{ setSearch(""); setFilterClass(""); setFilterSection(""); },[activeTab]);
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -72,7 +67,7 @@ export default function StudentsPage() {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  async function fetchStudents(){
+  const fetchStudents = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -85,9 +80,9 @@ export default function StudentsPage() {
     const {data}=await query;
     if(data)setStudents(data);
     setLoading(false);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
 
-  async function fetchClassFees(){
+  const fetchClassFees = useCallback(async () => {
     if (!profile) return;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!schoolId) {
@@ -97,7 +92,13 @@ export default function StudentsPage() {
     let query = supabase.from("class_fees").select("*").eq("school_id", schoolId).order("class_name",{ascending:true});
     const {data}=await query;
     if(data)setClassFees(data);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+    void fetchStudents();
+    void fetchClassFees();
+  }, [profile, schoolScope.scopeLoading, fetchStudents, fetchClassFees]);
 
   async function getSchoolBranch(){
     return resolveSchoolBranchForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -113,13 +114,13 @@ export default function StudentsPage() {
     if(!school_id||!branch_id){setError("يجب إضافة مدرسة وفرع أولاً");setSaving(false);return;}
     const {error}=await supabase.from("students").insert({
       school_id,branch_id,full_name:form.full_name,class_name:form.class_name,section:form.section||"",
-      phone:form.phone||null,address:form.address||null,guardian_phone:form.guardian_phone||null,
+      phone:form.phone||null,address:form.address||null,
       total_fee:parseInt(form.total_fee)||0,paid_fee:parseInt(form.paid_fee)||0,discount_value:parseInt(form.discount_value)||0,status:"active"
     });
     if(error)setError("خطأ: "+error.message);
     else{
       setSuccess("تم إضافة الطالب ✓");setShowModal(false);
-      setForm({full_name:"",class_name:"",section:"",phone:"",address:"",guardian_phone:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
+      setForm({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
       fetchStudents(); setTimeout(()=>setSuccess(""),3000);
     }
     setSaving(false);
@@ -134,7 +135,6 @@ export default function StudentsPage() {
     const {error}=await supabase.from("students").update({
       full_name:editForm.full_name,class_name:editForm.class_name,section:editForm.section||"",
       phone:editForm.phone||null,address:editForm.address||null,
-      guardian_phone:editForm.guardian_phone||null,
       total_fee:parseInt(editForm.total_fee)||0,
       paid_fee:parseInt(editForm.paid_fee)||0,
       discount_value:parseInt(editForm.discount_value)||0,
@@ -184,7 +184,7 @@ export default function StudentsPage() {
     const rows=data.map(s=>({
       "الاسم":s.full_name,"الصف":s.class_name,"الشعبة":s.section||"",
       "العنوان":s.address||"",
-      "الهاتف":s.phone||"","هاتف ولي الأمر":s.guardian_phone||"",
+      "الهاتف":s.phone||"",
       "إجمالي الرسوم":s.total_fee,"المدفوع":s.paid_fee,"المتبقي":s.remaining_fee,
       "الحالة":statusMap[s.status]?.label||s.status
     }));
@@ -215,7 +215,6 @@ export default function StudentsPage() {
     setEditForm({
       full_name:student.full_name,class_name:student.class_name,section:student.section||"",
       phone:student.phone||"",address:student.address||"",
-      guardian_phone:student.guardian_phone||"",
       total_fee:student.total_fee?.toString()||"0",
       paid_fee:student.paid_fee?.toString()||"0",
       discount_value:student.discount_value?.toString()||"",
@@ -260,7 +259,6 @@ export default function StudentsPage() {
       const rows=data.map((r:any)=>({
         school_id,branch_id,full_name:r["اسم الطالب"]||"",class_name:r["الصف"]||"",
         phone:r["الهاتف"]?.toString()||null,address:r["العنوان"]||null,
-        guardian_phone:r["هاتف ولي الأمر"]?.toString()||null,
         total_fee:parseInt(r["إجمالي الرسوم"])||0,paid_fee:parseInt(r["المدفوع"])||0,
         discount_value:0,status:"active"
       })).filter(r=>r.full_name);
@@ -280,8 +278,8 @@ export default function StudentsPage() {
   async function downloadTemplate(){
     const XLSX = await loadXLSX();
     const ws=XLSX.utils.aoa_to_sheet([
-      ["اسم الطالب","الصف","العنوان","الهاتف","هاتف ولي الأمر","إجمالي الرسوم","المدفوع"],
-      ["أحمد محمد علي","الصف الخامس - أ","بغداد","07701234567","","500000","0"],
+      ["اسم الطالب","الصف","العنوان","الهاتف","إجمالي الرسوم","المدفوع"],
+      ["أحمد محمد علي","الصف الخامس - أ","بغداد","07701234567","500000","0"],
     ]);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"الطلاب");
@@ -349,7 +347,7 @@ export default function StudentsPage() {
   }
 
   return(
-  <ProtectedRoute roles={["super_admin", "admin", "employee", "teacher"]}>
+  <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
   <>
     <style>{`
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -632,7 +630,6 @@ export default function StudentsPage() {
               </div>
               <div className="ff"><label className="fl">العنوان *</label><input className="fi" required placeholder="بغداد - الكرخ" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/></div>
               <div className="ff"><label className="fl">الهاتف <span className="opt">(اختياري)</span></label><input className="fi" placeholder="07XXXXXXXXX" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></div>
-              <div className="ff"><label className="fl">هاتف ولي الأمر <span className="opt">(اختياري)</span></label><input className="fi" placeholder="07XXXXXXXXX" value={form.guardian_phone} onChange={e=>setForm({...form,guardian_phone:e.target.value})}/></div>
               <div className="ff">
                 <label className="fl">إجمالي الرسوم (د.ع) *
                   {form.class_name&&classFees.find(x=>x.class_name===form.class_name)&&(
@@ -698,7 +695,6 @@ export default function StudentsPage() {
               </div>
               <div className="ff"><label className="fl">العنوان</label><input className="fi" value={editForm.address} onChange={e=>setEditForm({...editForm,address:e.target.value})}/></div>
               <div className="ff"><label className="fl">الهاتف</label><input className="fi" value={editForm.phone} onChange={e=>setEditForm({...editForm,phone:e.target.value})}/></div>
-              <div className="ff"><label className="fl">هاتف ولي الأمر</label><input className="fi" value={editForm.guardian_phone} onChange={e=>setEditForm({...editForm,guardian_phone:e.target.value})}/></div>
               <div className="ff">
                 <label className="fl">إجمالي الرسوم (د.ع)
                   {editForm.class_name&&classFees.find(x=>x.class_name===editForm.class_name)&&(

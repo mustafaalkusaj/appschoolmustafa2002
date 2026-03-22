@@ -53,14 +53,12 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "المدير العام",
   admin: "مدير المدرسة",
   employee: "موظف",
-  teacher: "مدرس",
 };
 
 export const ROLE_COLORS: Record<UserRole, { bg: string; color: string }> = {
   super_admin: { bg: "#FEF3C7", color: "#92400E" },
   admin: { bg: "#DBEAFE", color: "#1E40AF" },
   employee: { bg: "#E0F2FE", color: "#0369A1" },
-  teacher: { bg: "#FCE7F3", color: "#9D174D" },
 };
 
 function normalizeDate(value: string | null | undefined): Date | null {

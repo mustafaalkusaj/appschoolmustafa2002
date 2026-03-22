@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
@@ -58,11 +58,6 @@ export default function PaymentsPage() {
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!profile || schoolScope.scopeLoading) return;
-    void fetchAll();
-  }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
-
-  useEffect(() => {
     const close = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false);
     };
@@ -70,7 +65,7 @@ export default function PaymentsPage() {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -112,7 +107,12 @@ export default function PaymentsPage() {
       setArchives(archivesData || []);
     }
     setLoading(false);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+    void fetchAll();
+  }, [profile, schoolScope.scopeLoading, fetchAll]);
 
   async function handlePayment(e: React.FormEvent) {
     e.preventDefault();

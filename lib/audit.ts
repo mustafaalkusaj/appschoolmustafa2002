@@ -7,7 +7,6 @@ export type AuditAction =
   | "restore"
   | "login" 
   | "logout" 
-  | "settings_change" 
   | "role_change" 
   | "subscription_renew"
   | "export"
@@ -17,12 +16,9 @@ export type EntityType =
   | "school" 
   | "user" 
   | "subscription" 
-  | "setting" 
   | "student" 
   | "payment" 
-  | "salary" 
   | "expense" 
-  | "academic_year" 
   | "branch"
   | "role";
 

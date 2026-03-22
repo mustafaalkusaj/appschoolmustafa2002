@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
@@ -72,14 +72,7 @@ export default function DashboardPage() {
   const [showClassForm, setShowClassForm] = useState(false);
   const [showSectionForm, setShowSectionForm] = useState(false);
 
-  useEffect(() => {
-    if (!profile || schoolScope.scopeLoading) return;
-    void fetchAll();
-    void fetchClasses();
-    void fetchSections();
-  }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
-
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     setLoading(true);
     if (!schoolId) {
@@ -120,11 +113,11 @@ export default function DashboardPage() {
     if (feesResult.data) setClassFees(feesResult.data);
     
     setLoading(false);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
 
   // Optimized fetchClassFees is no longer needed separately in the main flow, 
   // but kept if called individually by other actions.
-  async function fetchClassFees() {
+  const fetchClassFees = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!schoolId) {
       setClassFees([]);
@@ -137,9 +130,9 @@ export default function DashboardPage() {
       .order("class_name", { ascending: true });
     
     if (data) setClassFees(data as ClassFee[]);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
 
-  async function fetchClasses() {
+  const fetchClasses = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!schoolId) {
       setClasses([]);
@@ -152,9 +145,9 @@ export default function DashboardPage() {
     query = query.eq("school_id", schoolId);
     const { data } = await query;
     if (data) setClasses(data);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
 
-  async function fetchSections() {
+  const fetchSections = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!schoolId) {
       setSections([]);
@@ -167,7 +160,14 @@ export default function DashboardPage() {
     query = query.eq("school_id", schoolId);
     const { data } = await query;
     if (data) setSections(data);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+    void fetchAll();
+    void fetchClasses();
+    void fetchSections();
+  }, [profile, schoolScope.scopeLoading, fetchAll, fetchClasses, fetchSections]);
 
   // ─── حفظ/تعديل سعر قسط الصف ─────────────────────────────────────────────
   async function handleSaveFee() {
@@ -338,8 +338,6 @@ export default function DashboardPage() {
     return { count: classStudents.length, totalExpected, totalPaid, totalRemaining, paidPct };
   }
 
-  const month = new Date().toISOString().slice(0, 7);
-
   const totalFees     = students.reduce((a,s) => a + s.total_fee, 0);
   const totalPaid     = students.reduce((a,s) => a + s.paid_fee, 0);
   const totalDiscount = students.reduce((a,s) => a + (s.discount_value||0), 0);
@@ -367,7 +365,7 @@ export default function DashboardPage() {
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
 
   return (
-  <ProtectedRoute roles={["super_admin", "admin", "employee", "teacher"]}>
+  <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
   <>
     <div className="layout">
       <AppSidebar currentPath="/dashboard" />

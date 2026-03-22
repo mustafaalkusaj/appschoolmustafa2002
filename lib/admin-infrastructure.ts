@@ -11,9 +11,7 @@ export interface AdminInfrastructure {
   customPermissions: boolean;
   customRoles: boolean;
   auditLogs: boolean;
-  systemSettings: boolean;
   notifications: boolean;
-  academicYears: boolean;
   warnings: string[];
 }
 
@@ -24,9 +22,7 @@ export const DEFAULT_ADMIN_INFRASTRUCTURE: AdminInfrastructure = {
   customPermissions: true,
   customRoles: true,
   auditLogs: true,
-  systemSettings: true,
   notifications: true,
-  academicYears: true,
   warnings: [],
 };
 
@@ -100,9 +96,7 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
     customPermissionsError,
     customRolesError,
     auditLogsError,
-    settingsError,
     notificationsError,
-    academicYearsError,
   ] = await Promise.all([
     probe(() => client.from("schools").select("id").is("deleted_at", null).limit(1)),
     probe(() => client.from("user_profiles").select("id").is("deleted_at", null).limit(1)),
@@ -110,9 +104,7 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
     probe(() => client.from("user_profiles").select("id, custom_permissions").limit(1)),
     probe(() => client.from("custom_roles").select("id").limit(1)),
     probe(() => client.from("audit_logs").select("id").limit(1)),
-    probe(() => client.from("system_settings").select("id").limit(1)),
     probe(() => client.from("notifications").select("id").limit(1)),
-    probe(() => client.from("academic_years").select("id").limit(1)),
   ]);
 
   const infrastructure: AdminInfrastructure = {
@@ -122,9 +114,7 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
     customPermissions: !isMissingColumnError(customPermissionsError, "user_profiles", "custom_permissions"),
     customRoles: !isMissingTableError(customRolesError, "custom_roles"),
     auditLogs: !isMissingTableError(auditLogsError, "audit_logs"),
-    systemSettings: !isMissingTableError(settingsError, "system_settings"),
     notifications: !isMissingTableError(notificationsError, "notifications"),
-    academicYears: !isMissingTableError(academicYearsError, "academic_years"),
     warnings: [],
   };
 
@@ -146,16 +136,8 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
     warnings.push("جدول `audit_logs` غير موجود");
   }
 
-  if (!infrastructure.systemSettings) {
-    warnings.push("جدول `system_settings` غير موجود");
-  }
-
   if (!infrastructure.notifications) {
     warnings.push("جدول `notifications` غير موجود");
-  }
-
-  if (!infrastructure.academicYears) {
-    warnings.push("جدول `academic_years` غير موجود");
   }
 
   infrastructure.warnings = warnings;

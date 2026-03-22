@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
@@ -48,12 +48,7 @@ export default function ExpensesPage() {
   // Search for types
   const [typeSearch, setTypeSearch] = useState("");
 
-  useEffect(() => {
-    if (!profile || schoolScope.scopeLoading) return;
-    void fetchAll();
-  }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
-
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -75,7 +70,12 @@ export default function ExpensesPage() {
     if (exp) setExpenses(exp);
     if (types) setExpenseTypes(types);
     setLoading(false);
-  }
+  }, [profile, schoolScope.selectedSchoolId]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+    void fetchAll();
+  }, [profile, schoolScope.scopeLoading, fetchAll]);
 
   async function handleSaveExpense(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError("");

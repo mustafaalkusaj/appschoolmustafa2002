@@ -22,7 +22,7 @@ export default function Home() {
         title: "لوحة التحكم",
         desc: "تابع المؤشرات والتحليلات وأهم تفاصيل التشغيل اليومية",
         icon: "📊",
-        roles: ["super_admin", "admin", "employee", "teacher"],
+        roles: ["super_admin", "admin", "employee"],
       },
       {
         href: "/schools",
@@ -36,11 +36,11 @@ export default function Home() {
         title: "الطلاب",
         desc: "إدارة بيانات الطلاب والصفوف والشعب الدراسية",
         icon: "👥",
-        roles: ["super_admin", "admin", "employee", "teacher"],
+        roles: ["super_admin", "admin", "employee"],
       },
       {
         href: "/payments",
-        title: "الحسابات ",
+        title: "الحسابات",
         desc: "متابعة التحصيلات والأرصدة المتبقية على الطلاب",
         icon: "💳",
         roles: ["super_admin", "admin", "employee"],
@@ -50,13 +50,6 @@ export default function Home() {
         title: "المصروفات",
         desc: "تسجيل المصروفات التشغيلية ومتابعة أنواعها",
         icon: "💰",
-        roles: ["super_admin", "admin"],
-      },
-      {
-        href: "/salaries",
-        title: "الرواتب",
-        desc: "إدارة الرواتب وسجلات الصرف للمدرسين والموظفين",
-        icon: "💵",
         roles: ["super_admin", "admin"],
       },
       {
@@ -83,7 +76,7 @@ export default function Home() {
       {
         href: "/super-admin",
         title: "لوحة المدير العام",
-        desc: "التحكم بإعدادات النظام العام متعدد المدارس",
+        desc: "إدارة المدارس والمستخدمين والاشتراكات وتشغيل المنصة",
         icon: "👑",
         roles: ["super_admin"],
       },
@@ -93,7 +86,7 @@ export default function Home() {
   }, [role]);
 
   return (
-    <ProtectedRoute roles={["super_admin", "admin", "employee", "teacher"]}>
+    <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
       <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-blue-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
         <header className="bg-white/90 dark:bg-slate-900/90 shadow-sm backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">

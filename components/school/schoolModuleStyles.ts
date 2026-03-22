@@ -1,4 +1,4 @@
-/** Shared scoped styles for school module pages (RTL, matches students/salaries dashboard). */
+/** Shared scoped styles for school module pages (RTL, matches the active student-facing modules). */
 export const SCHOOL_MODULE_CSS = `
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
