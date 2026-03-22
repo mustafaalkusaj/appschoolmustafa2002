@@ -178,6 +178,11 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
     requiresActiveSchool: true,
   },
   {
+    pathPrefix: "/users",
+    roles: ["super_admin", "admin"],
+    requiresActiveSchool: true,
+  },
+  {
     pathPrefix: "/payments",
     roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
@@ -243,6 +248,12 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     label: "المدارس",
     href: "/schools",
     roles: ["super_admin"],
+  },
+  {
+    id: "users",
+    label: "المستخدمون",
+    href: "/users",
+    roles: ["super_admin", "admin"],
   },
   {
     id: "students",

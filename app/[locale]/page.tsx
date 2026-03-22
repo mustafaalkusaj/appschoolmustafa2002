@@ -39,6 +39,13 @@ export default function Home() {
         roles: ["super_admin", "admin", "employee"],
       },
       {
+        href: "/users",
+        title: "إدارة الحسابات",
+        desc: "إنشاء وتعديل حسابات الطلاب والمدرسين من لوحة المدرسة",
+        icon: "🪪",
+        roles: ["super_admin", "admin"],
+      },
+      {
         href: "/payments",
         title: "الحسابات",
         desc: "متابعة التحصيلات والأرصدة المتبقية على الطلاب",

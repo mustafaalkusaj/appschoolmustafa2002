@@ -9,6 +9,7 @@ import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolSco
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { loadXLSX } from "@/lib/xlsx-loader";
+import type { ManagedUserAccountCard } from "@/lib/managed-users";
 import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
 
 const TABS = [
@@ -17,6 +18,62 @@ const TABS = [
   { id:"suspended",   label:"الطلاب الموقوفون",  icon:"⏸️" },
   { id:"deleted",     label:"المحذوفون",          icon:"🗑️" },
 ];
+
+function formatCardDate(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("ar-IQ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) {
+  const classLine = [card.class_name, card.section ? `الشعبة ${card.section}` : null].filter(Boolean).join(" • ");
+  const instructions = card.instructions.map((instruction) => `<li>${instruction}</li>`).join("");
+
+  return `
+    <html dir="rtl">
+      <head>
+        <meta charset="utf-8" />
+        <title>بطاقة حساب التطبيق</title>
+        <style>
+          body{margin:0;padding:24px;background:#eef4fb;font-family:Segoe UI,Tahoma,sans-serif;color:#112338}
+          .card{max-width:760px;margin:0 auto;background:#fff;border:1px solid rgba(15,91,141,.14);border-radius:28px;padding:28px;box-shadow:0 24px 60px rgba(15,23,42,.1)}
+          .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
+          .box{border:1px solid rgba(15,91,141,.12);background:#f8fbff;border-radius:20px;padding:18px}
+          .label{font-size:13px;color:#6b8194;margin-bottom:6px}
+          .value{font-size:18px;font-weight:800}
+          .ltr{direction:ltr;text-align:left}
+          ol{margin:0;padding-inline-start:22px}
+          li{line-height:1.9}
+          @media print{body{background:#fff;padding:0}.card{box-shadow:none;border:none;border-radius:0;max-width:none;padding:0}}
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px">
+            <div>
+              <div style="font-size:24px;font-weight:900">${card.school_name}</div>
+              <div style="margin-top:6px;color:#547086">بطاقة حساب التطبيق</div>
+            </div>
+            <div style="color:#547086">تم التوليد: ${formatCardDate(card.generated_at)}</div>
+          </div>
+          <div class="row">
+            <div class="box"><div class="label">اسم الطالب</div><div class="value">${card.full_name}</div></div>
+            <div class="box"><div class="label">الصف والشعبة</div><div class="value">${classLine || "—"}</div></div>
+          </div>
+          <div class="row">
+            <div class="box"><div class="label">معرّف الدخول</div><div class="value ltr">${card.login_identifier}</div></div>
+            <div class="box"><div class="label">كلمة المرور المؤقتة</div><div class="value ltr">${card.temporary_password}</div></div>
+          </div>
+          <div class="box"><div class="label">تعليمات الدخول</div><ol>${instructions}</ol></div>
+        </div>
+        ${autoPrint ? "<script>window.print();</script>" : ""}
+      </body>
+    </html>
+  `;
+}
 
 export default function StudentsPage() {
   const { profile, canAny, isReadOnlyPath } = useRole();
@@ -37,6 +94,7 @@ export default function StudentsPage() {
   const [importing, setImporting] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [accountCard, setAccountCard] = useState<ManagedUserAccountCard | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importError, setImportError] = useState("");
   const [activeMenu, setActiveMenu] = useState<string|null>(null);
@@ -110,18 +168,37 @@ export default function StudentsPage() {
       return;
     }
     e.preventDefault(); setSaving(true); setError("");
-    const {school_id,branch_id}=await getSchoolBranch();
-    if(!school_id||!branch_id){setError("يجب إضافة مدرسة وفرع أولاً");setSaving(false);return;}
-    const {error}=await supabase.from("students").insert({
-      school_id,branch_id,full_name:form.full_name,class_name:form.class_name,section:form.section||"",
-      phone:form.phone||null,address:form.address||null,
-      total_fee:parseInt(form.total_fee)||0,paid_fee:parseInt(form.paid_fee)||0,discount_value:parseInt(form.discount_value)||0,status:"active"
+    const {school_id}=await getSchoolBranch();
+    if(!school_id){setError("يجب إضافة مدرسة وفرع أولاً");setSaving(false);return;}
+    const response = await fetch("/api/dashboard/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        school_id,
+        role: "student",
+        full_name: form.full_name,
+        email: "",
+        password: "",
+        phone: form.phone,
+        is_active: true,
+        student: {
+          class_name: form.class_name,
+          section: form.section,
+          address: form.address,
+          total_fee: form.total_fee,
+          paid_fee: form.paid_fee,
+          discount_value: form.discount_value,
+        },
+        teacher: null,
+      }),
     });
-    if(error)setError("خطأ: "+error.message);
+    const payload = await response.json().catch(() => null);
+    if(!response.ok)setError(payload?.error?.message || "تعذر إنشاء الطالب مع حساب التطبيق.");
     else{
-      setSuccess("تم إضافة الطالب ✓");setShowModal(false);
+      setSuccess("تم إضافة الطالب وإنشاء حساب التطبيق ✓");setShowModal(false);
+      setAccountCard((payload?.accountCard as ManagedUserAccountCard | null) ?? null);
       setForm({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
-      fetchStudents(); setTimeout(()=>setSuccess(""),3000);
+      fetchStudents(); setTimeout(()=>setSuccess(""),4000);
     }
     setSaving(false);
   }
@@ -199,6 +276,20 @@ export default function StudentsPage() {
     const w=window.open("","_blank");
     if(!w){ setError("يرجى السماح بالنوافذ المنبثقة للطباعة"); return; }
     w.document.write(`<html dir="rtl"><head><title>بيانات الطالب</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem}h2{color:#4C2F9E}.r{margin:.5rem 0}b{min-width:150px;display:inline-block}</style></head><body><h2>بيانات الطالب</h2><hr/><div class="r"><b>الاسم:</b>${s.full_name}</div><div class="r"><b>الصف:</b>${s.class_name}</div><div class="r"><b>الشعبة:</b>${s.section||"—"}</div><div class="r"><b>العنوان:</b>${s.address||"—"}</div><div class="r"><b>الهاتف:</b>${s.phone||"—"}</div><div class="r"><b>إجمالي الرسوم:</b>د.ع ${formatNumber(s.total_fee)}</div><div class="r"><b>المدفوع:</b>د.ع ${formatNumber(s.paid_fee)}</div><div class="r"><b>المتبقي:</b>د.ع ${formatNumber(s.remaining_fee)}</div><script>window.print();window.close();</script></body></html>`);
+  }
+
+  function openAccountCardWindow(card: ManagedUserAccountCard, autoPrint = true){
+    const w=window.open("","_blank");
+    if(!w){ setError("يرجى السماح بالنوافذ المنبثقة لعرض بطاقة الحساب"); return; }
+    w.document.open();
+    w.document.write(buildPrintableCardHtml(card, autoPrint));
+    w.document.close();
+  }
+
+  async function copyAccountCardCredentials(){
+    if(!accountCard) return;
+    await navigator.clipboard.writeText(`معرّف الدخول: ${accountCard.login_identifier}\nكلمة المرور المؤقتة: ${accountCard.temporary_password}`);
+    setSuccess("تم نسخ بيانات الدخول المؤقتة"); setTimeout(()=>setSuccess(""),3000);
   }
 
   function openMenu(e:React.MouseEvent,student:any){
@@ -788,6 +879,48 @@ export default function StudentsPage() {
           <div className="fa">
             <button className="bs" disabled={importing||importPreview.length===0} onClick={handleImport}>{importing?"جارٍ الاستيراد...":"استيراد الطلاب"}</button>
             <button className="bc" onClick={()=>{setShowImport(false);setImportPreview([]);setImportError("");}}>إلغاء</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {accountCard&&(
+      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setAccountCard(null)}}>
+        <div className="modal modal-lg">
+          <div className="mh">
+            <div className="mt">بطاقة حساب التطبيق جاهزة</div>
+            <button className="mc" onClick={()=>setAccountCard(null)}><AppIcon token="✕" size={13} /></button>
+          </div>
+          <div style={{display:"grid",gap:"1rem",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",marginBottom:"1rem"}}>
+            <div style={{background:"#F8FBFF",border:"1px solid rgba(15,91,141,0.12)",borderRadius:18,padding:"1rem"}}>
+              <div style={{fontSize:".75rem",fontWeight:800,color:"var(--gray)"}}>الاسم الكامل</div>
+              <div style={{marginTop:".4rem",fontSize:"1.05rem",fontWeight:900,color:"var(--p2)"}}>{accountCard.full_name}</div>
+            </div>
+            <div style={{background:"#F8FBFF",border:"1px solid rgba(15,91,141,0.12)",borderRadius:18,padding:"1rem"}}>
+              <div style={{fontSize:".75rem",fontWeight:800,color:"var(--gray)"}}>الصف والشعبة</div>
+              <div style={{marginTop:".4rem",fontSize:"1.05rem",fontWeight:900,color:"var(--p2)"}}>
+                {[accountCard.class_name, accountCard.section ? `الشعبة ${accountCard.section}` : null].filter(Boolean).join(" • ") || "—"}
+              </div>
+            </div>
+            <div style={{background:"#F8FBFF",border:"1px solid rgba(15,91,141,0.12)",borderRadius:18,padding:"1rem"}}>
+              <div style={{fontSize:".75rem",fontWeight:800,color:"var(--gray)"}}>معرّف الدخول</div>
+              <div style={{marginTop:".4rem",fontSize:"1rem",fontWeight:900,color:"var(--p2)",direction:"ltr",textAlign:"left"}}>{accountCard.login_identifier}</div>
+            </div>
+            <div style={{background:"#F8FBFF",border:"1px solid rgba(15,91,141,0.12)",borderRadius:18,padding:"1rem"}}>
+              <div style={{fontSize:".75rem",fontWeight:800,color:"var(--gray)"}}>كلمة المرور المؤقتة</div>
+              <div style={{marginTop:".4rem",fontSize:"1rem",fontWeight:900,color:"var(--p2)",direction:"ltr",textAlign:"left"}}>{accountCard.temporary_password}</div>
+            </div>
+          </div>
+          <div style={{background:"#F8FBFF",border:"1px solid rgba(15,91,141,0.12)",borderRadius:18,padding:"1rem",marginBottom:"1rem"}}>
+            <div style={{fontSize:".82rem",fontWeight:900,color:"var(--p2)",marginBottom:".5rem"}}>تعليمات الدخول</div>
+            <ol style={{margin:0,paddingRight:"1.2rem",fontSize:".8rem",color:"var(--gray)",lineHeight:1.9}}>
+              {accountCard.instructions.map(instruction=><li key={instruction}>{instruction}</li>)}
+            </ol>
+          </div>
+          <div className="fa">
+            <button className="bc" onClick={()=>void copyAccountCardCredentials()}>نسخ البيانات</button>
+            <button className="bc" onClick={()=>openAccountCardWindow(accountCard,true)}>طباعة</button>
+            <button className="bs" onClick={()=>setAccountCard(null)}>إغلاق</button>
           </div>
         </div>
       </div>

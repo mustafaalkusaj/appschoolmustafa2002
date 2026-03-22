@@ -5,6 +5,7 @@ export const SCHOOL_SCOPE_CHANGE_EVENT = "school-scope-change";
 
 const SUPER_ADMIN_SCHOOL_SCOPED_PATHS = new Set([
   "/dashboard",
+  "/users",
   "/students",
   "/payments",
   "/attendance",
