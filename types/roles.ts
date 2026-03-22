@@ -17,7 +17,6 @@ export const ALL_PERMISSIONS = [
   "view_audit_logs",
   "manage_settings",
   "manage_branches",
-  "manage_academic_years",
   "view_monitoring",
   "full_access",
 ] as const;
@@ -52,10 +51,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "view_salaries",
     "manage_salaries",
     "manage_branches",
-    "manage_academic_years",
   ],
-  employee: ["view_students", "add_students", "edit_students", "view_payments", "add_payments"],
-  teacher: ["view_students", "view_payments", "view_salaries"],
+  employee: [
+    "view_students",
+    "add_students",
+    "edit_students",
+    "view_payments",
+    "add_payments",
+  ],
+  teacher: [
+    "view_students",
+    "view_payments",
+    "view_salaries",
+  ],
 };
 
 export const PERMISSION_GROUPS: Array<{
@@ -88,10 +96,7 @@ export const PERMISSION_GROUPS: Array<{
   },
   {
     title: "المدرسة والمنشأة",
-    permissions: [
-      { key: "manage_branches", label: "إدارة الفروع" },
-      { key: "manage_academic_years", label: "إدارة الأعوام الدراسية" },
-    ],
+    permissions: [{ key: "manage_branches", label: "إدارة الفروع" }],
   },
   {
     title: "الإدارة العليا",

@@ -3,8 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { 
   Bell, 
-  CheckCircle2, 
-  Circle, 
   RefreshCw, 
   AlertTriangle,
   Info,
@@ -12,7 +10,8 @@ import {
   MailCheck
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { SectionCard, EmptyState, formatDate, cx } from "./UI";
+import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
+import { SectionCard, EmptyState, MigrationNotice, formatDate, cx } from "./UI";
 
 interface Notification {
   id: string;
@@ -24,11 +23,16 @@ interface Notification {
   created_at: string;
 }
 
-export function NotificationsTab() {
+export function NotificationsTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
+    if (!infrastructure.notifications) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -47,11 +51,17 @@ export function NotificationsTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [infrastructure.notifications]);
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  if (!infrastructure.notifications) {
+    return (
+      <MigrationNotice description="جدول `notifications` غير موجود في قاعدة البيانات الحالية. شغّل `admin_infrastructure.sql` لتفعيل إشعارات النظام من لوحة المدير العام." />
+    );
+  }
 
   const markAsRead = async (id: string) => {
     try {

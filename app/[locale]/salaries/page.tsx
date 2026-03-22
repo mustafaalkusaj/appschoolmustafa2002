@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { resolveSchoolBranchForProfile } from "@/lib/school-context";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -15,11 +16,25 @@ const SALARY_TYPES = [
   {value:"hourly",label:"محاضرات (آجور)"},
   {value:"mixed",label:"ثابت + محاضرات"},
 ];
-const CLASS_GRADES = ["الأول","الثاني","الثالث","الرابع","الخامس","السادس","السابع","الثامن","التاسع","العاشر","الحادي عشر","الثاني عشر"];
-const SECTIONS_LIST = ["أ","ب","ج","د","هـ","و","ز","ح"];
 const DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
 const PERIODS = [1,2,3,4,5,6];
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+
+const CLASS_GRADES = [
+  "الأول",
+  "الثاني",
+  "الثالث",
+  "الرابع",
+  "الخامس",
+  "السادس",
+  "السابع",
+  "الثامن",
+  "التاسع",
+  "العاشر",
+  "الحادي عشر",
+  "الثاني عشر",
+];
+const SECTIONS_LIST = ["أ", "ب", "ج", "د", "هـ", "و", "ز", "ح"];
 
 const QUICK_ACCESS = [
   { id:"add_teacher", label:"إضافة أستاذ", icon:"👨‍🏫", bg:"#EDE8FA" },
@@ -39,7 +54,8 @@ const QUICK_ACCESS = [
 ];
 
 export default function SalariesPage() {
-  const { profile } = useRole();
+  const { profile, canAny } = useRole();
+  const canManageTeacher = canAny(["manage_salaries"]);
   const schoolScope = useSchoolScope(profile);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("main");
@@ -60,11 +76,6 @@ export default function SalariesPage() {
   const [showQuickAll, setShowQuickAll] = useState(false);
 
   // Teacher form
-  const [showAddTeacher, setShowAddTeacher] = useState(false);
-  const [editTeacher, setEditTeacher] = useState<any>(null);
-  const [savingTeacher, setSavingTeacher] = useState(false);
-  const [teacherForm, setTeacherForm] = useState({full_name:"",job_title:"",salary_type:"fixed",subject:"",phone:"",address:"",base_salary:"",weekly_hours:"",classes_taught:[{grade:"",section:""}],status:"active"});
-
   // Pay salary
   const [showPaySalary, setShowPaySalary] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
@@ -135,6 +146,142 @@ export default function SalariesPage() {
   const [showDeductionsMdl, setShowDeductionsMdl] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
+  const [teacherModalSaving, setTeacherModalSaving] = useState(false);
+  const [teacherModalError, setTeacherModalError] = useState("");
+  const [teacherEditId, setTeacherEditId] = useState<string | null>(null);
+  const [teacherForm, setTeacherForm] = useState({
+    full_name: "",
+    job_title: "",
+    salary_type: "fixed",
+    subject: "",
+    phone: "",
+    address: "",
+    base_salary: "",
+    weekly_hours: "",
+    classes_taught: [{ grade: "", section: "" }] as { grade: string; section: string }[],
+    status: "active",
+  });
+
+  function resetTeacherForm() {
+    setTeacherForm({
+      full_name: "",
+      job_title: "",
+      salary_type: "fixed",
+      subject: "",
+      phone: "",
+      address: "",
+      base_salary: "",
+      weekly_hours: "",
+      classes_taught: [{ grade: "", section: "" }],
+      status: "active",
+    });
+  }
+
+  function openTeacherAdd() {
+    setTeacherEditId(null);
+    resetTeacherForm();
+    setTeacherModalError("");
+    setShowTeacherModal(true);
+  }
+
+  function openTeacherEdit(t: any) {
+    setTeacherEditId(t.id);
+    const ct = (t.classes_taught as { grade: string; section: string }[]) || [];
+    setTeacherForm({
+      full_name: String(t.full_name ?? ""),
+      job_title: String(t.job_title ?? ""),
+      salary_type: String(t.salary_type ?? "fixed"),
+      subject: String(t.subject ?? ""),
+      phone: String(t.phone ?? ""),
+      address: String(t.address ?? ""),
+      base_salary: String(t.base_salary ?? ""),
+      weekly_hours: String(t.weekly_hours ?? ""),
+      classes_taught: ct.length ? ct : [{ grade: "", section: "" }],
+      status: String(t.status ?? "active"),
+    });
+    setTeacherModalError("");
+    setShowTeacherModal(true);
+  }
+
+  function addTeacherClassRow() {
+    setTeacherForm((f) => ({ ...f, classes_taught: [...f.classes_taught, { grade: "", section: "" }] }));
+  }
+  function removeTeacherClassRow(i: number) {
+    setTeacherForm((f) => ({ ...f, classes_taught: f.classes_taught.filter((_, idx) => idx !== i) }));
+  }
+  function updateTeacherClassRow(i: number, field: "grade" | "section", val: string) {
+    setTeacherForm((f) => ({
+      ...f,
+      classes_taught: f.classes_taught.map((c, idx) => (idx === i ? { ...c, [field]: val } : c)),
+    }));
+  }
+
+  async function saveTeacherModal(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canManageTeacher || !profile) return;
+    setTeacherModalSaving(true);
+    setTeacherModalError("");
+    const { school_id, branch_id } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId: schoolScope.selectedSchoolId,
+    });
+    if (!school_id || !branch_id) {
+      setTeacherModalError("يجب إضافة مدرسة وفرع أولاً");
+      setTeacherModalSaving(false);
+      return;
+    }
+    const validClasses = teacherForm.classes_taught.filter((c) => c.grade);
+    const payload = {
+      school_id,
+      branch_id,
+      full_name: teacherForm.full_name.trim(),
+      subject: teacherForm.subject || null,
+      job_title: teacherForm.job_title || null,
+      salary_type: teacherForm.salary_type,
+      phone: teacherForm.phone || null,
+      address: teacherForm.address || null,
+      base_salary: parseInt(teacherForm.base_salary, 10) || 0,
+      weekly_hours: parseInt(teacherForm.weekly_hours, 10) || 0,
+      classes_taught: validClasses.length ? validClasses : [],
+      status: teacherForm.status,
+    };
+    if (!payload.full_name) {
+      setTeacherModalError("يرجى إدخال الاسم");
+      setTeacherModalSaving(false);
+      return;
+    }
+    if (teacherEditId) {
+      const { error: uErr } = await supabase
+        .from("teachers")
+        .update({
+          full_name: payload.full_name,
+          subject: payload.subject,
+          job_title: payload.job_title,
+          salary_type: payload.salary_type,
+          phone: payload.phone,
+          address: payload.address,
+          base_salary: payload.base_salary,
+          weekly_hours: payload.weekly_hours,
+          classes_taught: payload.classes_taught,
+          status: payload.status,
+        })
+        .eq("id", teacherEditId);
+      if (uErr) setTeacherModalError(uErr.message);
+      else {
+        setShowTeacherModal(false);
+        await fetchAll();
+      }
+    } else {
+      const { error: insErr } = await supabase.from("teachers").insert(payload);
+      if (insErr) setTeacherModalError(insErr.message);
+      else {
+        setShowTeacherModal(false);
+        await fetchAll();
+      }
+    }
+    setTeacherModalSaving(false);
+  }
 
   useEffect(() => {
     if (schoolScope.scopeLoading) return;
@@ -275,20 +422,6 @@ export default function SalariesPage() {
     return {count,total};
   }
 
-  // ===== TEACHERS =====
-  async function handleAddTeacher(e:React.FormEvent){
-    e.preventDefault();setSavingTeacher(true);setError("");
-    const bid=await getBranchId();
-    const validClasses=teacherForm.classes_taught.filter(c=>c.grade);
-    const payload={school_id:schoolId,branch_id:bid,full_name:teacherForm.full_name,subject:teacherForm.subject||null,job_title:teacherForm.job_title||null,salary_type:teacherForm.salary_type,phone:teacherForm.phone||null,address:teacherForm.address||null,base_salary:parseInt(teacherForm.base_salary)||0,weekly_hours:parseInt(teacherForm.weekly_hours)||0,classes_taught:validClasses.length?validClasses:[],status:teacherForm.status};
-    const {error}=editTeacher?await supabase.from("teachers").update(payload).eq("id",editTeacher.id):await supabase.from("teachers").insert(payload);
-    if(error)setError("خطأ: "+error.message);
-    else{setSuccess(editTeacher?"تم تحديث البيانات ✓":"تم إضافة المدرس ✓");setShowAddTeacher(false);setEditTeacher(null);setTeacherForm({full_name:"",job_title:"",salary_type:"fixed",subject:"",phone:"",address:"",base_salary:"",weekly_hours:"",classes_taught:[{grade:"",section:""}],status:"active"});fetchAll();setTimeout(()=>setSuccess(""),3000);}
-    setSavingTeacher(false);
-  }
-  async function deleteTeacher(id:string){if(!confirm("حذف المدرس؟"))return;await supabase.from("teachers").delete().eq("id",id);fetchAll();}
-  function openEditTeacher(t:any){setEditTeacher(t);setTeacherForm({full_name:t.full_name,job_title:t.job_title||"",salary_type:t.salary_type||"fixed",subject:t.subject||"",phone:t.phone||"",address:t.address||"",base_salary:t.base_salary?.toString()||"",weekly_hours:t.weekly_hours?.toString()||"",classes_taught:t.classes_taught?.length?t.classes_taught:[{grade:"",section:""}],status:t.status||"active"});setShowAddTeacher(true);}
-
   // ===== SALARY =====
   async function handlePaySalary(e:React.FormEvent){
     e.preventDefault();if(!selectedTeacher)return;setSavingSalary(true);setError("");
@@ -414,12 +547,9 @@ export default function SalariesPage() {
   async function deleteClass(id:string){await supabase.from("classes").delete().eq("id",id);fetchAll();}
 
   function openMenu(e:React.MouseEvent,teacher:any){e.stopPropagation();const rect=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPos({top:rect.bottom+4,left:rect.left-100});setActiveMenu(activeMenu===teacher.id?null:teacher.id);setSelectedTeacher(teacher);}
-  function addClassRow(){setTeacherForm(f=>({...f,classes_taught:[...f.classes_taught,{grade:"",section:""}]}));}
-  function removeClassRow(i:number){setTeacherForm(f=>({...f,classes_taught:f.classes_taught.filter((_,idx)=>idx!==i)}));}
-  function updateClassRow(i:number,field:string,val:string){setTeacherForm(f=>({...f,classes_taught:f.classes_taught.map((c,idx)=>idx===i?{...c,[field]:val}:c)}));}
   const toggleArr=(arr:string[],val:string)=>arr.includes(val)?arr.filter(x=>x!==val):[...arr,val];
   function handleQuickAction(id:string){
-    if(id==="add_teacher"){setEditTeacher(null);setShowAddTeacher(true);}
+    if(id==="add_teacher"){openTeacherAdd();}
     else if(id==="classes")setShowClassesMgr(true);
     else if(id==="subjects")setShowSubjectsMgr(true);
     else if(id==="titles")setShowJobTitlesMgr(true);
@@ -754,12 +884,12 @@ export default function SalariesPage() {
           {activeSection==="teachers"&&<>
             <div className="toolbar">
               <div className="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="بحث..."/></div>
-              <button className="btn-add" onClick={()=>{setEditTeacher(null);setShowAddTeacher(true);}}>+ إضافة أستاذ</button>
+              <button type="button" className="btn-add" onClick={openTeacherAdd} style={{textDecoration:"none",border:"none",cursor:"pointer"}}>+ إضافة أستاذ</button>
             </div>
             <div className="tbl-wrap">
               {loading?<div className="spin"/>:(
                 <table>
-                  <thead><tr><th>#</th><th>الاسم</th><th>المادة</th><th>الصف والشعبة</th><th>إجراءات</th></tr></thead>
+                  <thead><tr><th>#</th><th>الاسم</th><th>المادة</th><th>الصف والشعبة</th><th>الملف</th></tr></thead>
                   <tbody>
                     {teachers.map((t,i)=>(
                       <tr key={t.id}>
@@ -776,8 +906,7 @@ export default function SalariesPage() {
                           {t.classes_taught?.length>3&&<span className="grade-badge">+{t.classes_taught.length-3}</span>}
                         </td>
                         <td>
-                          <button className="btn-edit-s" onClick={()=>openEditTeacher(t)}><AppIcon token="✏️" size={13} /></button>
-                          <button className="btn-del-s" onClick={()=>deleteTeacher(t.id)}><AppIcon token="🗑️" size={13} /></button>
+                          <button type="button" className="btn-edit-s" onClick={()=>openTeacherEdit(t)} style={{display:"inline-flex",textDecoration:"none",border:"none",background:"transparent",cursor:"pointer"}}><AppIcon token="✏️" size={13} /></button>
                         </td>
                       </tr>
                     ))}
@@ -1040,49 +1169,55 @@ export default function SalariesPage() {
       <div className="dropdown-menu" style={{top:menuPos.top,left:menuPos.left}} onClick={e=>e.stopPropagation()}>
         <div className="d-item" onClick={()=>{setDetailTeacher(selectedTeacher);setShowDetail(true);setActiveMenu(null)}}><AppIcon token="📋" size={14} />التفاصيل</div>
         <div className="d-item" onClick={()=>{setSalaryForm({gross_salary:selectedTeacher.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);setActiveMenu(null);}}><AppIcon token="💰" size={14} />دفع الراتب</div>
-        <div className="d-item" onClick={()=>{openEditTeacher(selectedTeacher);setActiveMenu(null);}}><AppIcon token="✏️" size={14} />تعديل</div>
-        <div className="d-sep"/>
-        <div className="d-item danger" onClick={()=>{deleteTeacher(selectedTeacher.id);setActiveMenu(null);}}><AppIcon token="🗑️" size={14} />حذف</div>
+        <div className="d-item" onClick={()=>{openTeacherEdit(selectedTeacher);setActiveMenu(null);}}><AppIcon token="✏️" size={14} />تعديل البيانات</div>
       </div>
     )}
 
-    {/* ===== MODAL: إضافة/تعديل مدرس ===== */}
-    {showAddTeacher&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowAddTeacher(false)}}>
-        <div className="modal">
+    {showTeacherModal&&(
+      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowTeacherModal(false)}}>
+        <div className="modal" style={{maxWidth:560,maxHeight:"90vh",overflowY:"auto"}}>
           <div className="mh">
             <div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-              <AppIcon token={editTeacher?"✏️":"👨‍🏫"} size={16} />
-              {editTeacher?"تعديل بيانات الأستاذ":"إضافة أستاذ جديد"}
+              <AppIcon token={teacherEditId?"✏️":"👨‍🏫"} size={16} /> {teacherEditId?"تعديل بيانات الأستاذ":"إضافة أستاذ"}
             </div>
-            <button className="mc" onClick={()=>setShowAddTeacher(false)}><AppIcon token="✕" size={14} /></button>
+            <button type="button" className="mc" onClick={()=>setShowTeacherModal(false)}><AppIcon token="✕" size={14} /></button>
           </div>
-          <form onSubmit={handleAddTeacher}>
+          {!canManageTeacher&&<div style={{padding:".5rem 0",fontSize:".8rem",color:"#B45309"}}>ليس لديك صلاحية تعديل بيانات الأساتذة.</div>}
+          {teacherModalError&&<div style={{padding:".5rem 0",fontSize:".8rem",color:"#B91C1C"}}>{teacherModalError}</div>}
+          <form onSubmit={saveTeacherModal}>
             <div className="fg">
-              <div className="sec-lbl" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="📋" size={14} /> المعلومات الأساسية</div>
-              <div className="ff full"><label className="fl">الاسم الثلاثي *</label><input className="fis" required value={teacherForm.full_name} onChange={e=>setTeacherForm({...teacherForm,full_name:e.target.value})}/></div>
-              <div className="ff"><label className="fl">المسمى الوظيفي</label><select className="fis" value={teacherForm.job_title} onChange={e=>setTeacherForm({...teacherForm,job_title:e.target.value})}><option value="">اختر...</option>{jobTitlesList.map(j=><option key={j.id} value={j.name}>{j.name}</option>)}</select></div>
-              <div className="ff"><label className="fl">المادة الدراسية</label><select className="fis" value={teacherForm.subject} onChange={e=>setTeacherForm({...teacherForm,subject:e.target.value})}><option value="">اختر...</option>{subjectsList.map(s=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
-              <div className="ff"><label className="fl">الهاتف <span className="opt">(اختياري)</span></label><input className="fis" value={teacherForm.phone} onChange={e=>setTeacherForm({...teacherForm,phone:e.target.value})}/></div>
-              <div className="ff"><label className="fl">العنوان <span className="opt">(اختياري)</span></label><input className="fis" value={teacherForm.address} onChange={e=>setTeacherForm({...teacherForm,address:e.target.value})}/></div>
-              <div className="sec-lbl" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="💰" size={14} /> نظام الراتب</div>
-              <div className="ff"><label className="fl">نظام الراتب</label><select className="fis" value={teacherForm.salary_type} onChange={e=>setTeacherForm({...teacherForm,salary_type:e.target.value})}>{SALARY_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
-              <div className="ff"><label className="fl">الراتب الأساسي *</label><input className="fis" type="number" required value={teacherForm.base_salary} onChange={e=>setTeacherForm({...teacherForm,base_salary:e.target.value})}/></div>
-              <div className="ff"><label className="fl">عدد الحصص الأسبوعي</label><input className="fis" type="number" value={teacherForm.weekly_hours} onChange={e=>setTeacherForm({...teacherForm,weekly_hours:e.target.value})}/></div>
-              <div className="ff"><label className="fl">الحالة</label><select className="fis" value={teacherForm.status} onChange={e=>setTeacherForm({...teacherForm,status:e.target.value})}><option value="active">نشط</option><option value="inactive">غير نشط</option></select></div>
-              <div className="sec-lbl" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="🏫" size={14} /> الصفوف والشعب</div>
-              {teacherForm.classes_taught.map((cls,i)=>(
-                <div className="class-row" key={i}>
-                  <div className="ff">{i===0&&<label className="fl">الصف</label>}<select className="fis" value={cls.grade} onChange={e=>updateClassRow(i,"grade",e.target.value)}><option value="">اختر الصف...</option>{CLASS_GRADES.map(g=><option key={g} value={g}>{g}</option>)}</select></div>
-                  <div className="ff">{i===0&&<label className="fl">الشعبة</label>}<select className="fis" value={cls.section} onChange={e=>updateClassRow(i,"section",e.target.value)}><option value="">الشعبة...</option>{SECTIONS_LIST.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-                  {teacherForm.classes_taught.length>1&&<button type="button" className="btn-rm" style={{marginTop:i===0?"1.4rem":"0"}} onClick={()=>removeClassRow(i)}><AppIcon token="✕" size={11} /></button>}
-                </div>
-              ))}
-              <button type="button" className="btn-add-cls" onClick={addClassRow}>+ إضافة صف آخر</button>
+              <div className="ff full"><label className="fl">الاسم الثلاثي *</label><input className="fis" required value={teacherForm.full_name} onChange={e=>setTeacherForm({...teacherForm,full_name:e.target.value})} disabled={!canManageTeacher}/></div>
+              <div className="ff"><label className="fl">المسمى الوظيفي</label><select className="fis" value={teacherForm.job_title} onChange={e=>setTeacherForm({...teacherForm,job_title:e.target.value})} disabled={!canManageTeacher}><option value="">اختر...</option>{jobTitlesList.map((j:any)=><option key={j.id} value={j.name}>{j.name}</option>)}</select></div>
+              <div className="ff"><label className="fl">المادة</label><select className="fis" value={teacherForm.subject} onChange={e=>setTeacherForm({...teacherForm,subject:e.target.value})} disabled={!canManageTeacher}><option value="">اختر...</option>{subjectsList.map((s:any)=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
+              <div className="ff"><label className="fl">الهاتف</label><input className="fis" value={teacherForm.phone} onChange={e=>setTeacherForm({...teacherForm,phone:e.target.value})} disabled={!canManageTeacher}/></div>
+              <div className="ff full"><label className="fl">العنوان</label><input className="fis" value={teacherForm.address} onChange={e=>setTeacherForm({...teacherForm,address:e.target.value})} disabled={!canManageTeacher}/></div>
+              <div className="ff"><label className="fl">نظام الراتب</label><select className="fis" value={teacherForm.salary_type} onChange={e=>setTeacherForm({...teacherForm,salary_type:e.target.value})} disabled={!canManageTeacher}>{SALARY_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+              <div className="ff"><label className="fl">الراتب الأساسي</label><input className="fis" type="number" value={teacherForm.base_salary} onChange={e=>setTeacherForm({...teacherForm,base_salary:e.target.value})} disabled={!canManageTeacher}/></div>
+              <div className="ff"><label className="fl">حصص أسبوعية</label><input className="fis" type="number" value={teacherForm.weekly_hours} onChange={e=>setTeacherForm({...teacherForm,weekly_hours:e.target.value})} disabled={!canManageTeacher}/></div>
+              <div className="ff"><label className="fl">الحالة</label><select className="fis" value={teacherForm.status} onChange={e=>setTeacherForm({...teacherForm,status:e.target.value})} disabled={!canManageTeacher}><option value="active">نشط</option><option value="inactive">غير نشط</option></select></div>
+              <div className="ff full">
+                <label className="fl">الصفوف والشعب</label>
+                {teacherForm.classes_taught.map((cls, i) => (
+                  <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.35rem", alignItems: "flex-end" }}>
+                    <select className="fis" value={cls.grade} onChange={e=>updateTeacherClassRow(i,"grade",e.target.value)} disabled={!canManageTeacher}>
+                      <option value="">الصف...</option>
+                      {CLASS_GRADES.map((g) => (<option key={g} value={g}>{g}</option>))}
+                    </select>
+                    <select className="fis" value={cls.section} onChange={e=>updateTeacherClassRow(i,"section",e.target.value)} disabled={!canManageTeacher}>
+                      <option value="">الشعبة...</option>
+                      {SECTIONS_LIST.map((s) => (<option key={s} value={s}>{s}</option>))}
+                    </select>
+                    {teacherForm.classes_taught.length > 1 && (
+                      <button type="button" className="bc" onClick={()=>removeTeacherClassRow(i)} disabled={!canManageTeacher}><AppIcon token="✕" size={12} /></button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" className="bc" style={{ marginTop: "0.35rem" }} onClick={addTeacherClassRow} disabled={!canManageTeacher}>+ صف</button>
+              </div>
             </div>
             <div className="fa">
-              <button type="submit" className="bs" disabled={savingTeacher}>{savingTeacher?"جارٍ الحفظ...":(editTeacher?"حفظ التعديلات":"حفظ البيانات")}</button>
-              <button type="button" className="bc" onClick={()=>setShowAddTeacher(false)}>إلغاء</button>
+              <button type="submit" className="bs" disabled={teacherModalSaving||!canManageTeacher}>{teacherModalSaving?"جارٍ الحفظ...":"حفظ"}</button>
+              <button type="button" className="bc" onClick={()=>setShowTeacherModal(false)}>إلغاء</button>
             </div>
           </form>
         </div>

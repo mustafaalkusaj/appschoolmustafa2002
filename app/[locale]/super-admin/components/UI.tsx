@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import { AlertTriangle, type LucideIcon } from "lucide-react";
 
 export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -100,6 +100,29 @@ export function EmptyState({
           {actionLabel}
         </button>
       ) : null}
+    </div>
+  );
+}
+
+export function MigrationNotice({
+  title = "يتطلب تشغيل migration",
+  description,
+}: {
+  title?: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-[28px] border border-[rgba(242,169,59,0.28)] bg-[rgba(242,169,59,0.10)] p-5">
+      <div className="mb-3 flex items-center gap-3 text-[var(--warning)]">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-[16px] bg-[rgba(242,169,59,0.16)]">
+          <AlertTriangle size={18} />
+        </div>
+        <div>
+          <h3 className="text-sm font-black text-[var(--text-primary)]">{title}</h3>
+          <p className="text-xs font-bold text-[var(--text-secondary)]">admin_infrastructure.sql</p>
+        </div>
+      </div>
+      <p className="text-sm font-semibold leading-7 text-[var(--text-secondary)]">{description}</p>
     </div>
   );
 }

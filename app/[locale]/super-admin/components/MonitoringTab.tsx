@@ -2,9 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { 
-  Activity, 
-  CheckCircle2, 
-  XCircle, 
   RefreshCw, 
   Server,
   Database,
@@ -12,12 +9,12 @@ import {
   ShieldCheck,
   Building2,
   Clock,
-  History
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { SectionCard, StatCard, cx } from "./UI";
+import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
+import { SectionCard, MigrationNotice, cx } from "./UI";
 
-export function MonitoringTab() {
+export function MonitoringTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const [stats, setStats] = useState({
     schools: 0,
     activeSchools: 0,
@@ -26,47 +23,67 @@ export function MonitoringTab() {
     subscriptions: 0,
     expiredSubscriptions: 0
   });
-  const [loading, setLoading] = useState(true);
-  const [dbStatus, setDbStatus] = useState<"connected" | "error" | "checking">("connected");
-  const [recentEvents, setRecentEvents] = useState<any[]>([]);
+  const [dbStatus, setDbStatus] = useState<"connected" | "limited" | "error" | "checking">("connected");
+  const [recentEvents, setRecentEvents] = useState<Array<{ id: string; summary: string; actor_name?: string | null }>>([]);
 
   const fetchStats = useCallback(async () => {
-    setLoading(true);
     setDbStatus("checking");
     try {
-      const [
-        { count: schoolCount },
-        { count: activeSchoolCount },
-        { count: userCount },
-        { count: activeUserCount },
-        { count: subCount },
-        { data: logs }
-      ] = await Promise.all([
-        supabase.from("schools").select("*", { count: "exact", head: true }).is("deleted_at", null),
-        supabase.from("schools").select("*", { count: "exact", head: true }).eq("is_active", true).is("deleted_at", null),
-        supabase.from("user_profiles").select("*", { count: "exact", head: true }).is("deleted_at", null),
-        supabase.from("user_profiles").select("*", { count: "exact", head: true }).eq("is_active", true).is("deleted_at", null),
-        supabase.from("subscriptions").select("*", { count: "exact", head: true }),
-        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(5)
-      ]);
+      let schoolsQuery = supabase.from("schools").select("*", { count: "exact", head: true });
+      let activeSchoolsQuery = supabase
+        .from("schools")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
+      let usersQuery = supabase.from("user_profiles").select("*", { count: "exact", head: true });
+      let activeUsersQuery = supabase
+        .from("user_profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
+
+      if (infrastructure.softDeleteSchools) {
+        schoolsQuery = schoolsQuery.is("deleted_at", null);
+        activeSchoolsQuery = activeSchoolsQuery.is("deleted_at", null);
+      }
+
+      if (infrastructure.softDeleteUsers) {
+        usersQuery = usersQuery.is("deleted_at", null);
+        activeUsersQuery = activeUsersQuery.is("deleted_at", null);
+      }
+
+      const [schoolResponse, activeSchoolResponse, userResponse, activeUserResponse, subscriptionResponse, logsResponse] =
+        await Promise.all([
+          schoolsQuery,
+          activeSchoolsQuery,
+          usersQuery,
+          activeUsersQuery,
+          supabase.from("subscriptions").select("*", { count: "exact", head: true }),
+          infrastructure.auditLogs
+            ? supabase.from("audit_logs").select("id, summary, actor_name").order("created_at", { ascending: false }).limit(5)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+      if (schoolResponse.error) throw schoolResponse.error;
+      if (activeSchoolResponse.error) throw activeSchoolResponse.error;
+      if (userResponse.error) throw userResponse.error;
+      if (activeUserResponse.error) throw activeUserResponse.error;
+      if (subscriptionResponse.error) throw subscriptionResponse.error;
+      if (logsResponse.error) throw logsResponse.error;
 
       setStats({
-        schools: schoolCount || 0,
-        activeSchools: activeSchoolCount || 0,
-        users: userCount || 0,
-        activeUsers: activeUserCount || 0,
-        subscriptions: subCount || 0,
+        schools: schoolResponse.count || 0,
+        activeSchools: activeSchoolResponse.count || 0,
+        users: userResponse.count || 0,
+        activeUsers: activeUserResponse.count || 0,
+        subscriptions: subscriptionResponse.count || 0,
         expiredSubscriptions: 0 // Needs logic
       });
-      setRecentEvents(logs || []);
-      setDbStatus("connected");
+      setRecentEvents(logsResponse.data || []);
+      setDbStatus(infrastructure.auditLogs ? "connected" : "limited");
     } catch (err) {
       console.error("Monitoring stats error:", err);
       setDbStatus("error");
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [infrastructure.auditLogs, infrastructure.softDeleteSchools, infrastructure.softDeleteUsers]);
 
   useEffect(() => {
     fetchStats();
@@ -82,9 +99,13 @@ export function MonitoringTab() {
             </div>
             <div className={cx(
               "ui-pill text-[10px] font-black",
-              dbStatus === "connected" ? "ui-pill--success" : "ui-pill--danger"
+              dbStatus === "connected"
+                ? "ui-pill--success"
+                : dbStatus === "limited"
+                  ? "ui-pill--warning"
+                  : "ui-pill--danger"
             )}>
-              {dbStatus === "connected" ? "متصل" : "خطأ في الاتصال"}
+              {dbStatus === "connected" ? "متصل" : dbStatus === "limited" ? "وضع توافق" : "خطأ في الاتصال"}
             </div>
           </div>
           <p className="text-xs font-black text-[var(--text-tertiary)]">حالة قاعدة البيانات</p>
@@ -130,6 +151,14 @@ export function MonitoringTab() {
           title="مؤشرات التشغيل"
           description="إحصائيات مباشرة حول الكيانات الأساسية في النظام."
         >
+          {infrastructure.warnings.length > 0 ? (
+            <div className="mb-4">
+              <MigrationNotice
+                title="بعض المؤشرات تعمل بوضع توافق"
+                description="تم تخفيف بعض الاستعلامات لأن أجزاء من `admin_infrastructure.sql` غير مطبقة بعد. ستبقى الإحصائيات الأساسية متاحة، لكن سجلات التدقيق والأرشفة الكاملة لن تظهر قبل تشغيل الـ migration."
+              />
+            </div>
+          ) : null}
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-2xl border border-[var(--border)]">
               <div className="flex items-center gap-3">

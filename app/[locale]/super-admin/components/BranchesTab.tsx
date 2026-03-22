@@ -4,25 +4,24 @@ import { useEffect, useState, useCallback } from "react";
 import { 
   GitBranch, 
   Plus, 
-  RefreshCw, 
   Trash2, 
   Pencil,
   Building2,
   MapPin,
   Phone,
-  CheckCircle2,
-  XCircle
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { SectionCard, EmptyState, cx } from "./UI";
+import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
+import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 
-export function BranchesTab() {
+export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const [branches, setBranches] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<any>(null);
+  const [message, setMessage] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -35,12 +34,24 @@ export function BranchesTab() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      let branchesQuery = supabase.from("branches").select("*, schools(name)");
+      let schoolsQuery = supabase.from("schools").select("id, name").eq("is_active", true);
+
+      if (infrastructure.softDeleteBranches) {
+        branchesQuery = branchesQuery.is("deleted_at", null);
+      }
+
+      if (infrastructure.softDeleteSchools) {
+        schoolsQuery = schoolsQuery.is("deleted_at", null);
+      }
+
       const [branchesRes, schoolsRes] = await Promise.all([
-        supabase.from("branches").select("*, schools(name)").order("created_at", { ascending: false }),
-        supabase.from("schools").select("id, name").eq("is_active", true)
+        branchesQuery.order("created_at", { ascending: false }),
+        schoolsQuery
       ]);
 
       if (branchesRes.error) throw branchesRes.error;
+      if (schoolsRes.error) throw schoolsRes.error;
       setBranches(branchesRes.data || []);
       setSchools(schoolsRes.data || []);
     } catch (err) {
@@ -48,7 +59,7 @@ export function BranchesTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [infrastructure.softDeleteBranches, infrastructure.softDeleteSchools]);
 
   useEffect(() => {
     fetchData();
@@ -75,8 +86,22 @@ export function BranchesTab() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا الفرع؟")) return;
+
+    if (!infrastructure.softDeleteBranches) {
+      setMessage("أرشفة الفروع تحتاج تشغيل admin_infrastructure.sql لأن عمود deleted_at غير موجود في جدول branches.");
+      return;
+    }
+
     try {
-      const { error } = await supabase.from("branches").delete().eq("id", id);
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("branches")
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: userData.user?.id ?? null,
+          is_active: false,
+        })
+        .eq("id", id);
       if (error) throw error;
       fetchData();
     } catch (err) {
@@ -86,6 +111,13 @@ export function BranchesTab() {
 
   return (
     <div className="space-y-6">
+      {message ? (
+        <MigrationNotice
+          title="ميزة غير مفعلة بالكامل"
+          description={message}
+        />
+      ) : null}
+
       <SectionCard
         title="إدارة فروع المدارس"
         description="إضافة وتعديل الفروع التابعة للمدارس المشتركة في المنصة."
@@ -103,6 +135,15 @@ export function BranchesTab() {
           </button>
         }
       >
+        {!infrastructure.softDeleteBranches ? (
+          <div className="mb-4">
+            <MigrationNotice
+              title="الفروع تعمل بدون سلة محذوفات"
+              description="يمكن عرض وتعديل الفروع الحالية، لكن الأرشفة والاستعادة تحتاج تشغيل `admin_infrastructure.sql` لإضافة `deleted_at` و `deleted_by` إلى جدول `branches`."
+            />
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="space-y-3 py-10">
             {[...Array(3)].map((_, i) => (

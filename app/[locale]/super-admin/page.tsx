@@ -46,11 +46,8 @@ import {
   Ban,
   History,
   Activity,
-  Calendar,
   GitBranch,
   FileDown,
-  FileUp,
-  Command,
   Flag,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -65,6 +62,11 @@ import {
 } from "@/lib/auth";
 import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { UltrathinkLogo } from "@/components/UltrathinkLogo";
+import {
+  DEFAULT_ADMIN_INFRASTRUCTURE,
+  detectAdminInfrastructure,
+  getAdminInfrastructureNotice,
+} from "@/lib/admin-infrastructure";
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { PERMISSION_GROUPS } from "@/types/roles";
@@ -76,7 +78,6 @@ import { RolesTab } from "./components/RolesTab";
 import { TrashTab } from "./components/TrashTab";
 import { NotificationsTab } from "./components/NotificationsTab";
 import { MonitoringTab } from "./components/MonitoringTab";
-import { AcademicTab } from "./components/AcademicTab";
 import { BranchesTab } from "./components/BranchesTab";
 import { logAction } from "@/lib/audit";
 import { exportToCSV } from "@/lib/export";
@@ -92,7 +93,6 @@ type ActiveTab =
   | "trash"
   | "notifications"
   | "monitoring"
-  | "academic"
   | "branches";
 
 type SchoolPlan = "basic" | "premium" | "enterprise";
@@ -165,7 +165,6 @@ const TAB_ITEMS: Array<{
   { id: "trash", label: "سلة المهملات", hint: "استعادة البيانات", icon: Trash2 },
   { id: "notifications", label: "التنبيهات", hint: "إشعارات النظام", icon: Bell },
   { id: "monitoring", label: "مراقبة النظام", hint: "الصحة والتشغيل", icon: Activity },
-  { id: "academic", label: "الأعوام الدراسية", hint: "إدارة الفترات", icon: Calendar },
   { id: "branches", label: "الفروع", hint: "إدارة فروع المدارس", icon: GitBranch },
 ];
 
@@ -371,6 +370,8 @@ export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [infrastructureNotice, setInfrastructureNotice] = useState("");
+  const [infrastructure, setInfrastructure] = useState(DEFAULT_ADMIN_INFRASTRUCTURE);
   const [query, setQuery] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -400,7 +401,8 @@ export default function SuperAdminPage() {
     permissions: [] as Permission[],
   });
 
-  const [deleteTarget, setDeleteTarget] = useState<SchoolRecord | null>(null);
+  const [deleteSchoolTarget, setDeleteSchoolTarget] = useState<SchoolRecord | null>(null);
+  const [deleteUserTarget, setDeleteUserTarget] = useState<UserRecord | null>(null);
 
   const flashSuccess = useCallback((message: string) => {
     setSuccess(message);
@@ -418,47 +420,70 @@ export default function SuperAdminPage() {
     const nextProfile = await getUserProfile();
     if (!nextProfile || nextProfile.role !== "super_admin") {
       window.location.href = localizeAppPath("/access-denied", locale);
-      return;
+      return null;
     }
 
     setProfile(nextProfile);
+    return nextProfile;
   }, [locale]);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (nextInfrastructure = DEFAULT_ADMIN_INFRASTRUCTURE) => {
+    const schoolsQuery = nextInfrastructure.softDeleteSchools
+      ? supabase.from("schools").select("*").is("deleted_at", null)
+      : supabase.from("schools").select("*");
+
+    const userColumns = nextInfrastructure.customPermissions
+      ? "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions, schools(name)"
+      : "id, full_name, email, role, school_id, phone, is_active, created_at, schools(name)";
+    const usersQuery = nextInfrastructure.softDeleteUsers
+      ? supabase.from("user_profiles").select(userColumns).is("deleted_at", null)
+      : supabase.from("user_profiles").select(userColumns);
+
+    const [schoolsResponse, usersResponse, subscriptionsResponse] = await Promise.all([
+      schoolsQuery.order("created_at", { ascending: false }),
+      usersQuery.order("created_at", { ascending: false }),
+      supabase.from("subscriptions").select("*, schools(name)").order("created_at", { ascending: false }),
+    ]);
+
+    if (schoolsResponse.error) throw schoolsResponse.error;
+    if (usersResponse.error) throw usersResponse.error;
+    if (subscriptionsResponse.error) throw subscriptionsResponse.error;
+
+    setSchools((schoolsResponse.data ?? []) as SchoolRecord[]);
+    const rawUsers = (usersResponse.data ?? []) as unknown as Array<Record<string, unknown>>;
+    setUsers(
+      rawUsers.map((user) => ({
+        ...user,
+        custom_permissions: Array.isArray(user.custom_permissions)
+          ? (user.custom_permissions as Permission[])
+          : null,
+      })) as UserRecord[],
+    );
+    setSubscriptions((subscriptionsResponse.data ?? []) as SubscriptionRecord[]);
+  }, []);
+
+  const refreshDashboard = useCallback(async () => {
     setLoading(true);
 
     try {
-      const [schoolsResponse, usersResponse, subscriptionsResponse] = await Promise.all([
-        supabase.from("schools").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
-        supabase
-          .from("user_profiles")
-          .select("*, schools(name)")
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("subscriptions")
-          .select("*, schools(name)")
-          .order("created_at", { ascending: false }),
-      ]);
+      const nextProfile = await checkAuth();
+      if (!nextProfile) return;
 
-      if (schoolsResponse.error) throw schoolsResponse.error;
-      if (usersResponse.error) throw usersResponse.error;
-      if (subscriptionsResponse.error) throw subscriptionsResponse.error;
+      const nextInfrastructure = await detectAdminInfrastructure(supabase);
+      setInfrastructure(nextInfrastructure);
+      setInfrastructureNotice(getAdminInfrastructureNotice(nextInfrastructure));
 
-      setSchools((schoolsResponse.data ?? []) as SchoolRecord[]);
-      setUsers((usersResponse.data ?? []) as UserRecord[]);
-      setSubscriptions((subscriptionsResponse.data ?? []) as SubscriptionRecord[]);
+      await fetchAll(nextInfrastructure);
     } catch (fetchError) {
       flashError(getErrorMessage(fetchError, "تعذر تحميل بيانات المدير العام."));
     } finally {
       setLoading(false);
     }
-  }, [flashError]);
+  }, [checkAuth, fetchAll, flashError]);
 
   useEffect(() => {
-    void checkAuth();
-    void fetchAll();
-  }, [checkAuth, fetchAll]);
+    void refreshDashboard();
+  }, [refreshDashboard]);
 
   function resetSchoolForm() {
     setEditSchool(null);
@@ -544,7 +569,7 @@ export default function SuperAdminPage() {
       });
 
       flashSuccess(!current ? "تم تفعيل المدرسة بنجاح." : "تم إيقاف المدرسة بنجاح.");
-      await fetchAll();
+      await refreshDashboard();
     } catch (toggleError) {
       flashError(getErrorMessage(toggleError, "تعذر تحديث حالة المدرسة."));
     }
@@ -617,7 +642,7 @@ export default function SuperAdminPage() {
 
       setShowSchoolForm(false);
       resetSchoolForm();
-      await fetchAll();
+      await refreshDashboard();
     } catch (saveError) {
       flashError(getErrorMessage(saveError, "تعذر حفظ بيانات المدرسة."));
     } finally {
@@ -637,7 +662,9 @@ export default function SuperAdminPage() {
       school_id: userForm.school_id || null,
       phone: userForm.phone || null,
       is_active: userForm.is_active,
-      custom_permissions: userForm.permissions.length > 0 ? userForm.permissions : null,
+      ...(infrastructure.customPermissions
+        ? { custom_permissions: userForm.permissions.length > 0 ? userForm.permissions : null }
+        : {}),
     };
 
     try {
@@ -682,7 +709,7 @@ export default function SuperAdminPage() {
 
       setShowUserForm(false);
       resetUserForm();
-      await fetchAll();
+      await refreshDashboard();
     } catch (saveError) {
       flashError(getErrorMessage(saveError, "تعذر حفظ المستخدم."));
     } finally {
@@ -708,14 +735,19 @@ export default function SuperAdminPage() {
       });
 
       flashSuccess("تم تجديد الاشتراك لمدة سنة كاملة.");
-      await fetchAll();
+      await refreshDashboard();
     } catch (extendError) {
       flashError(getErrorMessage(extendError, "تعذر تجديد الاشتراك."));
     }
   }
 
   async function handleDeleteSchool() {
-    if (!deleteTarget) return;
+    if (!deleteSchoolTarget) return;
+
+    if (!infrastructure.softDeleteSchools) {
+      flashError("أرشفة المدارس تتطلب تشغيل admin_infrastructure.sql لإضافة deleted_at و deleted_by إلى جدول schools.");
+      return;
+    }
 
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -725,22 +757,63 @@ export default function SuperAdminPage() {
           deleted_at: new Date().toISOString(),
           deleted_by: userData.user?.id 
         })
-        .eq("id", deleteTarget.id);
+        .eq("id", deleteSchoolTarget.id);
 
       if (deleteSchoolResponse.error) throw deleteSchoolResponse.error;
 
       await logAction({
         action_type: "delete",
         entity_type: "school",
-        entity_id: deleteTarget.id,
-        summary: `حذف مدرسة (نقل للسلة): ${deleteTarget.name}`,
+        entity_id: deleteSchoolTarget.id,
+        summary: `أرشفة مدرسة (نقل للسلة): ${deleteSchoolTarget.name}`,
       });
 
       flashSuccess("تم نقل المدرسة إلى سلة المهملات.");
-      setDeleteTarget(null);
-      await fetchAll();
+      setDeleteSchoolTarget(null);
+      await refreshDashboard();
     } catch (deleteError) {
       flashError(getErrorMessage(deleteError, "تعذر حذف المدرسة."));
+    }
+  }
+
+  async function handleDeleteUser() {
+    if (!deleteUserTarget) return;
+
+    if (!infrastructure.softDeleteUsers) {
+      flashError("أرشفة المستخدمين تتطلب تشغيل admin_infrastructure.sql لإضافة deleted_at و deleted_by إلى جدول user_profiles.");
+      return;
+    }
+
+    if (deleteUserTarget.id === profile?.id) {
+      flashError("لا يمكن أرشفة حساب المدير العام الحالي أثناء استخدامه.");
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const response = await supabase
+        .from("user_profiles")
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: userData.user?.id ?? null,
+          is_active: false,
+        })
+        .eq("id", deleteUserTarget.id);
+
+      if (response.error) throw response.error;
+
+      await logAction({
+        action_type: "delete",
+        entity_type: "user",
+        entity_id: deleteUserTarget.id,
+        summary: `أرشفة مستخدم: ${deleteUserTarget.full_name || deleteUserTarget.email || deleteUserTarget.id}`,
+      });
+
+      flashSuccess("تم نقل المستخدم إلى سلة المهملات.");
+      setDeleteUserTarget(null);
+      await refreshDashboard();
+    } catch (deleteError) {
+      flashError(getErrorMessage(deleteError, "تعذر أرشفة المستخدم."));
     }
   }
 
@@ -1091,6 +1164,13 @@ export default function SuperAdminPage() {
               <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(240,90,90,0.18)] bg-[rgba(240,90,90,0.10)] px-4 py-3 text-[var(--danger)]">
                 <AlertTriangle size={18} className="mt-1 shrink-0" />
                 <p className="text-sm font-bold leading-7">{error}</p>
+              </div>
+            ) : null}
+
+            {infrastructureNotice ? (
+              <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(242,169,59,0.22)] bg-[rgba(242,169,59,0.10)] px-4 py-3 text-[var(--warning)]">
+                <Flag size={18} className="mt-1 shrink-0" />
+                <p className="text-sm font-bold leading-7">{infrastructureNotice}</p>
               </div>
             ) : null}
 
@@ -1473,7 +1553,7 @@ export default function SuperAdminPage() {
                         <button
                           type="button"
                           className="ui-button ui-button--secondary inline-flex items-center gap-2"
-                          onClick={() => void fetchAll()}
+                          onClick={() => void refreshDashboard()}
                         >
                           <RefreshCw size={16} />
                           تحديث
@@ -1613,10 +1693,10 @@ export default function SuperAdminPage() {
                                 <button
                                   type="button"
                                   className="ui-button ui-button--danger inline-flex items-center gap-2"
-                                  onClick={() => setDeleteTarget(school)}
+                                  onClick={() => setDeleteSchoolTarget(school)}
                                 >
                                   <Trash2 size={16} />
-                                  حذف
+                                  أرشفة
                                 </button>
                               </div>
                             </article>
@@ -1717,14 +1797,24 @@ export default function SuperAdminPage() {
                                         </span>
                                       </td>
                                       <td>
-                                        <button
-                                          type="button"
-                                          className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
-                                          onClick={() => openEditUser(user)}
-                                        >
-                                          <PencilLine size={16} />
-                                          تعديل
-                                        </button>
+                                        <div className="flex flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
+                                            onClick={() => openEditUser(user)}
+                                          >
+                                            <PencilLine size={16} />
+                                            تعديل
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="ui-button ui-button--danger inline-flex items-center gap-2 px-4"
+                                            onClick={() => setDeleteUserTarget(user)}
+                                          >
+                                            <Trash2 size={16} />
+                                            أرشفة
+                                          </button>
+                                        </div>
                                       </td>
                                     </tr>
                                   );
@@ -1766,14 +1856,24 @@ export default function SuperAdminPage() {
                                     {user.is_active ? "نشط" : "موقوف"}
                                   </span>
                                 </div>
-                                <button
-                                  type="button"
-                                  className="ui-button ui-button--secondary inline-flex w-full items-center justify-center gap-2"
-                                  onClick={() => openEditUser(user)}
-                                >
-                                  <PencilLine size={16} />
-                                  تعديل
-                                </button>
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    className="ui-button ui-button--secondary inline-flex flex-1 items-center justify-center gap-2"
+                                    onClick={() => openEditUser(user)}
+                                  >
+                                    <PencilLine size={16} />
+                                    تعديل
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ui-button ui-button--danger inline-flex flex-1 items-center justify-center gap-2"
+                                    onClick={() => setDeleteUserTarget(user)}
+                                  >
+                                    <Trash2 size={16} />
+                                    أرشفة
+                                  </button>
+                                </div>
                               </article>
                             );
                           })}
@@ -1860,14 +1960,13 @@ export default function SuperAdminPage() {
                   </SectionCard>
                 ) : null}
 
-                {activeTab === "audit" ? <AuditLogTab /> : null}
-                {activeTab === "settings" ? <SettingsTab /> : null}
-                {activeTab === "roles" ? <RolesTab /> : null}
-                {activeTab === "trash" ? <TrashTab /> : null}
-                {activeTab === "notifications" ? <NotificationsTab /> : null}
-                {activeTab === "monitoring" ? <MonitoringTab /> : null}
-                {activeTab === "academic" ? <AcademicTab /> : null}
-                {activeTab === "branches" ? <BranchesTab /> : null}
+                {activeTab === "audit" ? <AuditLogTab infrastructure={infrastructure} /> : null}
+                {activeTab === "settings" ? <SettingsTab infrastructure={infrastructure} /> : null}
+                {activeTab === "roles" ? <RolesTab infrastructure={infrastructure} schools={schools.map((school) => ({ id: school.id, name: school.name }))} /> : null}
+                {activeTab === "trash" ? <TrashTab infrastructure={infrastructure} /> : null}
+                {activeTab === "notifications" ? <NotificationsTab infrastructure={infrastructure} /> : null}
+                {activeTab === "monitoring" ? <MonitoringTab infrastructure={infrastructure} /> : null}
+                {activeTab === "branches" ? <BranchesTab infrastructure={infrastructure} /> : null}
               </>
             )}
           </div>
@@ -2041,7 +2140,9 @@ export default function SuperAdminPage() {
               <div className="mb-4 space-y-1">
                 <h3 className="text-base font-black text-[var(--text-primary)]">الصلاحيات المخصصة</h3>
                 <p className="text-sm leading-7 text-[var(--text-secondary)]">
-                  عند ترك كل العناصر غير محددة سيتم اعتماد الصلاحيات الافتراضية للدور.
+                  {infrastructure.customPermissions
+                    ? "عند ترك كل العناصر غير محددة سيتم اعتماد الصلاحيات الافتراضية للدور."
+                    : "تم تعطيل الحفظ المخصص للصلاحيات لأن عمود custom_permissions غير موجود بعد في user_profiles."}
                 </p>
               </div>
 
@@ -2066,6 +2167,7 @@ export default function SuperAdminPage() {
                             <input
                               type="checkbox"
                               checked={checked}
+                              disabled={!infrastructure.customPermissions}
                               onChange={(e) => {
                                 if (e.target.checked) {
                                   setUserForm({
@@ -2112,20 +2214,20 @@ export default function SuperAdminPage() {
         </ModalFrame>
       ) : null}
 
-      {deleteTarget ? (
+      {deleteSchoolTarget ? (
         <ModalFrame
-          title="تأكيد حذف المدرسة"
-          subtitle="سيتم حذف المدرسة واشتراكاتها المرتبطة. هذا الإجراء لا يمكن التراجع عنه."
-          onClose={() => setDeleteTarget(null)}
+          title="تأكيد أرشفة المدرسة"
+          subtitle="سيتم نقل المدرسة إلى سلة المهملات بدلاً من حذفها نهائياً عند توفر أعمدة soft delete."
+          onClose={() => setDeleteSchoolTarget(null)}
         >
           <div className="space-y-5">
             <div className="rounded-[26px] border border-[rgba(240,90,90,0.18)] bg-[rgba(240,90,90,0.08)] px-4 py-4">
               <div className="mb-2 flex items-center gap-2 text-base font-black text-[var(--danger)]">
                 <AlertTriangle size={18} />
-                {deleteTarget.name}
+                {deleteSchoolTarget.name}
               </div>
               <p className="text-sm leading-7 text-[var(--text-secondary)]">
-                تأكد من عدم الحاجة إلى بيانات المدرسة قبل الحذف النهائي.
+                يمكن استعادة المدرسة لاحقاً من سلة المهملات بعد تطبيق بنية الأرشفة الكاملة.
               </p>
             </div>
 
@@ -2133,7 +2235,7 @@ export default function SuperAdminPage() {
               <button
                 type="button"
                 className="ui-button ui-button--secondary"
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => setDeleteSchoolTarget(null)}
               >
                 إلغاء
               </button>
@@ -2142,7 +2244,44 @@ export default function SuperAdminPage() {
                 className="ui-button ui-button--danger"
                 onClick={() => void handleDeleteSchool()}
               >
-                حذف المدرسة
+                أرشفة المدرسة
+              </button>
+            </div>
+          </div>
+        </ModalFrame>
+      ) : null}
+
+      {deleteUserTarget ? (
+        <ModalFrame
+          title="تأكيد أرشفة المستخدم"
+          subtitle="سيتم نقل المستخدم إلى سلة المهملات وتعطيل حسابه داخل التطبيق."
+          onClose={() => setDeleteUserTarget(null)}
+        >
+          <div className="space-y-5">
+            <div className="rounded-[26px] border border-[rgba(240,90,90,0.18)] bg-[rgba(240,90,90,0.08)] px-4 py-4">
+              <div className="mb-2 flex items-center gap-2 text-base font-black text-[var(--danger)]">
+                <AlertTriangle size={18} />
+                {deleteUserTarget.full_name || deleteUserTarget.email || "مستخدم"}
+              </div>
+              <p className="text-sm leading-7 text-[var(--text-secondary)]">
+                سيتم إخفاء المستخدم من القوائم النشطة مع إمكانية استعادته لاحقاً من سلة المهملات.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="ui-button ui-button--secondary"
+                onClick={() => setDeleteUserTarget(null)}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                className="ui-button ui-button--danger"
+                onClick={() => void handleDeleteUser()}
+              >
+                أرشفة المستخدم
               </button>
             </div>
           </div>

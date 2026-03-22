@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isMissingColumnError } from "@/lib/admin-infrastructure";
 import { ALL_PERMISSIONS, normalizePermissions, normalizeUserRole } from "@/types/roles";
 import {
   createRouteSupabaseClient,
@@ -158,7 +159,13 @@ export async function POST(req: NextRequest) {
   };
 
   // Use actorSupabase to insert profile (RLS allows super_admin to insert)
-  const { error: insertProfileError } = await actorSupabase.from("user_profiles").insert(profilePayload);
+  let { error: insertProfileError } = await actorSupabase.from("user_profiles").insert(profilePayload);
+
+  if (isMissingColumnError(insertProfileError, "user_profiles", "custom_permissions")) {
+    const legacyPayload = { ...profilePayload };
+    delete legacyPayload.custom_permissions;
+    ({ error: insertProfileError } = await actorSupabase.from("user_profiles").insert(legacyPayload));
+  }
   
   if (insertProfileError) {
     // Rollback: delete the auth user if profile creation fails

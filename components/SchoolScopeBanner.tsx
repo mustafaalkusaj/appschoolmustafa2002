@@ -8,8 +8,8 @@ type SchoolScopeBannerProps = {
 };
 
 type SchoolScopeEmptyStateProps = {
-  scope: SchoolScopeState;
-  title: string;
+  scope?: SchoolScopeState;
+  title?: string;
   description?: string;
 };
 
@@ -80,9 +80,21 @@ export function SchoolScopeBanner({ scope, className = "" }: SchoolScopeBannerPr
 
 export function SchoolScopeEmptyState({
   scope,
-  title,
+  title = "البيانات",
   description = "لن يتم تحميل أي بيانات قبل تحديد المدرسة المطلوبة لهذا القسم.",
 }: SchoolScopeEmptyStateProps) {
+  if (!scope) {
+    return (
+      <div className="rounded-[28px] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center shadow-[0_24px_60px_-36px_rgba(15,23,42,0.28)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/35">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-lg text-white shadow-lg dark:bg-slate-100 dark:text-slate-900">
+          مد
+        </div>
+        <h2 className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{`اختر مدرسة لعرض ${title}`}</h2>
+        <p className="mx-auto max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">{description}</p>
+      </div>
+    );
+  }
+
   if (!scope.isSuperAdminScope || !scope.shouldBlockContent) return null;
 
   const heading = scope.hasInvalidSelection

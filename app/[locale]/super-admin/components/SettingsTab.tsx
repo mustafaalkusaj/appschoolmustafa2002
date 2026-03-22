@@ -2,27 +2,19 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { 
-  Settings, 
   Save, 
   RefreshCw, 
-  Globe, 
-  Palette, 
   Building,
   Mail,
   Phone,
   MapPin,
-  Image as ImageIcon
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { SectionCard, cx } from "./UI";
+import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
+import { SectionCard, MigrationNotice } from "./UI";
 import { logAction } from "@/lib/audit";
 
-interface Setting {
-  key: string;
-  value: any;
-}
-
-export function SettingsTab() {
+export function SettingsTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const [settings, setSettings] = useState<Record<string, any>>({
     system_name: "نظام إدارة المدارس",
     contact_email: "support@example.com",
@@ -39,6 +31,11 @@ export function SettingsTab() {
   const [success, setSuccess] = useState("");
 
   const fetchSettings = useCallback(async () => {
+    if (!infrastructure.systemSettings) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -61,11 +58,17 @@ export function SettingsTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [infrastructure.systemSettings]);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  if (!infrastructure.systemSettings) {
+    return (
+      <MigrationNotice description="جدول `system_settings` غير موجود بعد. شغّل `admin_infrastructure.sql` لتفعيل حفظ إعدادات النظام العامة من لوحة المدير العام." />
+    );
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AppIcon } from "@/components/AppIcon";
 
 // ─── أنواع ───────────────────────────────────────────────────────────────────
@@ -178,6 +178,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const lastToastRef = useRef<{ message: string; type: ToastType; at: number } | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -188,16 +189,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const add = useCallback((message: string, type: ToastType, duration?: number) => {
+    const now = Date.now();
+    const lastToast = lastToastRef.current;
+    if (lastToast && lastToast.message === message && lastToast.type === type && now - lastToast.at < 1500) {
+      return;
+    }
+
+    lastToastRef.current = { message, type, at: now };
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setToasts(prev => [...prev.slice(-4), { id, message, type, duration }]);
   }, []);
 
-  const value: ToastContextValue = {
+  const value = useMemo<ToastContextValue>(() => ({
     success: (msg, d) => add(msg, "success", d),
     error:   (msg, d) => add(msg, "error",   d),
     warning: (msg, d) => add(msg, "warning", d),
     info:    (msg, d) => add(msg, "info",    d),
-  };
+  }), [add]);
 
   if (!isMounted) {
     return (

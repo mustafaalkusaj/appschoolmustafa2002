@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { 
   Search, 
   RefreshCw, 
-  Filter, 
   ChevronRight, 
   ChevronLeft, 
   History,
   Info
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { SectionCard, EmptyState, formatDate, statusTone, cx } from "./UI";
+import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
+import { SectionCard, EmptyState, MigrationNotice, formatDate, cx } from "./UI";
 
 interface AuditLog {
   id: string;
@@ -26,7 +26,7 @@ interface AuditLog {
 
 const PAGE_SIZE = 10;
 
-export function AuditLogTab() {
+export function AuditLogTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -73,6 +73,12 @@ export function AuditLogTab() {
   }, [fetchLogs]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  if (!infrastructure.auditLogs) {
+    return (
+      <MigrationNotice description="جدول `audit_logs` غير موجود في قاعدة البيانات الحالية. شغّل `admin_infrastructure.sql` لتفعيل سجل العمليات وتتبع الإجراءات الإدارية." />
+    );
+  }
 
   return (
     <div className="space-y-4">
