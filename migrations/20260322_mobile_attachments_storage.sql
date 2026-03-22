@@ -1,3 +1,7 @@
+-- Legacy filename note: `mobile` is kept only for migration-history compatibility.
+-- Actual scope: shared storage bucket setup and storage RLS for managed-user content.
+-- This migration is database/storage work and does not imply a mobile client lives in this repo.
+
 BEGIN;
 
 ALTER TABLE IF EXISTS public.assignments

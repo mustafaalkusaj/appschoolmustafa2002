@@ -206,6 +206,7 @@ function formatDateLabel(value: string | null | undefined) {
 function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) {
   const instructions = card.instructions.map((instruction) => `<li>${instruction}</li>`).join("");
   const classLine = [card.class_name, card.section ? `الشعبة ${card.section}` : null].filter(Boolean).join(" • ");
+  const roleLabel = card.role === "student" ? "الطالب" : "المدرس";
 
   return `
     <html dir="rtl">
@@ -321,7 +322,7 @@ function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) 
               ${card.school_logo_url ? `<img src="${card.school_logo_url}" alt="شعار المدرسة" />` : ""}
               <div>
                 <h1>${card.school_name}</h1>
-                <p>بطاقة حساب التطبيق للطالب أو المعلم</p>
+                <p>بطاقة بيانات دخول ${roleLabel}</p>
               </div>
             </div>
             <div class="hint">تم التوليد: ${formatDateLabel(card.generated_at)}</div>
@@ -657,10 +658,15 @@ export default function UsersManagementPage() {
   async function handleCopyCredentials() {
     if (!accountCard) return;
 
-    await navigator.clipboard.writeText(
-      `معرّف الدخول: ${accountCard.login_identifier}\nكلمة المرور المؤقتة: ${accountCard.temporary_password}`,
-    );
-    setSuccess("تم نسخ بيانات الدخول المؤقتة.");
+    try {
+      await navigator.clipboard.writeText(
+        `معرّف الدخول: ${accountCard.login_identifier}\nكلمة المرور المؤقتة: ${accountCard.temporary_password}`,
+      );
+      setSuccess("تم نسخ بيانات الدخول المؤقتة.");
+      setError("");
+    } catch {
+      setError("تعذر نسخ البيانات تلقائياً من المتصفح الحالي. استخدم نافذة الطباعة أو انسخها يدوياً.");
+    }
   }
 
   async function openAccountCardForUser(user: ManagedUserRecord) {
@@ -1202,7 +1208,7 @@ export default function UsersManagementPage() {
                         <Sparkles size={16} />
                         توليد تلقائي لبيانات التطبيق
                       </div>
-                      سيتم إنشاء معرّف دخول صالح لتطبيق الهاتف وكلمة مرور مؤقتة آمنة تلقائياً، ثم عرض بطاقة حساب قابلة للطباعة فور الحفظ.
+                      سيتم إنشاء مستخدم Supabase Auth حقيقي ومعرّف دخول وكلمة مرور مؤقتة آمنة تلقائياً، ثم عرض بطاقة حساب قابلة للطباعة فور الحفظ.
                     </div>
                   ) : (
                     <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-4 text-sm leading-7 text-[var(--text-secondary)]">
@@ -1509,6 +1515,23 @@ export default function UsersManagementPage() {
               </div>
 
               <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
+                {accountCard.school_logo_url ? (
+                  <div className="flex justify-center">
+                    <div className="flex items-center gap-3 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] px-5 py-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={accountCard.school_logo_url}
+                        alt="شعار المدرسة"
+                        className="h-14 w-14 rounded-[18px] border border-[var(--border)] object-contain bg-white p-2"
+                      />
+                      <div className="text-right">
+                        <div className="text-sm font-black text-[var(--text-secondary)]">المدرسة</div>
+                        <div className="text-lg font-black text-[var(--text-primary)]">{accountCard.school_name}</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-5">
                     <div className="text-sm font-black text-[var(--text-secondary)]">الاسم الكامل</div>

@@ -1,3 +1,7 @@
+-- Legacy filename note: `mobile` is kept only for migration-history compatibility.
+-- Actual scope: shared managed-user helper functions and RLS policies.
+-- This migration is database access control, not mobile UI code.
+
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.current_managed_role()

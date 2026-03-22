@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { SCHOOL_BRAND } from "@/lib/branding";
 import { isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
 import {
   MANAGED_USER_INACTIVE_BAN_DURATION,
@@ -14,6 +13,7 @@ import {
   buildManagedUserAccountCard,
   buildTeacherClassesTaught,
   decorateManagedUsers,
+  fetchManagedAccountSchoolBrand,
   generateManagedLoginIdentifier,
   generateTemporaryPassword,
   normalizeManagedUserRecord,
@@ -52,6 +52,7 @@ function normalizeNumber(value: unknown) {
 function buildImmediateAccountCard(input: {
   authUserId: string;
   schoolName: string;
+  schoolLogoUrl: string | null;
   fullName: string;
   className: string;
   section: string | null;
@@ -62,16 +63,16 @@ function buildImmediateAccountCard(input: {
     auth_user_id: input.authUserId,
     role: "student",
     school_name: input.schoolName,
-    school_logo_url: SCHOOL_BRAND.logo,
+    school_logo_url: input.schoolLogoUrl,
     full_name: input.fullName,
     class_name: input.className,
     section: input.section,
     login_identifier: input.loginIdentifier,
     temporary_password: input.temporaryPassword,
     instructions: [
-      "افتح تطبيق المدرسة على الهاتف.",
-      "أدخل معرّف الدخول وكلمة المرور المؤقتة كما هي.",
-      "إذا تعذر الدخول، اطلب من الإدارة إعادة تعيين كلمة المرور المؤقتة.",
+      "افتح شاشة تسجيل الدخول الخاصة بالحساب.",
+      "أدخل معرّف الدخول وكلمة المرور المؤقتة كما هي تماماً.",
+      "إذا تعذر الدخول، اطلب من الإدارة إعادة إصدار كلمة مرور مؤقتة جديدة.",
     ],
     generated_at: new Date().toISOString(),
   };
@@ -454,12 +455,43 @@ export async function POST(req: NextRequest) {
   }
 
   const managedProfileProbe = await actorSupabase.from("managed_user_profiles").select("auth_user_id").limit(1);
-  const useManagedProfilesTable = !isMissingTableError(managedProfileProbe.error, "managed_user_profiles");
+  if (isMissingTableError(managedProfileProbe.error, "managed_user_profiles")) {
+    return jsonError(
+      "بيئة Supabase الحالية تفتقد جدول managed_user_profiles. شغّل ملف 20260323_000000_dashboard_managed_account_schema.sql قبل إنشاء حسابات الطلاب أو المدرسين من لوحة الإدارة.",
+      500,
+      {
+        role: "إنشاء الحسابات يتطلب ملفاً تعريفياً مرتبطاً مباشرةً بالطالب أو المدرس.",
+      },
+    );
+  }
+
+  if (managedProfileProbe.error) {
+    return jsonError(managedProfileProbe.error.message || "تعذر التحقق من جدول managed_user_profiles.", 500);
+  }
+
+  const credentialsProbe = await actorSupabase
+    .from("managed_user_credentials")
+    .select("auth_user_id")
+    .limit(1);
+
+  if (isMissingTableError(credentialsProbe.error, "managed_user_credentials")) {
+    return jsonError(
+      "بيئة Supabase الحالية تفتقد جدول managed_user_credentials. شغّل ملف 20260323_000000_dashboard_managed_account_schema.sql قبل إنشاء الحسابات من لوحة الإدارة.",
+      500,
+      {
+        role: "إنشاء الحسابات من لوحة الإدارة يتطلب حفظ معرّف الدخول وكلمة المرور المؤقتة للطباعة وإعادة الإصدار.",
+      },
+    );
+  }
+
+  if (credentialsProbe.error) {
+    return jsonError(credentialsProbe.error.message || "تعذر التحقق من جدول managed_user_credentials.", 500);
+  }
+
   const teacherTableCapabilities =
     validation.value.role === "teacher" ? await getTeacherTableCapabilities(actorSupabase) : null;
   const createdAt = new Date().toISOString();
-  const { data: schoolRow } = await actorSupabase.from("schools").select("name").eq("id", targetSchoolId).maybeSingle();
-  const schoolName = (schoolRow?.name as string | null) ?? SCHOOL_BRAND.nameAr;
+  const schoolBrand = await fetchManagedAccountSchoolBrand(actorSupabase, targetSchoolId);
 
   if (validation.value.role === "student" && !branchId) {
     return jsonError("يجب إضافة فرع واحد على الأقل للمدرسة قبل إنشاء حساب طالب.", 400, {
@@ -626,19 +658,7 @@ export async function POST(req: NextRequest) {
       created_by: actorUserId,
     };
 
-    const profileInsert = useManagedProfilesTable
-      ? await actorSupabase.from("managed_user_profiles").insert(profilePayload)
-      : await serviceSupabase.from("user_profiles").insert({
-          id: authUserId,
-          school_id: targetSchoolId,
-          role: validation.value.role,
-          full_name: validation.value.full_name,
-          email: loginIdentifier,
-          phone: validation.value.phone,
-          is_active: validation.value.is_active,
-        });
-
-    const profileError = profileInsert.error;
+    const { error: profileError } = await actorSupabase.from("managed_user_profiles").insert(profilePayload);
     if (profileError) {
       await cleanupCreatedUser({
         authUserId,
@@ -651,47 +671,51 @@ export async function POST(req: NextRequest) {
     }
 
     if (validation.value.role === "teacher" && relatedRecordId) {
-      await replaceTeacherAssignments(actorSupabase, {
-        schoolId: targetSchoolId,
-        teacherId: relatedRecordId,
-        assignments: validation.value.teacher?.assignments ?? [],
-      });
-    }
+      try {
+        await replaceTeacherAssignments(actorSupabase, {
+          schoolId: targetSchoolId,
+          teacherId: relatedRecordId,
+          assignments: validation.value.teacher?.assignments ?? [],
+        });
+      } catch (assignmentError) {
+        await cleanupCreatedUser({
+          authUserId,
+          actorSupabase,
+          role: validation.value.role,
+          relatedRecordId,
+        });
 
-    try {
-      await upsertManagedUserCredential(actorSupabase, {
-        authUserId,
-        schoolId: targetSchoolId,
-        loginIdentifier,
-        temporaryPassword,
-      });
-    } catch (credentialError) {
-      if (!isMissingTableError(credentialError, "managed_user_credentials")) {
-        throw credentialError;
+        return jsonError(
+          assignmentError instanceof Error ? assignmentError.message : "تعذر حفظ تكليفات المدرس.",
+          400,
+          {
+            teacher: "تعذر ربط تكليفات المدرس الحالية بإعدادات الصفوف والمواد.",
+          },
+        );
       }
     }
+
+    await upsertManagedUserCredential(actorSupabase, {
+      authUserId,
+      schoolId: targetSchoolId,
+      loginIdentifier,
+      temporaryPassword,
+    });
 
     let decoratedUser: ManagedUserRecord | null = null;
     let accountCard: ManagedUserAccountCard | null = null;
 
-    if (useManagedProfilesTable) {
-      const { data: createdUser, error: fetchError } = await actorSupabase
-        .from("managed_user_profiles")
-        .select(MANAGED_USER_SELECT)
-        .eq("auth_user_id", authUserId)
-        .maybeSingle();
+    const { data: createdUser, error: fetchError } = await actorSupabase
+      .from("managed_user_profiles")
+      .select(MANAGED_USER_SELECT)
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
 
-      if (fetchError) {
-        return jsonError(fetchError.message || "تم إنشاء الحساب لكن تعذر تحميله.", 500);
-      }
-
+    if (!fetchError && createdUser) {
       [decoratedUser] = await decorateManagedUsers(
         actorSupabase,
-        createdUser ? [normalizeManagedUserRecord(createdUser as Record<string, unknown>)] : [],
+        [normalizeManagedUserRecord(createdUser as Record<string, unknown>)],
       );
-      accountCard = validation.value.role === "student" && decoratedUser
-        ? await buildManagedUserAccountCard(actorSupabase, decoratedUser)
-        : null;
     } else {
       decoratedUser = buildImmediateManagedUser({
         authUserId,
@@ -736,18 +760,25 @@ export async function POST(req: NextRequest) {
               }
             : null,
       });
-      accountCard =
-        validation.value.role === "student"
-          ? buildImmediateAccountCard({
-              authUserId,
-              schoolName,
-              fullName: validation.value.full_name,
-              className: validation.value.student!.class_name,
-              section: validation.value.student!.section,
-              loginIdentifier,
-              temporaryPassword,
-            })
+    }
+
+    if (validation.value.role === "student") {
+      try {
+        accountCard = decoratedUser
+          ? await buildManagedUserAccountCard(actorSupabase, decoratedUser)
           : null;
+      } catch {
+        accountCard = buildImmediateAccountCard({
+          authUserId,
+          schoolName: schoolBrand.schoolName,
+          schoolLogoUrl: schoolBrand.schoolLogoUrl,
+          fullName: validation.value.full_name,
+          className: validation.value.student!.class_name,
+          section: validation.value.student!.section,
+          loginIdentifier,
+          temporaryPassword,
+        });
+      }
     }
 
     return NextResponse.json(

@@ -1,3 +1,6 @@
+-- Shared Supabase bootstrap for the web admin app and shared backend/domain logic.
+-- This file is database-only and should not be used to justify mobile UI code in this repo.
+
 -- ملاحظة: هذا السكربت مكتوب لـ PostgreSQL (Supabase) وليس SQL Server / MySQL.
 -- تأكد من تشغيله داخل Supabase Dashboard → SQL Editor.
 

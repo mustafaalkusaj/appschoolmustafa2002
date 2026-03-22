@@ -1,3 +1,7 @@
+-- Legacy filename note: `mobile` is kept only for migration-history compatibility.
+-- Actual scope: shared managed-user auth/domain tables, notifications, assignments, and grades.
+-- This migration is backend/schema work and does not imply Expo, React Native, iOS, or Android code.
+
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

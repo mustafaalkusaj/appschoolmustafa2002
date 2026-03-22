@@ -1,6 +1,6 @@
-# حزمة Figma Handoff
+# Web Admin Figma Handoff
 
-هذه الحزمة تحوّل واجهة `school-app` الحالية إلى مرجع تصميم جاهز لإعادة البناء داخل `Figma`.
+هذه الحزمة تحوّل واجهة الويب الإدارية الحالية في `school-app` إلى مرجع تصميم جاهز لإعادة البناء داخل `Figma`.
 
 المحتوى الموجود هنا يغطي 3 أشياء طلبتها:
 
@@ -31,12 +31,11 @@
 - `tokens/figma-design-tokens.json`
   ملف توكنز جاهز كمرجع عند إنشاء `Variables` و`Styles` داخل Figma
 
-## مقاس الفريمات المقترح
+## مقاسات الفريمات المقترحة
 
 - `Desktop App Shell`: `1440 x 1024`
 - `Desktop Wide`: `1600 x 1200`
 - `Tablet`: `1024 x 768`
-- `Mobile Auth / Gates`: `390 x 844`
 
 ## ترتيب العمل داخل Figma
 
@@ -71,4 +70,3 @@
 7. `06 Super Admin`
 8. `07 Prototype`
 9. `99 Notes`
-

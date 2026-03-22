@@ -77,6 +77,48 @@ export type ManagedUsersActorContext = {
   targetSchoolId: string;
 };
 
+function resolveSchoolLogoFromRecord(record: Record<string, unknown> | null | undefined) {
+  const candidates = [
+    record?.logo_url,
+    record?.logo,
+    record?.school_logo_url,
+    record?.brand_logo_url,
+    record?.image_url,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return SCHOOL_BRAND.logo;
+}
+
+export async function fetchManagedAccountSchoolBrand(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+) {
+  const { data, error } = await actorSupabase
+    .from("schools")
+    .select("*")
+    .eq("id", schoolId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const schoolRecord = (data ?? null) as Record<string, unknown> | null;
+  const schoolName =
+    (typeof schoolRecord?.name === "string" && schoolRecord.name.trim()) || SCHOOL_BRAND.nameAr;
+
+  return {
+    schoolName,
+    schoolLogoUrl: resolveSchoolLogoFromRecord(schoolRecord),
+  };
+}
+
 export async function resolveManagedUsersActorContext(
   requestedSchoolId?: string | null,
 ): Promise<
@@ -699,30 +741,22 @@ export async function buildManagedUserAccountCard(
     throw new Error("لا توجد كلمة مرور مؤقتة محفوظة لهذا الحساب. أعد تعيين كلمة المرور المؤقتة أولاً.");
   }
 
-  const { data: schoolRow, error: schoolError } = await actorSupabase
-    .from("schools")
-    .select("name")
-    .eq("id", user.school_id)
-    .maybeSingle();
-
-  if (schoolError) {
-    throw schoolError;
-  }
+  const schoolBrand = await fetchManagedAccountSchoolBrand(actorSupabase, user.school_id);
 
   return {
     auth_user_id: user.auth_user_id,
     role: user.role,
-    school_name: (schoolRow?.name as string | null) ?? SCHOOL_BRAND.nameAr,
-    school_logo_url: SCHOOL_BRAND.logo,
+    school_name: schoolBrand.schoolName,
+    school_logo_url: schoolBrand.schoolLogoUrl,
     full_name: user.full_name,
     class_name: user.student?.class_name ?? null,
     section: user.student?.section ?? null,
     login_identifier: credential.login_identifier,
     temporary_password: credential.temporary_password,
     instructions: [
-      "افتح تطبيق المدرسة على الهاتف.",
-      "أدخل معرّف الدخول وكلمة المرور المؤقتة كما هي.",
-      "إذا تعذر الدخول، اطلب من الإدارة إعادة تعيين كلمة المرور المؤقتة.",
+      "افتح شاشة تسجيل الدخول الخاصة بالحساب.",
+      "أدخل معرّف الدخول وكلمة المرور المؤقتة كما هي تماماً.",
+      "إذا تعذر الدخول، اطلب من الإدارة إعادة إصدار كلمة مرور مؤقتة جديدة.",
     ],
     generated_at: new Date().toISOString(),
   } satisfies ManagedUserAccountCard;

@@ -48,7 +48,6 @@
 ### 03 Auth & Gates
 
 - `Login / Desktop`
-- `Login / Mobile`
 - `Access Denied`
 - `Subscription Expired`
 - `Not Found`

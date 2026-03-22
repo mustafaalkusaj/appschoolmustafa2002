@@ -1,4 +1,7 @@
 
+-- Shared admin infrastructure for Supabase: audit logs, notifications, feature flags, and soft-delete support.
+-- This file is database-only and is intentionally separate from any client UI implementation.
+
 -- ============================================================================
 -- 1. AUDIT LOG SYSTEM
 -- ============================================================================
