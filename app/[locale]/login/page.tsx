@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import {
   getAccessDecision,
   getDefaultRouteForRole,
-  getUserProfile,
+  getUserProfileById,
   refreshRBACSessionCookie,
   signOutClient,
 } from "@/lib/auth";
@@ -56,7 +56,7 @@ export default function LoginPage() {
       return;
     }
 
-    const profile = await getUserProfile();
+    const profile = await getUserProfileById(data.user.id);
     if (!profile) {
       setError(t("auth.profileLoadError"));
       setLoading(false);

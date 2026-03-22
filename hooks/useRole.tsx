@@ -73,7 +73,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      void refreshProfile();
+      // Supabase auth callbacks run while the client is holding an internal
+      // auth lock. Defer profile refresh to avoid stalling login/logout flows.
+      window.setTimeout(() => {
+        void refreshProfile();
+      }, 0);
     });
 
     return () => subscription.unsubscribe();
