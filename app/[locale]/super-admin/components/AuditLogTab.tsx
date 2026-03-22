@@ -25,6 +25,11 @@ interface AuditLog {
 }
 
 const PAGE_SIZE = 10;
+const ENTITY_LABELS: Record<string, string> = {
+  school: "مدرسة",
+  user: "مستخدم",
+  subscription: "اشتراك",
+};
 
 export function AuditLogTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -126,7 +131,6 @@ export function AuditLogTab({ infrastructure }: { infrastructure: AdminInfrastru
               <option value="school">المدارس</option>
               <option value="user">المستخدمون</option>
               <option value="subscription">الاشتراكات</option>
-              <option value="setting">الإعدادات</option>
             </select>
             <button
               type="button"
@@ -188,10 +192,7 @@ export function AuditLogTab({ infrastructure }: { infrastructure: AdminInfrastru
                     </td>
                     <td>
                       <span className="text-xs font-bold text-[var(--text-secondary)]">
-                        {log.entity_type === "school" ? "مدرسة" :
-                         log.entity_type === "user" ? "مستخدم" :
-                         log.entity_type === "subscription" ? "اشتراك" :
-                         log.entity_type === "setting" ? "إعدادات" : log.entity_type}
+                        {ENTITY_LABELS[log.entity_type] ?? "عنصر آخر"}
                       </span>
                     </td>
                     <td className="max-w-xs truncate text-xs font-semibold text-[var(--text-secondary)]">

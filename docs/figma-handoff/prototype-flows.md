@@ -8,7 +8,6 @@
    - `super_admin` → `Super Admin`
    - `admin` → `Dashboard`
    - `employee` → `Dashboard`
-   - `teacher` → `Dashboard`
 
 حالات بديلة:
 
@@ -51,20 +50,7 @@
 - مراجعة المتبقي
 - طباعة الإيصال
 
-## Flow 4: Teacher Read-Only Workflow
-
-1. `Dashboard`
-2. `Students`
-3. `Payments`
-4. `Salaries`
-
-ملاحظات:
-
-- teacher يدخل بقراءة فقط في بعض المسارات
-- في prototype استخدم badges توضح `Read Only`
-- أخفِ أزرار الإنشاء والحذف والتعديل في variant خاص بالدور
-
-## Flow 5: Super Admin Operations
+## Flow 4: Super Admin Operations
 
 1. `Super Admin`
 2. `Schools`
@@ -111,6 +97,4 @@
 - `Start / Public`: `Login`
 - `Start / Admin`: `Dashboard`
 - `Start / Employee`: `Payments`
-- `Start / Teacher`: `Dashboard`
 - `Start / Super Admin`: `Super Admin`
-

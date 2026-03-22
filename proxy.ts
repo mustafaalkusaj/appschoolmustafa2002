@@ -59,7 +59,7 @@ function normalizeLocaleInPath(req: NextRequest): NextResponse | null {
   return null;
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const normalizedLocaleResponse = normalizeLocaleInPath(req);
   if (normalizedLocaleResponse) return normalizedLocaleResponse;
 

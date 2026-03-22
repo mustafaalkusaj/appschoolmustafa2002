@@ -1,21 +1,8 @@
 import type { Metadata } from "next";
-import { Cairo, Manrope } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import "./globals.css";
 import { APP_LOCALE } from "@/lib/locale-routing";
 import { SCHOOL_BRAND } from "@/lib/branding";
-
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const cairo = Cairo({
-  variable: "--font-cairo",
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
 
 export const metadata: Metadata = {
   title: SCHOOL_BRAND.nameAr,
@@ -35,7 +22,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider locale={APP_LOCALE} messages={messages}>
-      <div className={`${manrope.variable} ${cairo.variable} antialiased`}>{children}</div>
+      <div className="antialiased">{children}</div>
     </NextIntlClientProvider>
   );
 }

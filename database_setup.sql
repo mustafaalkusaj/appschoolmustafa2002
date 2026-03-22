@@ -152,19 +152,6 @@ WHERE NOT EXISTS (
   WHERE sub.school_id = s.id
 );
 
-CREATE TABLE IF NOT EXISTS salary_archives (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-  month TEXT NOT NULL,
-  total_teachers INTEGER NOT NULL DEFAULT 0,
-  total_amount NUMERIC NOT NULL DEFAULT 0,
-  data JSONB NOT NULL DEFAULT '{}'::jsonb,
-  archive_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_salary_archives_school_id ON salary_archives(school_id);
-CREATE INDEX IF NOT EXISTS idx_salary_archives_month ON salary_archives(month);
-
 CREATE TABLE IF NOT EXISTS account_archives (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
@@ -185,7 +172,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   full_name TEXT NULL,
   email TEXT NULL,
   phone TEXT NULL,
-  role TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('super_admin', 'admin', 'manager', 'accountant', 'owner', 'employee', 'teacher')),
+  role TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('super_admin', 'admin', 'manager', 'accountant', 'owner', 'employee')),
   school_id UUID NULL REFERENCES schools(id) ON DELETE SET NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   custom_permissions TEXT[] NULL,
@@ -346,8 +333,6 @@ BEGIN
     SELECT unnest(ARRAY[
       'students',
       'payments',
-      'teachers',
-      'salaries',
       'expenses',
       'daily_lectures',
       'branches',
@@ -355,7 +340,6 @@ BEGIN
       'lesson_times',
       'lecture_prices',
       'deductions',
-      'salary_archives',
       'account_archives',
       'expense_types',
       'classes',

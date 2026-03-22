@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  --font-cairo: Tahoma;
+  --font-manrope: "Segoe UI";
   --background: #f5f7fb;
   --foreground: #111827;
   --surface: rgba(255, 255, 255, 0.78);
@@ -32,14 +34,14 @@
   --radius-pill: 999px;
   --glass-blur: 24px;
   --grid-line: rgba(79, 140, 255, 0.08);
-  --font-ui: var(--font-cairo), var(--font-manrope), "Segoe UI", sans-serif;
+  --font-ui: var(--font-cairo), var(--font-manrope), Arial, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-cairo), var(--font-manrope), "Segoe UI", sans-serif;
-  --font-mono: var(--font-manrope), monospace;
+  --font-sans: var(--font-cairo), var(--font-manrope), Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 html.dark {

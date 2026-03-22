@@ -1,22 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -79,6 +66,23 @@ import { MonitoringTab } from "./components/MonitoringTab";
 import { BranchesTab } from "./components/BranchesTab";
 import { logAction } from "@/lib/audit";
 import { exportToCSV } from "@/lib/export";
+
+const chartSkeleton = () => <div className="sk h-full w-full rounded-[24px]" />;
+
+const PlanDistributionChart = dynamic(
+  () => import("./components/OverviewCharts").then((module) => module.PlanDistributionChart),
+  { ssr: false, loading: chartSkeleton },
+);
+
+const RoleDistributionChart = dynamic(
+  () => import("./components/OverviewCharts").then((module) => module.RoleDistributionChart),
+  { ssr: false, loading: chartSkeleton },
+);
+
+const SubscriptionHealthPieChart = dynamic(
+  () => import("./components/OverviewCharts").then((module) => module.SubscriptionHealthPieChart),
+  { ssr: false, loading: chartSkeleton },
+);
 
 type ActiveTab = 
   | "overview" 
@@ -1278,27 +1282,7 @@ export default function SuperAdminPage() {
                               </p>
                             </div>
                             <div className="h-[270px]">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={planData}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                                  <XAxis dataKey="name" axisLine={false} tickLine={false} stroke="var(--text-tertiary)" />
-                                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} stroke="var(--text-tertiary)" />
-                                  <Tooltip
-                                    cursor={{ fill: "rgba(79,140,255,0.06)" }}
-                                    contentStyle={{
-                                      borderRadius: 18,
-                                      border: "1px solid var(--border)",
-                                      background: "var(--surface-strong)",
-                                      boxShadow: "var(--shadow-sm)",
-                                    }}
-                                  />
-                                  <Bar dataKey="value" radius={[14, 14, 0, 0]}>
-                                    {planData.map((entry) => (
-                                      <Cell key={entry.name} fill={entry.fill} />
-                                    ))}
-                                  </Bar>
-                                </BarChart>
-                              </ResponsiveContainer>
+                              <PlanDistributionChart data={planData} />
                             </div>
                           </div>
 
@@ -1310,34 +1294,7 @@ export default function SuperAdminPage() {
                               </p>
                             </div>
                             <div className="h-[270px]">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={roleData}>
-                                  <defs>
-                                    <linearGradient id="roleArea" x1="0" x2="0" y1="0" y2="1">
-                                      <stop offset="0%" stopColor="#4F8CFF" stopOpacity={0.42} />
-                                      <stop offset="100%" stopColor="#4F8CFF" stopOpacity={0.04} />
-                                    </linearGradient>
-                                  </defs>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                                  <XAxis dataKey="name" axisLine={false} tickLine={false} stroke="var(--text-tertiary)" />
-                                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} stroke="var(--text-tertiary)" />
-                                  <Tooltip
-                                    contentStyle={{
-                                      borderRadius: 18,
-                                      border: "1px solid var(--border)",
-                                      background: "var(--surface-strong)",
-                                      boxShadow: "var(--shadow-sm)",
-                                    }}
-                                  />
-                                  <Area
-                                    type="monotone"
-                                    dataKey="value"
-                                    stroke="#4F8CFF"
-                                    fill="url(#roleArea)"
-                                    strokeWidth={3}
-                                  />
-                                </AreaChart>
-                              </ResponsiveContainer>
+                              <RoleDistributionChart data={roleData} />
                             </div>
                           </div>
                         </div>
@@ -1349,30 +1306,7 @@ export default function SuperAdminPage() {
                       >
                         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
                           <div className="h-[260px] rounded-[28px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={subscriptionHealthData}
-                                  dataKey="value"
-                                  nameKey="name"
-                                  innerRadius={58}
-                                  outerRadius={92}
-                                  paddingAngle={4}
-                                >
-                                  {subscriptionHealthData.map((entry) => (
-                                    <Cell key={entry.name} fill={entry.fill} />
-                                  ))}
-                                </Pie>
-                                <Tooltip
-                                  contentStyle={{
-                                    borderRadius: 18,
-                                    border: "1px solid var(--border)",
-                                    background: "var(--surface-strong)",
-                                    boxShadow: "var(--shadow-sm)",
-                                  }}
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
+                            <SubscriptionHealthPieChart data={subscriptionHealthData} />
                           </div>
 
                           <div className="space-y-3">

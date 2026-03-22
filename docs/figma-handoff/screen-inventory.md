@@ -52,7 +52,6 @@
   - `super_admin`
   - `admin`
   - `employee`
-  - `teacher`
 - Blocks:
   - top header with logo and current user
   - responsive cards grid
@@ -70,10 +69,9 @@
   - `super_admin`
   - `admin`
   - `employee`
-  - `teacher`
 - Main blocks:
   - app shell
-  - topbar with title + academic year
+  - topbar with title + school context
   - metrics
   - finance charts
   - class fees management
@@ -88,7 +86,6 @@
   - `super_admin`
   - `admin`
   - `employee`
-  - `teacher` read only
 - Main blocks:
   - topbar + total count
   - status tabs
@@ -173,28 +170,6 @@
   - export buttons
   - print flows
   - full printable report layout
-
-### 11. Salaries
-
-- Route: `/ar/salaries`
-- Source: `app/[locale]/salaries/page.tsx`
-- Roles:
-  - `super_admin`
-  - `admin`
-  - `teacher` read only in access rules
-- Main blocks:
-  - topbar + active teachers count
-  - sectioned workspace with tabs/sections
-  - teacher management
-  - salary payment flow
-  - weekly schedule
-  - lecture prices
-  - lesson times
-  - daily log
-  - deductions
-  - exports / printing
-  - archive month flow
-  - many management modals
 
 ## Super Admin
 
@@ -282,4 +257,3 @@
   - `success`
   - `error`
   - `default`
-

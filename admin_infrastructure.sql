@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   actor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   actor_name TEXT,
   actor_email TEXT,
-  action_type TEXT NOT NULL, -- create, update, delete, login, logout, settings_change, role_change, etc.
-  entity_type TEXT NOT NULL, -- school, user, subscription, setting, etc.
+  action_type TEXT NOT NULL, -- create, update, delete, login, logout, role_change, etc.
+  entity_type TEXT NOT NULL, -- school, user, subscription, notification, etc.
   entity_id TEXT,
   summary TEXT NOT NULL,
   metadata JSONB DEFAULT '{}'::jsonb,
@@ -35,31 +35,7 @@ USING (public.current_app_role() = 'super_admin')
 WITH CHECK (public.current_app_role() = 'super_admin');
 
 -- ============================================================================
--- 2. SYSTEM / SCHOOL SETTINGS
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS system_settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id UUID REFERENCES schools(id) ON DELETE CASCADE, -- NULL for global system settings
-  key TEXT NOT NULL,
-  value JSONB NOT NULL,
-  description TEXT,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(school_id, key)
-);
-
-ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS system_settings_super_admin_all ON system_settings;
-CREATE POLICY system_settings_super_admin_all
-ON system_settings
-FOR ALL
-TO authenticated
-USING (public.current_app_role() = 'super_admin')
-WITH CHECK (public.current_app_role() = 'super_admin');
-
--- ============================================================================
--- 3. NOTIFICATIONS
+-- 2. NOTIFICATIONS
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -89,33 +65,7 @@ USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
 -- ============================================================================
--- 4. ACADEMIC YEARS
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS academic_years (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-  name TEXT NOT NULL, -- e.g., "2025-2026"
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  is_current BOOLEAN NOT NULL DEFAULT FALSE,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed', 'planned')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(school_id, name)
-);
-
-ALTER TABLE academic_years ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS academic_years_super_admin_all ON academic_years;
-CREATE POLICY academic_years_super_admin_all
-ON academic_years
-FOR ALL
-TO authenticated
-USING (public.current_app_role() = 'super_admin')
-WITH CHECK (public.current_app_role() = 'super_admin');
-
--- ============================================================================
--- 5. FEATURE FLAGS
+-- 3. FEATURE FLAGS
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS feature_flags (
@@ -137,7 +87,7 @@ USING (public.current_app_role() = 'super_admin')
 WITH CHECK (public.current_app_role() = 'super_admin');
 
 -- ============================================================================
--- 6. SOFT DELETE SUPPORT
+-- 4. SOFT DELETE SUPPORT
 -- ============================================================================
 
 -- Function to handle soft delete
@@ -164,8 +114,6 @@ BEGIN
       'user_profiles',
       'students',
       'payments',
-      'teachers',
-      'salaries',
       'expenses',
       'branches'
     ])
@@ -179,7 +127,7 @@ END
 $$;
 
 -- ============================================================================
--- 7. ROLES EXTENSION (Optional metadata for roles)
+-- 5. ROLES EXTENSION (Optional metadata for roles)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS custom_roles (

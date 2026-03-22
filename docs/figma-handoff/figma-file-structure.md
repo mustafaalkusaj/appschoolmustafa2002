@@ -62,7 +62,6 @@
 - `Attendance`
 - `Expenses`
 - `Reports`
-- `Salaries`
 
 ### 05 Super Admin
 
@@ -78,7 +77,6 @@
 - `Auth Flow`
 - `Admin Daily Flow`
 - `Employee Collection Flow`
-- `Teacher Read-Only Flow`
 - `Super Admin Flow`
 
 ### 99 Notes
@@ -97,7 +95,6 @@
 - `SCR / Students / Add Modal`
 - `SCR / Payments / Default`
 - `SCR / Payments / Archive Detail`
-- `SCR / Salaries / Daily Log Modal`
 - `SCR / Super Admin / Overview`
 
 ## الـ Components Sets
@@ -144,6 +141,4 @@
 - `FLOW / Login`
 - `FLOW / Admin`
 - `FLOW / Employee`
-- `FLOW / Teacher`
 - `FLOW / Super Admin`
-

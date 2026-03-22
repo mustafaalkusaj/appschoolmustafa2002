@@ -63,13 +63,6 @@ const DEFAULT_USERS = [
     full_name: "School Employee",
     role: "employee",
   },
-  {
-    key: "teacher",
-    email: env.SEED_TEACHER_EMAIL || "teacher@schoolapp.com",
-    password: env.SEED_TEACHER_PASSWORD || "Teacher@12345",
-    full_name: "School Teacher",
-    role: "teacher",
-  },
 ];
 
 async function ensureSchoolAndSubscription() {
