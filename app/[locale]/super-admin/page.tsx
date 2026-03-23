@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -49,9 +49,11 @@ import {
 import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import {
+  type AdminInfrastructure,
   DEFAULT_ADMIN_INFRASTRUCTURE,
   detectAdminInfrastructure,
   getAdminInfrastructureNotice,
+  isInfrastructureCompatError,
 } from "@/lib/admin-infrastructure";
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
@@ -167,6 +169,27 @@ const TAB_ITEMS: Array<{
   { id: "monitoring", label: "مراقبة النظام", hint: "الصحة والتشغيل", icon: Activity },
   { id: "branches", label: "الفروع", hint: "إدارة فروع المدارس", icon: GitBranch },
 ];
+
+function isTabAvailable(tab: ActiveTab, infrastructure: AdminInfrastructure) {
+  switch (tab) {
+    case "audit":
+      return infrastructure.auditLogs;
+    case "roles":
+      return infrastructure.customRoles;
+    case "trash":
+      return (
+        infrastructure.softDeleteSchools ||
+        infrastructure.softDeleteUsers ||
+        (infrastructure.branches && infrastructure.softDeleteBranches)
+      );
+    case "notifications":
+      return infrastructure.notifications;
+    case "branches":
+      return infrastructure.branches;
+    default:
+      return true;
+  }
+}
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -629,15 +652,28 @@ export default function SuperAdminPage() {
 
         if (subscriptionError) throw subscriptionError;
 
-        const { error: branchError } = await supabase.from("branches").insert({
-          school_id: newSchool.id,
-          name: "الفرع الرئيسي",
-          is_main: true,
-        });
+        let branchSkipped = !infrastructure.branches;
+        if (!branchSkipped) {
+          const { error: branchError } = await supabase.from("branches").insert({
+            school_id: newSchool.id,
+            name: "الفرع الرئيسي",
+            is_main: true,
+          });
 
-        if (branchError) throw branchError;
+          if (branchError) {
+            if (isInfrastructureCompatError(branchError)) {
+              branchSkipped = true;
+            } else {
+              throw branchError;
+            }
+          }
+        }
 
-        flashSuccess("تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي.");
+        flashSuccess(
+          branchSkipped
+            ? "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي. تم تجاوز إنشاء الفرع الرئيسي لأن بنية الفروع غير متاحة حالياً."
+            : "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي.",
+        );
       }
 
       setShowSchoolForm(false);
@@ -853,6 +889,18 @@ export default function SuperAdminPage() {
       .some((value) => value!.toLowerCase().includes(normalizedQuery));
   });
 
+  const availableTabs = useMemo(
+    () => TAB_ITEMS.filter((item) => isTabAvailable(item.id, infrastructure)),
+    [infrastructure],
+  );
+
+  useEffect(() => {
+    if (availableTabs.length === 0) return;
+    if (!availableTabs.some((item) => item.id === activeTab)) {
+      setActiveTab(availableTabs[0].id);
+    }
+  }, [activeTab, availableTabs]);
+
   const planData = [
     {
       name: "أساسية",
@@ -894,7 +942,7 @@ export default function SuperAdminPage() {
 
   const recentSchools = schools.slice(0, 4);
   const recentUsers = users.slice(0, 5);
-  const tabMeta = TAB_ITEMS.find((item) => item.id === activeTab) ?? TAB_ITEMS[0];
+  const tabMeta = availableTabs.find((item) => item.id === activeTab) ?? availableTabs[0] ?? TAB_ITEMS[0];
 
   return (
     <div className="relative min-h-dvh overflow-hidden">
@@ -936,7 +984,7 @@ export default function SuperAdminPage() {
           </div>
 
           <div className="space-y-1">
-            {TAB_ITEMS.map((item) => {
+            {availableTabs.map((item) => {
               const Icon = item.icon;
               const isActive = item.id === activeTab;
 
@@ -1001,6 +1049,13 @@ export default function SuperAdminPage() {
           </div>
 
           <div className="mt-auto space-y-3">
+            <ThemeModeToggle
+              variant="inline"
+              className="sidebar-theme-switch w-full"
+              showLabels={!sidebarCollapsed}
+              compact={sidebarCollapsed}
+            />
+
             <div className={cx("rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3", sidebarCollapsed && "p-2")}>
               {!sidebarCollapsed ? (
                 <div className="space-y-2">
@@ -1089,20 +1144,21 @@ export default function SuperAdminPage() {
 
                   <button
                     type="button"
-                    className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                    className="ui-button ui-button--secondary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => setActiveTab("notifications")}
-                    title="التنبيهات"
+                    title={infrastructure.notifications ? "التنبيهات" : "التنبيهات غير متاحة في بيئة قاعدة البيانات الحالية"}
+                    disabled={!infrastructure.notifications}
                   >
                     <Bell size={18} />
-                    <span className="hidden sm:inline">التنبيهات</span>
-                    {expiringSoon.length > 0 ? (
+                    <span className="hidden sm:inline">
+                      {infrastructure.notifications ? "التنبيهات" : "التنبيهات غير متاحة"}
+                    </span>
+                    {infrastructure.notifications && expiringSoon.length > 0 ? (
                       <span className="ui-pill ui-pill--warning min-h-0 px-2 py-1 text-[11px]">
                         {expiringSoon.length}
                       </span>
                     ) : null}
                   </button>
-
-                  <ThemeModeToggle variant="inline" showLabels={false} compact />
 
                   <details className="relative">
                     <summary className="list-none">

@@ -5,6 +5,7 @@ type ProbeClient = {
 };
 
 export interface AdminInfrastructure {
+  branches: boolean;
   softDeleteSchools: boolean;
   softDeleteUsers: boolean;
   softDeleteBranches: boolean;
@@ -16,13 +17,14 @@ export interface AdminInfrastructure {
 }
 
 export const DEFAULT_ADMIN_INFRASTRUCTURE: AdminInfrastructure = {
-  softDeleteSchools: true,
-  softDeleteUsers: true,
-  softDeleteBranches: true,
-  customPermissions: true,
-  customRoles: true,
-  auditLogs: true,
-  notifications: true,
+  branches: false,
+  softDeleteSchools: false,
+  softDeleteUsers: false,
+  softDeleteBranches: false,
+  customPermissions: false,
+  customRoles: false,
+  auditLogs: false,
+  notifications: false,
   warnings: [],
 };
 
@@ -32,14 +34,32 @@ function getErrorMessage(error: unknown) {
     : "";
 }
 
+function getErrorCode(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: string }).code || "")
+    : "";
+}
+
 export function isMissingTableError(error: unknown, tableName?: string) {
-  const message = getErrorMessage(error);
+  const message = getErrorMessage(error).toLowerCase();
+  const code = getErrorCode(error);
+  const normalizedTableName = tableName?.toLowerCase();
+
+  const mentionsTable =
+    !normalizedTableName ||
+    message.includes(`public.${normalizedTableName}`) ||
+    message.includes(`'${normalizedTableName}'`) ||
+    message.includes(`"${normalizedTableName}"`) ||
+    message.includes(normalizedTableName);
+
   return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "PGRST205" &&
-    (!tableName || message.includes(`public.${tableName}`) || message.includes(`'${tableName}'`))
+    mentionsTable &&
+    (
+      code === "PGRST205" ||
+      code === "42P01" ||
+      message.includes("could not find the table") ||
+      message.includes("relation") && message.includes("does not exist")
+    )
   );
 }
 
@@ -48,12 +68,9 @@ export function isMissingColumnError(
   tableName?: string,
   columnName?: string,
 ) {
-  const message = getErrorMessage(error);
-  if (!(typeof error === "object" && error !== null && "code" in error)) {
-    return false;
-  }
-
-  if ((error as { code?: string }).code !== "42703") {
+  const message = getErrorMessage(error).toLowerCase();
+  const code = getErrorCode(error);
+  if (code !== "42703" && code !== "PGRST204") {
     return false;
   }
 
@@ -61,7 +78,7 @@ export function isMissingColumnError(
     return true;
   }
 
-  const parts = [tableName, columnName].filter(Boolean);
+  const parts = [tableName, columnName].filter(Boolean).map((part) => String(part).toLowerCase());
   return parts.every((part) => message.includes(String(part)));
 }
 
@@ -92,6 +109,7 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
   const [
     schoolSoftDeleteError,
     userSoftDeleteError,
+    branchesTableError,
     branchSoftDeleteError,
     customPermissionsError,
     customRolesError,
@@ -100,6 +118,7 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
   ] = await Promise.all([
     probe(() => client.from("schools").select("id").is("deleted_at", null).limit(1)),
     probe(() => client.from("user_profiles").select("id").is("deleted_at", null).limit(1)),
+    probe(() => client.from("branches").select("id").limit(1)),
     probe(() => client.from("branches").select("id").is("deleted_at", null).limit(1)),
     probe(() => client.from("user_profiles").select("id, custom_permissions").limit(1)),
     probe(() => client.from("custom_roles").select("id").limit(1)),
@@ -107,10 +126,19 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
     probe(() => client.from("notifications").select("id").limit(1)),
   ]);
 
+  const branches = !isMissingTableError(branchesTableError, "branches");
   const infrastructure: AdminInfrastructure = {
-    softDeleteSchools: !isMissingColumnError(schoolSoftDeleteError, "schools", "deleted_at"),
-    softDeleteUsers: !isMissingColumnError(userSoftDeleteError, "user_profiles", "deleted_at"),
-    softDeleteBranches: !isMissingColumnError(branchSoftDeleteError, "branches", "deleted_at"),
+    branches,
+    softDeleteSchools:
+      !isMissingTableError(schoolSoftDeleteError, "schools") &&
+      !isMissingColumnError(schoolSoftDeleteError, "schools", "deleted_at"),
+    softDeleteUsers:
+      !isMissingTableError(userSoftDeleteError, "user_profiles") &&
+      !isMissingColumnError(userSoftDeleteError, "user_profiles", "deleted_at"),
+    softDeleteBranches:
+      branches &&
+      !isMissingTableError(branchSoftDeleteError, "branches") &&
+      !isMissingColumnError(branchSoftDeleteError, "branches", "deleted_at"),
     customPermissions: !isMissingColumnError(customPermissionsError, "user_profiles", "custom_permissions"),
     customRoles: !isMissingTableError(customRolesError, "custom_roles"),
     auditLogs: !isMissingTableError(auditLogsError, "audit_logs"),
@@ -120,8 +148,20 @@ export async function detectAdminInfrastructure(client: ProbeClient): Promise<Ad
 
   const warnings: string[] = [];
 
-  if (!infrastructure.softDeleteSchools || !infrastructure.softDeleteUsers || !infrastructure.softDeleteBranches) {
-    warnings.push("أعمدة الأرشفة (`deleted_at` / `deleted_by`) غير مطبقة على كل الجداول المطلوبة");
+  const softDeleteMissingTables = [
+    !infrastructure.softDeleteSchools ? "schools" : null,
+    !infrastructure.softDeleteUsers ? "user_profiles" : null,
+    infrastructure.branches && !infrastructure.softDeleteBranches ? "branches" : null,
+  ].filter(Boolean);
+
+  if (softDeleteMissingTables.length > 0) {
+    warnings.push(
+      `أعمدة الأرشفة (\`deleted_at\` / \`deleted_by\`) غير مطبقة على: ${softDeleteMissingTables.join("، ")}`,
+    );
+  }
+
+  if (!infrastructure.branches) {
+    warnings.push("جدول `branches` غير موجود");
   }
 
   if (!infrastructure.customPermissions) {

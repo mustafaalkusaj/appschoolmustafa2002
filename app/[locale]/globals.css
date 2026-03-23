@@ -418,6 +418,20 @@ html.dark .ui-table tbody tr:hover {
   display: none;
 }
 
+.theme-mode-switch.sidebar-theme-switch {
+  width: 100%;
+  justify-content: space-between;
+  background: var(--surface-strong);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.theme-mode-switch.sidebar-theme-switch .theme-mode-option {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+}
+
 .brand-lockup {
   display: inline-flex;
   align-items: center;

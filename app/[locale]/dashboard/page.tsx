@@ -9,7 +9,6 @@ import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
-import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -391,7 +390,7 @@ export default function DashboardPage() {
 
       <div className="main">
         <div className="topbar !items-start !gap-4 !py-5">
-          <div className="flex w-full flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex w-full flex-col gap-4">
             <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-center">
               <div className="ui-surface rounded-[28px] px-4 py-3">
                 <UltrathinkLogo
@@ -401,25 +400,23 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 space-y-3">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-xs font-black text-[var(--text-secondary)]">
                   لوحة التحكم
                 </div>
-                <div className="topbar-title !text-[1.15rem]">ملخص المدرسة الحالي</div>
-                <div className="text-sm leading-7 text-[var(--text-secondary)]">{dashboardSummary}</div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="ui-surface min-w-[210px] rounded-[24px] px-4 py-3">
-                <div className="text-xs font-black text-[var(--text-secondary)]">العام الدراسي</div>
-                <div className="mt-2 text-lg font-black text-[var(--text-primary)]">{academicYearLabel}</div>
-                <div className="mt-1 text-xs text-[var(--text-secondary)]">{roleLabel}</div>
-              </div>
-
-              <div className="ui-surface rounded-[24px] px-4 py-3">
-                <div className="mb-3 text-xs font-black text-[var(--text-secondary)]">وضع المظهر</div>
-                <ThemeModeToggle variant="inline" showLabels={false} compact />
+                <div className="space-y-2">
+                  <div className="topbar-title !text-[1.15rem]">ملخص المدرسة الحالي</div>
+                  <div className="text-sm leading-7 text-[var(--text-secondary)]">{dashboardSummary}</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-black text-[var(--text-primary)]">
+                    <span className="text-[var(--text-secondary)]">العام الدراسي</span>
+                    <span>{academicYearLabel}</span>
+                  </div>
+                  <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-black text-[var(--text-secondary)]">
+                    {roleLabel}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

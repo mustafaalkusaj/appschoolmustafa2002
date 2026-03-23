@@ -32,6 +32,13 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
   });
 
   const fetchData = useCallback(async () => {
+    if (!infrastructure.branches) {
+      setBranches([]);
+      setSchools([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       let branchesQuery = supabase.from("branches").select("*, schools(name)");
@@ -59,11 +66,17 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
     } finally {
       setLoading(false);
     }
-  }, [infrastructure.softDeleteBranches, infrastructure.softDeleteSchools]);
+  }, [infrastructure.branches, infrastructure.softDeleteBranches, infrastructure.softDeleteSchools]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  if (!infrastructure.branches) {
+    return (
+      <MigrationNotice description="جدول `branches` غير موجود في قاعدة البيانات الحالية. شاشة الفروع ستبقى معطلة حتى يتم توفير جدول الفروع أو تشغيل `admin_infrastructure.sql`." />
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

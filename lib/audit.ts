@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { isMissingTableError } from "./admin-infrastructure";
 
 export type AuditAction = 
   | "create" 
@@ -52,7 +53,7 @@ export async function logAction(payload: AuditLogPayload) {
       metadata: payload.metadata || {},
     });
 
-    if (error) {
+    if (error && !isMissingTableError(error, "audit_logs")) {
       console.error("Failed to log audit action:", error);
     }
   } catch (err) {

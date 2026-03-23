@@ -1,4 +1,5 @@
 import type { UserProfile } from "@/lib/auth";
+import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { supabase } from "@/lib/supabase";
 import { readSchoolScopeFromWindow } from "@/lib/school-scope";
 
@@ -30,7 +31,13 @@ export async function resolveBranchIdForSchool(schoolId: string | null): Promise
     .limit(1)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingTableError(error, "branches")) {
+      return null;
+    }
+
+    throw error;
+  }
   return data?.id ?? null;
 }
 

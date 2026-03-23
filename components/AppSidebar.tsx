@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { signOutClient } from "@/lib/auth";
+import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { useRole } from "@/hooks/useRole";
 import { getSidebarItemsForRole, isPathMatch } from "@/types/roles";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
@@ -57,28 +58,33 @@ export function AppSidebar({
 
   return (
     <div className={containerClassName}>
-      <div className="logo">
-        <UltrathinkLogo size={34} title="منصة إدارة المدرسة" subtitle="النظام المدرسي الموحد" />
+      <div>
+        <div className="logo">
+          <UltrathinkLogo size={34} title="منصة إدارة المدرسة" subtitle="النظام المدرسي الموحد" />
+        </div>
+
+        {navItems.map((item) => (
+          <Link
+            key={item.id}
+            href={
+              role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
+                ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
+                : localizeAppPath(item.href, locale)
+            }
+            className={`${navClassName}${isPathMatch(currentPath, item.href) ? " active" : ""}`}
+          >
+            {item.label}
+          </Link>
+        ))}
       </div>
 
-      {navItems.map((item) => (
-        <Link
-          key={item.id}
-          href={
-            role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
-              ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
-              : localizeAppPath(item.href, locale)
-          }
-          className={`${navClassName}${isPathMatch(currentPath, item.href) ? " active" : ""}`}
-        >
-          {item.label}
-        </Link>
-      ))}
-
-      <div className={separatorClassName} />
-      <button type="button" className={`${navClassName} danger`} onClick={handleLogout}>
-        تسجيل الخروج
-      </button>
+      <div className="mt-auto flex flex-col gap-2 pt-3">
+        <div className={separatorClassName} />
+        <ThemeModeToggle variant="inline" className="sidebar-theme-switch w-full" />
+        <button type="button" className={`${navClassName} danger w-full`} onClick={handleLogout}>
+          تسجيل الخروج
+        </button>
+      </div>
     </div>
   );
 }

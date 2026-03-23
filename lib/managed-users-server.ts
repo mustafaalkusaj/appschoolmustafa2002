@@ -269,6 +269,10 @@ export async function resolveSchoolBranchId(actorSupabase: RouteSupabaseClient, 
     .maybeSingle();
 
   if (error) {
+    if (isMissingTableError(error, "branches")) {
+      return null;
+    }
+
     throw error;
   }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Monitor, MoonStar, SunMedium } from "lucide-react";
 import { useTheme } from "next-themes";
+import { SIDEBAR_ITEMS, isPathMatch, normalizePath } from "@/types/roles";
 
 type ThemeVariant = "floating" | "inline";
 
@@ -24,12 +25,6 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function normalizePath(pathname: string | null) {
-  if (!pathname) return "/";
-  const normalized = pathname.replace(/^\/(ar|en)(?=\/|$)/, "") || "/";
-  return normalized.length > 1 && normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
-}
-
 export function ThemeModeToggle({
   variant = "floating",
   className,
@@ -46,10 +41,11 @@ export function ThemeModeToggle({
 
   if (!mounted) return null;
 
-  const currentPath = normalizePath(pathname);
+  const currentPath = normalizePath(pathname || "/");
+  const usesSharedSidebar = SIDEBAR_ITEMS.some((item) => isPathMatch(currentPath, item.href));
   const shouldHideFloating =
     variant === "floating" &&
-    (currentPath === "/login" || currentPath === "/super-admin" || currentPath === "/dashboard");
+    (currentPath === "/login" || usesSharedSidebar);
 
   if (shouldHideFloating) return null;
 
