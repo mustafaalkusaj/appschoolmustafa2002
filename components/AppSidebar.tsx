@@ -58,32 +58,36 @@ export function AppSidebar({
 
   return (
     <div className={containerClassName}>
-      <div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="logo">
           <UltrathinkLogo size={34} title="منصة إدارة المدرسة" subtitle="النظام المدرسي الموحد" />
         </div>
 
-        {navItems.map((item) => (
-          <Link
-            key={item.id}
-            href={
-              role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
-                ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
-                : localizeAppPath(item.href, locale)
-            }
-            className={`${navClassName}${isPathMatch(currentPath, item.href) ? " active" : ""}`}
-          >
-            {item.label}
-          </Link>
-        ))}
+        <div className="space-y-1 pb-3">
+          {navItems.map((item) => (
+            <Link
+              key={item.id}
+              href={
+                role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
+                  ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
+                  : localizeAppPath(item.href, locale)
+              }
+              className={`${navClassName}${isPathMatch(currentPath, item.href) ? " active" : ""}`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-auto flex flex-col gap-2 pt-3">
+      <div className="mt-auto shrink-0 pt-3">
         <div className={separatorClassName} />
-        <ThemeModeToggle variant="inline" className="sidebar-theme-switch w-full" />
-        <button type="button" className={`${navClassName} danger w-full`} onClick={handleLogout}>
-          تسجيل الخروج
-        </button>
+        <div className="mt-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] p-2">
+          <ThemeModeToggle variant="inline" className="sidebar-theme-switch w-full" />
+          <button type="button" className={`${navClassName} danger mt-2 w-full justify-center`} onClick={handleLogout}>
+            تسجيل الخروج
+          </button>
+        </div>
       </div>
     </div>
   );

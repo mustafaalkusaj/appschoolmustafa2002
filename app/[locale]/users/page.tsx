@@ -52,14 +52,8 @@ type UserFormState = {
   student: {
     class_name: string;
     section: string;
-    address: string;
-    total_fee: string;
-    paid_fee: string;
-    discount_value: string;
   };
   teacher: {
-    specialization: string;
-    notes: string;
     assignments: TeacherAssignmentFormState[];
   };
 };
@@ -83,14 +77,8 @@ function createEmptyForm(role: ManagedUserRole = "student"): UserFormState {
     student: {
       class_name: "",
       section: "",
-      address: "",
-      total_fee: "0",
-      paid_fee: "0",
-      discount_value: "0",
     },
     teacher: {
-      specialization: "",
-      notes: "",
       assignments: [createEmptyTeacherAssignment()],
     },
   };
@@ -107,14 +95,8 @@ function mapUserToForm(user: ManagedUserRecord): UserFormState {
     student: {
       class_name: user.student?.class_name ?? "",
       section: user.student?.section ?? "",
-      address: user.student?.address ?? "",
-      total_fee: String(user.student?.total_fee ?? 0),
-      paid_fee: String(user.student?.paid_fee ?? 0),
-      discount_value: String(user.student?.discount_value ?? 0),
     },
     teacher: {
-      specialization: user.teacher?.specialization ?? "",
-      notes: user.teacher?.notes ?? "",
       assignments:
         user.teacher?.assignments.length
           ? user.teacher.assignments.map((assignment) => ({
@@ -141,17 +123,11 @@ function buildPayload(form: UserFormState, schoolId: string) {
         ? {
             class_name: form.student.class_name,
             section: form.student.section,
-            address: form.student.address,
-            total_fee: form.student.total_fee,
-            paid_fee: form.student.paid_fee,
-            discount_value: form.student.discount_value,
           }
         : null,
     teacher:
       form.role === "teacher"
         ? {
-            specialization: form.teacher.specialization,
-            notes: form.teacher.notes,
             assignments: form.teacher.assignments,
           }
         : null,
@@ -196,8 +172,8 @@ function StatusPill({ active }: { active: boolean }) {
 function RolePill({ role }: { role: ManagedUserRole }) {
   const toneClass =
     role === "student"
-      ? "border-[rgba(79,140,255,0.16)] bg-[rgba(79,140,255,0.1)] text-[var(--primary)]"
-      : "border-[rgba(242,169,59,0.18)] bg-[rgba(242,169,59,0.12)] text-[var(--warning)]";
+      ? "bg-[var(--surface-soft)] text-[var(--text-primary)]"
+      : "ui-pill--warning";
 
   return <span className={`ui-pill ${toneClass}`}>{MANAGED_USER_ROLE_LABELS[role]}</span>;
 }
@@ -541,7 +517,6 @@ export default function UsersManagementPage() {
         user.phone,
         user.student?.class_name,
         user.student?.section,
-        user.teacher?.specialization,
         ...(user.teacher?.assignments.flatMap((assignment) => [
           assignment.subject_name,
           assignment.class_name,
@@ -612,45 +587,20 @@ export default function UsersManagementPage() {
     setAccountCard(null);
   }
 
-  function updateTeacherAssignment(index: number, key: keyof TeacherAssignmentFormState, value: string) {
+  function updateTeacherAssignment(key: keyof TeacherAssignmentFormState, value: string) {
     setForm((current) => ({
       ...current,
       teacher: {
         ...current.teacher,
-        assignments: current.teacher.assignments.map((assignment, assignmentIndex) =>
-          assignmentIndex === index
-            ? {
-                ...assignment,
-                [key]: key === "section" ? value : value,
-                ...(key === "class_name" ? { section: "" } : {}),
-              }
-            : assignment,
-        ),
+        assignments: [
+          {
+            ...(current.teacher.assignments[0] ?? createEmptyTeacherAssignment()),
+            [key]: value,
+            ...(key === "class_name" ? { section: "" } : {}),
+          },
+        ],
       },
     }));
-  }
-
-  function addTeacherAssignmentRow() {
-    setForm((current) => ({
-      ...current,
-      teacher: {
-        ...current.teacher,
-        assignments: [...current.teacher.assignments, createEmptyTeacherAssignment()],
-      },
-    }));
-  }
-
-  function removeTeacherAssignmentRow(index: number) {
-    setForm((current) => {
-      const nextAssignments = current.teacher.assignments.filter((_, assignmentIndex) => assignmentIndex !== index);
-      return {
-        ...current,
-        teacher: {
-          ...current.teacher,
-          assignments: nextAssignments.length > 0 ? nextAssignments : [createEmptyTeacherAssignment()],
-        },
-      };
-    });
   }
 
   function openPrintableWindow(card: ManagedUserAccountCard, autoPrint = true) {
@@ -836,6 +786,8 @@ export default function UsersManagementPage() {
 
   const showingModal = showCreateModal || Boolean(editingUser);
   const isStudentForm = form.role === "student";
+  const teacherAssignment = form.teacher.assignments[0] ?? createEmptyTeacherAssignment();
+  const teacherSections = getSectionsForClass(teacherAssignment.class_name);
   const modalTitle = editingUser
     ? `تعديل حساب ${isStudentForm ? "الطالب" : "المدرس"}`
     : isStudentForm
@@ -859,7 +811,7 @@ export default function UsersManagementPage() {
               <div className="topbar-sub">إنشاء الحسابات وتعديلها من لوحة المدرسة فقط بدون تسجيل مفتوح</div>
             </div>
 
-            <div className="ui-pill border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] text-[var(--primary)]">
+            <div className="ui-pill bg-[var(--surface-muted)] text-[var(--text-secondary)]">
               الحسابات مربوطة مباشرة بسجلات المدرسة الحالية
             </div>
           </div>
@@ -890,48 +842,58 @@ export default function UsersManagementPage() {
             ) : (
               <>
                 <section className="ui-surface rounded-[30px] p-5">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="max-w-3xl space-y-2">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(79,140,255,0.12)] px-3 py-1 text-sm font-black text-[var(--primary)]">
+                  <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                    <div className="max-w-2xl space-y-2">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-sm font-black text-[var(--text-primary)]">
                         <Sparkles size={15} />
-                        إجراءات إنشاء سريعة
+                        إجراءات الحسابات
                       </div>
-                      <h2 className="text-xl font-black text-[var(--text-primary)]">ابدأ من نوع الحساب المطلوب مباشرة</h2>
+                      <h2 className="text-xl font-black text-[var(--text-primary)]">أنشئ الحساب الصحيح من البداية</h2>
                       <p className="text-sm leading-7 text-[var(--text-secondary)]">
-                        إنشاء الحساب هنا يركز على بيانات الدخول والربط فقط. العنوان والرسوم تبقى ضمن شاشة الطلاب، بينما حساب المدرس يركز على التكليفات الأساسية داخل التطبيق.
+                        هذه الصفحة مخصصة لبيانات الدخول والربط الدراسي فقط، حتى يبقى إنشاء الحساب سريعاً وواضحاً بدون خلط مع بيانات الرسوم أو الملاحظات التفصيلية.
                       </p>
                     </div>
 
-                    <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                    <div className="grid w-full gap-3 xl:max-w-[620px] xl:grid-cols-2">
                       <button
                         type="button"
-                        className="ui-button ui-button--primary inline-flex min-h-[56px] items-center justify-center gap-2 px-5"
+                        className="ui-button ui-button--primary inline-flex min-h-[78px] items-center justify-between gap-3 px-5 text-right"
                         onClick={() => openCreateModal("student")}
                       >
-                        <Plus size={16} />
-                        إضافة طالب
+                        <span className="space-y-1">
+                          <span className="block text-base font-black">إضافة طالب</span>
+                          <span className="block text-xs font-semibold text-white/80">
+                            الاسم والهاتف ومعرّف الدخول ثم الصف والشعبة
+                          </span>
+                        </span>
+                        <Plus size={18} className="shrink-0" />
                       </button>
                       <button
                         type="button"
-                        className="ui-button ui-button--secondary inline-flex min-h-[56px] items-center justify-center gap-2 px-5"
+                        className="ui-button ui-button--secondary inline-flex min-h-[78px] items-center justify-between gap-3 px-5 text-right"
                         onClick={() => openCreateModal("teacher")}
                       >
-                        <BookOpen size={16} />
-                        إضافة مدرس
+                        <span className="space-y-1">
+                          <span className="block text-base font-black">إضافة مدرس</span>
+                          <span className="block text-xs font-semibold text-[var(--text-secondary)]">
+                            الاسم والهاتف ومعرّف الدخول مع المادة والصف والشعبة
+                          </span>
+                        </span>
+                        <BookOpen size={18} className="shrink-0" />
                       </button>
                     </div>
                   </div>
                 </section>
 
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <section className="grid gap-3 xl:grid-cols-4">
                   {stats.map((item) => (
-                    <article key={item.label} className="ui-surface rounded-[28px] p-5">
-                      <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-[rgba(79,140,255,0.12)] text-[var(--primary)]">
-                        <Users size={20} />
+                    <article key={item.label} className="ui-soft-surface rounded-[24px] p-4">
+                      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-primary)]">
+                        <Users size={18} />
                       </div>
-                      <p className="text-sm font-black text-[var(--text-secondary)]">{item.label}</p>
-                      <div className="mt-2 text-3xl font-black text-[var(--text-primary)]">{item.value}</div>
-                      <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{item.hint}</p>
+                      <p className="text-xs font-black text-[var(--text-secondary)]">{item.label}</p>
+                      <div className="mt-2 text-2xl font-black text-[var(--text-primary)]">{item.value}</div>
+                      <p className="mt-2 text-xs leading-6 text-[var(--text-secondary)]">{item.hint}</p>
                     </article>
                   ))}
                 </section>
@@ -943,74 +905,86 @@ export default function UsersManagementPage() {
                         <Users size={14} />
                         {filteredUsers.length} من أصل {users.length} حساب
                       </div>
-                      <h2 className="text-xl font-black text-[var(--text-primary)]">صفحة إدارة المستخدمين</h2>
+                      <h2 className="text-xl font-black text-[var(--text-primary)]">الحسابات الحالية</h2>
                       <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
-                        جميع الحسابات هنا مربوطة مباشرةً بـ Supabase Auth وسجلات الطلاب أو المدرسين داخل قاعدة البيانات.
+                        راجع الحسابات الحالية وابحث بسرعة ثم نفّذ الإجراء المناسب بوضوح من نفس الجدول.
                       </p>
                     </div>
+                  </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="rounded-[26px] bg-[var(--surface-muted)] p-4">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="text-sm font-black text-[var(--text-primary)]">البحث والتصفية</div>
+                        <p className="text-xs leading-6 text-[var(--text-secondary)]">
+                          ابحث بالاسم أو معرّف الدخول أو الصف أو المادة ثم صفِّ النتائج حسب الدور والحالة.
+                        </p>
+                      </div>
                       <button
                         type="button"
-                        className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                        className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
                         onClick={() => void fetchUsers()}
                       >
                         <Loader2 size={16} className={loading ? "animate-spin" : ""} />
                         تحديث
                       </button>
                     </div>
+
+                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_220px_220px]">
+                      <label className="relative block space-y-2">
+                        <span className="text-sm font-black text-[var(--text-secondary)]">بحث سريع</span>
+                        <Search
+                          size={18}
+                          className="pointer-events-none absolute text-[var(--text-tertiary)]"
+                          style={{ insetInlineStart: "1rem", top: "calc(50% + 0.95rem)", transform: "translateY(-50%)" }}
+                        />
+                        <input
+                          type="search"
+                          className="ui-input"
+                          style={{ paddingInlineStart: "3rem" }}
+                          placeholder="ابحث بالاسم أو معرّف الدخول أو الصف أو المادة"
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 inline-flex items-center gap-2 text-sm font-black text-[var(--text-secondary)]">
+                          <Filter size={16} />
+                          الدور
+                        </span>
+                        <select
+                          className="ui-input"
+                          value={roleFilter}
+                          onChange={(event) => setRoleFilter(event.target.value as "all" | ManagedUserRole)}
+                        >
+                          <option value="all">كل الأدوار</option>
+                          <option value="student">الطلاب</option>
+                          <option value="teacher">المدرسون</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 inline-flex items-center gap-2 text-sm font-black text-[var(--text-secondary)]">
+                          <ShieldCheck size={16} />
+                          الحالة
+                        </span>
+                        <select
+                          className="ui-input"
+                          value={statusFilter}
+                          onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "inactive")}
+                        >
+                          <option value="all">كل الحالات</option>
+                          <option value="active">نشط</option>
+                          <option value="inactive">غير نشط</option>
+                        </select>
+                      </label>
+                    </div>
                   </div>
 
-                  <div className="grid gap-3 rounded-[26px] bg-[var(--surface-muted)] p-4 lg:grid-cols-[minmax(0,1.3fr)_220px_220px]">
-                    <label className="relative block space-y-2">
-                      <span className="text-sm font-black text-[var(--text-secondary)]">بحث سريع</span>
-                      <Search
-                        size={18}
-                        className="pointer-events-none absolute text-[var(--text-tertiary)]"
-                        style={{ insetInlineStart: "1rem", top: "calc(50% + 0.95rem)", transform: "translateY(-50%)" }}
-                      />
-                      <input
-                        type="search"
-                        className="ui-input"
-                        style={{ paddingInlineStart: "3rem" }}
-                        placeholder="ابحث بالاسم أو معرّف الدخول أو الصف أو المادة"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 inline-flex items-center gap-2 text-sm font-black text-[var(--text-secondary)]">
-                        <Filter size={16} />
-                        الدور
-                      </span>
-                      <select className="ui-input" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | ManagedUserRole)}>
-                        <option value="all">كل الأدوار</option>
-                        <option value="student">الطلاب</option>
-                        <option value="teacher">المدرسون</option>
-                      </select>
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 inline-flex items-center gap-2 text-sm font-black text-[var(--text-secondary)]">
-                        <ShieldCheck size={16} />
-                        الحالة
-                      </span>
-                      <select
-                        className="ui-input"
-                        value={statusFilter}
-                        onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "inactive")}
-                      >
-                        <option value="all">كل الحالات</option>
-                        <option value="active">نشط</option>
-                        <option value="inactive">غير نشط</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="mt-5 overflow-x-auto rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)]">
-                    <table className="ui-table min-w-[1120px]">
-                      <thead>
+                  <div className="mt-5 overflow-x-auto rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]">
+                    <table className="ui-table min-w-[1200px]">
+                      <thead className="bg-[var(--surface-muted)]">
                         <tr>
                           <th>المستخدم</th>
                           <th>الدور</th>
@@ -1046,12 +1020,23 @@ export default function UsersManagementPage() {
                           filteredUsers.map((user) => (
                             <tr key={user.auth_user_id}>
                               <td>
-                                <div className="space-y-2">
-                                  <div className="font-black text-[var(--text-primary)]">{user.full_name}</div>
-                                  <div className="inline-flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]">
-                                    <span dir="ltr">{user.email}</span>
-                                    <span className="text-[var(--text-tertiary)]">•</span>
-                                    <span>{user.phone || "بدون رقم هاتف"}</span>
+                                <div className="flex items-start gap-3">
+                                  <div
+                                    className={`mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] ${
+                                      user.role === "student"
+                                        ? "border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-primary)]"
+                                        : "border border-[rgba(242,169,59,0.18)] bg-[rgba(242,169,59,0.12)] text-[var(--warning)]"
+                                    }`}
+                                  >
+                                    {user.role === "student" ? <Users size={18} /> : <BookOpen size={18} />}
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="font-black text-[var(--text-primary)]">{user.full_name}</div>
+                                    <div className="inline-flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]">
+                                      <span dir="ltr">{user.email}</span>
+                                      <span className="text-[var(--text-tertiary)]">•</span>
+                                      <span>{user.phone || "بدون رقم هاتف"}</span>
+                                    </div>
                                   </div>
                                 </div>
                               </td>
@@ -1067,26 +1052,30 @@ export default function UsersManagementPage() {
                                 ) : (
                                   <div className="space-y-1 text-sm leading-7 text-[var(--text-secondary)]">
                                     <div>عدد التكليفات: {user.teacher?.assignments.length ?? 0}</div>
-                                    {user.teacher?.assignments.slice(0, 2).map((assignment) => (
-                                      <div key={assignment.id || `${assignment.subject_name}-${assignment.class_name}-${assignment.section_name ?? "*"}`}>
-                                        {assignment.subject_name} • {assignment.class_name}
-                                        {assignment.section_name ? ` • ${assignment.section_name}` : " • كل الشعب"}
-                                      </div>
-                                    ))}
+                                    {user.teacher?.assignments.length ? (
+                                      user.teacher.assignments.slice(0, 2).map((assignment) => (
+                                        <div key={assignment.id || `${assignment.subject_name}-${assignment.class_name}-${assignment.section_name ?? "*"}`}>
+                                          {assignment.subject_name} • {assignment.class_name}
+                                          {assignment.section_name ? ` • ${assignment.section_name}` : " • كل الشعب"}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div>لم تُسند أي تكليفات حتى الآن</div>
+                                    )}
                                   </div>
                                 )}
                               </td>
                               <td>
                                 <div className="space-y-2 text-sm leading-7 text-[var(--text-secondary)]">
-                                  <div>
-                                    معرّف الدخول:{" "}
-                                    <span dir="ltr" className="font-bold text-[var(--text-primary)]">
+                                  <div className="space-y-1">
+                                    <div className="text-[11px] font-black text-[var(--text-tertiary)]">معرّف الدخول</div>
+                                    <div dir="ltr" className="font-bold text-[var(--text-primary)]">
                                       {user.app_account?.login_identifier || user.email}
-                                    </span>
+                                    </div>
                                   </div>
-                                  <div>
-                                    كلمة المرور المؤقتة:{" "}
-                                    {user.app_account?.has_temporary_password ? "جاهزة للطباعة" : "تحتاج إعادة تعيين"}
+                                  <div className="space-y-1">
+                                    <div className="text-[11px] font-black text-[var(--text-tertiary)]">كلمة المرور المؤقتة</div>
+                                    <div>{user.app_account?.has_temporary_password ? "جاهزة للطباعة" : "تحتاج إعادة تعيين"}</div>
                                   </div>
                                   <div>آخر تحديث: {formatDateLabel(user.app_account?.password_last_reset_at)}</div>
                                 </div>
@@ -1098,10 +1087,10 @@ export default function UsersManagementPage() {
                                 {formatDateLabel(user.created_at)}
                               </td>
                               <td>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap justify-end gap-2">
                                   <button
                                     type="button"
-                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] items-center gap-2 px-4 py-2 text-sm"
+                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm"
                                     onClick={() => openEditModal(user)}
                                   >
                                     <PencilLine size={15} />
@@ -1109,7 +1098,7 @@ export default function UsersManagementPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] items-center gap-2 px-4 py-2 text-sm"
+                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm"
                                     onClick={() => void openAccountCardForUser(user)}
                                     disabled={cardLoadingId === user.auth_user_id}
                                   >
@@ -1118,7 +1107,7 @@ export default function UsersManagementPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] items-center gap-2 px-4 py-2 text-sm"
+                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm"
                                     onClick={() => void handleResetTemporaryPassword(user)}
                                     disabled={cardLoadingId === user.auth_user_id}
                                   >
@@ -1127,7 +1116,7 @@ export default function UsersManagementPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    className={`ui-button inline-flex min-h-[44px] items-center gap-2 px-4 py-2 text-sm ${
+                                    className={`ui-button inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm ${
                                       user.is_active ? "ui-button--danger" : "ui-button--primary"
                                     }`}
                                     onClick={() => void handleToggle(user)}
@@ -1168,7 +1157,7 @@ export default function UsersManagementPage() {
             <div className={`ui-dialog w-full overflow-hidden ${isStudentForm ? "max-w-[760px]" : "max-w-[920px]"}`}>
               <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-5 sm:px-7">
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(79,140,255,0.12)] px-3 py-1 text-sm font-black text-[var(--primary)]">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-sm font-black text-[var(--text-primary)]">
                     {isStudentForm ? <Plus size={15} /> : <BookOpen size={15} />}
                     {isStudentForm ? "مسار حساب الطالب" : "مسار حساب المدرس"}
                   </div>
@@ -1196,28 +1185,6 @@ export default function UsersManagementPage() {
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-sm font-black text-[var(--text-primary)]">نوع الحساب</span>
-                    <select
-                      className={inputClass(Boolean(fieldErrors.role))}
-                      value={form.role}
-                      disabled={Boolean(editingUser)}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...createEmptyForm(event.target.value as ManagedUserRole),
-                          full_name: current.full_name,
-                          email: current.email,
-                          phone: current.phone,
-                          is_active: current.is_active,
-                        }))
-                      }
-                    >
-                      <option value="student">طالب</option>
-                      <option value="teacher">مدرس</option>
-                    </select>
-                    <FieldError message={fieldErrors.role} />
-                  </label>
-
                   <label className="space-y-2">
                     <span className="text-sm font-black text-[var(--text-primary)]">الحالة</span>
                     <select
@@ -1271,7 +1238,7 @@ export default function UsersManagementPage() {
                   </label>
 
                   {!editingUser ? (
-                    <div className="rounded-[20px] border border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] px-4 py-4 text-sm leading-7 text-[var(--text-secondary)] md:col-span-2">
+                    <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm leading-7 text-[var(--text-secondary)] md:col-span-2">
                       <div className="mb-1 flex items-center gap-2 font-black text-[var(--text-primary)]">
                         <Sparkles size={16} />
                         توليد تلقائي لبيانات التطبيق
@@ -1343,96 +1310,58 @@ export default function UsersManagementPage() {
                 ) : (
                   <section className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
                     <div>
-                      <h3 className="text-lg font-black text-[var(--text-primary)]">تكليفات المدرس الأساسية</h3>
+                      <h3 className="text-lg font-black text-[var(--text-primary)]">بيانات المدرس الأكاديمية</h3>
                       <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
-                        ركز على المادة والصف والشعبة فقط حتى يصبح الحساب سريع الإنشاء وواضح الاستخدام.
+                        أدخل مادة واحدة مع الصف والشعبة المرتبطين بالحساب.
                       </p>
                     </div>
-                    <div className="space-y-3 rounded-[20px] border border-[rgba(15,91,141,0.1)] bg-white/70 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="text-base font-black text-[var(--text-primary)]">تكليفات المعلم</div>
-                          <p className="text-sm leading-7 text-[var(--text-secondary)]">
-                            كل صف هنا يمثل مادة + صف + شعبة مسموح لهذا المعلم العمل عليها داخل التطبيق.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          className="ui-button ui-button--secondary inline-flex items-center gap-2"
-                          onClick={addTeacherAssignmentRow}
-                        >
-                          <Plus size={15} />
-                          إضافة تكليف
-                        </button>
-                      </div>
-
+                    <div className="space-y-3 rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft)] p-4">
                       <FieldError message={fieldErrors["teacher.assignments"]} />
+                      <div className="grid gap-3 rounded-[20px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 md:grid-cols-3">
+                        <label className="space-y-2">
+                          <span className="text-sm font-black text-[var(--text-primary)]">المادة</span>
+                          <input
+                            list="subjects-list"
+                            className={inputClass(Boolean(fieldErrors["teacher.assignments.0.subject_name"]))}
+                            value={teacherAssignment.subject_name}
+                            onChange={(event) => updateTeacherAssignment("subject_name", event.target.value)}
+                          />
+                          <FieldError message={fieldErrors["teacher.assignments.0.subject_name"]} />
+                        </label>
 
-                      {form.teacher.assignments.map((assignment, index) => {
-                        const assignmentSections = getSectionsForClass(assignment.class_name);
-
-                        return (
-                          <div
-                            key={`${assignment.subject_name}-${assignment.class_name}-${assignment.section}-${index}`}
-                            className="grid gap-3 rounded-[20px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                        <label className="space-y-2">
+                          <span className="text-sm font-black text-[var(--text-primary)]">الصف</span>
+                          <select
+                            className={inputClass(Boolean(fieldErrors["teacher.assignments.0.class_name"]))}
+                            value={teacherAssignment.class_name}
+                            onChange={(event) => updateTeacherAssignment("class_name", event.target.value)}
                           >
-                            <label className="space-y-2">
-                              <span className="text-sm font-black text-[var(--text-primary)]">المادة</span>
-                              <input
-                                list="subjects-list"
-                                className={inputClass(Boolean(fieldErrors[`teacher.assignments.${index}.subject_name`]))}
-                                value={assignment.subject_name}
-                                onChange={(event) => updateTeacherAssignment(index, "subject_name", event.target.value)}
-                              />
-                              <FieldError message={fieldErrors[`teacher.assignments.${index}.subject_name`]} />
-                            </label>
+                            <option value="">اختر الصف</option>
+                            {classes.map((classOption) => (
+                              <option key={classOption.id} value={classOption.name}>
+                                {classOption.name}
+                              </option>
+                            ))}
+                          </select>
+                          <FieldError message={fieldErrors["teacher.assignments.0.class_name"]} />
+                        </label>
 
-                            <label className="space-y-2">
-                              <span className="text-sm font-black text-[var(--text-primary)]">الصف</span>
-                              <select
-                                className={inputClass(Boolean(fieldErrors[`teacher.assignments.${index}.class_name`]))}
-                                value={assignment.class_name}
-                                onChange={(event) => updateTeacherAssignment(index, "class_name", event.target.value)}
-                              >
-                                <option value="">اختر الصف</option>
-                                {classes.map((classOption) => (
-                                  <option key={classOption.id} value={classOption.name}>
-                                    {classOption.name}
-                                  </option>
-                                ))}
-                              </select>
-                              <FieldError message={fieldErrors[`teacher.assignments.${index}.class_name`]} />
-                            </label>
-
-                            <label className="space-y-2">
-                              <span className="text-sm font-black text-[var(--text-primary)]">الشعبة</span>
-                              <select
-                                className={inputClass()}
-                                value={assignment.section ?? ""}
-                                onChange={(event) => updateTeacherAssignment(index, "section", event.target.value)}
-                              >
-                                <option value="">كل الشعب</option>
-                                {assignmentSections.map((sectionOption) => (
-                                  <option key={sectionOption.id} value={sectionOption.name}>
-                                    {sectionOption.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <div className="flex items-end">
-                              <button
-                                type="button"
-                                className="ui-button ui-button--danger"
-                                onClick={() => removeTeacherAssignmentRow(index)}
-                                disabled={form.teacher.assignments.length === 1}
-                              >
-                                حذف
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                        <label className="space-y-2">
+                          <span className="text-sm font-black text-[var(--text-primary)]">الشعبة</span>
+                          <select
+                            className={inputClass()}
+                            value={teacherAssignment.section ?? ""}
+                            onChange={(event) => updateTeacherAssignment("section", event.target.value)}
+                          >
+                            <option value="">كل الشعب</option>
+                            {teacherSections.map((sectionOption) => (
+                              <option key={sectionOption.id} value={sectionOption.name}>
+                                {sectionOption.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
 
                       <datalist id="subjects-list">
                         {subjects.map((subject) => (
@@ -1474,7 +1403,7 @@ export default function UsersManagementPage() {
               <div className="border-b border-[var(--border)] px-5 py-5 sm:px-7">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(79,140,255,0.12)] px-3 py-1 text-sm font-black text-[var(--primary)]">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-sm font-black text-[var(--text-primary)]">
                       <Printer size={15} />
                       بطاقة حساب التطبيق جاهزة
                     </div>
@@ -1532,14 +1461,14 @@ export default function UsersManagementPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] p-5">
+                  <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
                     <div className="text-sm font-black text-[var(--text-secondary)]">معرّف الدخول</div>
                     <div className="mt-2 text-lg font-black text-[var(--text-primary)]" dir="ltr">
                       {accountCard.login_identifier}
                     </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-[rgba(198,132,40,0.18)] bg-[rgba(198,132,40,0.08)] p-5">
+                  <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
                     <div className="text-sm font-black text-[var(--text-secondary)]">كلمة المرور المؤقتة</div>
                     <div className="mt-2 text-lg font-black text-[var(--text-primary)]" dir="ltr">
                       {accountCard.temporary_password}

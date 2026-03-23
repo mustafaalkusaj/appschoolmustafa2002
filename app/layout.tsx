@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Providers } from "@/app/[locale]/providers";
 import { ToastProvider } from "@/components/toast";
-import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { SCHOOL_BRAND } from "@/lib/branding";
 
 export const metadata: Metadata = {
@@ -23,7 +22,6 @@ export default async function AppLayout({
       <body className="notranslate" translate="no">
         <Providers>
           <ToastProvider>
-            <ThemeModeToggle />
             {children}
           </ToastProvider>
         </Providers>
