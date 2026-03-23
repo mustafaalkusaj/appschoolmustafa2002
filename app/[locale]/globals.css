@@ -423,13 +423,17 @@ html.dark .ui-table tbody tr:hover {
   justify-content: space-between;
   background: var(--surface-strong);
   border-color: var(--border);
-  box-shadow: none;
+  border-radius: 18px;
+  padding: 0.3rem;
+  box-shadow: var(--shadow-inset);
 }
 
 .theme-mode-switch.sidebar-theme-switch .theme-mode-option {
   flex: 1 1 0;
   justify-content: center;
+  min-height: 44px;
   min-width: 0;
+  border-radius: 14px;
 }
 
 .brand-lockup {

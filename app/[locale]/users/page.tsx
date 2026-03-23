@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
   CircleOff,
   Copy,
+  Download,
   Filter,
+  FileSpreadsheet,
   KeyRound,
   Loader2,
   PencilLine,
@@ -15,6 +17,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Upload,
   Users,
 } from "lucide-react";
 
@@ -24,6 +27,7 @@ import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolSco
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { supabase } from "@/lib/supabase";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import {
   type ManagedTeacherAssignmentInput,
   MANAGED_USER_ROLE_LABELS,
@@ -150,6 +154,34 @@ function readApiError(payload: unknown, fallback: string) {
   if (!payload || typeof payload !== "object") return fallback;
   const candidate = payload as { error?: { message?: string } };
   return candidate.error?.message || fallback;
+}
+
+function normalizeExcelCell(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+function readExcelColumn(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = normalizeExcelCell(row[key]);
+    if (value) return value;
+  }
+  return "";
+}
+
+function parseImportRole(value: string): ManagedUserRole | null {
+  const normalized = value.toLowerCase();
+  if (!normalized) return null;
+  if (["student", "طالب", "طلاب"].some((token) => normalized.includes(token))) return "student";
+  if (["teacher", "مدرس", "معلم", "مدرسة"].some((token) => normalized.includes(token))) return "teacher";
+  return null;
+}
+
+function parseImportActive(value: string) {
+  const normalized = value.toLowerCase();
+  if (!normalized) return true;
+  if (["inactive", "disabled", "غير نشط", "موقوف", "0", "no", "false"].includes(normalized)) return false;
+  return true;
 }
 
 function inputClass(hasError = false) {
@@ -372,6 +404,12 @@ export default function UsersManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<ManagedUserRecord | null>(null);
   const [accountCard, setAccountCard] = useState<ManagedUserAccountCard | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<Array<Record<string, unknown>>>([]);
+  const [importPayloads, setImportPayloads] = useState<Array<{ line: number; payload: unknown }>>([]);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<UserFormState>(() => createEmptyForm());
 
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
@@ -628,6 +666,200 @@ export default function UsersManagementPage() {
     }
   }
 
+  function closeImportModal() {
+    setShowImportModal(false);
+    setImportErrors([]);
+    setImportPreview([]);
+    setImportPayloads([]);
+    if (importFileRef.current) {
+      importFileRef.current.value = "";
+    }
+  }
+
+  async function downloadUsersTemplate() {
+    const XLSX = await loadXLSX();
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["الدور", "الاسم الكامل", "الهاتف", "معرّف الدخول", "الصف", "الشعبة", "المادة", "الحالة"],
+      ["طالب", "أحمد محمد", "07700000000", "", "الأول", "أ", "", "نشط"],
+      ["مدرس", "محمد علي", "07711111111", "teacher1@school.app", "الأول", "أ", "رياضيات", "نشط"],
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "users");
+    XLSX.writeFile(workbook, "نموذج_استيراد_الحسابات.xlsx");
+  }
+
+  async function handleImportFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportErrors([]);
+    setImportPreview([]);
+    setImportPayloads([]);
+
+    try {
+      const XLSX = await loadXLSX();
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+      if (!rows.length) {
+        setImportErrors(["ملف الإكسل فارغ."]);
+        return;
+      }
+
+      const collectedErrors: string[] = [];
+      const payloads: Array<{ line: number; payload: unknown }> = [];
+
+      rows.forEach((row, index) => {
+        const line = index + 2;
+        const role = parseImportRole(
+          readExcelColumn(row, ["الدور", "role", "type"]),
+        );
+        const fullName = readExcelColumn(row, ["الاسم الكامل", "الاسم", "full_name", "name"]);
+        const email = readExcelColumn(row, ["معرّف الدخول", "معرف الدخول", "البريد الإلكتروني", "email", "login"]);
+        const phone = readExcelColumn(row, ["الهاتف", "رقم الهاتف", "phone"]);
+        const className = readExcelColumn(row, ["الصف", "class", "class_name"]);
+        const section = readExcelColumn(row, ["الشعبة", "section"]);
+        const subject = readExcelColumn(row, ["المادة", "subject", "subject_name"]);
+        const activeValue = readExcelColumn(row, ["الحالة", "status", "active", "is_active"]);
+
+        if (!role) {
+          collectedErrors.push(`السطر ${line}: عمود الدور غير صالح (طالب/مدرس).`);
+          return;
+        }
+
+        if (!fullName) {
+          collectedErrors.push(`السطر ${line}: الاسم الكامل مطلوب.`);
+          return;
+        }
+
+        if (!className) {
+          collectedErrors.push(`السطر ${line}: الصف مطلوب.`);
+          return;
+        }
+
+        if (role === "teacher" && !subject) {
+          collectedErrors.push(`السطر ${line}: المادة مطلوبة لحساب المدرّس.`);
+          return;
+        }
+
+        const payload = {
+          school_id: currentSchoolId,
+          role,
+          full_name: fullName,
+          email,
+          phone,
+          is_active: parseImportActive(activeValue),
+          password: "",
+          student:
+            role === "student"
+              ? {
+                  class_name: className,
+                  section: section || null,
+                  address: null,
+                  total_fee: 0,
+                  paid_fee: 0,
+                  discount_value: 0,
+                }
+              : null,
+          teacher:
+            role === "teacher"
+              ? {
+                  specialization: null,
+                  notes: null,
+                  assignments: [{ subject_name: subject, class_name: className, section: section || null }],
+                }
+              : null,
+        };
+
+        const validation = validateCreateManagedUserInput(payload);
+        if (!validation.ok) {
+          const fieldErrors = "fieldErrors" in validation ? validation.fieldErrors : {};
+          const fallbackMessage = "message" in validation ? validation.message : "البيانات غير صالحة.";
+          const firstFieldError = Object.values(fieldErrors)[0] ?? fallbackMessage;
+          collectedErrors.push(`السطر ${line}: ${firstFieldError}`);
+          return;
+        }
+
+        payloads.push({ line, payload: validation.value });
+      });
+
+      setImportPreview(rows.slice(0, 6));
+      setImportPayloads(payloads);
+      setImportErrors(collectedErrors);
+    } catch {
+      setImportErrors(["تعذر قراءة ملف الإكسل. تأكد من صيغة الملف وأنه غير تالف."]);
+    }
+  }
+
+  async function handleImportUsers() {
+    if (!currentSchoolId) {
+      setImportErrors(["يجب تحديد مدرسة قبل الاستيراد."]);
+      return;
+    }
+
+    if (!importPayloads.length) {
+      setImportErrors(["لا توجد صفوف صالحة للاستيراد."]);
+      return;
+    }
+
+    setImporting(true);
+    const runtimeErrors: string[] = [];
+    let createdCount = 0;
+
+    for (const row of importPayloads) {
+      try {
+        const response = await fetch("/api/dashboard/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(row.payload),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          runtimeErrors.push(`السطر ${row.line}: ${readApiError(result, "تعذر إنشاء الحساب.")}`);
+          continue;
+        }
+        createdCount += 1;
+      } catch {
+        runtimeErrors.push(`السطر ${row.line}: خطأ اتصال أثناء إنشاء الحساب.`);
+      }
+    }
+
+    if (runtimeErrors.length) {
+      setImportErrors((current) => [...current, ...runtimeErrors]);
+    }
+
+    if (createdCount > 0) {
+      setSuccess(`تم استيراد ${createdCount} حساب بنجاح.`);
+      await fetchUsers();
+      await fetchOptions();
+    }
+
+    setImporting(false);
+  }
+
+  async function handleExportUsers() {
+    const XLSX = await loadXLSX();
+    const rows = filteredUsers.map((user) => ({
+      "الاسم الكامل": user.full_name,
+      الدور: MANAGED_USER_ROLE_LABELS[user.role],
+      الهاتف: user.phone || "",
+      "معرّف الدخول": user.app_account?.login_identifier || user.email,
+      البريد: user.email,
+      الصف: user.role === "student" ? user.student?.class_name || "" : user.teacher?.assignments[0]?.class_name || "",
+      الشعبة: user.role === "student" ? user.student?.section || "" : user.teacher?.assignments[0]?.section_name || "",
+      المادة: user.role === "teacher" ? user.teacher?.assignments[0]?.subject_name || "" : "",
+      الحالة: user.is_active ? "نشط" : "غير نشط",
+      "تاريخ الإنشاء": formatDateLabel(user.created_at),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "users");
+    XLSX.writeFile(workbook, `حسابات_المستخدمين_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
   async function openAccountCardForUser(user: ManagedUserRecord) {
     if (!currentSchoolId) {
       setError("يجب تحديد مدرسة قبل عرض بطاقة الحساب.");
@@ -854,7 +1086,7 @@ export default function UsersManagementPage() {
                       </p>
                     </div>
 
-                    <div className="grid w-full gap-3 xl:max-w-[620px] xl:grid-cols-2">
+                    <div className="grid w-full gap-3 xl:max-w-[740px] xl:grid-cols-2">
                       <button
                         type="button"
                         className="ui-button ui-button--primary inline-flex min-h-[78px] items-center justify-between gap-3 px-5 text-right"
@@ -881,6 +1113,33 @@ export default function UsersManagementPage() {
                         </span>
                         <BookOpen size={18} className="shrink-0" />
                       </button>
+
+                      <div className="grid gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft)] p-3 xl:col-span-2 sm:grid-cols-3">
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-4 text-sm"
+                          onClick={() => setShowImportModal(true)}
+                        >
+                          <Upload size={15} />
+                          استيراد إكسل
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-4 text-sm"
+                          onClick={() => void handleExportUsers()}
+                        >
+                          <Download size={15} />
+                          تصدير الجدول
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-4 text-sm"
+                          onClick={() => void downloadUsersTemplate()}
+                        >
+                          <FileSpreadsheet size={15} />
+                          نموذج جاهز
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -920,14 +1179,32 @@ export default function UsersManagementPage() {
                           ابحث بالاسم أو معرّف الدخول أو الصف أو المادة ثم صفِّ النتائج حسب الدور والحالة.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
-                        onClick={() => void fetchUsers()}
-                      >
-                        <Loader2 size={16} className={loading ? "animate-spin" : ""} />
-                        تحديث
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
+                          onClick={() => void handleExportUsers()}
+                        >
+                          <Download size={16} />
+                          تصدير
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
+                          onClick={() => setShowImportModal(true)}
+                        >
+                          <Upload size={16} />
+                          استيراد
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
+                          onClick={() => void fetchUsers()}
+                        >
+                          <Loader2 size={16} className={loading ? "animate-spin" : ""} />
+                          تحديث
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_220px_220px]">
@@ -982,8 +1259,8 @@ export default function UsersManagementPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 overflow-x-auto rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]">
-                    <table className="ui-table min-w-[1200px]">
+                  <div className="mt-5 overflow-x-auto rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)] shadow-[var(--shadow-xs)]">
+                    <table className="ui-table min-w-[1260px]">
                       <thead className="bg-[var(--surface-muted)]">
                         <tr>
                           <th>المستخدم</th>
@@ -1017,8 +1294,8 @@ export default function UsersManagementPage() {
                             </td>
                           </tr>
                         ) : (
-                          filteredUsers.map((user) => (
-                            <tr key={user.auth_user_id}>
+                          filteredUsers.map((user, index) => (
+                            <tr key={user.auth_user_id} className={index % 2 === 0 ? "bg-transparent" : "bg-[var(--surface-soft)]/45"}>
                               <td>
                                 <div className="flex items-start gap-3">
                                   <div
@@ -1090,7 +1367,7 @@ export default function UsersManagementPage() {
                                 <div className="flex flex-wrap justify-end gap-2">
                                   <button
                                     type="button"
-                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm"
+                                    className="ui-button ui-button--secondary inline-flex min-h-[42px] min-w-[102px] items-center justify-center gap-2 px-3 py-2 text-sm"
                                     onClick={() => openEditModal(user)}
                                   >
                                     <PencilLine size={15} />
@@ -1098,25 +1375,25 @@ export default function UsersManagementPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm"
+                                    className="ui-button ui-button--primary inline-flex min-h-[42px] min-w-[124px] items-center justify-center gap-2 px-3 py-2 text-sm"
                                     onClick={() => void openAccountCardForUser(user)}
                                     disabled={cardLoadingId === user.auth_user_id}
                                   >
                                     {cardLoadingId === user.auth_user_id ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}
-                                    إعادة الطباعة
+                                    بطاقة الدخول
                                   </button>
                                   <button
                                     type="button"
-                                    className="ui-button ui-button--secondary inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm"
+                                    className="ui-button ui-button--secondary inline-flex min-h-[42px] min-w-[124px] items-center justify-center gap-2 px-3 py-2 text-sm"
                                     onClick={() => void handleResetTemporaryPassword(user)}
                                     disabled={cardLoadingId === user.auth_user_id}
                                   >
                                     {cardLoadingId === user.auth_user_id ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                                    إعادة ضبط المؤقتة
+                                    إعادة ضبط المرور
                                   </button>
                                   <button
                                     type="button"
-                                    className={`ui-button inline-flex min-h-[44px] min-w-[118px] items-center justify-center gap-2 px-4 py-2 text-sm ${
+                                    className={`ui-button inline-flex min-h-[42px] min-w-[94px] items-center justify-center gap-2 px-3 py-2 text-sm ${
                                       user.is_active ? "ui-button--danger" : "ui-button--primary"
                                     }`}
                                     onClick={() => void handleToggle(user)}
@@ -1390,6 +1667,128 @@ export default function UsersManagementPage() {
           </div>
         ) : null}
 
+        {showImportModal ? (
+          <div
+            className="ui-backdrop flex items-center justify-center p-4"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                closeImportModal();
+              }
+            }}
+          >
+            <div className="ui-dialog w-full max-w-[860px] overflow-hidden">
+              <div className="border-b border-[var(--border)] px-5 py-5 sm:px-7">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-sm font-black text-[var(--text-primary)]">
+                      <Upload size={15} />
+                      استيراد حسابات من إكسل
+                    </div>
+                    <h2 className="text-xl font-black text-[var(--text-primary)]">استيراد آمن مع التحقق قبل الحفظ</h2>
+                    <p className="text-sm leading-7 text-[var(--text-secondary)]">
+                      يتم فحص كل سطر قبل الإرسال. السطور الخاطئة تُعرض برسائل واضحة ولن يتم حفظها.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]"
+                    onClick={closeImportModal}
+                    aria-label="إغلاق"
+                  >
+                    <CircleOff size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 px-5 py-5 sm:px-7 sm:py-6">
+                <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-bold text-[var(--text-secondary)]">
+                      الأعمدة المقترحة: الدور، الاسم الكامل، الهاتف، معرّف الدخول، الصف، الشعبة، المادة، الحالة
+                    </p>
+                    <button
+                      type="button"
+                      className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4 text-sm"
+                      onClick={() => void downloadUsersTemplate()}
+                    >
+                      <FileSpreadsheet size={15} />
+                      تحميل نموذج جاهز
+                    </button>
+                  </div>
+
+                  <label className="block cursor-pointer rounded-[16px] border border-dashed border-[var(--border-strong)] bg-[var(--surface-strong)] p-4 text-center transition hover:border-[var(--primary)]">
+                    <input
+                      ref={importFileRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={(event) => void handleImportFileChange(event)}
+                    />
+                    <div className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-primary)]">
+                      <Upload size={18} />
+                    </div>
+                    <p className="text-sm font-black text-[var(--text-primary)]">اضغط لاختيار ملف Excel</p>
+                    <p className="text-xs text-[var(--text-secondary)]">سيتم عرض معاينة وفحص السطور قبل الاستيراد</p>
+                  </label>
+                </div>
+
+                {importErrors.length ? (
+                  <div className="space-y-2 rounded-[20px] border border-[rgba(240,90,90,0.22)] bg-[rgba(240,90,90,0.08)] p-4">
+                    <p className="text-sm font-black text-[var(--danger)]">أخطاء التحقق</p>
+                    <ul className="max-h-44 space-y-1 overflow-y-auto pr-5 text-sm leading-7 text-[var(--danger)]">
+                      {importErrors.map((issue) => (
+                        <li key={issue}>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {importPreview.length ? (
+                  <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+                    <p className="mb-3 text-sm font-black text-[var(--text-primary)]">معاينة أول 6 صفوف من الملف</p>
+                    <div className="overflow-x-auto rounded-[14px] border border-[var(--border)]">
+                      <table className="ui-table min-w-[780px]">
+                        <thead>
+                          <tr>
+                            {Object.keys(importPreview[0] ?? {}).map((column) => (
+                              <th key={column}>{column}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importPreview.map((row, rowIndex) => (
+                            <tr key={`preview-row-${rowIndex}`}>
+                              {Object.keys(importPreview[0] ?? {}).map((column) => (
+                                <td key={`${column}-${rowIndex}`}>{normalizeExcelCell(row[column]) || "—"}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button type="button" className="ui-button ui-button--secondary" onClick={closeImportModal}>
+                    إلغاء
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-button ui-button--primary inline-flex items-center gap-2"
+                    onClick={() => void handleImportUsers()}
+                    disabled={importing || importPayloads.length === 0}
+                  >
+                    {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {importing ? "جارٍ الاستيراد..." : `استيراد (${importPayloads.length})`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {accountCard ? (
           <div
             className="ui-backdrop flex items-center justify-center p-4"
@@ -1425,6 +1824,10 @@ export default function UsersManagementPage() {
               </div>
 
               <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
+                <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm font-bold text-[var(--text-secondary)]">
+                  استخدم زر الطباعة لتسليم بيانات الدخول مباشرة للطالب/المدرس، أو انسخ البيانات يدويًا عند الحاجة.
+                </div>
+
                 {accountCard.school_logo_url ? (
                   <div className="flex justify-center">
                     <div className="flex items-center gap-3 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] px-5 py-4">
@@ -1499,13 +1902,13 @@ export default function UsersManagementPage() {
                   </button>
                   <button
                     type="button"
-                    className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                    className="ui-button ui-button--primary inline-flex items-center gap-2"
                     onClick={() => openPrintableWindow(accountCard, true)}
                   >
                     <Printer size={16} />
-                    طباعة
+                    طباعة بطاقة الدخول
                   </button>
-                  <button type="button" className="ui-button ui-button--primary" onClick={closeAccountCard}>
+                  <button type="button" className="ui-button ui-button--secondary" onClick={closeAccountCard}>
                     إغلاق
                   </button>
                 </div>

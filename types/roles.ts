@@ -10,6 +10,8 @@ export const ALL_PERMISSIONS = [
   "view_payments",
   "add_payments",
   "delete_payments",
+  "view_salaries",
+  "manage_salaries",
   "manage_schools",
   "manage_subscriptions",
   "view_audit_logs",
@@ -44,6 +46,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "view_payments",
     "add_payments",
     "delete_payments",
+    "view_salaries",
+    "manage_salaries",
     "manage_branches",
   ],
   employee: [
@@ -74,6 +78,13 @@ export const PERMISSION_GROUPS: Array<{
       { key: "view_payments", label: "عرض الحسابات" },
       { key: "add_payments", label: "إضافة الحسابات" },
       { key: "delete_payments", label: "حذف الحسابات" },
+    ],
+  },
+  {
+    title: "الرواتب",
+    permissions: [
+      { key: "view_salaries", label: "عرض الرواتب" },
+      { key: "manage_salaries", label: "إدارة الرواتب" },
     ],
   },
   {
@@ -193,6 +204,11 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
     requiresActiveSchool: true,
   },
   {
+    pathPrefix: "/salaries",
+    roles: ["super_admin", "admin"],
+    requiresActiveSchool: true,
+  },
+  {
     pathPrefix: "/reports",
     roles: ["super_admin", "admin"],
     requiresActiveSchool: true,
@@ -212,6 +228,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
 export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pathPrefix: "/students", permissions: ["view_students"] },
   { pathPrefix: "/payments", permissions: ["view_payments"] },
+  { pathPrefix: "/salaries", permissions: ["view_salaries"] },
   { pathPrefix: "/schools", permissions: ["manage_schools"] },
   { pathPrefix: "/subscriptions", permissions: ["manage_subscriptions"] },
   { pathPrefix: "/super-admin", permissions: ["full_access"] },
@@ -271,6 +288,12 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     id: "expenses",
     label: "المصروفات",
     href: "/expenses",
+    roles: ["super_admin", "admin"],
+  },
+  {
+    id: "salaries",
+    label: "الرواتب",
+    href: "/salaries",
     roles: ["super_admin", "admin"],
   },
   {

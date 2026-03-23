@@ -23,6 +23,7 @@ import {
   type Permission,
   type UserRole,
 } from "@/types/roles";
+import { isMissingRelationError } from "@/lib/admin-infrastructure";
 import { SectionCard, EmptyState, MigrationNotice, cx, relationName } from "./UI";
 
 type SchoolOption = {
@@ -79,6 +80,10 @@ export function RolesTab({
     () => schools.filter((school) => school.name.trim().length > 0),
     [schools],
   );
+  const schoolNamesById = useMemo(
+    () => new Map(schoolOptions.map((school) => [school.id, school.name])),
+    [schoolOptions],
+  );
 
   const fetchRoles = useCallback(async () => {
     if (!infrastructure.customRoles) {
@@ -88,27 +93,44 @@ export function RolesTab({
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let needsSchoolFallback = false;
+      let response: any = await supabase
         .from("custom_roles")
         .select("id, name, description, school_id, base_role, permissions, created_at, schools(name)")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (response.error && isMissingRelationError(response.error, "custom_roles", "schools")) {
+        needsSchoolFallback = true;
+        response = await supabase
+          .from("custom_roles")
+          .select("id, name, description, school_id, base_role, permissions, created_at")
+          .order("created_at", { ascending: false });
+      }
 
-      const normalized = (data || []).map((role) => ({
+      if (response.error) throw response.error;
+
+      const normalized = ((response.data || []) as CustomRoleRecord[]).map((role) => ({
         ...role,
         base_role: (role.base_role || "employee") as UserRole,
         permissions: Array.isArray(role.permissions) ? (role.permissions as Permission[]) : null,
+        schools: needsSchoolFallback
+          ? (role.school_id ? { name: schoolNamesById.get(role.school_id) ?? null } : null)
+          : role.schools ?? null,
       }));
 
       setRoles(normalized);
+      setMessage(
+        needsSchoolFallback
+          ? "تم عرض أسماء المدارس للأدوار المخصصة بوضع توافق لأن علاقة الربط مع جدول المدارس غير متاحة حالياً."
+          : "",
+      );
     } catch (err) {
       console.error("Failed to fetch custom roles:", err);
       setMessage("تعذر تحميل الأدوار المخصصة حالياً.");
     } finally {
       setLoading(false);
     }
-  }, [infrastructure.customRoles]);
+  }, [infrastructure.customRoles, schoolNamesById]);
 
   useEffect(() => {
     fetchRoles();

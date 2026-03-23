@@ -11,6 +11,7 @@ const SUPER_ADMIN_SCHOOL_SCOPED_PATHS = new Set([
   "/attendance",
   "/expenses",
   "/reports",
+  "/salaries",
 ]);
 
 export function isSuperAdminSchoolScopedPath(pathname: string): boolean {

@@ -82,8 +82,31 @@ export function isMissingColumnError(
   return parts.every((part) => message.includes(String(part)));
 }
 
+export function isMissingRelationError(
+  error: unknown,
+  sourceTable?: string,
+  relatedTable?: string,
+) {
+  const message = getErrorMessage(error).toLowerCase();
+  const code = getErrorCode(error);
+  const mentionsTables = [sourceTable, relatedTable]
+    .filter(Boolean)
+    .every((tableName) => message.includes(String(tableName).toLowerCase()));
+
+  return (
+    (!sourceTable && !relatedTable || mentionsTables) &&
+    (
+      code === "PGRST200" ||
+      code === "PGRST201" ||
+      message.includes("could not find a relationship between") ||
+      message.includes("more than one relationship was found") ||
+      (message.includes("relationship") && message.includes("schema cache"))
+    )
+  );
+}
+
 export function isInfrastructureCompatError(error: unknown) {
-  return isMissingTableError(error) || isMissingColumnError(error);
+  return isMissingTableError(error) || isMissingColumnError(error) || isMissingRelationError(error);
 }
 
 export function getAdminInfrastructureNotice(infrastructure: AdminInfrastructure) {

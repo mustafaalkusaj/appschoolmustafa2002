@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
+import { isMissingRelationError } from "@/lib/admin-infrastructure";
 import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 
@@ -52,15 +53,35 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
         schoolsQuery = schoolsQuery.is("deleted_at", null);
       }
 
-      const [branchesRes, schoolsRes] = await Promise.all([
+      let [branchesRes, schoolsRes]: any = await Promise.all([
         branchesQuery.order("created_at", { ascending: false }),
         schoolsQuery
       ]);
 
+      if (branchesRes.error && isMissingRelationError(branchesRes.error, "branches", "schools")) {
+        setMessage("تم عرض أسماء المدارس للفروع بوضع توافق لأن علاقة الربط مع جدول المدارس غير متاحة حالياً.");
+        branchesRes = infrastructure.softDeleteBranches
+          ? await supabase
+              .from("branches")
+              .select("*")
+              .is("deleted_at", null)
+              .order("created_at", { ascending: false })
+          : await supabase.from("branches").select("*").order("created_at", { ascending: false });
+      } else {
+        setMessage("");
+      }
+
       if (branchesRes.error) throw branchesRes.error;
       if (schoolsRes.error) throw schoolsRes.error;
-      setBranches(branchesRes.data || []);
-      setSchools(schoolsRes.data || []);
+      const nextSchools = schoolsRes.data || [];
+      const schoolNamesById = new Map(nextSchools.map((school) => [school.id, school.name]));
+      const nextBranches = (branchesRes.data || []).map((branch) => ({
+        ...branch,
+        schools: branch.schools ?? (branch.school_id ? { name: schoolNamesById.get(branch.school_id) ?? null } : null),
+      }));
+
+      setBranches(nextBranches);
+      setSchools(nextSchools);
     } catch (err) {
       console.error("Fetch branches error:", err);
     } finally {

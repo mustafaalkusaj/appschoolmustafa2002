@@ -75,6 +75,12 @@ function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) 
   `;
 }
 
+function readApiError(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") return fallback;
+  const candidate = payload as { error?: { message?: string } };
+  return candidate.error?.message || fallback;
+}
+
 export default function StudentsPage() {
   const { profile, canAny, isReadOnlyPath } = useRole();
   const schoolScope = useSchoolScope(profile);
@@ -292,6 +298,55 @@ export default function StudentsPage() {
     setSuccess("تم نسخ بيانات الدخول المؤقتة"); setTimeout(()=>setSuccess(""),3000);
   }
 
+  async function openStudentCredentialsCard(student: any){
+    if (!student?.auth_user_id) {
+      setError("لا يوجد حساب تطبيق مرتبط بهذا الطالب حتى الآن.");
+      return;
+    }
+
+    setError("");
+    const { school_id } = await getSchoolBranch();
+    if (!school_id) {
+      setError("يجب تحديد مدرسة قبل عرض بطاقة الدخول.");
+      return;
+    }
+
+    try {
+      const cardResponse = await fetch(
+        `/api/dashboard/users/${student.auth_user_id}/card?schoolId=${encodeURIComponent(school_id)}`,
+        { cache: "no-store" },
+      );
+      const cardPayload = await cardResponse.json().catch(() => null);
+
+      if (cardResponse.ok && cardPayload?.accountCard) {
+        setAccountCard(cardPayload.accountCard as ManagedUserAccountCard);
+        return;
+      }
+
+      const resetResponse = await fetch(`/api/dashboard/users/${student.auth_user_id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ school_id }),
+      });
+      const resetPayload = await resetResponse.json().catch(() => null);
+
+      if (!resetResponse.ok || !resetPayload?.accountCard) {
+        throw new Error(
+          readApiError(
+            resetPayload ?? cardPayload,
+            "تعذر فتح بطاقة الدخول لهذا الطالب. تأكد من ربط حساب التطبيق أولاً.",
+          ),
+        );
+      }
+
+      setAccountCard(resetPayload.accountCard as ManagedUserAccountCard);
+      setSuccess("تم فتح بطاقة الدخول وتوليد كلمة مرور مؤقتة جديدة بأمان.");
+      setTimeout(()=>setSuccess(""),3000);
+    } catch (credentialsError) {
+      setError(credentialsError instanceof Error ? credentialsError.message : "تعذر فتح بطاقة الدخول.");
+    }
+  }
+
   function openMenu(e:React.MouseEvent,student:any){
     e.stopPropagation();
     const rect=(e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -410,10 +465,14 @@ export default function StudentsPage() {
   // خيارات كل تبويب
   function getActions(s:any){
     if (isReadOnlyView) {
-      return [{ icon: "🖨️", label: "طباعة", fn: () => { handlePrint(s); setActiveMenu(null); } }];
+      return [
+        { icon: "🔐", label: "بطاقة الدخول", fn: () => { void openStudentCredentialsCard(s); setActiveMenu(null); } },
+        { icon: "🖨️", label: "طباعة", fn: () => { handlePrint(s); setActiveMenu(null); } },
+      ];
     }
 
     if(activeTab==="active") return [
+      {icon:"🔐",label:"بطاقة الدخول",fn:()=>{void openStudentCredentialsCard(s);setActiveMenu(null)}},
       {icon:"🖨️",label:"طباعة",fn:()=>{handlePrint(s);setActiveMenu(null)}},
       {icon:"📦",label:"نقل الطالب",fn:()=>{changeStatus(s,"transferred","تم نقل الطالب ✓");setActiveMenu(null)}},
       {icon:"⏸️",label:"توقيف الطالب",fn:()=>{changeStatus(s,"suspended","تم توقيف الطالب ✓");setActiveMenu(null)}},
@@ -422,11 +481,13 @@ export default function StudentsPage() {
       {icon:"🗑️",label:"حذف",danger:true,fn:()=>{setSelectedStudent(s);setShowDeleteConfirm(true);setActiveMenu(null)}},
     ];
     if(activeTab==="transferred") return [
+      {icon:"🔐",label:"بطاقة الدخول",fn:()=>{void openStudentCredentialsCard(s);setActiveMenu(null)}},
       {icon:"🖨️",label:"طباعة",fn:()=>{handlePrint(s);setActiveMenu(null)}},
       {icon:"↩️",label:"استعادة الطالب",fn:()=>{changeStatus(s,"active","تم استعادة الطالب ✓");setActiveMenu(null)}},
       {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
     ];
     if(activeTab==="suspended") return [
+      {icon:"🔐",label:"بطاقة الدخول",fn:()=>{void openStudentCredentialsCard(s);setActiveMenu(null)}},
       {icon:"🖨️",label:"طباعة",fn:()=>{handlePrint(s);setActiveMenu(null)}},
       {icon:"↩️",label:"إعادة التفعيل",fn:()=>{changeStatus(s,"active","تم تفعيل الطالب ✓");setActiveMenu(null)}},
       {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
@@ -553,7 +614,17 @@ export default function StudentsPage() {
         </div>
 
         <div className="content">
-          {success&&<div className="ok">{success}</div>}
+          {success&&(
+            <div className="ok">
+              <div>{success}</div>
+              {accountCard ? (
+                <div style={{marginTop:".45rem",display:"flex",gap:".45rem",flexWrap:"wrap"}}>
+                  <button className="bc" style={{padding:".45rem .8rem"}} onClick={()=>openAccountCardWindow(accountCard,true)}>طباعة بيانات الدخول</button>
+                  <button className="bc" style={{padding:".45rem .8rem"}} onClick={()=>void copyAccountCardCredentials()}>نسخ اسم المستخدم/المرور</button>
+                </div>
+              ) : null}
+            </div>
+          )}
           {error&&<div className="err">{error}</div>}
           <SchoolScopeBanner scope={schoolScope} />
           {schoolScope.shouldBlockContent ? (

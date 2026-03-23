@@ -54,6 +54,7 @@ import {
   detectAdminInfrastructure,
   getAdminInfrastructureNotice,
   isInfrastructureCompatError,
+  isMissingRelationError,
 } from "@/lib/admin-infrastructure";
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
@@ -203,6 +204,18 @@ function relationName(value: SchoolRelation) {
   }
 
   return value?.name ?? null;
+}
+
+function attachSchoolNames<T extends { school_id: string | null }>(
+  records: T[],
+  schools: Array<Pick<SchoolRecord, "id" | "name">>,
+) {
+  const schoolNamesById = new Map(schools.map((school) => [school.id, school.name]));
+
+  return records.map((record) => ({
+    ...record,
+    schools: record.school_id ? { name: schoolNamesById.get(record.school_id) ?? null } : null,
+  }));
 }
 
 function getErrorMessage(error: unknown, fallback = "حدث خطأ غير متوقع") {
@@ -451,29 +464,61 @@ export default function SuperAdminPage() {
   }, [locale]);
 
   const fetchAll = useCallback(async (nextInfrastructure = DEFAULT_ADMIN_INFRASTRUCTURE) => {
+    const compatWarnings = new Set<string>();
     const schoolsQuery = nextInfrastructure.softDeleteSchools
       ? supabase.from("schools").select("*").is("deleted_at", null)
       : supabase.from("schools").select("*");
 
-    const userColumns = nextInfrastructure.customPermissions
-      ? "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions, schools(name)"
-      : "id, full_name, email, role, school_id, phone, is_active, created_at, schools(name)";
-    const usersQuery = nextInfrastructure.softDeleteUsers
-      ? supabase.from("user_profiles").select(userColumns).is("deleted_at", null)
-      : supabase.from("user_profiles").select(userColumns);
-
-    const [schoolsResponse, usersResponse, subscriptionsResponse] = await Promise.all([
-      schoolsQuery.order("created_at", { ascending: false }),
-      usersQuery.order("created_at", { ascending: false }),
-      supabase.from("subscriptions").select("*, schools(name)").order("created_at", { ascending: false }),
-    ]);
-
+    const schoolsResponse = await schoolsQuery.order("created_at", { ascending: false });
     if (schoolsResponse.error) throw schoolsResponse.error;
+
+    const nextSchools = (schoolsResponse.data ?? []) as SchoolRecord[];
+    const baseUserColumns = nextInfrastructure.customPermissions
+      ? "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions"
+      : "id, full_name, email, role, school_id, phone, is_active, created_at";
+    const usersQuery = nextInfrastructure.softDeleteUsers
+      ? supabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`).is("deleted_at", null)
+      : supabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`);
+
+    let usersResponse: any = await usersQuery.order("created_at", { ascending: false });
+    let usersNeedSchoolFallback = false;
+
+    if (usersResponse.error && isMissingRelationError(usersResponse.error, "user_profiles", "schools")) {
+      compatWarnings.add("تم تفعيل عرض بديل لأسماء المدارس لأن علاقة الربط لبعض جداول المدير العام غير متاحة حالياً.");
+      usersNeedSchoolFallback = true;
+      usersResponse = nextInfrastructure.softDeleteUsers
+        ? await supabase
+            .from("user_profiles")
+            .select(baseUserColumns)
+            .is("deleted_at", null)
+            .order("created_at", { ascending: false })
+        : await supabase.from("user_profiles").select(baseUserColumns).order("created_at", { ascending: false });
+    }
+
+    let subscriptionsResponse: any = await supabase
+      .from("subscriptions")
+      .select("*, schools(name)")
+      .order("created_at", { ascending: false });
+    let subscriptionsNeedSchoolFallback = false;
+
+    if (subscriptionsResponse.error && isMissingRelationError(subscriptionsResponse.error, "subscriptions", "schools")) {
+      compatWarnings.add("تم تفعيل عرض بديل لأسماء المدارس لأن علاقة الربط لبعض جداول المدير العام غير متاحة حالياً.");
+      subscriptionsNeedSchoolFallback = true;
+      subscriptionsResponse = await supabase.from("subscriptions").select("*").order("created_at", { ascending: false });
+    }
+
     if (usersResponse.error) throw usersResponse.error;
     if (subscriptionsResponse.error) throw subscriptionsResponse.error;
 
-    setSchools((schoolsResponse.data ?? []) as SchoolRecord[]);
-    const rawUsers = (usersResponse.data ?? []) as unknown as Array<Record<string, unknown>>;
+    setSchools(nextSchools);
+    const rawUsers = (
+      usersNeedSchoolFallback
+        ? attachSchoolNames(
+            (usersResponse.data ?? []) as unknown as UserRecord[],
+            nextSchools,
+          )
+        : ((usersResponse.data ?? []) as unknown as Array<Record<string, unknown>>)
+    ) as Array<Record<string, unknown>>;
     setUsers(
       rawUsers.map((user) => ({
         ...user,
@@ -482,7 +527,13 @@ export default function SuperAdminPage() {
           : null,
       })) as UserRecord[],
     );
-    setSubscriptions((subscriptionsResponse.data ?? []) as SubscriptionRecord[]);
+    setSubscriptions(
+      subscriptionsNeedSchoolFallback
+        ? attachSchoolNames((subscriptionsResponse.data ?? []) as SubscriptionRecord[], nextSchools)
+        : ((subscriptionsResponse.data ?? []) as SubscriptionRecord[]),
+    );
+
+    return Array.from(compatWarnings);
   }, []);
 
   const refreshDashboard = useCallback(async () => {
@@ -494,9 +545,10 @@ export default function SuperAdminPage() {
 
       const nextInfrastructure = await detectAdminInfrastructure(supabase);
       setInfrastructure(nextInfrastructure);
-      setInfrastructureNotice(getAdminInfrastructureNotice(nextInfrastructure));
 
-      await fetchAll(nextInfrastructure);
+      const fetchWarnings = await fetchAll(nextInfrastructure);
+      const notices = [getAdminInfrastructureNotice(nextInfrastructure), ...fetchWarnings].filter(Boolean);
+      setInfrastructureNotice(notices.join(" "));
     } catch (fetchError) {
       flashError(getErrorMessage(fetchError, "تعذر تحميل بيانات المدير العام."));
     } finally {
@@ -1049,13 +1101,6 @@ export default function SuperAdminPage() {
           </div>
 
           <div className="mt-auto space-y-3">
-            <ThemeModeToggle
-              variant="inline"
-              className="sidebar-theme-switch w-full"
-              showLabels={!sidebarCollapsed}
-              compact={sidebarCollapsed}
-            />
-
             <div className={cx("rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3", sidebarCollapsed && "p-2")}>
               {!sidebarCollapsed ? (
                 <div className="space-y-2">
@@ -1074,17 +1119,31 @@ export default function SuperAdminPage() {
               )}
             </div>
 
-            <button
-              type="button"
+            <div
               className={cx(
-                "ui-button ui-button--danger flex w-full items-center gap-3 justify-center",
-                !sidebarCollapsed && "justify-start px-4",
+                "rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-2",
+                sidebarCollapsed && "p-2",
               )}
-              onClick={handleLogout}
             >
-              <LogOut size={18} />
-              {!sidebarCollapsed ? <span>تسجيل الخروج</span> : null}
-            </button>
+              <button
+                type="button"
+                className={cx(
+                  "ui-button ui-button--danger flex w-full items-center gap-3 justify-center",
+                  !sidebarCollapsed && "justify-start px-4",
+                )}
+                onClick={handleLogout}
+              >
+                <LogOut size={18} />
+                {!sidebarCollapsed ? <span>تسجيل الخروج</span> : null}
+              </button>
+
+              <ThemeModeToggle
+                variant="inline"
+                className="sidebar-theme-switch mt-2 w-full"
+                showLabels={!sidebarCollapsed}
+                compact={sidebarCollapsed}
+              />
+            </div>
           </div>
         </aside>
 
