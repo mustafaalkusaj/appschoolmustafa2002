@@ -1067,7 +1067,7 @@ function handlePrint(s: StudentWithFees){
     )}
 
     {/* MODAL تعديل */}
-    {!isReadOnlyView && showEdit&&selectedStudent&&(
+    {!isReadOnlyView && showEdit && selectedStudent && (
       <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowEdit(false)}}>
         <div className="modal">
           <div className="mh"><div className="mt">تعديل بيانات الطالب</div><button className="mc" onClick={()=>setShowEdit(false)}><AppIcon token="✕" size={13} /></button></div>
@@ -1139,7 +1139,7 @@ function handlePrint(s: StudentWithFees){
     )}
 
     {/* MODAL تأكيد الحذف */}
-    {!isReadOnlyView && showDeleteConfirm&&selectedStudent&&(
+    {!isReadOnlyView && showDeleteConfirm && selectedStudent && (
       <div className="overlay">
         <div className="modal modal-sm">
           <div className="del-ico"><AppIcon token="🗑️" size={26} /></div>
