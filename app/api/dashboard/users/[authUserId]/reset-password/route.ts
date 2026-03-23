@@ -57,7 +57,7 @@ export async function POST(
   await upsertManagedUserCredential(actorSupabase, {
     authUserId,
     schoolId: targetSchoolId,
-    loginIdentifier: user.email,
+    loginIdentifier: user.app_account?.login_identifier ?? user.email,
     temporaryPassword,
   });
 

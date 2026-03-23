@@ -1,30 +1,35 @@
 export const APP_LOCALE = "ar" as const;
 export const LEGACY_LOCALE = "en" as const;
+export const SUPPORTED_LOCALES = [APP_LOCALE, LEGACY_LOCALE] as const;
 
-export type AppLocale = typeof APP_LOCALE;
-export type LocalePrefix = typeof APP_LOCALE | typeof LEGACY_LOCALE;
+export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
+export type LocalePrefix = AppLocale;
 
 const KNOWN_LOCALES = new Set<LocalePrefix>([APP_LOCALE, LEGACY_LOCALE]);
 
 export function normalizeLocale(input: string | null | undefined): AppLocale {
-  void input;
+  const normalized = (input || "").trim().toLowerCase();
+  if (KNOWN_LOCALES.has(normalized as LocalePrefix)) {
+    return normalized as AppLocale;
+  }
   return APP_LOCALE;
 }
 
 export function getLocaleFromPath(pathname: string | null | undefined): AppLocale {
   if (!pathname) return APP_LOCALE;
-  return APP_LOCALE;
+  const firstSegment = pathname.split("/").filter(Boolean)[0];
+  return normalizeLocale(firstSegment);
 }
 
 export function hasLocalePrefix(pathname: string): boolean {
-  const firstSegment = pathname.split("/").filter(Boolean)[0];
+  const firstSegment = pathname.split("/").filter(Boolean)[0]?.toLowerCase();
   return Boolean(firstSegment && KNOWN_LOCALES.has(firstSegment as LocalePrefix));
 }
 
 export function stripLocaleFromPath(pathname: string): string {
   const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const parts = normalized.split("/").filter(Boolean);
-  if (parts.length > 0 && KNOWN_LOCALES.has(parts[0] as LocalePrefix)) {
+  if (parts.length > 0 && KNOWN_LOCALES.has(parts[0].toLowerCase() as LocalePrefix)) {
     const rest = parts.slice(1).join("/");
     return rest ? `/${rest}` : "/";
   }

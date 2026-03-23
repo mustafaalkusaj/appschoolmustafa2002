@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { resolveSchoolBranchForProfile } from "@/lib/school-context";
 import { formatNumber, formatDate } from "@/lib/formatting";
@@ -9,6 +10,9 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
+import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
+import { getLocaleFromPath } from "@/lib/locale-routing";
+import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { loadXLSX } from "@/lib/xlsx-loader";
 
 const SALARY_TYPES = [
@@ -53,8 +57,17 @@ const QUICK_ACCESS = [
   { id:"daily_log", label:"سجل يومي", icon:"📋", bg:"#F1F5F9" },
 ];
 
+function isMissingLecturePriceColumn(error: { message?: string } | null | undefined) {
+  const message = (error?.message || "").toLowerCase();
+  return message.includes('column "lecture_price"') || message.includes("lecture_price");
+}
+
 export default function SalariesPage() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+  const isEnglish = locale === "en";
   const { profile, canAny } = useRole();
+  const runtimeBranding = useRuntimeBranding();
   const canManageTeacher = canAny(["manage_salaries"]);
   const schoolScope = useSchoolScope(profile);
   const [schoolId, setSchoolId] = useState<string | null>(null);
@@ -159,6 +172,7 @@ export default function SalariesPage() {
     phone: "",
     address: "",
     base_salary: "",
+    lecture_price: "",
     weekly_hours: "",
     classes_taught: [{ grade: "", section: "" }] as { grade: string; section: string }[],
     status: "active",
@@ -173,6 +187,7 @@ export default function SalariesPage() {
       phone: "",
       address: "",
       base_salary: "",
+      lecture_price: "",
       weekly_hours: "",
       classes_taught: [{ grade: "", section: "" }],
       status: "active",
@@ -197,6 +212,7 @@ export default function SalariesPage() {
       phone: String(t.phone ?? ""),
       address: String(t.address ?? ""),
       base_salary: String(t.base_salary ?? ""),
+      lecture_price: String(t.lecture_price ?? ""),
       weekly_hours: String(t.weekly_hours ?? ""),
       classes_taught: ct.length ? ct : [{ grade: "", section: "" }],
       status: String(t.status ?? "active"),
@@ -242,6 +258,7 @@ export default function SalariesPage() {
       phone: teacherForm.phone || null,
       address: teacherForm.address || null,
       base_salary: parseInt(teacherForm.base_salary, 10) || 0,
+      lecture_price: parseInt(teacherForm.lecture_price, 10) || 0,
       weekly_hours: parseInt(teacherForm.weekly_hours, 10) || 0,
       classes_taught: validClasses.length ? validClasses : [],
       status: teacherForm.status,
@@ -252,7 +269,7 @@ export default function SalariesPage() {
       return;
     }
     if (teacherEditId) {
-      const { error: uErr } = await supabase
+      let { error: uErr } = await supabase
         .from("teachers")
         .update({
           full_name: payload.full_name,
@@ -262,18 +279,41 @@ export default function SalariesPage() {
           phone: payload.phone,
           address: payload.address,
           base_salary: payload.base_salary,
+          lecture_price: payload.lecture_price,
           weekly_hours: payload.weekly_hours,
           classes_taught: payload.classes_taught,
           status: payload.status,
         })
         .eq("id", teacherEditId);
+      if (uErr && isMissingLecturePriceColumn(uErr)) {
+        ({ error: uErr } = await supabase
+          .from("teachers")
+          .update({
+            full_name: payload.full_name,
+            subject: payload.subject,
+            job_title: payload.job_title,
+            salary_type: payload.salary_type,
+            phone: payload.phone,
+            address: payload.address,
+            base_salary: payload.base_salary,
+            weekly_hours: payload.weekly_hours,
+            classes_taught: payload.classes_taught,
+            status: payload.status,
+          })
+          .eq("id", teacherEditId));
+      }
       if (uErr) setTeacherModalError(uErr.message);
       else {
         setShowTeacherModal(false);
         await fetchAll();
       }
     } else {
-      const { error: insErr } = await supabase.from("teachers").insert(payload);
+      let { error: insErr } = await supabase.from("teachers").insert(payload);
+      if (insErr && isMissingLecturePriceColumn(insErr)) {
+        const fallbackPayload = { ...payload };
+        delete (fallbackPayload as { lecture_price?: number }).lecture_price;
+        ({ error: insErr } = await supabase.from("teachers").insert(fallbackPayload));
+      }
       if (insErr) setTeacherModalError(insErr.message);
       else {
         setShowTeacherModal(false);
@@ -418,7 +458,11 @@ export default function SalariesPage() {
       return {count:0,total:0};
     }
     const count = data?.length || 0;
-    const total = (data || []).reduce((acc:any, row:any)=>acc + (parseInt(row.price)||0), 0);
+    const lecturePrice = Number(teacher.lecture_price) || 0;
+    const total = (data || []).reduce((acc:any, row:any)=>{
+      const rowPrice = parseInt(row.price) || 0;
+      return acc + (rowPrice > 0 ? rowPrice : lecturePrice);
+    }, 0);
     return {count,total};
   }
 
@@ -489,9 +533,12 @@ export default function SalariesPage() {
   async function saveDailyLog(){
     if(!dailyTeacher||!dailyDate)return;setSavingDaily(true);
     const bid=await getBranchId();const rows:any[]=[];
+    const selectedTeacherRow = teachers.find((t) => t.id === dailyTeacher);
+    const teacherLecturePrice = Number(selectedTeacherRow?.lecture_price) || 0;
     for(const gradeSection of dailyGrades){
       const [grade,section]=gradeSection.split("||");
-      const price=lecturePrices.find(p=>p.grade===grade)?.price_per_lecture||0;
+      const classPrice=lecturePrices.find(p=>p.grade===grade)?.price_per_lecture||0;
+      const price = teacherLecturePrice > 0 ? teacherLecturePrice : classPrice;
       for(const p of dailyPeriods){
         const [period,type]=p.split("-");
         rows.push({school_id:schoolId,branch_id:bid,teacher_id:dailyTeacher,grade,section,period:parseInt(period),session_type:type,lecture_date:dailyDate,price});
@@ -517,6 +564,11 @@ export default function SalariesPage() {
     const totalAmount=salaries.filter(s=>s.month===currentMonth).reduce((a,s)=>a+((s.gross_salary||0)-(s.deductions||0)),0);
     const data={salaries:salaries.filter(s=>s.month===currentMonth),lectures:dailyLectures};
     await supabase.from("salary_archives").insert({school_id:schoolId,month:currentMonth,total_teachers:totalTeachers,total_amount:totalAmount,data});
+    try {
+      await supabase.rpc("purge_old_salary_archives");
+    } catch {
+      // Ignore when migration has not been applied yet.
+    }
     await supabase.from("daily_lectures").delete().eq("school_id",schoolId);
     setSuccess("تم أرشفة الشهر وتصفير العدادات ✓");setTimeout(()=>setSuccess(""),3000);fetchAll();fetchDetailedReportAll();
   }
@@ -525,7 +577,7 @@ export default function SalariesPage() {
   async function doExport(){
     const XLSX = await loadXLSX();
     const wb=XLSX.utils.book_new();
-    if(exportOptions.teachers){const rows=teachers.map(t=>({الاسم:t.full_name,المسمى:t.job_title||"",المادة:t.subject||"",الراتب:t.base_salary}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الأساتذة");}
+    if(exportOptions.teachers){const rows=teachers.map(t=>({الاسم:t.full_name,المسمى:t.job_title||"",المادة:t.subject||"",الراتب:t.base_salary,"سعر المحاضرة":t.lecture_price||0}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الأساتذة");}
     if(exportOptions.subjects){const rows=subjectsList.map(s=>({المادة:s.name}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"المواد");}
     if(exportOptions.classes){const rows=classes.map(c=>({الصف:c.grade,الشعبة:c.section}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الصفوف");}
     if(exportOptions.fixed_salaries){const rows=salaries.map(s=>({الأستاذ:s.teachers?.full_name||"",الشهر:s.month,الإجمالي:s.gross_salary,الخصومات:s.deductions||0,الصافي:(s.gross_salary||0)-(s.deductions||0)}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الرواتب");}
@@ -534,9 +586,78 @@ export default function SalariesPage() {
     XLSX.writeFile(wb,`تصدير_${formatDate(new Date())}.xlsx`);setShowExport(false);
   }
 
-  function printSalarySlip(salary:any){const w=window.open("","_blank");if(!w)return;const net=(salary.gross_salary||0)-(salary.deductions||0);w.document.write(`<html dir="rtl"><head><title>قسيمة راتب</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem;max-width:420px;margin:auto}h2{color:#4C2F9E;text-align:center}hr{border:1px dashed #ddd;margin:1rem 0}.row{display:flex;justify-content:space-between;margin:.5rem 0}.label{color:#666}.val{font-weight:700}.net{text-align:center;font-size:1.6rem;font-weight:900;color:#4C2F9E;margin:1rem 0;padding:1rem;background:#F0EEFF;border-radius:12px}</style></head><body><h2>قسيمة راتب</h2><hr/><div class="row"><span class="label">الاسم:</span><span class="val">${salary.teachers?.full_name||"—"}</span></div><div class="row"><span class="label">الشهر:</span><span class="val">${salary.month}</span></div><div class="row"><span class="label">الإجمالي:</span><span class="val">د.ع ${formatNumber(salary.gross_salary)}</span></div><div class="row"><span class="label">الخصومات:</span><span class="val" style="color:#EF4444">د.ع ${formatNumber(salary.deductions||0)}</span></div><hr/><div class="net">الصافي: د.ع ${formatNumber(net)}</div><script>window.print();window.close();</script></body></html>`);}
-  function printReport(){const w=window.open("","_blank");if(!w)return;const teacher=reportTeacher?teachers.find(t=>t.id===reportTeacher):null;const lectures=reportTeacher?dailyLectures.filter((l:any)=>l.teacher_id===reportTeacher):dailyLectures;const total=lectures.reduce((a:number,l:any)=>a+l.price,0);w.document.write(`<html dir="rtl"><head><title>كشف حساب</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem}h2{color:#4C2F9E}table{width:100%;border-collapse:collapse;margin-top:1rem}th,td{border:1px solid #ddd;padding:.5rem;text-align:left;font-size:.85rem}th{background:#F0EEFF}.total{font-size:1.2rem;font-weight:900;color:#4C2F9E;margin-top:1rem;text-align:center}</style></head><body><h2>كشف حساب — ${teacher?.full_name||"جميع الأساتذة"}</h2><table><thead><tr><th>#</th><th>التاريخ</th><th>الصف</th><th>الشعبة</th><th>الدرس</th><th>السعر</th></tr></thead><tbody>${lectures.map((l:any,i:number)=>`<tr><td>${i+1}</td><td>${formatDate(l.lecture_date)}</td><td>${l.grade}</td><td>${l.section}</td><td>الدرس ${l.period}</td><td>${formatNumber(l.price)}</td></tr>`).join("")}</tbody></table><div class="total">الإجمالي: د.ع ${formatNumber(total)}</div><script>window.print();window.close();</script></body></html>`);}
-  function printAllTeachers(){const w=window.open("","_blank");if(!w)return;w.document.write(`<html dir="rtl"><head><title>تقرير شامل</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem}h2{color:#4C2F9E}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:.5rem;text-align:left;font-size:.85rem}th{background:#F0EEFF}</style></head><body><h2>تقرير شامل — جميع الأساتذة</h2><table><thead><tr><th>#</th><th>الاسم</th><th>المسمى</th><th>المادة</th><th>الراتب</th></tr></thead><tbody>${teachers.map((t,i)=>`<tr><td>${i+1}</td><td>${t.full_name}</td><td>${t.job_title||"—"}</td><td>${t.subject||"—"}</td><td>${formatNumber(t.base_salary)}</td></tr>`).join("")}</tbody></table><script>window.print();window.close();</script></body></html>`);}
+  function openPrintWindow(title:string, subtitle:string, bodyHtml:string){
+    const w=window.open("","_blank");
+    if(!w)return;
+    w.document.write(
+      wrapPrintDocument({
+        title,
+        subtitle,
+        bodyHtml,
+        branding:{
+          schoolName: runtimeBranding.schoolName,
+          logoUrl: runtimeBranding.logoUrl,
+          primaryColor: runtimeBranding.primaryColor,
+          secondaryColor: runtimeBranding.secondaryColor,
+          locale: isEnglish ? "en" : "ar",
+        },
+      }),
+    );
+    w.document.close();
+  }
+
+  function printSalarySlip(salary:any){
+    const net=(salary.gross_salary||0)-(salary.deductions||0);
+    openPrintWindow(
+      isEnglish ? "Salary slip" : "قسيمة راتب",
+      escapeHtml(salary.teachers?.full_name || (isEnglish ? "Teacher account" : "سجل الأستاذ")),
+      `
+        <div class="print-grid">
+          <div class="print-panel"><span class="print-label">${isEnglish ? "Teacher" : "الاسم"}</span><div class="print-value">${escapeHtml(salary.teachers?.full_name||"—")}</div></div>
+          <div class="print-panel"><span class="print-label">${isEnglish ? "Month" : "الشهر"}</span><div class="print-value">${escapeHtml(salary.month || "—")}</div></div>
+          <div class="print-panel"><span class="print-label">${isEnglish ? "Gross salary" : "الإجمالي"}</span><div class="print-value">د.ع ${formatNumber(salary.gross_salary||0)}</div></div>
+          <div class="print-panel"><span class="print-label">${isEnglish ? "Deductions" : "الخصومات"}</span><div class="print-value" style="color:#dc2626">د.ع ${formatNumber(salary.deductions||0)}</div></div>
+        </div>
+        <div class="print-panel" style="margin-top:16px;text-align:center;background:linear-gradient(135deg,var(--print-surface),#ffffff)">
+          <span class="print-label">${isEnglish ? "Net amount" : "الصافي"}</span>
+          <div class="print-value" style="font-size:30px">د.ع ${formatNumber(net)}</div>
+        </div>
+      `,
+    );
+  }
+
+  function printReport(){
+    const teacher=reportTeacher?teachers.find(t=>t.id===reportTeacher):null;
+    const lectures=reportTeacher?dailyLectures.filter((l:any)=>l.teacher_id===reportTeacher):dailyLectures;
+    const total=lectures.reduce((a:number,l:any)=>a+l.price,0);
+    openPrintWindow(
+      isEnglish ? "Teacher statement" : "كشف حساب",
+      teacher?.full_name || (isEnglish ? "All teachers" : "جميع الأساتذة"),
+      `
+        <table>
+          <thead><tr><th>#</th><th>${isEnglish ? "Date" : "التاريخ"}</th><th>${isEnglish ? "Class" : "الصف"}</th><th>${isEnglish ? "Section" : "الشعبة"}</th><th>${isEnglish ? "Lesson" : "الدرس"}</th><th>${isEnglish ? "Price" : "السعر"}</th></tr></thead>
+          <tbody>${lectures.map((l:any,i:number)=>`<tr><td>${i+1}</td><td>${formatDate(l.lecture_date)}</td><td>${escapeHtml(l.grade || "—")}</td><td>${escapeHtml(l.section || "—")}</td><td>${isEnglish ? "Lesson" : "الدرس"} ${escapeHtml(String(l.period ?? "—"))}</td><td>${formatNumber(l.price || 0)}</td></tr>`).join("")}</tbody>
+        </table>
+        <div class="print-panel" style="margin-top:16px;text-align:center">
+          <span class="print-label">${isEnglish ? "Total" : "الإجمالي"}</span>
+          <div class="print-value">د.ع ${formatNumber(total)}</div>
+        </div>
+      `,
+    );
+  }
+
+  function printAllTeachers(){
+    openPrintWindow(
+      isEnglish ? "Teachers summary" : "تقرير شامل",
+      isEnglish ? `${teachers.length} teachers` : `${teachers.length} أستاذ`,
+      `
+        <table>
+          <thead><tr><th>#</th><th>${isEnglish ? "Name" : "الاسم"}</th><th>${isEnglish ? "Job title" : "المسمى"}</th><th>${isEnglish ? "Subject" : "المادة"}</th><th>${isEnglish ? "Salary" : "الراتب"}</th><th>${isEnglish ? "Lecture price" : "سعر المحاضرة"}</th></tr></thead>
+          <tbody>${teachers.map((t,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(t.full_name || "—")}</td><td>${escapeHtml(t.job_title||"—")}</td><td>${escapeHtml(t.subject||"—")}</td><td>${formatNumber(t.base_salary || 0)}</td><td>${formatNumber(t.lecture_price||0)}</td></tr>`).join("")}</tbody>
+        </table>
+      `,
+    );
+  }
 
   async function addSubject(){if(!newSubject.trim())return;await supabase.from("subjects").insert({school_id:schoolId,name:newSubject.trim()});setNewSubject("");fetchAll();}
   async function deleteSubject(id:string){await supabase.from("subjects").delete().eq("id",id);fetchAll();}
@@ -857,7 +978,7 @@ export default function SalariesPage() {
             <div className="tbl-wrap">
               {loading?<div className="spin"/>:teachers.length===0?<div className="empty">لا يوجد مدرسون — اضغط إضافة مدرس</div>:(
                 <table>
-                  <thead><tr><th>#</th><th>الاسم</th><th>المسمى</th><th>المادة</th><th>الراتب</th><th>حالة الشهر</th><th>خيارات</th></tr></thead>
+                  <thead><tr><th>#</th><th>الاسم</th><th>المسمى</th><th>المادة</th><th>الراتب</th><th>سعر المحاضرة</th><th>حالة الشهر</th><th>خيارات</th></tr></thead>
                   <tbody>
                     {teachers.map((t,i)=>{
                       const paid=paidTeacherIds.includes(t.id);
@@ -867,6 +988,7 @@ export default function SalariesPage() {
                         <td style={{color:"var(--gray)",fontSize:".75rem"}}>{t.job_title||"—"}</td>
                         <td style={{color:"var(--gray)"}}>{t.subject||"—"}</td>
                         <td style={{fontWeight:700}}>د.ع {formatNumber(t.base_salary)}</td>
+                        <td style={{fontWeight:700,color:"#2563EB"}}>د.ع {formatNumber(t.lecture_price||0)}</td>
                         <td>{paid?<span className="badge" style={{background:"#D1FAE5",color:"#065F46"}}>✓ مدفوع</span>:<span className="badge" style={{background:"#FEE2E2",color:"#991B1B"}}>غير مدفوع</span>}</td>
                         <td>
                           {!paid&&<button className="btn-pay-s" onClick={()=>{setSelectedTeacher(t);setSalaryForm({gross_salary:t.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);}}><AppIcon token="💰" size={13} /> دفع</button>}
@@ -889,7 +1011,7 @@ export default function SalariesPage() {
             <div className="tbl-wrap">
               {loading?<div className="spin"/>:(
                 <table>
-                  <thead><tr><th>#</th><th>الاسم</th><th>المادة</th><th>الصف والشعبة</th><th>الملف</th></tr></thead>
+                  <thead><tr><th>#</th><th>الاسم</th><th>المادة</th><th>سعر المحاضرة</th><th>الصف والشعبة</th><th>الملف</th></tr></thead>
                   <tbody>
                     {teachers.map((t,i)=>(
                       <tr key={t.id}>
@@ -899,6 +1021,7 @@ export default function SalariesPage() {
                           <div style={{fontSize:".7rem",color:"var(--p3)"}}>{t.job_title||""}</div>
                         </td>
                         <td style={{color:"var(--gray)"}}>{t.subject||"—"}</td>
+                        <td style={{fontWeight:700,color:"#2563EB"}}>د.ع {formatNumber(t.lecture_price||0)}</td>
                         <td>
                           {t.classes_taught?.slice(0,3).map((c:any,i:number)=>(
                             <span key={i} className="grade-badge">{c.grade} ({c.section})</span>
@@ -1193,6 +1316,7 @@ export default function SalariesPage() {
               <div className="ff full"><label className="fl">العنوان</label><input className="fis" value={teacherForm.address} onChange={e=>setTeacherForm({...teacherForm,address:e.target.value})} disabled={!canManageTeacher}/></div>
               <div className="ff"><label className="fl">نظام الراتب</label><select className="fis" value={teacherForm.salary_type} onChange={e=>setTeacherForm({...teacherForm,salary_type:e.target.value})} disabled={!canManageTeacher}>{SALARY_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
               <div className="ff"><label className="fl">الراتب الأساسي</label><input className="fis" type="number" value={teacherForm.base_salary} onChange={e=>setTeacherForm({...teacherForm,base_salary:e.target.value})} disabled={!canManageTeacher}/></div>
+              <div className="ff"><label className="fl">سعر المحاضرة</label><input className="fis" type="number" value={teacherForm.lecture_price} onChange={e=>setTeacherForm({...teacherForm,lecture_price:e.target.value})} disabled={!canManageTeacher}/></div>
               <div className="ff"><label className="fl">حصص أسبوعية</label><input className="fis" type="number" value={teacherForm.weekly_hours} onChange={e=>setTeacherForm({...teacherForm,weekly_hours:e.target.value})} disabled={!canManageTeacher}/></div>
               <div className="ff"><label className="fl">الحالة</label><select className="fis" value={teacherForm.status} onChange={e=>setTeacherForm({...teacherForm,status:e.target.value})} disabled={!canManageTeacher}><option value="active">نشط</option><option value="inactive">غير نشط</option></select></div>
               <div className="ff full">
@@ -1237,7 +1361,7 @@ export default function SalariesPage() {
               <div className="ff"><label className="fl">الشهر *</label><input className="fis" type="month" required value={salaryForm.month} onChange={e=>setSalaryForm({...salaryForm,month:e.target.value})}/></div>
               <div className="ff"><label className="fl">الراتب الإجمالي *</label><input className="fis" type="number" required value={salaryForm.gross_salary} onChange={e=>setSalaryForm({...salaryForm,gross_salary:e.target.value})} readOnly={selectedTeacher?.salary_type!=="fixed"} /></div>
               <div style={{fontSize:".74rem",color:"var(--gray)",marginTop:"-0.5rem",marginBottom:"0.5rem"}}>
-                {selectedTeacher?.salary_type === "hourly" && `محسوب من المحاضرات: ${lectureSalaryCalc.count} محاضرة، إجمالي ${formatNumber(lectureSalaryCalc.total)} د.ع`}
+                {selectedTeacher?.salary_type === "hourly" && `محسوب آلياً: ${lectureSalaryCalc.count} × ${formatNumber(Number(selectedTeacher.lecture_price)||0)} = ${formatNumber(lectureSalaryCalc.total)} د.ع`}
                 {selectedTeacher?.salary_type === "mixed" && `أساسي ${formatNumber(Number(selectedTeacher.base_salary)||0)} + محاضرات ${formatNumber(lectureSalaryCalc.total)} = ${formatNumber((Number(selectedTeacher.base_salary)||0)+lectureSalaryCalc.total)} د.ع`}
               </div>
               <div className="ff"><label className="fl">الخصومات</label><input className="fis" type="number" value={salaryForm.deductions} onChange={e=>setSalaryForm({...salaryForm,deductions:e.target.value})}/></div>
@@ -1418,7 +1542,7 @@ export default function SalariesPage() {
           <div className="det-hdr"><div className="det-ttl">تفاصيل — {detailTeacher.full_name}</div><button className="det-cls" onClick={()=>setShowDetail(false)}><AppIcon token="✕" size={12} /></button></div>
           <div className="dp-cards">
             <div className="dp-card"><div className="dp-ct">المعلومات</div><div className="dp-row"><span className="dp-lbl">الاسم:</span><span className="dp-val">{detailTeacher.full_name}</span></div><div className="dp-row"><span className="dp-lbl">المسمى:</span><span className="dp-val">{detailTeacher.job_title||"—"}</span></div><div className="dp-row"><span className="dp-lbl">المادة:</span><span className="dp-val">{detailTeacher.subject||"—"}</span></div><div className="dp-row"><span className="dp-lbl">الهاتف:</span><span className="dp-val">{detailTeacher.phone||"—"}</span></div></div>
-            <div className="dp-card"><div className="dp-ct">الرواتب</div><div className="dp-row"><span className="dp-lbl">نظام الراتب:</span><span className="dp-val">{SALARY_TYPES.find(s=>s.value===detailTeacher.salary_type)?.label||"—"}</span></div><div className="dp-row"><span className="dp-lbl">الأساسي:</span><span className="dp-val">د.ع {formatNumber(detailTeacher.base_salary)}</span></div><div className="dp-row"><span className="dp-lbl">عدد الرواتب:</span><span className="dp-val">{teacherSalaries(detailTeacher.id).length}</span></div><div className="dp-row"><span className="dp-lbl">إجمالي المستلم:</span><span className="dp-val" style={{color:"#10B981"}}>د.ع {formatNumber(teacherSalaries(detailTeacher.id).reduce((a,s)=>(a+(s.gross_salary||0)-(s.deductions||0)),0))}</span></div></div>
+            <div className="dp-card"><div className="dp-ct">الرواتب</div><div className="dp-row"><span className="dp-lbl">نظام الراتب:</span><span className="dp-val">{SALARY_TYPES.find(s=>s.value===detailTeacher.salary_type)?.label||"—"}</span></div><div className="dp-row"><span className="dp-lbl">الأساسي:</span><span className="dp-val">د.ع {formatNumber(detailTeacher.base_salary)}</span></div><div className="dp-row"><span className="dp-lbl">سعر المحاضرة:</span><span className="dp-val">د.ع {formatNumber(detailTeacher.lecture_price||0)}</span></div><div className="dp-row"><span className="dp-lbl">عدد الرواتب:</span><span className="dp-val">{teacherSalaries(detailTeacher.id).length}</span></div><div className="dp-row"><span className="dp-lbl">إجمالي المستلم:</span><span className="dp-val" style={{color:"#10B981"}}>د.ع {formatNumber(teacherSalaries(detailTeacher.id).reduce((a,s)=>(a+(s.gross_salary||0)-(s.deductions||0)),0))}</span></div></div>
           </div>
           {detailTeacher.classes_taught?.length>0&&(<div style={{background:"#F8F6FF",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}><div style={{fontSize:".8rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الصفوف والشعب</div><div style={{display:"flex",flexWrap:"wrap",gap:".4rem"}}>{detailTeacher.classes_taught.map((c:any,i:number)=>(<span key={i} className="badge" style={{background:"#EDE8FA",color:"var(--p3)",fontSize:".75rem"}}>{c.grade} ({c.section})</span>))}</div></div>)}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:".8rem"}}><span style={{fontSize:".88rem",fontWeight:800}}>سجل الرواتب ({teacherSalaries(detailTeacher.id).length})</span><button className="btn-add" style={{padding:".4rem .8rem",fontSize:".75rem"}} onClick={()=>{setSelectedTeacher(detailTeacher);setSalaryForm({gross_salary:detailTeacher.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);}}>+ دفع راتب</button></div>

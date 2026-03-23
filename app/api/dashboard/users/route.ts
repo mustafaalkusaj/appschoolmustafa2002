@@ -5,14 +5,17 @@ import {
   MANAGED_USER_INACTIVE_BAN_DURATION,
   MANAGED_USER_ROLES,
   type ManagedUserAccountCard,
+  type ManagedTeacherAssignmentRecord,
   type ManagedUserRecord,
   validateCreateManagedUserInput,
 } from "@/lib/managed-users";
 import {
   MANAGED_USER_SELECT,
   buildManagedUserAccountCard,
+  buildManagedAuthIdentityPayload,
   buildTeacherClassesTaught,
   decorateManagedUsers,
+  findManagedProfileByLinkedRecord,
   fetchManagedUserByAuthUserId,
   fetchManagedAccountSchoolBrand,
   generateManagedLoginIdentifier,
@@ -22,6 +25,8 @@ import {
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
   resolveSchoolBranchId,
+  syncManagedAuthIdentityMetadata,
+  syncStudentTeacherLinks,
   getTeacherTableCapabilities,
   tableHasColumn,
   upsertManagedUserCredential,
@@ -52,8 +57,104 @@ function normalizeNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value ?? 0);
 }
 
+function normalizeIdentityText(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function getPrimaryTeacherSubjectName(user: {
+  teacher?: { specialization?: string | null; assignments?: Array<{ subject_name: string }> | null } | null;
+}) {
+  return user.teacher?.specialization ?? user.teacher?.assignments?.[0]?.subject_name ?? null;
+}
+
+function teacherAssignmentMatchesFilters(
+  assignment: ManagedTeacherAssignmentRecord,
+  filters: {
+    classFilter: string;
+    sectionFilter: string;
+    subjectFilter: string;
+  },
+) {
+  const classMatches =
+    !filters.classFilter || normalizeIdentityText(assignment.class_name) === filters.classFilter;
+  const subjectMatches =
+    !filters.subjectFilter || normalizeIdentityText(assignment.subject_name) === filters.subjectFilter;
+  const normalizedSection = normalizeIdentityText(assignment.section_name);
+  const sectionMatches =
+    !filters.sectionFilter || !normalizedSection || normalizedSection === filters.sectionFilter;
+
+  return classMatches && subjectMatches && sectionMatches;
+}
+
+function filterDecoratedManagedUsers(
+  users: ManagedUserRecord[],
+  filters: {
+    roleFilter: string | null;
+    searchQuery: string;
+    classFilter: string;
+    sectionFilter: string;
+    subjectFilter: string;
+  },
+) {
+  const normalizedSearch = normalizeIdentityText(filters.searchQuery);
+
+  return users.filter((user) => {
+    if (filters.roleFilter === "teacher" && user.role !== "teacher") {
+      return false;
+    }
+
+    if (filters.roleFilter === "student" && user.role !== "student") {
+      return false;
+    }
+
+    if (user.role === "teacher") {
+      const assignments = user.teacher?.assignments ?? [];
+      if ((filters.classFilter || filters.sectionFilter || filters.subjectFilter) && assignments.length === 0) {
+        return false;
+      }
+
+      if (
+        (filters.classFilter || filters.sectionFilter || filters.subjectFilter) &&
+        !assignments.some((assignment) =>
+          teacherAssignmentMatchesFilters(assignment, {
+            classFilter: filters.classFilter,
+            sectionFilter: filters.sectionFilter,
+            subjectFilter: filters.subjectFilter,
+          }),
+        )
+      ) {
+        return false;
+      }
+    }
+
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    const searchableParts = [
+      user.full_name,
+      user.email,
+      user.phone,
+      user.app_account?.login_identifier,
+      user.teacher?.specialization,
+      ...(user.teacher?.assignments ?? []).flatMap((assignment) => [
+        assignment.subject_name,
+        assignment.class_name,
+        assignment.section_name,
+      ]),
+    ];
+
+    return searchableParts
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch);
+  });
+}
+
 function buildImmediateAccountCard(input: {
   authUserId: string;
+  role: "student" | "teacher";
   schoolName: string;
   schoolLogoUrl: string | null;
   fullName: string;
@@ -64,7 +165,7 @@ function buildImmediateAccountCard(input: {
 }): ManagedUserAccountCard {
   return {
     auth_user_id: input.authUserId,
-    role: "student",
+    role: input.role,
     school_name: input.schoolName,
     school_logo_url: input.schoolLogoUrl,
     full_name: input.fullName,
@@ -75,7 +176,7 @@ function buildImmediateAccountCard(input: {
     instructions: [
       "افتح شاشة تسجيل الدخول الخاصة بالحساب.",
       "أدخل معرّف الدخول وكلمة المرور المؤقتة كما هي تماماً.",
-      "إذا تعذر الدخول، اطلب من الإدارة إعادة إصدار كلمة مرور مؤقتة جديدة.",
+      `إذا تعذر الدخول، اطلب من الإدارة إعادة إصدار كلمة مرور مؤقتة جديدة لحساب ${input.role === "teacher" ? "الأستاذ" : "الطالب"}.`,
     ],
     generated_at: new Date().toISOString(),
   };
@@ -283,13 +384,14 @@ async function cleanupCreatedUser(options: {
   authUserId?: string | null;
   role: "student" | "teacher";
   relatedRecordId?: string | null;
+  cleanupRelatedRecord?: boolean;
 }) {
   if (options.authUserId) {
     const serviceSupabase = createServiceSupabaseClient();
     await serviceSupabase.auth.admin.deleteUser(options.authUserId);
   }
 
-  if (options.actorSupabase && options.relatedRecordId) {
+  if (options.actorSupabase && options.relatedRecordId && options.cleanupRelatedRecord !== false) {
     const table = options.role === "student" ? "students" : "teachers";
     await options.actorSupabase.from(table).delete().eq("id", options.relatedRecordId);
   }
@@ -299,6 +401,19 @@ export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const roleFilter = req.nextUrl.searchParams.get("role");
   const statusFilter = req.nextUrl.searchParams.get("status");
+  const searchQuery = (req.nextUrl.searchParams.get("search") || "").trim();
+  const classFilter = normalizeIdentityText(req.nextUrl.searchParams.get("className"));
+  const sectionFilter = normalizeIdentityText(req.nextUrl.searchParams.get("section"));
+  const subjectFilter = normalizeIdentityText(req.nextUrl.searchParams.get("subject"));
+  const rawPage = Number.parseInt(req.nextUrl.searchParams.get("page") || "", 10);
+  const rawPageSize = Number.parseInt(req.nextUrl.searchParams.get("pageSize") || "", 10);
+  const hasPagination = Number.isFinite(rawPage) && Number.isFinite(rawPageSize);
+  const page = hasPagination ? Math.max(1, rawPage) : 1;
+  const pageSize = hasPagination ? Math.min(200, Math.max(10, rawPageSize)) : 0;
+  const from = hasPagination ? (page - 1) * pageSize : 0;
+  const to = hasPagination ? from + pageSize - 1 : 0;
+  const requiresTeacherScopedFiltering =
+    roleFilter === "teacher" && Boolean(searchQuery || classFilter || sectionFilter || subjectFilter);
 
   const context = await resolveManagedUsersActorContext(schoolId);
   if (!context.ok) {
@@ -312,7 +427,7 @@ export async function GET(req: NextRequest) {
 
   let query = actorSupabase
     .from("managed_user_profiles")
-    .select(MANAGED_USER_SELECT)
+    .select(MANAGED_USER_SELECT, { count: "exact" })
     .eq("school_id", targetSchoolId)
     .order("created_at", { ascending: false });
 
@@ -326,7 +441,17 @@ export async function GET(req: NextRequest) {
     query = query.eq("is_active", false);
   }
 
-  const { data, error } = await query;
+  if (searchQuery && !requiresTeacherScopedFiltering) {
+    query = query.or(
+      `full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`,
+    );
+  }
+
+  if (hasPagination && !requiresTeacherScopedFiltering) {
+    query = query.range(from, to);
+  }
+
+  const { data, error, count } = await query;
   if (error) {
     if (isMissingTableError(error, "managed_user_profiles")) {
       const fallback = await fallbackListUsersFromUserProfiles(actorSupabase, targetSchoolId, {
@@ -341,9 +466,20 @@ export async function GET(req: NextRequest) {
       }
 
       const decoratedUsers = await decorateManagedUsers(actorSupabase, fallback.users);
+      const searchedUsers = filterDecoratedManagedUsers(decoratedUsers, {
+        roleFilter,
+        searchQuery,
+        classFilter,
+        sectionFilter,
+        subjectFilter,
+      });
+      const pagedUsers = hasPagination ? searchedUsers.slice(from, to + 1) : searchedUsers;
       return NextResponse.json({
         ok: true,
-        users: decoratedUsers,
+        users: pagedUsers,
+        totalCount: searchedUsers.length,
+        page,
+        pageSize: hasPagination ? pageSize : searchedUsers.length,
       });
     }
 
@@ -352,10 +488,27 @@ export async function GET(req: NextRequest) {
 
   const normalizedUsers = normalizeManagedUserRecords((data ?? []) as Record<string, unknown>[]);
   const decoratedUsers = await decorateManagedUsers(actorSupabase, normalizedUsers);
+  const filteredUsers = requiresTeacherScopedFiltering
+    ? filterDecoratedManagedUsers(decoratedUsers, {
+        roleFilter,
+        searchQuery,
+        classFilter,
+        sectionFilter,
+        subjectFilter,
+      })
+    : decoratedUsers;
+  const pagedUsers = requiresTeacherScopedFiltering && hasPagination ? filteredUsers.slice(from, to + 1) : filteredUsers;
 
   return NextResponse.json({
     ok: true,
-    users: decoratedUsers,
+    users: pagedUsers,
+    totalCount: requiresTeacherScopedFiltering
+      ? filteredUsers.length
+      : typeof count === "number"
+        ? count
+        : decoratedUsers.length,
+    page,
+    pageSize: hasPagination ? pageSize : filteredUsers.length,
   });
 }
 
@@ -414,33 +567,90 @@ export async function POST(req: NextRequest) {
 
   let relatedRecordId: string | null = null;
   let authUserId: string | null = null;
+  let cleanupRelatedRecord = false;
 
   try {
     if (validation.value.role === "student") {
-      const { data: student, error: studentError } = await actorSupabase
+      const requestedSection = validation.value.student!.section || "";
+      const { data: existingStudents, error: existingStudentError } = await actorSupabase
         .from("students")
-        .insert({
-          school_id: targetSchoolId,
-          branch_id: branchId,
-          full_name: validation.value.full_name,
-          class_name: validation.value.student!.class_name,
-          section: validation.value.student!.section || "",
-          phone: validation.value.phone,
-          address: validation.value.student!.address,
-          total_fee: validation.value.student!.total_fee,
-          paid_fee: validation.value.student!.paid_fee,
-          discount_value: validation.value.student!.discount_value,
-          status: "active",
-        })
-        .select("id")
-        .single();
+        .select("id, auth_user_id, section")
+        .eq("school_id", targetSchoolId)
+        .eq("full_name", validation.value.full_name)
+        .eq("class_name", validation.value.student!.class_name)
+        .neq("status", "deleted")
+        .limit(25);
 
-      if (studentError || !student?.id) {
-        return jsonError(studentError?.message || "تعذر إنشاء سجل الطالب.", getPostgrestStatus(studentError, 400));
+      if (existingStudentError) {
+        return jsonError(
+          existingStudentError.message || "تعذر التحقق من تكرار الطالب.",
+          getPostgrestStatus(existingStudentError, 400),
+        );
       }
 
-      relatedRecordId = student.id;
+      const matchingStudent = ((existingStudents ?? []) as Array<Record<string, unknown>>).find(
+        (row) => normalizeIdentityText(row.section) === normalizeIdentityText(requestedSection),
+      );
+
+      if (matchingStudent?.auth_user_id) {
+        return jsonError("هذا الطالب يملك حساب تطبيق مرتبطاً مسبقاً.", 409, {
+          full_name: "تم منع إنشاء حساب طالب مكرر لنفس الاسم والصف والشعبة.",
+        });
+      }
+
+      if (matchingStudent?.id) {
+        const { error: reuseStudentError } = await actorSupabase
+          .from("students")
+          .update({
+            branch_id: branchId,
+            full_name: validation.value.full_name,
+            class_name: validation.value.student!.class_name,
+            section: requestedSection,
+            phone: validation.value.phone,
+            address: validation.value.student!.address,
+            total_fee: validation.value.student!.total_fee,
+            paid_fee: validation.value.student!.paid_fee,
+            discount_value: validation.value.student!.discount_value,
+          })
+          .eq("id", String(matchingStudent.id));
+
+        if (reuseStudentError) {
+          return jsonError(
+            reuseStudentError.message || "تعذر تحديث سجل الطالب الموجود.",
+            getPostgrestStatus(reuseStudentError, 400),
+          );
+        }
+
+        relatedRecordId = String(matchingStudent.id);
+        cleanupRelatedRecord = false;
+      } else {
+        const { data: student, error: studentError } = await actorSupabase
+          .from("students")
+          .insert({
+            school_id: targetSchoolId,
+            branch_id: branchId,
+            full_name: validation.value.full_name,
+            class_name: validation.value.student!.class_name,
+            section: requestedSection,
+            phone: validation.value.phone,
+            address: validation.value.student!.address,
+            total_fee: validation.value.student!.total_fee,
+            paid_fee: validation.value.student!.paid_fee,
+            discount_value: validation.value.student!.discount_value,
+            status: "active",
+          })
+          .select("id")
+          .single();
+
+        if (studentError || !student?.id) {
+          return jsonError(studentError?.message || "تعذر إنشاء سجل الطالب.", getPostgrestStatus(studentError, 400));
+        }
+
+        relatedRecordId = student.id;
+        cleanupRelatedRecord = true;
+      }
     } else {
+      const teacherSubject = validation.value.teacher?.specialization ?? validation.value.teacher?.assignments?.[0]?.subject_name ?? null;
       const teacherInsertPayload: Record<string, unknown> = {
         school_id: targetSchoolId,
         full_name: validation.value.full_name,
@@ -453,9 +663,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (teacherTableCapabilities?.specialization) {
-        teacherInsertPayload.specialization = validation.value.teacher?.specialization ?? null;
+        teacherInsertPayload.specialization = teacherSubject;
       } else if (teacherTableCapabilities?.subject) {
-        teacherInsertPayload.subject = validation.value.teacher?.specialization ?? null;
+        teacherInsertPayload.subject = teacherSubject;
       }
 
       if (teacherTableCapabilities?.notes) {
@@ -472,39 +682,114 @@ export async function POST(req: NextRequest) {
         teacherInsertPayload.classes_taught = buildTeacherClassesTaught(validation.value.teacher?.assignments ?? []);
       }
 
-      const { data: teacher, error: teacherError } = await actorSupabase
+      const { data: existingTeachers, error: existingTeacherError } = await actorSupabase
         .from("teachers")
-        .insert(teacherInsertPayload)
-        .select("id")
-        .single();
+        .select("id, auth_user_id, phone, email")
+        .eq("school_id", targetSchoolId)
+        .eq("full_name", validation.value.full_name)
+        .limit(25);
 
-      if (teacherError || !teacher?.id) {
-        return jsonError(teacherError?.message || "تعذر إنشاء سجل المدرس.", getPostgrestStatus(teacherError, 400));
+      if (existingTeacherError) {
+        return jsonError(
+          existingTeacherError.message || "تعذر التحقق من تكرار المدرس.",
+          getPostgrestStatus(existingTeacherError, 400),
+        );
       }
 
-      relatedRecordId = teacher.id;
+      const incomingPhone = normalizeIdentityText(validation.value.phone);
+      const incomingLoginIdentifier = normalizeIdentityText(validation.value.email || loginIdentifier);
+      const teacherRows = (existingTeachers ?? []) as Array<Record<string, unknown>>;
+      const matchingTeacher = incomingPhone
+        ? teacherRows.find(
+            (row) =>
+              normalizeIdentityText(row.phone) === incomingPhone ||
+              (incomingLoginIdentifier && normalizeIdentityText(row.email) === incomingLoginIdentifier),
+          )
+        : teacherRows.find((row) =>
+            incomingLoginIdentifier
+              ? normalizeIdentityText(row.email) === incomingLoginIdentifier
+              : teacherRows.length === 1 && !normalizeIdentityText(row.phone),
+          ) ?? null;
+
+      if (matchingTeacher?.auth_user_id) {
+        return jsonError("هذا الأستاذ يملك حساب تطبيق مرتبطاً مسبقاً.", 409, {
+          full_name: incomingPhone
+            ? "تم منع إنشاء حساب أستاذ مكرر لنفس الاسم ورقم الهاتف."
+            : "تم منع إنشاء حساب أستاذ مكرر لهذا الاسم.",
+        });
+      }
+
+      if (matchingTeacher?.id) {
+        const { error: reuseTeacherError } = await actorSupabase
+          .from("teachers")
+          .update(teacherInsertPayload)
+          .eq("id", String(matchingTeacher.id));
+
+        if (reuseTeacherError) {
+          return jsonError(
+            reuseTeacherError.message || "تعذر تحديث سجل المدرس الموجود.",
+            getPostgrestStatus(reuseTeacherError, 400),
+          );
+        }
+
+        relatedRecordId = String(matchingTeacher.id);
+        cleanupRelatedRecord = false;
+      } else {
+        const { data: teacher, error: teacherError } = await actorSupabase
+          .from("teachers")
+          .insert(teacherInsertPayload)
+          .select("id")
+          .single();
+
+        if (teacherError || !teacher?.id) {
+          return jsonError(teacherError?.message || "تعذر إنشاء سجل المدرس.", getPostgrestStatus(teacherError, 400));
+        }
+
+        relatedRecordId = teacher.id;
+        cleanupRelatedRecord = true;
+      }
     }
 
+    if (relatedRecordId) {
+      const existingManagedProfile = await findManagedProfileByLinkedRecord(actorSupabase, {
+        schoolId: targetSchoolId,
+        role: validation.value.role,
+        relatedRecordId,
+      });
+
+      if (existingManagedProfile?.authUserId) {
+        return jsonError(
+          validation.value.role === "teacher"
+            ? "هذا الأستاذ يملك حساب تطبيق مرتبطاً مسبقاً."
+            : "هذا الطالب يملك حساب تطبيق مرتبطاً مسبقاً.",
+          409,
+          {
+            full_name:
+              validation.value.role === "teacher"
+                ? "تم منع إنشاء حساب أستاذ مكرر لأن السجل الحالي مرتبط بحساب موجود بالفعل."
+                : "تم منع إنشاء حساب طالب مكرر لأن السجل الحالي مرتبط بحساب موجود بالفعل.",
+          },
+        );
+      }
+    }
+
+    const authIdentityPayload = buildManagedAuthIdentityPayload({
+      role: validation.value.role,
+      schoolId: targetSchoolId,
+      fullName: validation.value.full_name,
+      loginIdentifier,
+      createdBy: actorUserId,
+      credentialPatch: {
+        temporaryPassword,
+        passwordLastResetAt: createdAt,
+        cardLastPrintedAt: null,
+      },
+    });
     const { data: authData, error: createAuthError } = await serviceSupabase.auth.admin.createUser({
       email: loginIdentifier,
       password: temporaryPassword,
       email_confirm: true,
-      app_metadata: {
-        managed_credentials: {
-          login_identifier: loginIdentifier,
-          temporary_password: temporaryPassword,
-          password_last_reset_at: createdAt,
-          card_last_printed_at: null,
-        },
-      },
-      user_metadata: {
-        accountType: "managed_user",
-        managedRole: validation.value.role,
-        schoolId: targetSchoolId,
-        full_name: validation.value.full_name,
-        loginIdentifier,
-        createdBy: actorUserId,
-      },
+      ...authIdentityPayload,
     });
 
     if (createAuthError || !authData?.user) {
@@ -512,6 +797,7 @@ export async function POST(req: NextRequest) {
         actorSupabase,
         role: validation.value.role,
         relatedRecordId,
+        cleanupRelatedRecord,
       });
 
       const status = createAuthError?.message?.toLowerCase().includes("already") ? 409 : 400;
@@ -533,6 +819,7 @@ export async function POST(req: NextRequest) {
           authUserId,
           role: validation.value.role,
           relatedRecordId,
+          cleanupRelatedRecord,
         });
         return jsonError(banError.message || "تعذر تعطيل الحساب الجديد.", 500);
       }
@@ -550,6 +837,7 @@ export async function POST(req: NextRequest) {
         authUserId,
         role: validation.value.role,
         relatedRecordId,
+        cleanupRelatedRecord,
       });
       return jsonError(
         linkRelatedRecordError.message || "تم إنشاء المستخدم لكن تعذر ربطه بالسجل المطلوب.",
@@ -577,6 +865,7 @@ export async function POST(req: NextRequest) {
         actorSupabase,
         role: validation.value.role,
         relatedRecordId,
+        cleanupRelatedRecord,
       });
       return jsonError(
         profileError instanceof Error ? profileError.message : "تعذر إنشاء ملف الحساب.",
@@ -597,6 +886,7 @@ export async function POST(req: NextRequest) {
           actorSupabase,
           role: validation.value.role,
           relatedRecordId,
+          cleanupRelatedRecord,
         });
 
         return jsonError(
@@ -609,12 +899,50 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (validation.value.role === "student" && relatedRecordId) {
+      try {
+        await syncStudentTeacherLinks(actorSupabase, {
+          schoolId: targetSchoolId,
+          studentId: relatedRecordId,
+          className: validation.value.student!.class_name,
+          section: validation.value.student!.section,
+        });
+      } catch {
+        // Ignore auto-link failures to avoid blocking account creation.
+      }
+    }
+
     await upsertManagedUserCredential(actorSupabase, {
       authUserId,
       schoolId: targetSchoolId,
       loginIdentifier,
       temporaryPassword,
     });
+
+    try {
+      await syncManagedAuthIdentityMetadata({
+        authUserId,
+        role: validation.value.role,
+        schoolId: targetSchoolId,
+        fullName: validation.value.full_name,
+        loginIdentifier,
+        createdBy: actorUserId,
+        isActive: validation.value.is_active,
+      });
+    } catch (identityError) {
+      await cleanupCreatedUser({
+        authUserId,
+        actorSupabase,
+        role: validation.value.role,
+        relatedRecordId,
+        cleanupRelatedRecord,
+      });
+
+      return jsonError(
+        identityError instanceof Error ? identityError.message : "تعذر مزامنة هوية حساب التطبيق.",
+        500,
+      );
+    }
 
     let decoratedUser: ManagedUserRecord | null = null;
     let accountCard: ManagedUserAccountCard | null = null;
@@ -656,7 +984,15 @@ export async function POST(req: NextRequest) {
         teacher:
           validation.value.role === "teacher"
             ? {
-                specialization: validation.value.teacher?.specialization ?? null,
+                specialization: getPrimaryTeacherSubjectName({
+                  teacher: {
+                    specialization: validation.value.teacher?.specialization ?? null,
+                    assignments:
+                      (validation.value.teacher?.assignments ?? []).map((assignment) => ({
+                        subject_name: assignment.subject_name,
+                      })) ?? [],
+                  },
+                }),
                 notes: validation.value.teacher?.notes ?? null,
                 assignments:
                   (validation.value.teacher?.assignments ?? []).map((assignment, index) => ({
@@ -674,23 +1010,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (validation.value.role === "student") {
-      try {
-        accountCard = decoratedUser
-          ? await buildManagedUserAccountCard(actorSupabase, decoratedUser)
-          : null;
-      } catch {
-        accountCard = buildImmediateAccountCard({
-          authUserId,
-          schoolName: schoolBrand.schoolName,
-          schoolLogoUrl: schoolBrand.schoolLogoUrl,
-          fullName: validation.value.full_name,
-          className: validation.value.student!.class_name,
-          section: validation.value.student!.section,
-          loginIdentifier,
-          temporaryPassword,
-        });
-      }
+    try {
+      accountCard = decoratedUser
+        ? await buildManagedUserAccountCard(actorSupabase, decoratedUser)
+        : null;
+    } catch {
+      const firstTeacherAssignment = validation.value.teacher?.assignments?.[0] ?? null;
+      accountCard = buildImmediateAccountCard({
+        authUserId,
+        role: validation.value.role,
+        schoolName: schoolBrand.schoolName,
+        schoolLogoUrl: schoolBrand.schoolLogoUrl,
+        fullName: validation.value.full_name,
+        className:
+          validation.value.role === "student"
+            ? validation.value.student!.class_name
+            : firstTeacherAssignment?.class_name ?? "غير محدد",
+        section:
+          validation.value.role === "student"
+            ? validation.value.student!.section
+            : firstTeacherAssignment?.section ?? null,
+        loginIdentifier,
+        temporaryPassword,
+      });
     }
 
     return NextResponse.json(
@@ -707,6 +1049,7 @@ export async function POST(req: NextRequest) {
       actorSupabase,
       role: validation.value.role,
       relatedRecordId,
+      cleanupRelatedRecord,
     });
 
     return jsonError(

@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { SCHOOL_BRAND } from "@/lib/branding";
+import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 
 interface UltrathinkLogoProps {
   size?: number;
@@ -29,8 +30,9 @@ export function UltrathinkLogo({
   className,
   logoSrc,
 }: UltrathinkLogoProps) {
-  const resolvedTitle = title ?? SCHOOL_BRAND.nameAr;
-  const resolvedLogo = logoSrc ?? SCHOOL_BRAND.logo;
+  const runtimeBranding = useRuntimeBranding();
+  const resolvedTitle = title ?? runtimeBranding.schoolName ?? SCHOOL_BRAND.nameAr;
+  const resolvedLogo = logoSrc ?? runtimeBranding.logoUrl ?? SCHOOL_BRAND.logo;
   const resolvedSubtitle =
     subtitle ??
     (SCHOOL_BRAND.nameEn !== "School Management Platform"

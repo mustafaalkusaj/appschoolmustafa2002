@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isMissingTableError } from "@/lib/admin-infrastructure";
 import {
   MANAGED_USER_INACTIVE_BAN_DURATION,
   validateUpdateManagedUserInput,
@@ -11,6 +12,7 @@ import {
   persistManagedUserProfile,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
+  syncManagedAuthIdentityMetadata,
   type ManagedUsersActorContext,
   updateManagedUserLoginIdentifier,
 } from "@/lib/managed-users-server";
@@ -72,13 +74,13 @@ function mergeManagedUserPayload(existing: ManagedUserRecord, body: Record<strin
   };
 }
 
-function buildAuthMetadata(existing: ManagedUserRecord, overrides: { full_name: string; role?: string; school_id?: string }) {
-  return {
-    accountType: "managed_user",
-    managedRole: overrides.role ?? existing.role,
-    schoolId: overrides.school_id ?? existing.school_id,
-    full_name: overrides.full_name,
-  };
+function getPrimaryTeacherSubjectName(input: {
+  teacher?: {
+    specialization?: string | null;
+    assignments?: Array<{ subject_name: string }> | null;
+  } | null;
+}) {
+  return input.teacher?.specialization ?? input.teacher?.assignments?.[0]?.subject_name ?? null;
 }
 
 async function rollbackAuthUser(
@@ -90,7 +92,14 @@ async function rollbackAuthUser(
     email: existing.email,
     email_confirm: true,
     ban_duration: existing.is_active ? "none" : MANAGED_USER_INACTIVE_BAN_DURATION,
-    user_metadata: buildAuthMetadata(existing, { full_name: existing.full_name }),
+  });
+  await syncManagedAuthIdentityMetadata({
+    authUserId,
+    role: existing.role,
+    schoolId: existing.school_id,
+    fullName: existing.full_name,
+    loginIdentifier: existing.app_account?.login_identifier ?? existing.email,
+    isActive: existing.is_active,
   });
 }
 
@@ -166,11 +175,6 @@ export async function PATCH(
   const serviceSupabase = createServiceSupabaseClient();
   const authUpdatePayload: Record<string, unknown> = {
     ban_duration: validation.value.is_active ? "none" : MANAGED_USER_INACTIVE_BAN_DURATION,
-    user_metadata: buildAuthMetadata(existing, {
-      full_name: validation.value.full_name,
-      school_id: targetSchoolId,
-      role: validation.value.role,
-    }),
   };
 
   if (validation.value.email !== existing.email) {
@@ -250,11 +254,20 @@ export async function PATCH(
       email: validation.value.email,
       phone: validation.value.phone,
     };
+    const teacherSubject = getPrimaryTeacherSubjectName({
+      teacher: {
+        specialization: validation.value.teacher?.specialization ?? null,
+        assignments:
+          (validation.value.teacher?.assignments ?? []).map((assignment) => ({
+            subject_name: assignment.subject_name,
+          })) ?? [],
+      },
+    });
 
     if (teacherTableCapabilities?.specialization) {
-      teacherUpdatePayload.specialization = validation.value.teacher?.specialization ?? null;
+      teacherUpdatePayload.specialization = teacherSubject;
     } else if (teacherTableCapabilities?.subject) {
-      teacherUpdatePayload.subject = validation.value.teacher?.specialization ?? null;
+      teacherUpdatePayload.subject = teacherSubject;
     }
 
     if (teacherTableCapabilities?.notes) {
@@ -307,6 +320,22 @@ export async function PATCH(
     }
   }
 
+  try {
+    await syncManagedAuthIdentityMetadata({
+      authUserId,
+      role: validation.value.role,
+      schoolId: targetSchoolId,
+      fullName: validation.value.full_name,
+      loginIdentifier: validation.value.email,
+      isActive: validation.value.is_active,
+    });
+  } catch (identityError) {
+    return jsonError(
+      identityError instanceof Error ? identityError.message : "تم الحفظ لكن تعذر مزامنة هوية حساب التطبيق.",
+      500,
+    );
+  }
+
   let updatedUser: ManagedUserRecord | null = null;
   try {
     updatedUser = await fetchManagedUserByAuthUserId(actorSupabase, {
@@ -324,4 +353,93 @@ export async function PATCH(
     ok: true,
     user: updatedUser,
   });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ authUserId: string }> },
+) {
+  const { authUserId } = await params;
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const requestedSchoolId =
+    typeof body?.school_id === "string"
+      ? body.school_id
+      : typeof req.nextUrl.searchParams.get("schoolId") === "string"
+        ? req.nextUrl.searchParams.get("schoolId")
+        : null;
+
+  const context = await resolveManagedUsersActorContext(requestedSchoolId);
+  if (!context.ok) {
+    return jsonError(
+      "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
+      "status" in context ? context.status : 500,
+    );
+  }
+
+  const { actorSupabase, targetSchoolId } = context.value;
+  let existing: ManagedUserRecord | null = null;
+
+  try {
+    existing = await fetchManagedUserByAuthUserId(actorSupabase, {
+      authUserId,
+      schoolId: targetSchoolId,
+    });
+  } catch (existingError) {
+    return jsonError(
+      existingError instanceof Error ? existingError.message : "تعذر تحميل الحساب المطلوب.",
+      getPostgrestStatus(existingError as { code?: string | null }),
+    );
+  }
+
+  if (!existing) {
+    return jsonError("الحساب المطلوب غير موجود أو خارج نطاق المدرسة الحالية.", 404);
+  }
+
+  if (existing.role === "teacher" && existing.teacher?.id) {
+    const { error: assignmentsDeleteError } = await actorSupabase
+      .from("teacher_assignments")
+      .delete()
+      .eq("teacher_id", existing.teacher.id)
+      .eq("school_id", targetSchoolId);
+    if (
+      assignmentsDeleteError &&
+      assignmentsDeleteError.code !== "42P01" &&
+      !isMissingTableError(assignmentsDeleteError, "teacher_assignments") &&
+      !assignmentsDeleteError.message.toLowerCase().includes("could not find")
+    ) {
+      return jsonError(assignmentsDeleteError.message || "تعذر حذف تكليفات الأستاذ.", 400);
+    }
+
+    const { error: teacherDeleteError } = await actorSupabase
+      .from("teachers")
+      .delete()
+      .eq("id", existing.teacher.id)
+      .eq("school_id", targetSchoolId);
+    if (teacherDeleteError) {
+      return jsonError(teacherDeleteError.message || "تعذر حذف سجل الأستاذ.", getPostgrestStatus(teacherDeleteError, 400));
+    }
+  }
+
+  if (existing.role === "student" && existing.student?.id) {
+    const { error: studentDeleteError } = await actorSupabase
+      .from("students")
+      .delete()
+      .eq("id", existing.student.id)
+      .eq("school_id", targetSchoolId);
+    if (studentDeleteError) {
+      return jsonError(studentDeleteError.message || "تعذر حذف سجل الطالب.", getPostgrestStatus(studentDeleteError, 400));
+    }
+  }
+
+  await actorSupabase.from("managed_user_credentials").delete().eq("auth_user_id", authUserId);
+  await actorSupabase.from("managed_user_profiles").delete().eq("auth_user_id", authUserId);
+  await actorSupabase.from("user_profiles").delete().eq("id", authUserId);
+
+  const serviceSupabase = createServiceSupabaseClient();
+  const { error: authDeleteError } = await serviceSupabase.auth.admin.deleteUser(authUserId);
+  if (authDeleteError) {
+    return jsonError(authDeleteError.message || "تم حذف السجلات لكن تعذر حذف حساب المصادقة.", 500);
+  }
+
+  return NextResponse.json({ ok: true });
 }

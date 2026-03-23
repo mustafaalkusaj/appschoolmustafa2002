@@ -51,8 +51,8 @@ function normalizeLocaleInPath(req: NextRequest): NextResponse | null {
   }
 
   const locale = getLocaleFromPath(pathname);
-  if (locale !== APP_LOCALE || pathname.startsWith(`/${APP_LOCALE}`) === false) {
-    url.pathname = localizeAppPath(pathname, APP_LOCALE);
+  if (!pathname.startsWith(`/${locale}`)) {
+    url.pathname = localizeAppPath(pathname, locale);
     return NextResponse.redirect(url);
   }
 

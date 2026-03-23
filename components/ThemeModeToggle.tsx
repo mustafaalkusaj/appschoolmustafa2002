@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Monitor, MoonStar, SunMedium } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SIDEBAR_ITEMS, isPathMatch, normalizePath } from "@/types/roles";
+import { getLocaleFromPath } from "@/lib/locale-routing";
 
 type ThemeVariant = "floating" | "inline";
 
@@ -14,12 +15,6 @@ interface ThemeModeToggleProps {
   showLabels?: boolean;
   compact?: boolean;
 }
-
-const OPTIONS = [
-  { value: "system", label: "تلقائي", icon: Monitor },
-  { value: "light", label: "فاتح", icon: SunMedium },
-  { value: "dark", label: "داكن", icon: MoonStar },
-] as const;
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -32,8 +27,21 @@ export function ThemeModeToggle({
   compact = false,
 }: ThemeModeToggleProps) {
   const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const options =
+    locale === "en"
+      ? [
+          { value: "system", label: "System", icon: Monitor },
+          { value: "light", label: "Light", icon: SunMedium },
+          { value: "dark", label: "Dark", icon: MoonStar },
+        ]
+      : [
+          { value: "system", label: "تلقائي", icon: Monitor },
+          { value: "light", label: "فاتح", icon: SunMedium },
+          { value: "dark", label: "داكن", icon: MoonStar },
+        ];
 
   useEffect(() => {
     setMounted(true);
@@ -59,9 +67,9 @@ export function ThemeModeToggle({
         className,
       )}
       role="group"
-      aria-label="وضع المظهر"
+      aria-label={locale === "en" ? "Theme mode" : "وضع المظهر"}
     >
-      {OPTIONS.map((option) => {
+      {options.map((option) => {
         const Icon = option.icon;
         const isActive = activeTheme === option.value;
 
@@ -72,7 +80,7 @@ export function ThemeModeToggle({
             className={cx("theme-mode-option", isActive && "is-active")}
             data-compact={compact ? "true" : "false"}
             aria-pressed={isActive}
-            aria-label={`تفعيل وضع ${option.label}`}
+            aria-label={locale === "en" ? `Enable ${option.label} mode` : `تفعيل وضع ${option.label}`}
             title={option.label}
             onClick={() => setTheme(option.value)}
           >

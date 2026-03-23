@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getRequestConfig } from 'next-intl/server';
 
-const SUPPORTED_LOCALES = new Set(['ar']);
+const SUPPORTED_LOCALES = new Set(['ar', 'en']);
 
 export default getRequestConfig(async ({ locale }) => {
   const normalizedLocale = locale ?? 'ar';

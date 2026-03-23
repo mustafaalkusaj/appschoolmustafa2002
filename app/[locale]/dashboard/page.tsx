@@ -13,9 +13,16 @@ import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { ROLE_LABELS } from "@/lib/auth";
+import {
+  derivePaletteFromLogo,
+  getStoredSchoolBranding,
+  setStoredSchoolBranding,
+} from "@/lib/brand-palette";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
+import { requestRuntimeBrandingRefresh } from "@/hooks/useRuntimeBranding";
+import { detectAppSchemaCompat } from "@/lib/schema-compat";
 
 const DashboardFinanceCharts = dynamic(
   () => import("@/components/DashboardFinanceCharts").then((module) => module.DashboardFinanceCharts),
@@ -34,6 +41,15 @@ interface ClassFee {
   installment_amount: number;
   notes: string;
   created_at: string;
+}
+
+interface DashboardNotification {
+  id: string;
+  title: string | null;
+  message: string | null;
+  type: string | null;
+  is_read: boolean | null;
+  created_at: string | null;
 }
 
 function getAcademicYearLabel(date = new Date()) {
@@ -80,6 +96,18 @@ export default function DashboardPage() {
   const [showSectionsTable, setShowSectionsTable] = useState(false);
   const [showClassForm, setShowClassForm] = useState(false);
   const [showSectionForm, setShowSectionForm] = useState(false);
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [brandingSaving, setBrandingSaving] = useState(false);
+  const [brandingDeriving, setBrandingDeriving] = useState(false);
+  const [brandingNotice, setBrandingNotice] = useState("");
+  const [brandingForm, setBrandingForm] = useState({
+    name: "",
+    logo_url: "",
+    primary_color: "#4f8cff",
+    secondary_color: "#79d7ff",
+  });
 
   const fetchAll = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -93,6 +121,14 @@ export default function DashboardPage() {
     }
 
     // Parallel fetch for better performance
+    const compat = await detectAppSchemaCompat();
+    let feesQuery = supabase
+      .from("class_fees")
+      .select("*")
+      .order("class_name", { ascending: true });
+    if (compat.classFeesSchoolScope) {
+      feesQuery = feesQuery.eq("school_id", schoolId);
+    }
     const [studentsResult, paymentsResult, feesResult] = await Promise.all([
       // 1. Fetch students (optimized columns)
       supabase
@@ -109,12 +145,8 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(5),
 
-      // 3. Fetch class fees
-      supabase
-        .from("class_fees")
-        .select("*")
-        .eq("school_id", schoolId)
-        .order("class_name", { ascending: true })
+      // 3. Fetch class fees with schema compatibility
+      feesQuery,
     ]);
 
     if (studentsResult.data) setStudents(studentsResult.data);
@@ -128,59 +160,288 @@ export default function DashboardPage() {
   // but kept if called individually by other actions.
   const fetchClassFees = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    if (!schoolId) {
+    const compat = await detectAppSchemaCompat();
+    if (!schoolId && compat.classFeesSchoolScope) {
       setClassFees([]);
       return;
     }
-    const { data } = await supabase
+    let query = supabase
       .from("class_fees")
       .select("*")
-      .eq("school_id", schoolId)
       .order("class_name", { ascending: true });
+    if (compat.classFeesSchoolScope && schoolId) {
+      query = query.eq("school_id", schoolId);
+    }
+    const { data } = await query;
     
     if (data) setClassFees(data as ClassFee[]);
   }, [profile, schoolScope.selectedSchoolId]);
 
   const fetchClasses = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const compat = await detectAppSchemaCompat();
     if (!schoolId) {
       setClasses([]);
       return;
     }
-    let query = supabase
+    if (compat.classesNameColumn) {
+      const { data } = await supabase
+        .from("classes")
+        .select("*")
+        .eq("school_id", schoolId)
+        .order("name", { ascending: true });
+      if (data) setClasses(data);
+      return;
+    }
+
+    const { data } = await supabase
       .from("classes")
-      .select("*")
-      .order("name", { ascending: true });
-    query = query.eq("school_id", schoolId);
-    const { data } = await query;
-    if (data) setClasses(data);
+      .select("id, school_id, branch_id, grade, section")
+      .eq("school_id", schoolId)
+      .order("grade", { ascending: true })
+      .order("section", { ascending: true });
+
+    if (!data) return;
+    const groups = new Map<string, { id: string; name: string; legacyClassIds: string[]; branch_id: string | null }>();
+    (data as Array<Record<string, unknown>>).forEach((row) => {
+      const grade = typeof row.grade === "string" ? row.grade : "";
+      if (!grade) return;
+      const existing = groups.get(grade);
+      if (existing) {
+        existing.legacyClassIds.push(String(row.id));
+        return;
+      }
+      groups.set(grade, {
+        id: `legacy:${grade}`,
+        name: grade,
+        legacyClassIds: [String(row.id)],
+        branch_id: typeof row.branch_id === "string" ? row.branch_id : null,
+      });
+    });
+
+    setClasses(Array.from(groups.values()));
   }, [profile, schoolScope.selectedSchoolId]);
 
   const fetchSections = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const compat = await detectAppSchemaCompat();
     if (!schoolId) {
       setSections([]);
       return;
     }
-    let query = supabase
-      .from("sections")
-      .select("*, classes(name)")
-      .order("name", { ascending: true });
-    query = query.eq("school_id", schoolId);
-    const { data } = await query;
-    if (data) setSections(data);
+    if (compat.classesNameColumn) {
+      let query = supabase
+        .from("sections")
+        .select("*, classes(name)")
+        .order("name", { ascending: true });
+      if (compat.sectionsSchoolScope) {
+        query = query.eq("school_id", schoolId);
+      }
+      const { data } = await query;
+      if (data) setSections(data);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("classes")
+      .select("id, grade, section")
+      .eq("school_id", schoolId)
+      .order("grade", { ascending: true })
+      .order("section", { ascending: true });
+
+    if (!data) return;
+    setSections(
+      (data as Array<Record<string, unknown>>)
+        .filter((row) => typeof row.grade === "string" && typeof row.section === "string" && row.section)
+        .map((row) => ({
+          id: String(row.id),
+          class_id: `legacy:${String(row.grade)}`,
+          name: String(row.section),
+        })),
+    );
   }, [profile, schoolScope.selectedSchoolId]);
+
+  const fetchSchoolBranding = useCallback(async () => {
+    if (profile?.role !== "super_admin") return;
+    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    if (!schoolId) {
+      setBrandingForm((prev) => ({ ...prev, name: "", logo_url: "" }));
+      return;
+    }
+
+    const compat = await detectAppSchemaCompat();
+    const storedBranding = getStoredSchoolBranding(schoolId);
+    const schoolQuery = compat.schoolColors
+      ? supabase.from("schools").select("name, logo_url, primary_color, secondary_color")
+      : supabase.from("schools").select("name, logo_url");
+    const { data } = await schoolQuery.eq("id", schoolId).maybeSingle();
+
+    if (!data) return;
+
+    let primaryColor =
+      compat.schoolColors && "primary_color" in data && typeof data.primary_color === "string"
+        ? data.primary_color
+        : storedBranding?.primaryColor || "";
+    let secondaryColor =
+      compat.schoolColors && "secondary_color" in data && typeof data.secondary_color === "string"
+        ? data.secondary_color
+        : storedBranding?.secondaryColor || "";
+
+    if (!primaryColor || !secondaryColor) {
+      const derivedPalette = await derivePaletteFromLogo(
+        typeof data.logo_url === "string" ? data.logo_url : null,
+        typeof data.name === "string" ? data.name : "",
+      );
+      primaryColor = primaryColor || derivedPalette.primaryColor;
+      secondaryColor = secondaryColor || derivedPalette.secondaryColor;
+    }
+    setBrandingForm({
+      name: data.name || "",
+      logo_url: data.logo_url || "",
+      primary_color: primaryColor || "#4f8cff",
+      secondary_color: secondaryColor || "#79d7ff",
+    });
+  }, [profile, schoolScope.selectedSchoolId]);
+
+  const fetchDashboardNotifications = useCallback(async () => {
+    if (!profile || (profile.role !== "super_admin" && profile.role !== "admin")) {
+      setNotifications([]);
+      return;
+    }
+
+    setNotificationsLoading(true);
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      setNotifications([]);
+      setNotificationsLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, title, message, type, is_read, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(8);
+
+    if (error) {
+      const relationMissing = error.message.includes('relation "notifications" does not exist');
+      setNotificationsEnabled(!relationMissing);
+      setNotifications([]);
+      setNotificationsLoading(false);
+      return;
+    }
+
+    setNotificationsEnabled(true);
+    setNotifications((data || []) as DashboardNotification[]);
+    setNotificationsLoading(false);
+  }, [profile]);
+
+  async function markNotificationAsRead(id: string) {
+    if (!id) return;
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    setNotifications((current) =>
+      current.map((item) => (item.id === id ? { ...item, is_read: true } : item)),
+    );
+  }
+
+  async function saveBrandingFromDashboard() {
+    if (profile?.role !== "super_admin") return;
+    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    if (!schoolId) {
+      setBrandingNotice("اختر مدرسة أولاً لتخصيص الهوية البصرية.");
+      return;
+    }
+
+    setBrandingSaving(true);
+    setBrandingNotice("");
+    const compat = await detectAppSchemaCompat();
+    const payload = {
+      name: brandingForm.name.trim(),
+      logo_url: brandingForm.logo_url.trim() || null,
+      ...(compat.schoolColors
+        ? {
+            primary_color: brandingForm.primary_color || null,
+            secondary_color: brandingForm.secondary_color || null,
+          }
+        : {}),
+    };
+    if (!payload.name) {
+      setBrandingNotice("اسم المدرسة مطلوب قبل الحفظ.");
+      setBrandingSaving(false);
+      return;
+    }
+
+    const { error } = await supabase.from("schools").update(payload).eq("id", schoolId);
+    if (error) {
+      setBrandingNotice(`تعذر حفظ الهوية: ${error.message}`);
+      setBrandingSaving(false);
+      return;
+    }
+
+    setStoredSchoolBranding(schoolId, {
+      primaryColor: brandingForm.primary_color || null,
+      secondaryColor: brandingForm.secondary_color || null,
+      source: "manual",
+    });
+    requestRuntimeBrandingRefresh();
+    setBrandingNotice(
+      compat.schoolColors
+        ? "تم تحديث الشعار والألوان واسم المدرسة بنجاح."
+        : "تم تحديث الشعار واسم المدرسة، وحُفظت الألوان محلياً لأن أعمدة الألوان غير موجودة بعد في Supabase الحالي.",
+    );
+    setBrandingSaving(false);
+  }
+
+  async function deriveDashboardBrandingFromLogo() {
+    setBrandingDeriving(true);
+    setBrandingNotice("");
+    try {
+      const derivedPalette = await derivePaletteFromLogo(
+        brandingForm.logo_url.trim() || null,
+        brandingForm.name.trim(),
+      );
+      setBrandingForm((prev) => ({
+        ...prev,
+        primary_color: derivedPalette.primaryColor,
+        secondary_color: derivedPalette.secondaryColor,
+      }));
+      setBrandingNotice(
+        brandingForm.logo_url.trim()
+          ? "تم استخراج الألوان من الشعار ويمكنك تعديلها قبل الحفظ."
+          : "لا يوجد رابط شعار، لذا تم توليد ألوان احترافية اعتماداً على اسم المدرسة.",
+      );
+    } catch (error) {
+      setBrandingNotice(
+        `تعذر استخراج الألوان تلقائياً: ${error instanceof Error ? error.message : "خطأ غير متوقع"}`,
+      );
+    } finally {
+      setBrandingDeriving(false);
+    }
+  }
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
     void fetchAll();
     void fetchClasses();
     void fetchSections();
-  }, [profile, schoolScope.scopeLoading, fetchAll, fetchClasses, fetchSections]);
+    void fetchSchoolBranding();
+    void fetchDashboardNotifications();
+  }, [
+    profile,
+    schoolScope.scopeLoading,
+    fetchAll,
+    fetchClasses,
+    fetchSections,
+    fetchSchoolBranding,
+    fetchDashboardNotifications,
+  ]);
 
   // ─── حفظ/تعديل سعر قسط الصف ─────────────────────────────────────────────
   async function handleSaveFee() {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const compat = await detectAppSchemaCompat();
     setFeeError("");
     setFeeSuccess("");
     if (!feeForm.class_name.trim()) { setFeeError("يرجى إدخال اسم الصف"); return; }
@@ -212,7 +473,7 @@ export default function DashboardPage() {
       const exists = classFees.find(cf => cf.class_name.trim() === feeForm.class_name.trim());
       if (exists) { setFeeError("هذا الصف موجود مسبقاً، يمكنك تعديله"); setFeeLoading(false); return; }
       const { error } = await supabase.from("class_fees").insert({
-        school_id: schoolId,
+        ...(compat.classFeesSchoolScope ? { school_id: schoolId } : {}),
         class_name: feeForm.class_name.trim(),
         total_fee,
         installments,
@@ -236,26 +497,56 @@ export default function DashboardPage() {
 
   async function handleSaveClass() {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const { branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId: schoolScope.selectedSchoolId,
+    });
+    const compat = await detectAppSchemaCompat();
     if (!classForm.name.trim()) return;
     if (!schoolId) return;
     const sectionsToAdd = classForm.sections.filter(s => s.trim());
-    if (editingClass) {
-      await supabase.from("classes").update({ name: classForm.name.trim() }).eq("id", editingClass.id);
-      // Update sections
-      await supabase.from("sections").delete().eq("class_id", editingClass.id).eq("school_id", schoolId);
-      for (const sec of sectionsToAdd) {
-        await supabase.from("sections").insert({ class_id: editingClass.id, school_id: schoolId, name: sec.trim() });
+    if (compat.classesNameColumn) {
+      if (editingClass) {
+        await supabase.from("classes").update({ name: classForm.name.trim() }).eq("id", editingClass.id);
+        let sectionDelete = supabase.from("sections").delete().eq("class_id", editingClass.id);
+        if (compat.sectionsSchoolScope) {
+          sectionDelete = sectionDelete.eq("school_id", schoolId);
+        }
+        await sectionDelete;
+        for (const sec of sectionsToAdd) {
+          await supabase.from("sections").insert({
+            class_id: editingClass.id,
+            ...(compat.sectionsSchoolScope ? { school_id: schoolId } : {}),
+            name: sec.trim(),
+          });
+        }
+      } else {
+        const { data: newClass } = await supabase
+          .from("classes")
+          .insert({ name: classForm.name.trim(), school_id: schoolId })
+          .select()
+          .single();
+        if (newClass) {
+          for (const sec of sectionsToAdd) {
+            await supabase.from("sections").insert({
+              class_id: newClass.id,
+              ...(compat.sectionsSchoolScope ? { school_id: schoolId } : {}),
+              name: sec.trim(),
+            });
+          }
+        }
       }
     } else {
-      const { data: newClass } = await supabase
-        .from("classes")
-        .insert({ name: classForm.name.trim(), school_id: schoolId })
-        .select()
-        .single();
-      if (newClass) {
-        for (const sec of sectionsToAdd) {
-          await supabase.from("sections").insert({ class_id: newClass.id, school_id: schoolId, name: sec.trim() });
-        }
+      if (editingClass?.legacyClassIds?.length) {
+        await supabase.from("classes").delete().in("id", editingClass.legacyClassIds);
+      }
+      const legacySections = sectionsToAdd.length > 0 ? sectionsToAdd : [""];
+      for (const sec of legacySections) {
+        await supabase.from("classes").insert({
+          school_id: schoolId,
+          branch_id: branchId || null,
+          grade: classForm.name.trim(),
+          section: sec.trim() || null,
+        });
       }
     }
     await fetchClasses();
@@ -268,28 +559,64 @@ export default function DashboardPage() {
 
   async function handleDeleteClass(id: string) {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    let classDelete = supabase.from("classes").delete().eq("id", id);
-    let sectionDelete = supabase.from("sections").delete().eq("class_id", id);
-    if (schoolId) {
-      classDelete = classDelete.eq("school_id", schoolId);
-      sectionDelete = sectionDelete.eq("school_id", schoolId);
+    const compat = await detectAppSchemaCompat();
+    if (compat.classesNameColumn) {
+      let classDelete = supabase.from("classes").delete().eq("id", id);
+      let sectionDelete = supabase.from("sections").delete().eq("class_id", id);
+      if (schoolId) {
+        classDelete = classDelete.eq("school_id", schoolId);
+        if (compat.sectionsSchoolScope) {
+          sectionDelete = sectionDelete.eq("school_id", schoolId);
+        }
+      }
+      await classDelete;
+      await sectionDelete;
+    } else {
+      const targetClass = classes.find((item) => item.id === id);
+      const legacyIds = Array.isArray(targetClass?.legacyClassIds) ? targetClass.legacyClassIds : [];
+      if (legacyIds.length > 0) {
+        await supabase.from("classes").delete().in("id", legacyIds);
+      }
     }
-    await classDelete;
-    await sectionDelete;
     await fetchClasses();
     await fetchSections();
   }
 
   async function handleSaveSection() {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const { branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId: schoolScope.selectedSchoolId,
+    });
+    const compat = await detectAppSchemaCompat();
     if (!sectionForm.class_id || !sectionForm.name.trim()) return;
-    if (editingSection) {
-      await supabase.from("sections").update({ name: sectionForm.name.trim() }).eq("id", editingSection.id);
+    if (compat.classesNameColumn) {
+      if (editingSection) {
+        await supabase.from("sections").update({ name: sectionForm.name.trim() }).eq("id", editingSection.id);
+      } else {
+        if (!schoolId) return;
+        await supabase.from("sections").insert({
+          class_id: sectionForm.class_id,
+          ...(compat.sectionsSchoolScope ? { school_id: schoolId } : {}),
+          name: sectionForm.name.trim(),
+        });
+      }
     } else {
-      if (!schoolId) return;
-      await supabase.from("sections").insert({ class_id: sectionForm.class_id, school_id: schoolId, name: sectionForm.name.trim() });
+      const targetClass = classes.find((item) => item.id === sectionForm.class_id);
+      const gradeName = typeof targetClass?.name === "string" ? targetClass.name : "";
+      if (!gradeName || !schoolId) return;
+      if (editingSection) {
+        await supabase.from("classes").update({ section: sectionForm.name.trim() }).eq("id", editingSection.id);
+      } else {
+        await supabase.from("classes").insert({
+          school_id: schoolId,
+          branch_id: branchId || null,
+          grade: gradeName,
+          section: sectionForm.name.trim(),
+        });
+      }
     }
     await fetchSections();
+    await fetchClasses();
     setEditingSection(null);
     setSectionForm({ class_id: "", name: "" });
     setShowSectionForm(false);
@@ -297,18 +624,25 @@ export default function DashboardPage() {
 
   async function handleDeleteSection(id: string) {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    let query = supabase.from("sections").delete().eq("id", id);
-    if (schoolId) {
-      query = query.eq("school_id", schoolId);
+    const compat = await detectAppSchemaCompat();
+    if (compat.classesNameColumn) {
+      let query = supabase.from("sections").delete().eq("id", id);
+      if (schoolId && compat.sectionsSchoolScope) {
+        query = query.eq("school_id", schoolId);
+      }
+      await query;
+    } else {
+      await supabase.from("classes").delete().eq("id", id);
     }
-    await query;
     await fetchSections();
+    await fetchClasses();
   }
 
   async function handleDeleteFee(id: string) {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const compat = await detectAppSchemaCompat();
     let query = supabase.from("class_fees").delete().eq("id", id);
-    if (schoolId) {
+    if (schoolId && compat.classFeesSchoolScope) {
       query = query.eq("school_id", schoolId);
     }
     await query;
@@ -376,6 +710,8 @@ export default function DashboardPage() {
   const currentSchoolCity = schoolScope.selectedSchool?.city || null;
   const academicYearLabel = getAcademicYearLabel();
   const roleLabel = profile ? ROLE_LABELS[profile.role] : "المستخدم الحالي";
+  const canCustomizeBranding = profile?.role === "super_admin";
+  const unreadNotifications = notifications.filter((item) => !item.is_read).length;
   const dashboardSummary = schoolScope.shouldBlockContent
     ? "اختر مدرسة أولاً حتى تصبح بيانات الهيدر والإحصائيات مرتبطة بسياق واضح."
     : schoolScope.isSuperAdminScope
@@ -447,6 +783,155 @@ export default function DashboardPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
                 إدارة الصفوف والشعب
               </button>
+            </div>
+          )}
+
+          {(canCustomizeBranding || (profile?.role === "admin" || profile?.role === "super_admin")) && (
+            <div style={{ display: "grid", gap: ".8rem", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", marginBottom: "1rem" }}>
+              {canCustomizeBranding ? (
+                <div style={{ background: "white", borderRadius: "14px", padding: "1rem", border: "1px solid rgba(108,74,182,0.12)" }}>
+                  <div style={{ fontWeight: 900, color: "var(--p2)", marginBottom: ".75rem" }}>هوية المدرسة (سوبر أدمن)</div>
+                  <div style={{ display: "grid", gap: ".6rem", gridTemplateColumns: "1fr 1fr" }}>
+                    <input
+                      className="form-input"
+                      style={{ gridColumn: "1 / -1" }}
+                      placeholder="اسم المدرسة"
+                      value={brandingForm.name}
+                      onChange={(e) => setBrandingForm((prev) => ({ ...prev, name: e.target.value }))}
+                    />
+                    <input
+                      className="form-input"
+                      style={{ gridColumn: "1 / -1" }}
+                      placeholder="رابط الشعار (اختياري)"
+                      value={brandingForm.logo_url}
+                      onChange={(e) => setBrandingForm((prev) => ({ ...prev, logo_url: e.target.value }))}
+                    />
+                    <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--gray)" }}>
+                      اللون الأساسي
+                      <input
+                        type="color"
+                        className="form-input"
+                        style={{ height: "44px", padding: ".2rem", marginTop: ".25rem" }}
+                        value={brandingForm.primary_color || "#4f8cff"}
+                        onChange={(e) => setBrandingForm((prev) => ({ ...prev, primary_color: e.target.value }))}
+                      />
+                    </label>
+                    <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--gray)" }}>
+                      اللون الثانوي
+                      <input
+                        type="color"
+                        className="form-input"
+                        style={{ height: "44px", padding: ".2rem", marginTop: ".25rem" }}
+                        value={brandingForm.secondary_color || "#79d7ff"}
+                        onChange={(e) => setBrandingForm((prev) => ({ ...prev, secondary_color: e.target.value }))}
+                      />
+                    </label>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: ".7rem",
+                      borderRadius: "16px",
+                      padding: ".85rem",
+                      background: `linear-gradient(135deg, ${brandingForm.primary_color || "#4f8cff"}14, ${brandingForm.secondary_color || "#79d7ff"}18)`,
+                      border: "1px solid rgba(108,74,182,0.12)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
+                      {brandingForm.logo_url ? (
+                        <img
+                          src={brandingForm.logo_url}
+                          alt={brandingForm.name || "School logo"}
+                          style={{ width: "50px", height: "50px", borderRadius: "14px", objectFit: "cover", border: "1px solid rgba(15,23,42,0.08)", background: "#fff" }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "50px",
+                            height: "50px",
+                            borderRadius: "14px",
+                            display: "grid",
+                            placeItems: "center",
+                            background: `linear-gradient(135deg, ${brandingForm.primary_color || "#4f8cff"}, ${brandingForm.secondary_color || "#79d7ff"})`,
+                            color: "#fff",
+                            fontWeight: 900,
+                          }}
+                        >
+                          {(brandingForm.name || "S").trim().charAt(0) || "S"}
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ fontWeight: 900, color: "var(--p2)" }}>{brandingForm.name || "اسم المدرسة"}</div>
+                        <div style={{ fontSize: ".72rem", color: "var(--gray)" }}>
+                          هذه الألوان ستنعكس على الأزرار والخلفيات والطباعة بالكامل.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {brandingNotice ? (
+                    <div style={{ marginTop: ".55rem", fontSize: ".75rem", color: brandingNotice.includes("تعذر") ? "#DC2626" : "#15803D", fontWeight: 700 }}>
+                      {brandingNotice}
+                    </div>
+                  ) : null}
+                  <div style={{ marginTop: ".7rem", display: "flex", justifyContent: "space-between", gap: ".6rem", flexWrap: "wrap" }}>
+                    <button
+                      className="fee-btn-outline"
+                      onClick={() => void deriveDashboardBrandingFromLogo()}
+                      disabled={brandingDeriving}
+                    >
+                      {brandingDeriving ? "جارٍ تحليل الشعار..." : "استخراج الألوان من الشعار"}
+                    </button>
+                    <button className="fee-btn" onClick={() => void saveBrandingFromDashboard()} disabled={brandingSaving}>
+                      {brandingSaving ? "جارٍ الحفظ..." : "حفظ الهوية"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div style={{ background: "white", borderRadius: "14px", padding: "1rem", border: "1px solid rgba(108,74,182,0.12)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".65rem" }}>
+                  <div style={{ fontWeight: 900, color: "var(--p2)" }}>
+                    الإشعارات {notificationsEnabled ? `(${unreadNotifications} غير مقروءة)` : ""}
+                  </div>
+                  {notificationsEnabled ? (
+                    <button className="fee-btn-outline" style={{ fontSize: ".72rem", padding: ".35rem .65rem" }} onClick={() => void fetchDashboardNotifications()}>
+                      تحديث
+                    </button>
+                  ) : null}
+                </div>
+                {!notificationsEnabled ? (
+                  <div style={{ fontSize: ".75rem", color: "var(--gray)" }}>
+                    جدول الإشعارات غير مفعّل في قاعدة البيانات الحالية.
+                  </div>
+                ) : notificationsLoading ? (
+                  <div style={{ fontSize: ".75rem", color: "var(--gray)" }}>جارٍ تحميل الإشعارات...</div>
+                ) : notifications.length === 0 ? (
+                  <div style={{ fontSize: ".75rem", color: "var(--gray)" }}>لا توجد إشعارات جديدة حالياً.</div>
+                ) : (
+                  <div style={{ display: "grid", gap: ".45rem" }}>
+                    {notifications.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => void markNotificationAsRead(item.id)}
+                        style={{
+                          textAlign: "right",
+                          border: "1px solid rgba(108,74,182,0.1)",
+                          background: item.is_read ? "#F8FAFC" : "#EEF6FF",
+                          borderRadius: "10px",
+                          padding: ".55rem .65rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{ fontSize: ".78rem", fontWeight: 800, color: "var(--dark)" }}>{item.title || "تنبيه جديد"}</div>
+                        <div style={{ fontSize: ".72rem", color: "var(--gray)", marginTop: ".2rem" }}>{item.message || "بدون تفاصيل إضافية"}</div>
+                        <div style={{ fontSize: ".66rem", color: "var(--gray)", marginTop: ".25rem" }}>
+                          {item.created_at ? formatDate(item.created_at) : "—"}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

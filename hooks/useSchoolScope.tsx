@@ -33,6 +33,34 @@ export type SchoolScopeState = {
   buildLocalizedPath: (pathname: string, locale?: string) => string;
 };
 
+const SCHOOL_SCOPE_CACHE_KEY = "school-scope-cache:v1";
+
+function readCachedSchools() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(SCHOOL_SCOPE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { schools?: ScopedSchool[]; cachedAt?: number };
+    if (!Array.isArray(parsed.schools) || typeof parsed.cachedAt !== "number") {
+      return null;
+    }
+    if (Date.now() - parsed.cachedAt > 60_000) {
+      return null;
+    }
+    return parsed.schools;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedSchools(schools: ScopedSchool[]) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(
+    SCHOOL_SCOPE_CACHE_KEY,
+    JSON.stringify({ schools, cachedAt: Date.now() }),
+  );
+}
+
 export function useSchoolScope(profile: UserProfile | null): SchoolScopeState {
   const router = useRouter();
   const pathname = usePathname();
@@ -51,7 +79,14 @@ export function useSchoolScope(profile: UserProfile | null): SchoolScopeState {
         return;
       }
 
-      setScopeLoading(true);
+      const cachedSchools = readCachedSchools();
+      if (cachedSchools && cachedSchools.length > 0) {
+        setSchools(cachedSchools);
+        setScopeLoading(false);
+      } else {
+        setScopeLoading(true);
+      }
+
       const { data } = await supabase
         .from("schools")
         .select("id, name, is_active, city")
@@ -59,7 +94,9 @@ export function useSchoolScope(profile: UserProfile | null): SchoolScopeState {
 
       if (!active) return;
 
-      setSchools((data ?? []) as ScopedSchool[]);
+      const nextSchools = (data ?? []) as ScopedSchool[];
+      setSchools(nextSchools);
+      writeCachedSchools(nextSchools);
       setScopeLoading(false);
     }
 

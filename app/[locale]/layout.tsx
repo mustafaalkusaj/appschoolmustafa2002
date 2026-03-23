@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import "./globals.css";
-import { APP_LOCALE } from "@/lib/locale-routing";
+import { APP_LOCALE, LEGACY_LOCALE, normalizeLocale } from "@/lib/locale-routing";
 import { SCHOOL_BRAND } from "@/lib/branding";
 
 export const metadata: Metadata = {
@@ -10,19 +10,25 @@ export const metadata: Metadata = {
 };
 
 export function generateStaticParams() {
-  return [{ locale: APP_LOCALE }];
+  return [{ locale: APP_LOCALE }, { locale: LEGACY_LOCALE }];
 }
 
 export default async function LocaleLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }) {
-  const messages = (await import("@/messages/ar.json")).default;
+  const { locale: requestedLocale } = await params;
+  const locale = normalizeLocale(requestedLocale);
+  const messages = (await import(`@/messages/${locale}.json`)).default;
 
   return (
-    <NextIntlClientProvider locale={APP_LOCALE} messages={messages}>
-      <div className="antialiased">{children}</div>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <div className="antialiased" lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
+        {children}
+      </div>
     </NextIntlClientProvider>
   );
 }

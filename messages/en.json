@@ -1,0 +1,50 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "students": "Students",
+    "attendance": "Attendance",
+    "payments": "Finance",
+    "expenses": "Expenses",
+    "reports": "Reports",
+    "superAdmin": "Super Admin"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "brand": "School Management Platform",
+    "subtitle": "Unified School System",
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode",
+    "allRightsReserved": "All rights reserved"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "invalidCredentials": "Invalid email or password.",
+    "inactiveAccount": "Your account is inactive. Please contact administration.",
+    "profileLoadError": "Failed to load user profile.",
+    "serverConfigError": "Server session configuration is incomplete.",
+    "loginFailed": "Sign in failed. Please try again.",
+    "supabaseConfigError": "Supabase settings are invalid. Check environment variables.",
+    "securePlatform": "Secure school platform"
+  },
+  "gates": {
+    "accessDenied": "Access denied",
+    "accessDeniedDescription": "You don't have permission to open this page.",
+    "goBack": "Go back",
+    "dashboard": "Dashboard",
+    "subscriptionExpired": "Subscription expired",
+    "subscriptionExpiredDescription": "School subscription has expired. Contact your provider to reactivate access.",
+    "subscriptionRenewalHint": "Contact administration to renew subscription",
+    "signOut": "Sign out"
+  }
+}

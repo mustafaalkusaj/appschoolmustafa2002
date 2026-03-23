@@ -39,9 +39,9 @@ export default function Home() {
         roles: ["super_admin", "admin", "employee"],
       },
       {
-        href: "/users",
-        title: "إدارة الحسابات",
-        desc: "إنشاء وتعديل حسابات الطلاب والمدرسين من لوحة المدرسة",
+        href: "/teachers",
+        title: "إدارة الأساتذة",
+        desc: "إنشاء وتعديل حسابات الأساتذة وربطهم بالمواد والصفوف",
         icon: "🪪",
         roles: ["super_admin", "admin"],
       },

@@ -4,6 +4,7 @@ import { isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastru
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { createRouteSupabaseClient, createServiceSupabaseClient } from "@/lib/supabase-server";
 import type {
+  ManagedUserRole,
   ManagedTeacherAssignmentInput,
   ManagedTeacherAssignmentRecord,
   ManagedTeacherRecord,
@@ -12,6 +13,7 @@ import type {
   ManagedUserAppAccountSummary,
   ManagedUserRecord,
 } from "@/lib/managed-users";
+import { MANAGED_USER_INACTIVE_BAN_DURATION } from "@/lib/managed-users";
 import { normalizeUserRole } from "@/types/roles";
 
 export const MANAGED_USER_SELECT = `
@@ -518,13 +520,117 @@ async function patchManagedCredentialMetadata(
     nextManagedCredentials.login_identifier = data.user.email;
   }
 
+  const existingUserMetadata = asObject(data.user.user_metadata);
   const { error: updateError } = await serviceSupabase.auth.admin.updateUserById(authUserId, {
     app_metadata: {
       ...existingAppMetadata,
       managed_credentials: nextManagedCredentials,
     },
+    user_metadata: {
+      ...existingUserMetadata,
+      ...(nullableText(nextManagedCredentials.login_identifier)
+        ? { loginIdentifier: nullableText(nextManagedCredentials.login_identifier) }
+        : {}),
+    },
   });
 
+  if (updateError) {
+    throw updateError;
+  }
+}
+
+export function buildManagedAuthIdentityPayload(options: {
+  role: ManagedUserRole;
+  schoolId: string;
+  fullName: string;
+  loginIdentifier: string;
+  createdBy?: string | null;
+  existingAppMetadata?: Record<string, unknown>;
+  existingUserMetadata?: Record<string, unknown>;
+  credentialPatch?: {
+    temporaryPassword?: string | null;
+    passwordLastResetAt?: string | null;
+    cardLastPrintedAt?: string | null;
+  };
+}) {
+  const existingAppMetadata = options.existingAppMetadata ?? {};
+  const existingUserMetadata = options.existingUserMetadata ?? {};
+  const existingManagedCredentials = asObject(
+    existingAppMetadata.managed_credentials ?? existingUserMetadata.managed_credentials,
+  );
+  const nextLoginIdentifier = normalizeText(options.loginIdentifier).toLowerCase();
+
+  return {
+    app_metadata: {
+      ...existingAppMetadata,
+      managed_credentials: {
+        ...existingManagedCredentials,
+        ...(nextLoginIdentifier ? { login_identifier: nextLoginIdentifier } : {}),
+        ...(options.credentialPatch?.temporaryPassword !== undefined
+          ? { temporary_password: options.credentialPatch.temporaryPassword }
+          : {}),
+        ...(options.credentialPatch?.passwordLastResetAt !== undefined
+          ? { password_last_reset_at: options.credentialPatch.passwordLastResetAt }
+          : {}),
+        ...(options.credentialPatch?.cardLastPrintedAt !== undefined
+          ? { card_last_printed_at: options.credentialPatch.cardLastPrintedAt }
+          : {}),
+      },
+    },
+    user_metadata: {
+      ...existingUserMetadata,
+      accountType: "managed_user",
+      managedRole: options.role,
+      schoolId: options.schoolId,
+      full_name: options.fullName,
+      ...(nextLoginIdentifier ? { loginIdentifier: nextLoginIdentifier } : {}),
+      ...(options.createdBy !== undefined ? { createdBy: options.createdBy } : {}),
+    },
+  };
+}
+
+export async function syncManagedAuthIdentityMetadata(options: {
+  authUserId: string;
+  role: ManagedUserRole;
+  schoolId: string;
+  fullName: string;
+  loginIdentifier: string;
+  createdBy?: string | null;
+  isActive?: boolean;
+}) {
+  const serviceSupabase = createServiceSupabaseClient();
+  const { data, error } = await serviceSupabase.auth.admin.getUserById(options.authUserId);
+  if (error || !data.user) {
+    throw error ?? new Error("تعذر تحميل حساب المصادقة لتحديث بيانات الهوية.");
+  }
+
+  const existingAppMetadata = asObject(data.user.app_metadata);
+  const existingManagedCredentials = asObject(existingAppMetadata.managed_credentials);
+  const existingUserMetadata = asObject(data.user.user_metadata);
+  const nextLoginIdentifier =
+    normalizeText(options.loginIdentifier).toLowerCase() ||
+    nullableText(existingManagedCredentials.login_identifier) ||
+    nullableText(data.user.email) ||
+    "";
+  const identityPayload = buildManagedAuthIdentityPayload({
+    role: options.role,
+    schoolId: options.schoolId,
+    fullName: options.fullName,
+    loginIdentifier: nextLoginIdentifier,
+    createdBy: options.createdBy,
+    existingAppMetadata,
+    existingUserMetadata,
+  });
+
+  const updatePayload: Record<string, unknown> = {
+    ...identityPayload,
+  };
+
+  if (typeof options.isActive === "boolean") {
+    updatePayload.ban_duration = options.isActive ? "none" : MANAGED_USER_INACTIVE_BAN_DURATION;
+  }
+
+  const { error: updateError } = await serviceSupabase.auth.admin.updateUserById(options.authUserId, updatePayload);
   if (updateError) {
     throw updateError;
   }
@@ -564,7 +670,7 @@ export async function fetchManagedUserCredentials(
   return credentials;
 }
 
-async function fetchTeacherAssignments(
+export async function fetchTeacherAssignments(
   actorSupabase: RouteSupabaseClient,
   teacherIds: string[],
 ) {
@@ -579,8 +685,37 @@ async function fetchTeacherAssignments(
     .order("created_at", { ascending: true });
 
   if (error) {
-    if (error.message.toLowerCase().includes("could not find")) {
-      return new Map<string, ManagedTeacherAssignmentRecord[]>();
+    if (isMissingTableError(error, "teacher_assignments") || error.message.toLowerCase().includes("could not find")) {
+      const { data: legacyTeachers, error: legacyTeachersError } = await actorSupabase
+        .from("teachers")
+        .select("id, classes_taught")
+        .in("id", teacherIds);
+
+      if (legacyTeachersError) {
+        if (isMissingColumnError(legacyTeachersError, "teachers", "classes_taught")) {
+          return new Map<string, ManagedTeacherAssignmentRecord[]>();
+        }
+        throw legacyTeachersError;
+      }
+
+      const legacyAssignmentsByTeacher = new Map<string, ManagedTeacherAssignmentRecord[]>();
+
+      ((legacyTeachers ?? []) as Array<Record<string, unknown>>).forEach((teacher) => {
+        const assignments = parseTeacherClassesTaught(teacher.classes_taught).map((assignment, index) => ({
+          id: `legacy-${String(teacher.id)}-${index}`,
+          subject_id: null,
+          subject_name: normalizeText(assignment.subject_name) || "مادة غير معروفة",
+          class_id: null,
+          class_name: normalizeText(assignment.class_name ?? assignment.grade) || "صف غير معروف",
+          section_id: null,
+          section_name: nullableText(assignment.section ?? assignment.section_name),
+          is_active: true,
+        }));
+
+        legacyAssignmentsByTeacher.set(String(teacher.id), assignments);
+      });
+
+      return legacyAssignmentsByTeacher;
     }
     throw error;
   }
@@ -830,6 +965,40 @@ export async function fetchManagedUserByAuthUserId(
   return decoratedLegacyUser ?? null;
 }
 
+export async function findManagedProfileByLinkedRecord(
+  actorSupabase: RouteSupabaseClient,
+  options: {
+    schoolId: string;
+    role: "student" | "teacher";
+    relatedRecordId: string;
+  },
+) {
+  const relationColumn = options.role === "student" ? "student_id" : "teacher_id";
+  const { data, error } = await actorSupabase
+    .from("managed_user_profiles")
+    .select("auth_user_id, email")
+    .eq("school_id", options.schoolId)
+    .eq(relationColumn, options.relatedRecordId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTableError(error, "managed_user_profiles")) {
+      return null;
+    }
+
+    throw error;
+  }
+
+  if (!data || typeof data.auth_user_id !== "string") {
+    return null;
+  }
+
+  return {
+    authUserId: data.auth_user_id,
+    email: typeof data.email === "string" ? data.email : null,
+  };
+}
+
 export async function persistManagedUserProfile(
   actorSupabase: RouteSupabaseClient,
   options: {
@@ -1031,6 +1200,131 @@ export function buildTeacherClassesTaught(assignments: ManagedTeacherAssignmentI
   }));
 }
 
+function normalizeMatchKey(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function teacherAssignmentMatchesStudent(
+  assignment: Record<string, unknown>,
+  className: string,
+  section: string | null,
+) {
+  const assignmentClassName = normalizeMatchKey(assignment.class_name ?? assignment.grade);
+  if (!assignmentClassName || assignmentClassName !== normalizeMatchKey(className)) {
+    return false;
+  }
+
+  const assignmentSectionRaw = normalizeMatchKey(assignment.section ?? assignment.section_name);
+  if (!assignmentSectionRaw) {
+    return true;
+  }
+
+  return assignmentSectionRaw === normalizeMatchKey(section);
+}
+
+function parseTeacherClassesTaught(rawValue: unknown) {
+  if (Array.isArray(rawValue)) {
+    return rawValue.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null);
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    try {
+      const parsed = JSON.parse(rawValue);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+export async function syncStudentTeacherLinks(
+  actorSupabase: RouteSupabaseClient,
+  options: {
+    schoolId: string;
+    studentId: string;
+    className: string;
+    section: string | null;
+  },
+) {
+  const matchedTeacherIds = await findMatchingTeacherIdsForStudent(actorSupabase, {
+    schoolId: options.schoolId,
+    className: options.className,
+    section: options.section,
+  });
+
+  const { error: clearLinksError } = await actorSupabase
+    .from("student_teacher_links")
+    .delete()
+    .eq("school_id", options.schoolId)
+    .eq("student_id", options.studentId);
+
+  if (clearLinksError) {
+    if (isMissingTableError(clearLinksError, "student_teacher_links")) {
+      return {
+        teacherIds: matchedTeacherIds,
+        persisted: false,
+      };
+    }
+    throw clearLinksError;
+  }
+
+  if (matchedTeacherIds.length > 0) {
+    const rows = matchedTeacherIds.map((teacherId) => ({
+      school_id: options.schoolId,
+      student_id: options.studentId,
+      teacher_id: teacherId,
+      linked_by: "auto",
+    }));
+
+    const { error: insertLinksError } = await actorSupabase.from("student_teacher_links").insert(rows);
+    if (insertLinksError) {
+      throw insertLinksError;
+    }
+  }
+
+  return {
+    teacherIds: matchedTeacherIds,
+    persisted: true,
+  };
+}
+
+export async function findMatchingTeacherIdsForStudent(
+  actorSupabase: RouteSupabaseClient,
+  options: {
+    schoolId: string;
+    className: string;
+    section: string | null;
+  },
+) {
+  const { data: teachers, error: teachersError } = await actorSupabase
+    .from("teachers")
+    .select("id, classes_taught, is_active, status")
+    .eq("school_id", options.schoolId);
+
+  if (teachersError) {
+    throw teachersError;
+  }
+
+  const matchedTeacherIds = ((teachers ?? []) as Array<Record<string, unknown>>)
+    .filter((teacher) => {
+      const isActive = typeof teacher.is_active === "boolean" ? teacher.is_active : true;
+      const status = normalizeMatchKey(teacher.status);
+      return isActive && status !== "inactive" && status !== "deleted";
+    })
+    .filter((teacher) => {
+      const assignments = parseTeacherClassesTaught(teacher.classes_taught);
+      return assignments.some((assignment) =>
+        teacherAssignmentMatchesStudent(assignment, options.className, options.section),
+      );
+    })
+    .map((teacher) => String(teacher.id));
+  return matchedTeacherIds;
+}
+
 export async function replaceTeacherAssignments(
   actorSupabase: RouteSupabaseClient,
   options: {
@@ -1175,6 +1469,10 @@ export async function buildManagedUserAccountCard(
   }
 
   const schoolBrand = await fetchManagedAccountSchoolBrand(actorSupabase, user.school_id);
+  const primaryTeacherAssignment =
+    user.role === "teacher"
+      ? user.teacher?.assignments.find((assignment) => assignment.is_active) ?? user.teacher?.assignments[0] ?? null
+      : null;
 
   return {
     auth_user_id: user.auth_user_id,
@@ -1182,8 +1480,8 @@ export async function buildManagedUserAccountCard(
     school_name: schoolBrand.schoolName,
     school_logo_url: schoolBrand.schoolLogoUrl,
     full_name: user.full_name,
-    class_name: user.student?.class_name ?? null,
-    section: user.student?.section ?? null,
+    class_name: user.student?.class_name ?? primaryTeacherAssignment?.class_name ?? null,
+    section: user.student?.section ?? primaryTeacherAssignment?.section_name ?? null,
     login_identifier: credential.login_identifier,
     temporary_password: credential.temporary_password,
     instructions: [

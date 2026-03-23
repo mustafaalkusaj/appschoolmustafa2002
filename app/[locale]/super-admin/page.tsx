@@ -47,7 +47,14 @@ import {
   type UserProfile,
 } from "@/lib/auth";
 import { ThemeModeToggle } from "@/components/ThemeModeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
 import { UltrathinkLogo } from "@/components/UltrathinkLogo";
+import { requestRuntimeBrandingRefresh } from "@/hooks/useRuntimeBranding";
+import {
+  derivePaletteFromLogo,
+  getStoredSchoolBranding,
+  setStoredSchoolBranding,
+} from "@/lib/brand-palette";
 import {
   type AdminInfrastructure,
   DEFAULT_ADMIN_INFRASTRUCTURE,
@@ -58,6 +65,7 @@ import {
 } from "@/lib/admin-infrastructure";
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
+import { type AppSchemaCompat, detectAppSchemaCompat } from "@/lib/schema-compat";
 import { PERMISSION_GROUPS } from "@/types/roles";
 
 // New Components
@@ -111,6 +119,9 @@ interface SchoolRecord {
   phone: string | null;
   owner_email: string | null;
   city: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
   plan: SchoolPlan;
   is_active: boolean;
   created_at?: string | null;
@@ -408,6 +419,7 @@ export default function SuperAdminPage() {
   const [error, setError] = useState("");
   const [infrastructureNotice, setInfrastructureNotice] = useState("");
   const [infrastructure, setInfrastructure] = useState(DEFAULT_ADMIN_INFRASTRUCTURE);
+  const [schemaCompat, setSchemaCompat] = useState<AppSchemaCompat | null>(null);
   const [query, setQuery] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -415,12 +427,17 @@ export default function SuperAdminPage() {
   const [showSchoolForm, setShowSchoolForm] = useState(false);
   const [editSchool, setEditSchool] = useState<SchoolRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [schoolPaletteBusy, setSchoolPaletteBusy] = useState(false);
+  const [schoolFormNotice, setSchoolFormNotice] = useState("");
   const [schoolForm, setSchoolForm] = useState({
     name: "",
     address: "",
     phone: "",
     owner_email: "",
     city: "",
+    logo_url: "",
+    primary_color: "",
+    secondary_color: "",
     plan: "basic" as SchoolPlan,
   });
 
@@ -472,7 +489,14 @@ export default function SuperAdminPage() {
     const schoolsResponse = await schoolsQuery.order("created_at", { ascending: false });
     if (schoolsResponse.error) throw schoolsResponse.error;
 
-    const nextSchools = (schoolsResponse.data ?? []) as SchoolRecord[];
+    const nextSchools = ((schoolsResponse.data ?? []) as SchoolRecord[]).map((school) => {
+      const storedBranding = getStoredSchoolBranding(school.id);
+      return {
+        ...school,
+        primary_color: school.primary_color ?? storedBranding?.primaryColor ?? null,
+        secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? null,
+      };
+    });
     const baseUserColumns = nextInfrastructure.customPermissions
       ? "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions"
       : "id, full_name, email, role, school_id, phone, is_active, created_at";
@@ -543,6 +567,9 @@ export default function SuperAdminPage() {
       const nextProfile = await checkAuth();
       if (!nextProfile) return;
 
+      const compat = await detectAppSchemaCompat();
+      setSchemaCompat(compat);
+
       const nextInfrastructure = await detectAdminInfrastructure(supabase);
       setInfrastructure(nextInfrastructure);
 
@@ -562,12 +589,16 @@ export default function SuperAdminPage() {
 
   function resetSchoolForm() {
     setEditSchool(null);
+    setSchoolFormNotice("");
     setSchoolForm({
       name: "",
       address: "",
       phone: "",
       owner_email: "",
       city: "",
+      logo_url: "",
+      primary_color: "",
+      secondary_color: "",
       plan: "basic",
     });
   }
@@ -592,16 +623,46 @@ export default function SuperAdminPage() {
   }
 
   function openEditSchool(school: SchoolRecord) {
+    const storedBranding = getStoredSchoolBranding(school.id);
     setEditSchool(school);
+    setSchoolFormNotice("");
     setSchoolForm({
       name: school.name,
       address: school.address ?? "",
       phone: school.phone ?? "",
       owner_email: school.owner_email ?? "",
       city: school.city ?? "",
+      logo_url: school.logo_url ?? "",
+      primary_color: school.primary_color ?? storedBranding?.primaryColor ?? "",
+      secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? "",
       plan: school.plan ?? "basic",
     });
     setShowSchoolForm(true);
+  }
+
+  async function deriveSchoolPalette() {
+    setSchoolPaletteBusy(true);
+    setSchoolFormNotice("");
+    try {
+      const palette = await derivePaletteFromLogo(
+        schoolForm.logo_url.trim() || null,
+        schoolForm.name.trim(),
+      );
+      setSchoolForm((current) => ({
+        ...current,
+        primary_color: palette.primaryColor,
+        secondary_color: palette.secondaryColor,
+      }));
+      setSchoolFormNotice(
+        schoolForm.logo_url.trim()
+          ? "تم استخراج الألوان من الشعار ويمكنك تعديلها قبل الحفظ."
+          : "لا يوجد رابط شعار، لذا تم توليد ألوان احترافية اعتماداً على اسم المدرسة.",
+      );
+    } catch (paletteError) {
+      setSchoolFormNotice(getErrorMessage(paletteError, "تعذر استخراج الألوان تلقائياً."));
+    } finally {
+      setSchoolPaletteBusy(false);
+    }
   }
 
   function openCreateUser() {
@@ -654,6 +715,10 @@ export default function SuperAdminPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
+    setSchoolFormNotice("");
+
+    const compat = schemaCompat ?? (await detectAppSchemaCompat());
+    setSchemaCompat(compat);
 
     const payload = {
       name: schoolForm.name,
@@ -661,6 +726,13 @@ export default function SuperAdminPage() {
       phone: schoolForm.phone || null,
       owner_email: schoolForm.owner_email || null,
       city: schoolForm.city || null,
+      logo_url: schoolForm.logo_url || null,
+      ...(compat.schoolColors
+        ? {
+            primary_color: schoolForm.primary_color || null,
+            secondary_color: schoolForm.secondary_color || null,
+          }
+        : {}),
       plan: schoolForm.plan,
       is_active: true,
     };
@@ -670,6 +742,12 @@ export default function SuperAdminPage() {
         const response = await supabase.from("schools").update(payload).eq("id", editSchool.id);
         if (response.error) throw response.error;
 
+        setStoredSchoolBranding(editSchool.id, {
+          primaryColor: schoolForm.primary_color || null,
+          secondaryColor: schoolForm.secondary_color || null,
+          source: "manual",
+        });
+
         await logAction({
           action_type: "update",
           entity_type: "school",
@@ -677,7 +755,11 @@ export default function SuperAdminPage() {
           summary: `تعديل بيانات المدرسة: ${payload.name}`,
         });
 
-        flashSuccess("تم تحديث بيانات المدرسة.");
+        flashSuccess(
+          compat.schoolColors
+            ? "تم تحديث بيانات المدرسة."
+            : "تم تحديث بيانات المدرسة، وحُفظت الألوان محلياً لأن أعمدة الألوان غير موجودة في Supabase الحالي.",
+        );
       } else {
         const { data: newSchool, error: schoolError } = await supabase
           .from("schools")
@@ -686,6 +768,12 @@ export default function SuperAdminPage() {
           .single();
 
         if (schoolError) throw schoolError;
+
+        setStoredSchoolBranding(newSchool.id, {
+          primaryColor: schoolForm.primary_color || null,
+          secondaryColor: schoolForm.secondary_color || null,
+          source: "manual",
+        });
 
         await logAction({
           action_type: "create",
@@ -706,11 +794,12 @@ export default function SuperAdminPage() {
 
         let branchSkipped = !infrastructure.branches;
         if (!branchSkipped) {
-          const { error: branchError } = await supabase.from("branches").insert({
+          const branchPayload = {
             school_id: newSchool.id,
             name: "الفرع الرئيسي",
-            is_main: true,
-          });
+            ...(compat.branchesIsMain ? { is_main: true } : {}),
+          };
+          const { error: branchError } = await supabase.from("branches").insert(branchPayload);
 
           if (branchError) {
             if (isInfrastructureCompatError(branchError)) {
@@ -724,13 +813,16 @@ export default function SuperAdminPage() {
         flashSuccess(
           branchSkipped
             ? "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي. تم تجاوز إنشاء الفرع الرئيسي لأن بنية الفروع غير متاحة حالياً."
-            : "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي.",
+            : compat.schoolColors
+              ? "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي."
+              : "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي، وحُفظت الألوان محلياً بسبب غياب أعمدة الألوان في Supabase الحالي.",
         );
       }
 
       setShowSchoolForm(false);
       resetSchoolForm();
       await refreshDashboard();
+      requestRuntimeBrandingRefresh();
     } catch (saveError) {
       flashError(getErrorMessage(saveError, "تعذر حفظ بيانات المدرسة."));
     } finally {
@@ -1136,6 +1228,14 @@ export default function SuperAdminPage() {
                 <LogOut size={18} />
                 {!sidebarCollapsed ? <span>تسجيل الخروج</span> : null}
               </button>
+
+              <LanguageToggle
+                className={cx(
+                  "ui-button ui-button--secondary mt-2 flex w-full items-center gap-3 justify-center",
+                  !sidebarCollapsed && "justify-start px-4",
+                )}
+                compact={sidebarCollapsed}
+              />
 
               <ThemeModeToggle
                 variant="inline"
@@ -2016,7 +2116,7 @@ export default function SuperAdminPage() {
       {showSchoolForm ? (
         <ModalFrame
           title={editSchool ? "تعديل المدرسة" : "إضافة مدرسة جديدة"}
-          subtitle="جميع الحقول تحافظ على نفس هيكل البيانات الحالي في Supabase دون أي تعديل على المنطق."
+          subtitle="النموذج يتكيّف تلقائياً مع بنية Supabase الحالية، ويحفظ الألوان محلياً إذا كانت أعمدة الألوان غير متاحة بعد."
           onClose={() => setShowSchoolForm(false)}
         >
           <form className="space-y-5" onSubmit={handleSaveSchool}>
@@ -2064,6 +2164,66 @@ export default function SuperAdminPage() {
                 />
               </div>
               <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">رابط الشعار (Logo URL)</label>
+                <input
+                  className="ui-input"
+                  placeholder="https://example.com/logo.png"
+                  value={schoolForm.logo_url}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, logo_url: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">اللون الأساسي</label>
+                <input
+                  type="color"
+                  className="ui-input"
+                  value={schoolForm.primary_color || "#4f8cff"}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, primary_color: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">اللون الثانوي</label>
+                <input
+                  type="color"
+                  className="ui-input"
+                  value={schoolForm.secondary_color || "#79d7ff"}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, secondary_color: e.target.value })}
+                />
+              </div>
+              <div className="md:col-span-2 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  {schoolForm.logo_url ? (
+                    <img
+                      src={schoolForm.logo_url}
+                      alt={schoolForm.name || "School logo"}
+                      className="h-16 w-16 rounded-[18px] border border-[var(--border)] bg-white object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="flex h-16 w-16 items-center justify-center rounded-[18px] text-xl font-black text-white"
+                      style={{
+                        background: `linear-gradient(135deg, ${schoolForm.primary_color || "#4f8cff"}, ${schoolForm.secondary_color || "#79d7ff"})`,
+                      }}
+                    >
+                      {(schoolForm.name || "S").trim().charAt(0) || "S"}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-base font-black text-[var(--text-primary)]">
+                      {schoolForm.name || "معاينة هوية المدرسة"}
+                    </div>
+                    <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
+                      ستؤثر هذه الهوية على الأزرار والخلفيات والنصوص والطباعة في جميع الواجهات.
+                    </p>
+                    {!schemaCompat?.schoolColors ? (
+                      <p className="mt-1 text-xs font-bold text-amber-700">
+                        أعمدة الألوان غير موجودة حالياً في قاعدة البيانات، لذا سيتم حفظ الألوان محلياً أيضاً لضمان عمل الواجهة والطباعة.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+              <div className="md:col-span-2">
                 <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الباقة</label>
                 <select
                   className="ui-input"
@@ -2077,7 +2237,27 @@ export default function SuperAdminPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2">
+            {schoolFormNotice ? (
+              <div className={cx(
+                "rounded-[18px] border px-4 py-3 text-sm font-bold",
+                schoolFormNotice.includes("تعذر")
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700",
+              )}>
+                {schoolFormNotice}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap justify-between gap-2">
+              <button
+                type="button"
+                className="ui-button ui-button--secondary"
+                onClick={() => void deriveSchoolPalette()}
+                disabled={schoolPaletteBusy}
+              >
+                {schoolPaletteBusy ? "جارٍ تحليل الشعار..." : "استخراج الألوان من الشعار"}
+              </button>
+              <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 className="ui-button ui-button--secondary"
@@ -2088,6 +2268,7 @@ export default function SuperAdminPage() {
               <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
                 {saving ? "جارٍ الحفظ..." : editSchool ? "حفظ التعديلات" : "إضافة المدرسة"}
               </button>
+              </div>
             </div>
           </form>
         </ModalFrame>

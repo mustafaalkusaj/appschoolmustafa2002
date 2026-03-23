@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
@@ -9,11 +10,18 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
+import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
+import { getLocaleFromPath } from "@/lib/locale-routing";
+import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { resolveSchoolIdForProfile } from "@/lib/school-context";
 
 export default function PaymentsPage() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+  const isEnglish = locale === "en";
   const { profile } = useRole();
+  const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
   const [students, setStudents] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -79,8 +87,16 @@ export default function PaymentsPage() {
       return;
     }
 
-    const studentsQuery = supabase.from("students").select("*").eq("school_id", scopedSchoolId).order("full_name");
-    const paymentsQuery = supabase.from("payments").select("*").eq("school_id", scopedSchoolId).order("created_at", { ascending: false });
+    const studentsQuery = supabase
+      .from("students")
+      .select("id, school_id, full_name, class_name, section, phone, total_fee, paid_fee, discount_value, remaining_fee, status")
+      .eq("school_id", scopedSchoolId)
+      .order("full_name");
+    const paymentsQuery = supabase
+      .from("payments")
+      .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
+      .eq("school_id", scopedSchoolId)
+      .order("created_at", { ascending: false });
     const archivesQuery = supabase
       .from("account_archives")
       .select("*")
@@ -376,8 +392,37 @@ export default function PaymentsPage() {
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(
-      `<html dir="rtl"><head><title>إيصال</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem;max-width:420px;margin:auto}h2{color:#4C2F9E;text-align:center}hr{border:1px dashed #ddd;margin:1rem 0}.row{display:flex;justify-content:space-between;margin:.5rem 0;font-size:.9rem}.label{color:#666}.val{font-weight:700}.amount{text-align:center;font-size:1.6rem;font-weight:900;color:#4C2F9E;margin:1rem 0;padding:1rem;background:#F0EEFF;border-radius:12px}.footer{text-align:center;color:#999;font-size:.75rem;margin-top:1.5rem}</style></head><body><h2>نظام إدارة المدرسة</h2><p style="text-align:center;color:#888;font-size:.8rem">رقم الإيصال: <strong>${p.receipt_number || "—"}</strong></p><hr/><div class="row"><span class="label">اسم الطالب:</span><span class="val">${student?.full_name || "—"}</span></div><div class="row"><span class="label">الصف:</span><span class="val">${student?.class_name || "—"}</span></div><div class="row"><span class="label">طريقة الدفع:</span><span class="val">${{ cash: "نقداً", bank_transfer: "تحويل بنكي", check: "شيك" }[p.payment_method as string] || p.payment_method}</span></div><div class="row"><span class="label">التاريخ:</span><span class="val">${formatDate(p.created_at)}</span></div><hr/><div class="amount">د.ع ${formatNumber(p.amount)}</div><hr/>${p.notes ? `<div class="row"><span class="label">ملاحظات:</span><span class="val">${p.notes}</span></div>` : ""}<div class="footer">شكراً لكم</div><script>window.print();window.close();</script></body></html>`,
+      wrapPrintDocument({
+        title: isEnglish ? "Receipt" : "إيصال",
+        subtitle: `${isEnglish ? "Receipt no." : "رقم الإيصال"}: ${escapeHtml(p.receipt_number || "—")}`,
+        branding: {
+          schoolName: runtimeBranding.schoolName,
+          logoUrl: runtimeBranding.logoUrl,
+          primaryColor: runtimeBranding.primaryColor,
+          secondaryColor: runtimeBranding.secondaryColor,
+          locale: isEnglish ? "en" : "ar",
+        },
+        bodyHtml: `
+          <div class="print-grid">
+            <div class="print-panel"><span class="print-label">${isEnglish ? "Student name" : "اسم الطالب"}</span><div class="print-value">${escapeHtml(student?.full_name || "—")}</div></div>
+            <div class="print-panel"><span class="print-label">${isEnglish ? "Class" : "الصف"}</span><div class="print-value">${escapeHtml(student?.class_name || "—")}</div></div>
+            <div class="print-panel"><span class="print-label">${isEnglish ? "Payment method" : "طريقة الدفع"}</span><div class="print-value">${escapeHtml(({ cash: isEnglish ? "Cash" : "نقداً", bank_transfer: isEnglish ? "Bank transfer" : "تحويل بنكي", check: isEnglish ? "Check" : "شيك" } as Record<string, string>)[p.payment_method as string] || p.payment_method || "—")}</div></div>
+            <div class="print-panel"><span class="print-label">${isEnglish ? "Date" : "التاريخ"}</span><div class="print-value">${formatDate(p.created_at)}</div></div>
+          </div>
+          <div class="print-panel" style="margin-top:16px;text-align:center;background:linear-gradient(135deg,var(--print-surface),#ffffff)">
+            <span class="print-label">${isEnglish ? "Amount received" : "المبلغ المستلم"}</span>
+            <div class="print-value" style="font-size:30px">د.ع ${formatNumber(p.amount || 0)}</div>
+          </div>
+          ${
+            p.notes
+              ? `<div class="print-panel" style="margin-top:16px"><span class="print-label">${isEnglish ? "Notes" : "ملاحظات"}</span><div class="print-value" style="font-size:15px;font-weight:700">${escapeHtml(p.notes)}</div></div>`
+              : ""
+          }
+          <div style="margin-top:16px;text-align:center;color:var(--print-muted);font-size:13px">${isEnglish ? "Thank you" : "شكراً لكم"}</div>
+        `,
+      }),
     );
+    w.document.close();
   }
 
   const classes = Array.from(new Set(students.map((s) => s.class_name))).filter(Boolean) as string[];

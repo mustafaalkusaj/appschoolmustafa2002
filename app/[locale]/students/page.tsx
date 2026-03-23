@@ -1,6 +1,7 @@
 "use client";
 import type { Student, StudentWithFees, StudentStatus, StudentFormData } from "@/types/student";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { usePagedSupabaseList, type PagedFetchResult } from "@/hooks/usePagedSupabaseList";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
@@ -10,9 +11,13 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
+import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import type { ManagedUserAccountCard } from "@/lib/managed-users";
+import { getLocaleFromPath } from "@/lib/locale-routing";
+import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
+import { detectAppSchemaCompat } from "@/lib/schema-compat";
 
 const TABS = [
   { id:"active",      label:"جميع الطلاب",      icon:"👥" },
@@ -30,51 +35,57 @@ function formatCardDate(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
-function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) {
+function buildPrintableCardHtml(
+  card: ManagedUserAccountCard,
+  options: {
+    locale: "ar" | "en";
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
+  },
+  autoPrint = true,
+) {
+  const locale = options.locale;
   const classLine = [card.class_name, card.section ? `الشعبة ${card.section}` : null].filter(Boolean).join(" • ");
-  const instructions = card.instructions.map((instruction) => `<li>${instruction}</li>`).join("");
+  const instructions = card.instructions.map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join("");
 
-  return `
-    <html dir="rtl">
-      <head>
-        <meta charset="utf-8" />
-        <title>بطاقة حساب التطبيق</title>
-        <style>
-          body{margin:0;padding:24px;background:#eef4fb;font-family:Segoe UI,Tahoma,sans-serif;color:#112338}
-          .card{max-width:760px;margin:0 auto;background:#fff;border:1px solid rgba(15,91,141,.14);border-radius:28px;padding:28px;box-shadow:0 24px 60px rgba(15,23,42,.1)}
-          .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
-          .box{border:1px solid rgba(15,91,141,.12);background:#f8fbff;border-radius:20px;padding:18px}
-          .label{font-size:13px;color:#6b8194;margin-bottom:6px}
-          .value{font-size:18px;font-weight:800}
-          .ltr{direction:ltr;text-align:left}
-          ol{margin:0;padding-inline-start:22px}
-          li{line-height:1.9}
-          @media print{body{background:#fff;padding:0}.card{box-shadow:none;border:none;border-radius:0;max-width:none;padding:0}}
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px">
-            <div>
-              <div style="font-size:24px;font-weight:900">${card.school_name}</div>
-              <div style="margin-top:6px;color:#547086">بطاقة حساب التطبيق</div>
-            </div>
-            <div style="color:#547086">تم التوليد: ${formatCardDate(card.generated_at)}</div>
-          </div>
-          <div class="row">
-            <div class="box"><div class="label">اسم الطالب</div><div class="value">${card.full_name}</div></div>
-            <div class="box"><div class="label">الصف والشعبة</div><div class="value">${classLine || "—"}</div></div>
-          </div>
-          <div class="row">
-            <div class="box"><div class="label">معرّف الدخول</div><div class="value ltr">${card.login_identifier}</div></div>
-            <div class="box"><div class="label">كلمة المرور المؤقتة</div><div class="value ltr">${card.temporary_password}</div></div>
-          </div>
-          <div class="box"><div class="label">تعليمات الدخول</div><ol>${instructions}</ol></div>
+  return wrapPrintDocument({
+    title: locale === "en" ? "Student app account card" : "بطاقة حساب التطبيق",
+    subtitle: locale === "en" ? "Managed access details" : "بيانات الدخول للطباعة الفورية",
+    branding: {
+      schoolName: card.school_name,
+      logoUrl: card.school_logo_url,
+      primaryColor: options.primaryColor,
+      secondaryColor: options.secondaryColor,
+      locale,
+    },
+    autoPrint,
+    bodyHtml: `
+      <div class="print-grid" style="margin-bottom:16px">
+        <div class="print-panel">
+          <span class="print-label">${locale === "en" ? "Student name" : "اسم الطالب"}</span>
+          <div class="print-value">${escapeHtml(card.full_name)}</div>
         </div>
-        ${autoPrint ? "<script>window.print();</script>" : ""}
-      </body>
-    </html>
-  `;
+        <div class="print-panel">
+          <span class="print-label">${locale === "en" ? "Class and section" : "الصف والشعبة"}</span>
+          <div class="print-value">${escapeHtml(classLine || "—")}</div>
+        </div>
+      </div>
+      <div class="print-grid" style="margin-bottom:16px">
+        <div class="print-panel">
+          <span class="print-label">${locale === "en" ? "Login identifier" : "معرّف الدخول"}</span>
+          <div class="print-value" style="direction:ltr;text-align:left">${escapeHtml(card.login_identifier)}</div>
+        </div>
+        <div class="print-panel">
+          <span class="print-label">${locale === "en" ? "Temporary password" : "كلمة المرور المؤقتة"}</span>
+          <div class="print-value" style="direction:ltr;text-align:left">${escapeHtml(card.temporary_password)}</div>
+        </div>
+      </div>
+      <div class="print-panel">
+        <span class="print-label">${locale === "en" ? "Login instructions" : "تعليمات الدخول"}</span>
+        <ol class="print-list">${instructions}</ol>
+      </div>
+    `,
+  });
 }
 
 function readApiError(payload: unknown, fallback: string) {
@@ -84,8 +95,11 @@ function readApiError(payload: unknown, fallback: string) {
 }
 
 export default function StudentsPage() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
   const { profile, canAny, isReadOnlyPath } = useRole();
   const schoolScope = useSchoolScope(profile);
+  const runtimeBranding = useRuntimeBranding();
   const canManageStudents = canAny(["add_students", "edit_students", "delete_students"]);
   const isReadOnlyView = isReadOnlyPath("/students") || !canManageStudents;
   // No local setPagedStudents needed - hook manages
@@ -110,6 +124,7 @@ export default function StudentsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [printingCards, setPrintingCards] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [accountCard, setAccountCard] = useState<ManagedUserAccountCard | null>(null);
@@ -198,6 +213,15 @@ export default function StudentsPage() {
     page,
     pageSize,
     fetchPage: fetchPagedStudents,
+    cacheKey: [
+      "students",
+      profile?.id || "guest",
+      schoolScope.selectedSchoolId || "none",
+      activeTab,
+      debouncedSearch,
+      filterClass,
+      filterSection,
+    ].join("::"),
   });
 
   const pagedStudents: StudentWithFees[] = rows || [];
@@ -216,11 +240,16 @@ export default function StudentsPage() {
   const fetchClassFees = useCallback(async () => {
     if (!profile) return;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    if (!schoolId) {
+    const compat = await detectAppSchemaCompat();
+    if (!schoolId && compat.classFeesSchoolScope) {
       setClassFees([]);
       return;
     }
-    const { data } = await supabase.from("class_fees").select("*").eq("school_id", schoolId).order("class_name", { ascending: true });
+    let query = supabase.from("class_fees").select("*").order("class_name", { ascending: true });
+    if (compat.classFeesSchoolScope && schoolId) {
+      query = query.eq("school_id", schoolId);
+    }
+    const { data } = await query;
     setClassFees(data || []);
   }, [profile, schoolScope.selectedSchoolId]);
 
@@ -230,6 +259,75 @@ export default function StudentsPage() {
 
   async function getSchoolBranch(){
     return resolveSchoolBranchForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+  }
+
+  async function fetchStudentsForCredentialsPrinting() {
+    const { school_id } = await getSchoolBranch();
+    if (!school_id) {
+      setError("يجب تحديد مدرسة قبل طباعة بطاقات الدخول.");
+      return null;
+    }
+
+    const searchTerm = debouncedSearch.trim();
+    const hasSearchFilter = Boolean(searchTerm);
+    const hasClassFilter = Boolean(filterClass);
+    const hasSectionFilter = Boolean(filterSection);
+    const hasStatusFilter = activeTab !== "active";
+    const hasFilters = hasSearchFilter || hasClassFilter || hasSectionFilter || hasStatusFilter;
+
+    const chunkSize = 500;
+    let from = 0;
+    const students: StudentWithFees[] = [];
+
+    while (true) {
+      let query = supabase
+        .from("students")
+        .select("*")
+        .eq("school_id", school_id)
+        .order("created_at", { ascending: false });
+
+      if (activeTab === "active") {
+        query = query.in("status", ["active", "graduated", "archived", "withdrawn"]);
+      } else {
+        query = query.eq("status", activeTab);
+      }
+
+      if (hasSearchFilter) {
+        query = query.or(`full_name.ilike.%${searchTerm}%,class_name.ilike.%${searchTerm}%`);
+      }
+
+      if (hasClassFilter) {
+        query = query.eq("class_name", filterClass);
+      }
+
+      if (hasSectionFilter) {
+        query = query.eq("section", filterSection);
+      }
+
+      const { data, error: fetchError } = await query.range(from, from + chunkSize - 1);
+      if (fetchError) {
+        setError(`خطأ في تحميل الطلاب للطباعة: ${fetchError.message}`);
+        return null;
+      }
+
+      const mapped = ((data ?? []) as Student[]).map((student) => ({
+        ...student,
+        remaining_fee: student.total_fee - student.paid_fee - student.discount_value,
+      }));
+      students.push(...mapped);
+
+      if (!data || data.length < chunkSize) {
+        break;
+      }
+
+      from += chunkSize;
+    }
+
+    return {
+      schoolId: school_id,
+      hasFilters,
+      students,
+    };
   }
 
   async function handleAdd(e:React.FormEvent){
@@ -279,6 +377,8 @@ export default function StudentsPage() {
       return;
     }
     e.preventDefault(); if(!selectedStudent)return; setSaving(true);
+    const { school_id } = await getSchoolBranch();
+    if(!school_id){setError("يجب تحديد مدرسة قبل تعديل الطالب");setSaving(false);return;}
     const {error}=await supabase.from("students").update({
       full_name:editForm.full_name,class_name:editForm.class_name,section:editForm.section||"",
       phone:editForm.phone||null,address:editForm.address||null,
@@ -288,7 +388,23 @@ export default function StudentsPage() {
       status:editForm.status
     }).eq("id",selectedStudent.id);
     if(error)setError("خطأ: "+error.message);
-    else{setSuccess("تم تحديث البيانات ✓");setShowEdit(false);reload();setTimeout(()=>setSuccess(""),3000);}
+    else{
+      try {
+        await fetch(`/api/dashboard/students/${selectedStudent.id}/sync-teachers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            school_id,
+            class_name: editForm.class_name,
+            section: editForm.section || "",
+          }),
+        });
+      } catch {
+        // keep update successful even if sync endpoint is unavailable
+      }
+      setSuccess("تم تحديث البيانات وربط الطالب تلقائياً بالأساتذة حسب الصف والشعبة ✓");
+      setShowEdit(false);reload();setTimeout(()=>setSuccess(""),3000);
+    }
     setSaving(false);
   }
 
@@ -355,7 +471,12 @@ function printFilteredStudents(students: StudentWithFees[]) {
   }
 
   const cardsHtml = students.map((s) => {
-    const classLine = [s.class_name, s.section ? `الشعبة ${s.section}` : null].filter(Boolean).join(" • ");
+    const classLine = [
+      s.class_name,
+      s.section ? `${locale === "en" ? "Section" : "الشعبة"} ${s.section}` : null,
+    ]
+      .filter(Boolean)
+      .join(" • ");
     return `
       <div class="student-card" style="break-inside: avoid; margin-bottom: 2rem;">
         <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #eef4fb;">
@@ -365,21 +486,21 @@ function printFilteredStudents(students: StudentWithFees[]) {
           </div>
           <div style="color: #547086; font-size: 13px;">${formatDate(s.updated_at || s.created_at)}</div>
         </div>
-        <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+          <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
           <div class="info-box" style="border: 1px solid #e2e8f0; background: #f8fbff; border-radius: 16px; padding: 1.2rem;">
-            <div style="font-size: 13px; color: #64748b; margin-bottom: 0.5rem; font-weight: 600;">العنوان</div>
+            <div style="font-size: 13px; color: #64748b; margin-bottom: 0.5rem; font-weight: 600;">${locale === "en" ? "Address" : "العنوان"}</div>
             <div style="font-size: 16px; font-weight: 700;">${s.address || "—"}</div>
           </div>
           <div class="info-box" style="border: 1px solid #e2e8f0; background: #f8fbff; border-radius: 16px; padding: 1.2rem;">
-            <div style="font-size: 13px; color: #64748b; margin-bottom: 0.5rem; font-weight: 600;">الهاتف</div>
+            <div style="font-size: 13px; color: #64748b; margin-bottom: 0.5rem; font-weight: 600;">${locale === "en" ? "Phone" : "الهاتف"}</div>
             <div style="font-size: 16px; font-weight: 700; direction: ltr;">${s.phone || "—"}</div>
           </div>
           <div class="info-box fees" style="border: 1px solid #e2e8f0; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 16px; padding: 1.2rem;">
-            <div style="font-size: 13px; color: #0369a1; margin-bottom: 0.5rem; font-weight: 600;">إجمالي الرسوم</div>
+            <div style="font-size: 13px; color: #0369a1; margin-bottom: 0.5rem; font-weight: 600;">${locale === "en" ? "Total fees" : "إجمالي الرسوم"}</div>
             <div style="font-size: 20px; font-weight: 900; color: #0c4a6e;">د.ع ${formatNumber(s.total_fee)}</div>
           </div>
           <div class="info-box paid" style="border: 1px solid #dcfce7; background: linear-gradient(135deg, #f0fdf4, #d1fae5); border-radius: 16px; padding: 1.2rem;">
-            <div style="font-size: 13px; color: #166534; margin-bottom: 0.5rem; font-weight: 600;">مدفوع / متبقي</div>
+            <div style="font-size: 13px; color: #166534; margin-bottom: 0.5rem; font-weight: 600;">${locale === "en" ? "Paid / remaining" : "مدفوع / متبقي"}</div>
             <div style="font-size: 18px; font-weight: 800;">
               <span style="color: #059669;">د.ع ${formatNumber(s.paid_fee)}</span> / 
               <span style="color: ${s.remaining_fee > 0 ? '#dc2626' : '#059669'}; font-weight: 900;">د.ع ${formatNumber(s.remaining_fee)}</span>
@@ -390,114 +511,45 @@ function printFilteredStudents(students: StudentWithFees[]) {
     `;
   }).join("");
 
-  w.document.write(`
-    <html dir="rtl">
-      <head>
-        <meta charset="utf-8">
-        <title>قائمة الطلاب المطبوعة (${students.length} طالب)</title>
-        <style>
-          @page { margin: 1.5cm; size: A4; }
-          body { 
-            font-family: 'Segoe UI', Tahoma, Arial, sans-serif; 
-            margin: 0; 
-            padding: 2rem; 
-            background: #eef4fb; 
-            color: #112338; 
-            line-height: 1.6;
-          }
-          .header { 
-            text-align: center; 
-            margin-bottom: 2.5rem; 
-            padding-bottom: 1.5rem; 
-            border-bottom: 3px solid #4C2F9E; 
-          }
-          .header h1 { 
-            font-size: 28px; 
-            font-weight: 900; 
-            color: #4C2F9E; 
-            margin: 0 0 0.5rem 0; 
-          }
-          .header p { 
-            font-size: 16px; 
-            color: #6B7280; 
-            margin: 0; 
-            font-weight: 600; 
-          }
-          .summary { 
-            background: white; 
-            border-radius: 20px; 
-            padding: 1.5rem; 
-            margin-bottom: 2rem; 
-            box-shadow: 0 8px 24px rgba(15,23,42,0.08); 
-            text-align: center; 
-          }
-          .summary-stats { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
-            gap: 1rem; 
-            margin-top: 1rem; 
-          }
-          .stat-box { 
-            background: linear-gradient(135deg, #EDE8FA, #E0D8F8); 
-            border-radius: 16px; 
-            padding: 1rem; 
-          }
-          .stat-label { 
-            font-size: 13px; 
-            color: #6C4AB6; 
-            margin-bottom: 0.3rem; 
-            font-weight: 600; 
-          }
-          .stat-value { 
-            font-size: 20px; 
-            font-weight: 900; 
-            color: #4C2F9E; 
-          }
-          .print-footer { 
-            margin-top: 3rem; 
-            padding-top: 2rem; 
-            border-top: 2px dashed #e5e7eb; 
-            text-align: center; 
-            color: #9CA3AF; 
-            font-size: 13px; 
-          }
-          @media print {
-            body { background: white !important; padding: 1cm !important; }
-            .student-card { page-break-inside: avoid; margin-bottom: 1.5cm; }
-            .no-print { display: none !important; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>قائمة الطلاب</h1>
-          <p>تم الطباعة في ${formatDate(new Date().toLocaleString('ar-IQ'))} | ${students.length} طالب فلتر مجتمع</p>
-        </div>
-        <div class="summary">
-          <p style="font-size: 16px; font-weight: 700; margin-bottom: 1rem;">ملخص الطلاب المختارين:</p>
-          <div class="summary-stats">
-            <div class="stat-box">
-              <div class="stat-label">إجمالي الطلاب</div>
-              <div class="stat-value">${students.length}</div>
+  w.document.write(
+    wrapPrintDocument({
+      title: locale === "en" ? "Students list" : "قائمة الطلاب",
+      subtitle:
+        locale === "en"
+          ? `${students.length} filtered students`
+          : `${students.length} طالب بعد تطبيق الفلاتر`,
+      branding: {
+        schoolName: runtimeBranding.schoolName,
+        logoUrl: runtimeBranding.logoUrl,
+        primaryColor: runtimeBranding.primaryColor,
+        secondaryColor: runtimeBranding.secondaryColor,
+        locale: locale === "en" ? "en" : "ar",
+      },
+      bodyHtml: `
+        <div class="print-panel" style="margin-bottom:20px">
+          <div class="print-grid">
+            <div>
+              <span class="print-label">${locale === "en" ? "Total students" : "إجمالي الطلاب"}</span>
+              <div class="print-value">${students.length}</div>
             </div>
-            <div class="stat-box">
-              <div class="stat-label">إجمالي الرسوم</div>
-	              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.total_fee || 0), 0))}</div>
+            <div>
+              <span class="print-label">${locale === "en" ? "Total fees" : "إجمالي الرسوم"}</span>
+              <div class="print-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.total_fee || 0), 0))}</div>
             </div>
-            <div class="stat-box">
-              <div class="stat-label">المتبقي الكلي</div>
-	              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.remaining_fee || 0), 0))}</div>
+            <div>
+              <span class="print-label">${locale === "en" ? "Total remaining" : "المتبقي الكلي"}</span>
+              <div class="print-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.remaining_fee || 0), 0))}</div>
             </div>
           </div>
         </div>
         ${cardsHtml}
-        <div class="print-footer">
-          <p>تم إنشاء هذه القائمة من نظام إدارة المدرسة | بيانات الحالة: ${formatDate(new Date())}</p>
-        </div>
-        <script>window.onload = () => window.print();</script>
-      </body>
-    </html>
-  `);
+      `,
+      extraStyles: `
+        @page { margin: 1.5cm; size: A4; }
+        .student-card { page-break-inside: avoid; }
+      `,
+    }),
+  );
   w.document.close();
 }
 
@@ -505,14 +557,49 @@ function handlePrint(s: StudentWithFees){
   setError("");
   const w=window.open("","_blank");
   if(!w){ setError("يرجى السماح بالنوافذ المنبثقة للطباعة"); return; }
-  w.document.write(`<html dir="rtl"><head><title>بيانات الطالب</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem}h2{color:#4C2F9E}.r{margin:.5rem 0}b{min-width:150px;display:inline-block}</style></head><body><h2>بيانات الطالب</h2><hr/><div class="r"><b>الاسم:</b>${s.full_name}</div><div class="r"><b>الصف:</b>${s.class_name}</div><div class="r"><b>الشعبة:</b>${s.section||"—"}</div><div class="r"><b>العنوان:</b>${s.address||"—"}</div><div class="r"><b>الهاتف:</b>${s.phone||"—"}</div><div class="r"><b>إجمالي الرسوم:</b>د.ع ${formatNumber(s.total_fee)}</div><div class="r"><b>المدفوع:</b>د.ع ${formatNumber(s.paid_fee)}</div><div class="r"><b>المتبقي:</b>د.ع ${formatNumber(s.remaining_fee)}</div><script>window.print();window.close();</script></body></html>`);
+  w.document.write(
+    wrapPrintDocument({
+      title: locale === "en" ? "Student profile" : "بيانات الطالب",
+      subtitle: s.full_name,
+      branding: {
+        schoolName: runtimeBranding.schoolName,
+        logoUrl: runtimeBranding.logoUrl,
+        primaryColor: runtimeBranding.primaryColor,
+        secondaryColor: runtimeBranding.secondaryColor,
+        locale: locale === "en" ? "en" : "ar",
+      },
+      bodyHtml: `
+        <div class="print-grid">
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Name" : "الاسم"}</span><div class="print-value">${escapeHtml(s.full_name)}</div></div>
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Class" : "الصف"}</span><div class="print-value">${escapeHtml(s.class_name)}</div></div>
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Section" : "الشعبة"}</span><div class="print-value">${escapeHtml(s.section || "—")}</div></div>
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Address" : "العنوان"}</span><div class="print-value">${escapeHtml(s.address || "—")}</div></div>
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Phone" : "الهاتف"}</span><div class="print-value" style="direction:ltr;text-align:left">${escapeHtml(s.phone || "—")}</div></div>
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Total fees" : "إجمالي الرسوم"}</span><div class="print-value">د.ع ${formatNumber(s.total_fee)}</div></div>
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Paid" : "المدفوع"}</span><div class="print-value">د.ع ${formatNumber(s.paid_fee)}</div></div>
+          <div class="print-panel"><span class="print-label">${locale === "en" ? "Remaining" : "المتبقي"}</span><div class="print-value">د.ع ${formatNumber(s.remaining_fee)}</div></div>
+        </div>
+      `,
+    }),
+  );
+  w.document.close();
 }
 
   function openAccountCardWindow(card: ManagedUserAccountCard, autoPrint = true){
     const w=window.open("","_blank");
     if(!w){ setError("يرجى السماح بالنوافذ المنبثقة لعرض بطاقة الحساب"); return; }
     w.document.open();
-    w.document.write(buildPrintableCardHtml(card, autoPrint));
+    w.document.write(
+      buildPrintableCardHtml(
+        card,
+        {
+          locale: locale === "en" ? "en" : "ar",
+          primaryColor: runtimeBranding.primaryColor,
+          secondaryColor: runtimeBranding.secondaryColor,
+        },
+        autoPrint,
+      ),
+    );
     w.document.close();
   }
 
@@ -522,12 +609,69 @@ function handlePrint(s: StudentWithFees){
     setSuccess("تم نسخ بيانات الدخول المؤقتة"); setTimeout(()=>setSuccess(""),3000);
   }
 
-  async function openStudentCredentialsCard(student: StudentWithFees){
-    if (!student?.auth_user_id) {
-      setError("لا يوجد حساب تطبيق مرتبط بهذا الطالب حتى الآن.");
-      return;
+  async function ensureStudentCredentialCard(student: StudentWithFees, schoolId: string) {
+    if (!student?.id) {
+      throw new Error("تعذر تحديد الطالب المطلوب.");
     }
 
+    if (!student.auth_user_id) {
+      const ensureResponse = await fetch(`/api/dashboard/students/${student.id}/ensure-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ school_id: schoolId }),
+      });
+      const ensurePayload = await ensureResponse.json().catch(() => null);
+      if (!ensureResponse.ok || !ensurePayload?.accountCard) {
+        throw new Error(
+          readApiError(
+            ensurePayload,
+            `تعذر إنشاء حساب التطبيق للطالب ${student.full_name}.`,
+          ),
+        );
+      }
+
+      return {
+        accountCard: ensurePayload.accountCard as ManagedUserAccountCard,
+        createdNewAccount: Boolean(ensurePayload.createdNewAccount),
+      };
+    }
+
+    const cardResponse = await fetch(
+      `/api/dashboard/users/${student.auth_user_id}/card?schoolId=${encodeURIComponent(schoolId)}`,
+      { cache: "no-store" },
+    );
+    const cardPayload = await cardResponse.json().catch(() => null);
+
+    if (cardResponse.ok && cardPayload?.accountCard) {
+      return {
+        accountCard: cardPayload.accountCard as ManagedUserAccountCard,
+        createdNewAccount: false,
+      };
+    }
+
+    const resetResponse = await fetch(`/api/dashboard/users/${student.auth_user_id}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ school_id: schoolId }),
+    });
+    const resetPayload = await resetResponse.json().catch(() => null);
+
+    if (!resetResponse.ok || !resetPayload?.accountCard) {
+      throw new Error(
+        readApiError(
+          resetPayload ?? cardPayload,
+          `تعذر إنشاء بطاقة دخول للطالب ${student.full_name}.`,
+        ),
+      );
+    }
+
+    return {
+      accountCard: resetPayload.accountCard as ManagedUserAccountCard,
+      createdNewAccount: false,
+    };
+  }
+
+  async function openStudentCredentialsCard(student: StudentWithFees){
     setError("");
     const { school_id } = await getSchoolBranch();
     if (!school_id) {
@@ -536,39 +680,141 @@ function handlePrint(s: StudentWithFees){
     }
 
     try {
-      const cardResponse = await fetch(
-        `/api/dashboard/users/${student.auth_user_id}/card?schoolId=${encodeURIComponent(school_id)}`,
-        { cache: "no-store" },
-      );
-      const cardPayload = await cardResponse.json().catch(() => null);
-
-      if (cardResponse.ok && cardPayload?.accountCard) {
-        setAccountCard(cardPayload.accountCard as ManagedUserAccountCard);
-        return;
+      const result = await ensureStudentCredentialCard(student, school_id);
+      setAccountCard(result.accountCard);
+      if (result.createdNewAccount) {
+        setSuccess("تم إنشاء حساب التطبيق لهذا الطالب وتجهيز بطاقة الدخول فوراً.");
+      } else if (!student.auth_user_id) {
+        setSuccess("تم تجهيز حساب التطبيق للطالب وربطه ببطاقة الدخول.");
+      } else {
+        setSuccess("تم فتح بطاقة الدخول بنجاح.");
       }
-
-      const resetResponse = await fetch(`/api/dashboard/users/${student.auth_user_id}/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ school_id }),
-      });
-      const resetPayload = await resetResponse.json().catch(() => null);
-
-      if (!resetResponse.ok || !resetPayload?.accountCard) {
-        throw new Error(
-          readApiError(
-            resetPayload ?? cardPayload,
-            "تعذر فتح بطاقة الدخول لهذا الطالب. تأكد من ربط حساب التطبيق أولاً.",
-          ),
-        );
-      }
-
-      setAccountCard(resetPayload.accountCard as ManagedUserAccountCard);
-      setSuccess("تم فتح بطاقة الدخول وتوليد كلمة مرور مؤقتة جديدة بأمان.");
+      void reload();
       setTimeout(()=>setSuccess(""),3000);
     } catch (credentialsError) {
       setError(credentialsError instanceof Error ? credentialsError.message : "تعذر فتح بطاقة الدخول.");
     }
+  }
+
+  async function printAllStudentCards() {
+    setError("");
+    const printable = await fetchStudentsForCredentialsPrinting();
+    if (!printable) {
+      return;
+    }
+
+    const { schoolId, hasFilters, students } = printable;
+    if (students.length === 0) {
+      setError(
+        hasFilters
+          ? "لا يوجد طلاب يطابقون الفلاتر الحالية لطباعة البطاقات."
+          : "لا يوجد طلاب ضمن نطاق المدرسة لطباعة البطاقات.",
+      );
+      return;
+    }
+
+    setPrintingCards(true);
+    setError("");
+    const cards: ManagedUserAccountCard[] = [];
+    const issues: string[] = [];
+
+    for (const student of students) {
+      try {
+        const result = await ensureStudentCredentialCard(student, schoolId);
+        if (result.accountCard) cards.push(result.accountCard);
+      } catch (issue) {
+        issues.push(issue instanceof Error ? issue.message : `تعذر تجهيز بطاقة الطالب ${student.full_name}.`);
+      }
+    }
+
+    setPrintingCards(false);
+
+    if (cards.length === 0) {
+      setError(issues[0] || "تعذر تجهيز بطاقات الدخول.");
+      return;
+    }
+
+    const popup = window.open("", "_blank", "noopener,noreferrer,width=1080,height=900");
+    if (!popup) {
+      setError("يرجى السماح بالنوافذ المنبثقة للطباعة.");
+      return;
+    }
+
+    const cardsMarkup = cards
+      .map((card, index) => {
+        const classLine = [
+          card.class_name,
+          card.section ? `${locale === "en" ? "Section" : "الشعبة"} ${card.section}` : null,
+        ]
+          .filter(Boolean)
+          .join(" • ");
+        return `
+          <section class="credential-card${index < cards.length - 1 ? " card-break" : ""}">
+            <div class="card-head">
+              <div>
+                <h2>${card.school_name}</h2>
+                <p>${locale === "en" ? "Student login card" : "بطاقة دخول الطالب"}</p>
+              </div>
+              <span>${formatCardDate(card.generated_at)}</span>
+            </div>
+            <div class="grid">
+              <div class="item"><label>${locale === "en" ? "Student name" : "اسم الطالب"}</label><strong>${card.full_name}</strong></div>
+              <div class="item"><label>${locale === "en" ? "Class and section" : "الصف والشعبة"}</label><strong>${classLine || "—"}</strong></div>
+              <div class="item"><label>${locale === "en" ? "Login identifier" : "معرّف الدخول"}</label><strong dir="ltr">${card.login_identifier}</strong></div>
+              <div class="item"><label>${locale === "en" ? "Temporary password" : "كلمة المرور المؤقتة"}</label><strong dir="ltr">${card.temporary_password}</strong></div>
+            </div>
+            <ol>${card.instructions.map((instruction) => `<li>${instruction}</li>`).join("")}</ol>
+          </section>
+        `;
+      })
+      .join("");
+
+    popup.document.write(
+      wrapPrintDocument({
+        title: locale === "en" ? "Student login cards" : "بطاقات دخول الطلاب",
+        subtitle:
+          locale === "en"
+            ? `${cards.length} printable cards prepared`
+            : `تم تجهيز ${cards.length} بطاقة للطباعة`,
+        branding: {
+          schoolName: runtimeBranding.schoolName,
+          logoUrl: runtimeBranding.logoUrl,
+          primaryColor: runtimeBranding.primaryColor,
+          secondaryColor: runtimeBranding.secondaryColor,
+          locale: locale === "en" ? "en" : "ar",
+        },
+        bodyHtml: cardsMarkup,
+        extraStyles: `
+          .credential-card{background:#fff;border:1px solid rgba(16,35,58,.08);border-radius:20px;padding:18px;box-shadow:0 10px 24px rgba(15,23,42,.08);margin-bottom:18px}
+          .card-break{page-break-after:always}
+          .card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+          .card-head h2{margin:0;font-size:22px}
+          .card-head p{margin:4px 0 0;color:#475569}
+          .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0}
+          .item{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#f8fbff}
+          label{font-size:12px;color:#64748b;display:block;margin-bottom:4px}
+          strong{font-size:16px}
+          ol{margin:0;padding-inline-start:20px;line-height:1.8}
+          @media print{body{background:#fff;padding:0}.credential-card{box-shadow:none}}
+        `,
+      }),
+    );
+    popup.document.close();
+
+    if (issues.length > 0) {
+      setSuccess(
+        hasFilters
+          ? `تمت طباعة ${cards.length} بطاقة ضمن الفلاتر الحالية، وتعذر تجهيز ${issues.length} بطاقة.`
+          : `تمت طباعة ${cards.length} بطاقة لكل طلاب المدرسة ضمن النطاق الحالي، وتعذر تجهيز ${issues.length} بطاقة.`,
+      );
+    } else {
+      setSuccess(
+        hasFilters
+          ? `تمت طباعة ${cards.length} بطاقة دخول ضمن الفلاتر الحالية بنجاح.`
+          : `تمت طباعة ${cards.length} بطاقة دخول لكل طلاب المدرسة ضمن النطاق الحالي بنجاح.`,
+      );
+    }
+    setTimeout(()=>setSuccess(""),4000);
   }
 
   function openMenu(e:React.MouseEvent,student: StudentWithFees){
@@ -628,14 +874,53 @@ function handlePrint(s: StudentWithFees){
       const data:any[]=XLSX.utils.sheet_to_json(ws);
       const rows=data.map((r:any)=>({
         school_id,branch_id,full_name:r["اسم الطالب"]||"",class_name:r["الصف"]||"",
+        section:r["الشعبة"]||"",
         phone:r["الهاتف"]?.toString()||null,address:r["العنوان"]||null,
         total_fee:parseInt(r["إجمالي الرسوم"])||0,paid_fee:parseInt(r["المدفوع"])||0,
-        discount_value:0,status:"active"
-      })).filter(r=>r.full_name);
-      const {error}=await supabase.from("students").insert(rows);
-      if(error)setImportError("خطأ: "+error.message);
+        discount_value:parseInt(r["التخفيض"])||0,status:"active"
+      })).filter(r=>r.full_name && r.class_name);
+
+      let successCount = 0;
+      const failures: string[] = [];
+
+      for (const row of rows) {
+        const response = await fetch("/api/dashboard/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            school_id,
+            role: "student",
+            full_name: row.full_name,
+            email: "",
+            password: "",
+            phone: row.phone,
+            is_active: true,
+            student: {
+              class_name: row.class_name,
+              section: row.section,
+              address: row.address,
+              total_fee: row.total_fee,
+              paid_fee: row.paid_fee,
+              discount_value: row.discount_value,
+            },
+            teacher: null,
+          }),
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          failures.push(payload?.error?.message || `تعذر استيراد الطالب ${row.full_name}`);
+        } else {
+          successCount += 1;
+        }
+      }
+
+      if(failures.length > 0 && successCount === 0)setImportError(failures[0]);
       else{
-        setSuccess(`تم استيراد ${rows.length} طالب ✓`);
+        setSuccess(
+          failures.length > 0
+            ? `تم استيراد ${successCount} طالب مع إنشاء حسابات الدخول، وتعذر استيراد ${failures.length} سجل.`
+            : `تم استيراد ${successCount} طالب مع إنشاء حسابات الدخول ✓`,
+        );
         setShowImport(false);setImportPreview([]);
         if(fileRef.current)fileRef.current.value="";
         reload();setTimeout(()=>setSuccess(""),4000);
@@ -905,6 +1190,10 @@ function handlePrint(s: StudentWithFees){
                 </select>
                 <button className="btn-export" onClick={()=>exportExcel(filtered)}><AppIcon token="📤" size={14} />تصدير إكسل</button>
                 <button className="btn-print" onClick={()=>printFilteredStudents(filtered)}><AppIcon token="🖨️" size={14} />طباعة الطلاب المفلترين</button>
+                <button className="btn-print" onClick={()=>void printAllStudentCards()} disabled={printingCards}>
+                  <AppIcon token="🪪" size={14} />
+                  {printingCards ? "جارٍ تجهيز البطاقات..." : "طباعة جميع بطاقات الطلاب"}
+                </button>
                 {activeTab==="active" && !isReadOnlyView && <>
                   <button className="btn-excel" onClick={()=>setShowImport(true)}><AppIcon token="📊" size={14} />استيراد إكسل</button>
                   <button className="btn-add" onClick={()=>setShowModal(true)}>+ إضافة طالب</button>
