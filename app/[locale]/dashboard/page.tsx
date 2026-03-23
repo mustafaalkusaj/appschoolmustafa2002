@@ -9,8 +9,11 @@ import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { ThemeModeToggle } from "@/components/ThemeModeToggle";
+import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
+import { ROLE_LABELS } from "@/lib/auth";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school-context";
@@ -32,6 +35,13 @@ interface ClassFee {
   installment_amount: number;
   notes: string;
   created_at: string;
+}
+
+function getAcademicYearLabel(date = new Date()) {
+  const currentYear = date.getFullYear();
+  const startYear = date.getMonth() >= 7 ? currentYear : currentYear - 1;
+  const formatter = new Intl.NumberFormat("ar-IQ");
+  return `${formatter.format(startYear)} - ${formatter.format(startYear + 1)}`;
 }
 
 export default function DashboardPage() {
@@ -363,6 +373,15 @@ export default function DashboardPage() {
   const overdueStudents = students.filter(s => s.remaining_fee > 0).sort((a,b) => b.remaining_fee - a.remaining_fee).slice(0, 3);
 
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
+  const currentSchoolName = schoolScope.selectedSchool?.name || profile?.school?.name || "اختر مدرسة";
+  const currentSchoolCity = schoolScope.selectedSchool?.city || null;
+  const academicYearLabel = getAcademicYearLabel();
+  const roleLabel = profile ? ROLE_LABELS[profile.role] : "المستخدم الحالي";
+  const dashboardSummary = schoolScope.shouldBlockContent
+    ? "اختر مدرسة أولاً حتى تصبح بيانات الهيدر والإحصائيات مرتبطة بسياق واضح."
+    : schoolScope.isSuperAdminScope
+      ? "عرض مركّز حسب المدرسة المحددة حالياً مع الحفاظ على نفس البيانات والعمليات."
+      : "نظرة سريعة على الرسوم والمدفوعات والطلاب ضمن المدرسة الحالية.";
 
   return (
   <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
@@ -371,10 +390,38 @@ export default function DashboardPage() {
       <AppSidebar currentPath="/dashboard" />
 
       <div className="main">
-        <div className="topbar">
-          <div><div className="topbar-title">لوحة التحكم</div><div className="topbar-sub">العام الدراسي 2025 - 2026</div></div>
-          <div className="topbar-left">
-            <div className="user-chip"><div className="avatar">م</div><span style={{fontSize:".78rem",fontWeight:600}}>مدير</span></div>
+        <div className="topbar !items-start !gap-4 !py-5">
+          <div className="flex w-full flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-center">
+              <div className="ui-surface rounded-[28px] px-4 py-3">
+                <UltrathinkLogo
+                  size={52}
+                  title={currentSchoolName}
+                  subtitle={currentSchoolCity || "الواجهة الموحدة للمدرسة"}
+                />
+              </div>
+
+              <div className="min-w-0 space-y-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-xs font-black text-[var(--text-secondary)]">
+                  لوحة التحكم
+                </div>
+                <div className="topbar-title !text-[1.15rem]">ملخص المدرسة الحالي</div>
+                <div className="text-sm leading-7 text-[var(--text-secondary)]">{dashboardSummary}</div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="ui-surface min-w-[210px] rounded-[24px] px-4 py-3">
+                <div className="text-xs font-black text-[var(--text-secondary)]">العام الدراسي</div>
+                <div className="mt-2 text-lg font-black text-[var(--text-primary)]">{academicYearLabel}</div>
+                <div className="mt-1 text-xs text-[var(--text-secondary)]">{roleLabel}</div>
+              </div>
+
+              <div className="ui-surface rounded-[24px] px-4 py-3">
+                <div className="mb-3 text-xs font-black text-[var(--text-secondary)]">وضع المظهر</div>
+                <ThemeModeToggle variant="inline" showLabels={false} compact />
+              </div>
+            </div>
           </div>
         </div>
 

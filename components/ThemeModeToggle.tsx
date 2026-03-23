@@ -49,7 +49,7 @@ export function ThemeModeToggle({
   const currentPath = normalizePath(pathname);
   const shouldHideFloating =
     variant === "floating" &&
-    (currentPath === "/login" || currentPath === "/super-admin");
+    (currentPath === "/login" || currentPath === "/super-admin" || currentPath === "/dashboard");
 
   if (shouldHideFloating) return null;
 

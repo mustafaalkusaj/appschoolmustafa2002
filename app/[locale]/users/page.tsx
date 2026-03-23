@@ -193,6 +193,15 @@ function StatusPill({ active }: { active: boolean }) {
   );
 }
 
+function RolePill({ role }: { role: ManagedUserRole }) {
+  const toneClass =
+    role === "student"
+      ? "border-[rgba(79,140,255,0.16)] bg-[rgba(79,140,255,0.1)] text-[var(--primary)]"
+      : "border-[rgba(242,169,59,0.18)] bg-[rgba(242,169,59,0.12)] text-[var(--warning)]";
+
+  return <span className={`ui-pill ${toneClass}`}>{MANAGED_USER_ROLE_LABELS[role]}</span>;
+}
+
 function formatDateLabel(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -579,10 +588,10 @@ export default function UsersManagementPage() {
     setForm(createEmptyForm(nextRole));
   }
 
-  function openCreateModal() {
+  function openCreateModal(role: ManagedUserRole = "student") {
     clearMessages();
     setEditingUser(null);
-    resetForm("student");
+    resetForm(role);
     setShowCreateModal(true);
   }
 
@@ -826,6 +835,17 @@ export default function UsersManagementPage() {
   }
 
   const showingModal = showCreateModal || Boolean(editingUser);
+  const isStudentForm = form.role === "student";
+  const modalTitle = editingUser
+    ? `تعديل حساب ${isStudentForm ? "الطالب" : "المدرس"}`
+    : isStudentForm
+      ? "إضافة طالب"
+      : "إضافة مدرس";
+  const modalDescription = editingUser
+    ? "يتم تعديل بيانات الدخول وربط الحساب الحالي دون المساس بتدفق الطباعة أو التكامل الخلفي."
+    : isStudentForm
+      ? "هذا النموذج يركز على بيانات حساب الطالب وربطه بالصف والشعبة فقط."
+      : "هذا النموذج يركز على بيانات حساب المدرس وتكليفاته الأساسية فقط.";
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
@@ -839,10 +859,9 @@ export default function UsersManagementPage() {
               <div className="topbar-sub">إنشاء الحسابات وتعديلها من لوحة المدرسة فقط بدون تسجيل مفتوح</div>
             </div>
 
-            <button type="button" className="ui-button ui-button--primary inline-flex items-center gap-2" onClick={openCreateModal}>
-              <Plus size={16} />
-              إنشاء حساب
-            </button>
+            <div className="ui-pill border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] text-[var(--primary)]">
+              الحسابات مربوطة مباشرة بسجلات المدرسة الحالية
+            </div>
           </div>
 
           <div className="content space-y-5">
@@ -870,6 +889,40 @@ export default function UsersManagementPage() {
               />
             ) : (
               <>
+                <section className="ui-surface rounded-[30px] p-5">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="max-w-3xl space-y-2">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(79,140,255,0.12)] px-3 py-1 text-sm font-black text-[var(--primary)]">
+                        <Sparkles size={15} />
+                        إجراءات إنشاء سريعة
+                      </div>
+                      <h2 className="text-xl font-black text-[var(--text-primary)]">ابدأ من نوع الحساب المطلوب مباشرة</h2>
+                      <p className="text-sm leading-7 text-[var(--text-secondary)]">
+                        إنشاء الحساب هنا يركز على بيانات الدخول والربط فقط. العنوان والرسوم تبقى ضمن شاشة الطلاب، بينما حساب المدرس يركز على التكليفات الأساسية داخل التطبيق.
+                      </p>
+                    </div>
+
+                    <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                      <button
+                        type="button"
+                        className="ui-button ui-button--primary inline-flex min-h-[56px] items-center justify-center gap-2 px-5"
+                        onClick={() => openCreateModal("student")}
+                      >
+                        <Plus size={16} />
+                        إضافة طالب
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-button ui-button--secondary inline-flex min-h-[56px] items-center justify-center gap-2 px-5"
+                        onClick={() => openCreateModal("teacher")}
+                      >
+                        <BookOpen size={16} />
+                        إضافة مدرس
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {stats.map((item) => (
                     <article key={item.label} className="ui-surface rounded-[28px] p-5">
@@ -884,8 +937,12 @@ export default function UsersManagementPage() {
                 </section>
 
                 <section className="ui-surface rounded-[30px] p-5">
-                  <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div>
+                  <div className="mb-5 flex flex-col gap-4 border-b border-[var(--border)] pb-5 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="space-y-2">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-xs font-black text-[var(--text-secondary)]">
+                        <Users size={14} />
+                        {filteredUsers.length} من أصل {users.length} حساب
+                      </div>
                       <h2 className="text-xl font-black text-[var(--text-primary)]">صفحة إدارة المستخدمين</h2>
                       <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
                         جميع الحسابات هنا مربوطة مباشرةً بـ Supabase Auth وسجلات الطلاب أو المدرسين داخل قاعدة البيانات.
@@ -893,25 +950,30 @@ export default function UsersManagementPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => void fetchUsers()}>
+                      <button
+                        type="button"
+                        className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                        onClick={() => void fetchUsers()}
+                      >
                         <Loader2 size={16} className={loading ? "animate-spin" : ""} />
                         تحديث
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_220px_220px]">
-                    <label className="relative block">
+                  <div className="grid gap-3 rounded-[26px] bg-[var(--surface-muted)] p-4 lg:grid-cols-[minmax(0,1.3fr)_220px_220px]">
+                    <label className="relative block space-y-2">
+                      <span className="text-sm font-black text-[var(--text-secondary)]">بحث سريع</span>
                       <Search
                         size={18}
-                        className="pointer-events-none absolute top-1/2 text-[var(--text-tertiary)]"
-                        style={{ insetInlineStart: "1rem", transform: "translateY(-50%)" }}
+                        className="pointer-events-none absolute text-[var(--text-tertiary)]"
+                        style={{ insetInlineStart: "1rem", top: "calc(50% + 0.95rem)", transform: "translateY(-50%)" }}
                       />
                       <input
                         type="search"
                         className="ui-input"
                         style={{ paddingInlineStart: "3rem" }}
-                        placeholder="ابحث بالاسم أو البريد أو الصف أو التخصص"
+                        placeholder="ابحث بالاسم أو معرّف الدخول أو الصف أو المادة"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                       />
@@ -946,8 +1008,8 @@ export default function UsersManagementPage() {
                     </label>
                   </div>
 
-                  <div className="mt-5 overflow-x-auto rounded-[24px] border border-[var(--border)]">
-                    <table className="ui-table min-w-[1160px]">
+                  <div className="mt-5 overflow-x-auto rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)]">
+                    <table className="ui-table min-w-[1120px]">
                       <thead>
                         <tr>
                           <th>المستخدم</th>
@@ -984,16 +1046,17 @@ export default function UsersManagementPage() {
                           filteredUsers.map((user) => (
                             <tr key={user.auth_user_id}>
                               <td>
-                                <div className="space-y-1">
+                                <div className="space-y-2">
                                   <div className="font-black text-[var(--text-primary)]">{user.full_name}</div>
-                                  <div className="text-sm text-[var(--text-secondary)]" dir="ltr">
-                                    {user.email}
+                                  <div className="inline-flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]">
+                                    <span dir="ltr">{user.email}</span>
+                                    <span className="text-[var(--text-tertiary)]">•</span>
+                                    <span>{user.phone || "بدون رقم هاتف"}</span>
                                   </div>
-                                  <div className="text-sm text-[var(--text-secondary)]">{user.phone || "بدون رقم هاتف"}</div>
                                 </div>
                               </td>
                               <td>
-                                <span className="ui-pill">{MANAGED_USER_ROLE_LABELS[user.role]}</span>
+                                <RolePill role={user.role} />
                               </td>
                               <td>
                                 {user.role === "student" ? (
@@ -1003,7 +1066,6 @@ export default function UsersManagementPage() {
                                   </div>
                                 ) : (
                                   <div className="space-y-1 text-sm leading-7 text-[var(--text-secondary)]">
-                                    <div>التخصص: {user.teacher?.specialization || "غير محدد"}</div>
                                     <div>عدد التكليفات: {user.teacher?.assignments.length ?? 0}</div>
                                     {user.teacher?.assignments.slice(0, 2).map((assignment) => (
                                       <div key={assignment.id || `${assignment.subject_name}-${assignment.class_name}-${assignment.section_name ?? "*"}`}>
@@ -1103,17 +1165,15 @@ export default function UsersManagementPage() {
               }
             }}
           >
-            <div className="ui-dialog w-full max-w-[860px] overflow-hidden">
+            <div className={`ui-dialog w-full overflow-hidden ${isStudentForm ? "max-w-[760px]" : "max-w-[920px]"}`}>
               <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-5 sm:px-7">
                 <div className="space-y-2">
-                  <h2 className="text-xl font-black text-[var(--text-primary)]">
-                    {editingUser ? "تعديل بيانات الحساب" : "إنشاء حساب جديد"}
-                  </h2>
-                  <p className="text-sm leading-7 text-[var(--text-secondary)]">
-                    {editingUser
-                      ? "يتم تعديل بيانات Supabase Auth والملف التعريفي والسجل المرتبط في عملية واحدة."
-                      : "يتم إنشاء مستخدم مصادقة حقيقي ثم ملف تعريفي وسجل طالب أو مدرس مرتبط به مع بطاقة دخول قابلة للطباعة."}
-                  </p>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(79,140,255,0.12)] px-3 py-1 text-sm font-black text-[var(--primary)]">
+                    {isStudentForm ? <Plus size={15} /> : <BookOpen size={15} />}
+                    {isStudentForm ? "مسار حساب الطالب" : "مسار حساب المدرس"}
+                  </div>
+                  <h2 className="text-xl font-black text-[var(--text-primary)]">{modalTitle}</h2>
+                  <p className="text-sm leading-7 text-[var(--text-secondary)]">{modalDescription}</p>
                 </div>
 
                 <button
@@ -1127,7 +1187,15 @@ export default function UsersManagementPage() {
               </div>
 
               <form className="max-h-[calc(100dvh-10rem)] space-y-5 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6" onSubmit={handleSubmit} noValidate>
-                <div className="grid gap-4 md:grid-cols-2">
+                <section className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+                  <div>
+                    <h3 className="text-lg font-black text-[var(--text-primary)]">بيانات الحساب الأساسية</h3>
+                    <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
+                      الاسم وبيانات الدخول والحالة وربط الحساب الجاهز للاستخدام.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-2">
                     <span className="text-sm font-black text-[var(--text-primary)]">نوع الحساب</span>
                     <select
@@ -1203,7 +1271,7 @@ export default function UsersManagementPage() {
                   </label>
 
                   {!editingUser ? (
-                    <div className="rounded-[20px] border border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] px-4 py-4 text-sm leading-7 text-[var(--text-secondary)]">
+                    <div className="rounded-[20px] border border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] px-4 py-4 text-sm leading-7 text-[var(--text-secondary)] md:col-span-2">
                       <div className="mb-1 flex items-center gap-2 font-black text-[var(--text-primary)]">
                         <Sparkles size={16} />
                         توليد تلقائي لبيانات التطبيق
@@ -1211,15 +1279,21 @@ export default function UsersManagementPage() {
                       سيتم إنشاء مستخدم Supabase Auth حقيقي ومعرّف دخول وكلمة مرور مؤقتة آمنة تلقائياً، ثم عرض بطاقة حساب قابلة للطباعة فور الحفظ.
                     </div>
                   ) : (
-                    <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-4 text-sm leading-7 text-[var(--text-secondary)]">
+                    <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm leading-7 text-[var(--text-secondary)] md:col-span-2">
                       تغيير الدور أو كلمة المرور غير مشمول هنا. استخدم زر "إعادة ضبط المؤقتة" من الجدول لإصدار كلمة مرور جديدة وفتح بطاقة الحساب مباشرة.
                     </div>
                   )}
-                </div>
+                  </div>
+                </section>
 
                 {form.role === "student" ? (
                   <section className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                    <h3 className="text-lg font-black text-[var(--text-primary)]">بيانات سجل الطالب</h3>
+                    <div>
+                      <h3 className="text-lg font-black text-[var(--text-primary)]">ربط الطالب</h3>
+                      <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
+                        اختر الصف والشعبة فقط. تفاصيل العنوان والرسوم تُدار من شاشة الطلاب خارج هذا المودال.
+                      </p>
+                    </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <label className="space-y-2">
                         <span className="text-sm font-black text-[var(--text-primary)]">الصف</span>
@@ -1264,109 +1338,16 @@ export default function UsersManagementPage() {
                         </select>
                         <FieldError message={fieldErrors["student.section"]} />
                       </label>
-
-                      <label className="space-y-2 md:col-span-2">
-                        <span className="text-sm font-black text-[var(--text-primary)]">العنوان</span>
-                        <input
-                          className={inputClass(Boolean(fieldErrors["student.address"]))}
-                          value={form.student.address}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              student: { ...current.student, address: event.target.value },
-                            }))
-                          }
-                        />
-                        <FieldError message={fieldErrors["student.address"]} />
-                      </label>
-
-                      <label className="space-y-2">
-                        <span className="text-sm font-black text-[var(--text-primary)]">إجمالي الرسوم</span>
-                        <input
-                          type="number"
-                          min="0"
-                          className={inputClass(Boolean(fieldErrors["student.total_fee"]))}
-                          value={form.student.total_fee}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              student: { ...current.student, total_fee: event.target.value },
-                            }))
-                          }
-                        />
-                        <FieldError message={fieldErrors["student.total_fee"]} />
-                      </label>
-
-                      <label className="space-y-2">
-                        <span className="text-sm font-black text-[var(--text-primary)]">المدفوع</span>
-                        <input
-                          type="number"
-                          min="0"
-                          className={inputClass(Boolean(fieldErrors["student.paid_fee"]))}
-                          value={form.student.paid_fee}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              student: { ...current.student, paid_fee: event.target.value },
-                            }))
-                          }
-                        />
-                        <FieldError message={fieldErrors["student.paid_fee"]} />
-                      </label>
-
-                      <label className="space-y-2">
-                        <span className="text-sm font-black text-[var(--text-primary)]">قيمة الخصم</span>
-                        <input
-                          type="number"
-                          min="0"
-                          className={inputClass(Boolean(fieldErrors["student.discount_value"]))}
-                          value={form.student.discount_value}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              student: { ...current.student, discount_value: event.target.value },
-                            }))
-                          }
-                        />
-                        <FieldError message={fieldErrors["student.discount_value"]} />
-                      </label>
                     </div>
                   </section>
                 ) : (
                   <section className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-                    <h3 className="text-lg font-black text-[var(--text-primary)]">بيانات سجل المدرس</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="space-y-2">
-                        <span className="text-sm font-black text-[var(--text-primary)]">التخصص</span>
-                        <input
-                          className={inputClass(Boolean(fieldErrors["teacher.specialization"]))}
-                          value={form.teacher.specialization}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              teacher: { ...current.teacher, specialization: event.target.value },
-                            }))
-                          }
-                        />
-                        <FieldError message={fieldErrors["teacher.specialization"]} />
-                      </label>
-
-                      <label className="space-y-2 md:col-span-2">
-                        <span className="text-sm font-black text-[var(--text-primary)]">ملاحظات</span>
-                        <textarea
-                          className={`${inputClass(Boolean(fieldErrors["teacher.notes"]))} min-h-[132px] resize-y`}
-                          value={form.teacher.notes}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              teacher: { ...current.teacher, notes: event.target.value },
-                            }))
-                          }
-                        />
-                        <FieldError message={fieldErrors["teacher.notes"]} />
-                      </label>
+                    <div>
+                      <h3 className="text-lg font-black text-[var(--text-primary)]">تكليفات المدرس الأساسية</h3>
+                      <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
+                        ركز على المادة والصف والشعبة فقط حتى يصبح الحساب سريع الإنشاء وواضح الاستخدام.
+                      </p>
                     </div>
-
                     <div className="space-y-3 rounded-[20px] border border-[rgba(15,91,141,0.1)] bg-white/70 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
