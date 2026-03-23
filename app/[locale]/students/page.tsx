@@ -1,7 +1,7 @@
 "use client";
 import type { Student, StudentWithFees, StudentStatus, StudentFormData } from "@/types/student";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePagedSupabaseList } from "@/hooks/usePagedSupabaseList";
+import { usePagedSupabaseList, type PagedFetchResult } from "@/hooks/usePagedSupabaseList";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
@@ -117,8 +117,7 @@ export default function StudentsPage() {
   const [importError, setImportError] = useState("");
   const [activeMenu, setActiveMenu] = useState<string|null>(null);
   const [menuPos, setMenuPos] = useState({top:0,left:0});
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentWithFees | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [classFees, setClassFees] = useState<any[]>([]);
@@ -150,10 +149,11 @@ export default function StudentsPage() {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-const fetchPagedStudents = useCallback(async (from: number, to: number): Promise<{data: StudentWithFees[], count: number, error: any}> => {
+  const fetchPagedStudents = useCallback(
+    async (from: number, to: number): Promise<PagedFetchResult<StudentWithFees>> => {
     if (!profile) return { data: [], count: 0, error: null };
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    if (!schoolId) return { data: [], count: 0, error: new Error("No school ID") };
+    if (!schoolId) return { data: [], count: 0, error: null };
     
     let query = supabase
       .from("students")
@@ -183,37 +183,29 @@ const fetchPagedStudents = useCallback(async (from: number, to: number): Promise
       query = query.eq("section", filterSection);
     }
 
-let { data, count, error } = await query.range(from, to);
-    data = (data || []).map((student: Student) => ({
-      ...student,
-      remaining_fee: student.total_fee - student.paid_fee - student.discount_value,
-    }));
-    return { data, count: count || 0, error };
-  }, [profile, schoolScope.selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection]);
+      const { data, count, error } = await query.range(from, to);
+      const typedData: StudentWithFees[] = ((data ?? []) as Student[]).map((student) => ({
+        ...student,
+        remaining_fee: student.total_fee - student.paid_fee - student.discount_value,
+      }));
+      return { data: typedData, count: count || 0, error };
+    },
+    [profile, schoolScope.selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection],
+  );
 
-  const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList({
+  const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList<StudentWithFees>({
     enabled: Boolean(profile && !schoolScope.scopeLoading),
     page,
     pageSize,
     fetchPage: fetchPagedStudents,
   });
 
-  const pagedStudents: StudentWithFees[] = rows || []; 
+  const pagedStudents: StudentWithFees[] = rows || [];
 
-  const pagedStudents: StudentWithFees[] = rows || []; 
-    if (data) {
-      data = data.map((student: Student) => ({
-        ...student,
-    if (data) {
-
-      data = data.map((student: Student) => ({
-        ...student,
-    page,
-    pageSize,
-    fetchPage: fetchPagedStudents,
-  });
-
-  const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList({
+  useEffect(() => {
+    setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
+    setLoading(pagedLoading);
+  }, [totalCount, pageSize, pagedLoading]);
 
   // Reload on filters
   useEffect(() => {
@@ -300,7 +292,7 @@ let { data, count, error } = await query.range(from, to);
     setSaving(false);
   }
 
-  async function changeStatus(student:any,status:string,msg:string){
+  async function changeStatus(student: StudentWithFees, status: StudentStatus, msg: string){
     if (!canManageStudents) {
       setError("ليس لديك صلاحية تعديل حالة الطالب");
       return;
@@ -334,7 +326,7 @@ let { data, count, error } = await query.range(from, to);
     setSuccess("تم نقل الطالب للمحذوفين"); reload(); setTimeout(()=>setSuccess(""),3000);
   }
 
-  async function exportExcel(data:any[]){
+  async function exportExcel(data: StudentWithFees[]){
     const XLSX = await loadXLSX();
     const rows=data.map(s=>({
       "الاسم":s.full_name,"الصف":s.class_name,"الشعبة":s.section||"",
@@ -349,7 +341,7 @@ let { data, count, error } = await query.range(from, to);
     XLSX.writeFile(wb,`طلاب_${activeTab}_${formatDate(new Date())}.xlsx`);
   }
 
-function printFilteredStudents(students: any[]) {
+function printFilteredStudents(students: StudentWithFees[]) {
   if (students.length === 0) {
     setError("لا يوجد طلاب للطباعة بعد تطبيق الفلاتر.");
     return;
@@ -490,11 +482,11 @@ function printFilteredStudents(students: any[]) {
             </div>
             <div class="stat-box">
               <div class="stat-label">إجمالي الرسوم</div>
-              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.total_fee || 0), 0))}</div>
+	              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.total_fee || 0), 0))}</div>
             </div>
             <div class="stat-box">
               <div class="stat-label">المتبقي الكلي</div>
-              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.remaining_fee || 0), 0))}</div>
+	              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.remaining_fee || 0), 0))}</div>
             </div>
           </div>
         </div>
@@ -509,7 +501,7 @@ function printFilteredStudents(students: any[]) {
   w.document.close();
 }
 
-function handlePrint(s:any){
+function handlePrint(s: StudentWithFees){
   setError("");
   const w=window.open("","_blank");
   if(!w){ setError("يرجى السماح بالنوافذ المنبثقة للطباعة"); return; }
@@ -530,7 +522,7 @@ function handlePrint(s:any){
     setSuccess("تم نسخ بيانات الدخول المؤقتة"); setTimeout(()=>setSuccess(""),3000);
   }
 
-  async function openStudentCredentialsCard(student: any){
+  async function openStudentCredentialsCard(student: StudentWithFees){
     if (!student?.auth_user_id) {
       setError("لا يوجد حساب تطبيق مرتبط بهذا الطالب حتى الآن.");
       return;
@@ -579,7 +571,7 @@ function handlePrint(s:any){
     }
   }
 
-  function openMenu(e:React.MouseEvent,student:any){
+  function openMenu(e:React.MouseEvent,student: StudentWithFees){
     e.stopPropagation();
     const rect=(e.currentTarget as HTMLElement).getBoundingClientRect();
     setMenuPos({top:rect.bottom+4,left:rect.left-100});
@@ -587,7 +579,7 @@ function handlePrint(s:any){
     setSelectedStudent(student);
   }
 
-  function openEdit(student:any){
+  function openEdit(student: StudentWithFees){
     setError("");
     setSelectedStudent(student);
     setEditForm({
@@ -678,11 +670,12 @@ function handlePrint(s:any){
   const tabStudents = pagedStudents;
 
   // فلترة حسب البحث والصف والشعبة
-  const classes = Array.from(new Set(tabStudents.map((s:any)=>s.class_name))).filter(Boolean) as string[];
+  const classes = Array.from(new Set(tabStudents.map((s) => s.class_name))).filter(Boolean) as string[];
+  const students = tabStudents;
 
   // استخراج الشعب من بيانات الطلاب حسب الصف المختار
   const sectionsSource = filterClass ? tabStudents.filter(s=>s.class_name===filterClass) : tabStudents;
-  const sectionsList = Array.from(new Set(sectionsSource.map((s:any)=>s.section).filter(Boolean))) as string[];
+  const sectionsList = Array.from(new Set(sectionsSource.map((s) => s.section).filter(Boolean))) as string[];
 
   const filtered = tabStudents.filter(s=>{
     const matchSearch = s.full_name?.includes(search) || s.class_name?.includes(search);
@@ -692,7 +685,7 @@ function handlePrint(s:any){
   });
 
   // خيارات كل تبويب
-  function getActions(s:any){
+  function getActions(s: StudentWithFees){
     if (isReadOnlyView) {
       return [
         { icon: "🔐", label: "بطاقة الدخول", fn: () => { void openStudentCredentialsCard(s); setActiveMenu(null); } },
@@ -1238,7 +1231,9 @@ function handlePrint(s:any){
           <div style={{background:"#F8FBFF",border:"1px solid rgba(15,91,141,0.12)",borderRadius:18,padding:"1rem",marginBottom:"1rem"}}>
             <div style={{fontSize:".82rem",fontWeight:900,color:"var(--p2)",marginBottom:".5rem"}}>تعليمات الدخول</div>
             <ol style={{margin:0,paddingRight:"1.2rem",fontSize:".8rem",color:"var(--gray)",lineHeight:1.9}}>
-              {accountCard.instructions.map(instruction=><li key={instruction}>{instruction}</li>)}
+              {accountCard.instructions.map((instruction) => (
+                <li key={instruction}>{instruction}</li>
+              ))}
             </ol>
           </div>
           <div className="fa">
