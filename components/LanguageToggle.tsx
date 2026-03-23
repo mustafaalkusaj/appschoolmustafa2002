@@ -1,7 +1,8 @@
 "use client";
 
+import { startTransition } from "react";
 import { Languages } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getLocaleFromPath, localizeAppPath, stripLocaleFromPath, type AppLocale } from "@/lib/locale-routing";
 
 function nextLocale(current: AppLocale): AppLocale {
@@ -15,12 +16,14 @@ export function LanguageToggle({
   className?: string;
   compact?: boolean;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const targetLocale = nextLocale(locale);
   const barePath = stripLocaleFromPath(pathname || "/");
   const targetSearch = typeof window === "undefined" ? "" : window.location.search;
-  const targetHref = `${localizeAppPath(barePath, targetLocale)}${targetSearch || ""}`;
+  const targetHash = typeof window === "undefined" ? "" : window.location.hash;
+  const targetHref = `${localizeAppPath(barePath, targetLocale)}${targetSearch || ""}${targetHash || ""}`;
 
   const label = targetLocale === "ar" ? "العربية" : "English";
   const ariaLabel = targetLocale === "ar" ? "التبديل إلى العربية" : "Switch to English";
@@ -30,7 +33,9 @@ export function LanguageToggle({
       type="button"
       className={`${className}`}
       onClick={() => {
-        window.location.href = targetHref;
+        startTransition(() => {
+          router.replace(targetHref, { scroll: false });
+        });
       }}
       aria-label={ariaLabel}
       title={ariaLabel}

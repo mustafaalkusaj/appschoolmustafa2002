@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { formatDate, formatNumber } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -567,15 +568,14 @@ export default function ReportsPage() {
           <AppSidebar currentPath="/reports" />
 
           <div className="main">
-            <div className="topbar">
-              <div>
-                <div className="topbar-title">التقارير الشاملة</div>
-                <div className="topbar-sub">تقارير الطلاب والحسابات والمصروفات والرواتب</div>
-              </div>
-            </div>
+            <AppShellTopbar
+              title="التقارير الشاملة"
+              subtitle="تقارير الطلاب والحسابات والمصروفات والرواتب"
+              scope={schoolScope}
+            />
 
-            <div className="content">
-              <SchoolScopeBanner scope={schoolScope} />
+            <div className="content app-shell-content">
+              <SchoolScopeBanner scope={schoolScope} showSelector={false} />
               {schoolScope.shouldBlockContent ? (
                 <SchoolScopeEmptyState
                   scope={schoolScope}

@@ -12,6 +12,8 @@ import {
   resolveBrandPalette,
   sanitizeColor,
   setStoredSchoolBranding,
+  shiftColor,
+  mixColors,
   toRgba,
 } from "@/lib/brand-palette";
 import { SCHOOL_BRAND } from "@/lib/branding";
@@ -23,6 +25,9 @@ type RuntimeBrandingState = {
   logoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  sidebarColor: string | null;
+  accentColor: string | null;
+  textColor: string | null;
 };
 
 export const RUNTIME_BRANDING_REFRESH_EVENT = "runtime-branding-refresh";
@@ -32,6 +37,9 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   logoUrl: null,
   primaryColor: null,
   secondaryColor: null,
+  sidebarColor: null,
+  accentColor: null,
+  textColor: null,
 });
 
 function applyBrandingToCssVars(branding: RuntimeBrandingState) {
@@ -40,15 +48,23 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState) {
     primaryColor: sanitizeColor(branding.primaryColor) || DEFAULT_PRIMARY,
     secondaryColor: sanitizeColor(branding.secondaryColor) || DEFAULT_SECONDARY,
   });
+  const sidebarColor = sanitizeColor(branding.sidebarColor) || mixColors(palette.primaryColor, "#ffffff", 0.78);
+  const accentColor = sanitizeColor(branding.accentColor) || palette.primaryColor;
+  const textColor = sanitizeColor(branding.textColor) || palette.primaryDeep;
 
   root.style.setProperty("--primary", palette.primaryColor);
   root.style.setProperty("--primary-strong", palette.primaryStrong);
   root.style.setProperty("--secondary", palette.secondaryColor);
+  root.style.setProperty("--button-accent", accentColor);
+  root.style.setProperty("--button-accent-strong", shiftColor(accentColor, -0.12));
+  root.style.setProperty("--brand-text-strong", textColor);
   root.style.setProperty("--focus-ring", toRgba(palette.primaryColor, 0.24));
   root.style.setProperty("--p2", palette.primaryDeep);
   root.style.setProperty("--p3", palette.primaryColor);
   root.style.setProperty("--p4", palette.secondaryColor);
   root.style.setProperty("--bg", palette.accentSoft);
+  root.style.setProperty("--sidebar-a", mixColors(sidebarColor, "#ffffff", 0.34));
+  root.style.setProperty("--sidebar-b", mixColors(sidebarColor, palette.secondaryColor, 0.24));
 }
 
 export function RuntimeBrandingProvider({ children }: { children: React.ReactNode }) {
@@ -59,6 +75,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
     logoUrl: null,
     primaryColor: null,
     secondaryColor: null,
+    sidebarColor: null,
+    accentColor: null,
+    textColor: null,
   });
 
   const scopedSchoolId = profile?.role === "super_admin" ? schoolScope.selectedSchoolId : profile?.school_id ?? null;
@@ -74,6 +93,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
             logoUrl: null,
             primaryColor: null,
             secondaryColor: null,
+            sidebarColor: null,
+            accentColor: null,
+            textColor: null,
           });
         }
         return;
@@ -93,13 +115,25 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           ? {
               primaryColor: storedBranding.primaryColor,
               secondaryColor: storedBranding.secondaryColor,
+              sidebarColor: storedBranding.sidebarColor ?? null,
+              accentColor: storedBranding.accentColor ?? null,
+              textColor: storedBranding.textColor ?? null,
             }
-          : { primaryColor: null, secondaryColor: null };
+          : {
+              primaryColor: null,
+              secondaryColor: null,
+              sidebarColor: null,
+              accentColor: null,
+              textColor: null,
+            };
         setBranding({
           schoolName: null,
           logoUrl: null,
           primaryColor: derivedFallback.primaryColor,
           secondaryColor: derivedFallback.secondaryColor,
+          sidebarColor: derivedFallback.sidebarColor,
+          accentColor: derivedFallback.accentColor,
+          textColor: derivedFallback.textColor,
         });
         return;
       }
@@ -126,6 +160,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           setStoredSchoolBranding(scopedSchoolId, {
             primaryColor: resolvedPrimaryColor,
             secondaryColor: resolvedSecondaryColor,
+            sidebarColor: mixColors(resolvedPrimaryColor, "#ffffff", 0.62),
+            accentColor: resolvedPrimaryColor,
+            textColor: shiftColor(resolvedPrimaryColor, -0.42),
             source: "derived",
           });
         }
@@ -136,6 +173,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         logoUrl: typeof data.logo_url === "string" ? data.logo_url : null,
         primaryColor: resolvedPrimaryColor,
         secondaryColor: resolvedSecondaryColor,
+        sidebarColor: storedBranding?.sidebarColor ?? mixColors(resolvedPrimaryColor, "#ffffff", 0.62),
+        accentColor: storedBranding?.accentColor ?? resolvedPrimaryColor,
+        textColor: storedBranding?.textColor ?? shiftColor(resolvedPrimaryColor, -0.42),
       });
     }
 
@@ -163,6 +203,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       logoUrl: branding.logoUrl,
       primaryColor: branding.primaryColor,
       secondaryColor: branding.secondaryColor,
+      sidebarColor: branding.sidebarColor,
+      accentColor: branding.accentColor,
+      textColor: branding.textColor,
     };
   }, [branding]);
 
@@ -181,5 +224,8 @@ export function useRuntimeBranding() {
     logoUrl: context.logoUrl,
     primaryColor: context.primaryColor,
     secondaryColor: context.secondaryColor,
+    sidebarColor: context.sidebarColor,
+    accentColor: context.accentColor,
+    textColor: context.textColor,
   };
 }

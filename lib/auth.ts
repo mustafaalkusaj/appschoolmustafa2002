@@ -33,6 +33,7 @@ export interface UserProfile {
   id: string;
   full_name: string | null;
   email: string | null;
+  avatar_url?: string | null;
   role: UserRole;
   permissions: Permission[];
   custom_permissions?: Permission[] | null;
@@ -209,6 +210,7 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
     id: data.id,
     full_name: data.full_name ?? null,
     email: data.email ?? null,
+    avatar_url: null,
     role,
     permissions,
     custom_permissions: data.custom_permissions ?? null,
@@ -230,12 +232,22 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     if (error) console.error("[Auth] getUser error:", error);
     return null;
   }
-  
+
   const profile = await fetchUserProfileById(user.id);
   if (!profile) {
     console.error("[Auth] profile not found for user:", user.id);
   }
-  return profile;
+  return profile
+    ? {
+        ...profile,
+        avatar_url:
+          typeof user.user_metadata?.avatar_url === "string"
+            ? user.user_metadata.avatar_url
+            : typeof user.user_metadata?.picture === "string"
+              ? user.user_metadata.picture
+              : null,
+      }
+    : null;
 }
 
 export async function getUserProfileById(userId: string): Promise<UserProfile | null> {

@@ -244,6 +244,7 @@ export interface SidebarItem {
   id: string;
   label: string;
   href: string;
+  iconToken: string;
   roles: UserRole[];
 }
 
@@ -252,66 +253,77 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     id: "dashboard",
     label: "لوحة التحكم",
     href: "/dashboard",
+    iconToken: "📊",
     roles: ["super_admin", "admin", "employee"],
   },
   {
     id: "super-admin",
     label: "المدير العام",
     href: "/super-admin",
+    iconToken: "👑",
     roles: ["super_admin"],
   },
   {
     id: "schools",
     label: "المدارس",
     href: "/schools",
+    iconToken: "🏫",
     roles: ["super_admin"],
   },
   {
     id: "teachers",
     label: "الأساتذة",
     href: "/teachers",
+    iconToken: "👨‍🏫",
     roles: ["super_admin", "admin"],
   },
   {
     id: "students",
     label: "الطلاب",
     href: "/students",
+    iconToken: "👥",
     roles: ["super_admin", "admin", "employee"],
   },
   {
     id: "payments",
     label: "الحسابات",
     href: "/payments",
+    iconToken: "💳",
     roles: ["super_admin", "admin", "employee"],
   },
   {
     id: "expenses",
     label: "المصروفات",
     href: "/expenses",
+    iconToken: "💸",
     roles: ["super_admin", "admin"],
   },
   {
     id: "salaries",
     label: "الرواتب",
     href: "/salaries",
+    iconToken: "💼",
     roles: ["super_admin", "admin"],
   },
   {
     id: "attendance",
     label: "الحضور",
     href: "/attendance",
+    iconToken: "📋",
     roles: ["super_admin", "admin", "employee"],
   },
   {
     id: "reports",
     label: "التقارير",
     href: "/reports",
+    iconToken: "📄",
     roles: ["super_admin", "admin"],
   },
   {
     id: "subscriptions",
     label: "الاشتراكات",
     href: "/subscriptions",
+    iconToken: "🧾",
     roles: ["super_admin"],
   },
 ];

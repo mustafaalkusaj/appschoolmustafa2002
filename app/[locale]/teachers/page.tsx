@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
+import { SchoolLogo } from "@/components/SchoolLogo";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { ListPagination } from "@/components/school/ListPagination";
@@ -38,7 +40,7 @@ import {
   type ManagedUserRecord,
   type ManagedUserRole,
 } from "@/lib/managed-users";
-import { escapeHtml } from "@/lib/print-branding";
+import { escapeHtml, wrapPrintDocument } from "@/lib/print-branding";
 
 type FieldErrors = Record<string, string>;
 type ClassOption = { id: string; name: string };
@@ -226,169 +228,50 @@ function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) 
   const instructions = card.instructions.map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join("");
   const classLine = [card.class_name, card.section ? `الشعبة ${card.section}` : null].filter(Boolean).join(" • ");
   const roleLabel = card.role === "student" ? "الطالب" : "المدرس";
-  const schoolName = escapeHtml(card.school_name);
-  const schoolLogoUrl = card.school_logo_url ? escapeHtml(card.school_logo_url) : "";
-  const fullName = escapeHtml(card.full_name);
-  const classLineLabel = escapeHtml(classLine || "—");
-  const loginIdentifier = escapeHtml(card.login_identifier);
-  const temporaryPassword = escapeHtml(card.temporary_password);
-  const generatedAt = escapeHtml(formatDateLabel(card.generated_at));
-
-  return `
-    <html dir="rtl">
-      <head>
-        <title>بطاقة حساب التطبيق</title>
-        <meta charset="utf-8" />
-        <style>
-          * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            padding: 24px;
-            background: #eef4fb;
-            font-family: "Segoe UI", Tahoma, sans-serif;
-            color: #112338;
-          }
-          .card {
-            max-width: 760px;
-            margin: 0 auto;
-            background: #ffffff;
-            border: 1px solid rgba(15, 91, 141, 0.14);
-            border-radius: 28px;
-            padding: 28px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
-          }
-          .top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-            margin-bottom: 24px;
-          }
-          .brand {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-          }
-          .brand img {
-            width: 56px;
-            height: 56px;
-            object-fit: contain;
-            border-radius: 16px;
-            border: 1px solid rgba(15, 91, 141, 0.14);
-          }
-          .brand h1 {
-            margin: 0;
-            font-size: 24px;
-          }
-          .brand p,
-          .hint,
-          .meta {
-            margin: 4px 0 0;
-            color: #547086;
-            line-height: 1.7;
-          }
-          .meta-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-          }
-          .meta-card,
-          .credentials,
-          .instructions {
-            border-radius: 20px;
-            border: 1px solid rgba(15, 91, 141, 0.12);
-            background: #f8fbff;
-            padding: 18px;
-          }
-          .label {
-            font-size: 13px;
-            color: #6b8194;
-            margin-bottom: 6px;
-          }
-          .value {
-            font-size: 18px;
-            font-weight: 800;
-          }
-          .credentials .value {
-            direction: ltr;
-            text-align: left;
-          }
-          ol {
-            margin: 0;
-            padding-inline-start: 22px;
-          }
-          li {
-            line-height: 1.9;
-          }
-          .footer {
-            margin-top: 18px;
-            font-size: 12px;
-            color: #6b8194;
-          }
-          @media print {
-            body {
-              background: #ffffff;
-              padding: 0;
-            }
-            .card {
-              box-shadow: none;
-              border: none;
-              border-radius: 0;
-              max-width: none;
-              padding: 0;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="top">
-            <div class="brand">
-              ${schoolLogoUrl ? `<img src="${schoolLogoUrl}" alt="شعار المدرسة" />` : ""}
-              <div>
-                <h1>${schoolName}</h1>
-                <p>بطاقة بيانات دخول ${roleLabel}</p>
-              </div>
-            </div>
-            <div class="hint">تم التوليد: ${generatedAt}</div>
-          </div>
-
-          <div class="meta-grid">
-            <div class="meta-card">
-              <div class="label">الاسم الكامل</div>
-              <div class="value">${fullName}</div>
-              <div class="meta">${card.role === "student" ? "حساب طالب" : "حساب مدرس"}</div>
-            </div>
-            <div class="meta-card">
-              <div class="label">الصف والشعبة</div>
-              <div class="value">${classLineLabel}</div>
-              <div class="meta">${card.role === "student" ? "يظهر للطلاب فقط" : "حسب التكليفات المسندة"}</div>
-            </div>
-          </div>
-
-          <div class="meta-grid">
-            <div class="credentials">
-              <div class="label">معرّف الدخول</div>
-              <div class="value">${loginIdentifier}</div>
-            </div>
-            <div class="credentials">
-              <div class="label">كلمة المرور المؤقتة</div>
-              <div class="value">${temporaryPassword}</div>
-            </div>
-          </div>
-
-          <div class="instructions">
-            <div class="label">إرشادات الدخول</div>
-            <ol>${instructions}</ol>
-          </div>
-
-          <div class="footer">يمكن حفظ هذه البطاقة كملف PDF من نافذة الطباعة عند الحاجة.</div>
+  return wrapPrintDocument({
+    title: "بطاقة حساب التطبيق",
+    subtitle: `بطاقة بيانات دخول ${roleLabel}`,
+    branding: {
+      schoolName: card.school_name,
+      logoUrl: card.school_logo_url,
+      locale: "ar",
+    },
+    autoPrint,
+    extraStyles: `
+      .teacher-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px}
+      .teacher-card-note{margin-top:16px;font-size:12px;color:var(--print-muted)}
+      @media (max-width:700px){.teacher-card-grid{grid-template-columns:1fr}}
+    `,
+    bodyHtml: `
+      <div class="teacher-card-grid">
+        <div class="print-panel">
+          <span class="print-label">الاسم الكامل</span>
+          <div class="print-value">${escapeHtml(card.full_name)}</div>
+          <div style="margin-top:8px;color:var(--print-muted);font-size:13px">${card.role === "student" ? "حساب طالب" : "حساب مدرس"}</div>
         </div>
-        ${autoPrint ? "<script>window.print();</script>" : ""}
-      </body>
-    </html>
-  `;
+        <div class="print-panel">
+          <span class="print-label">الصف والشعبة</span>
+          <div class="print-value">${escapeHtml(classLine || "—")}</div>
+          <div style="margin-top:8px;color:var(--print-muted);font-size:13px">${card.role === "student" ? "يظهر للطلاب فقط" : "حسب التكليفات المسندة"}</div>
+        </div>
+      </div>
+      <div class="teacher-card-grid">
+        <div class="print-panel">
+          <span class="print-label">معرّف الدخول</span>
+          <div class="print-value" style="direction:ltr;text-align:left">${escapeHtml(card.login_identifier)}</div>
+        </div>
+        <div class="print-panel">
+          <span class="print-label">كلمة المرور المؤقتة</span>
+          <div class="print-value" style="direction:ltr;text-align:left">${escapeHtml(card.temporary_password)}</div>
+        </div>
+      </div>
+      <div class="print-panel">
+        <span class="print-label">إرشادات الدخول</span>
+        <ol class="print-list">${instructions}</ol>
+      </div>
+      <div class="teacher-card-note">تم التوليد: ${escapeHtml(formatDateLabel(card.generated_at))}</div>
+    `,
+  });
 }
 
 export default function TeachersManagementPage() {
@@ -1169,22 +1052,17 @@ export default function TeachersManagementPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
-      <div className="layout" dir="rtl">
+      <div className="layout">
         <AppSidebar currentPath="/teachers" />
 
         <div className="main">
-          <div className="topbar">
-            <div>
-              <div className="topbar-title">إدارة المدرسين</div>
-              <div className="topbar-sub">إدارة بيانات وحسابات دخول المدرسين وربطهم بالمادة والصف والشعبة</div>
-            </div>
+          <AppShellTopbar
+            title="إدارة المدرسين"
+            subtitle="إدارة بيانات وحسابات دخول المدرسين وربطهم بالمادة والصف والشعبة"
+            scope={schoolScope}
+          />
 
-            <div className="ui-pill bg-[var(--surface-muted)] text-[var(--text-secondary)]">
-              الحسابات مربوطة مباشرة بسجلات المدرسة الحالية
-            </div>
-          </div>
-
-          <div className="content space-y-5">
+          <div className="content app-shell-content space-y-5">
             {success ? (
               <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(47,182,122,0.18)] bg-[rgba(47,182,122,0.1)] px-4 py-3 text-[var(--success)]">
                 <CheckCircle2 size={18} className="mt-1 shrink-0" />
@@ -1199,7 +1077,7 @@ export default function TeachersManagementPage() {
               </div>
             ) : null}
 
-            <SchoolScopeBanner scope={schoolScope} />
+            <SchoolScopeBanner scope={schoolScope} showSelector={false} />
 
             {schoolScope.shouldBlockContent ? (
               <SchoolScopeEmptyState
@@ -2028,22 +1906,21 @@ export default function TeachersManagementPage() {
                   استخدم زر الطباعة لتسليم بيانات الدخول مباشرة للطالب/المدرس، أو انسخ البيانات يدويًا عند الحاجة.
                 </div>
 
-                {accountCard.school_logo_url ? (
-                  <div className="flex justify-center">
-                    <div className="flex items-center gap-3 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] px-5 py-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={accountCard.school_logo_url}
-                        alt="شعار المدرسة"
-                        className="h-14 w-14 rounded-[18px] border border-[var(--border)] object-contain bg-white p-2"
-                      />
-                      <div className="text-right">
-                        <div className="text-sm font-black text-[var(--text-secondary)]">المدرسة</div>
-                        <div className="text-lg font-black text-[var(--text-primary)]">{accountCard.school_name}</div>
-                      </div>
+                <div className="flex justify-center">
+                  <div className="flex items-center gap-3 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] px-5 py-4">
+                    <SchoolLogo
+                      src={accountCard.school_logo_url}
+                      alt="شعار المدرسة"
+                      label={accountCard.school_name}
+                      size={56}
+                      className="rounded-[18px] border border-[var(--border)] bg-white"
+                    />
+                    <div className="text-right">
+                      <div className="text-sm font-black text-[var(--text-secondary)]">المدرسة</div>
+                      <div className="text-lg font-black text-[var(--text-primary)]">{accountCard.school_name}</div>
                     </div>
                   </div>
-                ) : null}
+                </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-5">

@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { signOutClient } from "@/lib/auth";
-import { ThemeModeToggle } from "@/components/ThemeModeToggle";
-import { LanguageToggle } from "@/components/LanguageToggle";
+import { AppIcon } from "@/components/AppIcon";
 import { useRole } from "@/hooks/useRole";
 import { getSidebarItemsForRole, isPathMatch } from "@/types/roles";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
@@ -26,14 +25,15 @@ interface AppSidebarProps {
 
 export function AppSidebar({
   currentPath,
-  containerClassName = "sidebar",
-  navClassName = "nav",
-  separatorClassName = "sep",
+  containerClassName,
+  navClassName,
+  separatorClassName,
 }: AppSidebarProps) {
   const { role } = useRole();
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const [scopedSchoolId, setScopedSchoolId] = useState<string | null>(() => readSchoolScopeFromWindow());
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = useMemo(() => getSidebarItemsForRole(role), [role]);
   const localizedLabels =
@@ -68,19 +68,67 @@ export function AppSidebar({
     };
   }, [pathname]);
 
-  async function handleLogout() {
-    await signOutClient();
-    window.location.href = localizeAppPath("/login", locale);
-  }
+  useEffect(() => {
+    function openSidebar() {
+      setMobileOpen(true);
+    }
+
+    function closeSidebar() {
+      setMobileOpen(false);
+    }
+
+    window.addEventListener("app-sidebar-toggle", openSidebar);
+    window.addEventListener("app-sidebar-close", closeSidebar);
+
+    return () => {
+      window.removeEventListener("app-sidebar-toggle", openSidebar);
+      window.removeEventListener("app-sidebar-close", closeSidebar);
+    };
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   return (
-    <div className={containerClassName}>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="logo">
-          <UltrathinkLogo size={34} showText={false} />
+    <>
+      {mobileOpen ? <button type="button" className="app-sidebar__backdrop" onClick={() => setMobileOpen(false)} /> : null}
+      <aside
+        className={[
+          "app-sidebar",
+          mobileOpen ? "is-open" : "",
+          containerClassName || "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <div className="app-sidebar__header">
+          <Link
+            href={
+              role === "super_admin" && scopedSchoolId
+                ? buildPathWithSchoolScope(localizeAppPath("/dashboard", locale), scopedSchoolId)
+                : localizeAppPath("/dashboard", locale)
+            }
+            className="app-sidebar__brand"
+          >
+            <UltrathinkLogo size={38} showText={false} />
+            <span className="app-sidebar__brand-copy">
+              <strong>{locale === "en" ? "School" : "المدرسة"}</strong>
+              <span>{locale === "en" ? "Navigation" : "التنقل"}</span>
+            </span>
+          </Link>
+
+          <button
+            type="button"
+            className="app-sidebar__close"
+            onClick={() => setMobileOpen(false)}
+            aria-label={locale === "en" ? "Close navigation" : "إغلاق التنقل"}
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
         </div>
 
-        <div className="space-y-1 pb-3">
+        <div className="app-sidebar__body">
           {navItems.map((item) => (
             <Link
               key={item.id}
@@ -89,24 +137,29 @@ export function AppSidebar({
                   ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
                   : localizeAppPath(item.href, locale)
               }
-              className={`${navClassName}${isPathMatch(currentPath, item.href) ? " active" : ""}`}
+              className={[
+                "app-sidebar__link",
+                isPathMatch(currentPath, item.href) ? "is-active" : "",
+                navClassName || "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
+              <span className="app-sidebar__icon" aria-hidden="true">
+                <AppIcon token={item.iconToken} size={16} />
+              </span>
               {localizedLabels?.[item.id as keyof typeof localizedLabels] ?? item.label}
             </Link>
           ))}
         </div>
-      </div>
 
-      <div className="mt-auto shrink-0 pt-3">
-        <div className={separatorClassName} />
-        <div className="mt-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] p-2">
-          <button type="button" className={`${navClassName} danger w-full justify-center`} onClick={handleLogout}>
-            {locale === "en" ? "Sign out" : "تسجيل الخروج"}
-          </button>
-          <LanguageToggle className={`${navClassName} mt-2 w-full justify-center`} />
-          <ThemeModeToggle variant="inline" className="sidebar-theme-switch mt-2 w-full" />
+        <div className={["app-sidebar__footer", separatorClassName || ""].filter(Boolean).join(" ")}>
+          <div className="app-sidebar__footer-copy">
+            <span>{locale === "en" ? "Web workspace" : "مساحة العمل"}</span>
+            <strong>{locale === "en" ? "Clean, compact, responsive" : "أخف وأكثر اتساقاً"}</strong>
+          </div>
         </div>
-      </div>
-    </div>
+      </aside>
+    </>
   );
 }

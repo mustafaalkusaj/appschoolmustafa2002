@@ -1,9 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
+import { SchoolLogo } from "@/components/SchoolLogo";
 
 interface UltrathinkLogoProps {
   size?: number;
@@ -45,38 +44,15 @@ export function UltrathinkLogo({
         className="brand-lockup__badge"
         style={{ width: size, height: size, borderRadius: Math.max(16, Math.round(size * 0.38)) }}
       >
-        {resolvedLogo ? (
-          <img
-            src={resolvedLogo}
-            alt={resolvedTitle}
-            width={size}
-            height={size}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        ) : (
-          <svg
-            width={size}
-            height={size}
-            viewBox="0 0 64 64"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M32 11L13 22.4L32 33.8L51 22.4L32 11Z"
-              fill="white"
-              fillOpacity="0.96"
-            />
-            <path
-              d="M19.5 29.9V40.4C19.5 45.1 25 49 32 49C39 49 44.5 45.1 44.5 40.4V29.9L32 37L19.5 29.9Z"
-              fill="white"
-            />
-            <path
-              d="M32 18.4L21.3 24.7L32 31L42.7 24.7L32 18.4Z"
-              fill="rgba(79,140,255,0.26)"
-            />
-          </svg>
-        )}
+        <SchoolLogo
+          src={resolvedLogo}
+          alt={resolvedTitle}
+          label={resolvedTitle}
+          size={size}
+          className="h-full w-full rounded-[inherit] border-0 bg-transparent shadow-none"
+          imageClassName="h-full w-full object-cover"
+          fallbackClassName="text-white"
+        />
       </div>
 
       {showText ? (

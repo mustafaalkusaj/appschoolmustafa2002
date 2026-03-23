@@ -6,6 +6,7 @@ import { resolveSchoolBranchForProfile } from "@/lib/school-context";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -901,6 +902,22 @@ export default function SalariesPage() {
       .print-card{background:#F8F6FF;border-radius:13px;padding:1.1rem;margin-bottom:.8rem}
       .print-card-title{font-size:.88rem;font-weight:800;color:var(--p3);margin-bottom:.4rem}
       .print-card-desc{font-size:.78rem;color:var(--gray);margin-bottom:.8rem}
+      @media (max-width:1180px){
+        .layout{flex-wrap:wrap}
+        .sal-sidebar{order:1;width:100%;flex-direction:row;overflow:auto;white-space:nowrap;padding:.6rem;border-right:none;border-bottom:1px solid rgba(108,74,182,0.08);box-shadow:none}
+        .sal-nav{min-width:max-content}
+        .main{order:2;width:100%}
+        .stats{grid-template-columns:repeat(2,1fr)}
+        .quick-grid{grid-template-columns:repeat(4,1fr)}
+      }
+      @media (max-width:820px){
+        .stats,.dp-cards,.fg,.class-row{grid-template-columns:1fr}
+        .quick-grid{grid-template-columns:repeat(2,1fr)}
+        .toolbar,.quick-header,.fa,.report-tabs,.cal-header,.det-hdr,.mh{flex-direction:column;align-items:stretch}
+        .tbl-wrap{overflow:auto}
+        th,td{white-space:nowrap}
+        .modal,.modal-lg,.modal-sm,.det-panel{width:100%;max-width:100%}
+      }
     `}</style>
 
     <div className="layout">
@@ -918,18 +935,15 @@ export default function SalariesPage() {
       </div>
 
       <div className="main">
-        <div className="topbar">
-          <div>
-            <div className="topbar-title">
-              {activeSection==="main"?"إدارة الرواتب":activeSection==="teachers"?"قائمة المدرسين":activeSection==="schedule_tab"?"الجدول الأسبوعي":activeSection==="deductions"?"السحوبات":activeSection==="reports"?"التقارير الشاملة":activeSection==="calendar"?"التقويم الشهري":activeSection==="archive"?"أرشيف الرواتب":"الإعدادات"}
-            </div>
-            <div className="topbar-sub">{activeTeachers} مدرس نشط</div>
-          </div>
-        </div>
-        <div className="content">
+        <AppShellTopbar
+          title={activeSection==="main"?"إدارة الرواتب":activeSection==="teachers"?"قائمة المدرسين":activeSection==="schedule_tab"?"الجدول الأسبوعي":activeSection==="deductions"?"السحوبات":activeSection==="reports"?"التقارير الشاملة":activeSection==="calendar"?"التقويم الشهري":activeSection==="archive"?"أرشيف الرواتب":"الإعدادات"}
+          subtitle={`${activeTeachers} مدرس نشط`}
+          scope={schoolScope}
+        />
+        <div className="content app-shell-content">
           {success&&<div className="ok">{success}</div>}
           {error&&<div className="err">{error}</div>}
-          <SchoolScopeBanner scope={schoolScope} />
+          <SchoolScopeBanner scope={schoolScope} showSelector={false} />
           {schoolScope.shouldBlockContent ? (
             <SchoolScopeEmptyState
               scope={schoolScope}

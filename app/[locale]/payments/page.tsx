@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -671,8 +672,17 @@ export default function PaymentsPage() {
           .archive-section-sub{font-size:.72rem;color:var(--gray)}
           .archive-table-wrap{border:1px solid rgba(108,74,182,0.08);border-radius:12px;overflow:hidden;background:white}
           .archive-empty{padding:1.6rem;text-align:center;color:var(--gray);font-size:.8rem}
+          @media (max-width:1100px){
+            .stats,.adv-grid,.adv-grid2{grid-template-columns:repeat(2,1fr)}
+          }
           @media (max-width:1100px){.archive-kpis,.archive-stats{grid-template-columns:repeat(2,1fr)}}
           @media (max-width:780px){
+            .stats,.adv-grid,.adv-grid2,.detail-cards,.pay-fields{grid-template-columns:1fr}
+            .ops-header,.ops-actions,.toolbar,.fa,.fg,.detail-header,.pay-row-top,.archive-controls,.archive-top,.archive-detail-head,.archive-section-top{flex-direction:column;align-items:stretch}
+            .srch,.btn-add,.btn-export,.bc,.bs{width:100%}
+            .tbl-wrap,.archive-table-wrap{overflow:auto}
+            th,td{white-space:nowrap}
+            .detail-panel{width:100%;max-width:100%;padding:1.2rem}
             .archive-controls,.archive-top,.archive-detail-head,.archive-section-top{flex-direction:column;align-items:stretch}
             .archive-kpis,.archive-stats{grid-template-columns:1fr}
             .archive-detail-actions{justify-content:stretch}
@@ -684,15 +694,14 @@ export default function PaymentsPage() {
           <AppSidebar currentPath="/payments" />
 
           <div className="main">
-            <div className="topbar">
-              <div>
-                <div className="topbar-title">فواتير الطلاب</div>
-                <div className="topbar-sub">{students.filter((s) => s.status !== "deleted").length} طالباً مسجلاً</div>
-              </div>
-            </div>
-            <div className="content">
+            <AppShellTopbar
+              title="فواتير الطلاب"
+              subtitle={`${students.filter((s) => s.status !== "deleted").length} طالباً مسجلاً`}
+              scope={schoolScope}
+            />
+            <div className="content app-shell-content">
               {success && <div className="ok">{success}</div>}
-              <SchoolScopeBanner scope={schoolScope} />
+              <SchoolScopeBanner scope={schoolScope} showSelector={false} />
               {schoolScope.shouldBlockContent ? (
                 <SchoolScopeEmptyState
                   scope={schoolScope}

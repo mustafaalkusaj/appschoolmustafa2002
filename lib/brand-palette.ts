@@ -5,6 +5,9 @@ const DEFAULT_SECONDARY = "#79d7ff";
 export type StoredSchoolBranding = {
   primaryColor: string | null;
   secondaryColor: string | null;
+  sidebarColor?: string | null;
+  accentColor?: string | null;
+  textColor?: string | null;
   source: "manual" | "derived";
   updatedAt: string;
 };
@@ -229,14 +232,21 @@ export function getStoredSchoolBranding(schoolId: string | null | undefined) {
 
 export function setStoredSchoolBranding(
   schoolId: string,
-  value: Pick<StoredSchoolBranding, "primaryColor" | "secondaryColor" | "source">,
+  value: Pick<StoredSchoolBranding, "primaryColor" | "secondaryColor" | "source"> &
+    Partial<Pick<StoredSchoolBranding, "sidebarColor" | "accentColor" | "textColor">>,
 ) {
   const primaryColor = sanitizeColor(value.primaryColor);
   const secondaryColor = sanitizeColor(value.secondaryColor);
+  const sidebarColor = sanitizeColor(value.sidebarColor);
+  const accentColor = sanitizeColor(value.accentColor);
+  const textColor = sanitizeColor(value.textColor);
   const store = readStore();
   store[schoolId] = {
     primaryColor,
     secondaryColor,
+    sidebarColor,
+    accentColor,
+    textColor,
     source: value.source,
     updatedAt: new Date().toISOString(),
   };

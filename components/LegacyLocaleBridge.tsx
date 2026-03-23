@@ -50,6 +50,9 @@ export function LegacyLocaleBridge() {
   const locale = getLocaleFromPath(pathname) === "en" ? "en" : "ar";
 
   useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = locale === "en" ? "ltr" : "rtl";
+
     if (locale !== "en") return;
 
     const applyTranslations = () => translateNodeTree(document.body, locale);

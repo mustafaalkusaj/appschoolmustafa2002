@@ -35,6 +35,7 @@ export function wrapPrintDocument(input: {
   const title = escapeHtml(input.title);
   const subtitle = escapeHtml(input.subtitle || "");
   const logoUrl = input.branding?.logoUrl ? escapeHtml(input.branding.logoUrl) : "";
+  const logoFallback = schoolName.charAt(0) || "S";
 
   return `
     <html dir="${direction}">
@@ -188,8 +189,8 @@ export function wrapPrintDocument(input: {
             <div class="print-brand">
               ${
                 logoUrl
-                  ? `<img class="print-logo" src="${logoUrl}" alt="${schoolName}" />`
-                  : `<div class="print-logo-fallback">${schoolName.charAt(0) || "S"}</div>`
+                  ? `<img class="print-logo" src="${logoUrl}" alt="${schoolName}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="print-logo-fallback" style="display:none">${logoFallback}</div>`
+                  : `<div class="print-logo-fallback">${logoFallback}</div>`
               }
               <div>
                 <h1>${schoolName}</h1>

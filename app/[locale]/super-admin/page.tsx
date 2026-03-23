@@ -46,14 +46,16 @@ import {
   type Permission,
   type UserProfile,
 } from "@/lib/auth";
-import { ThemeModeToggle } from "@/components/ThemeModeToggle";
-import { LanguageToggle } from "@/components/LanguageToggle";
+import { ProfileMenu } from "@/components/ProfileMenu";
+import { SchoolLogo } from "@/components/SchoolLogo";
 import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import { requestRuntimeBrandingRefresh } from "@/hooks/useRuntimeBranding";
 import {
   derivePaletteFromLogo,
   getStoredSchoolBranding,
+  mixColors,
   setStoredSchoolBranding,
+  shiftColor,
 } from "@/lib/brand-palette";
 import {
   type AdminInfrastructure,
@@ -163,6 +165,60 @@ const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
   inactive: "غير نشط",
   expired: "منتهي",
 };
+
+const DEFAULT_SCHOOL_BRANDING = {
+  primary_color: "#4f8cff",
+  secondary_color: "#79d7ff",
+  sidebar_color: "#dceeff",
+  accent_color: "#3e7df7",
+  text_color: "#12304a",
+};
+
+function buildSuggestedBranding(primaryColor: string, secondaryColor: string) {
+  const primary = primaryColor || DEFAULT_SCHOOL_BRANDING.primary_color;
+  const secondary = secondaryColor || DEFAULT_SCHOOL_BRANDING.secondary_color;
+  return {
+    primary_color: primary,
+    secondary_color: secondary,
+    sidebar_color: mixColors(primary, "#eff7ff", 0.52),
+    accent_color: shiftColor(primary, -0.08),
+    text_color: shiftColor(primary, -0.64),
+  };
+}
+
+const SCHOOL_BRANDING_PRESETS = [
+  {
+    id: "calm-blue",
+    label: "الأزرق الهادئ",
+    description: "الخيار الموصى به",
+    ...DEFAULT_SCHOOL_BRANDING,
+  },
+  {
+    id: "executive-navy",
+    label: "كحلي تنفيذي",
+    description: "أكثر رسمية",
+    ...buildSuggestedBranding("#2f6ca6", "#8fbce3"),
+  },
+  {
+    id: "soft-cyan",
+    label: "سماوي مرن",
+    description: "مشرق وخفيف",
+    ...buildSuggestedBranding("#2d8fc8", "#87d5f2"),
+  },
+] as const;
+
+function createSchoolFormState() {
+  return {
+    name: "",
+    address: "",
+    phone: "",
+    owner_email: "",
+    city: "",
+    logo_url: "",
+    ...DEFAULT_SCHOOL_BRANDING,
+    plan: "basic" as SchoolPlan,
+  };
+}
 
 const TAB_ITEMS: Array<{
   id: ActiveTab;
@@ -429,17 +485,7 @@ export default function SuperAdminPage() {
   const [saving, setSaving] = useState(false);
   const [schoolPaletteBusy, setSchoolPaletteBusy] = useState(false);
   const [schoolFormNotice, setSchoolFormNotice] = useState("");
-  const [schoolForm, setSchoolForm] = useState({
-    name: "",
-    address: "",
-    phone: "",
-    owner_email: "",
-    city: "",
-    logo_url: "",
-    primary_color: "",
-    secondary_color: "",
-    plan: "basic" as SchoolPlan,
-  });
+  const [schoolForm, setSchoolForm] = useState(createSchoolFormState);
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
@@ -590,17 +636,7 @@ export default function SuperAdminPage() {
   function resetSchoolForm() {
     setEditSchool(null);
     setSchoolFormNotice("");
-    setSchoolForm({
-      name: "",
-      address: "",
-      phone: "",
-      owner_email: "",
-      city: "",
-      logo_url: "",
-      primary_color: "",
-      secondary_color: "",
-      plan: "basic",
-    });
+    setSchoolForm(createSchoolFormState());
   }
 
   function resetUserForm() {
@@ -624,6 +660,10 @@ export default function SuperAdminPage() {
 
   function openEditSchool(school: SchoolRecord) {
     const storedBranding = getStoredSchoolBranding(school.id);
+    const suggestedBranding = buildSuggestedBranding(
+      school.primary_color ?? DEFAULT_SCHOOL_BRANDING.primary_color,
+      school.secondary_color ?? DEFAULT_SCHOOL_BRANDING.secondary_color,
+    );
     setEditSchool(school);
     setSchoolFormNotice("");
     setSchoolForm({
@@ -633,8 +673,11 @@ export default function SuperAdminPage() {
       owner_email: school.owner_email ?? "",
       city: school.city ?? "",
       logo_url: school.logo_url ?? "",
-      primary_color: school.primary_color ?? storedBranding?.primaryColor ?? "",
-      secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? "",
+      primary_color: school.primary_color ?? storedBranding?.primaryColor ?? DEFAULT_SCHOOL_BRANDING.primary_color,
+      secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? DEFAULT_SCHOOL_BRANDING.secondary_color,
+      sidebar_color: storedBranding?.sidebarColor ?? suggestedBranding.sidebar_color,
+      accent_color: storedBranding?.accentColor ?? suggestedBranding.accent_color,
+      text_color: storedBranding?.textColor ?? suggestedBranding.text_color,
       plan: school.plan ?? "basic",
     });
     setShowSchoolForm(true);
@@ -652,6 +695,9 @@ export default function SuperAdminPage() {
         ...current,
         primary_color: palette.primaryColor,
         secondary_color: palette.secondaryColor,
+        sidebar_color: mixColors(palette.primaryColor, "#eff7ff", 0.52),
+        accent_color: shiftColor(palette.primaryColor, -0.08),
+        text_color: shiftColor(palette.primaryColor, -0.64),
       }));
       setSchoolFormNotice(
         schoolForm.logo_url.trim()
@@ -745,6 +791,9 @@ export default function SuperAdminPage() {
         setStoredSchoolBranding(editSchool.id, {
           primaryColor: schoolForm.primary_color || null,
           secondaryColor: schoolForm.secondary_color || null,
+          sidebarColor: schoolForm.sidebar_color || null,
+          accentColor: schoolForm.accent_color || null,
+          textColor: schoolForm.text_color || null,
           source: "manual",
         });
 
@@ -772,6 +821,9 @@ export default function SuperAdminPage() {
         setStoredSchoolBranding(newSchool.id, {
           primaryColor: schoolForm.primary_color || null,
           secondaryColor: schoolForm.secondary_color || null,
+          sidebarColor: schoolForm.sidebar_color || null,
+          accentColor: schoolForm.accent_color || null,
+          textColor: schoolForm.text_color || null,
           source: "manual",
         });
 
@@ -1211,39 +1263,14 @@ export default function SuperAdminPage() {
               )}
             </div>
 
-            <div
-              className={cx(
-                "rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-2",
-                sidebarCollapsed && "p-2",
-              )}
-            >
-              <button
-                type="button"
-                className={cx(
-                  "ui-button ui-button--danger flex w-full items-center gap-3 justify-center",
-                  !sidebarCollapsed && "justify-start px-4",
-                )}
-                onClick={handleLogout}
-              >
-                <LogOut size={18} />
-                {!sidebarCollapsed ? <span>تسجيل الخروج</span> : null}
-              </button>
-
-              <LanguageToggle
-                className={cx(
-                  "ui-button ui-button--secondary mt-2 flex w-full items-center gap-3 justify-center",
-                  !sidebarCollapsed && "justify-start px-4",
-                )}
-                compact={sidebarCollapsed}
-              />
-
-              <ThemeModeToggle
-                variant="inline"
-                className="sidebar-theme-switch mt-2 w-full"
-                showLabels={!sidebarCollapsed}
-                compact={sidebarCollapsed}
-              />
-            </div>
+            {!sidebarCollapsed ? (
+              <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3">
+                <p className="text-xs font-black text-[var(--text-tertiary)]">إدارة الهوية والإعدادات</p>
+                <p className="mt-2 text-sm font-bold leading-7 text-[var(--text-secondary)]">
+                  ستجد اللغة والمظهر وتسجيل الخروج ضمن قائمة الحساب في الهيدر لتبقى اللوحة أخف وأكثر وضوحاً.
+                </p>
+              </div>
+            ) : null}
           </div>
         </aside>
 
@@ -1319,45 +1346,7 @@ export default function SuperAdminPage() {
                     ) : null}
                   </button>
 
-                  <details className="relative">
-                    <summary className="list-none">
-                      <div className="ui-button ui-button--secondary flex min-w-[180px] items-center gap-3 px-3 py-2">
-                        <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(79,140,255,0.14)] text-[var(--primary)]">
-                          <Users size={18} />
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-black text-[var(--text-primary)]">
-                            {profile?.full_name || "المدير العام"}
-                          </div>
-                          <div className="text-xs font-bold text-[var(--text-tertiary)]">حساب مشرف النظام</div>
-                        </div>
-                      </div>
-                    </summary>
-                    <div className="ui-surface absolute right-0 top-full z-50 mt-2 w-[240px] rounded-[24px] p-2">
-                      <Link
-                        href={localizeAppPath("/dashboard", locale)}
-                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-bold text-[var(--text-secondary)] transition hover:bg-[rgba(79,140,255,0.08)] hover:text-[var(--text-primary)]"
-                      >
-                        <House size={16} />
-                        الانتقال إلى لوحة المدرسة
-                      </Link>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-bold text-[var(--text-secondary)] transition hover:bg-[rgba(79,140,255,0.08)] hover:text-[var(--text-primary)]"
-                      >
-                        <BadgeCheck size={16} />
-                        الملف الشخصي
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-bold text-[var(--danger)] transition hover:bg-[rgba(240,90,90,0.08)]"
-                        onClick={handleLogout}
-                      >
-                        <LogOut size={16} />
-                        تسجيل الخروج
-                      </button>
-                    </div>
-                  </details>
+                  <ProfileMenu />
                 </div>
               </div>
             </div>
@@ -2172,12 +2161,46 @@ export default function SuperAdminPage() {
                   onChange={(e) => setSchoolForm({ ...schoolForm, logo_url: e.target.value })}
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">أنماط جاهزة للهوية</label>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {SCHOOL_BRANDING_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] p-3 text-right transition hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-xs)]"
+                      onClick={() =>
+                        setSchoolForm((current) => ({
+                          ...current,
+                          primary_color: preset.primary_color,
+                          secondary_color: preset.secondary_color,
+                          sidebar_color: preset.sidebar_color,
+                          accent_color: preset.accent_color,
+                          text_color: preset.text_color,
+                        }))
+                      }
+                    >
+                      <div className="mb-3 flex items-center gap-2">
+                        {[preset.primary_color, preset.secondary_color, preset.sidebar_color, preset.accent_color].map((color) => (
+                          <span
+                            key={color}
+                            className="inline-flex h-5 w-5 rounded-full border border-white/70 shadow-sm"
+                            style={{ background: color }}
+                          />
+                        ))}
+                      </div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">{preset.label}</div>
+                      <div className="mt-1 text-xs font-bold text-[var(--text-secondary)]">{preset.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">اللون الأساسي</label>
                 <input
                   type="color"
                   className="ui-input"
-                  value={schoolForm.primary_color || "#4f8cff"}
+                  value={schoolForm.primary_color || DEFAULT_SCHOOL_BRANDING.primary_color}
                   onChange={(e) => setSchoolForm({ ...schoolForm, primary_color: e.target.value })}
                 />
               </div>
@@ -2186,28 +2209,46 @@ export default function SuperAdminPage() {
                 <input
                   type="color"
                   className="ui-input"
-                  value={schoolForm.secondary_color || "#79d7ff"}
+                  value={schoolForm.secondary_color || DEFAULT_SCHOOL_BRANDING.secondary_color}
                   onChange={(e) => setSchoolForm({ ...schoolForm, secondary_color: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">لون الشريط الجانبي</label>
+                <input
+                  type="color"
+                  className="ui-input"
+                  value={schoolForm.sidebar_color || DEFAULT_SCHOOL_BRANDING.sidebar_color}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, sidebar_color: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">لون الأزرار والتمييز</label>
+                <input
+                  type="color"
+                  className="ui-input"
+                  value={schoolForm.accent_color || DEFAULT_SCHOOL_BRANDING.accent_color}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, accent_color: e.target.value })}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">لون النص البارز</label>
+                <input
+                  type="color"
+                  className="ui-input"
+                  value={schoolForm.text_color || DEFAULT_SCHOOL_BRANDING.text_color}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, text_color: e.target.value })}
                 />
               </div>
               <div className="md:col-span-2 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
                 <div className="flex flex-wrap items-center gap-4">
-                  {schoolForm.logo_url ? (
-                    <img
-                      src={schoolForm.logo_url}
-                      alt={schoolForm.name || "School logo"}
-                      className="h-16 w-16 rounded-[18px] border border-[var(--border)] bg-white object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="flex h-16 w-16 items-center justify-center rounded-[18px] text-xl font-black text-white"
-                      style={{
-                        background: `linear-gradient(135deg, ${schoolForm.primary_color || "#4f8cff"}, ${schoolForm.secondary_color || "#79d7ff"})`,
-                      }}
-                    >
-                      {(schoolForm.name || "S").trim().charAt(0) || "S"}
-                    </div>
-                  )}
+                  <SchoolLogo
+                    src={schoolForm.logo_url}
+                    alt={schoolForm.name || "School logo"}
+                    label={schoolForm.name || "School"}
+                    size={64}
+                    className="rounded-[18px] border border-[var(--border)] bg-white"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="text-base font-black text-[var(--text-primary)]">
                       {schoolForm.name || "معاينة هوية المدرسة"}
@@ -2215,9 +2256,42 @@ export default function SuperAdminPage() {
                     <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">
                       ستؤثر هذه الهوية على الأزرار والخلفيات والنصوص والطباعة في جميع الواجهات.
                     </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <div
+                        className="rounded-[18px] border border-[var(--border)] px-3 py-3"
+                        style={{ background: schoolForm.sidebar_color || DEFAULT_SCHOOL_BRANDING.sidebar_color }}
+                      >
+                        <div className="text-xs font-black" style={{ color: schoolForm.text_color || DEFAULT_SCHOOL_BRANDING.text_color }}>
+                          الشريط الجانبي
+                        </div>
+                        <div className="mt-2 text-[11px] font-bold" style={{ color: schoolForm.text_color || DEFAULT_SCHOOL_BRANDING.text_color }}>
+                          {schoolForm.sidebar_color || DEFAULT_SCHOOL_BRANDING.sidebar_color}
+                        </div>
+                      </div>
+                      <div
+                        className="rounded-[18px] px-3 py-3 text-white"
+                        style={{
+                          background: `linear-gradient(135deg, ${schoolForm.primary_color || DEFAULT_SCHOOL_BRANDING.primary_color}, ${schoolForm.secondary_color || DEFAULT_SCHOOL_BRANDING.secondary_color})`,
+                        }}
+                      >
+                        <div className="text-xs font-black">الهوية العامة</div>
+                        <div className="mt-2 text-[11px] font-bold opacity-90">
+                          {schoolForm.primary_color || DEFAULT_SCHOOL_BRANDING.primary_color}
+                        </div>
+                      </div>
+                      <div
+                        className="rounded-[18px] px-3 py-3 text-white"
+                        style={{ background: schoolForm.accent_color || DEFAULT_SCHOOL_BRANDING.accent_color }}
+                      >
+                        <div className="text-xs font-black">الأزرار والتمييز</div>
+                        <div className="mt-2 text-[11px] font-bold opacity-90">
+                          {schoolForm.accent_color || DEFAULT_SCHOOL_BRANDING.accent_color}
+                        </div>
+                      </div>
+                    </div>
                     {!schemaCompat?.schoolColors ? (
                       <p className="mt-1 text-xs font-bold text-amber-700">
-                        أعمدة الألوان غير موجودة حالياً في قاعدة البيانات، لذا سيتم حفظ الألوان محلياً أيضاً لضمان عمل الواجهة والطباعة.
+                        أعمدة الألوان غير موجودة حالياً في قاعدة البيانات، لذا سيتم حفظ الهوية الموسعة محلياً أيضاً لضمان عمل الواجهة والطباعة.
                       </p>
                     ) : null}
                   </div>

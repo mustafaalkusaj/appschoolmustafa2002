@@ -5,6 +5,7 @@ import type { SchoolScopeState } from "@/hooks/useSchoolScope";
 type SchoolScopeBannerProps = {
   scope: SchoolScopeState;
   className?: string;
+  showSelector?: boolean;
 };
 
 type SchoolScopeEmptyStateProps = {
@@ -13,7 +14,11 @@ type SchoolScopeEmptyStateProps = {
   description?: string;
 };
 
-export function SchoolScopeBanner({ scope, className = "" }: SchoolScopeBannerProps) {
+export function SchoolScopeBanner({
+  scope,
+  className = "",
+  showSelector = true,
+}: SchoolScopeBannerProps) {
   if (!scope.isSuperAdminScope) return null;
 
   const stateTone = scope.hasInvalidSelection
@@ -40,21 +45,22 @@ export function SchoolScopeBanner({ scope, className = "" }: SchoolScopeBannerPr
         </div>
 
         <div className="flex flex-col gap-2 sm:min-w-[280px] sm:flex-row sm:items-center sm:justify-end">
-          <select
-            aria-label="اختيار المدرسة"
-            className="min-h-11 rounded-[18px] border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100 dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-100 dark:focus:border-sky-400 dark:focus:ring-sky-500/20"
-            value={scope.selectedSchoolId ?? ""}
-            onChange={(event) => scope.setSelectedSchoolId(event.target.value || null)}
-            disabled={scope.scopeLoading}
-          >
-            <option value="">اختر مدرسة</option>
-            {scope.schools.map((school) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
-              </option>
-            ))}
-          </select>
-
+          {showSelector ? (
+            <select
+              aria-label="اختيار المدرسة"
+              className="min-h-11 rounded-[18px] border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100 dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-100 dark:focus:border-sky-400 dark:focus:ring-sky-500/20"
+              value={scope.selectedSchoolId ?? ""}
+              onChange={(event) => scope.setSelectedSchoolId(event.target.value || null)}
+              disabled={scope.scopeLoading}
+            >
+              <option value="">اختر مدرسة</option>
+              {scope.schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <span className={`inline-flex min-h-11 items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold ${stateTone}`}>
             {scope.scopeLoading
               ? "تحميل..."

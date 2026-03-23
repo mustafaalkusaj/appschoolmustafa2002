@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -305,13 +306,15 @@ export default function ExpensesPage() {
       <AppSidebar currentPath="/expenses" />
 
       <div className="main">
-        <div className="topbar">
-          <div><div className="topbar-title">إدارة المصروفات</div><div className="topbar-sub">{expenses.length} سجل مصروف</div></div>
-        </div>
-        <div className="content">
+        <AppShellTopbar
+          title="إدارة المصروفات"
+          subtitle={`${expenses.length} سجل مصروف`}
+          scope={schoolScope}
+        />
+        <div className="content app-shell-content">
           {success&&<div className="ok">{success}</div>}
           {error&&<div className="err">{error}</div>}
-          <SchoolScopeBanner scope={schoolScope} />
+          <SchoolScopeBanner scope={schoolScope} showSelector={false} />
           {schoolScope.shouldBlockContent ? (
             <SchoolScopeEmptyState
               scope={schoolScope}

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -1108,20 +1109,32 @@ function handlePrint(s: StudentWithFees){
       .cols-title{font-size:.78rem;font-weight:700;color:var(--p2);margin-bottom:.4rem}
       .cols-grid{display:grid;grid-template-columns:1fr 1fr;gap:.2rem}
       .col-item{font-size:.72rem;display:flex;align-items:center;gap:.3rem}
+      @media (max-width: 1080px){
+        .stats{grid-template-columns:repeat(2,1fr)}
+      }
+      @media (max-width: 820px){
+        .tabs{flex-wrap:wrap}
+        .tab{min-width:calc(50% - .2rem)}
+        .stats,.fg,.cols-grid{grid-template-columns:1fr}
+        .toolbar,.fa{flex-direction:column;align-items:stretch}
+        .srch,.filter-sel,.btn-add,.btn-export,.btn-excel,.btn-print,.bc,.bs,.bs-danger{width:100%}
+        .tbl-wrap{overflow:auto}
+        th,td{white-space:nowrap}
+        .modal,.modal-lg,.modal-sm{max-width:100%}
+      }
     `}</style>
 
     <div className="layout">
       <AppSidebar currentPath="/students" />
 
       <div className="main">
-        <div className="topbar">
-          <div>
-          <div className="topbar-title">إدارة الطلاب</div>
-            <div className="topbar-sub">{totalCount} طالب إجمالي | صفحة {page} من {totalPages}</div>
-          </div>
-        </div>
+        <AppShellTopbar
+          title="إدارة الطلاب"
+          subtitle={`${totalCount} طالب إجمالي | صفحة ${page} من ${totalPages}`}
+          scope={schoolScope}
+        />
 
-        <div className="content">
+        <div className="content app-shell-content">
           {success&&(
             <div className="ok">
               <div>{success}</div>
@@ -1134,7 +1147,7 @@ function handlePrint(s: StudentWithFees){
             </div>
           )}
           {error&&<div className="err">{error}</div>}
-          <SchoolScopeBanner scope={schoolScope} />
+          <SchoolScopeBanner scope={schoolScope} showSelector={false} />
           {schoolScope.shouldBlockContent ? (
             <SchoolScopeEmptyState
               scope={schoolScope}
