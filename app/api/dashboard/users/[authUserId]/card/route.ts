@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  MANAGED_USER_SELECT,
   buildManagedUserAccountCard,
-  decorateManagedUsers,
+  fetchManagedUserByAuthUserId,
   markAccountCardPrinted,
-  normalizeManagedUserRecord,
   resolveManagedUsersActorContext,
 } from "@/lib/managed-users-server";
 
@@ -29,27 +27,18 @@ export async function GET(
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  const { data, error } = await actorSupabase
-    .from("managed_user_profiles")
-    .select(MANAGED_USER_SELECT)
-    .eq("auth_user_id", authUserId)
-    .eq("school_id", targetSchoolId)
-    .maybeSingle();
-
-  if (error) {
-    return jsonError(error.message || "تعذر تحميل الحساب المطلوب.", 500);
+  let user = null;
+  try {
+    user = await fetchManagedUserByAuthUserId(actorSupabase, {
+      authUserId,
+      schoolId: targetSchoolId,
+    });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر تحميل الحساب المطلوب.", 500);
   }
-
-  if (!data) {
-    return jsonError("الحساب المطلوب غير موجود داخل المدرسة الحالية.", 404);
-  }
-
-  const [user] = await decorateManagedUsers(actorSupabase, [
-    normalizeManagedUserRecord(data as Record<string, unknown>),
-  ]);
 
   if (!user) {
-    return jsonError("تعذر تهيئة بيانات بطاقة الحساب.", 500);
+    return jsonError("الحساب المطلوب غير موجود داخل المدرسة الحالية.", 404);
   }
 
   const accountCard = await buildManagedUserAccountCard(actorSupabase, user);

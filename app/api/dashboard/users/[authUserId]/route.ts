@@ -6,11 +6,13 @@ import {
   type ManagedUserRecord,
 } from "@/lib/managed-users";
 import {
-  MANAGED_USER_SELECT,
-  decorateManagedUsers,
-  normalizeManagedUserRecord,
+  fetchManagedUserByAuthUserId,
+  getTeacherTableCapabilities,
+  persistManagedUserProfile,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
+  type ManagedUsersActorContext,
+  updateManagedUserLoginIdentifier,
 } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
@@ -92,6 +94,24 @@ async function rollbackAuthUser(
   });
 }
 
+async function restoreManagedProfile(
+  actorSupabase: ManagedUsersActorContext["actorSupabase"],
+  existing: ManagedUserRecord,
+) {
+  await persistManagedUserProfile(actorSupabase, {
+    mode: "update",
+    authUserId: existing.auth_user_id,
+    schoolId: existing.school_id,
+    role: existing.role,
+    fullName: existing.full_name,
+    email: existing.email,
+    phone: existing.phone,
+    isActive: existing.is_active,
+    studentId: existing.student?.id ?? null,
+    teacherId: existing.teacher?.id ?? null,
+  });
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ authUserId: string }> },
@@ -109,22 +129,23 @@ export async function PATCH(
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  const { data: existingRecord, error: existingError } = await actorSupabase
-    .from("managed_user_profiles")
-    .select(MANAGED_USER_SELECT)
-    .eq("auth_user_id", authUserId)
-    .eq("school_id", targetSchoolId)
-    .maybeSingle();
+  let existing: ManagedUserRecord | null = null;
 
-  if (existingError) {
-    return jsonError(existingError.message || "تعذر تحميل الحساب المطلوب.", getPostgrestStatus(existingError));
+  try {
+    existing = await fetchManagedUserByAuthUserId(actorSupabase, {
+      authUserId,
+      schoolId: targetSchoolId,
+    });
+  } catch (existingError) {
+    return jsonError(
+      existingError instanceof Error ? existingError.message : "تعذر تحميل الحساب المطلوب.",
+      getPostgrestStatus(existingError as { code?: string | null }),
+    );
   }
 
-  if (!existingRecord) {
+  if (!existing) {
     return jsonError("الحساب المطلوب غير موجود أو خارج نطاق المدرسة الحالية.", 404);
   }
-
-  const existing = normalizeManagedUserRecord(existingRecord as Record<string, unknown>);
   if (body?.role && body.role !== existing.role) {
     return jsonError("لا يمكن تغيير نوع الحساب بعد إنشائه.", 400, {
       role: "تعديل الدور غير مدعوم. أنشئ حساباً جديداً عند الحاجة.",
@@ -140,6 +161,8 @@ export async function PATCH(
     );
   }
 
+  const teacherTableCapabilities =
+    existing.role === "teacher" ? await getTeacherTableCapabilities(actorSupabase) : null;
   const serviceSupabase = createServiceSupabaseClient();
   const authUpdatePayload: Record<string, unknown> = {
     ban_duration: validation.value.is_active ? "none" : MANAGED_USER_INACTIVE_BAN_DURATION,
@@ -163,33 +186,31 @@ export async function PATCH(
     });
   }
 
-  const { error: profileError } = await actorSupabase
-    .from("managed_user_profiles")
-    .update({
-      full_name: validation.value.full_name,
+  try {
+    await persistManagedUserProfile(actorSupabase, {
+      mode: "update",
+      authUserId,
+      schoolId: targetSchoolId,
+      role: existing.role,
+      fullName: validation.value.full_name,
       email: validation.value.email,
       phone: validation.value.phone,
-      is_active: validation.value.is_active,
-    })
-    .eq("auth_user_id", authUserId);
-
-  if (profileError) {
+      isActive: validation.value.is_active,
+      studentId: existing.student?.id ?? null,
+      teacherId: existing.teacher?.id ?? null,
+    });
+  } catch (profileError) {
     await rollbackAuthUser(authUserId, existing);
-    return jsonError(profileError.message || "تعذر تحديث ملف الحساب.", getPostgrestStatus(profileError, 400));
+    return jsonError(
+      profileError instanceof Error ? profileError.message : "تعذر تحديث ملف الحساب.",
+      getPostgrestStatus(profileError as { code?: string | null }, 400),
+    );
   }
 
   if (existing.role === "student") {
     if (!existing.student?.id) {
       await rollbackAuthUser(authUserId, existing);
-      await actorSupabase
-        .from("managed_user_profiles")
-        .update({
-          full_name: existing.full_name,
-          email: existing.email,
-          phone: existing.phone,
-          is_active: existing.is_active,
-        })
-        .eq("auth_user_id", authUserId);
+      await restoreManagedProfile(actorSupabase, existing);
 
       return jsonError("رابط سجل الطالب غير مكتمل لهذا الحساب.", 500);
     }
@@ -210,15 +231,7 @@ export async function PATCH(
 
     if (studentError) {
       await rollbackAuthUser(authUserId, existing);
-      await actorSupabase
-        .from("managed_user_profiles")
-        .update({
-          full_name: existing.full_name,
-          email: existing.email,
-          phone: existing.phone,
-          is_active: existing.is_active,
-        })
-        .eq("auth_user_id", authUserId);
+      await restoreManagedProfile(actorSupabase, existing);
 
       return jsonError(studentError.message || "تعذر تحديث بيانات الطالب المرتبطة.", getPostgrestStatus(studentError, 400));
     }
@@ -227,42 +240,41 @@ export async function PATCH(
   if (existing.role === "teacher") {
     if (!existing.teacher?.id) {
       await rollbackAuthUser(authUserId, existing);
-      await actorSupabase
-        .from("managed_user_profiles")
-        .update({
-          full_name: existing.full_name,
-          email: existing.email,
-          phone: existing.phone,
-          is_active: existing.is_active,
-        })
-        .eq("auth_user_id", authUserId);
+      await restoreManagedProfile(actorSupabase, existing);
 
       return jsonError("رابط سجل المدرس غير مكتمل لهذا الحساب.", 500);
     }
 
+    const teacherUpdatePayload: Record<string, unknown> = {
+      full_name: validation.value.full_name,
+      email: validation.value.email,
+      phone: validation.value.phone,
+    };
+
+    if (teacherTableCapabilities?.specialization) {
+      teacherUpdatePayload.specialization = validation.value.teacher?.specialization ?? null;
+    } else if (teacherTableCapabilities?.subject) {
+      teacherUpdatePayload.subject = validation.value.teacher?.specialization ?? null;
+    }
+
+    if (teacherTableCapabilities?.notes) {
+      teacherUpdatePayload.notes = validation.value.teacher?.notes ?? null;
+    }
+
+    if (teacherTableCapabilities?.is_active) {
+      teacherUpdatePayload.is_active = validation.value.is_active;
+    } else if (teacherTableCapabilities?.status) {
+      teacherUpdatePayload.status = validation.value.is_active ? "active" : "inactive";
+    }
+
     const { error: teacherError } = await actorSupabase
       .from("teachers")
-      .update({
-        full_name: validation.value.full_name,
-        email: validation.value.email,
-        phone: validation.value.phone,
-        specialization: validation.value.teacher?.specialization,
-        notes: validation.value.teacher?.notes,
-        is_active: validation.value.is_active,
-      })
+      .update(teacherUpdatePayload)
       .eq("id", existing.teacher.id);
 
     if (teacherError) {
       await rollbackAuthUser(authUserId, existing);
-      await actorSupabase
-        .from("managed_user_profiles")
-        .update({
-          full_name: existing.full_name,
-          email: existing.email,
-          phone: existing.phone,
-          is_active: existing.is_active,
-        })
-        .eq("auth_user_id", authUserId);
+      await restoreManagedProfile(actorSupabase, existing);
 
       return jsonError(teacherError.message || "تعذر تحديث بيانات المدرس المرتبطة.", getPostgrestStatus(teacherError, 400));
     }
@@ -282,34 +294,34 @@ export async function PATCH(
   }
 
   if (validation.value.email !== existing.email) {
-    const { error: credentialError } = await actorSupabase
-      .from("managed_user_credentials")
-      .update({ login_identifier: validation.value.email })
-      .eq("auth_user_id", authUserId);
-
-    if (credentialError && !credentialError.message.toLowerCase().includes("could not find")) {
-      return jsonError(credentialError.message || "تعذر تحديث معرّف دخول التطبيق.", 400);
+    try {
+      await updateManagedUserLoginIdentifier(actorSupabase, {
+        authUserId,
+        loginIdentifier: validation.value.email,
+      });
+    } catch (credentialError) {
+      return jsonError(
+        credentialError instanceof Error ? credentialError.message : "تعذر تحديث معرّف دخول التطبيق.",
+        400,
+      );
     }
   }
 
-  const { data: updatedUser, error: fetchError } = await actorSupabase
-    .from("managed_user_profiles")
-    .select(MANAGED_USER_SELECT)
-    .eq("auth_user_id", authUserId)
-    .maybeSingle();
-
-  if (fetchError) {
-    return jsonError(fetchError.message || "تم الحفظ لكن تعذر إعادة تحميل الحساب.", 500);
+  let updatedUser: ManagedUserRecord | null = null;
+  try {
+    updatedUser = await fetchManagedUserByAuthUserId(actorSupabase, {
+      authUserId,
+      schoolId: targetSchoolId,
+    });
+  } catch (fetchError) {
+    return jsonError(
+      fetchError instanceof Error ? fetchError.message : "تم الحفظ لكن تعذر إعادة تحميل الحساب.",
+      500,
+    );
   }
 
   return NextResponse.json({
     ok: true,
-    user: updatedUser
-      ? (
-          await decorateManagedUsers(actorSupabase, [
-            normalizeManagedUserRecord(updatedUser as Record<string, unknown>),
-          ])
-        )[0] ?? null
-      : null,
+    user: updatedUser,
   });
 }

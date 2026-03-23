@@ -13,14 +13,17 @@ import {
   buildManagedUserAccountCard,
   buildTeacherClassesTaught,
   decorateManagedUsers,
+  fetchManagedUserByAuthUserId,
   fetchManagedAccountSchoolBrand,
   generateManagedLoginIdentifier,
   generateTemporaryPassword,
-  normalizeManagedUserRecord,
   normalizeManagedUserRecords,
+  persistManagedUserProfile,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
   resolveSchoolBranchId,
+  getTeacherTableCapabilities,
+  tableHasColumn,
   upsertManagedUserCredential,
   type ManagedUsersActorContext,
 } from "@/lib/managed-users-server";
@@ -148,62 +151,6 @@ function buildImmediateManagedUser(input: {
       password_last_reset_at: input.createdAt,
       card_last_printed_at: null,
     },
-  };
-}
-
-async function tableHasColumn(
-  actorSupabase: ManagedUsersActorContext["actorSupabase"],
-  table: string,
-  column: string,
-) {
-  const { error } = await actorSupabase.from(table).select(column).limit(1);
-
-  if (!error) {
-    return true;
-  }
-
-  if (isMissingColumnError(error, table, column)) {
-    return false;
-  }
-
-  throw error;
-}
-
-type TeacherTableCapabilities = {
-  specialization: boolean;
-  subject: boolean;
-  notes: boolean;
-  is_active: boolean;
-  status: boolean;
-  classes_taught: boolean;
-};
-
-async function getTeacherTableCapabilities(
-  actorSupabase: ManagedUsersActorContext["actorSupabase"],
-): Promise<TeacherTableCapabilities> {
-  const [
-    specialization,
-    subject,
-    notes,
-    is_active,
-    status,
-    classes_taught,
-  ] = await Promise.all([
-    tableHasColumn(actorSupabase, "teachers", "specialization"),
-    tableHasColumn(actorSupabase, "teachers", "subject"),
-    tableHasColumn(actorSupabase, "teachers", "notes"),
-    tableHasColumn(actorSupabase, "teachers", "is_active"),
-    tableHasColumn(actorSupabase, "teachers", "status"),
-    tableHasColumn(actorSupabase, "teachers", "classes_taught"),
-  ]);
-
-  return {
-    specialization,
-    subject,
-    notes,
-    is_active,
-    status,
-    classes_taught,
   };
 }
 
@@ -454,40 +401,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const managedProfileProbe = await actorSupabase.from("managed_user_profiles").select("auth_user_id").limit(1);
-  if (isMissingTableError(managedProfileProbe.error, "managed_user_profiles")) {
-    return jsonError(
-      "بيئة Supabase الحالية تفتقد جدول managed_user_profiles. شغّل ملف 20260323_000000_dashboard_managed_account_schema.sql قبل إنشاء حسابات الطلاب أو المدرسين من لوحة الإدارة.",
-      500,
-      {
-        role: "إنشاء الحسابات يتطلب ملفاً تعريفياً مرتبطاً مباشرةً بالطالب أو المدرس.",
-      },
-    );
-  }
-
-  if (managedProfileProbe.error) {
-    return jsonError(managedProfileProbe.error.message || "تعذر التحقق من جدول managed_user_profiles.", 500);
-  }
-
-  const credentialsProbe = await actorSupabase
-    .from("managed_user_credentials")
-    .select("auth_user_id")
-    .limit(1);
-
-  if (isMissingTableError(credentialsProbe.error, "managed_user_credentials")) {
-    return jsonError(
-      "بيئة Supabase الحالية تفتقد جدول managed_user_credentials. شغّل ملف 20260323_000000_dashboard_managed_account_schema.sql قبل إنشاء الحسابات من لوحة الإدارة.",
-      500,
-      {
-        role: "إنشاء الحسابات من لوحة الإدارة يتطلب حفظ معرّف الدخول وكلمة المرور المؤقتة للطباعة وإعادة الإصدار.",
-      },
-    );
-  }
-
-  if (credentialsProbe.error) {
-    return jsonError(credentialsProbe.error.message || "تعذر التحقق من جدول managed_user_credentials.", 500);
-  }
-
   const teacherTableCapabilities =
     validation.value.role === "teacher" ? await getTeacherTableCapabilities(actorSupabase) : null;
   const createdAt = new Date().toISOString();
@@ -644,30 +557,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const profilePayload = {
-      id: authUserId,
-      auth_user_id: authUserId,
-      school_id: targetSchoolId,
-      role: validation.value.role,
-      full_name: validation.value.full_name,
-      email: loginIdentifier,
-      phone: validation.value.phone,
-      is_active: validation.value.is_active,
-      student_id: validation.value.role === "student" ? relatedRecordId : null,
-      teacher_id: validation.value.role === "teacher" ? relatedRecordId : null,
-      created_by: actorUserId,
-    };
-
-    const { error: profileError } = await actorSupabase.from("managed_user_profiles").insert(profilePayload);
-    if (profileError) {
+    try {
+      await persistManagedUserProfile(actorSupabase, {
+        mode: "insert",
+        authUserId,
+        schoolId: targetSchoolId,
+        role: validation.value.role,
+        fullName: validation.value.full_name,
+        email: loginIdentifier,
+        phone: validation.value.phone,
+        isActive: validation.value.is_active,
+        studentId: validation.value.role === "student" ? relatedRecordId : null,
+        teacherId: validation.value.role === "teacher" ? relatedRecordId : null,
+        createdBy: actorUserId,
+      });
+    } catch (profileError) {
       await cleanupCreatedUser({
         authUserId,
         actorSupabase,
         role: validation.value.role,
         relatedRecordId,
       });
-
-      return jsonError(profileError.message || "تعذر إنشاء ملف الحساب.", getPostgrestStatus(profileError, 400));
+      return jsonError(
+        profileError instanceof Error ? profileError.message : "تعذر إنشاء ملف الحساب.",
+        getPostgrestStatus(profileError as { code?: string | null }, 400),
+      );
     }
 
     if (validation.value.role === "teacher" && relatedRecordId) {
@@ -705,18 +619,16 @@ export async function POST(req: NextRequest) {
     let decoratedUser: ManagedUserRecord | null = null;
     let accountCard: ManagedUserAccountCard | null = null;
 
-    const { data: createdUser, error: fetchError } = await actorSupabase
-      .from("managed_user_profiles")
-      .select(MANAGED_USER_SELECT)
-      .eq("auth_user_id", authUserId)
-      .maybeSingle();
+    try {
+      decoratedUser = await fetchManagedUserByAuthUserId(actorSupabase, {
+        authUserId,
+        schoolId: targetSchoolId,
+      });
+    } catch {
+      decoratedUser = null;
+    }
 
-    if (!fetchError && createdUser) {
-      [decoratedUser] = await decorateManagedUsers(
-        actorSupabase,
-        [normalizeManagedUserRecord(createdUser as Record<string, unknown>)],
-      );
-    } else {
+    if (!decoratedUser) {
       decoratedUser = buildImmediateManagedUser({
         authUserId,
         schoolId: targetSchoolId,

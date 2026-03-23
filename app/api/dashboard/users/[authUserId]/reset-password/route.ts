@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  MANAGED_USER_SELECT,
   buildManagedUserAccountCard,
-  decorateManagedUsers,
+  fetchManagedUserByAuthUserId,
   generateTemporaryPassword,
-  normalizeManagedUserRecord,
   resolveManagedUsersActorContext,
   upsertManagedUserCredential,
 } from "@/lib/managed-users-server";
@@ -32,22 +30,20 @@ export async function POST(
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  const { data, error } = await actorSupabase
-    .from("managed_user_profiles")
-    .select(MANAGED_USER_SELECT)
-    .eq("auth_user_id", authUserId)
-    .eq("school_id", targetSchoolId)
-    .maybeSingle();
-
-  if (error) {
-    return jsonError(error.message || "تعذر تحميل الحساب المطلوب.", 500);
+  let user = null;
+  try {
+    user = await fetchManagedUserByAuthUserId(actorSupabase, {
+      authUserId,
+      schoolId: targetSchoolId,
+    });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر تحميل الحساب المطلوب.", 500);
   }
 
-  if (!data) {
+  if (!user) {
     return jsonError("الحساب المطلوب غير موجود داخل المدرسة الحالية.", 404);
   }
 
-  const user = normalizeManagedUserRecord(data as Record<string, unknown>);
   const temporaryPassword = generateTemporaryPassword();
   const serviceSupabase = createServiceSupabaseClient();
   const { error: authError } = await serviceSupabase.auth.admin.updateUserById(authUserId, {
@@ -65,16 +61,19 @@ export async function POST(
     temporaryPassword,
   });
 
-  const [decoratedUser] = await decorateManagedUsers(actorSupabase, [user]);
-  if (!decoratedUser) {
+  const refreshedUser = await fetchManagedUserByAuthUserId(actorSupabase, {
+    authUserId,
+    schoolId: targetSchoolId,
+  });
+  if (!refreshedUser) {
     return jsonError("تعذر إعادة تحميل الحساب بعد إعادة تعيين كلمة المرور.", 500);
   }
 
-  const accountCard = await buildManagedUserAccountCard(actorSupabase, decoratedUser);
+  const accountCard = await buildManagedUserAccountCard(actorSupabase, refreshedUser);
 
   return NextResponse.json({
     ok: true,
-    user: decoratedUser,
+    user: refreshedUser,
     accountCard,
   });
 }
