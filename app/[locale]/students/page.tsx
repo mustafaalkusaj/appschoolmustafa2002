@@ -1,5 +1,7 @@
 "use client";
+import type { Student, StudentWithFees, StudentStatus, StudentFormData } from "@/types/student";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePagedSupabaseList } from "@/hooks/usePagedSupabaseList";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
@@ -86,12 +88,22 @@ export default function StudentsPage() {
   const schoolScope = useSchoolScope(profile);
   const canManageStudents = canAny(["add_students", "edit_students", "delete_students"]);
   const isReadOnlyView = isReadOnlyPath("/students") || !canManageStudents;
-  const [students, setStudents] = useState<any[]>([]);
+  // No local setPagedStudents needed - hook manages
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(50);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [filterClass, setFilterClass] = useState("");
   const [filterSection, setFilterSection] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(""); 
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   const [showModal, setShowModal] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -105,7 +117,8 @@ export default function StudentsPage() {
   const [importError, setImportError] = useState("");
   const [activeMenu, setActiveMenu] = useState<string|null>(null);
   const [menuPos, setMenuPos] = useState({top:0,left:0});
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [classFees, setClassFees] = useState<any[]>([]);
@@ -113,7 +126,13 @@ export default function StudentsPage() {
   const [form, setForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
   const [editForm, setEditForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
 
-  useEffect(()=>{ setSearch(""); setFilterClass(""); setFilterSection(""); },[activeTab]);
+  useEffect(()=>{ 
+    setSearch(""); 
+    setFilterClass(""); 
+    setFilterSection(""); 
+    setPage(1);
+    setDebouncedSearch("");
+  },[activeTab]);
   useEffect(() => {
     const close = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -131,20 +150,76 @@ export default function StudentsPage() {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const fetchStudents = useCallback(async () => {
-    if (!profile) return;
-    setLoading(true);
+const fetchPagedStudents = useCallback(async (from: number, to: number): Promise<{data: StudentWithFees[], count: number, error: any}> => {
+    if (!profile) return { data: [], count: 0, error: null };
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    if (!schoolId) {
-      setStudents([]);
-      setLoading(false);
-      return;
+    if (!schoolId) return { data: [], count: 0, error: new Error("No school ID") };
+    
+    let query = supabase
+      .from("students")
+      .select("*", { count: 'exact', head: false })
+      .eq("school_id", schoolId)
+      .order("created_at", { ascending: false });
+
+    // Tab filter
+    if (activeTab === "active") {
+      query = query.in("status", ["active", "graduated", "archived", "withdrawn"]);
+    } else {
+      query = query.eq("status", activeTab);
     }
-    let query = supabase.from("students").select("*").eq("school_id", schoolId).order("created_at",{ascending:false});
-    const {data}=await query;
-    if(data)setStudents(data);
-    setLoading(false);
-  }, [profile, schoolScope.selectedSchoolId]);
+
+    // Search
+    if (debouncedSearch) {
+      query = query.or(`full_name.ilike.%${debouncedSearch}%,class_name.ilike.%${debouncedSearch}%`);
+    }
+
+    // Class filter
+    if (filterClass) {
+      query = query.eq("class_name", filterClass);
+    }
+
+    // Section filter
+    if (filterSection) {
+      query = query.eq("section", filterSection);
+    }
+
+let { data, count, error } = await query.range(from, to);
+    data = (data || []).map((student: Student) => ({
+      ...student,
+      remaining_fee: student.total_fee - student.paid_fee - student.discount_value,
+    }));
+    return { data, count: count || 0, error };
+  }, [profile, schoolScope.selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection]);
+
+  const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList({
+    enabled: Boolean(profile && !schoolScope.scopeLoading),
+    page,
+    pageSize,
+    fetchPage: fetchPagedStudents,
+  });
+
+  const pagedStudents: StudentWithFees[] = rows || []; 
+
+  const pagedStudents: StudentWithFees[] = rows || []; 
+    if (data) {
+      data = data.map((student: Student) => ({
+        ...student,
+    if (data) {
+
+      data = data.map((student: Student) => ({
+        ...student,
+    page,
+    pageSize,
+    fetchPage: fetchPagedStudents,
+  });
+
+  const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList({
+
+  // Reload on filters
+  useEffect(() => {
+    setPage(1);
+    reload();
+  }, [debouncedSearch, filterClass, filterSection, activeTab, reload]);
 
   const fetchClassFees = useCallback(async () => {
     if (!profile) return;
@@ -153,16 +228,13 @@ export default function StudentsPage() {
       setClassFees([]);
       return;
     }
-    let query = supabase.from("class_fees").select("*").eq("school_id", schoolId).order("class_name",{ascending:true});
-    const {data}=await query;
-    if(data)setClassFees(data);
+    const { data } = await supabase.from("class_fees").select("*").eq("school_id", schoolId).order("class_name", { ascending: true });
+    setClassFees(data || []);
   }, [profile, schoolScope.selectedSchoolId]);
 
   useEffect(() => {
-    if (!profile || schoolScope.scopeLoading) return;
-    void fetchStudents();
     void fetchClassFees();
-  }, [profile, schoolScope.scopeLoading, fetchStudents, fetchClassFees]);
+  }, [fetchClassFees]);
 
   async function getSchoolBranch(){
     return resolveSchoolBranchForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -204,7 +276,7 @@ export default function StudentsPage() {
       setSuccess("تم إضافة الطالب وإنشاء حساب التطبيق ✓");setShowModal(false);
       setAccountCard((payload?.accountCard as ManagedUserAccountCard | null) ?? null);
       setForm({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
-      fetchStudents(); setTimeout(()=>setSuccess(""),4000);
+      reload(); setTimeout(()=>setSuccess(""),4000);
     }
     setSaving(false);
   }
@@ -224,7 +296,7 @@ export default function StudentsPage() {
       status:editForm.status
     }).eq("id",selectedStudent.id);
     if(error)setError("خطأ: "+error.message);
-    else{setSuccess("تم تحديث البيانات ✓");setShowEdit(false);fetchStudents();setTimeout(()=>setSuccess(""),3000);}
+    else{setSuccess("تم تحديث البيانات ✓");setShowEdit(false);reload();setTimeout(()=>setSuccess(""),3000);}
     setSaving(false);
   }
 
@@ -242,7 +314,7 @@ export default function StudentsPage() {
     if (status === "active" || status === "transferred" || status === "suspended") {
       setActiveTab(status);
     }
-    setSuccess(msg); fetchStudents(); setTimeout(()=>setSuccess(""),3000);
+    setSuccess(msg); reload(); setTimeout(()=>setSuccess(""),3000);
   }
 
   async function handleDeleteConfirmed(){
@@ -259,7 +331,7 @@ export default function StudentsPage() {
     }
     setShowDeleteConfirm(false); setSelectedStudent(null);
     setActiveTab("deleted");
-    setSuccess("تم نقل الطالب للمحذوفين"); fetchStudents(); setTimeout(()=>setSuccess(""),3000);
+    setSuccess("تم نقل الطالب للمحذوفين"); reload(); setTimeout(()=>setSuccess(""),3000);
   }
 
   async function exportExcel(data:any[]){
@@ -277,12 +349,172 @@ export default function StudentsPage() {
     XLSX.writeFile(wb,`طلاب_${activeTab}_${formatDate(new Date())}.xlsx`);
   }
 
-  function handlePrint(s:any){
-    setError("");
-    const w=window.open("","_blank");
-    if(!w){ setError("يرجى السماح بالنوافذ المنبثقة للطباعة"); return; }
-    w.document.write(`<html dir="rtl"><head><title>بيانات الطالب</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem}h2{color:#4C2F9E}.r{margin:.5rem 0}b{min-width:150px;display:inline-block}</style></head><body><h2>بيانات الطالب</h2><hr/><div class="r"><b>الاسم:</b>${s.full_name}</div><div class="r"><b>الصف:</b>${s.class_name}</div><div class="r"><b>الشعبة:</b>${s.section||"—"}</div><div class="r"><b>العنوان:</b>${s.address||"—"}</div><div class="r"><b>الهاتف:</b>${s.phone||"—"}</div><div class="r"><b>إجمالي الرسوم:</b>د.ع ${formatNumber(s.total_fee)}</div><div class="r"><b>المدفوع:</b>د.ع ${formatNumber(s.paid_fee)}</div><div class="r"><b>المتبقي:</b>د.ع ${formatNumber(s.remaining_fee)}</div><script>window.print();window.close();</script></body></html>`);
+function printFilteredStudents(students: any[]) {
+  if (students.length === 0) {
+    setError("لا يوجد طلاب للطباعة بعد تطبيق الفلاتر.");
+    return;
   }
+
+  setError("");
+  const w = window.open("", "_blank");
+  if (!w) {
+    setError("يرجى السماح بالنوافذ المنبثقة للطباعة");
+    return;
+  }
+
+  const cardsHtml = students.map((s) => {
+    const classLine = [s.class_name, s.section ? `الشعبة ${s.section}` : null].filter(Boolean).join(" • ");
+    return `
+      <div class="student-card" style="break-inside: avoid; margin-bottom: 2rem;">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #eef4fb;">
+          <div>
+            <h3 style="font-size: 22px; font-weight: 900; margin: 0;">${s.full_name}</h3>
+            <p style="margin: 0.3rem 0 0 0; color: #547086; font-size: 14px;">${classLine || "—"}</p>
+          </div>
+          <div style="color: #547086; font-size: 13px;">${formatDate(s.updated_at || s.created_at)}</div>
+        </div>
+        <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+          <div class="info-box" style="border: 1px solid #e2e8f0; background: #f8fbff; border-radius: 16px; padding: 1.2rem;">
+            <div style="font-size: 13px; color: #64748b; margin-bottom: 0.5rem; font-weight: 600;">العنوان</div>
+            <div style="font-size: 16px; font-weight: 700;">${s.address || "—"}</div>
+          </div>
+          <div class="info-box" style="border: 1px solid #e2e8f0; background: #f8fbff; border-radius: 16px; padding: 1.2rem;">
+            <div style="font-size: 13px; color: #64748b; margin-bottom: 0.5rem; font-weight: 600;">الهاتف</div>
+            <div style="font-size: 16px; font-weight: 700; direction: ltr;">${s.phone || "—"}</div>
+          </div>
+          <div class="info-box fees" style="border: 1px solid #e2e8f0; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 16px; padding: 1.2rem;">
+            <div style="font-size: 13px; color: #0369a1; margin-bottom: 0.5rem; font-weight: 600;">إجمالي الرسوم</div>
+            <div style="font-size: 20px; font-weight: 900; color: #0c4a6e;">د.ع ${formatNumber(s.total_fee)}</div>
+          </div>
+          <div class="info-box paid" style="border: 1px solid #dcfce7; background: linear-gradient(135deg, #f0fdf4, #d1fae5); border-radius: 16px; padding: 1.2rem;">
+            <div style="font-size: 13px; color: #166534; margin-bottom: 0.5rem; font-weight: 600;">مدفوع / متبقي</div>
+            <div style="font-size: 18px; font-weight: 800;">
+              <span style="color: #059669;">د.ع ${formatNumber(s.paid_fee)}</span> / 
+              <span style="color: ${s.remaining_fee > 0 ? '#dc2626' : '#059669'}; font-weight: 900;">د.ع ${formatNumber(s.remaining_fee)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  w.document.write(`
+    <html dir="rtl">
+      <head>
+        <meta charset="utf-8">
+        <title>قائمة الطلاب المطبوعة (${students.length} طالب)</title>
+        <style>
+          @page { margin: 1.5cm; size: A4; }
+          body { 
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif; 
+            margin: 0; 
+            padding: 2rem; 
+            background: #eef4fb; 
+            color: #112338; 
+            line-height: 1.6;
+          }
+          .header { 
+            text-align: center; 
+            margin-bottom: 2.5rem; 
+            padding-bottom: 1.5rem; 
+            border-bottom: 3px solid #4C2F9E; 
+          }
+          .header h1 { 
+            font-size: 28px; 
+            font-weight: 900; 
+            color: #4C2F9E; 
+            margin: 0 0 0.5rem 0; 
+          }
+          .header p { 
+            font-size: 16px; 
+            color: #6B7280; 
+            margin: 0; 
+            font-weight: 600; 
+          }
+          .summary { 
+            background: white; 
+            border-radius: 20px; 
+            padding: 1.5rem; 
+            margin-bottom: 2rem; 
+            box-shadow: 0 8px 24px rgba(15,23,42,0.08); 
+            text-align: center; 
+          }
+          .summary-stats { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
+            gap: 1rem; 
+            margin-top: 1rem; 
+          }
+          .stat-box { 
+            background: linear-gradient(135deg, #EDE8FA, #E0D8F8); 
+            border-radius: 16px; 
+            padding: 1rem; 
+          }
+          .stat-label { 
+            font-size: 13px; 
+            color: #6C4AB6; 
+            margin-bottom: 0.3rem; 
+            font-weight: 600; 
+          }
+          .stat-value { 
+            font-size: 20px; 
+            font-weight: 900; 
+            color: #4C2F9E; 
+          }
+          .print-footer { 
+            margin-top: 3rem; 
+            padding-top: 2rem; 
+            border-top: 2px dashed #e5e7eb; 
+            text-align: center; 
+            color: #9CA3AF; 
+            font-size: 13px; 
+          }
+          @media print {
+            body { background: white !important; padding: 1cm !important; }
+            .student-card { page-break-inside: avoid; margin-bottom: 1.5cm; }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>قائمة الطلاب</h1>
+          <p>تم الطباعة في ${formatDate(new Date().toLocaleString('ar-IQ'))} | ${students.length} طالب فلتر مجتمع</p>
+        </div>
+        <div class="summary">
+          <p style="font-size: 16px; font-weight: 700; margin-bottom: 1rem;">ملخص الطلاب المختارين:</p>
+          <div class="summary-stats">
+            <div class="stat-box">
+              <div class="stat-label">إجمالي الطلاب</div>
+              <div class="stat-value">${students.length}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">إجمالي الرسوم</div>
+              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.total_fee || 0), 0))}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">المتبقي الكلي</div>
+              <div class="stat-value">د.ع ${formatNumber(students.reduce((sum, s) => sum + (s.remaining_fee || 0), 0))}</div>
+            </div>
+          </div>
+        </div>
+        ${cardsHtml}
+        <div class="print-footer">
+          <p>تم إنشاء هذه القائمة من نظام إدارة المدرسة | بيانات الحالة: ${formatDate(new Date())}</p>
+        </div>
+        <script>window.onload = () => window.print();</script>
+      </body>
+    </html>
+  `);
+  w.document.close();
+}
+
+function handlePrint(s:any){
+  setError("");
+  const w=window.open("","_blank");
+  if(!w){ setError("يرجى السماح بالنوافذ المنبثقة للطباعة"); return; }
+  w.document.write(`<html dir="rtl"><head><title>بيانات الطالب</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem}h2{color:#4C2F9E}.r{margin:.5rem 0}b{min-width:150px;display:inline-block}</style></head><body><h2>بيانات الطالب</h2><hr/><div class="r"><b>الاسم:</b>${s.full_name}</div><div class="r"><b>الصف:</b>${s.class_name}</div><div class="r"><b>الشعبة:</b>${s.section||"—"}</div><div class="r"><b>العنوان:</b>${s.address||"—"}</div><div class="r"><b>الهاتف:</b>${s.phone||"—"}</div><div class="r"><b>إجمالي الرسوم:</b>د.ع ${formatNumber(s.total_fee)}</div><div class="r"><b>المدفوع:</b>د.ع ${formatNumber(s.paid_fee)}</div><div class="r"><b>المتبقي:</b>د.ع ${formatNumber(s.remaining_fee)}</div><script>window.print();window.close();</script></body></html>`);
+}
 
   function openAccountCardWindow(card: ManagedUserAccountCard, autoPrint = true){
     const w=window.open("","_blank");
@@ -414,7 +646,7 @@ export default function StudentsPage() {
         setSuccess(`تم استيراد ${rows.length} طالب ✓`);
         setShowImport(false);setImportPreview([]);
         if(fileRef.current)fileRef.current.value="";
-        fetchStudents();setTimeout(()=>setSuccess(""),4000);
+        reload();setTimeout(()=>setSuccess(""),4000);
       }
       setImporting(false);
     };
@@ -432,7 +664,7 @@ export default function StudentsPage() {
     XLSX.writeFile(wb,"نموذج_الطلاب.xlsx");
   }
 
-  const statusMap:any={
+  const statusMap: Record<StudentStatus, {label: string, color: string, bg: string}> = {
     active:      {label:"نشط",    color:"#065F46",bg:"#D1FAE5"},
     transferred: {label:"منقول",  color:"#92400E",bg:"#FEF3C7"},
     graduated:   {label:"متخرج",  color:"#1E40AF",bg:"#DBEAFE"},
@@ -442,11 +674,8 @@ export default function StudentsPage() {
     deleted:     {label:"محذوف",  color:"#6B7280",bg:"#F3F4F6"},
   };
 
-  // فلترة حسب التبويب
-  const tabStudents = students.filter(s=>{
-    if(activeTab==="active") return s.status==="active"||s.status==="graduated"||s.status==="archived"||s.status==="withdrawn";
-    return s.status===activeTab;
-  });
+  // Paged data already filtered server-side
+  const tabStudents = pagedStudents;
 
   // فلترة حسب البحث والصف والشعبة
   const classes = Array.from(new Set(tabStudents.map((s:any)=>s.class_name))).filter(Boolean) as string[];
@@ -544,6 +773,7 @@ export default function StudentsPage() {
       .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
       .btn-excel{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
       .btn-export{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#DBEAFE;color:#1E40AF;border:1.5px solid #93C5FD;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
+      .btn-print{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
 
       /* TABLE */
       .tbl-wrap{background:white;border-radius:13px;border:1px solid rgba(108,74,182,0.06);overflow:hidden;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
@@ -608,8 +838,8 @@ export default function StudentsPage() {
       <div className="main">
         <div className="topbar">
           <div>
-            <div className="topbar-title">إدارة الطلاب</div>
-            <div className="topbar-sub">{students.filter(s=>s.status!=="deleted").length} طالب مسجل</div>
+          <div className="topbar-title">إدارة الطلاب</div>
+            <div className="topbar-sub">{totalCount} طالب إجمالي | صفحة {page} من {totalPages}</div>
           </div>
         </div>
 
@@ -681,6 +911,7 @@ export default function StudentsPage() {
                   {sectionsList.map(sec=><option key={sec} value={sec}>شعبة {sec}</option>)}
                 </select>
                 <button className="btn-export" onClick={()=>exportExcel(filtered)}><AppIcon token="📤" size={14} />تصدير إكسل</button>
+                <button className="btn-print" onClick={()=>printFilteredStudents(filtered)}><AppIcon token="🖨️" size={14} />طباعة الطلاب المفلترين</button>
                 {activeTab==="active" && !isReadOnlyView && <>
                   <button className="btn-excel" onClick={()=>setShowImport(true)}><AppIcon token="📊" size={14} />استيراد إكسل</button>
                   <button className="btn-add" onClick={()=>setShowModal(true)}>+ إضافة طالب</button>
@@ -689,51 +920,73 @@ export default function StudentsPage() {
 
               {/* TABLE */}
               <div className="tbl-wrap">
-                {loading?<div className="spin"/>:filtered.length===0?(
+                {pagedLoading ? <div className="spin" /> : error || pagedError ? (
                   <div className="empty">
-                    {tabStudents.length===0
-                      ?activeTab==="active" && !isReadOnlyView ? "لا يوجد طلاب — اضغط إضافة طالب" : `لا يوجد طلاب في هذه القائمة`
-                      :"لا توجد نتائج مطابقة للبحث"
+                    خطأ في تحميل البيانات: {error || (pagedError as any)?.message || "غير معروف"}
+                  </div>
+                ) : pagedStudents.length === 0 ? (
+                  <div className="empty">
+                    {totalCount === 0
+                      ? activeTab === "active" && !isReadOnlyView 
+                        ? "لا يوجد طلاب — اضغط إضافة طالب" 
+                        : `لا يوجد طلاب في هذه القائمة (${activeTab})`
+                      : "لا توجد نتائج مطابقة للفلاتر الحالية"
                     }
                   </div>
-                ):(
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>#</th><th>الاسم</th><th>الصف</th><th>الشعبة</th><th>العنوان</th><th>الهاتف</th>
-                        <th>الرسوم</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>خيارات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((s,i)=>{
-                        const st=statusMap[s.status]||statusMap.active;
-                        const actions=getActions(s);
-                        return <tr key={s.id}>
-                          <td style={{color:"var(--gray)",fontSize:".7rem"}}>{i+1}</td>
-                          <td>
-	                          <span
-	                            className="student-name"
-	                            style={{fontWeight:700,color:"var(--p2)",cursor:"pointer",textDecoration:"underline",textUnderlineOffset:"3px"}}
-	                            onClick={(e)=>openMenu(e,s)}
-	                          >{s.full_name}</span>
-                          </td>
-                          <td>{s.class_name}</td>
-                          <td>{s.section||"—"}</td>
-                          <td style={{color:"var(--gray)"}}>{s.address||"—"}</td>
-                          <td style={{color:"var(--gray)"}}>{s.phone||"—"}</td>
-                          <td>د.ع {formatNumber(s.total_fee)}</td>
-                          <td style={{color:"#10B981",fontWeight:600}}>د.ع {formatNumber(s.paid_fee)}</td>
-                          <td style={{color:s.remaining_fee>0?"#EF4444":"#10B981",fontWeight:600}}>د.ع {formatNumber(s.remaining_fee)}</td>
-                          <td><span className="badge" style={{background:st.bg,color:st.color}}>{st.label}</span></td>
-                          <td>
-                            {actions.length>0&&(
-                              <button className="btn-action" onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>openMenu(e,s)}>خيارات ▾</button>
-                            )}
-                          </td>
-                        </tr>;
-                      })}
-                    </tbody>
-                  </table>
+                ) : (
+                  <>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>#</th><th>الاسم</th><th>الصف</th><th>الشعبة</th><th>العنوان</th><th>الهاتف</th>
+                          <th>الرسوم</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>خيارات</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagedStudents.map((s,i)=>{
+                          const st=statusMap[s.status]||statusMap.active;
+                          const actions=getActions(s);
+                          return <tr key={s.id}>
+                            <td style={{color:"var(--gray)",fontSize:".7rem"}}>{(page - 1) * pageSize + i + 1}</td>
+                            <td>
+                              <span
+                                className="student-name"
+                                style={{fontWeight:700,color:"var(--p2)",cursor:"pointer",textDecoration:"underline",textUnderlineOffset:"3px"}}
+                                onClick={(e)=>openMenu(e,s)}
+                              >{s.full_name}</span>
+                            </td>
+                            <td>{s.class_name}</td>
+                            <td>{s.section||"—"}</td>
+                            <td style={{color:"var(--gray)"}}>{s.address||"—"}</td>
+                            <td style={{color:"var(--gray)"}}>{s.phone||"—"}</td>
+                            <td>د.ع {formatNumber(s.total_fee)}</td>
+                            <td style={{color:"#10B981",fontWeight:600}}>د.ع {formatNumber(s.paid_fee)}</td>
+                            <td style={{color:s.remaining_fee>0?"#EF4444":"#10B981",fontWeight:600}}>د.ع {formatNumber(s.remaining_fee)}</td>
+                            <td><span className="badge" style={{background:st.bg,color:st.color}}>{st.label}</span></td>
+                            <td>
+                              {actions.length>0&&(
+                                <button className="btn-action" onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>openMenu(e,s)}>خيارات ▾</button>
+                              )}
+                            </td>
+                          </tr>;
+                        })}
+                      </tbody>
+                    </table>
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="pagination flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+                        <button className="btn-nav disabled:opacity-50 px-4 py-2 bg-gradient-to-l from-purple-600 to-purple-700 text-white rounded-lg cursor-pointer hover:shadow-md transition-all disabled:cursor-not-allowed" disabled={page === 1} onClick={()=>setPage(page - 1)}>
+                          السابق
+                        </button>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          صفحة {page} من {totalPages} | {totalCount} طالب
+                        </span>
+                        <button className="btn-nav disabled:opacity-50 px-4 py-2 bg-gradient-to-l from-purple-600 to-purple-700 text-white rounded-lg cursor-pointer hover:shadow-md transition-all disabled:cursor-not-allowed" disabled={page === totalPages} onClick={()=>setPage(page + 1)}>
+                          التالي
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </>
