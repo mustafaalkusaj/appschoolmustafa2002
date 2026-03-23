@@ -83,10 +83,10 @@ export function AppSidebar({
       <div className="mt-auto shrink-0 pt-3">
         <div className={separatorClassName} />
         <div className="mt-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] p-2">
-          <ThemeModeToggle variant="inline" className="sidebar-theme-switch w-full" />
-          <button type="button" className={`${navClassName} danger mt-2 w-full justify-center`} onClick={handleLogout}>
+          <button type="button" className={`${navClassName} danger w-full justify-center`} onClick={handleLogout}>
             تسجيل الخروج
           </button>
+          <ThemeModeToggle variant="inline" className="sidebar-theme-switch mt-2 w-full" />
         </div>
       </div>
     </div>
