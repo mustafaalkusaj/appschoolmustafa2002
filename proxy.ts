@@ -7,7 +7,9 @@ import {
   hasAnyPermission,
   isRoleAllowedForPath,
   normalizePermissions,
-  normalizeUserRole,
+  resolveKnownUserRole,
+  type Permission,
+  type UserRole,
 } from "@/types/roles";
 import {
   APP_LOCALE,
@@ -39,6 +41,76 @@ function redirectWithPreservedNext(req: NextRequest, locale: string) {
     url.searchParams.set("next", nextPath);
   }
   return NextResponse.redirect(url);
+}
+
+type ProxyAccessState = {
+  role: UserRole;
+  permissions: Permission[];
+  schoolId: string | null;
+  userActive: boolean;
+  schoolActive: boolean;
+  subscriptionStatus: string | null;
+  subscriptionEnd: string | null;
+};
+
+async function resolveFallbackAccessState(supabase: any, userId: string): Promise<ProxyAccessState | null> {
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("role, school_id, is_active, permissions, custom_permissions")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return null;
+  }
+
+  const role = resolveKnownUserRole(profile.role);
+  if (!role) {
+    return null;
+  }
+
+  const rawPermissions =
+    Array.isArray(profile.custom_permissions) && profile.custom_permissions.length > 0
+      ? profile.custom_permissions
+      : profile.permissions;
+  const permissions = normalizePermissions(rawPermissions, role);
+
+  let schoolActive = true;
+  let subscriptionStatus: string | null = null;
+  let subscriptionEnd: string | null = null;
+
+  if (profile.school_id) {
+    const [{ data: school }, { data: subscription }] = await Promise.all([
+      supabase
+        .from("schools")
+        .select("is_active")
+        .eq("id", profile.school_id)
+        .maybeSingle(),
+      supabase
+        .from("subscriptions")
+        .select("status, end_date")
+        .eq("school_id", profile.school_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    schoolActive = school?.is_active !== false;
+    subscriptionStatus = subscription?.status ?? null;
+    subscriptionEnd = subscription?.end_date ?? null;
+  } else if (role !== "super_admin") {
+    schoolActive = false;
+  }
+
+  return {
+    role,
+    permissions,
+    schoolId: profile.school_id ?? null,
+    userActive: Boolean(profile.is_active),
+    schoolActive,
+    subscriptionStatus,
+    subscriptionEnd,
+  };
 }
 
 function normalizeLocaleInPath(req: NextRequest): NextResponse | null {
@@ -105,12 +177,13 @@ export async function proxy(req: NextRequest) {
   const strippedPath = stripLocaleFromPath(pathname);
   const isPublic = PUBLIC_PATHS.has(strippedPath);
   const session = await verifyRBACSession(req.cookies.get(RBAC_COOKIE_NAME)?.value);
+  const fallbackAccess = !session?.role && user?.id ? await resolveFallbackAccessState(supabase, user.id) : null;
 
-  // If user is authenticated but hits login, redirect to dashboard if RBAC is also valid
-  if (strippedPath === "/login" && user && session?.role) {
-    const role = normalizeUserRole(session.role);
+  // If user is authenticated but hits login, redirect using RBAC or a direct profile fallback.
+  if (strippedPath === "/login" && user && (session?.role || fallbackAccess?.role)) {
+    const role = session?.role ?? fallbackAccess?.role;
     const url = req.nextUrl.clone();
-    url.pathname = localizeAppPath(DEFAULT_PATH_BY_ROLE[role] ?? "/dashboard", locale);
+    url.pathname = localizeAppPath(DEFAULT_PATH_BY_ROLE[role ?? "employee"] ?? "/dashboard", locale);
     url.search = "";
     return NextResponse.redirect(url);
   }
@@ -120,23 +193,33 @@ export async function proxy(req: NextRequest) {
     return redirectWithPreservedNext(req, locale);
   }
 
-  // If path is protected and user IS authenticated but RBAC is missing, 
-  // let it proceed so client-side can initialize RBAC.
-  if (!isPublic && !session?.role) {
+  if (!session?.role && !fallbackAccess) {
+    if (!isPublic) {
+      const url = req.nextUrl.clone();
+      url.pathname = localizeAppPath("/access-denied", locale);
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
     return response;
   }
 
-  if (!session?.role) {
+  const role = session?.role ?? fallbackAccess?.role;
+  const permissions = session?.role
+    ? normalizePermissions(session.permissions, session.role)
+    : fallbackAccess?.permissions ?? [];
+  const userActive = session?.role ? session.userActive : fallbackAccess?.userActive ?? false;
+  const schoolId = session?.role ? session.schoolId : fallbackAccess?.schoolId ?? null;
+  const schoolActive = session?.role ? session.schoolActive : fallbackAccess?.schoolActive ?? false;
+  const subscriptionStatus = session?.role
+    ? session.subscriptionStatus
+    : fallbackAccess?.subscriptionStatus ?? null;
+  const subscriptionEnd = session?.role ? session.subscriptionEnd : fallbackAccess?.subscriptionEnd ?? null;
+
+  if (!role) {
     return response;
   }
 
-  // From here on, we have both Supabase User and RBAC Session
-  // We can proceed with RBAC checks
-
-  const role = normalizeUserRole(session.role);
-  const permissions = normalizePermissions(session.permissions, role);
-
-  if (!session.userActive && !isPublic) {
+  if (!userActive && !isPublic) {
     const url = req.nextUrl.clone();
     url.pathname = localizeAppPath("/access-denied", locale);
     url.search = "";
@@ -159,11 +242,11 @@ export async function proxy(req: NextRequest) {
   }
 
   if (role !== "super_admin" && !isPublic) {
-    const status = (session.subscriptionStatus || "").toLowerCase();
+    const status = (subscriptionStatus || "").toLowerCase();
     const blockedByStatus = status === "suspended" || status === "inactive" || status === "stopped";
-    const blockedByExpiry = status === "expired" || isSubscriptionExpired(session.subscriptionEnd);
+    const blockedByExpiry = status === "expired" || isSubscriptionExpired(subscriptionEnd);
 
-    if (!session.schoolId || session.schoolActive === false || blockedByStatus || blockedByExpiry) {
+    if (!schoolId || schoolActive === false || blockedByStatus || blockedByExpiry) {
       const url = req.nextUrl.clone();
       url.pathname = localizeAppPath("/subscription-expired", locale);
       url.search = "";

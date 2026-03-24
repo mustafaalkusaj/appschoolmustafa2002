@@ -31,9 +31,13 @@ const LEGACY_ROLE_MAP: Record<string, UserRole> = {
   employee: "employee",
 };
 
-export function normalizeUserRole(role: string | null | undefined): UserRole {
+export function resolveKnownUserRole(role: string | null | undefined): UserRole | null {
   const value = (role || "").toLowerCase();
-  return LEGACY_ROLE_MAP[value] ?? "employee";
+  return LEGACY_ROLE_MAP[value] ?? null;
+}
+
+export function normalizeUserRole(role: string | null | undefined): UserRole {
+  return resolveKnownUserRole(role) ?? "employee";
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {

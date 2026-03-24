@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
+import { isInfrastructureCompatError, isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
 import {
   MANAGED_USER_INACTIVE_BAN_DURATION,
   MANAGED_USER_ROLES,
@@ -15,21 +15,20 @@ import {
   buildManagedAuthIdentityPayload,
   buildTeacherClassesTaught,
   decorateManagedUsers,
+  fetchTeacherAssignments,
   findManagedProfileByLinkedRecord,
   fetchManagedUserByAuthUserId,
   fetchManagedAccountSchoolBrand,
   generateManagedLoginIdentifier,
   generateTemporaryPassword,
   normalizeManagedUserRecords,
-  persistManagedUserProfile,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
   resolveSchoolBranchId,
-  syncManagedAuthIdentityMetadata,
+  syncManagedUserAccountState,
   syncStudentTeacherLinks,
   getTeacherTableCapabilities,
   tableHasColumn,
-  upsertManagedUserCredential,
   type ManagedUsersActorContext,
 } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
@@ -291,13 +290,34 @@ async function fallbackListUsersFromUserProfiles(
     tableHasColumn(actorSupabase, "students", "auth_user_id"),
     tableHasColumn(actorSupabase, "teachers", "auth_user_id"),
   ]);
+  const teacherTableCapabilities = teachersLinkAvailable
+    ? await getTeacherTableCapabilities(actorSupabase)
+    : null;
+  const teacherSelectColumns = [
+    "id",
+    "auth_user_id",
+    "full_name",
+    "email",
+    "phone",
+    ...(teacherTableCapabilities?.specialization ? ["specialization"] : []),
+    ...(teacherTableCapabilities?.subject ? ["subject"] : []),
+    ...(teacherTableCapabilities?.notes ? ["notes"] : []),
+    ...(teacherTableCapabilities?.is_active ? ["is_active"] : []),
+    ...(teacherTableCapabilities?.status ? ["status"] : []),
+  ].join(", ");
 
   const [studentsResult, teachersResult] = await Promise.all([
     studentsLinkAvailable
-      ? actorSupabase.from("students").select("*").in("auth_user_id", authUserIds)
+      ? actorSupabase
+          .from("students")
+          .select("id, auth_user_id, full_name, class_name, section, address, total_fee, paid_fee, discount_value, status")
+          .in("auth_user_id", authUserIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
     teachersLinkAvailable
-      ? actorSupabase.from("teachers").select("*").in("auth_user_id", authUserIds)
+      ? actorSupabase
+          .from("teachers")
+          .select(teacherSelectColumns)
+          .in("auth_user_id", authUserIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
   ]);
 
@@ -382,6 +402,7 @@ async function fallbackListUsersFromUserProfiles(
 async function cleanupCreatedUser(options: {
   actorSupabase?: ManagedUsersActorContext["actorSupabase"];
   authUserId?: string | null;
+  schoolId?: string | null;
   role: "student" | "teacher";
   relatedRecordId?: string | null;
   cleanupRelatedRecord?: boolean;
@@ -393,8 +414,49 @@ async function cleanupCreatedUser(options: {
 
   if (options.actorSupabase && options.relatedRecordId && options.cleanupRelatedRecord !== false) {
     const table = options.role === "student" ? "students" : "teachers";
-    await options.actorSupabase.from(table).delete().eq("id", options.relatedRecordId);
+    let query = options.actorSupabase.from(table).delete().eq("id", options.relatedRecordId);
+    if (options.schoolId) {
+      query = query.eq("school_id", options.schoolId);
+    }
+    await query;
   }
+}
+
+async function resolveTeacherIdsForFilters(
+  actorSupabase: ManagedUsersActorContext["actorSupabase"],
+  schoolId: string,
+  filters: {
+    classFilter: string;
+    sectionFilter: string;
+    subjectFilter: string;
+  },
+) {
+  const { data: teachers, error } = await actorSupabase
+    .from("teachers")
+    .select("id")
+    .eq("school_id", schoolId);
+
+  if (error) {
+    throw error;
+  }
+
+  const teacherIds = ((teachers ?? []) as Array<{ id?: string | null }>)
+    .map((teacher) => teacher.id)
+    .filter((teacherId): teacherId is string => Boolean(teacherId));
+
+  if (teacherIds.length === 0) {
+    return [] as string[];
+  }
+
+  const assignmentsByTeacherId = await fetchTeacherAssignments(actorSupabase, teacherIds, {
+    schoolId,
+  });
+
+  return teacherIds.filter((teacherId) =>
+    (assignmentsByTeacherId.get(teacherId) ?? []).some((assignment) =>
+      teacherAssignmentMatchesFilters(assignment, filters),
+    ),
+  );
 }
 
 export async function GET(req: NextRequest) {
@@ -413,9 +475,9 @@ export async function GET(req: NextRequest) {
   const from = hasPagination ? (page - 1) * pageSize : 0;
   const to = hasPagination ? from + pageSize - 1 : 0;
   const requiresTeacherScopedFiltering =
-    roleFilter === "teacher" && Boolean(searchQuery || classFilter || sectionFilter || subjectFilter);
+    roleFilter === "teacher" && Boolean(classFilter || sectionFilter || subjectFilter);
 
-  const context = await resolveManagedUsersActorContext(schoolId);
+  const context = await resolveManagedUsersActorContext(schoolId, req.headers.get("authorization"));
   if (!context.ok) {
     return jsonError(
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
@@ -424,6 +486,23 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
+  const matchingTeacherIds = requiresTeacherScopedFiltering
+    ? await resolveTeacherIdsForFilters(actorSupabase, targetSchoolId, {
+        classFilter,
+        sectionFilter,
+        subjectFilter,
+      })
+    : null;
+
+  if (requiresTeacherScopedFiltering && matchingTeacherIds && matchingTeacherIds.length === 0) {
+    return NextResponse.json({
+      ok: true,
+      users: [],
+      totalCount: 0,
+      page,
+      pageSize: hasPagination ? pageSize : 0,
+    });
+  }
 
   let query = actorSupabase
     .from("managed_user_profiles")
@@ -441,19 +520,23 @@ export async function GET(req: NextRequest) {
     query = query.eq("is_active", false);
   }
 
-  if (searchQuery && !requiresTeacherScopedFiltering) {
+  if (searchQuery && !(requiresTeacherScopedFiltering && matchingTeacherIds)) {
     query = query.or(
       `full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`,
     );
   }
 
-  if (hasPagination && !requiresTeacherScopedFiltering) {
+  if (matchingTeacherIds) {
+    query = query.in("teacher_id", matchingTeacherIds);
+  }
+
+  if (hasPagination && !(requiresTeacherScopedFiltering && searchQuery)) {
     query = query.range(from, to);
   }
 
   const { data, error, count } = await query;
   if (error) {
-    if (isMissingTableError(error, "managed_user_profiles")) {
+    if (isMissingTableError(error, "managed_user_profiles") || isInfrastructureCompatError(error)) {
       const fallback = await fallbackListUsersFromUserProfiles(actorSupabase, targetSchoolId, {
         roleFilter,
         statusFilter,
@@ -488,7 +571,7 @@ export async function GET(req: NextRequest) {
 
   const normalizedUsers = normalizeManagedUserRecords((data ?? []) as Record<string, unknown>[]);
   const decoratedUsers = await decorateManagedUsers(actorSupabase, normalizedUsers);
-  const filteredUsers = requiresTeacherScopedFiltering
+  const filteredUsers = requiresTeacherScopedFiltering && Boolean(searchQuery)
     ? filterDecoratedManagedUsers(decoratedUsers, {
         roleFilter,
         searchQuery,
@@ -497,12 +580,15 @@ export async function GET(req: NextRequest) {
         subjectFilter,
       })
     : decoratedUsers;
-  const pagedUsers = requiresTeacherScopedFiltering && hasPagination ? filteredUsers.slice(from, to + 1) : filteredUsers;
+  const pagedUsers =
+    requiresTeacherScopedFiltering && Boolean(searchQuery) && hasPagination
+      ? filteredUsers.slice(from, to + 1)
+      : filteredUsers;
 
   return NextResponse.json({
     ok: true,
     users: pagedUsers,
-    totalCount: requiresTeacherScopedFiltering
+    totalCount: requiresTeacherScopedFiltering && Boolean(searchQuery)
       ? filteredUsers.length
       : typeof count === "number"
         ? count
@@ -523,7 +609,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const context = await resolveManagedUsersActorContext(validation.value.school_id);
+  const context = await resolveManagedUsersActorContext(
+    validation.value.school_id,
+    req.headers.get("authorization"),
+  );
   if (!context.ok) {
     return jsonError(
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
@@ -612,7 +701,8 @@ export async function POST(req: NextRequest) {
             paid_fee: validation.value.student!.paid_fee,
             discount_value: validation.value.student!.discount_value,
           })
-          .eq("id", String(matchingStudent.id));
+          .eq("id", String(matchingStudent.id))
+          .eq("school_id", targetSchoolId);
 
         if (reuseStudentError) {
           return jsonError(
@@ -723,7 +813,8 @@ export async function POST(req: NextRequest) {
         const { error: reuseTeacherError } = await actorSupabase
           .from("teachers")
           .update(teacherInsertPayload)
-          .eq("id", String(matchingTeacher.id));
+          .eq("id", String(matchingTeacher.id))
+          .eq("school_id", targetSchoolId);
 
         if (reuseTeacherError) {
           return jsonError(
@@ -795,6 +886,7 @@ export async function POST(req: NextRequest) {
     if (createAuthError || !authData?.user) {
       await cleanupCreatedUser({
         actorSupabase,
+        schoolId: targetSchoolId,
         role: validation.value.role,
         relatedRecordId,
         cleanupRelatedRecord,
@@ -817,6 +909,7 @@ export async function POST(req: NextRequest) {
         await cleanupCreatedUser({
           actorSupabase,
           authUserId,
+          schoolId: targetSchoolId,
           role: validation.value.role,
           relatedRecordId,
           cleanupRelatedRecord,
@@ -829,12 +922,14 @@ export async function POST(req: NextRequest) {
     const { error: linkRelatedRecordError } = await actorSupabase
       .from(relatedTable)
       .update({ auth_user_id: authUserId })
-      .eq("id", relatedRecordId);
+      .eq("id", relatedRecordId)
+      .eq("school_id", targetSchoolId);
 
     if (linkRelatedRecordError) {
       await cleanupCreatedUser({
         actorSupabase,
         authUserId,
+        schoolId: targetSchoolId,
         role: validation.value.role,
         relatedRecordId,
         cleanupRelatedRecord,
@@ -846,8 +941,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      await persistManagedUserProfile(actorSupabase, {
-        mode: "insert",
+      await syncManagedUserAccountState(actorSupabase, {
         authUserId,
         schoolId: targetSchoolId,
         role: validation.value.role,
@@ -858,11 +952,13 @@ export async function POST(req: NextRequest) {
         studentId: validation.value.role === "student" ? relatedRecordId : null,
         teacherId: validation.value.role === "teacher" ? relatedRecordId : null,
         createdBy: actorUserId,
+        temporaryPassword,
       });
     } catch (profileError) {
       await cleanupCreatedUser({
         authUserId,
         actorSupabase,
+        schoolId: targetSchoolId,
         role: validation.value.role,
         relatedRecordId,
         cleanupRelatedRecord,
@@ -884,6 +980,7 @@ export async function POST(req: NextRequest) {
         await cleanupCreatedUser({
           authUserId,
           actorSupabase,
+          schoolId: targetSchoolId,
           role: validation.value.role,
           relatedRecordId,
           cleanupRelatedRecord,
@@ -910,38 +1007,6 @@ export async function POST(req: NextRequest) {
       } catch {
         // Ignore auto-link failures to avoid blocking account creation.
       }
-    }
-
-    await upsertManagedUserCredential(actorSupabase, {
-      authUserId,
-      schoolId: targetSchoolId,
-      loginIdentifier,
-      temporaryPassword,
-    });
-
-    try {
-      await syncManagedAuthIdentityMetadata({
-        authUserId,
-        role: validation.value.role,
-        schoolId: targetSchoolId,
-        fullName: validation.value.full_name,
-        loginIdentifier,
-        createdBy: actorUserId,
-        isActive: validation.value.is_active,
-      });
-    } catch (identityError) {
-      await cleanupCreatedUser({
-        authUserId,
-        actorSupabase,
-        role: validation.value.role,
-        relatedRecordId,
-        cleanupRelatedRecord,
-      });
-
-      return jsonError(
-        identityError instanceof Error ? identityError.message : "تعذر مزامنة هوية حساب التطبيق.",
-        500,
-      );
     }
 
     let decoratedUser: ManagedUserRecord | null = null;
@@ -1047,6 +1112,7 @@ export async function POST(req: NextRequest) {
     await cleanupCreatedUser({
       authUserId,
       actorSupabase,
+      schoolId: targetSchoolId,
       role: validation.value.role,
       relatedRecordId,
       cleanupRelatedRecord,

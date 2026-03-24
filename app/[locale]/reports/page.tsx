@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { formatDate, formatNumber } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -16,6 +15,7 @@ import { loadXLSX } from "@/lib/xlsx-loader";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 
 type StudentRow = {
   id: string;
@@ -59,6 +59,44 @@ type SalaryRow = {
   teachers?: { full_name: string | null; subject: string | null } | null;
 };
 
+type ReportsMetrics = {
+  studentsCount: number;
+  activeStudents: number;
+  totalFees: number;
+  totalPaid: number;
+  totalRemaining: number;
+  paymentsCount: number;
+  paymentVolume: number;
+  todayPayments: number;
+  expensesCount: number;
+  expenseVolume: number;
+  expenseTypeCount: number;
+  salariesCount: number;
+  salaryVolume: number;
+  currentMonthSalaryCount: number;
+  netBalance: number;
+};
+
+type DatasetType = "students" | "payments" | "expenses" | "salaries" | "all";
+
+const EMPTY_REPORTS_METRICS: ReportsMetrics = {
+  studentsCount: 0,
+  activeStudents: 0,
+  totalFees: 0,
+  totalPaid: 0,
+  totalRemaining: 0,
+  paymentsCount: 0,
+  paymentVolume: 0,
+  todayPayments: 0,
+  expensesCount: 0,
+  expenseVolume: 0,
+  expenseTypeCount: 0,
+  salariesCount: 0,
+  salaryVolume: 0,
+  currentMonthSalaryCount: 0,
+  netBalance: 0,
+};
+
 function paymentMethodLabel(method: string | null | undefined) {
   return (
     {
@@ -90,71 +128,51 @@ export default function ReportsPage() {
   const { profile } = useRole();
   const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
-  const [students, setStudents] = useState<StudentRow[]>([]);
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
-  const [salaries, setSalaries] = useState<SalaryRow[]>([]);
+  const datasetCacheRef = useRef<{
+    students?: StudentRow[];
+    payments?: PaymentRow[];
+    expenses?: ExpenseRow[];
+    salaries?: SalaryRow[];
+  }>({});
+  const [metrics, setMetrics] = useState<ReportsMetrics>(EMPTY_REPORTS_METRICS);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<DatasetType | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!profile) return;
 
     setLoading(true);
-    const schoolId = await resolveSchoolIdForProfile(profile, {
-      selectedSchoolId: schoolScope.selectedSchoolId,
-    });
+    try {
+      const schoolId = await resolveSchoolIdForProfile(profile, {
+        selectedSchoolId: schoolScope.selectedSchoolId,
+      });
 
-    if (!schoolId) {
-      setStudents([]);
-      setPayments([]);
-      setExpenses([]);
-      setSalaries([]);
+      if (!schoolId) {
+        datasetCacheRef.current = {};
+        setMetrics(EMPTY_REPORTS_METRICS);
+        return;
+      }
+
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics }>(
+        `/api/web/reports/overview?schoolId=${encodeURIComponent(schoolId)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          payload && typeof payload === "object" && "error" in payload
+            ? ((payload as { error?: { message?: string } }).error?.message || "تعذر تحميل التقارير.")
+            : "تعذر تحميل التقارير.",
+        );
+      }
+
+      datasetCacheRef.current = {};
+      setMetrics(payload?.metrics ?? EMPTY_REPORTS_METRICS);
+    } catch {
+      datasetCacheRef.current = {};
+      setMetrics(EMPTY_REPORTS_METRICS);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const [studentsResult, paymentsResult, expensesResult, salariesResult] = await Promise.all([
-      supabase
-        .from("students")
-        .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, status, phone, address")
-        .eq("school_id", schoolId)
-        .neq("status", "deleted")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("payments")
-        .select("id, amount, created_at, payment_method, receipt_number, notes, students(full_name,class_name)")
-        .eq("school_id", schoolId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("expenses")
-        .select("id, amount, expense_date, recipient, receipt_number, notes, expense_types(name)")
-        .eq("school_id", schoolId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("salaries")
-        .select("id, gross_salary, deductions, month, paid_at, is_paid, teachers(full_name,subject)")
-        .eq("school_id", schoolId)
-        .order("paid_at", { ascending: false }),
-    ]);
-
-    const normalizedPayments = (paymentsResult.data || []).map((item) => ({
-      ...item,
-      students: Array.isArray(item.students) ? item.students[0] ?? null : item.students ?? null,
-    }));
-    const normalizedExpenses = (expensesResult.data || []).map((item) => ({
-      ...item,
-      expense_types: Array.isArray(item.expense_types) ? item.expense_types[0] ?? null : item.expense_types ?? null,
-    }));
-    const normalizedSalaries = (salariesResult.data || []).map((item) => ({
-      ...item,
-      teachers: Array.isArray(item.teachers) ? item.teachers[0] ?? null : item.teachers ?? null,
-    }));
-
-    setStudents((studentsResult.data || []) as StudentRow[]);
-    setPayments(normalizedPayments as PaymentRow[]);
-    setExpenses(normalizedExpenses as ExpenseRow[]);
-    setSalaries(normalizedSalaries as SalaryRow[]);
-    setLoading(false);
   }, [profile, schoolScope.selectedSchoolId]);
 
   useEffect(() => {
@@ -162,29 +180,109 @@ export default function ReportsPage() {
     void fetchAll();
   }, [fetchAll, profile, schoolScope.scopeLoading]);
 
-  const metrics = useMemo(() => {
-    const totalFees = students.reduce((sum, item) => sum + (item.total_fee || 0), 0);
-    const totalPaid = students.reduce((sum, item) => sum + (item.paid_fee || 0), 0);
-    const totalRemaining = students.reduce((sum, item) => sum + (item.remaining_fee || 0), 0);
-    const paymentVolume = payments.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const expenseVolume = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const salaryVolume = salaries.reduce(
-      (sum, item) => sum + Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
-      0,
-    );
-    const activeStudents = students.filter((item) => item.status === "active").length;
+  const getScopedSchoolId = useCallback(async () => {
+    if (!profile) return null;
+    return resolveSchoolIdForProfile(profile, {
+      selectedSchoolId: schoolScope.selectedSchoolId,
+    });
+  }, [profile, schoolScope.selectedSchoolId]);
 
-    return {
-      totalFees,
-      totalPaid,
-      totalRemaining,
-      paymentVolume,
-      expenseVolume,
-      salaryVolume,
-      activeStudents,
-      netBalance: paymentVolume - expenseVolume - salaryVolume,
-    };
-  }, [students, payments, expenses, salaries]);
+  const loadDataset = useCallback(
+    async (type: Exclude<DatasetType, "all">) => {
+      const cached = datasetCacheRef.current[type];
+      if (cached) return cached;
+
+      const schoolId = await getScopedSchoolId();
+      if (!schoolId) return [];
+
+      setActionLoading(type);
+      try {
+        const { response, payload } = await fetchJsonWithAuthorizedSession<{
+          students?: StudentRow[];
+          payments?: PaymentRow[];
+          expenses?: ExpenseRow[];
+          salaries?: SalaryRow[];
+          error?: { message?: string };
+        }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=${type}`);
+
+        if (!response.ok) {
+          throw new Error(payload?.error?.message || "تعذر تجهيز بيانات التقرير.");
+        }
+
+        const nextRows =
+          type === "students"
+            ? payload?.students ?? []
+            : type === "payments"
+              ? payload?.payments ?? []
+              : type === "expenses"
+                ? payload?.expenses ?? []
+                : payload?.salaries ?? [];
+
+        datasetCacheRef.current[type] = nextRows as never;
+        return nextRows;
+      } finally {
+        setActionLoading((current) => (current === type ? null : current));
+      }
+    },
+    [getScopedSchoolId],
+  );
+
+  const loadAllDatasets = useCallback(async () => {
+    if (
+      datasetCacheRef.current.students &&
+      datasetCacheRef.current.payments &&
+      datasetCacheRef.current.expenses &&
+      datasetCacheRef.current.salaries
+    ) {
+      return {
+        students: datasetCacheRef.current.students,
+        payments: datasetCacheRef.current.payments,
+        expenses: datasetCacheRef.current.expenses,
+        salaries: datasetCacheRef.current.salaries,
+      };
+    }
+
+    const schoolId = await getScopedSchoolId();
+    if (!schoolId) {
+      return {
+        students: [] as StudentRow[],
+        payments: [] as PaymentRow[],
+        expenses: [] as ExpenseRow[],
+        salaries: [] as SalaryRow[],
+      };
+    }
+
+    setActionLoading("all");
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        students?: StudentRow[];
+        payments?: PaymentRow[];
+        expenses?: ExpenseRow[];
+        salaries?: SalaryRow[];
+        error?: { message?: string };
+      }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=all`);
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تجهيز التقرير الشامل.");
+      }
+
+      datasetCacheRef.current = {
+        students: payload?.students ?? [],
+        payments: payload?.payments ?? [],
+        expenses: payload?.expenses ?? [],
+        salaries: payload?.salaries ?? [],
+      };
+
+      return {
+        students: datasetCacheRef.current.students,
+        payments: datasetCacheRef.current.payments,
+        expenses: datasetCacheRef.current.expenses,
+        salaries: datasetCacheRef.current.salaries,
+      };
+    } finally {
+      setActionLoading((current) => (current === "all" ? null : current));
+    }
+  }, [getScopedSchoolId]);
 
   async function exportRows(rows: Record<string, unknown>[], sheetName: string, fileName: string) {
     const XLSX = await loadXLSX();
@@ -195,6 +293,7 @@ export default function ReportsPage() {
   }
 
   async function exportStudentsExcel() {
+    const students = await loadDataset("students");
     await exportRows(
       students.map((item) => ({
         الاسم: item.full_name,
@@ -212,6 +311,7 @@ export default function ReportsPage() {
   }
 
   async function exportPaymentsExcel() {
+    const payments = await loadDataset("payments");
     await exportRows(
       payments.map((item) => ({
         الطالب: item.students?.full_name || "—",
@@ -228,6 +328,7 @@ export default function ReportsPage() {
   }
 
   async function exportExpensesExcel() {
+    const expenses = await loadDataset("expenses");
     await exportRows(
       expenses.map((item) => ({
         النوع: item.expense_types?.name || "—",
@@ -243,6 +344,7 @@ export default function ReportsPage() {
   }
 
   async function exportSalariesExcel() {
+    const salaries = await loadDataset("salaries");
     await exportRows(
       salaries.map((item) => ({
         الأستاذ: item.teachers?.full_name || "—",
@@ -260,6 +362,7 @@ export default function ReportsPage() {
 
   async function exportAllExcel() {
     const XLSX = await loadXLSX();
+    const { students, payments, expenses, salaries } = await loadAllDatasets();
     const wb = XLSX.utils.book_new();
     const sheets = [
       {
@@ -336,7 +439,8 @@ export default function ReportsPage() {
     win.document.close();
   }
 
-  function printStudents() {
+  async function printStudents() {
+    const students = await loadDataset("students");
     printDocument(
       isEnglish ? "Students report" : "تقرير الطلاب",
       isEnglish ? `${students.length} students` : `${students.length} طالب`,
@@ -354,7 +458,8 @@ export default function ReportsPage() {
     );
   }
 
-  function printPayments() {
+  async function printPayments() {
+    const payments = await loadDataset("payments");
     printDocument(
       isEnglish ? "Payments report" : "تقرير الحسابات",
       isEnglish ? `${payments.length} payments` : `${payments.length} دفعة`,
@@ -372,7 +477,8 @@ export default function ReportsPage() {
     );
   }
 
-  function printExpenses() {
+  async function printExpenses() {
+    const expenses = await loadDataset("expenses");
     printDocument(
       isEnglish ? "Expenses report" : "تقرير المصروفات",
       isEnglish ? `${expenses.length} expenses` : `${expenses.length} مصروف`,
@@ -390,7 +496,8 @@ export default function ReportsPage() {
     );
   }
 
-  function printSalaries() {
+  async function printSalaries() {
+    const salaries = await loadDataset("salaries");
     printDocument(
       isEnglish ? "Salaries report" : "تقرير الرواتب",
       isEnglish ? `${salaries.length} salary records` : `${salaries.length} سجل راتب`,
@@ -435,7 +542,7 @@ export default function ReportsPage() {
       background: "#EDE8FA",
       description: "بيانات الطلاب والرسوم وحالة التسجيل الحالية.",
       stats: [
-        { label: "إجمالي الطلاب", value: formatNumber(students.length) },
+        { label: "إجمالي الطلاب", value: formatNumber(metrics.studentsCount) },
         { label: "الطلاب النشطون", value: formatNumber(metrics.activeStudents) },
         { label: "إجمالي الرسوم", value: `د.ع ${formatNumber(metrics.totalFees)}` },
         { label: "المتبقي", value: `د.ع ${formatNumber(metrics.totalRemaining)}` },
@@ -451,14 +558,9 @@ export default function ReportsPage() {
       background: "#D1FAE5",
       description: "سجل الدفعات والتحصيلات المرتبطة بالطلاب.",
       stats: [
-        { label: "عدد الدفعات", value: formatNumber(payments.length) },
+        { label: "عدد الدفعات", value: formatNumber(metrics.paymentsCount) },
         { label: "إجمالي الحسابات", value: `د.ع ${formatNumber(metrics.paymentVolume)}` },
-        {
-          label: "دفعات اليوم",
-          value: formatNumber(
-            payments.filter((item) => new Date(item.created_at || "").toDateString() === new Date().toDateString()).length,
-          ),
-        },
+        { label: "دفعات اليوم", value: formatNumber(metrics.todayPayments) },
       ],
       onExcel: exportPaymentsExcel,
       onPrint: printPayments,
@@ -471,12 +573,9 @@ export default function ReportsPage() {
       background: "#FEE2E2",
       description: "المصروفات التشغيلية حسب النوع والتاريخ.",
       stats: [
-        { label: "عدد السجلات", value: formatNumber(expenses.length) },
+        { label: "عدد السجلات", value: formatNumber(metrics.expensesCount) },
         { label: "إجمالي المصروفات", value: `د.ع ${formatNumber(metrics.expenseVolume)}` },
-        {
-          label: "أنواع المصروفات",
-          value: formatNumber(new Set(expenses.map((item) => item.expense_types?.name || "")).size),
-        },
+        { label: "أنواع المصروفات", value: formatNumber(metrics.expenseTypeCount) },
       ],
       onExcel: exportExpensesExcel,
       onPrint: printExpenses,
@@ -489,9 +588,9 @@ export default function ReportsPage() {
       background: "#DBEAFE",
       description: "رواتب الأساتذة الشهرية مع صافي الاستحقاق بعد الخصومات.",
       stats: [
-        { label: "عدد السجلات", value: formatNumber(salaries.length) },
+        { label: "عدد السجلات", value: formatNumber(metrics.salariesCount) },
         { label: "إجمالي الصافي", value: `د.ع ${formatNumber(metrics.salaryVolume)}` },
-        { label: "مدفوعات الشهر", value: formatNumber(salaries.filter((item) => item.month === new Date().toISOString().slice(0, 7)).length) },
+        { label: "مدفوعات الشهر", value: formatNumber(metrics.currentMonthSalaryCount) },
       ],
       onExcel: exportSalariesExcel,
       onPrint: printSalaries,
@@ -588,10 +687,10 @@ export default function ReportsPage() {
                 <>
                   <div className="summary-strip">
                     {[
-                      ["👥", "الطلاب", students.length],
-                      ["💳", "الدفعات", payments.length],
-                      ["💸", "المصروفات", expenses.length],
-                      ["💼", "الرواتب", salaries.length],
+                      ["👥", "الطلاب", metrics.studentsCount],
+                      ["💳", "الدفعات", metrics.paymentsCount],
+                      ["💸", "المصروفات", metrics.expensesCount],
+                      ["💼", "الرواتب", metrics.salariesCount],
                     ].map(([icon, label, value]) => (
                       <div className="strip-card" key={label}>
                         <div><AppIcon token={String(icon)} size={18} /></div>
@@ -626,11 +725,11 @@ export default function ReportsPage() {
                   <div className="section-hdr">
                     <div className="section-ttl">التقارير التفصيلية</div>
                     <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
-                      <button className="btn-main" onClick={exportAllExcel}>
+                      <button className="btn-main" onClick={exportAllExcel} disabled={actionLoading !== null}>
                         <AppIcon token="📥" size={14} />
-                        تصدير الكل إكسل
+                        {actionLoading === "all" ? "جارٍ التحضير..." : "تصدير الكل إكسل"}
                       </button>
-                      <button className="btn-main" style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }} onClick={printSummary}>
+                      <button className="btn-main" style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }} onClick={printSummary} disabled={actionLoading !== null}>
                         <AppIcon token="🖨️" size={14} />
                         طباعة الملخص
                       </button>
@@ -658,11 +757,11 @@ export default function ReportsPage() {
                           ))}
                         </div>
                         <div className="rc-actions">
-                          <button className="btn-excel" onClick={card.onExcel}>
+                          <button className="btn-excel" onClick={card.onExcel} disabled={actionLoading !== null}>
                             <AppIcon token="📊" size={13} />
-                            إكسل
+                            {actionLoading === card.id ? "جارٍ التحضير..." : "إكسل"}
                           </button>
-                          <button className="btn-print" onClick={card.onPrint}>
+                          <button className="btn-print" onClick={card.onPrint} disabled={actionLoading !== null}>
                             <AppIcon token="🖨️" size={13} />
                             طباعة
                           </button>

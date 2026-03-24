@@ -17,7 +17,7 @@ export async function GET(
 ) {
   const { authUserId } = await params;
   const schoolId = req.nextUrl.searchParams.get("schoolId");
-  const context = await resolveManagedUsersActorContext(schoolId);
+  const context = await resolveManagedUsersActorContext(schoolId, req.headers.get("authorization"));
 
   if (!context.ok) {
     return jsonError(
@@ -42,7 +42,10 @@ export async function GET(
   }
 
   const accountCard = await buildManagedUserAccountCard(actorSupabase, user);
-  await markAccountCardPrinted(actorSupabase, authUserId);
+  await markAccountCardPrinted(actorSupabase, {
+    authUserId,
+    schoolId: targetSchoolId,
+  });
 
   return NextResponse.json({
     ok: true,

@@ -36,7 +36,7 @@ import {
   FileDown,
   Flag,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useToast } from "@/components/toast";
 import {
   getUserProfile,
@@ -47,6 +47,7 @@ import {
   type UserProfile,
 } from "@/lib/auth";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolLogo } from "@/components/SchoolLogo";
 import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import { requestRuntimeBrandingRefresh } from "@/hooks/useRuntimeBranding";
@@ -60,14 +61,10 @@ import {
 import {
   type AdminInfrastructure,
   DEFAULT_ADMIN_INFRASTRUCTURE,
-  detectAdminInfrastructure,
-  getAdminInfrastructureNotice,
-  isInfrastructureCompatError,
-  isMissingRelationError,
 } from "@/lib/admin-infrastructure";
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
-import { type AppSchemaCompat, detectAppSchemaCompat } from "@/lib/schema-compat";
+import { type AppSchemaCompat } from "@/lib/schema-compat";
 import { PERMISSION_GROUPS } from "@/types/roles";
 
 // New Components
@@ -271,18 +268,6 @@ function relationName(value: SchoolRelation) {
   }
 
   return value?.name ?? null;
-}
-
-function attachSchoolNames<T extends { school_id: string | null }>(
-  records: T[],
-  schools: Array<Pick<SchoolRecord, "id" | "name">>,
-) {
-  const schoolNamesById = new Map(schools.map((school) => [school.id, school.name]));
-
-  return records.map((record) => ({
-    ...record,
-    schools: record.school_id ? { name: schoolNamesById.get(record.school_id) ?? null } : null,
-  }));
 }
 
 function getErrorMessage(error: unknown, fallback = "حدث خطأ غير متوقع") {
@@ -526,86 +511,6 @@ export default function SuperAdminPage() {
     return nextProfile;
   }, [locale]);
 
-  const fetchAll = useCallback(async (nextInfrastructure = DEFAULT_ADMIN_INFRASTRUCTURE) => {
-    const compatWarnings = new Set<string>();
-    const schoolsQuery = nextInfrastructure.softDeleteSchools
-      ? supabase.from("schools").select("*").is("deleted_at", null)
-      : supabase.from("schools").select("*");
-
-    const schoolsResponse = await schoolsQuery.order("created_at", { ascending: false });
-    if (schoolsResponse.error) throw schoolsResponse.error;
-
-    const nextSchools = ((schoolsResponse.data ?? []) as SchoolRecord[]).map((school) => {
-      const storedBranding = getStoredSchoolBranding(school.id);
-      return {
-        ...school,
-        primary_color: school.primary_color ?? storedBranding?.primaryColor ?? null,
-        secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? null,
-      };
-    });
-    const baseUserColumns = nextInfrastructure.customPermissions
-      ? "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions"
-      : "id, full_name, email, role, school_id, phone, is_active, created_at";
-    const usersQuery = nextInfrastructure.softDeleteUsers
-      ? supabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`).is("deleted_at", null)
-      : supabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`);
-
-    let usersResponse: any = await usersQuery.order("created_at", { ascending: false });
-    let usersNeedSchoolFallback = false;
-
-    if (usersResponse.error && isMissingRelationError(usersResponse.error, "user_profiles", "schools")) {
-      compatWarnings.add("تم تفعيل عرض بديل لأسماء المدارس لأن علاقة الربط لبعض جداول المدير العام غير متاحة حالياً.");
-      usersNeedSchoolFallback = true;
-      usersResponse = nextInfrastructure.softDeleteUsers
-        ? await supabase
-            .from("user_profiles")
-            .select(baseUserColumns)
-            .is("deleted_at", null)
-            .order("created_at", { ascending: false })
-        : await supabase.from("user_profiles").select(baseUserColumns).order("created_at", { ascending: false });
-    }
-
-    let subscriptionsResponse: any = await supabase
-      .from("subscriptions")
-      .select("*, schools(name)")
-      .order("created_at", { ascending: false });
-    let subscriptionsNeedSchoolFallback = false;
-
-    if (subscriptionsResponse.error && isMissingRelationError(subscriptionsResponse.error, "subscriptions", "schools")) {
-      compatWarnings.add("تم تفعيل عرض بديل لأسماء المدارس لأن علاقة الربط لبعض جداول المدير العام غير متاحة حالياً.");
-      subscriptionsNeedSchoolFallback = true;
-      subscriptionsResponse = await supabase.from("subscriptions").select("*").order("created_at", { ascending: false });
-    }
-
-    if (usersResponse.error) throw usersResponse.error;
-    if (subscriptionsResponse.error) throw subscriptionsResponse.error;
-
-    setSchools(nextSchools);
-    const rawUsers = (
-      usersNeedSchoolFallback
-        ? attachSchoolNames(
-            (usersResponse.data ?? []) as unknown as UserRecord[],
-            nextSchools,
-          )
-        : ((usersResponse.data ?? []) as unknown as Array<Record<string, unknown>>)
-    ) as Array<Record<string, unknown>>;
-    setUsers(
-      rawUsers.map((user) => ({
-        ...user,
-        custom_permissions: Array.isArray(user.custom_permissions)
-          ? (user.custom_permissions as Permission[])
-          : null,
-      })) as UserRecord[],
-    );
-    setSubscriptions(
-      subscriptionsNeedSchoolFallback
-        ? attachSchoolNames((subscriptionsResponse.data ?? []) as SubscriptionRecord[], nextSchools)
-        : ((subscriptionsResponse.data ?? []) as SubscriptionRecord[]),
-    );
-
-    return Array.from(compatWarnings);
-  }, []);
-
   const refreshDashboard = useCallback(async () => {
     setLoading(true);
 
@@ -613,21 +518,48 @@ export default function SuperAdminPage() {
       const nextProfile = await checkAuth();
       if (!nextProfile) return;
 
-      const compat = await detectAppSchemaCompat();
-      setSchemaCompat(compat);
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        infrastructure?: AdminInfrastructure;
+        schemaCompat?: AppSchemaCompat;
+        infrastructureNotice?: string;
+        schools?: SchoolRecord[];
+        users?: UserRecord[];
+        subscriptions?: SubscriptionRecord[];
+        error?: { message?: string };
+      }>("/api/web/super-admin/overview");
 
-      const nextInfrastructure = await detectAdminInfrastructure(supabase);
-      setInfrastructure(nextInfrastructure);
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل بيانات المدير العام.");
+      }
 
-      const fetchWarnings = await fetchAll(nextInfrastructure);
-      const notices = [getAdminInfrastructureNotice(nextInfrastructure), ...fetchWarnings].filter(Boolean);
-      setInfrastructureNotice(notices.join(" "));
+      setInfrastructure(payload?.infrastructure ?? DEFAULT_ADMIN_INFRASTRUCTURE);
+      setSchemaCompat(payload?.schemaCompat ?? null);
+      setInfrastructureNotice(payload?.infrastructureNotice ?? "");
+      setSchools(
+        (payload?.schools ?? []).map((school) => {
+          const storedBranding = getStoredSchoolBranding(school.id);
+          return {
+            ...school,
+            primary_color: school.primary_color ?? storedBranding?.primaryColor ?? null,
+            secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? null,
+          };
+        }),
+      );
+      setUsers(
+        (payload?.users ?? []).map((user) => ({
+          ...user,
+          custom_permissions: Array.isArray(user.custom_permissions)
+            ? (user.custom_permissions as Permission[])
+            : null,
+        })),
+      );
+      setSubscriptions(payload?.subscriptions ?? []);
     } catch (fetchError) {
       flashError(getErrorMessage(fetchError, "تعذر تحميل بيانات المدير العام."));
     } finally {
       setLoading(false);
     }
-  }, [checkAuth, fetchAll, flashError]);
+  }, [checkAuth, flashError]);
 
   useEffect(() => {
     void refreshDashboard();
@@ -733,15 +665,21 @@ export default function SuperAdminPage() {
 
   async function toggleSchool(id: string, current: boolean) {
     try {
-      const schoolResponse = await supabase.from("schools").update({ is_active: !current }).eq("id", id);
-      if (schoolResponse.error) throw schoolResponse.error;
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        school?: SchoolRecord;
+        error?: { message?: string };
+      }>(`/api/web/super-admin/schools/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          mode: "toggle",
+          is_active: !current,
+        }),
+      });
 
-      const subscriptionResponse = await supabase
-        .from("subscriptions")
-        .update({ status: current ? "suspended" : "active" })
-        .eq("school_id", id);
-
-      if (subscriptionResponse.error) throw subscriptionResponse.error;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحديث حالة المدرسة.");
+      }
 
       await logAction({
         action_type: "update",
@@ -763,30 +701,37 @@ export default function SuperAdminPage() {
     setError("");
     setSchoolFormNotice("");
 
-    const compat = schemaCompat ?? (await detectAppSchemaCompat());
-    setSchemaCompat(compat);
-
-    const payload = {
-      name: schoolForm.name,
-      address: schoolForm.address || null,
-      phone: schoolForm.phone || null,
-      owner_email: schoolForm.owner_email || null,
-      city: schoolForm.city || null,
-      logo_url: schoolForm.logo_url || null,
-      ...(compat.schoolColors
-        ? {
-            primary_color: schoolForm.primary_color || null,
-            secondary_color: schoolForm.secondary_color || null,
-          }
-        : {}),
-      plan: schoolForm.plan,
-      is_active: true,
-    };
-
     try {
       if (editSchool) {
-        const response = await supabase.from("schools").update(payload).eq("id", editSchool.id);
-        if (response.error) throw response.error;
+        const { response, payload } = await fetchJsonWithAuthorizedSession<{
+          school?: SchoolRecord;
+          schemaCompat?: AppSchemaCompat;
+          error?: { message?: string };
+        }>(`/api/web/super-admin/schools/${encodeURIComponent(editSchool.id)}`, {
+          method: "PATCH",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({
+            mode: "update",
+            name: schoolForm.name,
+            address: schoolForm.address || null,
+            phone: schoolForm.phone || null,
+            owner_email: schoolForm.owner_email || null,
+            city: schoolForm.city || null,
+            logo_url: schoolForm.logo_url || null,
+            primary_color: schoolForm.primary_color || null,
+            secondary_color: schoolForm.secondary_color || null,
+            plan: schoolForm.plan,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(payload?.error?.message || "تعذر حفظ بيانات المدرسة.");
+        }
+
+        const compat = payload?.schemaCompat ?? schemaCompat;
+        if (compat) {
+          setSchemaCompat(compat);
+        }
 
         setStoredSchoolBranding(editSchool.id, {
           primaryColor: schoolForm.primary_color || null,
@@ -801,24 +746,46 @@ export default function SuperAdminPage() {
           action_type: "update",
           entity_type: "school",
           entity_id: editSchool.id,
-          summary: `تعديل بيانات المدرسة: ${payload.name}`,
+          summary: `تعديل بيانات المدرسة: ${schoolForm.name}`,
         });
 
         flashSuccess(
-          compat.schoolColors
+          compat?.schoolColors
             ? "تم تحديث بيانات المدرسة."
             : "تم تحديث بيانات المدرسة، وحُفظت الألوان محلياً لأن أعمدة الألوان غير موجودة في Supabase الحالي.",
         );
       } else {
-        const { data: newSchool, error: schoolError } = await supabase
-          .from("schools")
-          .insert(payload)
-          .select()
-          .single();
+        const { response, payload } = await fetchJsonWithAuthorizedSession<{
+          school?: SchoolRecord;
+          schemaCompat?: AppSchemaCompat;
+          branchSkipped?: boolean;
+          error?: { message?: string };
+        }>("/api/web/super-admin/schools", {
+          method: "POST",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({
+            name: schoolForm.name,
+            address: schoolForm.address || null,
+            phone: schoolForm.phone || null,
+            owner_email: schoolForm.owner_email || null,
+            city: schoolForm.city || null,
+            logo_url: schoolForm.logo_url || null,
+            primary_color: schoolForm.primary_color || null,
+            secondary_color: schoolForm.secondary_color || null,
+            plan: schoolForm.plan,
+          }),
+        });
 
-        if (schoolError) throw schoolError;
+        if (!response.ok || !payload?.school) {
+          throw new Error(payload?.error?.message || "تعذر حفظ بيانات المدرسة.");
+        }
 
-        setStoredSchoolBranding(newSchool.id, {
+        const compat = payload?.schemaCompat ?? schemaCompat;
+        if (compat) {
+          setSchemaCompat(compat);
+        }
+
+        setStoredSchoolBranding(payload.school.id, {
           primaryColor: schoolForm.primary_color || null,
           secondaryColor: schoolForm.secondary_color || null,
           sidebarColor: schoolForm.sidebar_color || null,
@@ -830,42 +797,14 @@ export default function SuperAdminPage() {
         await logAction({
           action_type: "create",
           entity_type: "school",
-          entity_id: newSchool.id,
-          summary: `إنشاء مدرسة جديدة: ${payload.name}`,
+          entity_id: payload.school.id,
+          summary: `إنشاء مدرسة جديدة: ${schoolForm.name}`,
         });
-
-        const { error: subscriptionError } = await supabase.from("subscriptions").insert({
-          school_id: newSchool.id,
-          plan: schoolForm.plan,
-          status: "active",
-          start_date: new Date().toISOString().split("T")[0],
-          end_date: new Date(Date.now() + 365 * DAY_IN_MS).toISOString().split("T")[0],
-        });
-
-        if (subscriptionError) throw subscriptionError;
-
-        let branchSkipped = !infrastructure.branches;
-        if (!branchSkipped) {
-          const branchPayload = {
-            school_id: newSchool.id,
-            name: "الفرع الرئيسي",
-            ...(compat.branchesIsMain ? { is_main: true } : {}),
-          };
-          const { error: branchError } = await supabase.from("branches").insert(branchPayload);
-
-          if (branchError) {
-            if (isInfrastructureCompatError(branchError)) {
-              branchSkipped = true;
-            } else {
-              throw branchError;
-            }
-          }
-        }
 
         flashSuccess(
-          branchSkipped
+          payload?.branchSkipped
             ? "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي. تم تجاوز إنشاء الفرع الرئيسي لأن بنية الفروع غير متاحة حالياً."
-            : compat.schoolColors
+            : compat?.schoolColors
               ? "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي."
               : "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي، وحُفظت الألوان محلياً بسبب غياب أعمدة الألوان في Supabase الحالي.",
         );
@@ -901,8 +840,18 @@ export default function SuperAdminPage() {
 
     try {
       if (editUser) {
-        const response = await supabase.from("user_profiles").update(payload).eq("id", editUser.id);
-        if (response.error) throw response.error;
+        const { response, payload: responsePayload } = await fetchJsonWithAuthorizedSession<{
+          user?: UserRecord;
+          error?: { message?: string };
+        }>(`/api/web/super-admin/users/${encodeURIComponent(editUser.id)}`, {
+          method: "PATCH",
+          headers: withJsonHeaders(),
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(responsePayload?.error?.message || "تعذر حفظ المستخدم.");
+        }
 
         await logAction({
           action_type: "update",
@@ -917,9 +866,9 @@ export default function SuperAdminPage() {
           throw new Error("يرجى إدخال كلمة مرور للمستخدم الجديد.");
         }
 
-        const response = await fetch("/api/users", {
+        const response = await fetchWithAuthorizedSession("/api/users", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: withJsonHeaders(),
           body: JSON.stringify({ ...payload, password: userForm.password }),
         });
 
@@ -951,13 +900,17 @@ export default function SuperAdminPage() {
 
   async function extendSubscription(schoolId: string) {
     try {
-      const endDate = new Date(Date.now() + 365 * DAY_IN_MS).toISOString().split("T")[0];
-      const response = await supabase
-        .from("subscriptions")
-        .update({ status: "active", end_date: endDate })
-        .eq("school_id", schoolId);
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        subscription?: SubscriptionRecord;
+        error?: { message?: string };
+      }>(`/api/web/super-admin/subscriptions/${encodeURIComponent(schoolId)}`, {
+        method: "POST",
+        headers: withJsonHeaders(),
+      });
 
-      if (response.error) throw response.error;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تجديد الاشتراك.");
+      }
 
       await logAction({
         action_type: "subscription_renew",
@@ -982,16 +935,17 @@ export default function SuperAdminPage() {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const deleteSchoolResponse = await supabase
-        .from("schools")
-        .update({ 
-          deleted_at: new Date().toISOString(),
-          deleted_by: userData.user?.id 
-        })
-        .eq("id", deleteSchoolTarget.id);
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        school?: Pick<SchoolRecord, "id" | "name">;
+        error?: { message?: string };
+      }>(`/api/web/super-admin/schools/${encodeURIComponent(deleteSchoolTarget.id)}`, {
+        method: "DELETE",
+        headers: withJsonHeaders(),
+      });
 
-      if (deleteSchoolResponse.error) throw deleteSchoolResponse.error;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر حذف المدرسة.");
+      }
 
       await logAction({
         action_type: "delete",
@@ -1022,17 +976,17 @@ export default function SuperAdminPage() {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const response = await supabase
-        .from("user_profiles")
-        .update({
-          deleted_at: new Date().toISOString(),
-          deleted_by: userData.user?.id ?? null,
-          is_active: false,
-        })
-        .eq("id", deleteUserTarget.id);
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        user?: Pick<UserRecord, "id" | "full_name" | "email">;
+        error?: { message?: string };
+      }>(`/api/web/super-admin/users/${encodeURIComponent(deleteUserTarget.id)}`, {
+        method: "DELETE",
+        headers: withJsonHeaders(),
+      });
 
-      if (response.error) throw response.error;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر أرشفة المستخدم.");
+      }
 
       await logAction({
         action_type: "delete",
@@ -1141,7 +1095,8 @@ export default function SuperAdminPage() {
   const tabMeta = availableTabs.find((item) => item.id === activeTab) ?? availableTabs[0] ?? TAB_ITEMS[0];
 
   return (
-    <div className="relative min-h-dvh overflow-hidden">
+    <ProtectedRoute roles={["super_admin"]}>
+      <div className="relative min-h-dvh overflow-hidden">
       <div className="ui-grid-lines pointer-events-none absolute inset-0 opacity-35" />
       <div className="pointer-events-none absolute inset-x-0 top-[-18rem] h-[34rem] rounded-full bg-[radial-gradient(circle,rgba(121,215,255,0.16),transparent_60%)] blur-3xl" />
       <div className="pointer-events-none absolute bottom-[-12rem] left-[-10rem] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(79,140,255,0.18),transparent_60%)] blur-3xl" />
@@ -2581,6 +2536,7 @@ export default function SuperAdminPage() {
           </div>
         </ModalFrame>
       ) : null}
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

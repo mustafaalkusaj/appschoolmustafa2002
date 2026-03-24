@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { resolveSchoolBranchForProfile } from "@/lib/school-context";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -15,6 +14,7 @@ import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { loadXLSX } from "@/lib/xlsx-loader";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
 const SALARY_TYPES = [
   {value:"fixed",label:"راتب ثابت"},
@@ -57,11 +57,6 @@ const QUICK_ACCESS = [
   { id:"schedule_lessons", label:"توقيتات الدروس", icon:"⏰", bg:"#F3E8FF" },
   { id:"daily_log", label:"سجل يومي", icon:"📋", bg:"#F1F5F9" },
 ];
-
-function isMissingLecturePriceColumn(error: { message?: string } | null | undefined) {
-  const message = (error?.message || "").toLowerCase();
-  return message.includes('column "lecture_price"') || message.includes("lecture_price");
-}
 
 export default function SalariesPage() {
   const pathname = usePathname();
@@ -237,21 +232,12 @@ export default function SalariesPage() {
 
   async function saveTeacherModal(e: React.FormEvent) {
     e.preventDefault();
-    if (!canManageTeacher || !profile) return;
+    if (!canManageTeacher || !schoolId) return;
     setTeacherModalSaving(true);
     setTeacherModalError("");
-    const { school_id, branch_id } = await resolveSchoolBranchForProfile(profile, {
-      selectedSchoolId: schoolScope.selectedSchoolId,
-    });
-    if (!school_id || !branch_id) {
-      setTeacherModalError("يجب إضافة مدرسة وفرع أولاً");
-      setTeacherModalSaving(false);
-      return;
-    }
     const validClasses = teacherForm.classes_taught.filter((c) => c.grade);
     const payload = {
-      school_id,
-      branch_id,
+      school_id: schoolId,
       full_name: teacherForm.full_name.trim(),
       subject: teacherForm.subject || null,
       job_title: teacherForm.job_title || null,
@@ -269,57 +255,25 @@ export default function SalariesPage() {
       setTeacherModalSaving(false);
       return;
     }
-    if (teacherEditId) {
-      let { error: uErr } = await supabase
-        .from("teachers")
-        .update({
-          full_name: payload.full_name,
-          subject: payload.subject,
-          job_title: payload.job_title,
-          salary_type: payload.salary_type,
-          phone: payload.phone,
-          address: payload.address,
-          base_salary: payload.base_salary,
-          lecture_price: payload.lecture_price,
-          weekly_hours: payload.weekly_hours,
-          classes_taught: payload.classes_taught,
-          status: payload.status,
-        })
-        .eq("id", teacherEditId);
-      if (uErr && isMissingLecturePriceColumn(uErr)) {
-        ({ error: uErr } = await supabase
-          .from("teachers")
-          .update({
-            full_name: payload.full_name,
-            subject: payload.subject,
-            job_title: payload.job_title,
-            salary_type: payload.salary_type,
-            phone: payload.phone,
-            address: payload.address,
-            base_salary: payload.base_salary,
-            weekly_hours: payload.weekly_hours,
-            classes_taught: payload.classes_taught,
-            status: payload.status,
-          })
-          .eq("id", teacherEditId));
-      }
-      if (uErr) setTeacherModalError(uErr.message);
-      else {
-        setShowTeacherModal(false);
-        await fetchAll();
-      }
+
+    const endpoint = teacherEditId
+      ? `/api/web/salaries/teachers/${encodeURIComponent(teacherEditId)}`
+      : "/api/web/salaries/teachers";
+    const method = teacherEditId ? "PATCH" : "POST";
+    const { response, payload: responsePayload } = await fetchJsonWithAuthorizedSession<{
+      teacher?: any;
+      error?: { message?: string };
+    }>(endpoint, {
+      method,
+      headers: withJsonHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      setTeacherModalError(responsePayload?.error?.message || "تعذر حفظ بيانات الأستاذ.");
     } else {
-      let { error: insErr } = await supabase.from("teachers").insert(payload);
-      if (insErr && isMissingLecturePriceColumn(insErr)) {
-        const fallbackPayload = { ...payload };
-        delete (fallbackPayload as { lecture_price?: number }).lecture_price;
-        ({ error: insErr } = await supabase.from("teachers").insert(fallbackPayload));
-      }
-      if (insErr) setTeacherModalError(insErr.message);
-      else {
-        setShowTeacherModal(false);
-        await fetchAll();
-      }
+      setShowTeacherModal(false);
+      await fetchAll();
     }
     setTeacherModalSaving(false);
   }
@@ -398,73 +352,111 @@ export default function SalariesPage() {
   async function fetchAll(){
     if (!schoolId) return;
     setLoading(true);
-    const [{data:t},{data:s},{data:c},{data:sub},{data:jt},{data:lt},{data:lp},{data:arch}]=await Promise.all([
-      supabase.from("teachers").select("*").eq("school_id",schoolId).order("full_name"),
-      supabase.from("salaries").select("*, teachers(full_name,subject)").eq("school_id",schoolId).order("created_at",{ascending:false}),
-      supabase.from("classes").select("*").eq("school_id",schoolId).order("grade"),
-      supabase.from("subjects").select("*").eq("school_id",schoolId).order("name"),
-      supabase.from("job_titles").select("*").eq("school_id",schoolId).order("name"),
-      supabase.from("lesson_times").select("*").eq("school_id",schoolId).order("session_type").order("period"),
-      supabase.from("lecture_prices").select("*").eq("school_id",schoolId),
-      supabase.from("salary_archives").select("*").eq("school_id",schoolId).order("archive_date",{ascending:false}),
-    ]);
-    if(t)setTeachers(t);if(s)setSalaries(s);if(c)setClasses(c);
-    if(sub)setSubjectsList(sub);if(jt)setJobTitlesList(jt);
-    if(lt){setLessonTimes(lt);const ed:{[k:string]:string}={};lt.forEach((x:any)=>{ed[`${x.period}-${x.session_type}-start`]=x.start_time||"";ed[`${x.period}-${x.session_type}-end`]=x.end_time||"";});setTimeEdits(ed);}
-    if(lp){setLecturePrices(lp);}
-    if(arch)setArchives(arch);
-    setLoading(false);
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        teachers?: any[];
+        salaries?: any[];
+        classes?: any[];
+        subjects?: any[];
+        jobTitles?: any[];
+        lessonTimes?: any[];
+        lecturePrices?: any[];
+        archives?: any[];
+        warnings?: string[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/bootstrap?schoolId=${encodeURIComponent(schoolId)}`);
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل بيانات الرواتب.");
+      }
+
+      const teachersData = payload?.teachers ?? [];
+      const salariesData = payload?.salaries ?? [];
+      const classesData = payload?.classes ?? [];
+      const subjectsData = payload?.subjects ?? [];
+      const jobTitlesData = payload?.jobTitles ?? [];
+      const lessonTimesData = payload?.lessonTimes ?? [];
+      const lecturePricesData = payload?.lecturePrices ?? [];
+      const archivesData = payload?.archives ?? [];
+
+      setTeachers(teachersData);
+      setSalaries(salariesData);
+      setClasses(classesData);
+      setSubjectsList(subjectsData);
+      setJobTitlesList(jobTitlesData);
+      setLessonTimes(lessonTimesData);
+      setLecturePrices(lecturePricesData);
+      setArchives(archivesData);
+      if (lessonTimesData) {
+        const ed: {[k:string]:string} = {};
+        lessonTimesData.forEach((x:any) => {
+          ed[`${x.period}-${x.session_type}-start`] = x.start_time || "";
+          ed[`${x.period}-${x.session_type}-end`] = x.end_time || "";
+        });
+        setTimeEdits(ed);
+      }
+      setError((payload?.warnings ?? []).join(" "));
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات الرواتب.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function fetchCalendarLectures(){
     if (!schoolId) return;
-    const from=`${calYear}-${String(calMonth+1).padStart(2,"0")}-01`;
-    const to=`${calYear}-${String(calMonth+1).padStart(2,"0")}-31`;
-    const {data}=await supabase.from("daily_lectures").select("lecture_date").eq("school_id",schoolId).gte("lecture_date",from).lte("lecture_date",to);
-    if(data) setCalLectureDates(Array.from(new Set(data.map((d:any)=>d.lecture_date))) as string[]);
+    const month = `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      dates?: string[];
+      error?: { message?: string };
+    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=calendar&month=${encodeURIComponent(month)}`);
+    if(response.ok){
+      setCalLectureDates(payload?.dates ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل تقويم المحاضرات.");
+    }
   }
 
   async function fetchDetailedReportAll(){
     if (!schoolId) return;
-    const {data}=await supabase.from("daily_lectures").select("*, teachers(full_name,subject)").eq("school_id",schoolId).order("lecture_date",{ascending:false});
-    if(data)setDailyLectures(data);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      lectures?: any[];
+      error?: { message?: string };
+    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}`);
+    if(response.ok){
+      setDailyLectures(payload?.lectures ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل التقرير التفصيلي.");
+    }
   }
 
   async function fetchDeductionsList(){
     if (!schoolId) return;
-    const {data}=await supabase.from("deductions").select("*, teachers(full_name)").eq("school_id",schoolId).order("deduction_date",{ascending:false});
-    if(data)setDeductionsList(data);
-  }
-
-  function extractMonthRange(month:string){
-    const [y,m] = month.split("-").map(Number);
-    if (!y || !m) return {from:"0000-01-01",to:"9999-12-31"};
-    const start = `${y}-${String(m).padStart(2,"0")}-01`;
-    const endDate = new Date(y, m, 0).getDate();
-    const end = `${y}-${String(m).padStart(2,"0")}-${String(endDate).padStart(2,"0")}`;
-    return {from:start, to:end};
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      deductions?: any[];
+      error?: { message?: string };
+    }>(`/api/web/salaries/deductions?schoolId=${encodeURIComponent(schoolId)}`);
+    if(response.ok){
+      setDeductionsList(payload?.deductions ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل سجل السحوبات.");
+    }
   }
 
   async function loadTeacherMonthLectures(teacher:any, month:string){
     if(!teacher || !schoolId) return {count:0,total:0};
-    const {from,to} = extractMonthRange(month);
-    const {data,error} = await supabase.from("daily_lectures")
-      .select("price")
-      .eq("teacher_id", teacher.id)
-      .eq("school_id", schoolId)
-      .gte("lecture_date", from)
-      .lte("lecture_date", to);
-    if(error){
-      console.error("Error loading lectures:", error.message);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      summary?: { count?: number; total?: number };
+      error?: { message?: string };
+    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=summary&teacherId=${encodeURIComponent(teacher.id)}&month=${encodeURIComponent(month)}`);
+    if(!response.ok){
+      console.error("Error loading lectures:", payload?.error?.message || "unexpected error");
       return {count:0,total:0};
     }
-    const count = data?.length || 0;
-    const lecturePrice = Number(teacher.lecture_price) || 0;
-    const total = (data || []).reduce((acc:any, row:any)=>{
-      const rowPrice = parseInt(row.price) || 0;
-      return acc + (rowPrice > 0 ? rowPrice : lecturePrice);
-    }, 0);
-    return {count,total};
+    return {
+      count: Number(payload?.summary?.count ?? 0) || 0,
+      total: Number(payload?.summary?.total ?? 0) || 0,
+    };
   }
 
   // ===== SALARY =====
@@ -481,11 +473,41 @@ export default function SalariesPage() {
       gross = parseInt(salaryForm.gross_salary) || Number(selectedTeacher.base_salary) || 0;
     }
     const deductions=parseInt(salaryForm.deductions)||0;
-    const bid=await getBranchId();
-    const {data:existing}=await supabase.from("salaries").select("id").eq("school_id",schoolId).eq("teacher_id",selectedTeacher.id).eq("month",salaryForm.month).limit(1);
-    if(existing?.length){setError("تم دفع راتب هذا الشهر مسبقاً");setSavingSalary(false);return;}
-    await supabase.from("salaries").insert({school_id:schoolId,branch_id:bid,teacher_id:selectedTeacher.id,gross_salary:gross,deductions,month:salaryForm.month,is_paid:true,paid_at:new Date().toISOString(),notes:salaryForm.notes||null});
-    setSuccess(`تم دفع راتب ${selectedTeacher.full_name} ✓`);setShowPaySalary(false);setSalaryForm({gross_salary:"",deductions:"0",notes:"",month:new Date().toISOString().slice(0,7)});setSelectedTeacher(null);fetchAll();setTimeout(()=>setSuccess(""),3000);setSavingSalary(false);
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        salary?: any;
+        warning?: string;
+        error?: { message?: string };
+      }>("/api/web/salaries/pay", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          school_id: schoolId,
+          teacher_id: selectedTeacher.id,
+          gross_salary: gross,
+          deductions,
+          month: salaryForm.month,
+          notes: salaryForm.notes || null,
+        }),
+      });
+      if (!response.ok) {
+        setError(payload?.error?.message || "تعذر صرف الراتب.");
+        return;
+      }
+      if (payload?.salary) {
+        setSalaries((current) => [payload.salary, ...current.filter((item) => item.id !== payload.salary.id)]);
+      }
+      setSuccess(
+        payload?.warning
+          ? `تم دفع راتب ${selectedTeacher.full_name} مع معالجة التكرارات المتزامنة ✓`
+          : `تم دفع راتب ${selectedTeacher.full_name} ✓`,
+      );
+      setShowPaySalary(false);setSalaryForm({gross_salary:"",deductions:"0",notes:"",month:new Date().toISOString().slice(0,7)});setSelectedTeacher(null);fetchAll();setTimeout(()=>setSuccess(""),3000);
+    } catch (payError) {
+      setError(payError instanceof Error ? payError.message : "تعذر صرف الراتب.");
+    } finally {
+      setSavingSalary(false);
+    }
   }
 
   // ===== SCHEDULE =====
@@ -553,25 +575,54 @@ export default function SalariesPage() {
   // ===== DEDUCTIONS =====
   async function saveDeduction(){
     if(!deductionTeacher||!deductionAmount)return;setSavingDeduction(true);
-    const bid=await getBranchId();
-    await supabase.from("deductions").insert({school_id:schoolId,branch_id:bid,teacher_id:deductionTeacher,amount:parseInt(deductionAmount)||0,notes:deductionNotes||null,deduction_date:new Date().toISOString().split("T")[0]});
-    setSuccess("تم تسجيل السحب ✓");setDeductionTeacher("");setDeductionAmount("0");setDeductionNotes("");setSavingDeduction(false);setTimeout(()=>setSuccess(""),3000);fetchDeductionsList();
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        deduction?: any;
+        error?: { message?: string };
+      }>("/api/web/salaries/deductions", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          school_id: schoolId,
+          teacher_id: deductionTeacher,
+          amount: parseInt(deductionAmount)||0,
+          notes: deductionNotes||null,
+          deduction_date: new Date().toISOString().split("T")[0],
+        }),
+      });
+      if (!response.ok) {
+        setError(payload?.error?.message || "تعذر تسجيل السحب.");
+        return;
+      }
+      setSuccess("تم تسجيل السحب ✓");setDeductionTeacher("");setDeductionAmount("0");setDeductionNotes("");setTimeout(()=>setSuccess(""),3000);fetchDeductionsList();
+    } finally {
+      setSavingDeduction(false);
+    }
   }
 
   // ===== ARCHIVE =====
   async function archiveMonth(){
     if(!confirm("هل تريد أرشفة الشهر الحالي وتصفير العدادات؟"))return;
-    const totalTeachers=teachers.length;
-    const totalAmount=salaries.filter(s=>s.month===currentMonth).reduce((a,s)=>a+((s.gross_salary||0)-(s.deductions||0)),0);
-    const data={salaries:salaries.filter(s=>s.month===currentMonth),lectures:dailyLectures};
-    await supabase.from("salary_archives").insert({school_id:schoolId,month:currentMonth,total_teachers:totalTeachers,total_amount:totalAmount,data});
     try {
-      await supabase.rpc("purge_old_salary_archives");
-    } catch {
-      // Ignore when migration has not been applied yet.
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        archive?: any;
+        error?: { message?: string };
+      }>("/api/web/salaries/archive", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          school_id: schoolId,
+          month: currentMonth,
+        }),
+      });
+      if (!response.ok) {
+        setError(payload?.error?.message || "تعذر أرشفة الشهر الحالي.");
+        return;
+      }
+      setSuccess("تم أرشفة الشهر وتصفير عدادات محاضراته ✓");setTimeout(()=>setSuccess(""),3000);fetchAll();fetchDetailedReportAll();
+    } catch (archiveError) {
+      setError(archiveError instanceof Error ? archiveError.message : "تعذر أرشفة الشهر الحالي.");
     }
-    await supabase.from("daily_lectures").delete().eq("school_id",schoolId);
-    setSuccess("تم أرشفة الشهر وتصفير العدادات ✓");setTimeout(()=>setSuccess(""),3000);fetchAll();fetchDetailedReportAll();
   }
 
   // ===== EXPORT =====

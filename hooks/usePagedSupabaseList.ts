@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 export type PagedFetchResult<T> = {
@@ -30,9 +30,10 @@ export function usePagedSupabaseList<T>({
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestSequenceRef = useRef(0);
 
-  const load = useCallback(async () => {
-    void refreshKey;
+  const load = useCallback(async (options?: { bypassCache?: boolean }) => {
+    const requestId = ++requestSequenceRef.current;
     if (!enabled) {
       setRows([]);
       setTotalCount(0);
@@ -44,9 +45,9 @@ export function usePagedSupabaseList<T>({
     setError(null);
     const from = Math.max(0, (page - 1) * pageSize);
     const to = from + pageSize - 1;
-    const cacheHandle = cacheKey ? `${cacheKey}::${page}::${pageSize}` : null;
+    const cacheHandle = cacheKey ? `${cacheKey}::${refreshKey}::${page}::${pageSize}` : null;
 
-    if (cacheHandle && typeof window !== "undefined") {
+    if (!options?.bypassCache && cacheHandle && typeof window !== "undefined") {
       try {
         const raw = window.sessionStorage.getItem(cacheHandle);
         if (raw) {
@@ -61,8 +62,10 @@ export function usePagedSupabaseList<T>({
             typeof cached.cachedAt === "number" &&
             Date.now() - cached.cachedAt <= ttlMs
           ) {
+            if (requestId !== requestSequenceRef.current) return;
             setRows(cached.rows);
             setTotalCount(cached.totalCount);
+            setError(null);
             setLoading(false);
             return;
           }
@@ -73,6 +76,9 @@ export function usePagedSupabaseList<T>({
     }
 
     const { data, count, error: qErr } = await fetchPage(from, to);
+    if (requestId !== requestSequenceRef.current) {
+      return;
+    }
     if (qErr) {
       setError(qErr.message);
       setRows([]);
@@ -83,14 +89,18 @@ export function usePagedSupabaseList<T>({
       setRows(nextRows);
       setTotalCount(nextCount);
       if (cacheHandle && typeof window !== "undefined") {
-        window.sessionStorage.setItem(
-          cacheHandle,
-          JSON.stringify({
-            rows: nextRows,
-            totalCount: nextCount,
-            cachedAt: Date.now(),
-          }),
-        );
+        try {
+          window.sessionStorage.setItem(
+            cacheHandle,
+            JSON.stringify({
+              rows: nextRows,
+              totalCount: nextCount,
+              cachedAt: Date.now(),
+            }),
+          );
+        } catch {
+          // ignore cache write errors
+        }
       }
     }
     setLoading(false);
@@ -98,7 +108,14 @@ export function usePagedSupabaseList<T>({
 
   useEffect(() => {
     void load();
+    return () => {
+      requestSequenceRef.current += 1;
+    };
   }, [load]);
 
-  return { rows, totalCount, loading, error, reload: load };
+  const reload = useCallback(async () => {
+    await load({ bypassCache: true });
+  }, [load]);
+
+  return { rows, totalCount, loading, error, reload };
 }

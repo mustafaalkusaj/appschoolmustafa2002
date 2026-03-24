@@ -4,6 +4,7 @@ import { ALL_PERMISSIONS, normalizePermissions, normalizeUserRole } from "@/type
 import {
   createRouteSupabaseClient,
   createServiceSupabaseClient,
+  getRouteAuthenticatedUser,
 } from "@/lib/supabase-server";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
   const {
     data: { user: actorUser },
     error: actorUserError,
-  } = await actorSupabase.auth.getUser();
+  } = await getRouteAuthenticatedUser(actorSupabase, req.headers.get("authorization"));
 
   if (actorUserError || !actorUser?.id) {
     return NextResponse.json({ error: { message: "Unauthorized." } }, { status: 401 });

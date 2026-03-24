@@ -20,7 +20,7 @@ export async function POST(
   const { authUserId } = await params;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
-  const context = await resolveManagedUsersActorContext(schoolId);
+  const context = await resolveManagedUsersActorContext(schoolId, req.headers.get("authorization"));
 
   if (!context.ok) {
     return jsonError(

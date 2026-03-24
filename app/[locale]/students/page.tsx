@@ -19,6 +19,7 @@ import { getLocaleFromPath } from "@/lib/locale-routing";
 import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
+import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
 const TABS = [
   { id:"active",      label:"جميع الطلاب",      icon:"👥" },
@@ -95,13 +96,19 @@ function readApiError(payload: unknown, fallback: string) {
   return candidate.error?.message || fallback;
 }
 
+type StudentCredentialTarget = Pick<StudentWithFees, "id" | "auth_user_id" | "full_name" | "class_name" | "section">;
+
 export default function StudentsPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
-  const { profile, canAny, isReadOnlyPath } = useRole();
+  const { profile, can, isReadOnlyPath } = useRole();
   const schoolScope = useSchoolScope(profile);
   const runtimeBranding = useRuntimeBranding();
-  const canManageStudents = canAny(["add_students", "edit_students", "delete_students"]);
+  const canAddStudents = can("add_students");
+  const canEditStudents = can("edit_students");
+  const canDeleteStudents = can("delete_students");
+  const canManageStudents = canAddStudents || canEditStudents || canDeleteStudents;
+  const canManageStudentAccounts = profile?.role === "super_admin" || profile?.role === "admin";
   const isReadOnlyView = isReadOnlyPath("/students") || !canManageStudents;
   // No local setPagedStudents needed - hook manages
   const [page, setPage] = useState(1);
@@ -140,6 +147,17 @@ export default function StudentsPage() {
 
   const [form, setForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
   const [editForm, setEditForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
+  const listScopeRef = useRef<string | null>(null);
+  const listScopeKey = [
+    profile?.id || "guest",
+    schoolScope.selectedSchoolId || "none",
+    activeTab,
+    debouncedSearch.trim(),
+    filterClass.trim(),
+    filterSection.trim(),
+  ].join("::");
+  const effectivePage =
+    listScopeRef.current !== null && listScopeRef.current !== listScopeKey && page !== 1 ? 1 : page;
 
   useEffect(()=>{ 
     setSearch(""); 
@@ -211,7 +229,7 @@ export default function StudentsPage() {
 
   const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList<StudentWithFees>({
     enabled: Boolean(profile && !schoolScope.scopeLoading),
-    page,
+    page: effectivePage,
     pageSize,
     fetchPage: fetchPagedStudents,
     cacheKey: [
@@ -232,11 +250,13 @@ export default function StudentsPage() {
     setLoading(pagedLoading);
   }, [totalCount, pageSize, pagedLoading]);
 
-  // Reload on filters
   useEffect(() => {
-    setPage(1);
-    reload();
-  }, [debouncedSearch, filterClass, filterSection, activeTab, reload]);
+    if (listScopeRef.current === listScopeKey) return;
+    listScopeRef.current = listScopeKey;
+    if (page !== 1) {
+      setPage(1);
+    }
+  }, [listScopeKey, page]);
 
   const fetchClassFees = useCallback(async () => {
     if (!profile) return;
@@ -275,73 +295,42 @@ export default function StudentsPage() {
     const hasSectionFilter = Boolean(filterSection);
     const hasStatusFilter = activeTab !== "active";
     const hasFilters = hasSearchFilter || hasClassFilter || hasSectionFilter || hasStatusFilter;
+    const params = new URLSearchParams({
+      schoolId: school_id,
+      status: activeTab,
+    });
+    if (hasSearchFilter) params.set("search", searchTerm);
+    if (hasClassFilter) params.set("className", filterClass);
+    if (hasSectionFilter) params.set("section", filterSection);
 
-    const chunkSize = 500;
-    let from = 0;
-    const students: StudentWithFees[] = [];
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      students?: Array<Pick<Student, "id" | "school_id" | "auth_user_id" | "full_name" | "class_name" | "section" | "status">>;
+      error?: { message?: string };
+    }>(`/api/web/students/credential-cards?${params.toString()}`);
 
-    while (true) {
-      let query = supabase
-        .from("students")
-        .select("*")
-        .eq("school_id", school_id)
-        .order("created_at", { ascending: false });
-
-      if (activeTab === "active") {
-        query = query.in("status", ["active", "graduated", "archived", "withdrawn"]);
-      } else {
-        query = query.eq("status", activeTab);
-      }
-
-      if (hasSearchFilter) {
-        query = query.or(`full_name.ilike.%${searchTerm}%,class_name.ilike.%${searchTerm}%`);
-      }
-
-      if (hasClassFilter) {
-        query = query.eq("class_name", filterClass);
-      }
-
-      if (hasSectionFilter) {
-        query = query.eq("section", filterSection);
-      }
-
-      const { data, error: fetchError } = await query.range(from, from + chunkSize - 1);
-      if (fetchError) {
-        setError(`خطأ في تحميل الطلاب للطباعة: ${fetchError.message}`);
-        return null;
-      }
-
-      const mapped = ((data ?? []) as Student[]).map((student) => ({
-        ...student,
-        remaining_fee: student.total_fee - student.paid_fee - student.discount_value,
-      }));
-      students.push(...mapped);
-
-      if (!data || data.length < chunkSize) {
-        break;
-      }
-
-      from += chunkSize;
+    if (!response.ok) {
+      setError(payload?.error?.message || "خطأ في تحميل الطلاب للطباعة.");
+      return null;
     }
 
     return {
       schoolId: school_id,
       hasFilters,
-      students,
+      students: payload?.students ?? [],
     };
   }
 
   async function handleAdd(e:React.FormEvent){
-    if (!canManageStudents) {
-      setError("ليس لديك صلاحية لتعديل بيانات الطلاب");
+    if (!canManageStudentAccounts) {
+      setError("ليس لديك صلاحية إنشاء طالب مع حساب التطبيق.");
       return;
     }
     e.preventDefault(); setSaving(true); setError("");
     const {school_id}=await getSchoolBranch();
     if(!school_id){setError("يجب إضافة مدرسة وفرع أولاً");setSaving(false);return;}
-    const response = await fetch("/api/dashboard/users", {
+    const response = await fetchWithAuthorizedSession("/api/dashboard/users", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: withJsonHeaders(),
       body: JSON.stringify({
         school_id,
         role: "student",
@@ -373,7 +362,7 @@ export default function StudentsPage() {
   }
 
   async function handleEdit(e:React.FormEvent){
-    if (!canManageStudents) {
+    if (!canEditStudents) {
       setError("ليس لديك صلاحية لتعديل بيانات الطلاب");
       return;
     }
@@ -391,9 +380,9 @@ export default function StudentsPage() {
     if(error)setError("خطأ: "+error.message);
     else{
       try {
-        await fetch(`/api/dashboard/students/${selectedStudent.id}/sync-teachers`, {
+        await fetchWithAuthorizedSession(`/api/dashboard/students/${selectedStudent.id}/sync-teachers`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: withJsonHeaders(),
           body: JSON.stringify({
             school_id,
             class_name: editForm.class_name,
@@ -410,7 +399,7 @@ export default function StudentsPage() {
   }
 
   async function changeStatus(student: StudentWithFees, status: StudentStatus, msg: string){
-    if (!canManageStudents) {
+    if (!canEditStudents) {
       setError("ليس لديك صلاحية تعديل حالة الطالب");
       return;
     }
@@ -427,7 +416,7 @@ export default function StudentsPage() {
   }
 
   async function handleDeleteConfirmed(){
-    if (!canManageStudents) {
+    if (!canDeleteStudents) {
       setError("ليس لديك صلاحية حذف الطالب");
       return;
     }
@@ -610,15 +599,15 @@ function handlePrint(s: StudentWithFees){
     setSuccess("تم نسخ بيانات الدخول المؤقتة"); setTimeout(()=>setSuccess(""),3000);
   }
 
-  async function ensureStudentCredentialCard(student: StudentWithFees, schoolId: string) {
+  async function ensureStudentCredentialCard(student: StudentCredentialTarget, schoolId: string) {
     if (!student?.id) {
       throw new Error("تعذر تحديد الطالب المطلوب.");
     }
 
     if (!student.auth_user_id) {
-      const ensureResponse = await fetch(`/api/dashboard/students/${student.id}/ensure-account`, {
+      const ensureResponse = await fetchWithAuthorizedSession(`/api/dashboard/students/${student.id}/ensure-account`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: withJsonHeaders(),
         body: JSON.stringify({ school_id: schoolId }),
       });
       const ensurePayload = await ensureResponse.json().catch(() => null);
@@ -637,7 +626,7 @@ function handlePrint(s: StudentWithFees){
       };
     }
 
-    const cardResponse = await fetch(
+    const cardResponse = await fetchWithAuthorizedSession(
       `/api/dashboard/users/${student.auth_user_id}/card?schoolId=${encodeURIComponent(schoolId)}`,
       { cache: "no-store" },
     );
@@ -650,9 +639,9 @@ function handlePrint(s: StudentWithFees){
       };
     }
 
-    const resetResponse = await fetch(`/api/dashboard/users/${student.auth_user_id}/reset-password`, {
+    const resetResponse = await fetchWithAuthorizedSession(`/api/dashboard/users/${student.auth_user_id}/reset-password`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: withJsonHeaders(),
       body: JSON.stringify({ school_id: schoolId }),
     });
     const resetPayload = await resetResponse.json().catch(() => null);
@@ -673,6 +662,10 @@ function handlePrint(s: StudentWithFees){
   }
 
   async function openStudentCredentialsCard(student: StudentWithFees){
+    if (!canManageStudentAccounts) {
+      setError("إدارة بطاقات الدخول متاحة للإدارة فقط.");
+      return;
+    }
     setError("");
     const { school_id } = await getSchoolBranch();
     if (!school_id) {
@@ -698,6 +691,10 @@ function handlePrint(s: StudentWithFees){
   }
 
   async function printAllStudentCards() {
+    if (!canManageStudentAccounts) {
+      setError("طباعة بطاقات الدخول متاحة للإدارة فقط.");
+      return;
+    }
     setError("");
     const printable = await fetchStudentsForCredentialsPrinting();
     if (!printable) {
@@ -859,8 +856,8 @@ function handlePrint(s: StudentWithFees){
   }
 
   async function handleImport(){
-    if (!canManageStudents) {
-      setImportError("ليس لديك صلاحية استيراد البيانات");
+    if (!canManageStudentAccounts) {
+      setImportError("ليس لديك صلاحية استيراد الطلاب مع حسابات الدخول");
       return;
     }
     const file=fileRef.current?.files?.[0]; if(!file)return;
@@ -885,9 +882,9 @@ function handlePrint(s: StudentWithFees){
       const failures: string[] = [];
 
       for (const row of rows) {
-        const response = await fetch("/api/dashboard/users", {
+        const response = await fetchWithAuthorizedSession("/api/dashboard/users", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: withJsonHeaders(),
           body: JSON.stringify({
             school_id,
             role: "student",
@@ -972,37 +969,49 @@ function handlePrint(s: StudentWithFees){
 
   // خيارات كل تبويب
   function getActions(s: StudentWithFees){
+    const credentialActions = canManageStudentAccounts
+      ? [{ icon: "🔐", label: "بطاقة الدخول", fn: () => { void openStudentCredentialsCard(s); setActiveMenu(null); } }]
+      : [];
+
     if (isReadOnlyView) {
       return [
-        { icon: "🔐", label: "بطاقة الدخول", fn: () => { void openStudentCredentialsCard(s); setActiveMenu(null); } },
+        ...credentialActions,
         { icon: "🖨️", label: "طباعة", fn: () => { handlePrint(s); setActiveMenu(null); } },
       ];
     }
 
     if(activeTab==="active") return [
-      {icon:"🔐",label:"بطاقة الدخول",fn:()=>{void openStudentCredentialsCard(s);setActiveMenu(null)}},
+      ...credentialActions,
       {icon:"🖨️",label:"طباعة",fn:()=>{handlePrint(s);setActiveMenu(null)}},
-      {icon:"📦",label:"نقل الطالب",fn:()=>{changeStatus(s,"transferred","تم نقل الطالب ✓");setActiveMenu(null)}},
-      {icon:"⏸️",label:"توقيف الطالب",fn:()=>{changeStatus(s,"suspended","تم توقيف الطالب ✓");setActiveMenu(null)}},
-      {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
-      {sep:true},
-      {icon:"🗑️",label:"حذف",danger:true,fn:()=>{setSelectedStudent(s);setShowDeleteConfirm(true);setActiveMenu(null)}},
+      ...(canEditStudents ? [
+        {icon:"📦",label:"نقل الطالب",fn:()=>{changeStatus(s,"transferred","تم نقل الطالب ✓");setActiveMenu(null)}},
+        {icon:"⏸️",label:"توقيف الطالب",fn:()=>{changeStatus(s,"suspended","تم توقيف الطالب ✓");setActiveMenu(null)}},
+        {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
+      ] : []),
+      ...(canDeleteStudents ? [
+        {sep:true},
+        {icon:"🗑️",label:"حذف",danger:true,fn:()=>{setSelectedStudent(s);setShowDeleteConfirm(true);setActiveMenu(null)}},
+      ] : []),
     ];
     if(activeTab==="transferred") return [
-      {icon:"🔐",label:"بطاقة الدخول",fn:()=>{void openStudentCredentialsCard(s);setActiveMenu(null)}},
+      ...credentialActions,
       {icon:"🖨️",label:"طباعة",fn:()=>{handlePrint(s);setActiveMenu(null)}},
-      {icon:"↩️",label:"استعادة الطالب",fn:()=>{changeStatus(s,"active","تم استعادة الطالب ✓");setActiveMenu(null)}},
-      {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
+      ...(canEditStudents ? [
+        {icon:"↩️",label:"استعادة الطالب",fn:()=>{changeStatus(s,"active","تم استعادة الطالب ✓");setActiveMenu(null)}},
+        {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
+      ] : []),
     ];
     if(activeTab==="suspended") return [
-      {icon:"🔐",label:"بطاقة الدخول",fn:()=>{void openStudentCredentialsCard(s);setActiveMenu(null)}},
+      ...credentialActions,
       {icon:"🖨️",label:"طباعة",fn:()=>{handlePrint(s);setActiveMenu(null)}},
-      {icon:"↩️",label:"إعادة التفعيل",fn:()=>{changeStatus(s,"active","تم تفعيل الطالب ✓");setActiveMenu(null)}},
-      {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
+      ...(canEditStudents ? [
+        {icon:"↩️",label:"إعادة التفعيل",fn:()=>{changeStatus(s,"active","تم تفعيل الطالب ✓");setActiveMenu(null)}},
+        {icon:"✏️",label:"تعديل",fn:()=>openEdit(s)},
+      ] : []),
     ];
-    if(activeTab==="deleted") return [
-      {icon:"↩️",label:"استعادة الطالب",fn:()=>{changeStatus(s,"active","تم استعادة الطالب ✓");setActiveMenu(null)}},
-    ];
+    if(activeTab==="deleted") return canEditStudents
+      ? [{icon:"↩️",label:"استعادة الطالب",fn:()=>{changeStatus(s,"active","تم استعادة الطالب ✓");setActiveMenu(null)}}]
+      : [];
     return [];
   }
 
@@ -1203,13 +1212,19 @@ function handlePrint(s: StudentWithFees){
                 </select>
                 <button className="btn-export" onClick={()=>exportExcel(filtered)}><AppIcon token="📤" size={14} />تصدير إكسل</button>
                 <button className="btn-print" onClick={()=>printFilteredStudents(filtered)}><AppIcon token="🖨️" size={14} />طباعة الطلاب المفلترين</button>
-                <button className="btn-print" onClick={()=>void printAllStudentCards()} disabled={printingCards}>
-                  <AppIcon token="🪪" size={14} />
-                  {printingCards ? "جارٍ تجهيز البطاقات..." : "طباعة جميع بطاقات الطلاب"}
-                </button>
+                {canManageStudentAccounts && (
+                  <button className="btn-print" onClick={()=>void printAllStudentCards()} disabled={printingCards}>
+                    <AppIcon token="🪪" size={14} />
+                    {printingCards ? "جارٍ تجهيز البطاقات..." : "طباعة جميع بطاقات الطلاب"}
+                  </button>
+                )}
                 {activeTab==="active" && !isReadOnlyView && <>
-                  <button className="btn-excel" onClick={()=>setShowImport(true)}><AppIcon token="📊" size={14} />استيراد إكسل</button>
-                  <button className="btn-add" onClick={()=>setShowModal(true)}>+ إضافة طالب</button>
+                  {canManageStudentAccounts && (
+                    <>
+                      <button className="btn-excel" onClick={()=>setShowImport(true)}><AppIcon token="📊" size={14} />استيراد إكسل</button>
+                      <button className="btn-add" onClick={()=>setShowModal(true)}>+ إضافة طالب</button>
+                    </>
+                  )}
                 </>}
               </div>
 
@@ -1222,7 +1237,7 @@ function handlePrint(s: StudentWithFees){
                 ) : pagedStudents.length === 0 ? (
                   <div className="empty">
                     {totalCount === 0
-                      ? activeTab === "active" && !isReadOnlyView 
+                      ? activeTab === "active" && canManageStudentAccounts
                         ? "لا يوجد طلاب — اضغط إضافة طالب" 
                         : `لا يوجد طلاب في هذه القائمة (${activeTab})`
                       : "لا توجد نتائج مطابقة للفلاتر الحالية"
@@ -1303,7 +1318,7 @@ function handlePrint(s: StudentWithFees){
     )}
 
     {/* MODAL إضافة */}
-    {!isReadOnlyView && showModal&&(
+    {!isReadOnlyView && canManageStudentAccounts && showModal&&(
       <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowModal(false)}}>
         <div className="modal">
           <div className="mh"><div className="mt">إضافة طالب جديد</div><button className="mc" onClick={()=>setShowModal(false)}><AppIcon token="✕" size={13} /></button></div>
@@ -1441,7 +1456,7 @@ function handlePrint(s: StudentWithFees){
     )}
 
     {/* MODAL تأكيد الحذف */}
-    {!isReadOnlyView && showDeleteConfirm && selectedStudent && (
+    {!isReadOnlyView && canDeleteStudents && showDeleteConfirm && selectedStudent && (
       <div className="overlay">
         <div className="modal modal-sm">
           <div className="del-ico"><AppIcon token="🗑️" size={26} /></div>
@@ -1460,7 +1475,7 @@ function handlePrint(s: StudentWithFees){
     )}
 
     {/* MODAL استيراد إكسل */}
-    {!isReadOnlyView && showImport&&(
+    {!isReadOnlyView && canManageStudentAccounts && showImport&&(
       <div className="overlay" onClick={e=>{if(e.target===e.currentTarget){setShowImport(false);setImportPreview([]);setImportError("");}}}>
         <div className="modal modal-lg">
           <div className="mh"><div className="mt">استيراد طلاب من إكسل</div><button className="mc" onClick={()=>{setShowImport(false);setImportPreview([]);setImportError("");}}><AppIcon token="✕" size={13} /></button></div>

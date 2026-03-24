@@ -8,6 +8,9 @@ type SchoolScopeOptions = {
   selectedSchoolId?: string | null;
 };
 
+const BRANCH_CACHE_TTL_MS = 30_000;
+const branchIdCache = new Map<string, { value: string | null; cachedAt: number }>();
+
 export async function resolveSchoolIdForProfile(
   profile: ScopedProfile,
   options?: SchoolScopeOptions,
@@ -24,6 +27,11 @@ export async function resolveSchoolIdForProfile(
 export async function resolveBranchIdForSchool(schoolId: string | null): Promise<string | null> {
   if (!schoolId) return null;
 
+  const cached = branchIdCache.get(schoolId);
+  if (cached && Date.now() - cached.cachedAt <= BRANCH_CACHE_TTL_MS) {
+    return cached.value;
+  }
+
   const { data, error } = await supabase
     .from("branches")
     .select("id")
@@ -33,12 +41,16 @@ export async function resolveBranchIdForSchool(schoolId: string | null): Promise
 
   if (error) {
     if (isMissingTableError(error, "branches")) {
+      branchIdCache.set(schoolId, { value: null, cachedAt: Date.now() });
       return null;
     }
 
     throw error;
   }
-  return data?.id ?? null;
+
+  const branchId = data?.id ?? null;
+  branchIdCache.set(schoolId, { value: branchId, cachedAt: Date.now() });
+  return branchId;
 }
 
 export async function resolveSchoolBranchForProfile(profile: ScopedProfile, options?: SchoolScopeOptions) {
@@ -49,4 +61,13 @@ export async function resolveSchoolBranchForProfile(profile: ScopedProfile, opti
     school_id: schoolId,
     branch_id: branchId,
   };
+}
+
+export function resetBranchIdCache(schoolId?: string | null) {
+  if (schoolId) {
+    branchIdCache.delete(schoolId);
+    return;
+  }
+
+  branchIdCache.clear();
 }

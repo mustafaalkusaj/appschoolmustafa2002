@@ -1,0 +1,129 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { routeUserHasPermission } from "@/lib/route-permissions";
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ error: { message } }, { status });
+}
+
+export async function POST(req: NextRequest) {
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const schoolId = typeof body?.school_id === "string" ? body.school_id.trim() : "";
+  const archiveYear = Number(body?.archive_year ?? 0);
+
+  if (!schoolId || !Number.isInteger(archiveYear) || archiveYear <= 0) {
+    return jsonError("بيانات الأرشفة غير مكتملة.", 400);
+  }
+
+  const context = await resolveSchoolScopedActorContext(
+    schoolId,
+    {
+      allowedRoles: ["super_admin", "admin", "employee"],
+      roleDeniedMessage: "أرشفة الحسابات متاحة ضمن المدرسة الحالية فقط.",
+    },
+    req.headers.get("authorization"),
+  );
+
+  if (!context.ok) {
+    return jsonError(
+      "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
+      "status" in context ? context.status : 500,
+    );
+  }
+
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canArchivePayments = await routeUserHasPermission(actorSupabase, actorUserId, "delete_payments");
+  if (!canArchivePayments) {
+    return jsonError("ليس لديك صلاحية أرشفة الحسابات.", 403);
+  }
+  const fromDate = `${archiveYear}-01-01`;
+  const toDate = `${archiveYear}-12-31`;
+
+  const { data: yearPayments, error: paymentsError } = await actorSupabase
+    .from("payments")
+    .select("id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
+    .eq("school_id", targetSchoolId)
+    .gte("created_at", fromDate)
+    .lte("created_at", `${toDate}T23:59:59.999Z`)
+    .order("created_at", { ascending: false });
+
+  if (paymentsError) {
+    return jsonError(paymentsError.message || "تعذر تحميل دفعات السنة المطلوبة.", 500);
+  }
+
+  if (!yearPayments || yearPayments.length === 0) {
+    return jsonError("لا توجد دفعات مسجلة في السنة المحددة لإنشاء أرشيف سنوي.", 400);
+  }
+
+  const studentIds = Array.from(new Set(yearPayments.map((payment) => payment.student_id).filter(Boolean)));
+  const { data: archiveStudents, error: studentsError } = await actorSupabase
+    .from("students")
+    .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, status, phone")
+    .eq("school_id", targetSchoolId)
+    .in("id", studentIds);
+
+  if (studentsError) {
+    return jsonError(studentsError.message || "تعذر تحميل بيانات الطلاب للأرشفة.", 500);
+  }
+
+  const totalAmount = yearPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+  const snapshot = {
+    year: archiveYear,
+    payments: yearPayments,
+    students: archiveStudents ?? [],
+    summary: {
+      total_students: studentIds.length,
+      total_payments: yearPayments.length,
+      total_amount: totalAmount,
+    },
+  };
+
+  const payload = {
+    school_id: targetSchoolId,
+    archive_year: archiveYear,
+    total_students: studentIds.length,
+    total_payments: yearPayments.length,
+    total_amount: totalAmount,
+    data: snapshot,
+    archive_date: new Date().toISOString(),
+  };
+
+  const { data: existingArchive, error: existingError } = await actorSupabase
+    .from("account_archives")
+    .select("id")
+    .eq("school_id", targetSchoolId)
+    .eq("archive_year", archiveYear)
+    .order("archive_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError && !isMissingTableError(existingError, "account_archives")) {
+    return jsonError(existingError.message || "تعذر التحقق من الأرشيف الحالي.", 500);
+  }
+
+  if (existingError && isMissingTableError(existingError, "account_archives")) {
+    return jsonError("جدول الأرشيف السنوي غير موجود بعد. نفّذ ملف database_setup.sql في Supabase.", 500);
+  }
+
+  const writeResult = existingArchive?.id
+    ? await actorSupabase
+        .from("account_archives")
+        .update(payload)
+        .eq("id", existingArchive.id)
+        .eq("school_id", targetSchoolId)
+        .select("*")
+        .single()
+    : await actorSupabase.from("account_archives").insert(payload).select("*").single();
+
+  if (writeResult.error || !writeResult.data) {
+    return jsonError(writeResult.error?.message || "تعذر حفظ الأرشيف السنوي.", 500);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    archive: writeResult.data,
+    created: !existingArchive?.id,
+  });
+}

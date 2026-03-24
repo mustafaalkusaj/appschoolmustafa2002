@@ -19,9 +19,13 @@ const DEFAULT_COMPAT: AppSchemaCompat = {
 
 let compatPromise: Promise<AppSchemaCompat> | null = null;
 
-async function probeColumn(table: string, column: string) {
+type SchemaCompatClient = {
+  from: (table: string) => any;
+};
+
+async function probeColumnWithClient(client: SchemaCompatClient, table: string, column: string) {
   try {
-    const { error } = await supabase.from(table).select(`id, ${column}`).limit(1);
+    const { error } = await client.from(table).select(`id, ${column}`).limit(1);
     if (!error) return true;
     if (isMissingColumnError(error, table, column)) {
       return false;
@@ -32,23 +36,31 @@ async function probeColumn(table: string, column: string) {
   }
 }
 
+async function probeColumn(table: string, column: string) {
+  return probeColumnWithClient(supabase, table, column);
+}
+
+export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient): Promise<AppSchemaCompat> {
+  return Promise.all([
+    probeColumnWithClient(client, "schools", "primary_color"),
+    probeColumnWithClient(client, "branches", "is_main"),
+    probeColumnWithClient(client, "class_fees", "school_id"),
+    probeColumnWithClient(client, "classes", "name"),
+    probeColumnWithClient(client, "sections", "school_id"),
+  ])
+    .then(([schoolColors, branchesIsMain, classFeesSchoolScope, classesNameColumn, sectionsSchoolScope]) => ({
+      schoolColors,
+      branchesIsMain,
+      classFeesSchoolScope,
+      classesNameColumn,
+      sectionsSchoolScope,
+    }))
+    .catch(() => DEFAULT_COMPAT);
+}
+
 export async function detectAppSchemaCompat(): Promise<AppSchemaCompat> {
   if (!compatPromise) {
-    compatPromise = Promise.all([
-      probeColumn("schools", "primary_color"),
-      probeColumn("branches", "is_main"),
-      probeColumn("class_fees", "school_id"),
-      probeColumn("classes", "name"),
-      probeColumn("sections", "school_id"),
-    ])
-      .then(([schoolColors, branchesIsMain, classFeesSchoolScope, classesNameColumn, sectionsSchoolScope]) => ({
-        schoolColors,
-        branchesIsMain,
-        classFeesSchoolScope,
-        classesNameColumn,
-        sectionsSchoolScope,
-      }))
-      .catch(() => DEFAULT_COMPAT);
+    compatPromise = detectAppSchemaCompatWithClient(supabase);
   }
 
   return compatPromise;

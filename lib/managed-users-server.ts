@@ -1,8 +1,12 @@
 import type { User as AuthUser } from "@supabase/supabase-js";
 
-import { isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
+import { isInfrastructureCompatError, isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
 import { SCHOOL_BRAND } from "@/lib/branding";
-import { createRouteSupabaseClient, createServiceSupabaseClient } from "@/lib/supabase-server";
+import {
+  createRouteSupabaseClient,
+  createServiceSupabaseClient,
+  getRouteAuthenticatedUser,
+} from "@/lib/supabase-server";
 import type {
   ManagedUserRole,
   ManagedTeacherAssignmentInput,
@@ -14,7 +18,7 @@ import type {
   ManagedUserRecord,
 } from "@/lib/managed-users";
 import { MANAGED_USER_INACTIVE_BAN_DURATION } from "@/lib/managed-users";
-import { normalizeUserRole } from "@/types/roles";
+import { resolveKnownUserRole, type UserRole } from "@/types/roles";
 
 export const MANAGED_USER_SELECT = `
   auth_user_id,
@@ -81,6 +85,38 @@ export type ManagedUsersActorContext = {
   targetSchoolId: string;
 };
 
+export type SchoolScopedActorContext = {
+  actorSupabase: RouteSupabaseClient;
+  actorUserId: string;
+  actorRole: UserRole;
+  targetSchoolId: string;
+};
+
+export type ManagedAccountLinkageStatus = "ok" | "missing";
+
+export interface ManagedAccountBaseSnapshot {
+  authUser: AuthUser;
+  user: ManagedUserRecord | null;
+  managedProfileExists: boolean;
+  authUserIsActive: boolean;
+  schoolId: string | null;
+  role: ManagedUserRole | null;
+  loginIdentifier: string | null;
+  identity: {
+    auth_user_id: string;
+    role: ManagedUserRole | null;
+    school_id: string | null;
+    login_identifier: string | null;
+    is_active: boolean;
+  };
+  linkage: {
+    managed_profile_exists: boolean;
+    linked_record_type: ManagedUserRole | null;
+    linked_record_id: string | null;
+    linked_record_status: ManagedAccountLinkageStatus;
+  };
+}
+
 export type TeacherTableCapabilities = {
   specialization: boolean;
   subject: boolean;
@@ -107,6 +143,142 @@ function nullableText(value: unknown) {
 
 function normalizeNullableTimestamp(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getManagedAccountLoginIdentifier(authUser: AuthUser, user: ManagedUserRecord | null) {
+  const userMetadata = asObject(authUser.user_metadata);
+  const appMetadata = asObject(authUser.app_metadata);
+  const managedCredentials = asObject(appMetadata.managed_credentials ?? userMetadata.managed_credentials);
+
+  return (
+    user?.app_account?.login_identifier ??
+    nullableText(managedCredentials.login_identifier) ??
+    nullableText(userMetadata.loginIdentifier) ??
+    nullableText(authUser.email)
+  );
+}
+
+function getManagedAuthUserIsActive(authUser: AuthUser) {
+  if (typeof authUser.banned_until === "string" && authUser.banned_until.trim()) {
+    return new Date(authUser.banned_until).getTime() <= Date.now();
+  }
+
+  return true;
+}
+
+function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
+  if (!endDate) return false;
+  const parsed = new Date(endDate);
+  if (Number.isNaN(parsed.getTime())) return false;
+  parsed.setHours(23, 59, 59, 999);
+  return Date.now() > parsed.getTime();
+}
+
+export async function resolveSchoolScopedActorContext(
+  requestedSchoolId: string | null | undefined,
+  options: {
+    allowedRoles: UserRole[];
+    roleDeniedMessage: string;
+  },
+  authHeader?: string | null,
+): Promise<
+  | { ok: true; value: SchoolScopedActorContext }
+  | { ok: false; status: number; message: string }
+> {
+  const actorSupabase = await createRouteSupabaseClient();
+  const {
+    data: { user },
+    error: actorUserError,
+  } = await getRouteAuthenticatedUser(actorSupabase, authHeader);
+
+  if (actorUserError || !user?.id) {
+    return { ok: false, status: 401, message: "يجب تسجيل الدخول أولاً." };
+  }
+
+  const { data: actorProfile, error: actorProfileError } = await actorSupabase
+    .from("user_profiles")
+    .select("role, school_id, is_active")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actorProfileError || !actorProfile || actorProfile.is_active === false) {
+    return { ok: false, status: 403, message: "ليس لديك صلاحية لاستخدام هذه الواجهة." };
+  }
+
+  const actorRole = resolveKnownUserRole(actorProfile.role);
+  if (!actorRole) {
+    return { ok: false, status: 403, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." };
+  }
+
+  if (!options.allowedRoles.includes(actorRole)) {
+    return { ok: false, status: 403, message: options.roleDeniedMessage };
+  }
+
+  const requested = requestedSchoolId?.trim() || null;
+  let targetSchoolId = requested;
+
+  if (actorRole !== "super_admin") {
+    if (!actorProfile.school_id) {
+      return { ok: false, status: 403, message: "الحساب الحالي غير مرتبط بمدرسة صالحة." };
+    }
+
+    if (requested && requested !== actorProfile.school_id) {
+      return { ok: false, status: 403, message: "لا يمكنك تنفيذ هذا الإجراء خارج مدرسة حسابك الحالية." };
+    }
+
+    targetSchoolId = actorProfile.school_id;
+  }
+
+  if (!targetSchoolId) {
+    return { ok: false, status: 400, message: "يجب تحديد مدرسة قبل متابعة هذا الإجراء." };
+  }
+
+  const [{ data: school, error: schoolError }, { data: subscription, error: subscriptionError }] = await Promise.all([
+    actorSupabase
+      .from("schools")
+      .select("id, is_active")
+      .eq("id", targetSchoolId)
+      .maybeSingle(),
+    actorSupabase
+      .from("subscriptions")
+      .select("status, end_date")
+      .eq("school_id", targetSchoolId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (schoolError || !school?.id) {
+    return { ok: false, status: 400, message: "المدرسة المحددة غير متاحة لهذا المستخدم." };
+  }
+
+  if (subscriptionError && !isMissingTableError(subscriptionError, "subscriptions")) {
+    return { ok: false, status: 500, message: "تعذر التحقق من حالة اشتراك المدرسة الحالية." };
+  }
+
+  if (actorRole !== "super_admin") {
+    if (school.is_active === false) {
+      return { ok: false, status: 403, message: "المدرسة الحالية غير مفعلة، لذلك تم حظر هذا الإجراء." };
+    }
+
+    const status = (subscription?.status || "").toLowerCase();
+    const blockedByStatus = status === "suspended" || status === "inactive" || status === "stopped";
+    const blockedByExpiry = status === "expired" || isSchoolSubscriptionExpired(subscription?.end_date);
+
+    if (blockedByStatus || blockedByExpiry) {
+      return { ok: false, status: 403, message: "اشتراك المدرسة الحالية غير صالح، لذلك تم حظر هذا الإجراء." };
+    }
+  }
+
+  return {
+    ok: true,
+    value: {
+      actorSupabase,
+      actorUserId: user.id,
+      actorRole,
+      targetSchoolId,
+    },
+  };
 }
 
 export async function tableHasColumn(
@@ -171,9 +343,26 @@ export async function fetchManagedAccountSchoolBrand(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
 ) {
+  const [logoUrl, logo, schoolLogoUrl, brandLogoUrl, imageUrl] = await Promise.all([
+    tableHasColumn(actorSupabase, "schools", "logo_url").catch(() => false),
+    tableHasColumn(actorSupabase, "schools", "logo").catch(() => false),
+    tableHasColumn(actorSupabase, "schools", "school_logo_url").catch(() => false),
+    tableHasColumn(actorSupabase, "schools", "brand_logo_url").catch(() => false),
+    tableHasColumn(actorSupabase, "schools", "image_url").catch(() => false),
+  ]);
+
+  const selectColumns = [
+    "name",
+    ...(logoUrl ? ["logo_url"] : []),
+    ...(logo ? ["logo"] : []),
+    ...(schoolLogoUrl ? ["school_logo_url"] : []),
+    ...(brandLogoUrl ? ["brand_logo_url"] : []),
+    ...(imageUrl ? ["image_url"] : []),
+  ].join(", ");
+
   const { data, error } = await actorSupabase
     .from("schools")
-    .select("*")
+    .select(selectColumns)
     .eq("id", schoolId)
     .maybeSingle();
 
@@ -181,7 +370,7 @@ export async function fetchManagedAccountSchoolBrand(
     throw error;
   }
 
-  const schoolRecord = (data ?? null) as Record<string, unknown> | null;
+  const schoolRecord = (data ?? null) as unknown as Record<string, unknown> | null;
   const schoolName =
     (typeof schoolRecord?.name === "string" && schoolRecord.name.trim()) || SCHOOL_BRAND.nameAr;
 
@@ -193,71 +382,31 @@ export async function fetchManagedAccountSchoolBrand(
 
 export async function resolveManagedUsersActorContext(
   requestedSchoolId?: string | null,
+  authHeader?: string | null,
 ): Promise<
   | { ok: true; value: ManagedUsersActorContext }
   | { ok: false; status: number; message: string }
 > {
-  const actorSupabase = await createRouteSupabaseClient();
-  const {
-    data: { user },
-    error: actorUserError,
-  } = await actorSupabase.auth.getUser();
+  const context = await resolveSchoolScopedActorContext(requestedSchoolId, {
+    allowedRoles: ["super_admin", "admin"],
+    roleDeniedMessage: "إدارة الحسابات متاحة للمدير فقط.",
+  }, authHeader);
 
-  if (actorUserError || !user?.id) {
-    return { ok: false, status: 401, message: "يجب تسجيل الدخول أولاً." };
-  }
-
-  const { data: actorProfile, error: actorProfileError } = await actorSupabase
-    .from("user_profiles")
-    .select("role, school_id, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (actorProfileError || !actorProfile || actorProfile.is_active === false) {
-    return { ok: false, status: 403, message: "ليس لديك صلاحية لإدارة الحسابات." };
-  }
-
-  const actorRole = normalizeUserRole(actorProfile.role);
-  if (actorRole !== "super_admin" && actorRole !== "admin") {
-    return { ok: false, status: 403, message: "إدارة الحسابات متاحة للمدير فقط." };
-  }
-
-  const requested = requestedSchoolId?.trim() || null;
-  let targetSchoolId = requested;
-
-  if (actorRole === "admin") {
-    if (!actorProfile.school_id) {
-      return { ok: false, status: 403, message: "حساب الإدارة الحالي غير مرتبط بمدرسة." };
-    }
-
-    if (requested && requested !== actorProfile.school_id) {
-      return { ok: false, status: 403, message: "لا يمكنك إدارة حسابات مدرسة أخرى." };
-    }
-
-    targetSchoolId = actorProfile.school_id;
-  }
-
-  if (!targetSchoolId) {
-    return { ok: false, status: 400, message: "يجب تحديد مدرسة قبل إدارة الحسابات." };
-  }
-
-  const { data: school, error: schoolError } = await actorSupabase
-    .from("schools")
-    .select("id")
-    .eq("id", targetSchoolId)
-    .maybeSingle();
-
-  if (schoolError || !school) {
-    return { ok: false, status: 400, message: "المدرسة المحددة غير متاحة لهذا المستخدم." };
+  if (!context.ok) {
+    return {
+      ok: false,
+      status: "status" in context ? context.status : 500,
+      message: "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
+    };
   }
 
   return {
     ok: true,
     value: {
-      actorSupabase,
-      actorUserId: user.id,
-      actorRole,
-      targetSchoolId,
+      actorSupabase: context.value.actorSupabase,
+      actorUserId: context.value.actorUserId,
+      actorRole: context.value.actorRole as "super_admin" | "admin",
+      targetSchoolId: context.value.targetSchoolId,
     },
   };
 }
@@ -673,23 +822,38 @@ export async function fetchManagedUserCredentials(
 export async function fetchTeacherAssignments(
   actorSupabase: RouteSupabaseClient,
   teacherIds: string[],
+  options?: {
+    schoolId?: string | null;
+  },
 ) {
   if (teacherIds.length === 0) {
     return new Map<string, ManagedTeacherAssignmentRecord[]>();
   }
 
-  const { data, error } = await actorSupabase
+  let assignmentsQuery = actorSupabase
     .from("teacher_assignments")
     .select("id, teacher_id, subject_id, class_id, section_id, is_active")
     .in("teacher_id", teacherIds)
     .order("created_at", { ascending: true });
 
+  if (options?.schoolId) {
+    assignmentsQuery = assignmentsQuery.eq("school_id", options.schoolId);
+  }
+
+  const { data, error } = await assignmentsQuery;
+
   if (error) {
     if (isMissingTableError(error, "teacher_assignments") || error.message.toLowerCase().includes("could not find")) {
-      const { data: legacyTeachers, error: legacyTeachersError } = await actorSupabase
+      let legacyTeachersQuery = actorSupabase
         .from("teachers")
         .select("id, classes_taught")
         .in("id", teacherIds);
+
+      if (options?.schoolId) {
+        legacyTeachersQuery = legacyTeachersQuery.eq("school_id", options.schoolId);
+      }
+
+      const { data: legacyTeachers, error: legacyTeachersError } = await legacyTeachersQuery;
 
       if (legacyTeachersError) {
         if (isMissingColumnError(legacyTeachersError, "teachers", "classes_taught")) {
@@ -777,6 +941,9 @@ export async function decorateManagedUsers(
   actorSupabase: RouteSupabaseClient,
   users: ManagedUserRecord[],
 ) {
+  const scopedSchoolId =
+    users.length > 0 && users.every((user) => user.school_id === users[0]?.school_id) ? users[0]?.school_id ?? null : null;
+
   const [credentialsByAuthId, assignmentsByTeacherId] = await Promise.all([
     fetchManagedUserCredentials(
       actorSupabase,
@@ -787,6 +954,7 @@ export async function decorateManagedUsers(
       users
         .map((user) => user.teacher?.id)
         .filter((value): value is string => Boolean(value)),
+      { schoolId: scopedSchoolId },
     ),
   ]);
 
@@ -876,20 +1044,59 @@ function buildLegacyManagedUserRecord(input: {
 async function fetchLegacyLinkedRecords(
   actorSupabase: RouteSupabaseClient,
   authUserIds: string[],
+  schoolId?: string | null,
 ) {
   const [studentsLinkAvailable, teachersLinkAvailable] = await Promise.all([
     tableHasColumn(actorSupabase, "students", "auth_user_id"),
     tableHasColumn(actorSupabase, "teachers", "auth_user_id"),
   ]);
+  const teacherTableCapabilities = teachersLinkAvailable
+    ? await getTeacherTableCapabilities(actorSupabase)
+    : null;
+  const teacherSelectColumns = [
+    "id",
+    "auth_user_id",
+    "full_name",
+    "email",
+    "phone",
+    ...(teacherTableCapabilities?.specialization ? ["specialization"] : []),
+    ...(teacherTableCapabilities?.subject ? ["subject"] : []),
+    ...(teacherTableCapabilities?.notes ? ["notes"] : []),
+    ...(teacherTableCapabilities?.is_active ? ["is_active"] : []),
+    ...(teacherTableCapabilities?.status ? ["status"] : []),
+  ].join(", ");
 
-  const [studentsResult, teachersResult] = await Promise.all([
-    studentsLinkAvailable
-      ? actorSupabase.from("students").select("*").in("auth_user_id", authUserIds)
-      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
-    teachersLinkAvailable
-      ? actorSupabase.from("teachers").select("*").in("auth_user_id", authUserIds)
-      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
-  ]);
+  const studentsQuery = studentsLinkAvailable
+    ? (() => {
+        let query = actorSupabase
+          .from("students")
+          .select("id, auth_user_id, full_name, class_name, section, address, total_fee, paid_fee, discount_value, status")
+          .in("auth_user_id", authUserIds);
+
+        if (schoolId) {
+          query = query.eq("school_id", schoolId);
+        }
+
+        return query;
+      })()
+    : Promise.resolve({ data: [] as Record<string, unknown>[], error: null });
+
+  const teachersQuery = teachersLinkAvailable
+    ? (() => {
+        let query = actorSupabase
+          .from("teachers")
+          .select(teacherSelectColumns)
+          .in("auth_user_id", authUserIds);
+
+        if (schoolId) {
+          query = query.eq("school_id", schoolId);
+        }
+
+        return query;
+      })()
+    : Promise.resolve({ data: [] as Record<string, unknown>[], error: null });
+
+  const [studentsResult, teachersResult] = await Promise.all([studentsQuery, teachersQuery]);
 
   if (studentsResult.error) {
     throw studentsResult.error;
@@ -931,13 +1138,13 @@ export async function fetchManagedUserByAuthUserId(
     return managedUser ?? null;
   }
 
-  if (managedResult.error && !isMissingTableError(managedResult.error, "managed_user_profiles")) {
+  if (managedResult.error && !isMissingTableError(managedResult.error, "managed_user_profiles") && !isInfrastructureCompatError(managedResult.error)) {
     throw managedResult.error;
   }
 
   const { data: legacyProfile, error: legacyProfileError } = await actorSupabase
     .from("user_profiles")
-    .select("*")
+    .select("id, school_id, role, full_name, email, phone, is_active, created_at")
     .eq("id", options.authUserId)
     .eq("school_id", options.schoolId)
     .maybeSingle();
@@ -950,7 +1157,7 @@ export async function fetchManagedUserByAuthUserId(
     return null;
   }
 
-  const { studentsByAuthId, teachersByAuthId } = await fetchLegacyLinkedRecords(actorSupabase, [options.authUserId]);
+  const { studentsByAuthId, teachersByAuthId } = await fetchLegacyLinkedRecords(actorSupabase, [options.authUserId], options.schoolId);
   const legacyUser = buildLegacyManagedUserRecord({
     profile: legacyProfile as Record<string, unknown>,
     student: studentsByAuthId.get(options.authUserId) ?? null,
@@ -963,6 +1170,96 @@ export async function fetchManagedUserByAuthUserId(
 
   const [decoratedLegacyUser] = await decorateManagedUsers(actorSupabase, [legacyUser]);
   return decoratedLegacyUser ?? null;
+}
+
+export async function resolveManagedAccountBase(authUserId: string): Promise<ManagedAccountBaseSnapshot> {
+  const serviceSupabase = createServiceSupabaseClient();
+  const { data, error } = await serviceSupabase.auth.admin.getUserById(authUserId);
+
+  if (error || !data.user) {
+    throw error ?? new Error("تعذر تحميل مستخدم المصادقة الحالي.");
+  }
+
+  const authUser = data.user;
+  const authMetadata = asObject(authUser.user_metadata);
+
+  let managedProfileExists = false;
+  let schoolId: string | null = null;
+  let role: ManagedUserRole | null = null;
+
+  const managedProfileResult = await serviceSupabase
+    .from("managed_user_profiles")
+    .select("school_id, role")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+
+  if (!managedProfileResult.error && managedProfileResult.data) {
+    managedProfileExists = true;
+    schoolId = nullableText(managedProfileResult.data.school_id);
+    role = managedProfileResult.data.role === "student" || managedProfileResult.data.role === "teacher"
+      ? managedProfileResult.data.role
+      : null;
+  } else if (
+    managedProfileResult.error &&
+    !isMissingTableError(managedProfileResult.error, "managed_user_profiles")
+  ) {
+    throw managedProfileResult.error;
+  }
+
+  if (!schoolId || !role) {
+    const { data: legacyProfile, error: legacyProfileError } = await serviceSupabase
+      .from("user_profiles")
+      .select("school_id, role")
+      .eq("id", authUserId)
+      .maybeSingle();
+
+    if (legacyProfileError && !legacyProfileError.message.toLowerCase().includes("could not find")) {
+      throw legacyProfileError;
+    }
+
+    schoolId ||= nullableText(legacyProfile?.school_id) ?? nullableText(authMetadata.schoolId ?? authMetadata.school_id);
+    role ||= legacyProfile?.role === "student" || legacyProfile?.role === "teacher"
+      ? legacyProfile.role
+      : authMetadata.managedRole === "student" || authMetadata.managedRole === "teacher"
+        ? authMetadata.managedRole
+        : authMetadata.role === "student" || authMetadata.role === "teacher"
+          ? authMetadata.role
+          : null;
+  }
+
+  const user = schoolId ? await fetchManagedUserByAuthUserId(serviceSupabase, { authUserId, schoolId }) : null;
+  const resolvedRole = user?.role ?? role;
+  const loginIdentifier = getManagedAccountLoginIdentifier(authUser, user);
+  const linkedRecordId =
+    resolvedRole === "student"
+      ? user?.student?.id ?? null
+      : resolvedRole === "teacher"
+        ? user?.teacher?.id ?? null
+        : null;
+  const authUserIsActive = getManagedAuthUserIsActive(authUser);
+
+  return {
+    authUser,
+    user,
+    managedProfileExists,
+    authUserIsActive,
+    schoolId,
+    role: resolvedRole,
+    loginIdentifier,
+    identity: {
+      auth_user_id: authUserId,
+      role: resolvedRole,
+      school_id: schoolId,
+      login_identifier: loginIdentifier,
+      is_active: authUserIsActive && (user?.is_active ?? true),
+    },
+    linkage: {
+      managed_profile_exists: managedProfileExists,
+      linked_record_type: resolvedRole,
+      linked_record_id: linkedRecordId,
+      linked_record_status: linkedRecordId ? "ok" : "missing",
+    },
+  };
 }
 
 export async function findManagedProfileByLinkedRecord(
@@ -983,7 +1280,42 @@ export async function findManagedProfileByLinkedRecord(
 
   if (error) {
     if (isMissingTableError(error, "managed_user_profiles")) {
-      return null;
+      const relatedTable = options.role === "student" ? "students" : "teachers";
+      const hasAuthLink = await tableHasColumn(actorSupabase, relatedTable, "auth_user_id");
+      if (!hasAuthLink) {
+        return null;
+      }
+
+      const { data: linkedRow, error: linkedRowError } = await actorSupabase
+        .from(relatedTable)
+        .select("auth_user_id")
+        .eq("id", options.relatedRecordId)
+        .eq("school_id", options.schoolId)
+        .maybeSingle();
+
+      if (linkedRowError) {
+        throw linkedRowError;
+      }
+
+      if (typeof linkedRow?.auth_user_id !== "string") {
+        return null;
+      }
+
+      const { data: legacyProfile, error: legacyProfileError } = await actorSupabase
+        .from("user_profiles")
+        .select("email")
+        .eq("id", linkedRow.auth_user_id)
+        .eq("school_id", options.schoolId)
+        .maybeSingle();
+
+      if (legacyProfileError && !legacyProfileError.message.toLowerCase().includes("could not find")) {
+        throw legacyProfileError;
+      }
+
+      return {
+        authUserId: linkedRow.auth_user_id,
+        email: typeof legacyProfile?.email === "string" ? legacyProfile.email : null,
+      };
     }
 
     throw error;
@@ -1038,7 +1370,7 @@ export async function persistManagedUserProfile(
           is_active: options.isActive,
           student_id: options.studentId ?? null,
           teacher_id: options.teacherId ?? null,
-        }).eq("auth_user_id", options.authUserId);
+        }).eq("auth_user_id", options.authUserId).eq("school_id", options.schoolId);
 
   const { error } = await managedQuery;
   if (!error) {
@@ -1070,17 +1402,126 @@ export async function persistManagedUserProfile(
   }
 }
 
+export async function ensureManagedUserProfileLink(
+  actorSupabase: RouteSupabaseClient,
+  options: {
+    authUserId: string;
+    schoolId: string;
+    role: "student" | "teacher";
+    fullName: string;
+    email: string;
+    phone: string | null;
+    isActive: boolean;
+    studentId?: string | null;
+    teacherId?: string | null;
+    createdBy?: string | null;
+  },
+) {
+  try {
+    await persistManagedUserProfile(actorSupabase, {
+      mode: "insert",
+      authUserId: options.authUserId,
+      schoolId: options.schoolId,
+      role: options.role,
+      fullName: options.fullName,
+      email: options.email,
+      phone: options.phone,
+      isActive: options.isActive,
+      studentId: options.studentId,
+      teacherId: options.teacherId,
+      createdBy: options.createdBy,
+    });
+    return;
+  } catch (error) {
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code?: string | null }).code ?? "")
+        : "";
+
+    if (code !== "23505") {
+      throw error;
+    }
+  }
+
+  await persistManagedUserProfile(actorSupabase, {
+    mode: "update",
+    authUserId: options.authUserId,
+    schoolId: options.schoolId,
+    role: options.role,
+    fullName: options.fullName,
+    email: options.email,
+    phone: options.phone,
+    isActive: options.isActive,
+    studentId: options.studentId,
+    teacherId: options.teacherId,
+    createdBy: options.createdBy,
+  });
+}
+
+export async function syncManagedUserAccountState(
+  actorSupabase: RouteSupabaseClient,
+  options: {
+    authUserId: string;
+    schoolId: string;
+    role: ManagedUserRole;
+    fullName: string;
+    email: string;
+    phone: string | null;
+    isActive: boolean;
+    studentId?: string | null;
+    teacherId?: string | null;
+    createdBy?: string | null;
+    temporaryPassword?: string | null;
+    touchPrintTimestamp?: boolean;
+  },
+) {
+  await ensureManagedUserProfileLink(actorSupabase, {
+    authUserId: options.authUserId,
+    schoolId: options.schoolId,
+    role: options.role,
+    fullName: options.fullName,
+    email: options.email,
+    phone: options.phone,
+    isActive: options.isActive,
+    studentId: options.studentId,
+    teacherId: options.teacherId,
+    createdBy: options.createdBy,
+  });
+
+  if (typeof options.temporaryPassword === "string" && options.temporaryPassword.trim()) {
+    await upsertManagedUserCredential(actorSupabase, {
+      authUserId: options.authUserId,
+      schoolId: options.schoolId,
+      loginIdentifier: options.email,
+      temporaryPassword: options.temporaryPassword,
+      touchPrintTimestamp: options.touchPrintTimestamp,
+    });
+  }
+
+  await syncManagedAuthIdentityMetadata({
+    authUserId: options.authUserId,
+    role: options.role,
+    schoolId: options.schoolId,
+    fullName: options.fullName,
+    loginIdentifier: options.email,
+    createdBy: options.createdBy,
+    isActive: options.isActive,
+  });
+}
+
 export async function updateManagedUserLoginIdentifier(
   actorSupabase: RouteSupabaseClient,
   options: {
     authUserId: string;
+    schoolId: string;
     loginIdentifier: string;
   },
 ) {
   const { error } = await actorSupabase
     .from("managed_user_credentials")
     .update({ login_identifier: options.loginIdentifier })
-    .eq("auth_user_id", options.authUserId);
+    .eq("auth_user_id", options.authUserId)
+    .eq("school_id", options.schoolId);
 
   if (error && !isMissingTableError(error, "managed_user_credentials") && !error.message.toLowerCase().includes("could not find")) {
     throw error;
@@ -1300,16 +1741,121 @@ export async function findMatchingTeacherIdsForStudent(
     section: string | null;
   },
 ) {
+  const teacherTableCapabilities = await getTeacherTableCapabilities(actorSupabase);
+  const teacherStatusSelect = [
+    "id",
+    ...(teacherTableCapabilities.is_active ? ["is_active"] : []),
+    ...(teacherTableCapabilities.status ? ["status"] : []),
+    ...(teacherTableCapabilities.classes_taught ? ["classes_taught"] : []),
+  ].join(", ");
+
+  try {
+    const { data: classRows, error: classError } = await actorSupabase
+      .from("classes")
+      .select("*")
+      .eq("school_id", options.schoolId);
+
+    if (classError && !isMissingTableError(classError, "classes")) {
+      throw classError;
+    }
+
+    const matchingClassIds = ((classRows ?? []) as LookupRecord[])
+      .filter((row) => matchesLookupText(getClassLookupName(row), options.className))
+      .map((row) => String(row.id));
+
+    if (matchingClassIds.length > 0) {
+      let matchingSectionIds: string[] = [];
+
+      if (options.section) {
+        const { data: sectionRows, error: sectionError } = await actorSupabase
+          .from("sections")
+          .select("*")
+          .eq("school_id", options.schoolId)
+          .in("class_id", matchingClassIds);
+
+        if (sectionError && !isMissingTableError(sectionError, "sections")) {
+          throw sectionError;
+        }
+
+        matchingSectionIds = ((sectionRows ?? []) as LookupRecord[])
+          .filter((row) => matchesLookupText(getSectionLookupName(row), options.section))
+          .map((row) => String(row.id));
+      }
+
+      const { data: assignmentRows, error: assignmentError } = await actorSupabase
+        .from("teacher_assignments")
+        .select("teacher_id, class_id, section_id")
+        .eq("school_id", options.schoolId)
+        .in("class_id", matchingClassIds);
+
+      if (assignmentError) {
+        if (!isMissingTableError(assignmentError, "teacher_assignments")) {
+          throw assignmentError;
+        }
+      } else {
+        const matchedTeacherIds = Array.from(
+          new Set(
+            ((assignmentRows ?? []) as Array<Record<string, unknown>>)
+              .filter((row) => {
+                if (!options.section) {
+                  return true;
+                }
+
+                const sectionId = nullableText(row.section_id);
+                return !sectionId || matchingSectionIds.includes(sectionId);
+              })
+              .map((row) => nullableText(row.teacher_id))
+              .filter((teacherId): teacherId is string => Boolean(teacherId)),
+          ),
+        );
+
+        if (matchedTeacherIds.length === 0) {
+          return [];
+        }
+
+        const { data: teachers, error: teachersError } = await actorSupabase
+          .from("teachers")
+          .select(teacherStatusSelect)
+          .eq("school_id", options.schoolId)
+          .in("id", matchedTeacherIds);
+
+        if (teachersError) {
+          throw teachersError;
+        }
+
+        return ((teachers ?? []) as unknown as Array<Record<string, unknown>>)
+          .filter((teacher) => {
+            const isActive = typeof teacher.is_active === "boolean" ? teacher.is_active : true;
+            const status = normalizeMatchKey(teacher.status);
+            return isActive && status !== "inactive" && status !== "deleted";
+          })
+          .map((teacher) => String(teacher.id));
+      }
+    }
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof error.message === "string" &&
+      error.message.toLowerCase().includes("could not find")
+    ) {
+      // Fall through to the legacy classes_taught path when the newer schema is unavailable.
+    } else if (error) {
+      throw error;
+    }
+  }
+
   const { data: teachers, error: teachersError } = await actorSupabase
     .from("teachers")
-    .select("id, classes_taught, is_active, status")
+    .select(teacherStatusSelect)
     .eq("school_id", options.schoolId);
 
   if (teachersError) {
     throw teachersError;
   }
 
-  const matchedTeacherIds = ((teachers ?? []) as Array<Record<string, unknown>>)
+  const matchedTeacherIds = ((teachers ?? []) as unknown as Array<Record<string, unknown>>)
     .filter((teacher) => {
       const isActive = typeof teacher.is_active === "boolean" ? teacher.is_active : true;
       const status = normalizeMatchKey(teacher.status);
@@ -1336,7 +1882,8 @@ export async function replaceTeacherAssignments(
   const deleteAssignmentsResult = await actorSupabase
     .from("teacher_assignments")
     .delete()
-    .eq("teacher_id", options.teacherId);
+    .eq("teacher_id", options.teacherId)
+    .eq("school_id", options.schoolId);
   const hasTeacherAssignmentsTable = !isMissingTableError(deleteAssignmentsResult.error, "teacher_assignments");
 
   if (deleteAssignmentsResult.error && hasTeacherAssignmentsTable) {
@@ -1347,7 +1894,8 @@ export async function replaceTeacherAssignments(
     const { error: clearClassesTaughtError } = await actorSupabase
       .from("teachers")
       .update({ classes_taught: [] })
-      .eq("id", options.teacherId);
+      .eq("id", options.teacherId)
+      .eq("school_id", options.schoolId);
 
     if (clearClassesTaughtError && !isMissingColumnError(clearClassesTaughtError, "teachers", "classes_taught")) {
       throw clearClassesTaughtError;
@@ -1361,7 +1909,8 @@ export async function replaceTeacherAssignments(
       .update({
         classes_taught: buildTeacherClassesTaught(options.assignments),
       })
-      .eq("id", options.teacherId);
+      .eq("id", options.teacherId)
+      .eq("school_id", options.schoolId);
 
     if (legacyTeacherError && !isMissingColumnError(legacyTeacherError, "teachers", "classes_taught")) {
       throw legacyTeacherError;
@@ -1396,7 +1945,8 @@ export async function replaceTeacherAssignments(
     .update({
       classes_taught: buildTeacherClassesTaught(options.assignments),
     })
-    .eq("id", options.teacherId);
+    .eq("id", options.teacherId)
+    .eq("school_id", options.schoolId);
 
   if (teacherError && !isMissingColumnError(teacherError, "teachers", "classes_taught")) {
     throw teacherError;
@@ -1440,19 +1990,23 @@ export async function upsertManagedUserCredential(
 
 export async function markAccountCardPrinted(
   actorSupabase: RouteSupabaseClient,
-  authUserId: string,
+  options: {
+    authUserId: string;
+    schoolId: string;
+  },
 ) {
   const now = new Date().toISOString();
   const { error } = await actorSupabase
     .from("managed_user_credentials")
     .update({ card_last_printed_at: now })
-    .eq("auth_user_id", authUserId);
+    .eq("auth_user_id", options.authUserId)
+    .eq("school_id", options.schoolId);
 
   if (error && !isMissingTableError(error, "managed_user_credentials")) {
     throw error;
   }
 
-  await patchManagedCredentialMetadata(authUserId, {
+  await patchManagedCredentialMetadata(options.authUserId, {
     card_last_printed_at: now,
   });
 }

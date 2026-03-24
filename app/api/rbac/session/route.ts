@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import { normalizePermissions, normalizeUserRole } from "@/types/roles";
+import { normalizePermissions, resolveKnownUserRole } from "@/types/roles";
 import {
   RBAC_COOKIE_NAME,
   buildRBACSessionPayload,
@@ -8,9 +8,9 @@ import {
   hasRBACSecret,
   signRBACSession,
 } from "@/lib/rbac-session";
-import { createRouteSupabaseClient } from "@/lib/supabase-server";
+import { createRouteSupabaseClient, getRouteAuthenticatedUser } from "@/lib/supabase-server";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   if (!hasRBACSecret()) {
     return NextResponse.json(
       { ok: false, message: "RBAC secret is not configured on server." },
@@ -22,7 +22,7 @@ export async function POST() {
   const {
     data: { user },
     error: userError,
-  } = await supabase.auth.getUser();
+  } = await getRouteAuthenticatedUser(supabase, req.headers.get("authorization"));
 
   if (userError || !user?.id) {
     return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
@@ -44,7 +44,21 @@ export async function POST() {
     return NextResponse.json({ ok: false, message: "Profile not found" }, { status: 404 });
   }
 
-  const role = normalizeUserRole(profile.role);
+  const role = resolveKnownUserRole(profile.role);
+  if (!role) {
+    const response = NextResponse.json(
+      { ok: false, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." },
+      { status: 403 },
+    );
+    response.cookies.set(RBAC_COOKIE_NAME, "", {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 0,
+    });
+    return response;
+  }
   const profileWithOptionalPermissions = profile as typeof profile & {
     custom_permissions?: unknown;
     permissions?: unknown;

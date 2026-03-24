@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { resolveManagedUsersActorContext, syncStudentTeacherLinks } from "@/lib/managed-users-server";
+import { resolveSchoolScopedActorContext, syncStudentTeacherLinks } from "@/lib/managed-users-server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -26,7 +26,10 @@ export async function POST(
     return jsonError("اسم الصف مطلوب لمزامنة ربط الطالب.", 400);
   }
 
-  const context = await resolveManagedUsersActorContext(schoolId);
+  const context = await resolveSchoolScopedActorContext(schoolId, {
+    allowedRoles: ["super_admin", "admin", "employee"],
+    roleDeniedMessage: "لا تملك صلاحية مزامنة ربط الطلاب مع الأساتذة.",
+  }, req.headers.get("authorization"));
   if (!context.ok) {
     return jsonError(
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",

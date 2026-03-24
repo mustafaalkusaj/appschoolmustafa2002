@@ -7,12 +7,13 @@ import {
   type ManagedUserRecord,
 } from "@/lib/managed-users";
 import {
+  ensureManagedUserProfileLink,
   fetchManagedUserByAuthUserId,
   getTeacherTableCapabilities,
-  persistManagedUserProfile,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
   syncManagedAuthIdentityMetadata,
+  syncManagedUserAccountState,
   type ManagedUsersActorContext,
   updateManagedUserLoginIdentifier,
 } from "@/lib/managed-users-server";
@@ -107,8 +108,7 @@ async function restoreManagedProfile(
   actorSupabase: ManagedUsersActorContext["actorSupabase"],
   existing: ManagedUserRecord,
 ) {
-  await persistManagedUserProfile(actorSupabase, {
-    mode: "update",
+  await ensureManagedUserProfileLink(actorSupabase, {
     authUserId: existing.auth_user_id,
     schoolId: existing.school_id,
     role: existing.role,
@@ -129,7 +129,7 @@ export async function PATCH(
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const requestedSchoolId = typeof body?.school_id === "string" ? body.school_id : null;
 
-  const context = await resolveManagedUsersActorContext(requestedSchoolId);
+  const context = await resolveManagedUsersActorContext(requestedSchoolId, req.headers.get("authorization"));
   if (!context.ok) {
     return jsonError(
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
@@ -190,27 +190,6 @@ export async function PATCH(
     });
   }
 
-  try {
-    await persistManagedUserProfile(actorSupabase, {
-      mode: "update",
-      authUserId,
-      schoolId: targetSchoolId,
-      role: existing.role,
-      fullName: validation.value.full_name,
-      email: validation.value.email,
-      phone: validation.value.phone,
-      isActive: validation.value.is_active,
-      studentId: existing.student?.id ?? null,
-      teacherId: existing.teacher?.id ?? null,
-    });
-  } catch (profileError) {
-    await rollbackAuthUser(authUserId, existing);
-    return jsonError(
-      profileError instanceof Error ? profileError.message : "تعذر تحديث ملف الحساب.",
-      getPostgrestStatus(profileError as { code?: string | null }, 400),
-    );
-  }
-
   if (existing.role === "student") {
     if (!existing.student?.id) {
       await rollbackAuthUser(authUserId, existing);
@@ -231,7 +210,8 @@ export async function PATCH(
         paid_fee: validation.value.student!.paid_fee,
         discount_value: validation.value.student!.discount_value,
       })
-      .eq("id", existing.student.id);
+      .eq("id", existing.student.id)
+      .eq("school_id", targetSchoolId);
 
     if (studentError) {
       await rollbackAuthUser(authUserId, existing);
@@ -283,7 +263,8 @@ export async function PATCH(
     const { error: teacherError } = await actorSupabase
       .from("teachers")
       .update(teacherUpdatePayload)
-      .eq("id", existing.teacher.id);
+      .eq("id", existing.teacher.id)
+      .eq("school_id", targetSchoolId);
 
     if (teacherError) {
       await rollbackAuthUser(authUserId, existing);
@@ -310,6 +291,7 @@ export async function PATCH(
     try {
       await updateManagedUserLoginIdentifier(actorSupabase, {
         authUserId,
+        schoolId: targetSchoolId,
         loginIdentifier: validation.value.email,
       });
     } catch (credentialError) {
@@ -321,13 +303,16 @@ export async function PATCH(
   }
 
   try {
-    await syncManagedAuthIdentityMetadata({
+    await syncManagedUserAccountState(actorSupabase, {
       authUserId,
-      role: validation.value.role,
       schoolId: targetSchoolId,
+      role: validation.value.role,
       fullName: validation.value.full_name,
-      loginIdentifier: validation.value.email,
+      email: validation.value.email,
+      phone: validation.value.phone,
       isActive: validation.value.is_active,
+      studentId: existing.student?.id ?? null,
+      teacherId: existing.teacher?.id ?? null,
     });
   } catch (identityError) {
     return jsonError(
@@ -368,7 +353,7 @@ export async function DELETE(
         ? req.nextUrl.searchParams.get("schoolId")
         : null;
 
-  const context = await resolveManagedUsersActorContext(requestedSchoolId);
+  const context = await resolveManagedUsersActorContext(requestedSchoolId, req.headers.get("authorization"));
   if (!context.ok) {
     return jsonError(
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
@@ -431,9 +416,21 @@ export async function DELETE(
     }
   }
 
-  await actorSupabase.from("managed_user_credentials").delete().eq("auth_user_id", authUserId);
-  await actorSupabase.from("managed_user_profiles").delete().eq("auth_user_id", authUserId);
-  await actorSupabase.from("user_profiles").delete().eq("id", authUserId);
+  await actorSupabase
+    .from("managed_user_credentials")
+    .delete()
+    .eq("auth_user_id", authUserId)
+    .eq("school_id", targetSchoolId);
+  await actorSupabase
+    .from("managed_user_profiles")
+    .delete()
+    .eq("auth_user_id", authUserId)
+    .eq("school_id", targetSchoolId);
+  await actorSupabase
+    .from("user_profiles")
+    .delete()
+    .eq("id", authUserId)
+    .eq("school_id", targetSchoolId);
 
   const serviceSupabase = createServiceSupabaseClient();
   const { error: authDeleteError } = await serviceSupabase.auth.admin.deleteUser(authUserId);

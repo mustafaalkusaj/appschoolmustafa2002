@@ -41,6 +41,7 @@ import {
   type ManagedUserRole,
 } from "@/lib/managed-users";
 import { escapeHtml, wrapPrintDocument } from "@/lib/print-branding";
+import { fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
 type FieldErrors = Record<string, string>;
 type ClassOption = { id: string; name: string };
@@ -314,6 +315,17 @@ export default function TeachersManagementPage() {
   const normalizedClassFilter = classFilter.trim();
   const normalizedSectionFilter = sectionFilter.trim();
   const normalizedSubjectFilter = subjectFilter.trim();
+  const usersQueryScopeRef = useRef<string | null>(null);
+  const usersQueryScopeKey = [
+    currentSchoolId || "none",
+    deferredQuery,
+    normalizedClassFilter,
+    normalizedSectionFilter,
+    normalizedSubjectFilter,
+    statusFilter,
+  ].join("::");
+  const effectivePage =
+    usersQueryScopeRef.current !== null && usersQueryScopeRef.current !== usersQueryScopeKey && page !== 1 ? 1 : page;
 
   const buildUsersQueryParams = useCallback(
     (options?: { page?: number; pageSize?: number }) => {
@@ -364,10 +376,14 @@ export default function TeachersManagementPage() {
     }
 
     const [classesResult, sectionsResult, subjectsResult] = await Promise.all([
-      supabase.from("classes").select("*").eq("school_id", currentSchoolId).order("created_at", { ascending: true }),
+      supabase
+        .from("classes")
+        .select("id, name, grade, section")
+        .eq("school_id", currentSchoolId)
+        .order("created_at", { ascending: true }),
       supabase
         .from("sections")
-        .select("*")
+        .select("id, name, class_id, section")
         .eq("school_id", currentSchoolId)
         .order("created_at", { ascending: true }),
       supabase.from("subjects").select("id, name").eq("school_id", currentSchoolId).order("name", { ascending: true }),
@@ -434,9 +450,9 @@ export default function TeachersManagementPage() {
     setError("");
 
     try {
-      const params = buildUsersQueryParams({ page, pageSize });
+      const params = buildUsersQueryParams({ page: effectivePage, pageSize });
 
-      const response = await fetch(`/api/dashboard/users?${params.toString()}`, {
+      const response = await fetchWithAuthorizedSession(`/api/dashboard/users?${params.toString()}`, {
         method: "GET",
         cache: "no-store",
       });
@@ -460,17 +476,25 @@ export default function TeachersManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [buildUsersQueryParams, currentSchoolId, page, pageSize, profile]);
+  }, [buildUsersQueryParams, currentSchoolId, effectivePage, pageSize, profile]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+    void fetchOptions();
+  }, [fetchOptions, profile, schoolScope.scopeLoading]);
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
     void fetchUsers();
-    void fetchOptions();
-  }, [fetchOptions, fetchUsers, profile, schoolScope.scopeLoading]);
+  }, [fetchUsers, profile, schoolScope.scopeLoading]);
 
   useEffect(() => {
-    setPage(1);
-  }, [currentSchoolId, deferredQuery, normalizedClassFilter, normalizedSectionFilter, normalizedSubjectFilter, statusFilter]);
+    if (usersQueryScopeRef.current === usersQueryScopeKey) return;
+    usersQueryScopeRef.current = usersQueryScopeKey;
+    if (page !== 1) {
+      setPage(1);
+    }
+  }, [page, usersQueryScopeKey]);
 
   const teachersOnlyUsers = useMemo(() => users.filter((user) => user.role === "teacher"), [users]);
 
@@ -760,9 +784,9 @@ export default function TeachersManagementPage() {
 
     for (const row of importPayloads) {
       try {
-        const response = await fetch("/api/dashboard/users", {
+        const response = await fetchWithAuthorizedSession("/api/dashboard/users", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: withJsonHeaders(),
           body: JSON.stringify(row.payload),
         });
         const result = await response.json().catch(() => null);
@@ -804,7 +828,7 @@ export default function TeachersManagementPage() {
 
     try {
       const XLSX = await loadXLSX();
-      const response = await fetch(`/api/dashboard/users?${buildUsersQueryParams().toString()}`, {
+      const response = await fetchWithAuthorizedSession(`/api/dashboard/users?${buildUsersQueryParams().toString()}`, {
         method: "GET",
         cache: "no-store",
       });
@@ -847,7 +871,7 @@ export default function TeachersManagementPage() {
     setCardLoadingId(user.auth_user_id);
 
     try {
-      const response = await fetch(
+      const response = await fetchWithAuthorizedSession(
         `/api/dashboard/users/${user.auth_user_id}/card?schoolId=${encodeURIComponent(currentSchoolId)}`,
         { cache: "no-store" },
       );
@@ -857,9 +881,9 @@ export default function TeachersManagementPage() {
         return;
       }
 
-      const resetResponse = await fetch(`/api/dashboard/users/${user.auth_user_id}/reset-password`, {
+      const resetResponse = await fetchWithAuthorizedSession(`/api/dashboard/users/${user.auth_user_id}/reset-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: withJsonHeaders(),
         body: JSON.stringify({ school_id: currentSchoolId }),
       });
       const resetPayload = await resetResponse.json().catch(() => null);
@@ -887,9 +911,9 @@ export default function TeachersManagementPage() {
     setCardLoadingId(user.auth_user_id);
 
     try {
-      const response = await fetch(`/api/dashboard/users/${user.auth_user_id}/reset-password`, {
+      const response = await fetchWithAuthorizedSession(`/api/dashboard/users/${user.auth_user_id}/reset-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: withJsonHeaders(),
         body: JSON.stringify({ school_id: currentSchoolId }),
       });
 
@@ -932,11 +956,11 @@ export default function TeachersManagementPage() {
     setSaving(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchWithAuthorizedSession(
         editingUser ? `/api/dashboard/users/${editingUser.auth_user_id}` : "/api/dashboard/users",
         {
           method: editingUser ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: withJsonHeaders(),
           body: JSON.stringify(payload),
         },
       );
@@ -983,9 +1007,9 @@ export default function TeachersManagementPage() {
     setTogglingId(user.auth_user_id);
 
     try {
-      const response = await fetch(`/api/dashboard/users/${user.auth_user_id}`, {
+      const response = await fetchWithAuthorizedSession(`/api/dashboard/users/${user.auth_user_id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: withJsonHeaders(),
         body: JSON.stringify({
           school_id: currentSchoolId,
           is_active: !user.is_active,
@@ -1019,9 +1043,9 @@ export default function TeachersManagementPage() {
     setTogglingId(user.auth_user_id);
 
     try {
-      const response = await fetch(`/api/dashboard/users/${user.auth_user_id}`, {
+      const response = await fetchWithAuthorizedSession(`/api/dashboard/users/${user.auth_user_id}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: withJsonHeaders(),
         body: JSON.stringify({ school_id: currentSchoolId }),
       });
 

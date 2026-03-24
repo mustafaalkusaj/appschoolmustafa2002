@@ -9,7 +9,7 @@ import {
   isPathReadOnlyForRole,
   isRoleAllowedForPath,
   normalizePermissions,
-  normalizeUserRole,
+  resolveKnownUserRole,
   type Permission,
   type UserRole,
 } from "@/types/roles";
@@ -187,7 +187,11 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
     return null;
   }
 
-  const role = normalizeUserRole(data.role);
+  const role = resolveKnownUserRole(data.role);
+  if (!role) {
+    console.error("[Auth] unsupported web role for user:", userId, data.role);
+    return null;
+  }
   let permissions: Permission[];
   
   // Use custom permissions if available, otherwise use role-based defaults

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -15,17 +14,34 @@ import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { loadXLSX } from "@/lib/xlsx-loader";
-import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { resolveBranchIdForSchool, resolveSchoolIdForProfile } from "@/lib/school-context";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+
+function buildReceiptNumber() {
+  const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
+  const randomPart =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().split("-")[0].toUpperCase()
+      : Math.random().toString(36).slice(2, 10).toUpperCase();
+
+  return `REC-${stamp}-${randomPart}`;
+}
 
 export default function PaymentsPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const isEnglish = locale === "en";
-  const { profile } = useRole();
+  const { profile, can } = useRole();
   const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
+  const canAddPayments = can("add_payments");
+  const canDeletePayments = can("delete_payments");
   const [students, setStudents] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [paymentCountsByStudent, setPaymentCountsByStudent] = useState<Record<string, number>>({});
+  const [paymentYears, setPaymentYears] = useState<number[]>([]);
+  const [totalPaymentCount, setTotalPaymentCount] = useState(0);
+  const [paymentsByStudent, setPaymentsByStudent] = useState<Record<string, any[]>>({});
+  const [paymentsLoadingStudentId, setPaymentsLoadingStudentId] = useState<string | null>(null);
   const [archives, setArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -77,53 +93,48 @@ export default function PaymentsPage() {
   const fetchAll = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
-    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    setResolvedSchoolId(scopedSchoolId);
+    setError("");
 
-    if (!scopedSchoolId) {
-      setStudents([]);
-      setPayments([]);
-      setArchives([]);
-      setLoading(false);
-      return;
-    }
+    try {
+      const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+      setResolvedSchoolId(scopedSchoolId);
 
-    const studentsQuery = supabase
-      .from("students")
-      .select("id, school_id, full_name, class_name, section, phone, total_fee, paid_fee, discount_value, remaining_fee, status")
-      .eq("school_id", scopedSchoolId)
-      .order("full_name");
-    const paymentsQuery = supabase
-      .from("payments")
-      .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
-      .eq("school_id", scopedSchoolId)
-      .order("created_at", { ascending: false });
-    const archivesQuery = supabase
-      .from("account_archives")
-      .select("*")
-      .eq("school_id", scopedSchoolId)
-      .order("archive_year", { ascending: false })
-      .order("archive_date", { ascending: false });
-
-    const [{ data: studs }, { data: pays }, { data: archivesData, error: archivesErr }] = await Promise.all([
-      studentsQuery,
-      paymentsQuery,
-      archivesQuery,
-    ]);
-    if (studs) setStudents(studs);
-    if (pays) setPayments(pays);
-    if (archivesErr) {
-      if (archivesErr.message.includes('relation "account_archives" does not exist')) {
+      if (!scopedSchoolId) {
+        setStudents([]);
+        setPaymentCountsByStudent({});
+        setPaymentYears([]);
+        setTotalPaymentCount(0);
+        setPaymentsByStudent({});
         setArchives([]);
-        setArchiveNotice("جدول الأرشيف السنوي غير موجود بعد. نفّذ ملف database_setup.sql في Supabase.");
-      } else {
-        setArchiveNotice("تعذر تحميل الأرشيف السنوي للحسابات.");
+        return;
       }
-    } else {
-      setArchiveNotice("");
-      setArchives(archivesData || []);
+
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        students?: any[];
+        paymentCountsByStudent?: Record<string, number>;
+        paymentYears?: number[];
+        totalPaymentCount?: number;
+        archives?: any[];
+        archiveNotice?: string;
+        error?: { message?: string };
+      }>(`/api/web/payments/overview?schoolId=${encodeURIComponent(scopedSchoolId)}`);
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل بيانات المدفوعات.");
+      }
+
+      setStudents(payload?.students ?? []);
+      setPaymentCountsByStudent(payload?.paymentCountsByStudent ?? {});
+      setPaymentYears(payload?.paymentYears ?? []);
+      setTotalPaymentCount(typeof payload?.totalPaymentCount === "number" ? payload.totalPaymentCount : 0);
+      setPaymentsByStudent({});
+      setArchives(payload?.archives ?? []);
+      setArchiveNotice(payload?.archiveNotice ?? "");
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات المدفوعات.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [profile, schoolScope.selectedSchoolId]);
 
   useEffect(() => {
@@ -131,8 +142,84 @@ export default function PaymentsPage() {
     void fetchAll();
   }, [profile, schoolScope.scopeLoading, fetchAll]);
 
+  function applyStudentFinancialUpdate(studentId: string, update: { paid_fee: number; remaining_fee: number }) {
+    setStudents((current) =>
+      current.map((student) =>
+        student.id === studentId
+          ? {
+              ...student,
+              paid_fee: update.paid_fee,
+              remaining_fee: update.remaining_fee,
+            }
+          : student,
+      ),
+    );
+    setSelectedStudent((current: any) =>
+      current?.id === studentId
+        ? {
+            ...current,
+            paid_fee: update.paid_fee,
+            remaining_fee: update.remaining_fee,
+          }
+        : current,
+    );
+    setPayStudent((current: any) =>
+      current?.id === studentId
+        ? {
+            ...current,
+            paid_fee: update.paid_fee,
+            remaining_fee: update.remaining_fee,
+          }
+        : current,
+    );
+  }
+
+  const loadStudentPayments = useCallback(
+    async (studentId: string, options?: { force?: boolean }) => {
+      if (!resolvedSchoolId) return [];
+      if (!options?.force && paymentsByStudent[studentId]) {
+        return paymentsByStudent[studentId];
+      }
+
+      setPaymentsLoadingStudentId(studentId);
+      try {
+        const { response, payload } = await fetchJsonWithAuthorizedSession<{
+          payments?: any[];
+          error?: { message?: string };
+        }>(`/api/web/payments/students/${studentId}?schoolId=${encodeURIComponent(resolvedSchoolId)}`);
+
+        if (!response.ok) {
+          throw new Error(payload?.error?.message || "تعذر تحميل سجل دفعات الطالب.");
+        }
+
+        const nextPayments = payload?.payments ?? [];
+        setPaymentsByStudent((current) => ({ ...current, [studentId]: nextPayments }));
+        return nextPayments;
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "تعذر تحميل سجل دفعات الطالب.");
+        return [];
+      } finally {
+        setPaymentsLoadingStudentId((current) => (current === studentId ? null : current));
+      }
+    },
+    [paymentsByStudent, resolvedSchoolId],
+  );
+
+  const openStudentDetail = useCallback(
+    async (student: any) => {
+      setSelectedStudent(student);
+      setShowDetail(true);
+      void loadStudentPayments(student.id);
+    },
+    [loadStudentPayments],
+  );
+
   async function handlePayment(e: React.FormEvent) {
     e.preventDefault();
+    if (!canAddPayments) {
+      setError("ليس لديك صلاحية إضافة دفعات جديدة.");
+      return;
+    }
     if (!payStudent) return;
     setSaving(true);
     setError("");
@@ -150,96 +237,129 @@ export default function PaymentsPage() {
       return;
     }
 
-    const { data: branches } = await supabase.from("branches").select("id").eq("school_id", targetSchoolId).limit(1);
+    const branchId = await resolveBranchIdForSchool(targetSchoolId);
+    const electronicReceiptNum = buildReceiptNumber();
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        payment?: any;
+        studentUpdate?: { id: string; paid_fee: number; remaining_fee: number } | null;
+        warning?: string;
+        error?: { message?: string };
+      }>("/api/web/payments/records", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          school_id: targetSchoolId,
+          branch_id: branchId,
+          student_id: payStudent.id,
+          amount,
+          payment_method: payForm.payment_method,
+          notes: payForm.notes || null,
+          receipt_date: payForm.receipt_date,
+          receipt_number: electronicReceiptNum,
+          manual_receipt_number: payForm.manual_receipt_number || null,
+        }),
+      });
 
-    const electronicReceiptNum = `REC-${(payments.length + 1001).toString()}`;
-    const { error: payErr } = await supabase.from("payments").insert({
-      school_id: targetSchoolId,
-      branch_id: branches?.[0]?.id || null,
-      student_id: payStudent.id,
-      amount,
-      payment_method: payForm.payment_method,
-      notes: payForm.notes || null,
-      created_at: new Date(payForm.receipt_date).toISOString(),
-      receipt_number: electronicReceiptNum,
-      manual_receipt_number: payForm.manual_receipt_number || null,
-    });
-    if (payErr) {
-      setError("خطأ: " + payErr.message);
+      if (!response.ok) {
+        setError(payload?.error?.message || "تعذر تسجيل الدفعة.");
+        return;
+      }
+
+      if (payload?.studentUpdate) {
+        applyStudentFinancialUpdate(payStudent.id, payload.studentUpdate);
+      }
+      if (payload?.payment) {
+        setPaymentsByStudent((current) => ({
+          ...current,
+          [payStudent.id]: [payload.payment, ...(current[payStudent.id] ?? [])],
+        }));
+        setPaymentCountsByStudent((current) => ({
+          ...current,
+          [payStudent.id]: (current[payStudent.id] ?? 0) + 1,
+        }));
+        setTotalPaymentCount((current) => current + 1);
+        const createdYear = payload.payment.created_at ? new Date(payload.payment.created_at).getFullYear() : null;
+        if (typeof createdYear === "number" && Number.isFinite(createdYear)) {
+          setPaymentYears((current) =>
+            current.includes(createdYear) ? current : [createdYear, ...current].sort((left, right) => right - left),
+          );
+        }
+      }
+
+      setSuccess(payload?.warning ? `تم تسجيل الدفعة مع ملاحظة: ${payload.warning}` : "تم تسجيل الدفعة بنجاح ✓");
+      setShowPayModal(false);
+      setPayForm({
+        amount: "",
+        payment_method: "cash",
+        notes: "",
+        receipt_date: new Date().toISOString().split("T")[0],
+        manual_receipt_number: "",
+      });
+      setPayStudent(null);
+      setStudentSearch("");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (payError) {
+      setError(payError instanceof Error ? payError.message : "تعذر تسجيل الدفعة.");
+    } finally {
       setSaving(false);
-      return;
     }
-    const { error: studentErr } = await supabase
-      .from("students")
-      .update({ paid_fee: payStudent.paid_fee + amount })
-      .eq("id", payStudent.id);
-    if (studentErr) {
-      setError("تم تسجيل الدفعة لكن تعذر تحديث رصيد الطالب: " + studentErr.message);
-      setSaving(false);
-      fetchAll();
-      return;
-    }
-    setSuccess("تم تسجيل الدفعة بنجاح ✓");
-    setShowPayModal(false);
-    setPayForm({
-      amount: "",
-      payment_method: "cash",
-      notes: "",
-      receipt_date: new Date().toISOString().split("T")[0],
-      manual_receipt_number: "",
-    });
-    setPayStudent(null);
-    setStudentSearch("");
-    fetchAll();
-    setTimeout(() => setSuccess(""), 3000);
-    setSaving(false);
   }
 
   async function deletePayment(id: string) {
+    if (!canDeletePayments) {
+      setError("ليس لديك صلاحية حذف الدفعات.");
+      return;
+    }
     if (!confirm("هل تريد حذف هذه الدفعة؟")) return;
-    const { data: payment, error: paymentErr } = await supabase
-      .from("payments")
-      .select("id, student_id, amount")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (paymentErr || !payment) {
-      setError("تعذر العثور على الدفعة المطلوب حذفها");
+    if (!resolvedSchoolId || !selectedStudent?.id) {
+      setError("تعذر تحديد سياق المدرسة أو الطالب لهذه العملية.");
       return;
     }
 
-    const { data: student, error: studentErr } = await supabase
-      .from("students")
-      .select("id, paid_fee")
-      .eq("id", payment.student_id)
-      .maybeSingle();
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        deletedPaymentId?: string;
+        studentUpdate?: { id: string; paid_fee: number; remaining_fee: number } | null;
+        warning?: string;
+        error?: { message?: string };
+      }>(`/api/web/payments/records/${id}`, {
+        method: "DELETE",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({ school_id: resolvedSchoolId }),
+      });
 
-    if (studentErr || !student) {
-      setError("تعذر تحميل بيانات الطالب المرتبط بهذه الدفعة");
-      return;
+      if (!response.ok) {
+        setError(payload?.error?.message || "تعذر حذف الدفعة.");
+        return;
+      }
+
+      if (payload?.studentUpdate) {
+        applyStudentFinancialUpdate(selectedStudent.id, payload.studentUpdate);
+      }
+      setPaymentsByStudent((current) => ({
+        ...current,
+        [selectedStudent.id]: (current[selectedStudent.id] ?? []).filter((payment) => payment.id !== id),
+      }));
+      setPaymentCountsByStudent((current) => ({
+        ...current,
+        [selectedStudent.id]: Math.max(0, (current[selectedStudent.id] ?? 1) - 1),
+      }));
+      setTotalPaymentCount((current) => Math.max(0, current - 1));
+
+      if (payload?.warning) {
+        setError(`تم حذف الدفعة لكن تعذر مزامنة رصيد الطالب بالكامل: ${payload.warning}`);
+      }
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "تعذر حذف الدفعة.");
     }
-
-    const nextPaidFee = Math.max(0, (student.paid_fee || 0) - (payment.amount || 0));
-    const { error: updateErr } = await supabase
-      .from("students")
-      .update({ paid_fee: nextPaidFee })
-      .eq("id", payment.student_id);
-
-    if (updateErr) {
-      setError("تعذر تحديث إجمالي المبلغ المدفوع للطالب: " + updateErr.message);
-      return;
-    }
-
-    const { error: deleteErr } = await supabase.from("payments").delete().eq("id", id);
-    if (deleteErr) {
-      setError("تعذر حذف الدفعة: " + deleteErr.message);
-      return;
-    }
-
-    fetchAll();
   }
 
   async function archiveAccountsYear() {
+    if (!canDeletePayments) {
+      setError("ليس لديك صلاحية أرشفة الحسابات.");
+      return;
+    }
     if (!resolvedSchoolId) {
       setError("لا يمكن تحديد المدرسة الحالية للأرشفة");
       return;
@@ -253,64 +373,42 @@ export default function PaymentsPage() {
 
     setArchiving(true);
     setError("");
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        archive?: any;
+        created?: boolean;
+        error?: { message?: string };
+      }>("/api/web/payments/archive", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          school_id: resolvedSchoolId,
+          archive_year: year,
+        }),
+      });
 
-    const yearPayments = payments.filter((payment) => new Date(payment.created_at).getFullYear() === year);
-    if (yearPayments.length === 0) {
-      setError("لا توجد دفعات مسجلة في السنة المحددة لإنشاء أرشيف سنوي.");
+      if (!response.ok) {
+        setError(payload?.error?.message || "تعذر حفظ الأرشيف السنوي.");
+        return;
+      }
+
+      if (payload?.archive) {
+        setArchives((current) => {
+          const next = [payload.archive, ...current.filter((archive) => archive.id !== payload.archive.id)];
+          return next.sort((left, right) => {
+            const yearDiff = Number(right.archive_year ?? 0) - Number(left.archive_year ?? 0);
+            if (yearDiff !== 0) return yearDiff;
+            return new Date(String(right.archive_date ?? "")).getTime() - new Date(String(left.archive_date ?? "")).getTime();
+          });
+        });
+      }
+      setSuccess(payload?.created ? "تم إنشاء الأرشيف السنوي للحسابات ✓" : "تم تحديث الأرشيف السنوي للحسابات ✓");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (archiveError) {
+      setError(archiveError instanceof Error ? archiveError.message : "تعذر حفظ الأرشيف السنوي.");
+    } finally {
       setArchiving(false);
-      return;
     }
-
-    const studentIds = Array.from(new Set(yearPayments.map((payment) => payment.student_id).filter(Boolean)));
-    const totalAmount = yearPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-    const snapshot = {
-      year,
-      payments: yearPayments,
-      students: students.filter((student) => studentIds.includes(student.id)),
-      summary: {
-        total_students: studentIds.length,
-        total_payments: yearPayments.length,
-        total_amount: totalAmount,
-      },
-    };
-
-    const payload = {
-      school_id: resolvedSchoolId,
-      archive_year: year,
-      total_students: studentIds.length,
-      total_payments: yearPayments.length,
-      total_amount: totalAmount,
-      data: snapshot,
-      archive_date: new Date().toISOString(),
-    };
-
-    const { data: existing, error: existingErr } = await supabase
-      .from("account_archives")
-      .select("id")
-      .eq("school_id", resolvedSchoolId)
-      .eq("archive_year", year)
-      .maybeSingle();
-
-    if (existingErr && !existingErr.message.includes('relation "account_archives" does not exist')) {
-      setError("تعذر التحقق من الأرشيف الحالي: " + existingErr.message);
-      setArchiving(false);
-      return;
-    }
-
-    const result = existing?.id
-      ? await supabase.from("account_archives").update(payload).eq("id", existing.id)
-      : await supabase.from("account_archives").insert(payload);
-
-    if (result.error) {
-      setError("تعذر حفظ الأرشيف السنوي: " + result.error.message);
-      setArchiving(false);
-      return;
-    }
-
-    setSuccess(existing?.id ? "تم تحديث الأرشيف السنوي للحسابات ✓" : "تم إنشاء الأرشيف السنوي للحسابات ✓");
-    setArchiving(false);
-    fetchAll();
-    setTimeout(() => setSuccess(""), 3000);
   }
 
   function getPaymentMethodLabel(method: string) {
@@ -429,7 +527,7 @@ export default function PaymentsPage() {
   const classes = Array.from(new Set(students.map((s) => s.class_name))).filter(Boolean) as string[];
 
   // فلترة الطلاب
-  const studentPaymentsCount = (id: string) => payments.filter((p) => p.student_id === id).length;
+  const studentPaymentsCount = (id: string) => paymentCountsByStudent[id] ?? 0;
 
   let filteredStudents = students.filter((s) => {
     if (quickFilter === "transferred") return s.status === "transferred";
@@ -475,12 +573,12 @@ export default function PaymentsPage() {
   }
 
   const studentPaymentsList = (id: string) =>
-    payments.filter((p) => p.student_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    paymentsByStudent[id] ?? [];
 
   const searchResults = students.filter((s) => s.full_name.includes(studentSearch) || s.class_name.includes(studentSearch)).slice(0, 8);
 
-  const nextReceiptNum = `REC-${(payments.length + 1001).toString()}`;
-  const archiveYearOptions = Array.from(new Set([...payments.map((p) => new Date(p.created_at).getFullYear()), ...archives.map((archive) => archive.archive_year), new Date().getFullYear()]))
+  const nextReceiptNum = `REC-${(totalPaymentCount + 1001).toString()}`;
+  const archiveYearOptions = Array.from(new Set([...paymentYears, ...archives.map((archive) => archive.archive_year), new Date().getFullYear()]))
     .sort((a, b) => b - a);
   const archivedYearsCount = archives.length;
   const totalArchivedAmount = archives.reduce((sum, archive) => sum + (archive.total_amount || 0), 0);
@@ -740,16 +838,18 @@ export default function PaymentsPage() {
                         <button className="btn-export" onClick={exportExcel}>
                           <AppIcon token="⬇️" size={14} /> تصدير إكسل
                         </button>
-                        <button
-                          className="btn-add"
-                          onClick={() => {
-                            setPayStudent(null);
-                            setStudentSearch("");
-                            setShowPayModal(true);
-                          }}
-                        >
-                          + إضافة فاتورة
-                        </button>
+                        {canAddPayments && (
+                          <button
+                            className="btn-add"
+                            onClick={() => {
+                              setPayStudent(null);
+                              setStudentSearch("");
+                              setShowPayModal(true);
+                            }}
+                          >
+                            + إضافة فاتورة
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -851,8 +951,7 @@ export default function PaymentsPage() {
                               <span
                                 className="student-link"
                                 onClick={() => {
-                                  setSelectedStudent(s);
-                                  setShowDetail(true);
+                                  void openStudentDetail(s);
                                 }}
                               >
                                 {s.full_name}
@@ -891,8 +990,7 @@ export default function PaymentsPage() {
                                   className="btn-print-sm"
                                   title="تفاصيل"
                                   onClick={() => {
-                                    setSelectedStudent(s);
-                                    setShowDetail(true);
+                                    void openStudentDetail(s);
                                   }}
                                 >
                                   <AppIcon token="📋" size={13} />
@@ -939,9 +1037,11 @@ export default function PaymentsPage() {
                       </option>
                     ))}
                   </select>
-                  <button className="btn-add" onClick={archiveAccountsYear} disabled={archiving}>
-                    <AppIcon token="🗃️" size={14} /> {archiving ? "جارٍ الأرشفة..." : "أرشفة السنة المحددة"}
-                  </button>
+                  {canDeletePayments && (
+                    <button className="btn-add" onClick={archiveAccountsYear} disabled={archiving}>
+                      <AppIcon token="🗃️" size={14} /> {archiving ? "جارٍ الأرشفة..." : "أرشفة السنة المحددة"}
+                    </button>
+                  )}
                 </div>
                 {archives.length === 0 ? (
                   <div className="empty" style={{ padding: "1.5rem 0" }}>لا يوجد أرشيف سنوي محفوظ بعد</div>
@@ -1068,21 +1168,27 @@ export default function PaymentsPage() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".8rem" }}>
                   <span style={{ fontSize: ".88rem", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                    <AppIcon token="💳" size={14} /> معاملات الدفع ({studentPaymentsList(selectedStudent.id).length})
+                    <AppIcon token="💳" size={14} /> معاملات الدفع ({studentPaymentsCount(selectedStudent.id)})
                   </span>
-                  <button
-                    className="btn-add"
-                    style={{ padding: ".4rem .8rem", fontSize: ".75rem" }}
-                    onClick={() => {
-                      setPayStudent(selectedStudent);
-                      setStudentSearch(selectedStudent.full_name);
-                      setShowPayModal(true);
-                    }}
-                  >
-                    + إضافة دفعة
-                  </button>
+                  {canAddPayments && (
+                    <button
+                      className="btn-add"
+                      style={{ padding: ".4rem .8rem", fontSize: ".75rem" }}
+                      onClick={() => {
+                        setPayStudent(selectedStudent);
+                        setStudentSearch(selectedStudent.full_name);
+                        setShowPayModal(true);
+                      }}
+                    >
+                      + إضافة دفعة
+                    </button>
+                  )}
                 </div>
-                {studentPaymentsList(selectedStudent.id).length === 0 ? (
+                {paymentsLoadingStudentId === selectedStudent.id ? (
+                  <div style={{ textAlign: "center", padding: "2rem", color: "var(--gray)", fontSize: ".85rem" }}>
+                    جارٍ تحميل دفعات الطالب...
+                  </div>
+                ) : studentPaymentsList(selectedStudent.id).length === 0 ? (
                   <div style={{ textAlign: "center", padding: "2rem", color: "var(--gray)", fontSize: ".85rem" }}>
                     لا توجد دفعات مسجلة حتى الآن
                   </div>
@@ -1115,9 +1221,11 @@ export default function PaymentsPage() {
                           <button className="btn-print-sm" title="طباعة" onClick={() => printReceipt(p, selectedStudent)}>
                             <AppIcon token="🖨️" size={13} />
                           </button>
-                          <button className="btn-del-sm" onClick={() => deletePayment(p.id)}>
-                            حذف
-                          </button>
+                          {canDeletePayments && (
+                            <button className="btn-del-sm" onClick={() => deletePayment(p.id)}>
+                              حذف
+                            </button>
+                          )}
                         </div>
                       </div>
                       {/* تفاصيل الدفعة */}

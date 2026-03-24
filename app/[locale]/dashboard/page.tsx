@@ -22,6 +22,7 @@ import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
 import { requestRuntimeBrandingRefresh } from "@/hooks/useRuntimeBranding";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
+import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 
 const DashboardFinanceCharts = dynamic(
   () => import("@/components/DashboardFinanceCharts").then((module) => module.DashboardFinanceCharts),
@@ -40,6 +41,13 @@ interface ClassFee {
   installment_amount: number;
   notes: string;
   created_at: string;
+  stats?: {
+    count: number;
+    totalExpected: number;
+    totalPaid: number;
+    totalRemaining: number;
+    paidPct: number;
+  };
 }
 
 interface DashboardNotification {
@@ -51,14 +59,56 @@ interface DashboardNotification {
   created_at: string | null;
 }
 
+type DashboardTotals = {
+  studentsCount: number;
+  transferredCount: number;
+  totalFees: number;
+  totalPaid: number;
+  totalDiscount: number;
+  totalRemaining: number;
+  afterDiscount: number;
+  paidPct: number;
+  remainingPct: number;
+};
+
+type DashboardRecentPayment = {
+  id: string;
+  amount: number;
+  created_at: string | null;
+  student_id: string | null;
+  student_name: string | null;
+  class_name: string | null;
+};
+
+type DashboardOverdueStudent = {
+  id: string;
+  full_name: string | null;
+  class_name: string | null;
+  remaining_fee: number;
+};
+
+const EMPTY_DASHBOARD_TOTALS: DashboardTotals = {
+  studentsCount: 0,
+  transferredCount: 0,
+  totalFees: 0,
+  totalPaid: 0,
+  totalDiscount: 0,
+  totalRemaining: 0,
+  afterDiscount: 0,
+  paidPct: 0,
+  remainingPct: 0,
+};
+
 export default function DashboardPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const { profile, canAny } = useRole();
   const schoolScope = useSchoolScope(profile);
   const canManageClasses = canAny(["add_students", "edit_students", "delete_students"]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [dashboardTotals, setDashboardTotals] = useState<DashboardTotals>(EMPTY_DASHBOARD_TOTALS);
+  const [recentPayments, setRecentPayments] = useState<DashboardRecentPayment[]>([]);
+  const [overdueStudents, setOverdueStudents] = useState<DashboardOverdueStudent[]>([]);
+  const [studentCountByClass, setStudentCountByClass] = useState<Record<string, number>>({});
   const [classFees, setClassFees] = useState<ClassFee[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -105,69 +155,48 @@ export default function DashboardPage() {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     setLoading(true);
     if (!schoolId) {
-      setStudents([]);
-      setPayments([]);
+      setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
+      setRecentPayments([]);
+      setOverdueStudents([]);
+      setStudentCountByClass({});
       setClassFees([]);
       setLoading(false);
       return;
     }
 
-    // Parallel fetch for better performance
-    const compat = await detectAppSchemaCompat();
-    let feesQuery = supabase
-      .from("class_fees")
-      .select("*")
-      .order("class_name", { ascending: true });
-    if (compat.classFeesSchoolScope) {
-      feesQuery = feesQuery.eq("school_id", schoolId);
-    }
-    const [studentsResult, paymentsResult, feesResult] = await Promise.all([
-      // 1. Fetch students (optimized columns)
-      supabase
-        .from("students")
-        .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
-        .eq("school_id", schoolId)
-        .neq("status", "deleted"),
-      
-      // 2. Fetch recent payments only (Limit 5)
-      supabase
-        .from("payments")
-        .select("id, amount, created_at, student_id")
-        .eq("school_id", schoolId)
-        .order("created_at", { ascending: false })
-        .limit(5),
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        totals?: DashboardTotals;
+        recentPayments?: DashboardRecentPayment[];
+        overdueStudents?: DashboardOverdueStudent[];
+        classFees?: ClassFee[];
+        studentCountByClass?: Record<string, number>;
+        error?: { message?: string };
+      }>(`/api/web/dashboard/overview?schoolId=${encodeURIComponent(schoolId)}`);
 
-      // 3. Fetch class fees with schema compatibility
-      feesQuery,
-    ]);
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل لوحة التحكم.");
+      }
 
-    if (studentsResult.data) setStudents(studentsResult.data);
-    if (paymentsResult.data) setPayments(paymentsResult.data);
-    if (feesResult.data) setClassFees(feesResult.data);
-    
-    setLoading(false);
-  }, [profile, schoolScope.selectedSchoolId]);
-
-  // Optimized fetchClassFees is no longer needed separately in the main flow, 
-  // but kept if called individually by other actions.
-  const fetchClassFees = useCallback(async () => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    const compat = await detectAppSchemaCompat();
-    if (!schoolId && compat.classFeesSchoolScope) {
+      setDashboardTotals(payload?.totals ?? EMPTY_DASHBOARD_TOTALS);
+      setRecentPayments(payload?.recentPayments ?? []);
+      setOverdueStudents(payload?.overdueStudents ?? []);
+      setStudentCountByClass(payload?.studentCountByClass ?? {});
+      setClassFees(payload?.classFees ?? []);
+    } catch {
+      setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
+      setRecentPayments([]);
+      setOverdueStudents([]);
+      setStudentCountByClass({});
       setClassFees([]);
-      return;
+    } finally {
+      setLoading(false);
     }
-    let query = supabase
-      .from("class_fees")
-      .select("*")
-      .order("class_name", { ascending: true });
-    if (compat.classFeesSchoolScope && schoolId) {
-      query = query.eq("school_id", schoolId);
-    }
-    const { data } = await query;
-    
-    if (data) setClassFees(data as ClassFee[]);
   }, [profile, schoolScope.selectedSchoolId]);
+
+  const fetchClassFees = useCallback(async () => {
+    await fetchAll();
+  }, [fetchAll]);
 
   const fetchClasses = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -261,35 +290,48 @@ export default function DashboardPage() {
       return;
     }
 
-    const compat = await detectAppSchemaCompat();
-    const storedBranding = getStoredSchoolBranding(schoolId);
-    const schoolQuery = compat.schoolColors
-      ? supabase.from("schools").select("name, logo_url, primary_color, secondary_color")
-      : supabase.from("schools").select("name, logo_url");
-    const { data } = await schoolQuery.eq("id", schoolId).maybeSingle();
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      school?: {
+        name?: string | null;
+        logo_url?: string | null;
+        primary_color?: string | null;
+        secondary_color?: string | null;
+      };
+      schemaCompat?: { schoolColors?: boolean };
+      error?: { message?: string };
+    }>(`/api/web/dashboard/branding?schoolId=${encodeURIComponent(schoolId)}`);
 
-    if (!data) return;
+    if (!response.ok || !payload?.school) {
+      setBrandingNotice(payload?.error?.message || "تعذر تحميل الهوية البصرية.");
+      return;
+    }
+
+    const compat = {
+      schoolColors: Boolean(payload.schemaCompat?.schoolColors),
+    };
+    const storedBranding = getStoredSchoolBranding(schoolId);
+    const school = payload.school;
 
     let primaryColor =
-      compat.schoolColors && "primary_color" in data && typeof data.primary_color === "string"
-        ? data.primary_color
+      compat.schoolColors && typeof school.primary_color === "string"
+        ? school.primary_color
         : storedBranding?.primaryColor || "";
     let secondaryColor =
-      compat.schoolColors && "secondary_color" in data && typeof data.secondary_color === "string"
-        ? data.secondary_color
+      compat.schoolColors && typeof school.secondary_color === "string"
+        ? school.secondary_color
         : storedBranding?.secondaryColor || "";
 
     if (!primaryColor || !secondaryColor) {
       const derivedPalette = await derivePaletteFromLogo(
-        typeof data.logo_url === "string" ? data.logo_url : null,
-        typeof data.name === "string" ? data.name : "",
+        typeof school.logo_url === "string" ? school.logo_url : null,
+        typeof school.name === "string" ? school.name : "",
       );
       primaryColor = primaryColor || derivedPalette.primaryColor;
       secondaryColor = secondaryColor || derivedPalette.secondaryColor;
     }
     setBrandingForm({
-      name: data.name || "",
-      logo_url: data.logo_url || "",
+      name: school.name || "",
+      logo_url: school.logo_url || "",
       primary_color: primaryColor || "#4f8cff",
       secondary_color: secondaryColor || "#79d7ff",
     });
@@ -348,30 +390,36 @@ export default function DashboardPage() {
 
     setBrandingSaving(true);
     setBrandingNotice("");
-    const compat = await detectAppSchemaCompat();
-    const payload = {
-      name: brandingForm.name.trim(),
-      logo_url: brandingForm.logo_url.trim() || null,
-      ...(compat.schoolColors
-        ? {
-            primary_color: brandingForm.primary_color || null,
-            secondary_color: brandingForm.secondary_color || null,
-          }
-        : {}),
-    };
-    if (!payload.name) {
+    if (!brandingForm.name.trim()) {
       setBrandingNotice("اسم المدرسة مطلوب قبل الحفظ.");
       setBrandingSaving(false);
       return;
     }
 
-    const { error } = await supabase.from("schools").update(payload).eq("id", schoolId);
-    if (error) {
-      setBrandingNotice(`تعذر حفظ الهوية: ${error.message}`);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      schemaCompat?: { schoolColors?: boolean };
+      error?: { message?: string };
+    }>("/api/web/dashboard/branding", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        school_id: schoolId,
+        name: brandingForm.name.trim(),
+        logo_url: brandingForm.logo_url.trim() || null,
+        primary_color: brandingForm.primary_color || null,
+        secondary_color: brandingForm.secondary_color || null,
+      }),
+    });
+
+    if (!response.ok) {
+      setBrandingNotice(`تعذر حفظ الهوية: ${payload?.error?.message || "خطأ غير متوقع"}`);
       setBrandingSaving(false);
       return;
     }
 
+    const compat = {
+      schoolColors: Boolean(payload?.schemaCompat?.schoolColors),
+    };
     setStoredSchoolBranding(schoolId, {
       primaryColor: brandingForm.primary_color || null,
       secondaryColor: brandingForm.secondary_color || null,
@@ -665,21 +713,24 @@ export default function DashboardPage() {
 
   // ─── احصائيات الأقساط لكل صف (مرتبطة بالطلاب) ──────────────────────────
   function getClassStats(cf: ClassFee) {
-    const classStudents = students.filter(s => s.class_name === cf.class_name);
-    const totalExpected = classStudents.length * cf.total_fee;
-    const totalPaid = classStudents.reduce((a, s) => a + (s.paid_fee || 0), 0);
-    const totalRemaining = classStudents.reduce((a, s) => a + (s.remaining_fee || 0), 0);
-    const paidPct = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
-    return { count: classStudents.length, totalExpected, totalPaid, totalRemaining, paidPct };
+    return (
+      cf.stats ?? {
+        count: studentCountByClass[cf.class_name] ?? 0,
+        totalExpected: 0,
+        totalPaid: 0,
+        totalRemaining: 0,
+        paidPct: 0,
+      }
+    );
   }
 
-  const totalFees     = students.reduce((a,s) => a + s.total_fee, 0);
-  const totalPaid     = students.reduce((a,s) => a + s.paid_fee, 0);
-  const totalDiscount = students.reduce((a,s) => a + (s.discount_value||0), 0);
-  const totalRemaining = students.reduce((a,s) => a + s.remaining_fee, 0);
-  const afterDiscount = totalFees - totalDiscount;
-  const paidPct = totalFees > 0 ? Math.round((totalPaid / totalFees) * 100) : 0;
-  const remainingPct = 100 - paidPct;
+  const totalFees = dashboardTotals.totalFees;
+  const totalPaid = dashboardTotals.totalPaid;
+  const totalDiscount = dashboardTotals.totalDiscount;
+  const totalRemaining = dashboardTotals.totalRemaining;
+  const afterDiscount = dashboardTotals.afterDiscount;
+  const paidPct = dashboardTotals.paidPct;
+  const remainingPct = dashboardTotals.remainingPct;
 
   const barData = [
     { name: "إجمالي الرسوم", value: totalFees, fill: "#6C4AB6" },
@@ -693,9 +744,6 @@ export default function DashboardPage() {
     { name: "المدفوع", value: totalPaid, color: "#10B981" },
     { name: "المتبقي", value: totalRemaining, color: "#F59E0B" },
   ];
-
-  const recentPayments = payments.slice(0, 5);
-  const overdueStudents = students.filter(s => s.remaining_fee > 0).sort((a,b) => b.remaining_fee - a.remaining_fee).slice(0, 3);
 
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
   const canCustomizeBranding = profile?.role === "super_admin";
@@ -990,8 +1038,8 @@ export default function DashboardPage() {
             {/* إحصائيات سريعة */}
             <div className="row1">
               {([
-                ["إجمالي الطلاب", formatNumber(students.length), "#EDE8FA","#6C4AB6"],
-                ["الطلاب المنقولون", formatNumber(students.filter(s=>s.status==="transferred").length), "#DBEAFE","#3B82F6"],
+                ["إجمالي الطلاب", formatNumber(dashboardTotals.studentsCount), "#EDE8FA","#6C4AB6"],
+                ["الطلاب المنقولون", formatNumber(dashboardTotals.transferredCount), "#DBEAFE","#3B82F6"],
                 ["إجمالي الرسوم", `د.ع ${formatNumber(totalFees)}`, "#FEF3C7","#F59E0B"],
                 ["المبلغ المدفوع", `د.ع ${formatNumber(totalPaid)}`, "#D1FAE5","#10B981"],
               ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
@@ -1068,12 +1116,11 @@ export default function DashboardPage() {
                 {recentPayments.length===0?(
                   <div style={{textAlign:"center",color:"var(--gray)",fontSize:".82rem",padding:"1rem"}}>لا توجد دفعات حتى الآن</div>
                 ):recentPayments.map((p:any)=>{
-                  const s = students.find(st=>st.id===p.student_id);
                   return <div className="pay-item" key={p.id}>
-                    <div className="pay-av">{(s?.full_name||"؟")[0]}</div>
+                    <div className="pay-av">{(p.student_name||"؟")[0]}</div>
                     <div style={{flex:1}}>
-                      <div className="pay-name">{s?.full_name||"—"}</div>
-                      <div className="pay-meta">{s?.class_name} • {formatDate(p.created_at)}</div>
+                      <div className="pay-name">{p.student_name||"—"}</div>
+                      <div className="pay-meta">{p.class_name || "—"} • {formatDate(p.created_at)}</div>
                     </div>
                     <div style={{fontWeight:800,color:"#10B981",fontSize:".8rem"}}>د.ع {formatNumber(p.amount)}</div>
                   </div>;
@@ -1325,13 +1372,13 @@ export default function DashboardPage() {
 
           {/* ربط بالطلاب */}
           {feeForm.class_name && (() => {
-            const linked = students.filter(s => s.class_name === feeForm.class_name.trim());
-            if (linked.length === 0) return null;
+            const linked = studentCountByClass[feeForm.class_name.trim()] ?? 0;
+            if (linked === 0) return null;
             return (
               <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:9,padding:".6rem .9rem",marginBottom:".8rem",fontSize:".75rem",color:"#166534"}}>
                 <strong style={{display:"inline-flex",alignItems:"center",gap:".3rem"}}>
                   <AppIcon token="🔗" size={13} />
-                  مرتبط بـ {linked.length} طالب
+                  مرتبط بـ {linked} طالب
                 </strong>{" "}
                 في هذا الصف
               </div>

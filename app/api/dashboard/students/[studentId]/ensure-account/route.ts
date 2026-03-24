@@ -7,66 +7,15 @@ import {
   fetchManagedUserByAuthUserId,
   generateManagedLoginIdentifier,
   generateTemporaryPassword,
-  persistManagedUserProfile,
   resolveManagedUsersActorContext,
-  syncManagedAuthIdentityMetadata,
+  syncManagedUserAccountState,
   syncStudentTeacherLinks,
   upsertManagedUserCredential,
 } from "@/lib/managed-users-server";
-import { createRouteSupabaseClient, createServiceSupabaseClient } from "@/lib/supabase-server";
-
-type RouteSupabaseClient = Awaited<ReturnType<typeof createRouteSupabaseClient>>;
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
-}
-
-async function ensureManagedProfile(options: {
-  actorSupabase: RouteSupabaseClient;
-  authUserId: string;
-  schoolId: string;
-  fullName: string;
-  email: string;
-  phone: string | null;
-  isActive: boolean;
-  studentId: string;
-  createdBy: string | null;
-}) {
-  try {
-    await persistManagedUserProfile(options.actorSupabase, {
-      mode: "insert",
-      authUserId: options.authUserId,
-      schoolId: options.schoolId,
-      role: "student",
-      fullName: options.fullName,
-      email: options.email,
-      phone: options.phone,
-      isActive: options.isActive,
-      studentId: options.studentId,
-      createdBy: options.createdBy,
-    });
-  } catch (error) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? String((error as { code?: string }).code || "")
-        : "";
-    if (code !== "23505") {
-      throw error;
-    }
-
-    await persistManagedUserProfile(options.actorSupabase, {
-      mode: "update",
-      authUserId: options.authUserId,
-      schoolId: options.schoolId,
-      role: "student",
-      fullName: options.fullName,
-      email: options.email,
-      phone: options.phone,
-      isActive: options.isActive,
-      studentId: options.studentId,
-      createdBy: options.createdBy,
-    });
-  }
 }
 
 export async function POST(
@@ -77,7 +26,7 @@ export async function POST(
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
 
-  const context = await resolveManagedUsersActorContext(schoolId);
+  const context = await resolveManagedUsersActorContext(schoolId, req.headers.get("authorization"));
   if (!context.ok) {
     return jsonError(
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
@@ -173,40 +122,25 @@ export async function POST(
       const { error: linkStudentError } = await actorSupabase
         .from("students")
         .update({ auth_user_id: authUserId })
-        .eq("id", studentId);
+        .eq("id", studentId)
+        .eq("school_id", targetSchoolId);
 
       if (linkStudentError) {
         await serviceSupabase.auth.admin.deleteUser(authUserId);
         return jsonError(linkStudentError.message || "تعذر ربط الحساب بسجل الطالب.", 500);
       }
 
-      await ensureManagedProfile({
-        actorSupabase,
+      await syncManagedUserAccountState(actorSupabase, {
         authUserId,
         schoolId: targetSchoolId,
+        role: "student",
         fullName: studentName,
         email: loginIdentifier,
         phone: studentPhone,
         isActive,
         studentId,
         createdBy: actorUserId,
-      });
-
-      await upsertManagedUserCredential(actorSupabase, {
-        authUserId,
-        schoolId: targetSchoolId,
-        loginIdentifier,
         temporaryPassword,
-      });
-
-      await syncManagedAuthIdentityMetadata({
-        authUserId,
-        role: "student",
-        schoolId: targetSchoolId,
-        fullName: studentName,
-        loginIdentifier,
-        createdBy: actorUserId,
-        isActive,
       });
     }
 
@@ -243,26 +177,16 @@ export async function POST(
       }
     }
 
-    await ensureManagedProfile({
-      actorSupabase,
+    await syncManagedUserAccountState(actorSupabase, {
       authUserId,
       schoolId: targetSchoolId,
+      role: "student",
       fullName: studentName,
       email: loginIdentifier,
       phone: studentPhone,
       isActive,
       studentId,
       createdBy: actorUserId,
-    });
-
-    await syncManagedAuthIdentityMetadata({
-      authUserId,
-      role: "student",
-      schoolId: targetSchoolId,
-      fullName: studentName,
-      loginIdentifier,
-      createdBy: actorUserId,
-      isActive,
     });
 
     let user = await fetchManagedUserByAuthUserId(actorSupabase, {

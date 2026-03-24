@@ -7,6 +7,24 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
 
+function readUnknownErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const routeSupabase = await createRouteSupabaseClient();
@@ -17,8 +35,18 @@ export async function GET(req: NextRequest) {
     }
 
     const account = await buildManagedAppAccountContext(authResult.data.user.id);
-    if (!account.identity.role) {
-      return jsonError("الحساب الحالي ليس حساب طالب أو مدرس جاهزاً للتطبيق.", 403);
+    if (!account.identity.role || !account.access.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          account,
+          error: {
+            message: account.access.message,
+            reason: account.access.reason,
+          },
+        },
+        { status: 403 },
+      );
     }
 
     return NextResponse.json({
@@ -26,6 +54,6 @@ export async function GET(req: NextRequest) {
       account,
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر تحميل سياق الحساب الحالي.", 500);
+    return jsonError(readUnknownErrorMessage(error, "تعذر تحميل سياق الحساب الحالي."), 500);
   }
 }
