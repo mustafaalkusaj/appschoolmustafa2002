@@ -1,11 +1,8 @@
-# Students Page TypeScript Fix Plan
-✅ **1. Create types/student.ts** (Student interface + computed fees)
-⏳ **2. Update app/[locale]/students/page.tsx** 
-   - Type fetchPagedStudents return
-   - Transform query to add remaining_fee  
-   - Type all state variables (selectedStudent, editForm, etc.)
-   - Fix statusMap Record typing
-   - Type all functions using Student[]
-⏳ **3. Verify npm run build** (no TS errors)
-⏳ **4. Test /ar/students renders correctly**
-⏳ **5. attempt_completion**
+# Ping Indicator Implementation
+- [x] Step 1: Create components/PingIndicator.tsx
+- [x] Step 2: Create app/api/ping/route.ts
+- [x] Step 3: Update messages/ar.json and en.json
+- [x] Step 4: Edit components/AppShellTopbar.tsx to include PingIndicator (fixed import)
+- [x] Step 5: Test with npm run dev (dev server running on :3002)
+- [x] Step 6: Update TODO.md complete, attempt_completion
+
