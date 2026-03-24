@@ -1,0 +1,22 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { parseMobileListParams, queryStudentNotifications, resolveMobileRouteContext } from "@/lib/mobile-api-server";
+
+export async function GET(req: NextRequest) {
+  const context = await resolveMobileRouteContext(req, "student");
+  if (context.ok === false) {
+    return context.response;
+  }
+
+  const params = parseMobileListParams(req, { limit: 20, maxLimit: 100 });
+  const result = await queryStudentNotifications(context.value, params);
+
+  return NextResponse.json({
+    ok: true,
+    gate: result.gate,
+    items: result.items,
+    unread_count: result.unreadCount,
+    page: params.page,
+    limit: params.limit,
+  });
+}
