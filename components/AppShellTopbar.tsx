@@ -10,6 +10,7 @@ import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { useRole } from "@/hooks/useRole";
 import { getAcademicYearLabel } from "@/lib/academic-year";
 import { getLocaleFromPath } from "@/lib/locale-routing";
+import { PingIndicator } from "@/components/PingIndicator";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -119,6 +120,9 @@ export function AppShellTopbar({
             </div>
           ) : null}
           {actions}
+          <div className="app-shell-topbar__ping">
+            <PingIndicator />
+          </div>
           <ProfileMenu />
         </div>
       </div>
