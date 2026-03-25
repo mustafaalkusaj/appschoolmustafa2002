@@ -1029,6 +1029,7 @@ function handlePrint(s: StudentWithFees){
   // Full students dataset (all pages)
   const [allStudentsDataset, setAllStudentsDataset] = useState<StudentWithFees[]>([]);
   const [datasetLoading, setDatasetLoading] = useState(false);
+ blackboxai/ping-final
   const datasetFilterKeyRef = useRef<string>("");
 
   const loadStudentsDataset = useCallback(async () => {
@@ -1041,6 +1042,18 @@ function handlePrint(s: StudentWithFees){
 
     const schoolId = await resolveSchoolIdForProfile(profile!, {
       selectedSchoolId: schoolScope.selectedSchoolId,
+
+
+  const loadStudentsDataset = useCallback(async () => {
+    // Key current filters for cache
+    const filterKey = [activeTab, debouncedSearch, filterClass, filterSection].join('::');
+    if (allStudentsDataset.length > 0 && allStudentsDataset[0]?.filterKey === filterKey) {
+      return allStudentsDataset;
+    }
+    
+    const schoolId = await resolveSchoolIdForProfile(profile!, { 
+      selectedSchoolId: schoolScope.selectedSchoolId 
+ main
     });
     if (!schoolId) return [];
 
@@ -1056,8 +1069,12 @@ function handlePrint(s: StudentWithFees){
       if (filterSection.trim()) params.append('sectionName', filterSection.trim());
 
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
+ blackboxai/ping-final
         students?: StudentDatasetRow[];
         error?: { message?: string };
+
+        students?: StudentRow[];
+ main
       }>(`/api/web/reports/dataset?${params.toString()}`);
       
       if (!response.ok) {
@@ -1065,8 +1082,12 @@ function handlePrint(s: StudentWithFees){
         return [];
       }
 
+ blackboxai/ping-final
       const rawStudents: StudentDatasetRow[] = payload?.students ?? [];
       const fullDataset: StudentWithFees[] = rawStudents.map((item): StudentWithFees => ({
+      const rawStudents: StudentRow[] = payload?.students ?? [];
+      const fullDataset: StudentWithFees[] = rawStudents.map((item, idx): StudentWithFees => ({
+ main
         id: item.id,
         school_id: schoolId,
         full_name: item.full_name,
@@ -1082,10 +1103,18 @@ function handlePrint(s: StudentWithFees){
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         auth_user_id: null,
+ blackboxai/ping-final
       }));
 
       setAllStudentsDataset(fullDataset);
       datasetFilterKeyRef.current = filterKey;
+
+        // Cache key for filter matching
+        filterKey,
+      }));
+
+      setAllStudentsDataset(fullDataset);
+ main
       return fullDataset;
     } catch (err) {
       console.error("loadStudentsDataset error:", err);
