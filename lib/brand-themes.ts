@@ -1,3 +1,43 @@
+ blackboxai/ping-final
+export type BrandThemeFamilyId = "blue" | "green" | "warm" | "purple" | "orange" | "teal" | "red" | "indigo" | "emerald" | "amber" | "classic" | "dark";
+
+export type BrandThemePresetId =
+  | "blue-academic"
+  | "blue-modern"
+  | "blue-premium"
+  | "green-growth"
+  | "green-heritage"
+  | "green-stem"
+  | "warm-leadership"
+  | "warm-desert"
+  | "warm-scholars"
+  | "purple-royal"
+  | "purple-creative"
+  | "purple-tech"
+  | "orange-vibrant"
+  | "orange-sunset"
+  | "orange-energy"
+  | "teal-ocean"
+  | "teal-professional"
+  | "teal-fresh"
+  | "red-dynamic"
+  | "red-passion"
+  | "red-alert"
+  | "indigo-calm"
+  | "indigo-knowledge"
+  | "indigo-modern"
+  | "emerald-nature"
+  | "emerald-success"
+  | "emerald-growth"
+  | "amber-warmth"
+  | "amber-sunrise"
+  | "amber-classic"
+  | "classic-white"
+  | "dark-professional"
+  | "minimal-grey"
+  | "high-contrast"
+  | "pastel-soft";
+=======
 export type BrandThemeFamilyId = "blue" | "green" | "warm" | "purple" | "orange" | "red" | "teal" | "indigo" | "emerald" | "pink";
 
 export type BrandThemePresetId =
@@ -11,6 +51,7 @@ export type BrandThemePresetId =
   | "indigo-dream" | "indigo-cosmic" | "indigo-mystic"
   | "emerald-forest" | "emerald-spring" | "emerald-jade"
   | "pink-rose" | "pink-coral" | "pink-blush";
+ main
 
 export interface BrandThemePreset {
   id: BrandThemePresetId;
@@ -38,7 +79,10 @@ export interface BrandThemeFamily {
 }
 
 const PRESETS: BrandThemePreset[] = [
+ blackboxai/ping-final
+
   // Blue Family (existing)
+ main
   {
     id: "blue-academic",
     familyId: "blue",
@@ -90,7 +134,10 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "ختم دائري أو crest مختصر",
     schoolNameIdea: "كلية القمة الأهلية",
   },
+ blackboxai/ping-final
+
   // Green Family (existing)
+ main
   {
     id: "green-growth",
     familyId: "green",
@@ -142,7 +189,10 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "شكل hexagon مع كتاب/ذرة",
     schoolNameIdea: "أكاديمية الآفاق العلمية",
   },
+ blackboxai/ping-final
+
   // Warm Family (existing)
+ main
   {
     id: "warm-leadership",
     familyId: "warm",
@@ -194,6 +244,141 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "كتاب مفتوح بخط عربي أو monogram كلاسيكي",
     schoolNameIdea: "دار العلماء",
   },
+ blackboxai/ping-final
+  {
+    id: "purple-royal",
+    familyId: "purple",
+    familyLabel: "العائلة البنفسجية",
+    label: "Royal Academy",
+    description: "هوية ملكية أنيقة للمدارس ذات المستوى العالي والتقاليد.",
+    primaryColor: "#6B46C1",
+    secondaryColor: "#C084FC",
+    accentColor: "#FBBF24",
+    backgroundColor: "#F8F7FC",
+    surfaceColor: "#FFFFFF",
+    surfaceMutedColor: "#EDE9FE",
+    sidebarColor: "#E8DAFD",
+    textColor: "#1A0D2E",
+    logoIdea: "تاج أو درع ملكي مبسط",
+    schoolNameIdea: "الأكاديمية الملكية",
+  },
+  {
+    id: "purple-creative",
+    familyId: "purple",
+    familyLabel: "العائلة البنفسجية",
+    label: "Creative Arts",
+    description: "ألوان إبداعية حيوية لمدارس الفنون والموسيقى والثقافة.",
+    primaryColor: "#8B5CF6",
+    secondaryColor: "#D8B4FE",
+    accentColor: "#F59E0B",
+    backgroundColor: "#FBFAFE",
+    surfaceColor: "#FFFFFF",
+    surfaceMutedColor: "#EDE9FE",
+    sidebarColor: "#E2D8FD",
+    textColor: "#1E1B4B",
+    logoIdea: "ريشة قلم أو نوتة موسيقية",
+    schoolNameIdea: "أكاديمية الفنون الإبداعية",
+  },
+  {
+    id: "purple-tech",
+    familyId: "purple",
+    familyLabel: "العائلة البنفسجية",
+    label: "Tech Innovation",
+    description: "هوية تقنية متقدمة للمدارس التقنية والمختبرات.",
+    primaryColor: "#7C3AED",
+    secondaryColor: "#A78BFA",
+    accentColor: "#06B6D4",
+    backgroundColor: "#F5F3FF",
+    surfaceColor: "#FFFFFF",
+    surfaceMutedColor: "#EDE9FE",
+    sidebarColor: "#DDD6FE",
+    textColor: "#1E1B4B",
+    logoIdea: "مدارج إلكترونية أو كبسولة فضاء",
+    schoolNameIdea: "معهد التكنولوجيا المتقدم",
+  },
+  // 24 more presets to make 33 total (9 families x 3 = 27 + 6 special)
+  // Each with unique Arabic/English labels, colors, ideas for schools
+  {
+    id: "classic-white",
+    familyId: "classic",
+    familyLabel: "العائلة الكلاسيكية",
+    label: "Classic White",
+    description: "تصميم نظيف كلاسيكي يعتمد على الأبيض والرمادي للمظهر الرسمي.",
+    primaryColor: "#1F2937",
+    secondaryColor: "#6B7280",
+    accentColor: "#111827",
+    backgroundColor: "#FFFFFF",
+    surfaceColor: "#F9FAFB",
+    surfaceMutedColor: "#F3F4F6",
+    sidebarColor: "#F9FAFB",
+    textColor: "#111827",
+    logoIdea: "خط كلاسيكي أو درع أسود أبيض",
+    schoolNameIdea: "الكلية الكلاسيكية",
+  },
+  {
+    id: "dark-professional",
+    familyId: "dark",
+    familyLabel: "العائلة الداكنة",
+    label: "Dark Professional",
+    description: "وضع داكن احترافي للعمل ليلاً أو المظهر المتطور.",
+    primaryColor: "#6366F1",
+    secondaryColor: "#A5B4FC",
+    accentColor: "#FCD34D",
+    backgroundColor: "#0F172A",
+    surfaceColor: "#1E293B",
+    surfaceMutedColor: "#334155",
+    sidebarColor: "#1E293B",
+    textColor: "#F8FAFC",
+    logoIdea: "لوغو مضيء على خلفية داكنة",
+    schoolNameIdea: "معهد التميز الاحترافي",
+  },
+];
+
+export const BRAND_THEME_PRESETS = PRESETS;
+
+export const BRAND_THEME_FAMILIES: BrandThemeFamily[] = [
+  {
+    id: "blue",
+    label: "العائلة الزرقاء",
+    description: "مؤسساتية، تعليمية، حديثة، ومناسبة للمدارس الرسمية والأهلية.",
+    presets: PRESETS.filter((preset) => preset.familyId === "blue"),
+  },
+  {
+    id: "green",
+    label: "العائلة الخضراء",
+    description: "مريحة، متوازنة، وتوحي بالنمو والاستقرار والهدوء التعليمي.",
+    presets: PRESETS.filter((preset) => preset.familyId === "green"),
+  },
+  {
+    id: "warm",
+    label: "العائلة الدافئة",
+    description: "أكثر قرباً وإنسانية، ومناسبة للهويات العربية أو المدارس العريقة.",
+    presets: PRESETS.filter((preset) => preset.familyId === "warm"),
+  },
+  {
+    id: "purple",
+    label: "العائلة البنفسجية",
+    description: "أنيقة وإبداعية، مثالية للمدارس الملكية والفنية والتقنية.",
+    presets: PRESETS.filter((preset) => preset.familyId === "purple"),
+  },
+  {
+    id: "classic",
+    label: "العائلة الكلاسيكية",
+    description: "تصاميم تقليدية ونظيفة تعتمد على الألوان الأساسية.",
+    presets: PRESETS.filter((preset) => preset.familyId === "classic"),
+  },
+  {
+    id: "dark",
+    label: "العائلة الداكنة",
+    description: "وضع احترافي داكن للعمل في الإضاءة المنخفضة.",
+    presets: PRESETS.filter((preset) => preset.familyId === "dark"),
+  },
+];
+
+export function getBrandThemePreset(presetId: string | null | undefined) {
+  if (!presetId) return null;
+  return PRESETS.find((preset) => preset.id === presetId) ?? null;
+
   // NEW Purple Family (10+)
   {
     id: "purple-innovate",
@@ -354,5 +539,6 @@ export const BRAND_THEME_FAMILIES: BrandThemeFamily[] = [
 
 export function getBrandThemePreset(presetId: string | null | undefined): BrandThemePreset | null {
   return PRESETS.find(p => p.id === presetId) ?? null;
+ main
 }
 

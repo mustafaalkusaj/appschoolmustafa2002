@@ -22,6 +22,27 @@ type CreateSchoolBody = {
   plan?: unknown;
 };
 
+type SchoolRecord = {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  owner_email: string | null;
+  city: string | null;
+  logo_url: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  plan: "basic" | "premium" | "enterprise";
+  is_active: boolean;
+  created_at?: string | null;
+};
+
+function buildSchoolSelect(schemaCompat: Awaited<ReturnType<typeof detectAppSchemaCompatWithClient>>) {
+  return schemaCompat.schoolColors
+    ? "id, name, address, phone, owner_email, city, logo_url, primary_color, secondary_color, plan, is_active, created_at"
+    : "id, name, address, phone, owner_email, city, logo_url, plan, is_active, created_at";
+}
+
 export async function POST(req: NextRequest) {
   const context = await resolveSuperAdminActorContext(req.headers.get("authorization"));
   if (!context.ok) {
@@ -36,11 +57,12 @@ export async function POST(req: NextRequest) {
     return jsonError("اسم المدرسة مطلوب.", 400);
   }
 
-  const { actorSupabase } = context.value;
+  const { dataSupabase } = context.value;
   const [infrastructure, schemaCompat] = await Promise.all([
-    detectAdminInfrastructure(actorSupabase),
-    detectAppSchemaCompatWithClient(actorSupabase),
+    detectAdminInfrastructure(dataSupabase),
+    detectAppSchemaCompatWithClient(dataSupabase),
   ]);
+  const schoolSelect = buildSchoolSelect(schemaCompat);
 
   const schoolPayload = {
     name,
@@ -61,22 +83,23 @@ export async function POST(req: NextRequest) {
     is_active: true,
   };
 
-  const { data: school, error: schoolError } = await actorSupabase
+  const { data: school, error: schoolError } = await dataSupabase
     .from("schools")
     .insert(schoolPayload)
-    .select("id, name, address, phone, owner_email, city, logo_url, primary_color, secondary_color, plan, is_active, created_at")
+    .select(schoolSelect)
     .single();
 
   if (schoolError || !school) {
     return jsonError(schoolError?.message || "تعذر إنشاء المدرسة.", 500);
   }
+  const createdSchool = school as unknown as SchoolRecord;
 
   const startDate = new Date().toISOString().split("T")[0];
   const endDate = new Date(Date.now() + 365 * DAY_IN_MS).toISOString().split("T")[0];
-  const { data: subscription, error: subscriptionError } = await actorSupabase
+  const { data: subscription, error: subscriptionError } = await dataSupabase
     .from("subscriptions")
     .insert({
-      school_id: school.id,
+      school_id: createdSchool.id,
       plan,
       status: "active",
       start_date: startDate,
@@ -86,25 +109,25 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (subscriptionError || !subscription) {
-    await actorSupabase.from("schools").delete().eq("id", school.id);
+    await dataSupabase.from("schools").delete().eq("id", createdSchool.id);
     return jsonError(subscriptionError?.message || "تعذر إنشاء اشتراك المدرسة.", 500);
   }
 
   let branchSkipped = !infrastructure.branches;
   if (!branchSkipped) {
     const branchPayload = {
-      school_id: school.id,
+      school_id: createdSchool.id,
       name: "الفرع الرئيسي",
       ...(schemaCompat.branchesIsMain ? { is_main: true } : {}),
     };
 
-    const { error: branchError } = await actorSupabase.from("branches").insert(branchPayload);
+    const { error: branchError } = await dataSupabase.from("branches").insert(branchPayload);
     if (branchError) {
       if (isInfrastructureCompatError(branchError)) {
         branchSkipped = true;
       } else {
-        await actorSupabase.from("subscriptions").delete().eq("id", subscription.id);
-        await actorSupabase.from("schools").delete().eq("id", school.id);
+        await dataSupabase.from("subscriptions").delete().eq("id", subscription.id);
+        await dataSupabase.from("schools").delete().eq("id", createdSchool.id);
         return jsonError(branchError.message || "تعذر إنشاء الفرع الرئيسي.", 500);
       }
     }
@@ -113,7 +136,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(
     {
       ok: true,
-      school,
+      school: createdSchool,
       subscription,
       schemaCompat,
       branchSkipped,

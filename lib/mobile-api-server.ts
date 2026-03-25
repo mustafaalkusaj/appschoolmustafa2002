@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { enrichAssignmentRows, enrichGradeRows } from "@/lib/academic-records-server";
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import type {
   ManagedAppAccountContext,
@@ -43,27 +44,6 @@ export interface MobileResourceResult<T> {
 
 const AVAILABLE_GATE: MobileFeatureGate = { available: true };
 const NOTIFICATION_SELECT = "id, user_id, school_id, type, title, message, is_read, link, metadata, created_at";
-const ASSIGNMENT_SELECT = [
-  "id",
-  "school_id",
-  "teacher_id",
-  "student_id",
-  "class_name",
-  "section",
-  "subject",
-  "title",
-  "description",
-  "due_at",
-  "content_kind",
-  "attachment_bucket",
-  "attachment_path",
-  "attachment_name",
-  "attachment_mime_type",
-  "attachment_size_bytes",
-  "metadata",
-  "created_at",
-].join(", ");
-const GRADE_SELECT = "id, school_id, teacher_id, student_id, subject, exam_type, score, max_score, note, graded_at, created_at";
 const PAYMENT_SELECT = [
   "id",
   "school_id",
@@ -338,21 +318,14 @@ export async function queryStudentAssignments(
 
   const buildQueries = () => {
     const queries = [
-      ctx.serviceSupabase.from("assignments").select(ASSIGNMENT_SELECT).eq("student_id", student.id).eq("school_id", ctx.schoolId),
-      ctx.serviceSupabase
-        .from("assignments")
-        .select(ASSIGNMENT_SELECT)
-        .eq("school_id", ctx.schoolId)
-        .is("student_id", null)
-        .is("class_name", null)
-        .is("section", null),
+      ctx.serviceSupabase.from("assignments").select("*").eq("student_id", student.id).eq("school_id", ctx.schoolId),
     ];
 
     if (student.class_name) {
       queries.push(
         ctx.serviceSupabase
           .from("assignments")
-          .select(ASSIGNMENT_SELECT)
+          .select("*")
           .eq("school_id", ctx.schoolId)
           .is("student_id", null)
           .eq("class_name", student.class_name)
@@ -363,7 +336,7 @@ export async function queryStudentAssignments(
         queries.push(
           ctx.serviceSupabase
             .from("assignments")
-            .select(ASSIGNMENT_SELECT)
+            .select("*")
             .eq("school_id", ctx.schoolId)
             .is("student_id", null)
             .eq("class_name", student.class_name)
@@ -393,7 +366,10 @@ export async function queryStudentAssignments(
 
   return {
     gate: AVAILABLE_GATE,
-    items: sortRowsByDateDesc(rows, ["due_at", "created_at"]).slice(params.offset, params.offset + params.limit),
+    items: await enrichAssignmentRows(
+      ctx.serviceSupabase,
+      sortRowsByDateDesc(rows, ["due_at", "created_at"]).slice(params.offset, params.offset + params.limit),
+    ),
   };
 }
 
@@ -409,7 +385,7 @@ export async function queryStudentGrades(
 
   const { data, error } = await ctx.serviceSupabase
     .from("grades")
-    .select(GRADE_SELECT)
+    .select("*")
     .eq("school_id", ctx.schoolId)
     .eq("student_id", student.id)
     .order("graded_at", { ascending: false })
@@ -424,7 +400,10 @@ export async function queryStudentGrades(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: await enrichGradeRows(
+      ctx.serviceSupabase,
+      Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    ),
   };
 }
 
@@ -514,7 +493,7 @@ export async function queryTeacherAssignments(
 
   const { data, error } = await ctx.serviceSupabase
     .from("assignments")
-    .select(ASSIGNMENT_SELECT)
+    .select("*")
     .eq("school_id", ctx.schoolId)
     .eq("teacher_id", teacher.id)
     .order("created_at", { ascending: false })
@@ -529,7 +508,10 @@ export async function queryTeacherAssignments(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: await enrichAssignmentRows(
+      ctx.serviceSupabase,
+      Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    ),
   };
 }
 
@@ -545,7 +527,7 @@ export async function queryTeacherGrades(
 
   const { data, error } = await ctx.serviceSupabase
     .from("grades")
-    .select(GRADE_SELECT)
+    .select("*")
     .eq("school_id", ctx.schoolId)
     .eq("teacher_id", teacher.id)
     .order("graded_at", { ascending: false })
@@ -560,7 +542,10 @@ export async function queryTeacherGrades(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: await enrichGradeRows(
+      ctx.serviceSupabase,
+      Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    ),
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
@@ -276,6 +276,7 @@ function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) 
 }
 
 export default function TeachersManagementPage() {
+  const SEARCH_DEBOUNCE_MS = 350;
   const { profile } = useRole();
   const schoolScope = useSchoolScope(profile);
   const currentSchoolId = profile?.role === "super_admin" ? schoolScope.selectedSchoolId : profile?.school_id ?? null;
@@ -288,6 +289,7 @@ export default function TeachersManagementPage() {
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [cardLoadingId, setCardLoadingId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [roleFilter] = useState<ManagedUserRole>("teacher");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -311,7 +313,7 @@ export default function TeachersManagementPage() {
   const importFileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<UserFormState>(() => createEmptyForm("teacher"));
 
-  const deferredQuery = useDeferredValue(query.trim().toLowerCase());
+  const deferredQuery = query.trim().toLowerCase();
   const normalizedClassFilter = classFilter.trim();
   const normalizedSectionFilter = sectionFilter.trim();
   const normalizedSubjectFilter = subjectFilter.trim();
@@ -479,6 +481,14 @@ export default function TeachersManagementPage() {
   }, [buildUsersQueryParams, currentSchoolId, effectivePage, pageSize, profile]);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setQuery(searchInput);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
     void fetchOptions();
   }, [fetchOptions, profile, schoolScope.scopeLoading]);
@@ -567,6 +577,7 @@ export default function TeachersManagementPage() {
   }
 
   function resetTableFilters() {
+    setSearchInput("");
     setQuery("");
     setStatusFilter("all");
     setClassFilter("");
@@ -1260,8 +1271,8 @@ export default function TeachersManagementPage() {
                           className="ui-input"
                           style={{ paddingInlineStart: "3rem" }}
                           placeholder="ابحث بالاسم أو المعرّف أو الهاتف أو المادة أو الصف"
-                          value={query}
-                          onChange={(event) => setQuery(event.target.value)}
+                          value={searchInput}
+                          onChange={(event) => setSearchInput(event.target.value)}
                         />
                       </label>
 

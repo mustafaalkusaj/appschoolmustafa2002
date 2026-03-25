@@ -208,7 +208,7 @@ export default function ExpensesPage() {
   <>
     <style>{`
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
+      :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;--field-bg:#F9FBFF;--field-text:#0F172A;--field-border:rgba(15,23,42,0.1);--field-border-strong:rgba(79,140,255,0.42);--field-ring:rgba(79,140,255,0.14);--field-shadow:inset 0 1px 0 rgba(255,255,255,0.82);}
       body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
       .layout{display:flex;height:100vh}
       .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
@@ -243,8 +243,8 @@ export default function ExpensesPage() {
       .filter-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.7rem}
       .fg-item{display:flex;flex-direction:column;gap:.25rem}
       .fg-label{font-size:.72rem;font-weight:600;color:var(--gray)}
-      .fi{padding:.5rem .8rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--dark)}
-      .fi:focus{border-color:var(--p3)}
+      .fi{padding:.5rem .8rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+      .fi:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
 
       /* TABS */
       .page-tabs{display:flex;gap:.5rem;margin-bottom:1rem}
@@ -259,8 +259,8 @@ export default function ExpensesPage() {
       .tbl-title{font-size:.88rem;font-weight:800}
       .tbl-wrap{background:white;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
       .tbl-srch{display:flex;align-items:center;gap:.5rem;padding:.7rem 1.2rem;border-bottom:1px solid rgba(108,74,182,0.05)}
-      .tbl-srch input{flex:1;padding:.5rem .8rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.1);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
-      .tbl-srch input:focus{border-color:var(--p3)}
+      .tbl-srch input{flex:1;padding:.5rem .8rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+      .tbl-srch input:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
       table{width:100%;border-collapse:collapse}
       thead{background:#F8F6FF}
       th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(108,74,182,0.08)}
@@ -294,8 +294,8 @@ export default function ExpensesPage() {
       .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
       .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
       .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-      .fis{padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
-      .fis:focus{border-color:var(--p3);background:white}
+      .fis{padding:.65rem .85rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%;color:var(--field-text);box-shadow:var(--field-shadow)}
+      .fis:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
       .fa{display:flex;gap:.7rem;margin-top:1.1rem}
       .bs{flex:1;padding:.75rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:700;cursor:pointer}
       .bs:disabled{opacity:.65;cursor:not-allowed}

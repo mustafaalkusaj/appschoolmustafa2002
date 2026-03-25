@@ -47,7 +47,7 @@ export async function PATCH(
   }
 
   if (schoolId) {
-    const { data: school, error: schoolError } = await context.value.actorSupabase
+    const { data: school, error: schoolError } = await context.value.dataSupabase
       .from("schools")
       .select("id")
       .eq("id", schoolId)
@@ -66,7 +66,7 @@ export async function PATCH(
     : [];
 
   try {
-    const user = await updateSuperAdminUserProfile(context.value.actorSupabase, normalizedUserId, {
+    const user = await updateSuperAdminUserProfile(context.value.dataSupabase, normalizedUserId, {
       full_name: typeof body?.full_name === "string" && body.full_name.trim() ? body.full_name.trim() : null,
       email: typeof body?.email === "string" && body.email.trim() ? body.email.trim().toLowerCase() : null,
       role,
@@ -104,7 +104,7 @@ export async function DELETE(
     return jsonError("لا يمكن أرشفة حساب المدير العام الحالي أثناء استخدامه.", 400);
   }
 
-  const infrastructure = await detectAdminInfrastructure(context.value.actorSupabase);
+  const infrastructure = await detectAdminInfrastructure(context.value.dataSupabase);
   if (!infrastructure.softDeleteUsers) {
     return jsonError(
       "أرشفة المستخدمين تتطلب تشغيل admin_infrastructure.sql لإضافة deleted_at و deleted_by إلى جدول user_profiles.",
@@ -112,7 +112,7 @@ export async function DELETE(
     );
   }
 
-  const { data: user, error } = await context.value.actorSupabase
+  const { data: user, error } = await context.value.dataSupabase
     .from("user_profiles")
     .update({
       deleted_at: new Date().toISOString(),

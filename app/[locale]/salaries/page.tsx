@@ -42,19 +42,19 @@ const CLASS_GRADES = [
 const SECTIONS_LIST = ["أ", "ب", "ج", "د", "هـ", "و", "ز", "ح"];
 
 const QUICK_ACCESS = [
-  { id:"add_teacher", label:"إضافة أستاذ", icon:"👨‍🏫", bg:"#EDE8FA" },
+  { id:"add_teacher", label:"إضافة أستاذ", icon:"👨‍🏫", bg:"#EDF6FF" },
   { id:"schedule", label:"الجدول", icon:"📅", bg:"#DBEAFE" },
   { id:"prices", label:"أسعار المحاضرات", icon:"🏷️", bg:"#FEF3C7" },
   { id:"bonuses", label:"المكافآت", icon:"🎁", bg:"#D1FAE5" },
-  { id:"subjects", label:"المواد الدراسية", icon:"📚", bg:"#EDE9FE" },
-  { id:"titles", label:"المسميات الوظيفية", icon:"👔", bg:"#FCE7F3" },
+  { id:"subjects", label:"المواد الدراسية", icon:"📚", bg:"#EAF2FF" },
+  { id:"titles", label:"المسميات الوظيفية", icon:"👔", bg:"#E6F4FF" },
   { id:"classes", label:"إضافة صف وشعبة", icon:"🏫", bg:"#CCFBF1" },
   { id:"print", label:"خيارات الطباعة", icon:"🖨️", bg:"#E0E7FF" },
   { id:"import", label:"استيراد بيانات", icon:"📥", bg:"#E0F2FE" },
   { id:"export", label:"تصدير بيانات", icon:"📤", bg:"#DCFCE7" },
   { id:"deductions", label:"سحوبات", icon:"💸", bg:"#FEE2E2" },
   { id:"detailed_report", label:"تقرير تفصيلي", icon:"📊", bg:"#FFEDD5" },
-  { id:"schedule_lessons", label:"توقيتات الدروس", icon:"⏰", bg:"#F3E8FF" },
+  { id:"schedule_lessons", label:"توقيتات الدروس", icon:"⏰", bg:"#E8F3FF" },
   { id:"daily_log", label:"سجل يومي", icon:"📋", bg:"#F1F5F9" },
 ];
 
@@ -777,95 +777,95 @@ export default function SalariesPage() {
   <>
     <style>{`
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
+      :root{--p2:#255EA8;--p3:#4F8CFF;--p4:#79D7FF;--bg:#EEF4FB;--dark:#16324F;--gray:#6B7280;}
       body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
       .layout{display:flex;height:100vh}
 
       /* MAIN SIDEBAR */
-      .main-sidebar{width:190px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
+      .main-sidebar{width:190px;background:linear-gradient(180deg,#EDF6FF,#DDEAFB);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(79,140,255,0.1);flex-shrink:0}
       .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
       .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p3),var(--p4));display:flex;align-items:center;justify-content:center}
       .logo-ico svg{width:18px;height:18px;fill:white}
       .logo span{font-size:.88rem;font-weight:800;color:var(--p2)}
       .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:var(--p2);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-      .nav:hover{background:rgba(108,74,182,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
+      .nav:hover{background:rgba(79,140,255,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
       .nav.danger{color:#EF4444}.nav.danger:hover{background:#FEE2E2}
-      .sep{height:1px;background:rgba(108,74,182,0.12);margin:.4rem 0}
+      .sep{height:1px;background:rgba(79,140,255,0.12);margin:.4rem 0}
 
       /* SALARIES SIDEBAR */
-      .sal-sidebar{width:160px;background:white;display:flex;flex-direction:column;padding:.8rem .6rem;border-right:1px solid rgba(108,74,182,0.08);flex-shrink:0;box-shadow:2px 0 8px rgba(108,74,182,0.04)}
+      .sal-sidebar{width:160px;background:white;display:flex;flex-direction:column;padding:.8rem .6rem;border-right:1px solid rgba(79,140,255,0.08);flex-shrink:0;box-shadow:2px 0 8px rgba(79,140,255,0.04)}
       .sal-nav{display:flex;align-items:center;gap:.5rem;padding:.5rem .7rem;border-radius:9px;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--gray);transition:all .2s;border:none;background:none;font-family:var(--font-manrope),Segoe UI,sans-serif;width:100%}
-      .sal-nav:hover{background:#F0EEFF;color:var(--p3)}
-      .sal-nav.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 3px 10px rgba(108,74,182,0.25)}
-      .sal-sep{height:1px;background:rgba(108,74,182,0.08);margin:.3rem 0}
+      .sal-nav:hover{background:#EEF6FF;color:var(--p3)}
+      .sal-nav.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 3px 10px rgba(79,140,255,0.25)}
+      .sal-sep{height:1px;background:rgba(79,140,255,0.08);margin:.3rem 0}
       .sal-title{font-size:.68rem;font-weight:700;color:var(--gray);padding:.3rem .7rem;text-transform:uppercase;letter-spacing:.05em}
 
       .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-      .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
+      .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(79,140,255,0.08);flex-shrink:0}
       .topbar-title{font-size:.95rem;font-weight:800}.topbar-sub{font-size:.7rem;color:var(--gray)}
       .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
       .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1rem}
-      .sc{background:white;border-radius:12px;padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 2px 8px rgba(108,74,182,0.07)}
+      .sc{background:white;border-radius:12px;padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 2px 8px rgba(79,140,255,0.07)}
       .sc-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
       .sc-label{font-size:.7rem;color:var(--gray)}.sc-val{font-size:.9rem;font-weight:800}
-      .quick-section{background:white;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+      .quick-section{background:white;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
       .quick-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem}
       .quick-title{font-size:.88rem;font-weight:800}
-      .show-all-btn{padding:.35rem .8rem;background:#F0EEFF;color:var(--p3);border:1.5px solid rgba(108,74,182,0.2);border-radius:20px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer}
+      .show-all-btn{padding:.35rem .8rem;background:#EEF6FF;color:var(--p3);border:1.5px solid rgba(79,140,255,0.18);border-radius:20px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer}
       .quick-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.6rem}
       .qa-btn{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.7rem .4rem;border-radius:12px;cursor:pointer;border:none;background:transparent;font-family:var(--font-manrope),Segoe UI,sans-serif;transition:transform .15s}
       .qa-btn:hover{transform:translateY(-3px)}
       .qa-ico{width:50px;height:50px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 4px 12px rgba(0,0,0,0.08)}
       .qa-label{font-size:.68rem;font-weight:700;color:var(--dark);line-height:1.3;text-align:center}
-      .tabs{display:flex;gap:.4rem;margin-bottom:1rem;background:white;border-radius:13px;padding:.5rem;box-shadow:0 2px 8px rgba(108,74,182,0.07)}
+      .tabs{display:flex;gap:.4rem;margin-bottom:1rem;background:white;border-radius:13px;padding:.5rem;box-shadow:0 2px 8px rgba(79,140,255,0.07)}
       .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem;border-radius:9px;cursor:pointer;font-size:.8rem;font-weight:700;color:var(--gray);border:none;background:none;font-family:var(--font-manrope),Segoe UI,sans-serif;transition:all .2s}
-      .tab:hover{background:#F0EEFF;color:var(--p3)}
-      .tab.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 4px 12px rgba(108,74,182,0.3)}
+      .tab:hover{background:#EEF6FF;color:var(--p3)}
+      .tab.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 4px 12px rgba(79,140,255,0.3)}
       .tab-count{padding:.1rem .4rem;border-radius:10px;font-size:.7rem;background:rgba(255,255,255,0.25)}
-      .tab:not(.active) .tab-count{background:rgba(108,74,182,0.1);color:var(--p3)}
+      .tab:not(.active) .tab-count{background:rgba(79,140,255,0.1);color:var(--p3)}
       .toolbar{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
       .srch{position:relative;flex:1}
       .srch svg{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--gray)}
-      .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
-      .month-pick{padding:.55rem .8rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;color:var(--dark)}
+      .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:white;border:1px solid rgba(79,140,255,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
+      .month-pick{padding:.55rem .8rem;background:white;border:1px solid rgba(79,140,255,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;color:var(--dark)}
       .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
       .btn-export{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#DBEAFE;color:#1E40AF;border:1.5px solid #93C5FD;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer}
-      .tbl-wrap{background:white;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-      table{width:100%;border-collapse:collapse}thead{background:#F8F6FF}
-      th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(108,74,182,0.08)}
-      td{padding:.6rem .9rem;font-size:.78rem;border-bottom:1px solid rgba(108,74,182,0.04)}
-      tr:last-child td{border-bottom:none}tr:hover td{background:#FAFAFE}
+      .tbl-wrap{background:white;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
+      table{width:100%;border-collapse:collapse}thead{background:#F7FBFF}
+      th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(79,140,255,0.08)}
+      td{padding:.6rem .9rem;font-size:.78rem;border-bottom:1px solid rgba(79,140,255,0.04)}
+      tr:last-child td{border-bottom:none}tr:hover td{background:#F8FBFF}
       .badge{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.66rem;font-weight:700}
       .name-link{font-weight:700;color:var(--p2);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
       .empty{text-align:center;padding:3rem;color:var(--gray);font-size:.85rem}
-      .spin{width:22px;height:22px;border:3px solid rgba(108,74,182,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
+      .spin{width:22px;height:22px;border:3px solid rgba(79,140,255,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
       @keyframes sp{to{transform:rotate(360deg)}}
-      .btn-action{padding:.28rem .7rem;background:#EDE8FA;color:var(--p3);border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer}
+      .btn-action{padding:.28rem .7rem;background:#EDF6FF;color:var(--p3);border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer}
       .btn-pay-s{padding:.28rem .7rem;background:#D1FAE5;color:#065F46;border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;margin-left:.3rem}
       .btn-edit-s{padding:.28rem .6rem;background:#DBEAFE;color:#1E40AF;border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;cursor:pointer;margin-left:.3rem}
       .btn-del-s{padding:.28rem .6rem;background:#FEE2E2;color:#EF4444;border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;cursor:pointer}
-      .btn-print-sm{width:28px;height:28px;background:#EDE8FA;color:var(--p3);border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+      .btn-print-sm{width:28px;height:28px;background:#EDF6FF;color:var(--p3);border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center}
       .btn-del-sm{width:28px;height:28px;background:#FEE2E2;color:#EF4444;border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-      .dropdown-menu{position:fixed;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid rgba(108,74,182,0.1);z-index:9999;min-width:180px;overflow:hidden}
+      .dropdown-menu{position:fixed;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid rgba(79,140,255,0.1);z-index:9999;min-width:180px;overflow:hidden}
       .d-item{display:flex;align-items:center;gap:.6rem;padding:.62rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer;color:var(--dark);white-space:nowrap}
-      .d-item:hover{background:#F8F6FF}.d-item.danger{color:#EF4444}.d-item.danger:hover{background:#FEE2E2}
-      .d-sep{height:1px;background:rgba(108,74,182,0.08)}
+      .d-item:hover{background:#F7FBFF}.d-item.danger{color:#EF4444}.d-item.danger:hover{background:#FEE2E2}
+      .d-sep{height:1px;background:rgba(79,140,255,0.08)}
       .alert-box{background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:.8rem 1rem;margin-bottom:1rem;font-size:.8rem;color:#92400E;font-weight:600}
       .ok{background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
       .err{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
       .section-title{font-size:1rem;font-weight:900;margin-bottom:1rem;color:var(--dark);display:flex;align-items:center;gap:.5rem}
 
       /* CALENDAR */
-      .cal-wrap{background:white;border-radius:14px;padding:1.4rem;box-shadow:0 2px 8px rgba(108,74,182,0.07)}
+      .cal-wrap{background:white;border-radius:14px;padding:1.4rem;box-shadow:0 2px 8px rgba(79,140,255,0.07)}
       .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
       .cal-title{font-size:1rem;font-weight:800}
-      .cal-nav{width:34px;height:34px;border-radius:9px;background:#F0EEFF;color:var(--p3);border:none;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
+      .cal-nav{width:34px;height:34px;border-radius:9px;background:#EEF6FF;color:var(--p3);border:none;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
       .cal-days-header{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px}
       .cal-day-name{text-align:center;font-size:.72rem;font-weight:700;color:var(--gray);padding:.3rem 0}
       .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
       .cal-cell{aspect-ratio:1;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:600;cursor:pointer;position:relative}
       .cal-cell.empty{background:transparent}
-      .cal-cell.normal{background:#F8F6FF;color:var(--dark)}
+      .cal-cell.normal{background:#F7FBFF;color:var(--dark)}
       .cal-cell.has-lecture{background:linear-gradient(135deg,#10B981,#059669);color:white;box-shadow:0 2px 8px rgba(16,185,129,0.3)}
       .cal-cell.today{border:2px solid var(--p3);color:var(--p3)}
       .cal-cell.today.has-lecture{border:2px solid white}
@@ -875,24 +875,24 @@ export default function SalariesPage() {
       /* REPORT */
       .report-tabs{display:flex;gap:.4rem;margin-bottom:1rem}
       .report-tab{padding:.5rem 1rem;border-radius:9px;cursor:pointer;font-size:.82rem;font-weight:700;border:none;font-family:var(--font-manrope),Segoe UI,sans-serif;transition:all .2s}
-      .report-card{background:white;border-radius:13px;padding:1rem 1.2rem;margin-bottom:.6rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+      .report-card{background:white;border-radius:13px;padding:1rem 1.2rem;margin-bottom:.6rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
       .report-name{font-size:.9rem;font-weight:800}
       .report-sub{font-size:.75rem;color:var(--gray)}
       .report-amount{font-size:1rem;font-weight:900;color:#10B981}
-      .grade-badge{display:inline-flex;align-items:center;gap:.2rem;background:#EDE8FA;color:var(--p3);padding:.15rem .5rem;border-radius:20px;font-size:.7rem;font-weight:700;margin:.1rem}
+      .grade-badge{display:inline-flex;align-items:center;gap:.2rem;background:#EDF6FF;color:var(--p3);padding:.15rem .5rem;border-radius:20px;font-size:.7rem;font-weight:700;margin:.1rem}
 
       /* ARCHIVE */
-      .arch-card{background:white;border-radius:13px;padding:1rem 1.2rem;margin-bottom:.6rem;box-shadow:0 2px 8px rgba(108,74,182,0.06);display:flex;align-items:center;justify-content:space-between}
+      .arch-card{background:white;border-radius:13px;padding:1rem 1.2rem;margin-bottom:.6rem;box-shadow:0 2px 8px rgba(79,140,255,0.06);display:flex;align-items:center;justify-content:space-between}
       .arch-month{font-size:.9rem;font-weight:800}
       .arch-info{font-size:.75rem;color:var(--gray)}
       .arch-amount{font-size:.88rem;font-weight:800;color:var(--p3)}
-      .arch-btn{background:#F0EEFF;color:var(--p3);border:none;border-radius:8px;padding:.3rem .7rem;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;cursor:pointer}
+      .arch-btn{background:#EEF6FF;color:var(--p3);border:none;border-radius:8px;padding:.3rem .7rem;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;cursor:pointer}
 
       /* DEDUCTIONS TABLE */
-      .ded-form{background:white;border-radius:13px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+      .ded-form{background:white;border-radius:13px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
 
       /* SETTINGS */
-      .settings-card{background:white;border-radius:13px;padding:1.2rem;margin-bottom:.8rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+      .settings-card{background:white;border-radius:13px;padding:1.2rem;margin-bottom:.8rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
       .settings-title{font-size:.88rem;font-weight:800;margin-bottom:.8rem;color:var(--dark)}
       .btn-warning{padding:.65rem 1.2rem;background:linear-gradient(135deg,#F59E0B,#D97706);color:white;border:none;border-radius:10px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;width:100%;margin-bottom:.5rem}
       .btn-success{padding:.65rem 1.2rem;background:linear-gradient(135deg,#10B981,#059669);color:white;border:none;border-radius:10px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;width:100%}
@@ -906,13 +906,13 @@ export default function SalariesPage() {
       .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
       .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
       .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-      .sec-lbl{font-size:.8rem;font-weight:800;color:var(--p2);margin:.6rem 0 .3rem;padding-bottom:.3rem;border-bottom:2px solid #EDE8FA;grid-column:1/-1}
-      .fis{padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
+      .sec-lbl{font-size:.8rem;font-weight:800;color:var(--p2);margin:.6rem 0 .3rem;padding-bottom:.3rem;border-bottom:2px solid #EDF6FF;grid-column:1/-1}
+      .fis{padding:.65rem .85rem;background:#F7FBFF;border:1.5px solid rgba(79,140,255,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
       .fis:focus{border-color:var(--p3);background:white}
       .class-row{display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;align-items:end;grid-column:1/-1;margin-bottom:.3rem}
       .btn-rm{width:32px;height:36px;background:#FEE2E2;color:#EF4444;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-      .btn-add-cls{display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem;background:#EDE8FA;color:var(--p3);border:1.5px dashed rgba(108,74,182,0.3);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;grid-column:1/-1}
-      .sal-preview{background:#F0EEFF;border-radius:10px;padding:.8rem 1rem;margin:.4rem 0}
+      .btn-add-cls{display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem;background:#EDF6FF;color:var(--p3);border:1.5px dashed rgba(79,140,255,0.26);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;grid-column:1/-1}
+      .sal-preview{background:#EEF6FF;border-radius:10px;padding:.8rem 1rem;margin:.4rem 0}
       .sp-row{display:flex;justify-content:space-between;font-size:.82rem;margin:.2rem 0}
       .sp-label{color:var(--gray)}.sp-val{font-weight:700}.sp-net{font-size:.95rem;font-weight:900;color:var(--p2)}
       .fa{display:flex;gap:.7rem;margin-top:1.1rem}
@@ -924,38 +924,38 @@ export default function SalariesPage() {
       .det-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem}
       .det-ttl{font-size:1.05rem;font-weight:900}.det-cls{width:34px;height:34px;border-radius:9px;background:#F3F4F6;border:none;cursor:pointer;font-size:1.1rem}
       .dp-cards{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.2rem}
-      .dp-card{background:#F8F6FF;border-radius:12px;padding:.9rem}
+      .dp-card{background:#F7FBFF;border-radius:12px;padding:.9rem}
       .dp-ct{font-size:.78rem;font-weight:700;color:var(--p2);margin-bottom:.6rem}
       .dp-row{display:flex;justify-content:space-between;font-size:.8rem;margin:.25rem 0}
       .dp-lbl{color:var(--gray)}.dp-val{font-weight:700}
-      .sal-row{display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid rgba(108,74,182,0.05)}
+      .sal-row{display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid rgba(79,140,255,0.05)}
       .sal-row:last-child{border-bottom:none}
-      .sal-num{width:28px;height:28px;border-radius:7px;background:#EDE8FA;color:var(--p3);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;flex-shrink:0}
-      .mgr-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;border-bottom:1px solid rgba(108,74,182,0.06)}
+      .sal-num{width:28px;height:28px;border-radius:7px;background:#EDF6FF;color:var(--p3);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;flex-shrink:0}
+      .mgr-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;border-bottom:1px solid rgba(79,140,255,0.06)}
       .mgr-item:last-child{border-bottom:none}
       .btn-del-item{background:#FEE2E2;color:#EF4444;border:none;border-radius:7px;padding:.2rem .5rem;cursor:pointer;font-size:.8rem}
       .sch-grid{width:100%;border-collapse:collapse;font-size:.74rem}
-      .sch-grid th{background:#F0EEFF;color:var(--p2);padding:.4rem .5rem;text-align:center;border:1px solid rgba(108,74,182,0.12);font-weight:700}
-      .sch-grid td{border:1px solid rgba(108,74,182,0.08);padding:.25rem .3rem}
-      .sch-sel{width:100%;padding:.2rem .3rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:5px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.7rem;direction:rtl;outline:none}
-      .session-title{font-size:.82rem;font-weight:800;color:var(--p3);margin:.8rem 0 .4rem;padding:.3rem .5rem;background:#F0EEFF;border-radius:8px}
-      .times-row{display:flex;align-items:center;gap:.7rem;padding:.5rem 0;border-bottom:1px solid rgba(108,74,182,0.06)}
+      .sch-grid th{background:#EEF6FF;color:var(--p2);padding:.4rem .5rem;text-align:center;border:1px solid rgba(79,140,255,0.12);font-weight:700}
+      .sch-grid td{border:1px solid rgba(79,140,255,0.08);padding:.25rem .3rem}
+      .sch-sel{width:100%;padding:.2rem .3rem;background:white;border:1px solid rgba(79,140,255,0.12);border-radius:5px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.7rem;direction:rtl;outline:none}
+      .session-title{font-size:.82rem;font-weight:800;color:var(--p3);margin:.8rem 0 .4rem;padding:.3rem .5rem;background:#EEF6FF;border-radius:8px}
+      .times-row{display:flex;align-items:center;gap:.7rem;padding:.5rem 0;border-bottom:1px solid rgba(79,140,255,0.06)}
       .times-lbl{font-size:.8rem;font-weight:700;min-width:60px}
-      .time-input{padding:.4rem .6rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;width:100px}
+      .time-input{padding:.4rem .6rem;background:#F7FBFF;border:1.5px solid rgba(79,140,255,0.12);border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;width:100px}
       .periods-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.4rem}
-      .period-box{width:40px;height:40px;border-radius:9px;background:#F8F6FF;border:2px solid rgba(108,74,182,0.15);display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s}
+      .period-box{width:40px;height:40px;border-radius:9px;background:#F7FBFF;border:2px solid rgba(79,140,255,0.15);display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s}
       .period-box.sel{background:var(--p3);color:white;border-color:var(--p3)}
       .exp-item{display:flex;align-items:center;justify-content:space-between;padding:.65rem .8rem;border-radius:10px;margin-bottom:.4rem;cursor:pointer;transition:background .15s}
-      .exp-item:hover{background:#F8F6FF}.exp-item.selected{background:#EDE8FA}
+      .exp-item:hover{background:#F7FBFF}.exp-item.selected{background:#EDF6FF}
       .exp-name{font-size:.85rem;font-weight:600}
-      .exp-cb{width:18px;height:18px;border-radius:5px;border:2px solid rgba(108,74,182,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+      .exp-cb{width:18px;height:18px;border-radius:5px;border:2px solid rgba(79,140,255,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
       .exp-cb.checked{background:var(--p3);border-color:var(--p3);color:white;font-size:.7rem}
-      .print-card{background:#F8F6FF;border-radius:13px;padding:1.1rem;margin-bottom:.8rem}
+      .print-card{background:#F7FBFF;border-radius:13px;padding:1.1rem;margin-bottom:.8rem}
       .print-card-title{font-size:.88rem;font-weight:800;color:var(--p3);margin-bottom:.4rem}
       .print-card-desc{font-size:.78rem;color:var(--gray);margin-bottom:.8rem}
       @media (max-width:1180px){
         .layout{flex-wrap:wrap}
-        .sal-sidebar{order:1;width:100%;flex-direction:row;overflow:auto;white-space:nowrap;padding:.6rem;border-right:none;border-bottom:1px solid rgba(108,74,182,0.08);box-shadow:none}
+        .sal-sidebar{order:1;width:100%;flex-direction:row;overflow:auto;white-space:nowrap;padding:.6rem;border-right:none;border-bottom:1px solid rgba(79,140,255,0.08);box-shadow:none}
         .sal-nav{min-width:max-content}
         .main{order:2;width:100%}
         .stats{grid-template-columns:repeat(2,1fr)}
@@ -977,7 +977,7 @@ export default function SalariesPage() {
 
       {/* SALARIES SIDEBAR */}
       <div className="sal-sidebar">
-        <div style={{fontSize:".72rem",fontWeight:800,color:"var(--p2)",padding:".4rem .7rem .6rem",borderBottom:"1px solid rgba(108,74,182,0.08)",marginBottom:".4rem"}}>الرواتب</div>
+        <div style={{fontSize:".72rem",fontWeight:800,color:"var(--p2)",padding:".4rem .7rem .6rem",borderBottom:"1px solid rgba(79,140,255,0.08)",marginBottom:".4rem"}}>الرواتب</div>
         {SIDEBAR_ITEMS.map(item=>(
           <button key={item.id} className={`sal-nav${activeSection===item.id?" active":""}`} onClick={()=>{setActiveSection(item.id);if(item.id==="reports")fetchDetailedReportAll();if(item.id==="deductions")fetchDeductionsList();if(item.id==="calendar")fetchCalendarLectures();}}>
             <AppIcon token={item.icon} size={15} /><span>{item.label}</span>
@@ -1006,7 +1006,7 @@ export default function SalariesPage() {
           {/* ===== MAIN ===== */}
           {activeSection==="main"&&<>
             <div className="stats">
-              {([["عدد المدرسين",formatNumber(activeTeachers),"#EDE8FA","#6C4AB6"],["إجمالي الرواتب",`د.ع ${formatNumber(totalBaseSalaries)}`,"#D1FAE5","#10B981"],["مدفوع هذا الشهر",`د.ع ${formatNumber(totalPaidThisMonth)}`,"#DBEAFE","#3B82F6"],["غير مدفوع",formatNumber(unpaidTeachers.length)+" مدرس","#FEE2E2","#EF4444"]] as any[]).map(([l,v,bg,c]:any,i:number)=>(
+              {([["عدد المدرسين",formatNumber(activeTeachers),"#EDF6FF","#4F8CFF"],["إجمالي الرواتب",`د.ع ${formatNumber(totalBaseSalaries)}`,"#D1FAE5","#10B981"],["مدفوع هذا الشهر",`د.ع ${formatNumber(totalPaidThisMonth)}`,"#DBEAFE","#3B82F6"],["غير مدفوع",formatNumber(unpaidTeachers.length)+" مدرس","#FEE2E2","#EF4444"]] as any[]).map(([l,v,bg,c]:any,i:number)=>(
                 <div className="sc" key={i}>
                   <div className="sc-ico" style={{background:bg}}><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg></div>
                   <div><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
@@ -1130,7 +1130,7 @@ export default function SalariesPage() {
                       <tbody>
                         {DAYS.map(day=>(
                           <tr key={day}>
-                            <td style={{fontWeight:700,textAlign:"center",background:"#F8F6FF",padding:".4rem"}}>{day}</td>
+                            <td style={{fontWeight:700,textAlign:"center",background:"#F7FBFF",padding:".4rem"}}>{day}</td>
                             {PERIODS.map(p=>(
                               <td key={p}>
                                 <select className="sch-sel" value={scheduleGrid[`${day}-${p}-${sessionType}`]||""} onChange={e=>setScheduleGrid({...scheduleGrid,[`${day}-${p}-${sessionType}`]:e.target.value})}>
@@ -1196,8 +1196,8 @@ export default function SalariesPage() {
           {activeSection==="reports"&&<>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}}>
               <div className="report-tabs">
-                <button className="report-tab" style={{background:reportView==="summary"?"linear-gradient(135deg,var(--p3),var(--p2))":"#F0EEFF",color:reportView==="summary"?"white":"var(--p3)"}} onClick={()=>setReportView("summary")}>ملخص</button>
-                <button className="report-tab" style={{background:reportView==="details"?"linear-gradient(135deg,var(--p3),var(--p2))":"#F0EEFF",color:reportView==="details"?"white":"var(--p3)"}} onClick={()=>setReportView("details")}>تفاصيل السجلات</button>
+                <button className="report-tab" style={{background:reportView==="summary"?"linear-gradient(135deg,var(--p3),var(--p2))":"#EEF6FF",color:reportView==="summary"?"white":"var(--p3)"}} onClick={()=>setReportView("summary")}>ملخص</button>
+                <button className="report-tab" style={{background:reportView==="details"?"linear-gradient(135deg,var(--p3),var(--p2))":"#EEF6FF",color:reportView==="details"?"white":"var(--p3)"}} onClick={()=>setReportView("details")}>تفاصيل السجلات</button>
               </div>
               <button className="btn-add" onClick={printReport}><AppIcon token="🖨️" size={14} /> طباعة التقرير</button>
             </div>
@@ -1435,7 +1435,7 @@ export default function SalariesPage() {
             <div className="sal-preview">
               <div className="sp-row"><span className="sp-label">الإجمالي:</span><span className="sp-val">د.ع {formatNumber(parseInt(salaryForm.gross_salary)||0)}</span></div>
               <div className="sp-row"><span className="sp-label">الخصومات:</span><span className="sp-val" style={{color:"#EF4444"}}>- د.ع {formatNumber(parseInt(salaryForm.deductions)||0)}</span></div>
-              <div style={{borderTop:"1px dashed rgba(108,74,182,0.2)",marginTop:".4rem",paddingTop:".4rem"}}>
+              <div style={{borderTop:"1px dashed rgba(79,140,255,0.2)",marginTop:".4rem",paddingTop:".4rem"}}>
                 <div className="sp-row"><span className="sp-label">الصافي:</span><span className="sp-net">د.ع {formatNumber((parseInt(salaryForm.gross_salary)||0)-(parseInt(salaryForm.deductions)||0))}</span></div>
               </div>
             </div>
@@ -1455,10 +1455,10 @@ export default function SalariesPage() {
           <div className="mh"><div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="🏷️" size={16} /> أسعار المحاضرات</div><button className="mc" onClick={()=>setShowPrices(false)}><AppIcon token="✕" size={14} /></button></div>
           <p style={{fontSize:".8rem",color:"var(--gray)",marginBottom:"1rem"}}>حدد سعر المحاضرة الواحدة لكل صف ليتم احتساب الرواتب تلقائياً.</p>
           {gradeOptions.map(grade=>(
-            <div key={grade} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:".6rem .4rem",borderBottom:"1px solid rgba(108,74,182,0.06)"}}>
+            <div key={grade} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:".6rem .4rem",borderBottom:"1px solid rgba(79,140,255,0.06)"}}>
               <span style={{fontWeight:700,fontSize:".88rem"}}>{grade}</span>
               <div style={{display:"flex",alignItems:"center",gap:".4rem"}}>
-                <input type="number" value={priceEdits[grade]||0} onChange={e=>setPriceEdits({...priceEdits,[grade]:parseInt(e.target.value)||0})} style={{width:100,padding:".4rem .6rem",background:"#F8F6FF",border:"1.5px solid rgba(108,74,182,0.15)",borderRadius:8,fontFamily:"Cairo,sans-serif",fontSize:".82rem",textAlign:"center",outline:"none"}}/>
+                <input type="number" value={priceEdits[grade]||0} onChange={e=>setPriceEdits({...priceEdits,[grade]:parseInt(e.target.value)||0})} style={{width:100,padding:".4rem .6rem",background:"#F7FBFF",border:"1.5px solid rgba(79,140,255,0.15)",borderRadius:8,fontFamily:"Cairo,sans-serif",fontSize:".82rem",textAlign:"center",outline:"none"}}/>
                 <span style={{fontSize:".75rem",color:"var(--gray)"}}>د.ع</span>
               </div>
             </div>
@@ -1504,9 +1504,9 @@ export default function SalariesPage() {
             <div className="ff"><label className="fl">التاريخ</label><input type="date" className="fis" value={dailyDate} onChange={e=>setDailyDate(e.target.value)}/></div>
             <div className="ff full">
               <label className="fl">الصفوف (يمكن اختيار أكثر من صف)</label>
-              <div style={{display:"flex",flexWrap:"wrap",gap:".4rem",background:"#F8F6FF",padding:".6rem",borderRadius:9,border:"1.5px solid rgba(108,74,182,0.12)"}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:".4rem",background:"#F7FBFF",padding:".6rem",borderRadius:9,border:"1.5px solid rgba(79,140,255,0.12)"}}>
                 {gradeOptions.map(g=>sectionOptions(g).map(sec=>(
-                  <span key={`${g}||${sec}`} onClick={()=>setDailyGrades(prev=>toggleArr(prev,`${g}||${sec}`))} style={{padding:".25rem .65rem",borderRadius:20,fontSize:".75rem",fontWeight:700,cursor:"pointer",background:dailyGrades.includes(`${g}||${sec}`)?"var(--p3)":"white",color:dailyGrades.includes(`${g}||${sec}`)?"white":"var(--dark)",border:"1px solid rgba(108,74,182,0.2)"}}>
+                  <span key={`${g}||${sec}`} onClick={()=>setDailyGrades(prev=>toggleArr(prev,`${g}||${sec}`))} style={{padding:".25rem .65rem",borderRadius:20,fontSize:".75rem",fontWeight:700,cursor:"pointer",background:dailyGrades.includes(`${g}||${sec}`)?"var(--p3)":"white",color:dailyGrades.includes(`${g}||${sec}`)?"white":"var(--dark)",border:"1px solid rgba(79,140,255,0.2)"}}>
                     {g} ({sec})
                   </span>
                 )))}
@@ -1537,7 +1537,7 @@ export default function SalariesPage() {
             </div>
           </div>
           {dailyTeacher&&dailyGrades.length>0&&dailyPeriods.length>0&&(
-            <div style={{background:"#F0EEFF",borderRadius:10,padding:".7rem",marginTop:".5rem",fontSize:".8rem",fontWeight:600,color:"var(--p2)"}}>
+            <div style={{background:"#EEF6FF",borderRadius:10,padding:".7rem",marginTop:".5rem",fontSize:".8rem",fontWeight:600,color:"var(--p2)"}}>
               سيتم تسجيل: {dailyGrades.length} صف × {dailyPeriods.length} حصة = <strong>{dailyGrades.length*dailyPeriods.length} محاضرة</strong>
             </div>
           )}
@@ -1596,9 +1596,9 @@ export default function SalariesPage() {
     )}
 
     {/* ===== MODALS: مواد، مسميات، صفوف ===== */}
-    {showSubjectsMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowSubjectsMgr(false)}}><div className="modal modal-sm"><div className="mh"><div className="mt">المواد الدراسية</div><button className="mc" onClick={()=>setShowSubjectsMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"flex",gap:".6rem",marginBottom:"1rem"}}><input className="fis" placeholder="اسم المادة" value={newSubject} onChange={e=>setNewSubject(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSubject()} style={{flex:1}}/><button className="bs" style={{padding:".6rem 1rem",flex:"none",width:"auto"}} onClick={addSubject}>+ إضافة</button></div><div style={{background:"#F8F6FF",borderRadius:12,padding:"1rem",maxHeight:320,overflowY:"auto"}}>{subjectsList.map(s=>(<div key={s.id} className="mgr-item"><span style={{fontSize:".85rem",fontWeight:600}}>{s.name}</span><button onClick={()=>deleteSubject(s.id)} className="btn-del-item"><AppIcon token="🗑️" size={12} /></button></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowSubjectsMgr(false)}>إغلاق</button></div></div></div>)}
-    {showJobTitlesMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowJobTitlesMgr(false)}}><div className="modal modal-sm"><div className="mh"><div className="mt">المسميات الوظيفية</div><button className="mc" onClick={()=>setShowJobTitlesMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"flex",gap:".6rem",marginBottom:"1rem"}}><input className="fis" placeholder="اسم المسمى" value={newJobTitle} onChange={e=>setNewJobTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addJobTitle()} style={{flex:1}}/><button className="bs" style={{padding:".6rem 1rem",flex:"none",width:"auto"}} onClick={addJobTitle}>+ إضافة</button></div><div style={{background:"#F8F6FF",borderRadius:12,padding:"1rem",maxHeight:320,overflowY:"auto"}}>{jobTitlesList.map(j=>(<div key={j.id} className="mgr-item"><span style={{fontSize:".85rem",fontWeight:600}}>{j.name}</span><button onClick={()=>deleteJobTitle(j.id)} className="btn-del-item"><AppIcon token="🗑️" size={12} /></button></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowJobTitlesMgr(false)}>إغلاق</button></div></div></div>)}
-    {showClassesMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowClassesMgr(false)}}><div className="modal modal-lg"><div className="mh"><div className="mt">إدارة الصفوف والشعب</div><button className="mc" onClick={()=>setShowClassesMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}><div style={{background:"#F8F6FF",borderRadius:12,padding:"1rem"}}><div style={{fontSize:".82rem",fontWeight:800,color:"var(--p2)",marginBottom:".7rem"}}>إضافة صف جديد</div><input className="fis" placeholder="اسم الصف" value={newGrade} onChange={e=>setNewGrade(e.target.value)} style={{marginBottom:".5rem"}}/><button className="bs" style={{padding:".6rem",width:"100%"}} onClick={addClass}>إضافة صف</button></div><div style={{background:"#F0FDF4",borderRadius:12,padding:"1rem",border:"1px solid #D1FAE5"}}><div style={{fontSize:".82rem",fontWeight:800,color:"#065F46",marginBottom:".7rem"}}>إضافة شعبة</div><select className="fis" value={newSectionGrade} onChange={e=>setNewSectionGrade(e.target.value)} style={{marginBottom:".5rem"}}><option value="">اختر الصف...</option>{gradeOptions.map(g=><option key={g} value={g}>{g}</option>)}</select><input className="fis" placeholder="اسم الشعبة" value={newSection} onChange={e=>setNewSection(e.target.value)} style={{marginBottom:".5rem"}}/><button onClick={addSection} style={{width:"100%",padding:".6rem",background:"linear-gradient(135deg,#10B981,#059669)",color:"white",border:"none",borderRadius:9,fontFamily:"Cairo,sans-serif",fontWeight:700,cursor:"pointer"}}>إضافة شعبة</button></div></div><div style={{background:"#F8F6FF",borderRadius:12,padding:"1rem",maxHeight:300,overflowY:"auto"}}>{gradeOptions.map(grade=>(<div key={grade} style={{marginBottom:".6rem",borderBottom:"1px solid rgba(108,74,182,0.08)",paddingBottom:".6rem"}}><div style={{fontWeight:800,fontSize:".85rem",marginBottom:".4rem"}}>{grade}</div><div style={{display:"flex",flexWrap:"wrap",gap:".3rem"}}>{classes.filter(c=>c.grade===grade).map(c=>(<span key={c.id} style={{display:"inline-flex",alignItems:"center",gap:".3rem",background:"#EDE8FA",color:"var(--p3)",padding:".2rem .6rem",borderRadius:20,fontSize:".75rem",fontWeight:700}}>{c.section}<button onClick={()=>deleteClass(c.id)} style={{background:"#EF4444",color:"white",border:"none",borderRadius:"50%",width:14,height:14,cursor:"pointer",fontSize:".6rem",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><AppIcon token="✕" size={12} /></button></span>))}</div></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowClassesMgr(false)}>إغلاق</button></div></div></div>)}
+    {showSubjectsMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowSubjectsMgr(false)}}><div className="modal modal-sm"><div className="mh"><div className="mt">المواد الدراسية</div><button className="mc" onClick={()=>setShowSubjectsMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"flex",gap:".6rem",marginBottom:"1rem"}}><input className="fis" placeholder="اسم المادة" value={newSubject} onChange={e=>setNewSubject(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSubject()} style={{flex:1}}/><button className="bs" style={{padding:".6rem 1rem",flex:"none",width:"auto"}} onClick={addSubject}>+ إضافة</button></div><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",maxHeight:320,overflowY:"auto"}}>{subjectsList.map(s=>(<div key={s.id} className="mgr-item"><span style={{fontSize:".85rem",fontWeight:600}}>{s.name}</span><button onClick={()=>deleteSubject(s.id)} className="btn-del-item"><AppIcon token="🗑️" size={12} /></button></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowSubjectsMgr(false)}>إغلاق</button></div></div></div>)}
+    {showJobTitlesMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowJobTitlesMgr(false)}}><div className="modal modal-sm"><div className="mh"><div className="mt">المسميات الوظيفية</div><button className="mc" onClick={()=>setShowJobTitlesMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"flex",gap:".6rem",marginBottom:"1rem"}}><input className="fis" placeholder="اسم المسمى" value={newJobTitle} onChange={e=>setNewJobTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addJobTitle()} style={{flex:1}}/><button className="bs" style={{padding:".6rem 1rem",flex:"none",width:"auto"}} onClick={addJobTitle}>+ إضافة</button></div><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",maxHeight:320,overflowY:"auto"}}>{jobTitlesList.map(j=>(<div key={j.id} className="mgr-item"><span style={{fontSize:".85rem",fontWeight:600}}>{j.name}</span><button onClick={()=>deleteJobTitle(j.id)} className="btn-del-item"><AppIcon token="🗑️" size={12} /></button></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowJobTitlesMgr(false)}>إغلاق</button></div></div></div>)}
+    {showClassesMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowClassesMgr(false)}}><div className="modal modal-lg"><div className="mh"><div className="mt">إدارة الصفوف والشعب</div><button className="mc" onClick={()=>setShowClassesMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem"}}><div style={{fontSize:".82rem",fontWeight:800,color:"var(--p2)",marginBottom:".7rem"}}>إضافة صف جديد</div><input className="fis" placeholder="اسم الصف" value={newGrade} onChange={e=>setNewGrade(e.target.value)} style={{marginBottom:".5rem"}}/><button className="bs" style={{padding:".6rem",width:"100%"}} onClick={addClass}>إضافة صف</button></div><div style={{background:"#F0FDF4",borderRadius:12,padding:"1rem",border:"1px solid #D1FAE5"}}><div style={{fontSize:".82rem",fontWeight:800,color:"#065F46",marginBottom:".7rem"}}>إضافة شعبة</div><select className="fis" value={newSectionGrade} onChange={e=>setNewSectionGrade(e.target.value)} style={{marginBottom:".5rem"}}><option value="">اختر الصف...</option>{gradeOptions.map(g=><option key={g} value={g}>{g}</option>)}</select><input className="fis" placeholder="اسم الشعبة" value={newSection} onChange={e=>setNewSection(e.target.value)} style={{marginBottom:".5rem"}}/><button onClick={addSection} style={{width:"100%",padding:".6rem",background:"linear-gradient(135deg,#10B981,#059669)",color:"white",border:"none",borderRadius:9,fontFamily:"Cairo,sans-serif",fontWeight:700,cursor:"pointer"}}>إضافة شعبة</button></div></div><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",maxHeight:300,overflowY:"auto"}}>{gradeOptions.map(grade=>(<div key={grade} style={{marginBottom:".6rem",borderBottom:"1px solid rgba(79,140,255,0.08)",paddingBottom:".6rem"}}><div style={{fontWeight:800,fontSize:".85rem",marginBottom:".4rem"}}>{grade}</div><div style={{display:"flex",flexWrap:"wrap",gap:".3rem"}}>{classes.filter(c=>c.grade===grade).map(c=>(<span key={c.id} style={{display:"inline-flex",alignItems:"center",gap:".3rem",background:"#EDF6FF",color:"var(--p3)",padding:".2rem .6rem",borderRadius:20,fontSize:".75rem",fontWeight:700}}>{c.section}<button onClick={()=>deleteClass(c.id)} style={{background:"#EF4444",color:"white",border:"none",borderRadius:"50%",width:14,height:14,cursor:"pointer",fontSize:".6rem",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><AppIcon token="✕" size={12} /></button></span>))}</div></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowClassesMgr(false)}>إغلاق</button></div></div></div>)}
 
     {/* DETAIL PANEL */}
     {showDetail&&detailTeacher&&(
@@ -1609,9 +1609,9 @@ export default function SalariesPage() {
             <div className="dp-card"><div className="dp-ct">المعلومات</div><div className="dp-row"><span className="dp-lbl">الاسم:</span><span className="dp-val">{detailTeacher.full_name}</span></div><div className="dp-row"><span className="dp-lbl">المسمى:</span><span className="dp-val">{detailTeacher.job_title||"—"}</span></div><div className="dp-row"><span className="dp-lbl">المادة:</span><span className="dp-val">{detailTeacher.subject||"—"}</span></div><div className="dp-row"><span className="dp-lbl">الهاتف:</span><span className="dp-val">{detailTeacher.phone||"—"}</span></div></div>
             <div className="dp-card"><div className="dp-ct">الرواتب</div><div className="dp-row"><span className="dp-lbl">نظام الراتب:</span><span className="dp-val">{SALARY_TYPES.find(s=>s.value===detailTeacher.salary_type)?.label||"—"}</span></div><div className="dp-row"><span className="dp-lbl">الأساسي:</span><span className="dp-val">د.ع {formatNumber(detailTeacher.base_salary)}</span></div><div className="dp-row"><span className="dp-lbl">سعر المحاضرة:</span><span className="dp-val">د.ع {formatNumber(detailTeacher.lecture_price||0)}</span></div><div className="dp-row"><span className="dp-lbl">عدد الرواتب:</span><span className="dp-val">{teacherSalaries(detailTeacher.id).length}</span></div><div className="dp-row"><span className="dp-lbl">إجمالي المستلم:</span><span className="dp-val" style={{color:"#10B981"}}>د.ع {formatNumber(teacherSalaries(detailTeacher.id).reduce((a,s)=>(a+(s.gross_salary||0)-(s.deductions||0)),0))}</span></div></div>
           </div>
-          {detailTeacher.classes_taught?.length>0&&(<div style={{background:"#F8F6FF",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}><div style={{fontSize:".8rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الصفوف والشعب</div><div style={{display:"flex",flexWrap:"wrap",gap:".4rem"}}>{detailTeacher.classes_taught.map((c:any,i:number)=>(<span key={i} className="badge" style={{background:"#EDE8FA",color:"var(--p3)",fontSize:".75rem"}}>{c.grade} ({c.section})</span>))}</div></div>)}
+          {detailTeacher.classes_taught?.length>0&&(<div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}><div style={{fontSize:".8rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الصفوف والشعب</div><div style={{display:"flex",flexWrap:"wrap",gap:".4rem"}}>{detailTeacher.classes_taught.map((c:any,i:number)=>(<span key={i} className="badge" style={{background:"#EDF6FF",color:"var(--p3)",fontSize:".75rem"}}>{c.grade} ({c.section})</span>))}</div></div>)}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:".8rem"}}><span style={{fontSize:".88rem",fontWeight:800}}>سجل الرواتب ({teacherSalaries(detailTeacher.id).length})</span><button className="btn-add" style={{padding:".4rem .8rem",fontSize:".75rem"}} onClick={()=>{setSelectedTeacher(detailTeacher);setSalaryForm({gross_salary:detailTeacher.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);}}>+ دفع راتب</button></div>
-          {teacherSalaries(detailTeacher.id).length===0?<div style={{textAlign:"center",padding:"2rem",color:"var(--gray)",fontSize:".85rem"}}>لا توجد رواتب بعد</div>:teacherSalaries(detailTeacher.id).map((s,i)=>{const net=(s.gross_salary||0)-(s.deductions||0);return <div className="sal-row" key={s.id}><div className="sal-num">{i+1}</div><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:".5rem"}}><span style={{fontWeight:800,color:"#10B981",fontSize:".85rem"}}>د.ع {formatNumber(net)}</span><span className="badge" style={{background:"#EDE8FA",color:"var(--p3)",fontSize:".65rem"}}>{s.month}</span></div><div style={{fontSize:".7rem",color:"var(--gray)"}}>{s.paid_at?formatDate(s.paid_at):"—"}</div></div><button className="btn-print-sm" onClick={()=>printSalarySlip(s)}><AppIcon token="🖨️" size={12} /></button></div>;})}
+          {teacherSalaries(detailTeacher.id).length===0?<div style={{textAlign:"center",padding:"2rem",color:"var(--gray)",fontSize:".85rem"}}>لا توجد رواتب بعد</div>:teacherSalaries(detailTeacher.id).map((s,i)=>{const net=(s.gross_salary||0)-(s.deductions||0);return <div className="sal-row" key={s.id}><div className="sal-num">{i+1}</div><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:".5rem"}}><span style={{fontWeight:800,color:"#10B981",fontSize:".85rem"}}>د.ع {formatNumber(net)}</span><span className="badge" style={{background:"#EDF6FF",color:"var(--p3)",fontSize:".65rem"}}>{s.month}</span></div><div style={{fontSize:".7rem",color:"var(--gray)"}}>{s.paid_at?formatDate(s.paid_at):"—"}</div></div><button className="btn-print-sm" onClick={()=>printSalarySlip(s)}><AppIcon token="🖨️" size={12} /></button></div>;})}
         </div>
       </div>
     )}

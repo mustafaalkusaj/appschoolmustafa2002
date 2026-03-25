@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS public.schools
+  ADD COLUMN IF NOT EXISTS theme_preset TEXT NULL;

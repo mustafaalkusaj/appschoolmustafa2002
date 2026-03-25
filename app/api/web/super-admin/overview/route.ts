@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const overview = await loadSuperAdminOverview(context.value.actorSupabase);
+    const overview = await loadSuperAdminOverview(context.value.dataSupabase);
     return NextResponse.json({
       ok: true,
       ...overview,

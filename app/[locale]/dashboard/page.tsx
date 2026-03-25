@@ -17,6 +17,7 @@ import {
   getStoredSchoolBranding,
   setStoredSchoolBranding,
 } from "@/lib/brand-palette";
+import { BRAND_THEME_FAMILIES, getBrandThemePreset } from "@/lib/brand-themes";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
@@ -149,7 +150,9 @@ export default function DashboardPage() {
     logo_url: "",
     primary_color: "#4f8cff",
     secondary_color: "#79d7ff",
+    theme_preset: "",
   });
+  const selectedBrandTheme = getBrandThemePreset(brandingForm.theme_preset);
 
   const fetchAll = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -286,7 +289,14 @@ export default function DashboardPage() {
     if (profile?.role !== "super_admin") return;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!schoolId) {
-      setBrandingForm((prev) => ({ ...prev, name: "", logo_url: "" }));
+      setBrandingForm((prev) => ({
+        ...prev,
+        name: "",
+        logo_url: "",
+        primary_color: "#4f8cff",
+        secondary_color: "#79d7ff",
+        theme_preset: "",
+      }));
       return;
     }
 
@@ -296,8 +306,9 @@ export default function DashboardPage() {
         logo_url?: string | null;
         primary_color?: string | null;
         secondary_color?: string | null;
+        theme_preset?: string | null;
       };
-      schemaCompat?: { schoolColors?: boolean };
+      schemaCompat?: { schoolColors?: boolean; schoolThemePreset?: boolean };
       error?: { message?: string };
     }>(`/api/web/dashboard/branding?schoolId=${encodeURIComponent(schoolId)}`);
 
@@ -308,6 +319,7 @@ export default function DashboardPage() {
 
     const compat = {
       schoolColors: Boolean(payload.schemaCompat?.schoolColors),
+      schoolThemePreset: Boolean(payload.schemaCompat?.schoolThemePreset),
     };
     const storedBranding = getStoredSchoolBranding(schoolId);
     const school = payload.school;
@@ -334,6 +346,10 @@ export default function DashboardPage() {
       logo_url: school.logo_url || "",
       primary_color: primaryColor || "#4f8cff",
       secondary_color: secondaryColor || "#79d7ff",
+      theme_preset:
+        compat.schoolThemePreset && typeof school.theme_preset === "string"
+          ? school.theme_preset
+          : storedBranding?.themePreset || "",
     });
   }, [profile, schoolScope.selectedSchoolId]);
 
@@ -397,7 +413,7 @@ export default function DashboardPage() {
     }
 
     const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      schemaCompat?: { schoolColors?: boolean };
+      schemaCompat?: { schoolColors?: boolean; schoolThemePreset?: boolean };
       error?: { message?: string };
     }>("/api/web/dashboard/branding", {
       method: "PATCH",
@@ -408,6 +424,7 @@ export default function DashboardPage() {
         logo_url: brandingForm.logo_url.trim() || null,
         primary_color: brandingForm.primary_color || null,
         secondary_color: brandingForm.secondary_color || null,
+        theme_preset: brandingForm.theme_preset || null,
       }),
     });
 
@@ -419,10 +436,12 @@ export default function DashboardPage() {
 
     const compat = {
       schoolColors: Boolean(payload?.schemaCompat?.schoolColors),
+      schoolThemePreset: Boolean(payload?.schemaCompat?.schoolThemePreset),
     };
     setStoredSchoolBranding(schoolId, {
       primaryColor: brandingForm.primary_color || null,
       secondaryColor: brandingForm.secondary_color || null,
+      themePreset: brandingForm.theme_preset || null,
       source: "manual",
     });
     requestRuntimeBrandingRefresh();
@@ -432,6 +451,18 @@ export default function DashboardPage() {
         : "تم تحديث الشعار واسم المدرسة، وحُفظت الألوان محلياً لأن أعمدة الألوان غير موجودة بعد في Supabase الحالي.",
     );
     setBrandingSaving(false);
+  }
+
+  function applyBrandThemePreset(presetId: string) {
+    const preset = getBrandThemePreset(presetId);
+    if (!preset) return;
+    setBrandingForm((prev) => ({
+      ...prev,
+      theme_preset: preset.id,
+      primary_color: preset.primaryColor,
+      secondary_color: preset.secondaryColor,
+    }));
+    setBrandingNotice(`تم تطبيق ثيم ${preset.label}. يمكنك حفظه مباشرة أو تخصيص الألوان بعده.`);
   }
 
   async function deriveDashboardBrandingFromLogo() {
@@ -446,6 +477,7 @@ export default function DashboardPage() {
         ...prev,
         primary_color: derivedPalette.primaryColor,
         secondary_color: derivedPalette.secondaryColor,
+        theme_preset: "",
       }));
       setBrandingNotice(
         brandingForm.logo_url.trim()
@@ -811,6 +843,57 @@ export default function DashboardPage() {
                       value={brandingForm.logo_url}
                       onChange={(e) => setBrandingForm((prev) => ({ ...prev, logo_url: e.target.value }))}
                     />
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <div style={{ fontSize: ".74rem", fontWeight: 800, color: "var(--p2)", marginBottom: ".45rem" }}>
+                        عوائل الألوان والثيمات الجاهزة
+                      </div>
+                      <div style={{ display: "grid", gap: ".55rem" }}>
+                        {BRAND_THEME_FAMILIES.map((family) => (
+                          <div key={family.id} style={{ border: "1px solid rgba(15,23,42,0.08)", borderRadius: 12, padding: ".7rem" }}>
+                            <div style={{ fontWeight: 800, color: "var(--dark)", fontSize: ".78rem" }}>{family.label}</div>
+                            <div style={{ fontSize: ".7rem", color: "var(--gray)", marginTop: ".15rem", marginBottom: ".55rem" }}>
+                              {family.description}
+                            </div>
+                            <div style={{ display: "grid", gap: ".5rem" }}>
+                              {family.presets.map((preset) => {
+                                const active = brandingForm.theme_preset === preset.id;
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => applyBrandThemePreset(preset.id)}
+                                    style={{
+                                      textAlign: "right",
+                                      borderRadius: 12,
+                                      border: active ? `1.5px solid ${preset.primaryColor}` : "1px solid rgba(15,23,42,0.08)",
+                                      background: active ? `${preset.primaryColor}12` : "#fff",
+                                      padding: ".7rem .8rem",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".75rem" }}>
+                                      <div>
+                                        <div style={{ fontWeight: 800, color: "var(--dark)", fontSize: ".77rem" }}>{preset.label}</div>
+                                        <div style={{ fontSize: ".69rem", color: "var(--gray)", marginTop: ".15rem" }}>{preset.description}</div>
+                                      </div>
+                                      <div style={{ display: "flex", gap: ".3rem", flexShrink: 0 }}>
+                                        {[preset.primaryColor, preset.secondaryColor, preset.accentColor].map((swatch) => (
+                                          <span key={swatch} style={{ width: 18, height: 18, borderRadius: 999, background: swatch, border: "1px solid rgba(15,23,42,0.08)" }} />
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div style={{ marginTop: ".45rem", fontSize: ".68rem", color: "var(--gray)", display: "flex", flexWrap: "wrap", gap: ".55rem" }}>
+                                      <span>اقتراح اللوغو: {preset.logoIdea}</span>
+                                      <span>اقتراح الاسم: {preset.schoolNameIdea}</span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                     <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--gray)" }}>
                       اللون الأساسي
                       <input
@@ -818,7 +901,7 @@ export default function DashboardPage() {
                         className="form-input"
                         style={{ height: "44px", padding: ".2rem", marginTop: ".25rem" }}
                         value={brandingForm.primary_color || "#4f8cff"}
-                        onChange={(e) => setBrandingForm((prev) => ({ ...prev, primary_color: e.target.value }))}
+                        onChange={(e) => setBrandingForm((prev) => ({ ...prev, primary_color: e.target.value, theme_preset: "" }))}
                       />
                     </label>
                     <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--gray)" }}>
@@ -828,7 +911,7 @@ export default function DashboardPage() {
                         className="form-input"
                         style={{ height: "44px", padding: ".2rem", marginTop: ".25rem" }}
                         value={brandingForm.secondary_color || "#79d7ff"}
-                        onChange={(e) => setBrandingForm((prev) => ({ ...prev, secondary_color: e.target.value }))}
+                        onChange={(e) => setBrandingForm((prev) => ({ ...prev, secondary_color: e.target.value, theme_preset: "" }))}
                       />
                     </label>
                   </div>
@@ -843,6 +926,7 @@ export default function DashboardPage() {
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
                       {brandingForm.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={brandingForm.logo_url}
                           alt={brandingForm.name || "School logo"}
@@ -869,6 +953,11 @@ export default function DashboardPage() {
                         <div style={{ fontSize: ".72rem", color: "var(--gray)" }}>
                           هذه الألوان ستنعكس على الأزرار والخلفيات والطباعة بالكامل.
                         </div>
+                        {selectedBrandTheme ? (
+                          <div style={{ fontSize: ".69rem", color: "var(--gray)", marginTop: ".25rem" }}>
+                            الثيم المختار: {selectedBrandTheme.label} • {selectedBrandTheme.familyLabel}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>

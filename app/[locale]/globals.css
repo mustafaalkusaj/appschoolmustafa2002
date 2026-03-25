@@ -1114,25 +1114,25 @@ html.dark .app-sidebar__link.is-active {
 
 /* ─── Dashboard Specific Styles ─── */
 :root {
-  --p2: #4C2F9E;
-  --p3: #6C4AB6;
-  --p4: #9B7EDC;
-  --bg: #F0EEFF;
-  --dark: #1F1547;
+  --p2: #255ea8;
+  --p3: #4f8cff;
+  --p4: #79d7ff;
+  --bg: #eef4fb;
+  --dark: #16324f;
   --gray: #6B7280;
-  --sidebar-a: #EDE8FA;
-  --sidebar-b: #E0D8F8;
+  --sidebar-a: #edf6ff;
+  --sidebar-b: #dbeafb;
 }
 
 :root[data-theme="dark"], .dark {
-  --p2: #B9A6F3;
-  --p3: #A98BEF;
-  --p4: #8C73D9;
-  --bg: #0F1220;
-  --dark: #E8EAF8;
+  --p2: #9ec3ff;
+  --p3: #7fb1ff;
+  --p4: #80d8f6;
+  --bg: #0f172a;
+  --dark: #e8f2ff;
   --gray: #A8B0C8;
-  --sidebar-a: #1A2133;
-  --sidebar-b: #171E2F;
+  --sidebar-a: #182338;
+  --sidebar-b: #111b2e;
 }
 
 .layout {
@@ -1607,7 +1607,7 @@ html.dark .app-sidebar__link.is-active {
 }
 
 .fee-btn-outline:hover {
-  background: #EDE8FA;
+  background: #edf6ff;
 }
 
 .modal-overlay {
@@ -1637,7 +1637,7 @@ html.dark .app-sidebar__link.is-active {
   padding: 1.8rem;
   width: 520px;
   max-width: 95vw;
-  box-shadow: 0 20px 60px rgba(108, 74, 182, 0.25);
+  box-shadow: 0 20px 60px rgba(79, 140, 255, 0.18);
   animation: slideUp .25s ease;
 }
 
@@ -1695,7 +1695,7 @@ html.dark .app-sidebar__link.is-active {
 }
 
 .form-input {
-  border: 1.5px solid rgba(108, 74, 182, 0.2);
+  border: 1.5px solid rgba(79, 140, 255, 0.18);
   border-radius: 9px;
   padding: .55rem .85rem;
   font-family: var(--font-manrope), Segoe UI, sans-serif;
@@ -1708,11 +1708,11 @@ html.dark .app-sidebar__link.is-active {
 
 .form-input:focus {
   border-color: var(--p3);
-  box-shadow: 0 0 0 3px rgba(108, 74, 182, 0.1);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
 }
 
 .form-select {
-  border: 1.5px solid rgba(108, 74, 182, 0.2);
+  border: 1.5px solid rgba(79, 140, 255, 0.18);
   border-radius: 9px;
   padding: .55rem .85rem;
   font-family: var(--font-manrope), Segoe UI, sans-serif;
@@ -1728,7 +1728,7 @@ html.dark .app-sidebar__link.is-active {
 }
 
 .installment-preview {
-  background: linear-gradient(135deg, #EDE8FA, #E0D8F8);
+  background: linear-gradient(135deg, #edf6ff, #dbeafb);
   border-radius: 11px;
   padding: .9rem 1.1rem;
   margin-bottom: .9rem;
@@ -1816,7 +1816,7 @@ html.dark .app-sidebar__link.is-active {
   border-radius: 14px;
   padding: 1.2rem 1.4rem;
   margin-bottom: 1rem;
-  box-shadow: 0 2px 8px rgba(108, 74, 182, 0.07);
+  box-shadow: 0 2px 8px rgba(79, 140, 255, 0.08);
   border: 1px solid var(--border);
 }
 
@@ -1845,7 +1845,7 @@ html.dark .app-sidebar__link.is-active {
 
 .fees-table td {
   padding: .55rem .8rem;
-  border-bottom: 1px solid rgba(108, 74, 182, 0.05);
+  border-bottom: 1px solid rgba(79, 140, 255, 0.06);
   color: var(--dark);
 }
 
@@ -1861,7 +1861,7 @@ html.dark .app-sidebar__link.is-active {
   display: inline-flex;
   align-items: center;
   gap: .3rem;
-  background: #EDE8FA;
+  background: #edf6ff;
   color: var(--p3);
   border-radius: 6px;
   padding: .18rem .5rem;
@@ -1871,7 +1871,7 @@ html.dark .app-sidebar__link.is-active {
 
 .class-chip {
   display: inline-block;
-  background: linear-gradient(135deg, #EDE8FA, #E0D8F8);
+  background: linear-gradient(135deg, #edf6ff, #dbeafb);
   color: var(--p2);
   border-radius: 7px;
   padding: .2rem .6rem;
@@ -1891,12 +1891,12 @@ html.dark .app-sidebar__link.is-active {
 }
 
 .edit-btn {
-  background: #EDE8FA;
+  background: #edf6ff;
   color: var(--p3);
 }
 
 .edit-btn:hover {
-  background: #DDD6F8;
+  background: #dbeafb;
 }
 
 .del-btn {

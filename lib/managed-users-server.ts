@@ -126,6 +126,15 @@ export type TeacherTableCapabilities = {
   classes_taught: boolean;
 };
 
+const SCHEMA_CAPABILITY_TTL_MS = 5 * 60 * 1000;
+const AUTH_CREDENTIAL_CACHE_TTL_MS = 5 * 60 * 1000;
+const schemaCapabilityCache = new Map<string, { value: boolean; expiresAt: number }>();
+const schemaCapabilityPending = new Map<string, Promise<boolean>>();
+let teacherTableCapabilitiesCache: { value: TeacherTableCapabilities; expiresAt: number } | null = null;
+let teacherTableCapabilitiesPending: Promise<TeacherTableCapabilities> | null = null;
+const authCredentialCache = new Map<string, { value: CredentialRow | null; expiresAt: number }>();
+const authCredentialPending = new Map<string, Promise<CredentialRow | null>>();
+
 function asObject(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -286,39 +295,93 @@ export async function tableHasColumn(
   table: string,
   column: string,
 ) {
-  const { error } = await actorSupabase.from(table).select(column).limit(1);
-
-  if (!error) {
-    return true;
+  const cacheKey = `${table}.${column}`;
+  const now = Date.now();
+  const cached = schemaCapabilityCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
   }
 
-  if (isMissingColumnError(error, table, column)) {
-    return false;
+  const pending = schemaCapabilityPending.get(cacheKey);
+  if (pending) {
+    return pending;
   }
 
-  throw error;
+  const nextProbe = (async () => {
+    const { error } = await actorSupabase.from(table).select(column).limit(1);
+
+    if (!error) {
+      schemaCapabilityCache.set(cacheKey, {
+        value: true,
+        expiresAt: Date.now() + SCHEMA_CAPABILITY_TTL_MS,
+      });
+      return true;
+    }
+
+    if (isMissingColumnError(error, table, column)) {
+      schemaCapabilityCache.set(cacheKey, {
+        value: false,
+        expiresAt: Date.now() + SCHEMA_CAPABILITY_TTL_MS,
+      });
+      return false;
+    }
+
+    throw error;
+  })();
+
+  schemaCapabilityPending.set(cacheKey, nextProbe);
+
+  try {
+    return await nextProbe;
+  } finally {
+    schemaCapabilityPending.delete(cacheKey);
+  }
 }
 
 export async function getTeacherTableCapabilities(
   actorSupabase: RouteSupabaseClient,
 ): Promise<TeacherTableCapabilities> {
-  const [specialization, subject, notes, is_active, status, classes_taught] = await Promise.all([
-    tableHasColumn(actorSupabase, "teachers", "specialization"),
-    tableHasColumn(actorSupabase, "teachers", "subject"),
-    tableHasColumn(actorSupabase, "teachers", "notes"),
-    tableHasColumn(actorSupabase, "teachers", "is_active"),
-    tableHasColumn(actorSupabase, "teachers", "status"),
-    tableHasColumn(actorSupabase, "teachers", "classes_taught"),
-  ]);
+  const now = Date.now();
+  if (teacherTableCapabilitiesCache && teacherTableCapabilitiesCache.expiresAt > now) {
+    return teacherTableCapabilitiesCache.value;
+  }
 
-  return {
-    specialization,
-    subject,
-    notes,
-    is_active,
-    status,
-    classes_taught,
-  };
+  if (teacherTableCapabilitiesPending) {
+    return teacherTableCapabilitiesPending;
+  }
+
+  teacherTableCapabilitiesPending = (async () => {
+    const [specialization, subject, notes, is_active, status, classes_taught] = await Promise.all([
+      tableHasColumn(actorSupabase, "teachers", "specialization"),
+      tableHasColumn(actorSupabase, "teachers", "subject"),
+      tableHasColumn(actorSupabase, "teachers", "notes"),
+      tableHasColumn(actorSupabase, "teachers", "is_active"),
+      tableHasColumn(actorSupabase, "teachers", "status"),
+      tableHasColumn(actorSupabase, "teachers", "classes_taught"),
+    ]);
+
+    const value = {
+      specialization,
+      subject,
+      notes,
+      is_active,
+      status,
+      classes_taught,
+    };
+
+    teacherTableCapabilitiesCache = {
+      value,
+      expiresAt: Date.now() + SCHEMA_CAPABILITY_TTL_MS,
+    };
+
+    return value;
+  })();
+
+  try {
+    return await teacherTableCapabilitiesPending;
+  } finally {
+    teacherTableCapabilitiesPending = null;
+  }
 }
 
 function resolveSchoolLogoFromRecord(record: Record<string, unknown> | null | undefined) {
@@ -343,12 +406,15 @@ export async function fetchManagedAccountSchoolBrand(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
 ) {
-  const [logoUrl, logo, schoolLogoUrl, brandLogoUrl, imageUrl] = await Promise.all([
+  const [logoUrl, logo, schoolLogoUrl, brandLogoUrl, imageUrl, primaryColor, secondaryColor, themePreset] = await Promise.all([
     tableHasColumn(actorSupabase, "schools", "logo_url").catch(() => false),
     tableHasColumn(actorSupabase, "schools", "logo").catch(() => false),
     tableHasColumn(actorSupabase, "schools", "school_logo_url").catch(() => false),
     tableHasColumn(actorSupabase, "schools", "brand_logo_url").catch(() => false),
     tableHasColumn(actorSupabase, "schools", "image_url").catch(() => false),
+    tableHasColumn(actorSupabase, "schools", "primary_color").catch(() => false),
+    tableHasColumn(actorSupabase, "schools", "secondary_color").catch(() => false),
+    tableHasColumn(actorSupabase, "schools", "theme_preset").catch(() => false),
   ]);
 
   const selectColumns = [
@@ -358,6 +424,9 @@ export async function fetchManagedAccountSchoolBrand(
     ...(schoolLogoUrl ? ["school_logo_url"] : []),
     ...(brandLogoUrl ? ["brand_logo_url"] : []),
     ...(imageUrl ? ["image_url"] : []),
+    ...(primaryColor ? ["primary_color"] : []),
+    ...(secondaryColor ? ["secondary_color"] : []),
+    ...(themePreset ? ["theme_preset"] : []),
   ].join(", ");
 
   const { data, error } = await actorSupabase
@@ -377,6 +446,9 @@ export async function fetchManagedAccountSchoolBrand(
   return {
     schoolName,
     schoolLogoUrl: resolveSchoolLogoFromRecord(schoolRecord),
+    primaryColor: typeof schoolRecord?.primary_color === "string" ? schoolRecord.primary_color : null,
+    secondaryColor: typeof schoolRecord?.secondary_color === "string" ? schoolRecord.secondary_color : null,
+    themePreset: typeof schoolRecord?.theme_preset === "string" ? schoolRecord.theme_preset : null,
   };
 }
 
@@ -618,23 +690,58 @@ function toAuthCredentialRow(authUserId: string, user: AuthUser | null | undefin
   } satisfies CredentialRow;
 }
 
+function writeAuthCredentialCache(authUserId: string, row: CredentialRow | null) {
+  authCredentialCache.set(authUserId, {
+    value: row,
+    expiresAt: Date.now() + AUTH_CREDENTIAL_CACHE_TTL_MS,
+  });
+}
+
+function invalidateAuthCredentialCache(authUserId: string) {
+  authCredentialCache.delete(authUserId);
+  authCredentialPending.delete(authUserId);
+}
+
+async function fetchManagedUserCredentialFromAuthMetadata(authUserId: string) {
+  const now = Date.now();
+  const cached = authCredentialCache.get(authUserId);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  const pending = authCredentialPending.get(authUserId);
+  if (pending) {
+    return pending;
+  }
+
+  const nextLookup = (async () => {
+    const serviceSupabase = createServiceSupabaseClient();
+    const response = await serviceSupabase.auth.admin.getUserById(authUserId);
+    const row =
+      response.error || !response.data.user
+        ? null
+        : toAuthCredentialRow(authUserId, response.data.user);
+
+    writeAuthCredentialCache(authUserId, row);
+    return row;
+  })();
+
+  authCredentialPending.set(authUserId, nextLookup);
+
+  try {
+    return await nextLookup;
+  } finally {
+    authCredentialPending.delete(authUserId);
+  }
+}
+
 async function fetchManagedUserCredentialsFromAuthMetadata(authUserIds: string[]) {
   const uniqueIds = Array.from(new Set(authUserIds.filter(Boolean)));
   if (uniqueIds.length === 0) {
     return new Map<string, CredentialRow>();
   }
 
-  const serviceSupabase = createServiceSupabaseClient();
-  const responses = await Promise.all(uniqueIds.map((authUserId) => serviceSupabase.auth.admin.getUserById(authUserId)));
-
-  const rows = responses
-    .map((response, index) => {
-      if (response.error || !response.data.user) {
-        return null;
-      }
-
-      return toAuthCredentialRow(uniqueIds[index], response.data.user);
-    })
+  const rows = (await Promise.all(uniqueIds.map((authUserId) => fetchManagedUserCredentialFromAuthMetadata(authUserId))))
     .filter((row): row is CredentialRow => Boolean(row));
 
   return new Map<string, CredentialRow>(rows.map((row) => [row.auth_user_id, row]));
@@ -686,6 +793,17 @@ async function patchManagedCredentialMetadata(
   if (updateError) {
     throw updateError;
   }
+
+  writeAuthCredentialCache(authUserId, {
+    auth_user_id: authUserId,
+    login_identifier:
+      nullableText(nextManagedCredentials.login_identifier) ??
+      nullableText(data.user.email) ??
+      "",
+    temporary_password: nullableText(nextManagedCredentials.temporary_password),
+    password_last_reset_at: normalizeNullableTimestamp(nextManagedCredentials.password_last_reset_at),
+    card_last_printed_at: normalizeNullableTimestamp(nextManagedCredentials.card_last_printed_at),
+  });
 }
 
 export function buildManagedAuthIdentityPayload(options: {
@@ -783,25 +901,27 @@ export async function syncManagedAuthIdentityMetadata(options: {
   if (updateError) {
     throw updateError;
   }
+
+  invalidateAuthCredentialCache(options.authUserId);
 }
 
 export async function fetchManagedUserCredentials(
   actorSupabase: RouteSupabaseClient,
   authUserIds: string[],
 ) {
-  if (authUserIds.length === 0) {
+  const uniqueIds = Array.from(new Set(authUserIds.filter(Boolean)));
+  if (uniqueIds.length === 0) {
     return new Map<string, CredentialRow>();
   }
 
   const { data, error } = await actorSupabase
     .from("managed_user_credentials")
     .select("auth_user_id, login_identifier, temporary_password, password_last_reset_at, card_last_printed_at")
-    .in("auth_user_id", authUserIds);
+    .in("auth_user_id", uniqueIds);
 
-  const fallbackCredentials = await fetchManagedUserCredentialsFromAuthMetadata(authUserIds);
   if (error) {
     if (isMissingTableError(error, "managed_user_credentials") || error.message.toLowerCase().includes("could not find")) {
-      return fallbackCredentials;
+      return fetchManagedUserCredentialsFromAuthMetadata(uniqueIds);
     }
     throw error;
   }
@@ -810,11 +930,15 @@ export async function fetchManagedUserCredentials(
     ((data ?? []) as CredentialRow[]).map((row) => [row.auth_user_id, row]),
   );
 
-  fallbackCredentials.forEach((row, authUserId) => {
-    if (!credentials.has(authUserId)) {
-      credentials.set(authUserId, row);
-    }
-  });
+  const missingIds = uniqueIds.filter((authUserId) => !credentials.has(authUserId));
+  if (missingIds.length > 0) {
+    const fallbackCredentials = await fetchManagedUserCredentialsFromAuthMetadata(missingIds);
+    fallbackCredentials.forEach((row, authUserId) => {
+      if (!credentials.has(authUserId)) {
+        credentials.set(authUserId, row);
+      }
+    });
+  }
 
   return credentials;
 }
@@ -1538,37 +1662,54 @@ export async function resolveSubjectId(
   subjectName: string,
 ) {
   const trimmed = subjectName.trim();
-  const { data, error } = await actorSupabase
+  const { data: existingRows, error: existingError } = await actorSupabase
     .from("subjects")
-    .upsert(
-      {
-        school_id: schoolId,
-        name: trimmed,
-      },
-      {
-        onConflict: "school_id,name",
-        ignoreDuplicates: false,
-      },
-    )
     .select("id, name")
-    .single();
+    .eq("school_id", schoolId);
 
-  if (error) {
-    const { data: existing, error: existingError } = await actorSupabase
-      .from("subjects")
-      .select("id, name")
-      .eq("school_id", schoolId)
-      .eq("name", trimmed)
-      .maybeSingle();
-
-    if (existingError || !existing?.id) {
-      throw existingError ?? error;
-    }
-
-    return existing.id;
+  if (existingError) {
+    throw existingError;
   }
 
-  return data.id as string;
+  const existingMatch = ((existingRows ?? []) as TeacherAssignmentLookupRow[]).find((row) =>
+    matchesLookupText(row.name, trimmed),
+  );
+
+  if (existingMatch?.id) {
+    return existingMatch.id;
+  }
+
+  const { data: inserted, error: insertError } = await actorSupabase
+    .from("subjects")
+    .insert({
+      school_id: schoolId,
+      name: trimmed,
+    })
+    .select("id, name")
+    .maybeSingle();
+
+  if (!insertError && inserted?.id) {
+    return inserted.id;
+  }
+
+  const { data: retryRows, error: retryError } = await actorSupabase
+    .from("subjects")
+    .select("id, name")
+    .eq("school_id", schoolId);
+
+  if (retryError) {
+    throw retryError;
+  }
+
+  const retryMatch = ((retryRows ?? []) as TeacherAssignmentLookupRow[]).find((row) =>
+    matchesLookupText(row.name, trimmed),
+  );
+
+  if (!retryMatch?.id) {
+    throw insertError ?? new Error(`تعذر حفظ المادة "${trimmed}".`);
+  }
+
+  return retryMatch.id;
 }
 
 export async function resolveClassAndSectionIds(
@@ -2015,14 +2156,16 @@ export async function buildManagedUserAccountCard(
   actorSupabase: RouteSupabaseClient,
   user: ManagedUserRecord,
 ) {
-  const credentialsByAuthId = await fetchManagedUserCredentials(actorSupabase, [user.auth_user_id]);
+  const [credentialsByAuthId, schoolBrand] = await Promise.all([
+    fetchManagedUserCredentials(actorSupabase, [user.auth_user_id]),
+    fetchManagedAccountSchoolBrand(actorSupabase, user.school_id),
+  ]);
   const credential = credentialsByAuthId.get(user.auth_user_id);
 
   if (!credential?.temporary_password) {
     throw new Error("لا توجد كلمة مرور مؤقتة محفوظة لهذا الحساب. أعد تعيين كلمة المرور المؤقتة أولاً.");
   }
 
-  const schoolBrand = await fetchManagedAccountSchoolBrand(actorSupabase, user.school_id);
   const primaryTeacherAssignment =
     user.role === "teacher"
       ? user.teacher?.assignments.find((assignment) => assignment.is_active) ?? user.teacher?.assignments[0] ?? null

@@ -61,19 +61,11 @@ export async function POST(
     temporaryPassword,
   });
 
-  const refreshedUser = await fetchManagedUserByAuthUserId(actorSupabase, {
-    authUserId,
-    schoolId: targetSchoolId,
-  });
-  if (!refreshedUser) {
-    return jsonError("تعذر إعادة تحميل الحساب بعد إعادة تعيين كلمة المرور.", 500);
-  }
-
-  const accountCard = await buildManagedUserAccountCard(actorSupabase, refreshedUser);
+  const accountCard = await buildManagedUserAccountCard(actorSupabase, user);
 
   return NextResponse.json({
     ok: true,
-    user: refreshedUser,
+    user,
     accountCard,
   });
 }

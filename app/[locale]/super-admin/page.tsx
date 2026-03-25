@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   CreditCard,
   LayoutDashboard,
-  LogOut,
   Menu,
   PencilLine,
   Plus,
@@ -42,7 +41,6 @@ import {
   getUserProfile,
   ROLE_COLORS,
   ROLE_LABELS,
-  signOutClient,
   type Permission,
   type UserProfile,
 } from "@/lib/auth";
@@ -149,6 +147,22 @@ interface SubscriptionRecord {
   schools?: SchoolRelation;
   created_at?: string | null;
 }
+
+type OverviewDatasetStatus = "loaded" | "fallback" | "failed";
+
+interface OverviewDiagnostics {
+  generatedAt: string;
+  warnings: string[];
+  schoolsStatus: OverviewDatasetStatus;
+  usersStatus: OverviewDatasetStatus;
+  subscriptionsStatus: OverviewDatasetStatus;
+}
+
+type SpotlightFilter =
+  | "inactive_schools"
+  | "expiring_subscriptions"
+  | "orphan_users"
+  | "missing_branding";
 
 const PLAN_LABELS: Record<SchoolPlan, string> = {
   basic: "أساسية",
@@ -290,6 +304,20 @@ function formatDate(value: string | null | undefined) {
   }).format(parsed);
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat("ar-IQ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
 function calculateDaysLeft(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -310,6 +338,37 @@ function statusTone(status: "success" | "warning" | "danger") {
   if (status === "success") return "ui-pill ui-pill--success";
   if (status === "warning") return "ui-pill ui-pill--warning";
   return "ui-pill ui-pill--danger";
+}
+
+function createTintSurface(tint: string, percentage = 16) {
+  return `color-mix(in srgb, ${tint} ${percentage}%, transparent)`;
+}
+
+function datasetStatusMeta(status: OverviewDatasetStatus) {
+  if (status === "loaded") {
+    return { label: "محمّل بالكامل", tone: "ui-pill ui-pill--success" };
+  }
+
+  if (status === "fallback") {
+    return { label: "وضع بديل", tone: "ui-pill ui-pill--warning" };
+  }
+
+  return { label: "تحميل ناقص", tone: "ui-pill ui-pill--danger" };
+}
+
+function spotlightFilterLabel(filter: SpotlightFilter | null) {
+  switch (filter) {
+    case "inactive_schools":
+      return "المدارس غير النشطة";
+    case "expiring_subscriptions":
+      return "الاشتراكات القريبة من الانتهاء";
+    case "orphan_users":
+      return "المستخدمون بدون مدرسة";
+    case "missing_branding":
+      return "المدارس ذات الهوية غير المكتملة";
+    default:
+      return "";
+  }
 }
 
 function SectionCard({
@@ -390,7 +449,7 @@ function StatCard({
     <div className="ui-surface relative overflow-hidden rounded-[28px] p-5">
       <div
         className="pointer-events-none absolute inset-x-6 top-0 h-20 rounded-full blur-3xl"
-        style={{ background: `${tint}20` }}
+        style={{ background: createTintSurface(tint, 20) }}
       />
       <div className="relative flex items-start justify-between gap-4">
         <div className="space-y-2">
@@ -400,7 +459,7 @@ function StatCard({
         </div>
         <div
           className="inline-flex h-12 w-12 items-center justify-center rounded-[18px]"
-          style={{ background: `${tint}14`, color: tint }}
+          style={{ background: createTintSurface(tint, 14), color: tint }}
         >
           <Icon size={20} />
         </div>
@@ -455,15 +514,19 @@ export default function SuperAdminPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [infrastructureNotice, setInfrastructureNotice] = useState("");
+  const [overviewDiagnostics, setOverviewDiagnostics] = useState<OverviewDiagnostics | null>(null);
   const [infrastructure, setInfrastructure] = useState(DEFAULT_ADMIN_INFRASTRUCTURE);
   const [schemaCompat, setSchemaCompat] = useState<AppSchemaCompat | null>(null);
   const [query, setQuery] = useState("");
+  const [spotlightFilter, setSpotlightFilter] = useState<SpotlightFilter | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
 
   const [showSchoolForm, setShowSchoolForm] = useState(false);
   const [editSchool, setEditSchool] = useState<SchoolRecord | null>(null);
@@ -512,7 +575,12 @@ export default function SuperAdminPage() {
   }, [locale]);
 
   const refreshDashboard = useCallback(async () => {
-    setLoading(true);
+    const initialLoad = !hasLoadedOnceRef.current;
+    if (initialLoad) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
 
     try {
       const nextProfile = await checkAuth();
@@ -522,6 +590,7 @@ export default function SuperAdminPage() {
         infrastructure?: AdminInfrastructure;
         schemaCompat?: AppSchemaCompat;
         infrastructureNotice?: string;
+        diagnostics?: OverviewDiagnostics;
         schools?: SchoolRecord[];
         users?: UserRecord[];
         subscriptions?: SubscriptionRecord[];
@@ -535,6 +604,7 @@ export default function SuperAdminPage() {
       setInfrastructure(payload?.infrastructure ?? DEFAULT_ADMIN_INFRASTRUCTURE);
       setSchemaCompat(payload?.schemaCompat ?? null);
       setInfrastructureNotice(payload?.infrastructureNotice ?? "");
+      setOverviewDiagnostics(payload?.diagnostics ?? null);
       setSchools(
         (payload?.schools ?? []).map((school) => {
           const storedBranding = getStoredSchoolBranding(school.id);
@@ -554,10 +624,12 @@ export default function SuperAdminPage() {
         })),
       );
       setSubscriptions(payload?.subscriptions ?? []);
+      hasLoadedOnceRef.current = true;
     } catch (fetchError) {
       flashError(getErrorMessage(fetchError, "تعذر تحميل بيانات المدير العام."));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [checkAuth, flashError]);
 
@@ -1003,22 +1075,32 @@ export default function SuperAdminPage() {
     }
   }
 
-  async function handleLogout() {
-    await signOutClient();
-    window.location.href = localizeAppPath("/login", locale);
-  }
+  const focusSpotlight = useCallback((filter: SpotlightFilter, tab: ActiveTab) => {
+    setQuery("");
+    setSpotlightFilter(filter);
+    setActiveTab(tab);
+  }, []);
+
+  const clearSpotlightFilter = useCallback(() => {
+    setSpotlightFilter(null);
+  }, []);
 
   const normalizedQuery = query.trim().toLowerCase();
 
   const activeSchools = schools.filter((school) => school.is_active);
+  const inactiveSchools = schools.filter((school) => !school.is_active);
   const activeSubscriptions = subscriptions.filter((subscription) => !isSubscriptionExpired(subscription));
   const expiredSubscriptions = subscriptions.filter((subscription) => isSubscriptionExpired(subscription));
   const expiringSoon = subscriptions.filter((subscription) => {
     const days = calculateDaysLeft(subscription.end_date);
     return !isSubscriptionExpired(subscription) && days !== null && days <= 30;
   });
+  const usersWithoutSchool = users.filter((user) => user.role !== "super_admin" && !user.school_id);
+  const schoolsMissingBranding = schools.filter((school) => !school.primary_color || !school.secondary_color);
 
   const filteredSchools = schools.filter((school) => {
+    if (spotlightFilter === "inactive_schools" && school.is_active) return false;
+    if (spotlightFilter === "missing_branding" && school.primary_color && school.secondary_color) return false;
     if (!normalizedQuery) return true;
     return [school.name, school.city, school.phone, school.owner_email]
       .filter(Boolean)
@@ -1026,6 +1108,7 @@ export default function SuperAdminPage() {
   });
 
   const filteredUsers = users.filter((user) => {
+    if (spotlightFilter === "orphan_users" && (user.role === "super_admin" || user.school_id)) return false;
     if (!normalizedQuery) return true;
     return [user.full_name, user.email, relationName(user.schools)]
       .filter(Boolean)
@@ -1033,6 +1116,10 @@ export default function SuperAdminPage() {
   });
 
   const filteredSubscriptions = subscriptions.filter((subscription) => {
+    if (spotlightFilter === "expiring_subscriptions") {
+      const days = calculateDaysLeft(subscription.end_date);
+      if (isSubscriptionExpired(subscription) || days === null || days > 30) return false;
+    }
     if (!normalizedQuery) return true;
     return [relationName(subscription.schools), PLAN_LABELS[subscription.plan], SUBSCRIPTION_STATUS_LABELS[subscription.status]]
       .filter(Boolean)
@@ -1093,6 +1180,29 @@ export default function SuperAdminPage() {
   const recentSchools = schools.slice(0, 4);
   const recentUsers = users.slice(0, 5);
   const tabMeta = availableTabs.find((item) => item.id === activeTab) ?? availableTabs[0] ?? TAB_ITEMS[0];
+  const dataHealthItems = [
+    {
+      key: "schools",
+      datasetLabel: "المدارس",
+      status: datasetStatusMeta(overviewDiagnostics?.schoolsStatus ?? "loaded"),
+      hint: "قراءة أساسية للوحة",
+    },
+    {
+      key: "users",
+      datasetLabel: "المستخدمون",
+      status: datasetStatusMeta(overviewDiagnostics?.usersStatus ?? "loaded"),
+      hint: "الصلاحيات وربط المدارس",
+    },
+    {
+      key: "subscriptions",
+      datasetLabel: "الاشتراكات",
+      status: datasetStatusMeta(overviewDiagnostics?.subscriptionsStatus ?? "loaded"),
+      hint: "التجديدات والحالة الحالية",
+    },
+  ];
+  const hasLoadWarning =
+    (overviewDiagnostics?.warnings.length ?? 0) > 0 ||
+    dataHealthItems.some((item) => item.status.tone !== "ui-pill ui-pill--success");
 
   return (
     <ProtectedRoute roles={["super_admin"]}>
@@ -1286,6 +1396,17 @@ export default function SuperAdminPage() {
                   <button
                     type="button"
                     className="ui-button ui-button--secondary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => void refreshDashboard()}
+                    disabled={refreshing}
+                    title="تحديث البيانات"
+                  >
+                    <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+                    <span className="hidden sm:inline">{refreshing ? "جاري التحديث" : "تحديث"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ui-button ui-button--secondary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => setActiveTab("notifications")}
                     title={infrastructure.notifications ? "التنبيهات" : "التنبيهات غير متاحة في بيئة قاعدة البيانات الحالية"}
                     disabled={!infrastructure.notifications}
@@ -1302,6 +1423,23 @@ export default function SuperAdminPage() {
                   </button>
 
                   <ProfileMenu />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[var(--text-tertiary)]">
+                  <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1.5">
+                    {overviewDiagnostics?.generatedAt
+                      ? `آخر مزامنة: ${formatDateTime(overviewDiagnostics.generatedAt)}`
+                      : "لم تكتمل أول مزامنة بعد"}
+                  </span>
+                  {spotlightFilter ? (
+                    <button
+                      type="button"
+                      className="rounded-full border border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] px-3 py-1.5 text-[var(--primary)] transition hover:bg-[rgba(79,140,255,0.14)]"
+                      onClick={clearSpotlightFilter}
+                    >
+                      الفلتر الذكي: {spotlightFilterLabel(spotlightFilter)} · إلغاء
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1326,6 +1464,50 @@ export default function SuperAdminPage() {
               <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(242,169,59,0.22)] bg-[rgba(242,169,59,0.10)] px-4 py-3 text-[var(--warning)]">
                 <Flag size={18} className="mt-1 shrink-0" />
                 <p className="text-sm font-bold leading-7">{infrastructureNotice}</p>
+              </div>
+            ) : null}
+
+            {hasLoadWarning ? (
+              <div className="ui-surface rounded-[28px] border-[rgba(242,169,59,0.22)] bg-[linear-gradient(135deg,rgba(242,169,59,0.10),rgba(79,140,255,0.08))] p-4 sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-[var(--warning)]">
+                      <AlertTriangle size={18} />
+                      <span className="text-sm font-black">تحذير تحميل البيانات</span>
+                    </div>
+                    <p className="max-w-[64rem] text-sm leading-7 text-[var(--text-secondary)]">
+                      المشكلة الأساسية كانت أن الصفحة تعامل كل تحديث وكأنه تحميل أولي، ومع أي fallback في علاقات
+                      قاعدة البيانات يظهر تنبيه عام بدون توضيح. الآن صار عندك تشخيص أوضح لكل مجموعة بيانات
+                      وتحديث خلفي بدون تفريغ الشاشة.
+                    </p>
+                    {overviewDiagnostics?.warnings.length ? (
+                      <div className="space-y-2">
+                        {overviewDiagnostics.warnings.slice(0, 3).map((warning) => (
+                          <div
+                            key={warning}
+                            className="rounded-[20px] border border-[rgba(242,169,59,0.18)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-sm font-bold leading-7 text-[var(--text-secondary)]"
+                          >
+                            {warning}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="grid min-w-[280px] gap-2 sm:grid-cols-3 lg:w-[360px] lg:grid-cols-1">
+                    {dataHealthItems.map((item) => (
+                      <div
+                        key={item.key}
+                        className="rounded-[22px] border border-[var(--border)] bg-[rgba(255,255,255,0.78)] px-4 py-3"
+                      >
+                        <div className="mb-2 text-xs font-black text-[var(--text-tertiary)]">{item.datasetLabel}</div>
+                        <span className={item.status.tone}>{item.status.label}</span>
+                        <div className="mt-2 text-sm font-black text-[var(--text-primary)]">{item.datasetLabel}</div>
+                        <div className="mt-1 text-xs font-bold text-[var(--text-secondary)]">{item.hint}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -1389,7 +1571,7 @@ export default function SuperAdminPage() {
                 icon={CreditCard}
                 label="الاشتراكات النشطة"
                 value={activeSubscriptions.length}
-                meta={`${expiredSubscriptions.length} اشتراك يحتاج متابعة`}
+                meta={`${expiredSubscriptions.length} متعثر و ${expiringSoon.length} قريب الانتهاء`}
                 tint="var(--success)"
               />
               <StatCard
@@ -1407,6 +1589,96 @@ export default function SuperAdminPage() {
                 tint="#8B5CF6"
               />
             </div>
+
+            {!loading ? (
+              <SectionCard
+                title="مركز الإجراءات السريعة"
+                description="أولويات جاهزة حسب البيانات الحالية لتقليل البحث اليدوي وتسريع القرار."
+                actions={
+                  spotlightFilter ? (
+                    <button
+                      type="button"
+                      className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                      onClick={clearSpotlightFilter}
+                    >
+                      <X size={16} />
+                      إلغاء الفلتر الذكي
+                    </button>
+                  ) : null
+                }
+              >
+                <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+                  {[
+                    {
+                      id: "expiring_subscriptions",
+                      title: "اشتراكات تحتاج متابعة",
+                      value: expiringSoon.length,
+                      description: "مدارس بقي على اشتراكها 30 يوماً أو أقل.",
+                      actionLabel: "فتح الاشتراكات",
+                      tint: "#F2A93B",
+                      softTint: "rgba(242,169,59,0.14)",
+                      onClick: () => focusSpotlight("expiring_subscriptions", "subscriptions"),
+                    },
+                    {
+                      id: "inactive_schools",
+                      title: "مدارس غير نشطة",
+                      value: inactiveSchools.length,
+                      description: "مدارس موقوفة وتحتاج قرار إعادة تفعيل أو أرشفة.",
+                      actionLabel: "فتح المدارس",
+                      tint: "#F05A5A",
+                      softTint: "rgba(240,90,90,0.14)",
+                      onClick: () => focusSpotlight("inactive_schools", "schools"),
+                    },
+                    {
+                      id: "orphan_users",
+                      title: "مستخدمون بلا مدرسة",
+                      value: usersWithoutSchool.length,
+                      description: "حسابات تشغيلية قد تسبب التباساً في الصلاحيات والنطاق.",
+                      actionLabel: "فتح المستخدمين",
+                      tint: "#8B5CF6",
+                      softTint: "rgba(139,92,246,0.14)",
+                      onClick: () => focusSpotlight("orphan_users", "users"),
+                    },
+                    {
+                      id: "missing_branding",
+                      title: "هوية مدارس ناقصة",
+                      value: schoolsMissingBranding.length,
+                      description: "مدارس لا تملك ألواناً كاملة وبالتالي تظهر بهوية افتراضية.",
+                      actionLabel: "مراجعة الهوية",
+                      tint: "#4F8CFF",
+                      softTint: "rgba(79,140,255,0.14)",
+                      onClick: () => focusSpotlight("missing_branding", "schools"),
+                    },
+                  ].map((item) => (
+                    <div key={item.id} className="ui-surface rounded-[26px] p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-2">
+                          <p className="text-sm font-black text-[var(--text-primary)]">{item.title}</p>
+                          <div className="text-3xl font-black" style={{ color: item.tint }}>
+                            {item.value}
+                          </div>
+                          <p className="text-sm leading-7 text-[var(--text-secondary)]">{item.description}</p>
+                        </div>
+                        <div
+                          className="inline-flex h-12 w-12 items-center justify-center rounded-[18px]"
+                          style={{ background: item.softTint, color: item.tint }}
+                        >
+                          <AlertTriangle size={18} />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="ui-button ui-button--secondary mt-5 inline-flex items-center gap-2"
+                        onClick={item.onClick}
+                      >
+                        <ChevronLeft size={16} />
+                        {item.actionLabel}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            ) : null}
 
             {loading ? (
               <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">

@@ -96,6 +96,9 @@ export interface ManagedAppAccountContext {
     id: string | null;
     name: string | null;
     logo_url: string | null;
+    primary_color: string | null;
+    secondary_color: string | null;
+    theme_preset: string | null;
   };
   linkage: {
     managed_profile_exists: boolean;
@@ -652,6 +655,9 @@ export async function buildManagedAppAccountContext(authUserId: string): Promise
       id: schoolId,
       name: schoolBrand?.schoolName ?? null,
       logo_url: schoolBrand?.schoolLogoUrl ?? null,
+      primary_color: schoolBrand?.primaryColor ?? null,
+      secondary_color: schoolBrand?.secondaryColor ?? null,
+      theme_preset: schoolBrand?.themePreset ?? null,
     },
     linkage: resolvedAccount.linkage,
     access,
