@@ -605,7 +605,7 @@ export default function PaymentsPage() {
       <>
         <style>{`
           *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-          :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
+          :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;--field-bg:#F9FBFF;--field-text:#0F172A;--field-border:rgba(15,23,42,0.1);--field-border-strong:rgba(79,140,255,0.42);--field-ring:rgba(79,140,255,0.14);--field-shadow:inset 0 1px 0 rgba(255,255,255,0.82);}
           body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
           .layout{display:flex;height:100vh}
           .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
@@ -644,15 +644,15 @@ export default function PaymentsPage() {
           .adv-grid2{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.7rem}
           .af-item{display:flex;flex-direction:column;gap:.25rem}
           .af-label{font-size:.7rem;font-weight:600;color:var(--gray)}
-          .af-input{padding:.5rem .7rem;background:white;border:1.5px solid rgba(108,74,182,0.12);border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.78rem;direction:rtl;outline:none;color:var(--dark)}
-          .af-input:focus{border-color:var(--p3)}
+          .af-input{padding:.5rem .7rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.78rem;direction:rtl;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+          .af-input:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
 
           /* TOOLBAR */
           .toolbar{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
           .srch{position:relative;flex:1}
           .srch svg{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--gray)}
-          .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
-          .srch input:focus{border-color:var(--p3)}
+          .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:var(--field-bg);border:1px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+          .srch input:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
           .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
           .btn-export{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
 
@@ -715,8 +715,8 @@ export default function PaymentsPage() {
           .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
           .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
           .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-          .fis{padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
-          .fis:focus{border-color:var(--p3);background:white}
+          .fis{padding:.65rem .85rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%;color:var(--field-text);box-shadow:var(--field-shadow)}
+          .fis:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
           .receipt-auto{background:#EDE8FA;border-radius:10px;padding:.65rem 1rem;font-size:.85rem;font-weight:800;color:var(--p2);text-align:center}
           .student-info-box{background:#F0EEFF;border-radius:10px;padding:.8rem 1rem}
           .si-row{display:flex;justify-content:space-between;font-size:.8rem;margin:.2rem 0}
@@ -726,8 +726,8 @@ export default function PaymentsPage() {
           .bs:disabled{opacity:.65;cursor:not-allowed}
           .bc{padding:.75rem 1.2rem;background:#F3F4F6;color:var(--gray);border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:600;cursor:pointer}
           .search-wrap{position:relative}
-          .search-input{width:100%;padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none}
-          .search-input:focus{border-color:var(--p3);background:white}
+          .search-input{width:100%;padding:.65rem .85rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+          .search-input:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
           .search-input.selected{border-color:#10B981;background:#F0FDF4}
           .dropdown{position:absolute;top:calc(100% + 4px);right:0;left:0;background:white;border:1px solid rgba(108,74,182,0.15);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);z-index:300;max-height:220px;overflow-y:auto}
           .dropdown-item{padding:.62rem 1rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid rgba(108,74,182,0.05)}
@@ -739,7 +739,8 @@ export default function PaymentsPage() {
           .archive-ttl{font-size:.88rem;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:.4rem}
           .archive-note{font-size:.75rem;color:var(--gray);margin-bottom:.8rem}
           .archive-controls{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
-          .archive-select{padding:.55rem .8rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--dark);min-width:140px}
+          .archive-select{padding:.55rem .8rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--field-text);min-width:140px;box-shadow:var(--field-shadow)}
+          .archive-select:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
           .archive-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.7rem}
           .arch-card{background:#F8F6FF;border:1px solid rgba(108,74,182,0.08);border-radius:12px;padding:.9rem 1rem}
           .arch-year{font-size:.9rem;font-weight:800;color:var(--p2);margin-bottom:.25rem}

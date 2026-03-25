@@ -1,3 +1,5 @@
+import { getBrandThemePreset } from "@/lib/brand-themes";
+
 const STORAGE_KEY = "school-branding-overrides:v1";
 const DEFAULT_PRIMARY = "#4f8cff";
 const DEFAULT_SECONDARY = "#79d7ff";
@@ -5,6 +7,7 @@ const DEFAULT_SECONDARY = "#79d7ff";
 export type StoredSchoolBranding = {
   primaryColor: string | null;
   secondaryColor: string | null;
+  themePreset?: string | null;
   sidebarColor?: string | null;
   accentColor?: string | null;
   textColor?: string | null;
@@ -233,10 +236,11 @@ export function getStoredSchoolBranding(schoolId: string | null | undefined) {
 export function setStoredSchoolBranding(
   schoolId: string,
   value: Pick<StoredSchoolBranding, "primaryColor" | "secondaryColor" | "source"> &
-    Partial<Pick<StoredSchoolBranding, "sidebarColor" | "accentColor" | "textColor">>,
+    Partial<Pick<StoredSchoolBranding, "themePreset" | "sidebarColor" | "accentColor" | "textColor">>,
 ) {
   const primaryColor = sanitizeColor(value.primaryColor);
   const secondaryColor = sanitizeColor(value.secondaryColor);
+  const themePreset = typeof value.themePreset === "string" && value.themePreset.trim() ? value.themePreset.trim() : null;
   const sidebarColor = sanitizeColor(value.sidebarColor);
   const accentColor = sanitizeColor(value.accentColor);
   const textColor = sanitizeColor(value.textColor);
@@ -244,6 +248,7 @@ export function setStoredSchoolBranding(
   store[schoolId] = {
     primaryColor,
     secondaryColor,
+    themePreset,
     sidebarColor,
     accentColor,
     textColor,
@@ -271,6 +276,29 @@ export function resolveBrandPalette(input: {
     primaryStrong: shiftColor(primaryColor, -0.12),
     primaryDeep: shiftColor(primaryColor, -0.28),
     accentSoft: mixColors(primaryColor, "#ffffff", 0.82),
+  };
+}
+
+export function resolveBrandAppearance(input: {
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  themePreset?: string | null;
+}) {
+  const preset = getBrandThemePreset(input.themePreset);
+  const palette = resolveBrandPalette({
+    primaryColor: sanitizeColor(input.primaryColor) || preset?.primaryColor || DEFAULT_PRIMARY,
+    secondaryColor: sanitizeColor(input.secondaryColor) || preset?.secondaryColor || DEFAULT_SECONDARY,
+  });
+
+  return {
+    ...palette,
+    themePreset: preset?.id ?? null,
+    accentColor: preset ? mixColors(preset.accentColor, palette.primaryColor, 0.22) : palette.primaryColor,
+    sidebarColor: preset ? mixColors(preset.sidebarColor, palette.primaryColor, 0.16) : mixColors(palette.primaryColor, "#ffffff", 0.78),
+    textColor: preset ? preset.textColor : palette.primaryDeep,
+    backgroundColor: preset ? mixColors(preset.backgroundColor, palette.accentSoft, 0.16) : mixColors(palette.accentSoft, "#eef4fb", 0.84),
+    surfaceColor: preset?.surfaceColor || "#ffffff",
+    surfaceMutedColor: preset ? mixColors(preset.surfaceMutedColor, palette.secondaryColor, 0.08) : mixColors(palette.secondaryColor, "#ffffff", 0.8),
   };
 }
 

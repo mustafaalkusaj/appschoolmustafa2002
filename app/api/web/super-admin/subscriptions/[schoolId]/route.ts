@@ -23,15 +23,15 @@ export async function POST(
     return jsonError("معرف المدرسة غير صالح.", 400);
   }
 
-  const { actorSupabase } = context.value;
+  const { dataSupabase } = context.value;
   const [{ data: school, error: schoolError }, { data: latestSubscription, error: subscriptionLookupError }] =
     await Promise.all([
-      actorSupabase
+      dataSupabase
         .from("schools")
         .select("id, plan")
         .eq("id", normalizedSchoolId)
         .maybeSingle(),
-      actorSupabase
+      dataSupabase
         .from("subscriptions")
         .select("id, plan")
         .eq("school_id", normalizedSchoolId)
@@ -52,14 +52,14 @@ export async function POST(
   const startDate = new Date().toISOString().split("T")[0];
 
   const response = latestSubscription?.id
-    ? await actorSupabase
+    ? await dataSupabase
         .from("subscriptions")
         .update({ status: "active", end_date: endDate })
         .eq("id", latestSubscription.id)
         .eq("school_id", normalizedSchoolId)
         .select("id, school_id, plan, status, start_date, end_date, created_at")
         .single()
-    : await actorSupabase
+    : await dataSupabase
         .from("subscriptions")
         .insert({
           school_id: normalizedSchoolId,

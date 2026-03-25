@@ -122,8 +122,7 @@ export async function POST(req: NextRequest) {
   const serviceSupabase = createServiceSupabaseClient();
 
   if (validation.value.school_id) {
-    // Check if school exists using actor's permission (super_admin can read all schools)
-    const { data: school, error: schoolError } = await actorSupabase
+    const { data: school, error: schoolError } = await serviceSupabase
       .from("schools")
       .select("id, is_active")
       .eq("id", validation.value.school_id)
@@ -159,13 +158,12 @@ export async function POST(req: NextRequest) {
     custom_permissions: validation.value.custom_permissions,
   };
 
-  // Use actorSupabase to insert profile (RLS allows super_admin to insert)
-  let { error: insertProfileError } = await actorSupabase.from("user_profiles").insert(profilePayload);
+  let { error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(profilePayload);
 
   if (isMissingColumnError(insertProfileError, "user_profiles", "custom_permissions")) {
     const legacyPayload = { ...profilePayload };
     delete legacyPayload.custom_permissions;
-    ({ error: insertProfileError } = await actorSupabase.from("user_profiles").insert(legacyPayload));
+    ({ error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(legacyPayload));
   }
   
   if (insertProfileError) {

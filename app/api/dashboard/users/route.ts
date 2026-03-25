@@ -257,33 +257,80 @@ function buildImmediateManagedUser(input: {
 async function fallbackListUsersFromUserProfiles(
   actorSupabase: ManagedUsersActorContext["actorSupabase"],
   schoolId: string,
-  filters: { roleFilter?: string | null; statusFilter?: string | null },
+  options: {
+    roleFilter?: string | null;
+    statusFilter?: string | null;
+    searchQuery?: string;
+    matchingTeacherIds?: string[] | null;
+    from?: number;
+    to?: number;
+    paginate?: boolean;
+  },
 ) {
+  let matchingAuthUserIds: string[] | null = null;
+  if (options.matchingTeacherIds) {
+    if (options.matchingTeacherIds.length === 0) {
+      return { error: null, totalCount: 0, users: [] as ManagedUserRecord[] };
+    }
+
+    const { data: matchingTeachers, error: matchingTeachersError } = await actorSupabase
+      .from("teachers")
+      .select("auth_user_id")
+      .eq("school_id", schoolId)
+      .in("id", options.matchingTeacherIds);
+
+    if (matchingTeachersError) {
+      return { error: matchingTeachersError, totalCount: 0, users: [] as ManagedUserRecord[] };
+    }
+
+    matchingAuthUserIds = ((matchingTeachers ?? []) as Array<Record<string, unknown>>)
+      .map((teacher) => (typeof teacher.auth_user_id === "string" ? teacher.auth_user_id : null))
+      .filter((authUserId): authUserId is string => Boolean(authUserId));
+
+    if (matchingAuthUserIds.length === 0) {
+      return { error: null, totalCount: 0, users: [] as ManagedUserRecord[] };
+    }
+  }
+
   let query = actorSupabase
     .from("user_profiles")
-    .select("id, school_id, role, full_name, email, phone, is_active, created_at")
+    .select("id, school_id, role, full_name, email, phone, is_active, created_at", { count: "exact" })
     .eq("school_id", schoolId)
     .in("role", ["student", "teacher"])
     .order("created_at", { ascending: false });
 
-  if (filters.roleFilter && MANAGED_USER_ROLES.includes(filters.roleFilter as (typeof MANAGED_USER_ROLES)[number])) {
-    query = query.eq("role", filters.roleFilter);
+  if (options.roleFilter && MANAGED_USER_ROLES.includes(options.roleFilter as (typeof MANAGED_USER_ROLES)[number])) {
+    query = query.eq("role", options.roleFilter);
   }
 
-  if (filters.statusFilter === "active") {
+  if (options.statusFilter === "active") {
     query = query.eq("is_active", true);
-  } else if (filters.statusFilter === "inactive") {
+  } else if (options.statusFilter === "inactive") {
     query = query.eq("is_active", false);
   }
 
-  const { data: profiles, error: profilesError } = await query;
+  if (options.searchQuery) {
+    query = query.or(
+      `full_name.ilike.%${options.searchQuery}%,email.ilike.%${options.searchQuery}%,phone.ilike.%${options.searchQuery}%`,
+    );
+  }
+
+  if (matchingAuthUserIds) {
+    query = query.in("id", matchingAuthUserIds);
+  }
+
+  if (options.paginate && typeof options.from === "number" && typeof options.to === "number") {
+    query = query.range(options.from, options.to);
+  }
+
+  const { data: profiles, error: profilesError, count } = await query;
   if (profilesError) {
-    return { error: profilesError, users: [] as ManagedUserRecord[] };
+    return { error: profilesError, totalCount: 0, users: [] as ManagedUserRecord[] };
   }
 
   const authUserIds = ((profiles ?? []) as Array<Record<string, unknown>>).map((profile) => String(profile.id));
   if (authUserIds.length === 0) {
-    return { error: null, users: [] as ManagedUserRecord[] };
+    return { error: null, totalCount: count ?? 0, users: [] as ManagedUserRecord[] };
   }
 
   const [studentsLinkAvailable, teachersLinkAvailable] = await Promise.all([
@@ -322,11 +369,11 @@ async function fallbackListUsersFromUserProfiles(
   ]);
 
   if (studentsResult.error) {
-    return { error: studentsResult.error, users: [] as ManagedUserRecord[] };
+    return { error: studentsResult.error, totalCount: 0, users: [] as ManagedUserRecord[] };
   }
 
   if (teachersResult.error) {
-    return { error: teachersResult.error, users: [] as ManagedUserRecord[] };
+    return { error: teachersResult.error, totalCount: 0, users: [] as ManagedUserRecord[] };
   }
 
   const studentsByAuthId = new Map<string, Record<string, unknown>>(
@@ -396,7 +443,11 @@ async function fallbackListUsersFromUserProfiles(
     } satisfies ManagedUserRecord;
   });
 
-  return { error: null, users };
+  return {
+    error: null,
+    totalCount: typeof count === "number" ? count : users.length,
+    users,
+  };
 }
 
 async function cleanupCreatedUser(options: {
@@ -476,6 +527,7 @@ export async function GET(req: NextRequest) {
   const to = hasPagination ? from + pageSize - 1 : 0;
   const requiresTeacherScopedFiltering =
     roleFilter === "teacher" && Boolean(classFilter || sectionFilter || subjectFilter);
+  const fallbackNeedsDecoratedFiltering = requiresTeacherScopedFiltering && Boolean(searchQuery);
 
   const context = await resolveManagedUsersActorContext(schoolId, req.headers.get("authorization"));
   if (!context.ok) {
@@ -540,6 +592,11 @@ export async function GET(req: NextRequest) {
       const fallback = await fallbackListUsersFromUserProfiles(actorSupabase, targetSchoolId, {
         roleFilter,
         statusFilter,
+        searchQuery: fallbackNeedsDecoratedFiltering ? "" : searchQuery,
+        matchingTeacherIds,
+        from,
+        to,
+        paginate: hasPagination && !fallbackNeedsDecoratedFiltering,
       });
       if (fallback.error) {
         return jsonError(
@@ -549,18 +606,24 @@ export async function GET(req: NextRequest) {
       }
 
       const decoratedUsers = await decorateManagedUsers(actorSupabase, fallback.users);
-      const searchedUsers = filterDecoratedManagedUsers(decoratedUsers, {
-        roleFilter,
-        searchQuery,
-        classFilter,
-        sectionFilter,
-        subjectFilter,
-      });
-      const pagedUsers = hasPagination ? searchedUsers.slice(from, to + 1) : searchedUsers;
+      const searchedUsers = fallbackNeedsDecoratedFiltering
+        ? filterDecoratedManagedUsers(decoratedUsers, {
+            roleFilter,
+            searchQuery,
+            classFilter,
+            sectionFilter,
+            subjectFilter,
+          })
+        : decoratedUsers;
+      const pagedUsers = fallbackNeedsDecoratedFiltering && hasPagination
+        ? searchedUsers.slice(from, to + 1)
+        : searchedUsers;
       return NextResponse.json({
         ok: true,
         users: pagedUsers,
-        totalCount: searchedUsers.length,
+        totalCount: fallbackNeedsDecoratedFiltering
+          ? searchedUsers.length
+          : fallback.totalCount,
         page,
         pageSize: hasPagination ? pageSize : searchedUsers.length,
       });

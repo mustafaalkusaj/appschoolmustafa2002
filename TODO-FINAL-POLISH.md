@@ -6,7 +6,7 @@
 
 **Next (2-8):**
 2. [ ] Full English i18n support + dark mode improvements
-3. [ ] Dashboard charts (app/[locale]/dashboard/page.tsx)
+3. [x] Dashboard charts (app/[locale]/dashboard/page.tsx) - Dynamic/DashboardFinanceCharts loaded, stats pie/bar implemented
 4. [ ] Security + perf (load test)
 5. [ ] Mobile/Flutter API
 6. [ ] Error audit

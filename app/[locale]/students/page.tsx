@@ -132,6 +132,7 @@ export default function StudentsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [generatingDemoStudents, setGeneratingDemoStudents] = useState(false);
   const [printingCards, setPrintingCards] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -445,6 +446,63 @@ export default function StudentsPage() {
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"الطلاب");
     XLSX.writeFile(wb,`طلاب_${activeTab}_${formatDate(new Date())}.xlsx`);
+  }
+
+  async function handleGenerateDemoStudents() {
+    if (!canManageStudentAccounts) {
+      setError("ليس لديك صلاحية توليد البيانات التجريبية.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "سيتم إنشاء ما يصل إلى 30,000 طالب تجريبي للمدرسة الحالية. هل تريد المتابعة؟",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const { school_id } = await getSchoolBranch();
+    if (!school_id) {
+      setError("يجب تحديد مدرسة قبل توليد البيانات التجريبية.");
+      return;
+    }
+
+    setGeneratingDemoStudents(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetchWithAuthorizedSession("/api/web/students/demo-seed", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          schoolId: school_id,
+          targetCount: 30_000,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(readApiError(payload, "تعذر توليد البيانات التجريبية."));
+      }
+
+      setActiveTab("active");
+      setSearch("");
+      setDebouncedSearch("");
+      setFilterClass("");
+      setFilterSection("");
+      setPage(1);
+      setSuccess(
+        typeof payload?.message === "string"
+          ? payload.message
+          : "تم توليد البيانات التجريبية بنجاح.",
+      );
+      reload();
+    } catch (seedError) {
+      setError(seedError instanceof Error ? seedError.message : "تعذر توليد البيانات التجريبية.");
+    } finally {
+      setGeneratingDemoStudents(false);
+    }
   }
 
 function printFilteredStudents(students: StudentWithFees[]) {
@@ -1020,7 +1078,7 @@ function handlePrint(s: StudentWithFees){
   <>
     <style>{`
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
+      :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;--field-bg:#F9FBFF;--field-text:#0F172A;--field-border:rgba(15,23,42,0.1);--field-border-strong:rgba(79,140,255,0.42);--field-ring:rgba(79,140,255,0.14);--field-shadow:inset 0 1px 0 rgba(255,255,255,0.82);}
       body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
       .layout{display:flex;height:100vh}
       .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
@@ -1055,9 +1113,10 @@ function handlePrint(s: StudentWithFees){
       .toolbar{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem;flex-wrap:wrap}
       .srch{position:relative;flex:1;min-width:160px}
       .srch svg{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--gray)}
-      .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
-      .srch input:focus{border-color:var(--p3)}
-      .filter-sel{padding:.55rem .8rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;color:var(--dark)}
+      .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:var(--field-bg);border:1px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+      .srch input:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
+      .filter-sel{padding:.55rem .8rem;background:var(--field-bg);border:1px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+      .filter-sel:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
       .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
       .btn-excel{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
       .btn-export{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#DBEAFE;color:#1E40AF;border:1.5px solid #93C5FD;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -1096,8 +1155,8 @@ function handlePrint(s: StudentWithFees){
       .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
       .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
       .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-      .fi,.fs{padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none}
-      .fi:focus,.fs:focus{border-color:var(--p3);background:white}
+      .fi,.fs{padding:.65rem .85rem;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;color:var(--field-text);box-shadow:var(--field-shadow)}
+      .fi:focus,.fs:focus{border-color:var(--field-border-strong);background:white;box-shadow:0 0 0 4px var(--field-ring),var(--field-shadow)}
       .fa{display:flex;gap:.7rem;margin-top:1.1rem}
       .bs{flex:1;padding:.75rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:700;cursor:pointer}
       .bs:disabled{opacity:.65;cursor:not-allowed}
@@ -1221,6 +1280,10 @@ function handlePrint(s: StudentWithFees){
                 {activeTab==="active" && !isReadOnlyView && <>
                   {canManageStudentAccounts && (
                     <>
+                      <button className="btn-excel" onClick={()=>void handleGenerateDemoStudents()} disabled={generatingDemoStudents}>
+                        <AppIcon token="🧪" size={14} />
+                        {generatingDemoStudents ? "جارٍ توليد 30 ألف سجل..." : "إنشاء 30 ألف طالب تجريبي"}
+                      </button>
                       <button className="btn-excel" onClick={()=>setShowImport(true)}><AppIcon token="📊" size={14} />استيراد إكسل</button>
                       <button className="btn-add" onClick={()=>setShowModal(true)}>+ إضافة طالب</button>
                     </>

@@ -24,8 +24,12 @@ export async function GET(req: NextRequest) {
 
   const schemaCompat = await detectAppSchemaCompatWithClient(context.value.actorSupabase);
   const schoolQuery = schemaCompat.schoolColors
-    ? context.value.actorSupabase.from("schools").select("id, name, logo_url, primary_color, secondary_color")
-    : context.value.actorSupabase.from("schools").select("id, name, logo_url");
+    ? context.value.actorSupabase
+        .from("schools")
+        .select(`id, name, logo_url, primary_color, secondary_color${schemaCompat.schoolThemePreset ? ", theme_preset" : ""}`)
+    : context.value.actorSupabase
+        .from("schools")
+        .select(`id, name, logo_url${schemaCompat.schoolThemePreset ? ", theme_preset" : ""}`);
 
   const { data: school, error } = await schoolQuery.eq("id", context.value.targetSchoolId).maybeSingle();
   if (error || !school) {
@@ -75,6 +79,12 @@ export async function PATCH(req: NextRequest) {
             typeof body?.primary_color === "string" && body.primary_color.trim() ? body.primary_color.trim() : null,
           secondary_color:
             typeof body?.secondary_color === "string" && body.secondary_color.trim() ? body.secondary_color.trim() : null,
+          ...(schemaCompat.schoolThemePreset
+            ? {
+                theme_preset:
+                  typeof body?.theme_preset === "string" && body.theme_preset.trim() ? body.theme_preset.trim() : null,
+              }
+            : {}),
         }
       : {}),
   };
@@ -84,12 +94,12 @@ export async function PATCH(req: NextRequest) {
         .from("schools")
         .update(payload)
         .eq("id", context.value.targetSchoolId)
-        .select("id, name, logo_url, primary_color, secondary_color")
+        .select(`id, name, logo_url, primary_color, secondary_color${schemaCompat.schoolThemePreset ? ", theme_preset" : ""}`)
     : context.value.actorSupabase
         .from("schools")
         .update(payload)
         .eq("id", context.value.targetSchoolId)
-        .select("id, name, logo_url");
+        .select(`id, name, logo_url${schemaCompat.schoolThemePreset ? ", theme_preset" : ""}`);
 
   const { data: school, error } = await schoolQuery.maybeSingle();
   if (error || !school) {

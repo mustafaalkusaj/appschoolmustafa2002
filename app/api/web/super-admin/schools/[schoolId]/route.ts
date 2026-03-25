@@ -22,8 +22,11 @@ type UpdateSchoolBody = {
   is_active?: unknown;
 };
 
-const SCHOOL_SELECT =
-  "id, name, address, phone, owner_email, city, logo_url, primary_color, secondary_color, plan, is_active, created_at";
+function buildSchoolSelect(schemaCompat: Awaited<ReturnType<typeof detectAppSchemaCompatWithClient>>) {
+  return schemaCompat.schoolColors
+    ? "id, name, address, phone, owner_email, city, logo_url, primary_color, secondary_color, plan, is_active, created_at"
+    : "id, name, address, phone, owner_email, city, logo_url, plan, is_active, created_at";
+}
 
 export async function PATCH(
   req: NextRequest,
@@ -42,18 +45,20 @@ export async function PATCH(
 
   const body = (await req.json().catch(() => null)) as UpdateSchoolBody | null;
   const mode = body?.mode === "toggle" ? "toggle" : "update";
-  const { actorSupabase } = context.value;
+  const { dataSupabase } = context.value;
+  const schemaCompat = await detectAppSchemaCompatWithClient(dataSupabase);
+  const schoolSelect = buildSchoolSelect(schemaCompat);
 
   if (mode === "toggle") {
     if (typeof body?.is_active !== "boolean") {
       return jsonError("حالة المدرسة الجديدة مطلوبة.", 400);
     }
 
-    const { data: school, error: schoolError } = await actorSupabase
+    const { data: school, error: schoolError } = await dataSupabase
       .from("schools")
       .update({ is_active: body.is_active })
       .eq("id", normalizedSchoolId)
-      .select(SCHOOL_SELECT)
+      .select(schoolSelect)
       .maybeSingle();
 
     if (schoolError) {
@@ -64,7 +69,7 @@ export async function PATCH(
       return jsonError("المدرسة المطلوبة غير موجودة.", 404);
     }
 
-    const { data: latestSubscription, error: subscriptionLookupError } = await actorSupabase
+    const { data: latestSubscription, error: subscriptionLookupError } = await dataSupabase
       .from("subscriptions")
       .select("id")
       .eq("school_id", normalizedSchoolId)
@@ -77,7 +82,7 @@ export async function PATCH(
     }
 
     if (latestSubscription?.id) {
-      const { error: subscriptionError } = await actorSupabase
+      const { error: subscriptionError } = await dataSupabase
         .from("subscriptions")
         .update({ status: body.is_active ? "active" : "suspended" })
         .eq("id", latestSubscription.id)
@@ -96,7 +101,6 @@ export async function PATCH(
     return jsonError("اسم المدرسة مطلوب.", 400);
   }
 
-  const schemaCompat = await detectAppSchemaCompatWithClient(actorSupabase);
   const payload = {
     name,
     address: typeof body?.address === "string" && body.address.trim() ? body.address.trim() : null,
@@ -115,11 +119,11 @@ export async function PATCH(
     plan: body?.plan === "premium" || body?.plan === "enterprise" ? body.plan : "basic",
   };
 
-  const { data: school, error: schoolError } = await actorSupabase
+  const { data: school, error: schoolError } = await dataSupabase
     .from("schools")
     .update(payload)
     .eq("id", normalizedSchoolId)
-    .select(SCHOOL_SELECT)
+    .select(schoolSelect)
     .maybeSingle();
 
   if (schoolError) {
@@ -152,7 +156,7 @@ export async function DELETE(
     return jsonError("معرف المدرسة غير صالح.", 400);
   }
 
-  const infrastructure = await detectAdminInfrastructure(context.value.actorSupabase);
+  const infrastructure = await detectAdminInfrastructure(context.value.dataSupabase);
   if (!infrastructure.softDeleteSchools) {
     return jsonError(
       "أرشفة المدارس تتطلب تشغيل admin_infrastructure.sql لإضافة deleted_at و deleted_by إلى جدول schools.",
@@ -160,7 +164,7 @@ export async function DELETE(
     );
   }
 
-  const { data: school, error } = await context.value.actorSupabase
+  const { data: school, error } = await context.value.dataSupabase
     .from("schools")
     .update({
       deleted_at: new Date().toISOString(),

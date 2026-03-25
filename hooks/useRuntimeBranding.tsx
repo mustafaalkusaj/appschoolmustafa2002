@@ -9,7 +9,7 @@ import {
   DEFAULT_SECONDARY,
   derivePaletteFromLogo,
   getStoredSchoolBranding,
-  resolveBrandPalette,
+  resolveBrandAppearance,
   sanitizeColor,
   setStoredSchoolBranding,
   shiftColor,
@@ -25,9 +25,18 @@ type RuntimeBrandingState = {
   logoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  themePreset: string | null;
   sidebarColor: string | null;
   accentColor: string | null;
   textColor: string | null;
+};
+
+type SchoolBrandingRecord = {
+  name?: string | null;
+  logo_url?: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  theme_preset?: string | null;
 };
 
 export const RUNTIME_BRANDING_REFRESH_EVENT = "runtime-branding-refresh";
@@ -37,6 +46,7 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   logoUrl: null,
   primaryColor: null,
   secondaryColor: null,
+  themePreset: null,
   sidebarColor: null,
   accentColor: null,
   textColor: null,
@@ -44,27 +54,30 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
 
 function applyBrandingToCssVars(branding: RuntimeBrandingState) {
   const root = document.documentElement;
-  const palette = resolveBrandPalette({
+  const appearance = resolveBrandAppearance({
     primaryColor: sanitizeColor(branding.primaryColor) || DEFAULT_PRIMARY,
     secondaryColor: sanitizeColor(branding.secondaryColor) || DEFAULT_SECONDARY,
+    themePreset: branding.themePreset,
   });
-  const sidebarColor = sanitizeColor(branding.sidebarColor) || mixColors(palette.primaryColor, "#ffffff", 0.78);
-  const accentColor = sanitizeColor(branding.accentColor) || palette.primaryColor;
-  const textColor = sanitizeColor(branding.textColor) || palette.primaryDeep;
+  const sidebarColor = sanitizeColor(branding.sidebarColor) || appearance.sidebarColor;
+  const accentColor = sanitizeColor(branding.accentColor) || appearance.accentColor;
+  const textColor = sanitizeColor(branding.textColor) || appearance.textColor;
+  const softenedCanvas = appearance.backgroundColor;
+  const softenedSidebar = sidebarColor;
 
-  root.style.setProperty("--primary", palette.primaryColor);
-  root.style.setProperty("--primary-strong", palette.primaryStrong);
-  root.style.setProperty("--secondary", palette.secondaryColor);
+  root.style.setProperty("--primary", appearance.primaryColor);
+  root.style.setProperty("--primary-strong", appearance.primaryStrong);
+  root.style.setProperty("--secondary", appearance.secondaryColor);
   root.style.setProperty("--button-accent", accentColor);
   root.style.setProperty("--button-accent-strong", shiftColor(accentColor, -0.12));
   root.style.setProperty("--brand-text-strong", textColor);
-  root.style.setProperty("--focus-ring", toRgba(palette.primaryColor, 0.24));
-  root.style.setProperty("--p2", palette.primaryDeep);
-  root.style.setProperty("--p3", palette.primaryColor);
-  root.style.setProperty("--p4", palette.secondaryColor);
-  root.style.setProperty("--bg", palette.accentSoft);
-  root.style.setProperty("--sidebar-a", mixColors(sidebarColor, "#ffffff", 0.34));
-  root.style.setProperty("--sidebar-b", mixColors(sidebarColor, palette.secondaryColor, 0.24));
+  root.style.setProperty("--focus-ring", toRgba(appearance.primaryColor, 0.24));
+  root.style.setProperty("--p2", appearance.primaryDeep);
+  root.style.setProperty("--p3", appearance.primaryColor);
+  root.style.setProperty("--p4", appearance.secondaryColor);
+  root.style.setProperty("--bg", softenedCanvas);
+  root.style.setProperty("--sidebar-a", softenedSidebar);
+  root.style.setProperty("--sidebar-b", appearance.surfaceMutedColor);
 }
 
 export function RuntimeBrandingProvider({ children }: { children: React.ReactNode }) {
@@ -75,6 +88,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
     logoUrl: null,
     primaryColor: null,
     secondaryColor: null,
+    themePreset: null,
     sidebarColor: null,
     accentColor: null,
     textColor: null,
@@ -93,6 +107,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
             logoUrl: null,
             primaryColor: null,
             secondaryColor: null,
+            themePreset: null,
             sidebarColor: null,
             accentColor: null,
             textColor: null,
@@ -104,8 +119,8 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       const compat = await detectAppSchemaCompat();
       const storedBranding = getStoredSchoolBranding(scopedSchoolId);
       const schoolQuery = compat.schoolColors
-        ? supabase.from("schools").select("name, logo_url, primary_color, secondary_color")
-        : supabase.from("schools").select("name, logo_url");
+        ? supabase.from("schools").select(`name, logo_url, primary_color, secondary_color${compat.schoolThemePreset ? ", theme_preset" : ""}`)
+        : supabase.from("schools").select(`name, logo_url${compat.schoolThemePreset ? ", theme_preset" : ""}`);
       const { data, error } = await schoolQuery.eq("id", scopedSchoolId).maybeSingle();
 
       if (!active) return;
@@ -115,6 +130,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           ? {
               primaryColor: storedBranding.primaryColor,
               secondaryColor: storedBranding.secondaryColor,
+              themePreset: storedBranding.themePreset ?? null,
               sidebarColor: storedBranding.sidebarColor ?? null,
               accentColor: storedBranding.accentColor ?? null,
               textColor: storedBranding.textColor ?? null,
@@ -122,6 +138,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           : {
               primaryColor: null,
               secondaryColor: null,
+              themePreset: null,
               sidebarColor: null,
               accentColor: null,
               textColor: null,
@@ -131,6 +148,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           logoUrl: null,
           primaryColor: derivedFallback.primaryColor,
           secondaryColor: derivedFallback.secondaryColor,
+          themePreset: derivedFallback.themePreset,
           sidebarColor: derivedFallback.sidebarColor,
           accentColor: derivedFallback.accentColor,
           textColor: derivedFallback.textColor,
@@ -138,21 +156,27 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         return;
       }
 
+      const schoolRecord = data as SchoolBrandingRecord;
+
       const dbPrimaryColor =
-        compat.schoolColors && "primary_color" in data && typeof data.primary_color === "string"
-          ? data.primary_color
+        compat.schoolColors && typeof schoolRecord.primary_color === "string"
+          ? schoolRecord.primary_color
           : null;
       const dbSecondaryColor =
-        compat.schoolColors && "secondary_color" in data && typeof data.secondary_color === "string"
-          ? data.secondary_color
+        compat.schoolColors && typeof schoolRecord.secondary_color === "string"
+          ? schoolRecord.secondary_color
+          : null;
+      const dbThemePreset =
+        compat.schoolThemePreset && typeof schoolRecord.theme_preset === "string"
+          ? schoolRecord.theme_preset
           : null;
       let resolvedPrimaryColor = storedBranding?.primaryColor ?? dbPrimaryColor;
       let resolvedSecondaryColor = storedBranding?.secondaryColor ?? dbSecondaryColor;
 
       if (!resolvedPrimaryColor || !resolvedSecondaryColor) {
         const derivedPalette = await derivePaletteFromLogo(
-          typeof data.logo_url === "string" ? data.logo_url : null,
-          typeof data.name === "string" ? data.name : "",
+          typeof schoolRecord.logo_url === "string" ? schoolRecord.logo_url : null,
+          typeof schoolRecord.name === "string" ? schoolRecord.name : "",
         );
         resolvedPrimaryColor = resolvedPrimaryColor ?? derivedPalette.primaryColor;
         resolvedSecondaryColor = resolvedSecondaryColor ?? derivedPalette.secondaryColor;
@@ -160,6 +184,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           setStoredSchoolBranding(scopedSchoolId, {
             primaryColor: resolvedPrimaryColor,
             secondaryColor: resolvedSecondaryColor,
+            themePreset: dbThemePreset ?? null,
             sidebarColor: mixColors(resolvedPrimaryColor, "#ffffff", 0.62),
             accentColor: resolvedPrimaryColor,
             textColor: shiftColor(resolvedPrimaryColor, -0.42),
@@ -169,10 +194,11 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       }
 
       setBranding({
-        schoolName: typeof data.name === "string" ? data.name : null,
-        logoUrl: typeof data.logo_url === "string" ? data.logo_url : null,
+        schoolName: typeof schoolRecord.name === "string" ? schoolRecord.name : null,
+        logoUrl: typeof schoolRecord.logo_url === "string" ? schoolRecord.logo_url : null,
         primaryColor: resolvedPrimaryColor,
         secondaryColor: resolvedSecondaryColor,
+        themePreset: storedBranding?.themePreset ?? dbThemePreset ?? null,
         sidebarColor: storedBranding?.sidebarColor ?? mixColors(resolvedPrimaryColor, "#ffffff", 0.62),
         accentColor: storedBranding?.accentColor ?? resolvedPrimaryColor,
         textColor: storedBranding?.textColor ?? shiftColor(resolvedPrimaryColor, -0.42),
@@ -203,6 +229,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       logoUrl: branding.logoUrl,
       primaryColor: branding.primaryColor,
       secondaryColor: branding.secondaryColor,
+      themePreset: branding.themePreset,
       sidebarColor: branding.sidebarColor,
       accentColor: branding.accentColor,
       textColor: branding.textColor,
@@ -224,6 +251,7 @@ export function useRuntimeBranding() {
     logoUrl: context.logoUrl,
     primaryColor: context.primaryColor,
     secondaryColor: context.secondaryColor,
+    themePreset: context.themePreset,
     sidebarColor: context.sidebarColor,
     accentColor: context.accentColor,
     textColor: context.textColor,

@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 
 export type AppSchemaCompat = {
   schoolColors: boolean;
+  schoolThemePreset: boolean;
   branchesIsMain: boolean;
   classFeesSchoolScope: boolean;
   classesNameColumn: boolean;
@@ -11,6 +12,7 @@ export type AppSchemaCompat = {
 
 const DEFAULT_COMPAT: AppSchemaCompat = {
   schoolColors: false,
+  schoolThemePreset: false,
   branchesIsMain: false,
   classFeesSchoolScope: false,
   classesNameColumn: false,
@@ -36,20 +38,18 @@ async function probeColumnWithClient(client: SchemaCompatClient, table: string, 
   }
 }
 
-async function probeColumn(table: string, column: string) {
-  return probeColumnWithClient(supabase, table, column);
-}
-
 export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient): Promise<AppSchemaCompat> {
   return Promise.all([
     probeColumnWithClient(client, "schools", "primary_color"),
+    probeColumnWithClient(client, "schools", "theme_preset"),
     probeColumnWithClient(client, "branches", "is_main"),
     probeColumnWithClient(client, "class_fees", "school_id"),
     probeColumnWithClient(client, "classes", "name"),
     probeColumnWithClient(client, "sections", "school_id"),
   ])
-    .then(([schoolColors, branchesIsMain, classFeesSchoolScope, classesNameColumn, sectionsSchoolScope]) => ({
+    .then(([schoolColors, schoolThemePreset, branchesIsMain, classFeesSchoolScope, classesNameColumn, sectionsSchoolScope]) => ({
       schoolColors,
+      schoolThemePreset,
       branchesIsMain,
       classFeesSchoolScope,
       classesNameColumn,
