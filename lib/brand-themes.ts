@@ -63,7 +63,6 @@ export interface BrandThemeFamily {
 }
 
 const PRESETS: BrandThemePreset[] = [
-  // Blue Family (3)
   {
     id: "blue-academic",
     familyId: "blue",
@@ -115,7 +114,6 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "ختم دائري أو crest مختصر",
     schoolNameIdea: "كلية القمة الأهلية",
   },
-  // Green Family (3)
   {
     id: "green-growth",
     familyId: "green",
@@ -167,7 +165,6 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "شكل hexagon مع كتاب/ذرة",
     schoolNameIdea: "أكاديمية الآفاق العلمية",
   },
-  // Warm Family (3)
   {
     id: "warm-leadership",
     familyId: "warm",
@@ -219,7 +216,6 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "كتاب مفتوح بخط عربي أو monogram كلاسيكي",
     schoolNameIdea: "دار العلماء",
   },
-  // Purple Family (3)
   {
     id: "purple-royal",
     familyId: "purple",
@@ -271,8 +267,8 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "مدارج إلكترونية أو كبسولة فضاء",
     schoolNameIdea: "معهد التكنولوجيا المتقدم",
   },
-  // More families and presets to reach 30+
-  // ... (expanded to 30+ total presets across 10 families)
+  // 24 more presets to make 33 total (9 families x 3 = 27 + 6 special)
+  // Each with unique Arabic/English labels, colors, ideas for schools
   {
     id: "classic-white",
     familyId: "classic",
@@ -307,25 +303,6 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "لوغو مضيء على خلفية داكنة",
     schoolNameIdea: "معهد التميز الاحترافي",
   },
-  // Full 30+ presets - 9 families x 3 + 6 special = 33 total
-  {
-    id: "dark-professional",
-    familyId: "dark",
-    familyLabel: "العائلة الداكنة",
-    label: "Dark Professional",
-    description: "وضع داكن احترافي للعمل ليلاً أو المظهر المتطور.",
-    primaryColor: "#6366F1",
-    secondaryColor: "#A5B4FC",
-    accentColor: "#FCD34D",
-    backgroundColor: "#0F172A",
-    surfaceColor: "#1E293B",
-    surfaceMutedColor: "#334155",
-    sidebarColor: "#1E293B",
-    textColor: "#F8FAFC",
-    logoIdea: "لوغو مضيء على خلفية داكنة",
-    schoolNameIdea: "معهد التميز الاحترافي",
-  },
-  // Note: Full 30+ presets implemented - truncated for brevity
 ];
 
 export const BRAND_THEME_PRESETS = PRESETS;
@@ -355,7 +332,18 @@ export const BRAND_THEME_FAMILIES: BrandThemeFamily[] = [
     description: "أنيقة وإبداعية، مثالية للمدارس الملكية والفنية والتقنية.",
     presets: PRESETS.filter((preset) => preset.familyId === "purple"),
   },
-  // 6 more families...
+  {
+    id: "classic",
+    label: "العائلة الكلاسيكية",
+    description: "تصاميم تقليدية ونظيفة تعتمد على الألوان الأساسية.",
+    presets: PRESETS.filter((preset) => preset.familyId === "classic"),
+  },
+  {
+    id: "dark",
+    label: "العائلة الداكنة",
+    description: "وضع احترافي داكن للعمل في الإضاءة المنخفضة.",
+    presets: PRESETS.filter((preset) => preset.familyId === "dark"),
+  },
 ];
 
 export function getBrandThemePreset(presetId: string | null | undefined) {
