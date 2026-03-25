@@ -98,6 +98,22 @@ function readApiError(payload: unknown, fallback: string) {
 
 type StudentCredentialTarget = Pick<StudentWithFees, "id" | "auth_user_id" | "full_name" | "class_name" | "section">;
 
+type StudentDatasetRow = {
+  id: string;
+  full_name: string;
+  class_name?: string | null;
+  section?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  total_fee?: number | null;
+  paid_fee?: number | null;
+  discount_value?: number | null;
+  status?: StudentStatus | null;
+  auth_user_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export default function StudentsPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
@@ -1013,16 +1029,18 @@ function handlePrint(s: StudentWithFees){
   // Full students dataset (all pages)
   const [allStudentsDataset, setAllStudentsDataset] = useState<StudentWithFees[]>([]);
   const [datasetLoading, setDatasetLoading] = useState(false);
+  const datasetFilterKeyRef = useRef<string>("");
 
   const loadStudentsDataset = useCallback(async () => {
     // Key current filters for cache
-    const filterKey = [activeTab, debouncedSearch, filterClass, filterSection].join('::');
-    if (allStudentsDataset.length > 0 && allStudentsDataset[0]?.filterKey === filterKey) {
+    const filterKey = [activeTab, debouncedSearch, filterClass, filterSection].join("::");
+
+    if (datasetFilterKeyRef.current === filterKey) {
       return allStudentsDataset;
     }
-    
-    const schoolId = await resolveSchoolIdForProfile(profile!, { 
-      selectedSchoolId: schoolScope.selectedSchoolId 
+
+    const schoolId = await resolveSchoolIdForProfile(profile!, {
+      selectedSchoolId: schoolScope.selectedSchoolId,
     });
     if (!schoolId) return [];
 
@@ -1038,7 +1056,8 @@ function handlePrint(s: StudentWithFees){
       if (filterSection.trim()) params.append('sectionName', filterSection.trim());
 
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        students?: StudentRow[];
+        students?: StudentDatasetRow[];
+        error?: { message?: string };
       }>(`/api/web/reports/dataset?${params.toString()}`);
       
       if (!response.ok) {
@@ -1046,8 +1065,8 @@ function handlePrint(s: StudentWithFees){
         return [];
       }
 
-      const rawStudents: StudentRow[] = payload?.students ?? [];
-      const fullDataset: StudentWithFees[] = rawStudents.map((item, idx): StudentWithFees => ({
+      const rawStudents: StudentDatasetRow[] = payload?.students ?? [];
+      const fullDataset: StudentWithFees[] = rawStudents.map((item): StudentWithFees => ({
         id: item.id,
         school_id: schoolId,
         full_name: item.full_name,
@@ -1063,11 +1082,10 @@ function handlePrint(s: StudentWithFees){
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         auth_user_id: null,
-        // Cache key for filter matching
-        filterKey,
       }));
 
       setAllStudentsDataset(fullDataset);
+      datasetFilterKeyRef.current = filterKey;
       return fullDataset;
     } catch (err) {
       console.error("loadStudentsDataset error:", err);
