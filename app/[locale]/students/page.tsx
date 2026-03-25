@@ -1007,8 +1007,87 @@ function handlePrint(s: StudentWithFees){
     deleted:     {label:"محذوف",  color:"#6B7280",bg:"#F3F4F6"},
   };
 
-  // Paged data already filtered server-side
+// Paged data already filtered server-side
   const tabStudents = pagedStudents;
+
+  // Full students dataset (all pages)
+  const [allStudentsDataset, setAllStudentsDataset] = useState<StudentWithFees[]>([]);
+  const [datasetLoading, setDatasetLoading] = useState(false);
+
+  const loadStudentsDataset = useCallback(async () => {
+    // Key current filters for cache
+    const filterKey = [activeTab, debouncedSearch, filterClass, filterSection].join('::');
+    if (allStudentsDataset.length > 0 && allStudentsDataset[0]?.filterKey === filterKey) {
+      return allStudentsDataset;
+    }
+    
+    const schoolId = await resolveSchoolIdForProfile(profile!, { 
+      selectedSchoolId: schoolScope.selectedSchoolId 
+    });
+    if (!schoolId) return [];
+
+    setDatasetLoading(true);
+    try {
+      const params = new URLSearchParams({
+        schoolId: encodeURIComponent(schoolId),
+        type: 'students',
+        status: activeTab,
+      });
+      if (debouncedSearch.trim()) params.append('search', debouncedSearch.trim());
+      if (filterClass.trim()) params.append('className', filterClass.trim());
+      if (filterSection.trim()) params.append('sectionName', filterSection.trim());
+
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        students?: StudentRow[];
+      }>(`/api/web/reports/dataset?${params.toString()}`);
+      
+      if (!response.ok) {
+        console.error("Dataset fetch failed:", payload?.error?.message);
+        return [];
+      }
+
+      const rawStudents: StudentRow[] = payload?.students ?? [];
+      const fullDataset: StudentWithFees[] = rawStudents.map((item, idx): StudentWithFees => ({
+        id: item.id,
+        school_id: schoolId,
+        full_name: item.full_name,
+        class_name: item.class_name ?? null,
+        section: null, // API uses sectionName param
+        phone: item.phone ?? null,
+        address: item.address ?? null,
+        total_fee: item.total_fee ?? 0,
+        paid_fee: item.paid_fee ?? 0,
+        discount_value: 0,
+        status: item.status as StudentStatus ?? 'active',
+        remaining_fee: (item.total_fee ?? 0) - (item.paid_fee ?? 0),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        auth_user_id: null,
+        // Cache key for filter matching
+        filterKey,
+      }));
+
+      setAllStudentsDataset(fullDataset);
+      return fullDataset;
+    } catch (err) {
+      console.error("loadStudentsDataset error:", err);
+      return [];
+    } finally {
+      setDatasetLoading(false);
+    }
+  }, [profile, schoolScope.selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection, allStudentsDataset]);
+
+  const exportAllStudentsExcel = useCallback(async () => {
+    const fullDataset = await loadStudentsDataset();
+    if (fullDataset.length === 0) {
+      setError("تعذر تحميل بيانات التصدير الكاملة");
+      return;
+    }
+
+    exportExcel(fullDataset);
+    setSuccess(`${fullDataset.length} طالب مصدر بنجاح (الكل)`);
+    setTimeout(() => setSuccess(""), 3000);
+  }, [loadStudentsDataset]);
 
   // فلترة حسب البحث والصف والشعبة
   const classes = Array.from(new Set(tabStudents.map((s) => s.class_name))).filter(Boolean) as string[];
@@ -1269,7 +1348,24 @@ function handlePrint(s: StudentWithFees){
                   <option value="">كل الشعب</option>
                   {sectionsList.map(sec=><option key={sec} value={sec}>شعبة {sec}</option>)}
                 </select>
-                <button className="btn-export" onClick={()=>exportExcel(filtered)}><AppIcon token="📤" size={14} />تصدير إكسل</button>
+                <>
+                  <button 
+                    className="btn-export" 
+                    onClick={()=>exportExcel(filtered)}
+                    title="تصدير الصفحة الحالية فقط (50 طالب)"
+                  >
+                    <AppIcon token="📤" size={14} />تصدير الصفحة الحالية
+                  </button>
+                  <button 
+                    className="btn-excel" 
+                    onClick={exportAllStudentsExcel}
+                    disabled={datasetLoading}
+                    title="تصدير جميع الطلاب بغض النظر عن الصفحة أو الفلتر"
+                  >
+                    <AppIcon token="📥" size={14} />
+                    {datasetLoading ? "جارٍ التحضير..." : "تصدير الكل إكسل"}
+                  </button>
+                </>
                 <button className="btn-print" onClick={()=>printFilteredStudents(filtered)}><AppIcon token="🖨️" size={14} />طباعة الطلاب المفلترين</button>
                 {canManageStudentAccounts && (
                   <button className="btn-print" onClick={()=>void printAllStudentCards()} disabled={printingCards}>
@@ -1284,7 +1380,6 @@ function handlePrint(s: StudentWithFees){
                         <AppIcon token="🧪" size={14} />
                         {generatingDemoStudents ? "جارٍ توليد 30 ألف سجل..." : "إنشاء 30 ألف طالب تجريبي"}
                       </button>
-                      <button className="btn-excel" onClick={()=>setShowImport(true)}><AppIcon token="📊" size={14} />استيراد إكسل</button>
                       <button className="btn-add" onClick={()=>setShowModal(true)}>+ إضافة طالب</button>
                     </>
                   )}

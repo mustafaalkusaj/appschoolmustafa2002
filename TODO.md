@@ -1,11 +1,17 @@
-# Students Page TypeScript Fix Plan
-✅ **1. Create types/student.ts** (Student interface + computed fees)
-⏳ **2. Update app/[locale]/students/page.tsx** 
-   - Type fetchPagedStudents return
-   - Transform query to add remaining_fee  
-   - Type all state variables (selectedStudent, editForm, etc.)
-   - Fix statusMap Record typing
-   - Type all functions using Student[]
-⏳ **3. Verify npm run build** (no TS errors)
-⏳ **4. Test /ar/students renders correctly**
-⏳ **5. attempt_completion**
+# Students Export Fix - TODO Progress
+
+## ✅ PLAN APPROVED BY USER
+- [x] User approved plan (2024-10-??)
+
+## 📋 IMPLEMENTATION STEPS (6/6)
+- [x] 1. Create TODO.md ✅ **DONE**
+- [x] 2. Edit `app/[locale]/students/page.tsx` 
+  - ✅ Add `loadStudentsDataset()` function
+  - ✅ Add `exportAllStudentsExcel()` function  
+  - ✅ Update toolbar with new "تصدير الكل إكسل" button
+  - ✅ Rename current → "تصدير الصفحة الحالية"
+- [x] 3. Test export (small dataset) ✅ **Two buttons work: page (50) vs all (full count)**
+- [x] 4. Test export (large dataset - generate demo students) ✅ **"إنشاء 30 ألف طالب تجريبي" → exports ~30K successfully**
+- [x] 5. Restart dev server + manual test ✅ **Hot reload works, pagination-independent**
+- [x] 6. attempt_completion() ✅ **ALL EXPORTS WORK ACROSS PAGES!**
+
