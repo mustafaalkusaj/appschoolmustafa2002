@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
-import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-users-server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -27,6 +28,7 @@ function readSettledWarning<T>(result: SettledQuery<T>, label: string) {
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
+  const scope = (req.nextUrl.searchParams.get("scope")?.trim() || "all").toLowerCase();
   const context = await resolveSchoolScopedActorContext(
     schoolId,
     {
@@ -43,49 +45,86 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "salaries-bootstrap",
+    windowMs: 60_000,
+    maxHits: 90,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
+  const includeCore = scope === "all" || scope === "core";
+  const includeReference = scope === "all" || scope === "reference";
+  const includeArchive = scope === "all" || scope === "archive";
+
+  const includeLecturePrice = includeCore
+    ? await tableHasColumn(actorSupabase, "teachers", "lecture_price").catch(() => true)
+    : true;
+  const teacherSelect = includeLecturePrice
+    ? "id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, lecture_price, weekly_hours, classes_taught, status"
+    : "id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, weekly_hours, classes_taught, status";
+
   const results = await Promise.allSettled([
-    actorSupabase
-      .from("teachers")
-      .select("id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, lecture_price, weekly_hours, classes_taught, status")
-      .eq("school_id", targetSchoolId)
-      .order("full_name"),
-    actorSupabase
-      .from("salaries")
-      .select("id, school_id, branch_id, teacher_id, gross_salary, deductions, month, is_paid, paid_at, notes, created_at, teachers(full_name,subject)")
-      .eq("school_id", targetSchoolId)
-      .order("created_at", { ascending: false }),
-    actorSupabase
-      .from("classes")
-      .select("id, school_id, branch_id, grade, section")
-      .eq("school_id", targetSchoolId)
-      .order("grade")
-      .order("section"),
-    actorSupabase
-      .from("subjects")
-      .select("id, school_id, name")
-      .eq("school_id", targetSchoolId)
-      .order("name"),
-    actorSupabase
-      .from("job_titles")
-      .select("id, school_id, name")
-      .eq("school_id", targetSchoolId)
-      .order("name"),
-    actorSupabase
-      .from("lesson_times")
-      .select("id, school_id, period, session_type, start_time, end_time")
-      .eq("school_id", targetSchoolId)
-      .order("session_type")
-      .order("period"),
-    actorSupabase
-      .from("lecture_prices")
-      .select("id, school_id, grade, price_per_lecture")
-      .eq("school_id", targetSchoolId),
-    actorSupabase
-      .from("salary_archives")
-      .select("id, school_id, month, total_teachers, total_amount, data, archive_date")
-      .eq("school_id", targetSchoolId)
-      .order("archive_date", { ascending: false }),
+    includeCore
+      ? actorSupabase
+          .from("teachers")
+          .select(teacherSelect)
+          .eq("school_id", targetSchoolId)
+          .order("full_name")
+      : Promise.resolve({ data: [], error: null }),
+    includeCore
+      ? actorSupabase
+          .from("salaries")
+          .select("id, school_id, branch_id, teacher_id, gross_salary, deductions, month, is_paid, paid_at, notes, created_at, teachers(full_name,subject)")
+          .eq("school_id", targetSchoolId)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    includeReference
+      ? actorSupabase
+          .from("classes")
+          .select("id, school_id, branch_id, grade, section")
+          .eq("school_id", targetSchoolId)
+          .order("grade")
+          .order("section")
+      : Promise.resolve({ data: [], error: null }),
+    includeReference
+      ? actorSupabase
+          .from("subjects")
+          .select("id, school_id, name")
+          .eq("school_id", targetSchoolId)
+          .order("name")
+      : Promise.resolve({ data: [], error: null }),
+    includeReference
+      ? actorSupabase
+          .from("job_titles")
+          .select("id, school_id, name")
+          .eq("school_id", targetSchoolId)
+          .order("name")
+      : Promise.resolve({ data: [], error: null }),
+    includeReference
+      ? actorSupabase
+          .from("lesson_times")
+          .select("id, school_id, period, session_type, start_time, end_time")
+          .eq("school_id", targetSchoolId)
+          .order("session_type")
+          .order("period")
+      : Promise.resolve({ data: [], error: null }),
+    includeReference
+      ? actorSupabase
+          .from("lecture_prices")
+          .select("id, school_id, grade, price_per_lecture")
+          .eq("school_id", targetSchoolId)
+      : Promise.resolve({ data: [], error: null }),
+    includeArchive
+      ? actorSupabase
+          .from("salary_archives")
+          .select("id, school_id, month, total_teachers, total_amount, data, archive_date")
+          .eq("school_id", targetSchoolId)
+          .order("archive_date", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const archiveResult = results[7];

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -35,6 +36,16 @@ export async function GET(req: NextRequest) {
 
   if (!context.ok) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
+  }
+
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "salaries-lectures",
+    windowMs: 60_000,
+    maxHits: 120,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
   }
 
   const range = extractMonthRange(month);

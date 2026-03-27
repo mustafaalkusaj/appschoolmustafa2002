@@ -5,6 +5,7 @@ import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -45,6 +46,7 @@ export default function ExpensesPage() {
   const [editType, setEditType] = useState<any>(null);
   const [savingType, setSavingType] = useState(false);
   const [typeForm, setTypeForm] = useState({ name: "", notes: "" });
+  const [pendingDelete, setPendingDelete] = useState<{ type: "expense" | "type"; id: string } | null>(null);
 
   // Search for types
   const [typeSearch, setTypeSearch] = useState("");
@@ -135,15 +137,36 @@ export default function ExpensesPage() {
   }
 
   async function deleteExpense(id: string) {
-    if (!confirm("هل تريد حذف هذا المصروف؟")) return;
-    await supabase.from("expenses").delete().eq("id", id);
+    const { error: deleteError } = await supabase.from("expenses").delete().eq("id", id);
+    if (deleteError) {
+      setError("خطأ: " + deleteError.message);
+      return;
+    }
+    setSuccess("تم حذف المصروف ✓");
     fetchAll();
+    setTimeout(() => setSuccess(""), 3000);
   }
 
   async function deleteType(id: string) {
-    if (!confirm("هل تريد حذف هذا النوع؟")) return;
-    await supabase.from("expense_types").delete().eq("id", id);
+    const { error: deleteError } = await supabase.from("expense_types").delete().eq("id", id);
+    if (deleteError) {
+      setError("خطأ: " + deleteError.message);
+      return;
+    }
+    setSuccess("تم حذف النوع ✓");
     fetchAll();
+    setTimeout(() => setSuccess(""), 3000);
+  }
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    setPendingDelete(null);
+    if (target.type === "expense") {
+      await deleteExpense(target.id);
+      return;
+    }
+    await deleteType(target.id);
   }
 
   function openEditExpense(exp: any) {
@@ -179,7 +202,7 @@ export default function ExpensesPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "المصاريف");
-    XLSX.writeFile(wb, `مصاريف_${formatDate(new Date())}.xlsx`);
+    await XLSX.writeFile(wb, `مصاريف_${formatDate(new Date())}.xlsx`);
   }
 
   async function exportTypesExcel() {
@@ -188,7 +211,7 @@ export default function ExpensesPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "أنواع المصروفات");
-    XLSX.writeFile(wb, `أنواع_المصاريف.xlsx`);
+    await XLSX.writeFile(wb, `أنواع_المصاريف.xlsx`);
   }
 
   const filteredExpenses = expenses.filter(e => {
@@ -446,7 +469,7 @@ export default function ExpensesPage() {
                           <td>
                             <div style={{display:"flex",gap:".3rem"}}>
                               <button className="btn-edit-row" onClick={()=>openEditExpense(e)}><AppIcon token="✏️" size={14} /></button>
-                              <button className="btn-del-row" onClick={()=>deleteExpense(e.id)}><AppIcon token="🗑️" size={14} /></button>
+                              <button className="btn-del-row" onClick={()=>setPendingDelete({ type: "expense", id: e.id })}><AppIcon token="🗑️" size={14} /></button>
                             </div>
                           </td>
                         </tr>
@@ -507,7 +530,7 @@ export default function ExpensesPage() {
                           <td>
                             <div style={{display:"flex",gap:".3rem"}}>
                               <button className="btn-edit-row" onClick={()=>openEditType(t)}><AppIcon token="✏️" size={14} /></button>
-                              <button className="btn-del-row" onClick={()=>deleteType(t.id)}><AppIcon token="🗑️" size={14} /></button>
+                              <button className="btn-del-row" onClick={()=>setPendingDelete({ type: "type", id: t.id })}><AppIcon token="🗑️" size={14} /></button>
                             </div>
                           </td>
                         </tr>
@@ -604,6 +627,16 @@ export default function ExpensesPage() {
         </div>
       </div>
     )}
+    <ConfirmDialog
+      open={Boolean(pendingDelete)}
+      title={pendingDelete?.type === "expense" ? "حذف المصروف" : "حذف نوع المصروف"}
+      description={pendingDelete?.type === "expense" ? "سيتم حذف سجل المصروف نهائياً من القائمة الحالية." : "سيتم حذف نوع المصروف المحدد من النظام."}
+      confirmLabel="نعم، احذف"
+      cancelLabel="إلغاء"
+      tone="danger"
+      onClose={() => setPendingDelete(null)}
+      onConfirm={() => void handleConfirmDelete()}
+    />
   </>
   </ProtectedRoute>
   );

@@ -29,6 +29,7 @@ import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolSco
 import { ListPagination } from "@/components/school/ListPagination";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
+import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { supabase } from "@/lib/supabase";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import {
@@ -66,6 +67,33 @@ type UserFormState = {
     assignments: TeacherAssignmentFormState[];
   };
 };
+
+const TEACHER_IMPORT_ALLOWED_EXTENSIONS = [".xlsx"] as const;
+const TEACHER_IMPORT_MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+
+function validateTeacherImportFile(file: File) {
+  const normalizedName = file.name.trim().toLowerCase();
+  if (!normalizedName) {
+    return "اسم الملف غير صالح.";
+  }
+
+  const hasAllowedExtension = TEACHER_IMPORT_ALLOWED_EXTENSIONS.some((extension) =>
+    normalizedName.endsWith(extension),
+  );
+  if (!hasAllowedExtension) {
+    return "صيغة الملف غير مدعومة. استخدم ملف xlsx فقط.";
+  }
+
+  if (file.size <= 0) {
+    return "ملف الإكسل فارغ.";
+  }
+
+  if (file.size > TEACHER_IMPORT_MAX_FILE_SIZE_BYTES) {
+    return "حجم ملف الاستيراد كبير جداً. الحد الأقصى 2 ميغابايت.";
+  }
+
+  return null;
+}
 
 function createEmptyTeacherAssignment(): TeacherAssignmentFormState {
   return {
@@ -377,17 +405,20 @@ export default function TeachersManagementPage() {
       return;
     }
 
+    const compat = await detectAppSchemaCompat();
+    const classQuery = supabase
+      .from("classes")
+      .select("*")
+      .eq("school_id", currentSchoolId)
+      .order("created_at", { ascending: true });
+    let sectionQuery = supabase.from("sections").select("*").order("created_at", { ascending: true });
+    if (compat.sectionsSchoolScope) {
+      sectionQuery = sectionQuery.eq("school_id", currentSchoolId);
+    }
+
     const [classesResult, sectionsResult, subjectsResult] = await Promise.all([
-      supabase
-        .from("classes")
-        .select("id, name, grade, section")
-        .eq("school_id", currentSchoolId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("sections")
-        .select("id, name, class_id, section")
-        .eq("school_id", currentSchoolId)
-        .order("created_at", { ascending: true }),
+      classQuery,
+      sectionQuery,
       supabase.from("subjects").select("id, name").eq("school_id", currentSchoolId).order("name", { ascending: true }),
     ]);
 
@@ -675,7 +706,7 @@ export default function TeachersManagementPage() {
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "teachers");
-    XLSX.writeFile(workbook, "نموذج_استيراد_الاساتذة.xlsx");
+    await XLSX.writeFile(workbook, "نموذج_استيراد_الاساتذة.xlsx");
   }
 
   async function handleImportFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -686,10 +717,17 @@ export default function TeachersManagementPage() {
     setImportPreview([]);
     setImportPayloads([]);
 
+    const fileValidationError = validateTeacherImportFile(file);
+    if (fileValidationError) {
+      setImportErrors([fileValidationError]);
+      event.target.value = "";
+      return;
+    }
+
     try {
       const XLSX = await loadXLSX();
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
+      const workbook = await XLSX.read(buffer, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
 
@@ -866,7 +904,7 @@ export default function TeachersManagementPage() {
       const worksheet = XLSX.utils.json_to_sheet(rows);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "teachers");
-      XLSX.writeFile(workbook, `حسابات_الاساتذة_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      await XLSX.writeFile(workbook, `حسابات_الاساتذة_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch {
       setError("تعذر تجهيز ملف التصدير حالياً.");
     }
@@ -1834,7 +1872,7 @@ export default function TeachersManagementPage() {
                     <input
                       ref={importFileRef}
                       type="file"
-                      accept=".xlsx,.xls"
+                      accept=".xlsx"
                       className="hidden"
                       onChange={(event) => void handleImportFileChange(event)}
                     />

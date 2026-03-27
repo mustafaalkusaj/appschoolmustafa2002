@@ -5,6 +5,7 @@ import {
   resolveSchoolScopedActorContext,
   tableHasColumn,
 } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
@@ -27,8 +28,11 @@ type TeacherBody = {
   status?: unknown;
 };
 
-const TEACHER_SELECT =
-  "id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, lecture_price, weekly_hours, classes_taught, status";
+function buildTeacherSelect(includeLecturePrice: boolean) {
+  return includeLecturePrice
+    ? "id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, lecture_price, weekly_hours, classes_taught, status"
+    : "id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, weekly_hours, classes_taught, status";
+}
 
 function normalizeTeacherPayload(body: TeacherBody, branchId: string | null, includeLecturePrice: boolean) {
   const fullName = typeof body.full_name === "string" ? body.full_name.trim() : "";
@@ -100,6 +104,16 @@ export async function PATCH(
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "salaries-teachers-update",
+    windowMs: 60_000,
+    maxHits: 45,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const canManageSalaries = await routeUserHasPermission(
     context.value.actorSupabase,
     context.value.actorUserId,
@@ -123,6 +137,7 @@ export async function PATCH(
   const includeLecturePrice = await tableHasColumn(context.value.actorSupabase, "teachers", "lecture_price").catch(
     () => true,
   );
+  const teacherSelect = buildTeacherSelect(includeLecturePrice);
   const resolvedBranchId = branchId ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
   const payload = normalizeTeacherPayload(body ?? {}, resolvedBranchId, includeLecturePrice);
   if (!payload.ok) {
@@ -134,7 +149,7 @@ export async function PATCH(
     .update(payload.value)
     .eq("id", normalizedTeacherId)
     .eq("school_id", context.value.targetSchoolId)
-    .select(TEACHER_SELECT)
+    .select(teacherSelect)
     .single();
 
   if (error || !data) {

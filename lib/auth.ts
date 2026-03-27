@@ -153,6 +153,16 @@ export function isPathReadOnly(profile: UserProfile | null, pathname: string): b
   return isPathReadOnlyForRole(profile.role, pathname);
 }
 
+function isAuthSessionMissingError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybeError = error as { name?: string; message?: string };
+  const message = typeof maybeError.message === "string" ? maybeError.message.toLowerCase() : "";
+  return maybeError.name === "AuthSessionMissingError" || message.includes("auth session missing");
+}
+
 async function fetchSchoolContext(schoolId: string) {
   const [{ data: schoolData }, { data: subscriptionData }] = await Promise.all([
     supabase
@@ -233,7 +243,9 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   } = await supabase.auth.getUser();
 
   if (error || !user?.id) {
-    if (error) console.error("[Auth] getUser error:", error);
+    if (error && !isAuthSessionMissingError(error)) {
+      console.error("[Auth] getUser error:", error);
+    }
     return null;
   }
 

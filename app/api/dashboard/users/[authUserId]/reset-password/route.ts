@@ -7,6 +7,7 @@ import {
   resolveManagedUsersActorContext,
   upsertManagedUserCredential,
 } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number) {
@@ -29,7 +30,17 @@ export async function POST(
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "managed-user-reset-password",
+    windowMs: 10 * 60_000,
+    maxHits: 10,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   let user = null;
   try {
     user = await fetchManagedUserByAuthUserId(actorSupabase, {

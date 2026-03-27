@@ -1,21 +1,35 @@
 # Security Policy
 
-## Supported Versions
+## Supported Scope
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+This repository is the web admin and shared backend/domain layer for the school platform.
+Security fixes should be applied against the current production branch first.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Current Security Controls
+
+- Signed RBAC session cookies for web access control.
+- Supabase Auth for authenticated identities.
+- Row-level security and tenant-scoped policies in SQL migrations.
+- Server-side role and school-scope checks on management APIs.
+- Rate limiting on sensitive admin and session routes.
+- Security headers at the Next.js edge layer.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Do not open public GitHub issues for security problems.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Report vulnerabilities privately to the project owner/maintainer with:
+
+- affected route, page, or module
+- reproduction steps
+- impact assessment
+- sample request or payload if relevant
+
+If the issue involves credential exposure, privilege escalation, tenant isolation failure, or service-role misuse, treat it as critical and rotate affected secrets before wider disclosure.
+
+## Operational Expectations
+
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only and rotate it on suspected exposure.
+- Apply migrations before deploying application code that depends on new RLS or schema behavior.
+- Review `npm audit` output regularly.
+- Re-run lint, typecheck, build, and load tests before production rollout.

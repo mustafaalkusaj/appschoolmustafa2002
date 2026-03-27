@@ -12,6 +12,7 @@ import {
   syncStudentTeacherLinks,
   upsertManagedUserCredential,
 } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number) {
@@ -35,6 +36,16 @@ export async function POST(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "students-ensure-account",
+    windowMs: 10 * 60_000,
+    maxHits: 20,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const { data: student, error: studentError } = await actorSupabase
     .from("students")
     .select("id, full_name, phone, school_id, class_name, section, status, auth_user_id")

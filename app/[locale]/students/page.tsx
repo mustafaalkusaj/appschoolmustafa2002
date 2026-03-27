@@ -1,5 +1,5 @@
 "use client";
-import type { Student, StudentWithFees, StudentStatus, StudentFormData } from "@/types/student";
+import type { Student, StudentWithFees, StudentStatus } from "@/types/student";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { usePagedSupabaseList, type PagedFetchResult } from "@/hooks/usePagedSupabaseList";
@@ -20,6 +20,7 @@ import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
 import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import type { StudentListRow, StudentsMetaPayload } from "@/lib/students-overview";
 
 const TABS = [
   { id:"active",      label:"جميع الطلاب",      icon:"👥" },
@@ -96,6 +97,41 @@ function readApiError(payload: unknown, fallback: string) {
   return candidate.error?.message || fallback;
 }
 
+function normalizeStudentSearchValue(value: string, maxLength = 80) {
+  return value
+    .replace(/[\u0000-\u001F\u007F,()%]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+const STUDENT_IMPORT_ALLOWED_EXTENSIONS = [".xlsx"] as const;
+const STUDENT_IMPORT_MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+
+function validateStudentImportFile(file: File) {
+  const normalizedName = file.name.trim().toLowerCase();
+  if (!normalizedName) {
+    return "اسم الملف غير صالح";
+  }
+
+  const hasAllowedExtension = STUDENT_IMPORT_ALLOWED_EXTENSIONS.some((extension) =>
+    normalizedName.endsWith(extension),
+  );
+  if (!hasAllowedExtension) {
+    return "صيغة الملف غير مدعومة. استخدم ملف xlsx فقط.";
+  }
+
+  if (file.size <= 0) {
+    return "الملف فارغ";
+  }
+
+  if (file.size > STUDENT_IMPORT_MAX_FILE_SIZE_BYTES) {
+    return "حجم الملف كبير جداً. الحد الأقصى 2 ميغابايت.";
+  }
+
+  return null;
+}
+
 type StudentCredentialTarget = Pick<StudentWithFees, "id" | "auth_user_id" | "full_name" | "class_name" | "section">;
 
 type StudentDatasetRow = {
@@ -107,11 +143,70 @@ type StudentDatasetRow = {
   address?: string | null;
   total_fee?: number | null;
   paid_fee?: number | null;
+  remaining_fee?: number | null;
   discount_value?: number | null;
   status?: StudentStatus | null;
   auth_user_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+};
+
+const EMPTY_STUDENT_META: StudentsMetaPayload = {
+  summary: {
+    totalStudents: 0,
+    activeStudents: 0,
+    totalFee: 0,
+    totalRemaining: 0,
+  },
+  tabCounts: {
+    active: 0,
+    transferred: 0,
+    suspended: 0,
+    deleted: 0,
+  },
+  sectionOptions: [],
+};
+
+function mapStudentRecordToStudentWithFees(
+  item: StudentListRow | StudentDatasetRow,
+  fallbackSchoolId: string,
+): StudentWithFees {
+  const totalFee = item.total_fee ?? 0;
+  const paidFee = item.paid_fee ?? 0;
+  const discountValue = item.discount_value ?? 0;
+  const remainingFeeRaw = "remaining_fee" in item ? item.remaining_fee : null;
+  const remainingFee =
+    remainingFeeRaw === null || remainingFeeRaw === undefined
+      ? totalFee - paidFee - discountValue
+      : remainingFeeRaw;
+
+  return {
+    id: item.id,
+    school_id: ("school_id" in item && typeof item.school_id === "string" && item.school_id) ? item.school_id : fallbackSchoolId,
+    auth_user_id: item.auth_user_id ?? null,
+    full_name: item.full_name,
+    class_name: item.class_name ?? "",
+    section: item.section ?? null,
+    phone: item.phone ?? null,
+    address: item.address ?? null,
+    total_fee: totalFee,
+    paid_fee: paidFee,
+    discount_value: discountValue,
+    status: (item.status ?? "active") as StudentStatus,
+    remaining_fee: remainingFee,
+    created_at: item.created_at ?? new Date().toISOString(),
+    updated_at: item.updated_at ?? null,
+  };
+}
+
+const STATUS_MAP: Record<StudentStatus, {label: string, color: string, bg: string}> = {
+  active:      {label:"نشط",    color:"#065F46",bg:"#D1FAE5"},
+  transferred: {label:"منقول",  color:"#92400E",bg:"#FEF3C7"},
+  graduated:   {label:"متخرج",  color:"#1E40AF",bg:"#DBEAFE"},
+  withdrawn:   {label:"منسحب",  color:"#991B1B",bg:"#FEE2E2"},
+  archived:    {label:"مؤرشف",  color:"#374151",bg:"#F3F4F6"},
+  suspended:   {label:"موقوف",  color:"#7C2D12",bg:"#FEF3C7"},
+  deleted:     {label:"محذوف",  color:"#6B7280",bg:"#F3F4F6"},
 };
 
 export default function StudentsPage() {
@@ -130,7 +225,6 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [filterClass, setFilterClass] = useState("");
@@ -148,7 +242,6 @@ export default function StudentsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [generatingDemoStudents, setGeneratingDemoStudents] = useState(false);
   const [printingCards, setPrintingCards] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -161,6 +254,7 @@ export default function StudentsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [classFees, setClassFees] = useState<any[]>([]);
+  const [studentsMeta, setStudentsMeta] = useState<StudentsMetaPayload>(EMPTY_STUDENT_META);
 
   const [form, setForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
   const [editForm, setEditForm] = useState({full_name:"",class_name:"",section:"",phone:"",address:"",total_fee:"",paid_fee:"",discount_value:"",status:"active"});
@@ -201,47 +295,43 @@ export default function StudentsPage() {
   }, []);
 
   const fetchPagedStudents = useCallback(
-    async (from: number, to: number): Promise<PagedFetchResult<StudentWithFees>> => {
+    async (from: number): Promise<PagedFetchResult<StudentWithFees>> => {
     if (!profile) return { data: [], count: 0, error: null };
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!schoolId) return { data: [], count: 0, error: null };
-    
-    let query = supabase
-      .from("students")
-      .select("*", { count: 'exact', head: false })
-      .eq("school_id", schoolId)
-      .order("created_at", { ascending: false });
+    const safeSearch = normalizeStudentSearchValue(debouncedSearch);
 
-    // Tab filter
-    if (activeTab === "active") {
-      query = query.in("status", ["active", "graduated", "archived", "withdrawn"]);
-    } else {
-      query = query.eq("status", activeTab);
+    const currentPage = Math.floor(from / pageSize) + 1;
+    const params = new URLSearchParams({
+      schoolId,
+      page: String(currentPage),
+      pageSize: String(pageSize),
+      status: activeTab,
+    });
+    if (safeSearch) params.set("search", safeSearch);
+    if (filterClass) params.set("className", filterClass);
+    if (filterSection) params.set("sectionName", filterSection);
+
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      students?: StudentListRow[];
+      totalCount?: number;
+      error?: { message?: string };
+    }>(`/api/web/students/list?${params.toString()}`);
+
+    if (!response.ok) {
+      return {
+        data: [],
+        count: 0,
+        error: { message: payload?.error?.message || "تعذر تحميل قائمة الطلاب." } as any,
+      };
     }
 
-    // Search
-    if (debouncedSearch) {
-      query = query.or(`full_name.ilike.%${debouncedSearch}%,class_name.ilike.%${debouncedSearch}%`);
-    }
-
-    // Class filter
-    if (filterClass) {
-      query = query.eq("class_name", filterClass);
-    }
-
-    // Section filter
-    if (filterSection) {
-      query = query.eq("section", filterSection);
-    }
-
-      const { data, count, error } = await query.range(from, to);
-      const typedData: StudentWithFees[] = ((data ?? []) as Student[]).map((student) => ({
-        ...student,
-        remaining_fee: student.total_fee - student.paid_fee - student.discount_value,
-      }));
-      return { data: typedData, count: count || 0, error };
+    const typedData = (payload?.students ?? []).map((student) =>
+      mapStudentRecordToStudentWithFees(student, schoolId),
+    );
+    return { data: typedData, count: payload?.totalCount ?? 0, error: null };
     },
-    [profile, schoolScope.selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection],
+    [profile, schoolScope.selectedSchoolId, debouncedSearch, pageSize, activeTab, filterClass, filterSection],
   );
 
   const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList<StudentWithFees>({
@@ -264,8 +354,7 @@ export default function StudentsPage() {
 
   useEffect(() => {
     setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
-    setLoading(pagedLoading);
-  }, [totalCount, pageSize, pagedLoading]);
+  }, [totalCount, pageSize]);
 
   useEffect(() => {
     if (listScopeRef.current === listScopeKey) return;
@@ -294,6 +383,52 @@ export default function StudentsPage() {
   useEffect(() => {
     void fetchClassFees();
   }, [fetchClassFees]);
+
+  const fetchStudentsMeta = useCallback(async () => {
+    if (!profile) return;
+
+    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    if (!schoolId) {
+      setStudentsMeta(EMPTY_STUDENT_META);
+      return;
+    }
+
+    const safeSearch = normalizeStudentSearchValue(debouncedSearch);
+    const params = new URLSearchParams({
+      schoolId,
+      status: activeTab,
+    });
+    if (safeSearch) params.set("search", safeSearch);
+    if (filterClass) params.set("className", filterClass);
+    if (filterSection) params.set("sectionName", filterSection);
+
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        summary?: StudentsMetaPayload["summary"];
+        tabCounts?: StudentsMetaPayload["tabCounts"];
+        sectionOptions?: string[];
+        error?: { message?: string };
+      }>(`/api/web/students/meta?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل ملخص الطلاب.");
+      }
+
+      setStudentsMeta({
+        summary: payload?.summary ?? EMPTY_STUDENT_META.summary,
+        tabCounts: payload?.tabCounts ?? EMPTY_STUDENT_META.tabCounts,
+        sectionOptions: payload?.sectionOptions ?? [],
+      });
+    } catch (metaError) {
+      console.error("fetchStudentsMeta error:", metaError);
+      setStudentsMeta(EMPTY_STUDENT_META);
+    }
+  }, [profile, schoolScope.selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+    void fetchStudentsMeta();
+  }, [fetchStudentsMeta, profile, schoolScope.scopeLoading]);
 
   async function getSchoolBranch(){
     return resolveSchoolBranchForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
@@ -449,77 +584,20 @@ export default function StudentsPage() {
     setSuccess("تم نقل الطالب للمحذوفين"); reload(); setTimeout(()=>setSuccess(""),3000);
   }
 
-  async function exportExcel(data: StudentWithFees[]){
+  const exportExcel = useCallback(async (data: StudentWithFees[]) => {
     const XLSX = await loadXLSX();
     const rows=data.map(s=>({
       "الاسم":s.full_name,"الصف":s.class_name,"الشعبة":s.section||"",
       "العنوان":s.address||"",
       "الهاتف":s.phone||"",
       "إجمالي الرسوم":s.total_fee,"المدفوع":s.paid_fee,"المتبقي":s.remaining_fee,
-      "الحالة":statusMap[s.status]?.label||s.status
+      "الحالة":STATUS_MAP[s.status]?.label||s.status
     }));
     const ws=XLSX.utils.json_to_sheet(rows);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"الطلاب");
-    XLSX.writeFile(wb,`طلاب_${activeTab}_${formatDate(new Date())}.xlsx`);
-  }
-
-  async function handleGenerateDemoStudents() {
-    if (!canManageStudentAccounts) {
-      setError("ليس لديك صلاحية توليد البيانات التجريبية.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "سيتم إنشاء ما يصل إلى 30,000 طالب تجريبي للمدرسة الحالية. هل تريد المتابعة؟",
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    const { school_id } = await getSchoolBranch();
-    if (!school_id) {
-      setError("يجب تحديد مدرسة قبل توليد البيانات التجريبية.");
-      return;
-    }
-
-    setGeneratingDemoStudents(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await fetchWithAuthorizedSession("/api/web/students/demo-seed", {
-        method: "POST",
-        headers: withJsonHeaders(),
-        body: JSON.stringify({
-          schoolId: school_id,
-          targetCount: 30_000,
-        }),
-      });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(readApiError(payload, "تعذر توليد البيانات التجريبية."));
-      }
-
-      setActiveTab("active");
-      setSearch("");
-      setDebouncedSearch("");
-      setFilterClass("");
-      setFilterSection("");
-      setPage(1);
-      setSuccess(
-        typeof payload?.message === "string"
-          ? payload.message
-          : "تم توليد البيانات التجريبية بنجاح.",
-      );
-      reload();
-    } catch (seedError) {
-      setError(seedError instanceof Error ? seedError.message : "تعذر توليد البيانات التجريبية.");
-    } finally {
-      setGeneratingDemoStudents(false);
-    }
-  }
+    await XLSX.writeFile(wb,`طلاب_${activeTab}_${formatDate(new Date())}.xlsx`);
+  }, [activeTab]);
 
 function printFilteredStudents(students: StudentWithFees[]) {
   if (students.length === 0) {
@@ -911,22 +989,27 @@ function handlePrint(s: StudentWithFees){
     setShowEdit(true); setActiveMenu(null);
   }
 
-  function handleFileChange(e:React.ChangeEvent<HTMLInputElement>){
+  async function handleFileChange(e:React.ChangeEvent<HTMLInputElement>){
     setImportError(""); setImportPreview([]);
     const file=e.target.files?.[0]; if(!file)return;
-    const reader=new FileReader();
-    reader.onload=async(ev)=>{
-      try{
-        const XLSX = await loadXLSX();
-        const wb=XLSX.read(ev.target?.result,{type:"binary"});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const data:any[]=XLSX.utils.sheet_to_json(ws);
-        if(!data.length){setImportError("الملف فارغ");return;}
-        if(!Object.keys(data[0]).includes("اسم الطالب")){setImportError("عمود 'اسم الطالب' مطلوب");return;}
-        setImportPreview(data.slice(0,5));
-      }catch{setImportError("خطأ في قراءة الملف");}
-    };
-    reader.readAsBinaryString(file);
+    const fileValidationError = validateStudentImportFile(file);
+    if (fileValidationError) {
+      setImportError(fileValidationError);
+      e.target.value = "";
+      return;
+    }
+    try{
+      const XLSX = await loadXLSX();
+      const buffer = await file.arrayBuffer();
+      const wb = await XLSX.read(buffer,{type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data:any[]=XLSX.utils.sheet_to_json(ws);
+      if(!data.length){setImportError("الملف فارغ");return;}
+      if(!Object.keys(data[0]).includes("اسم الطالب")){setImportError("عمود 'اسم الطالب' مطلوب");return;}
+      setImportPreview(data.slice(0,5));
+    }catch{
+      setImportError("خطأ في قراءة الملف");
+    }
   }
 
   async function handleImport(){
@@ -935,14 +1018,19 @@ function handlePrint(s: StudentWithFees){
       return;
     }
     const file=fileRef.current?.files?.[0]; if(!file)return;
+    const fileValidationError = validateStudentImportFile(file);
+    if (fileValidationError) {
+      setImportError(fileValidationError);
+      return;
+    }
     setImporting(true);
     const {school_id,branch_id}=await getSchoolBranch();
     if(!school_id||!branch_id){setImportError("يجب إضافة مدرسة وفرع أولاً");setImporting(false);return;}
-    const reader=new FileReader();
-    reader.onload=async(ev)=>{
+    try {
       const XLSX = await loadXLSX();
-      const wb=XLSX.read(ev.target?.result,{type:"binary"});
-      const ws=wb.Sheets[wb.SheetNames[0]];
+      const buffer = await file.arrayBuffer();
+      const wb = await XLSX.read(buffer,{type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
       const data:any[]=XLSX.utils.sheet_to_json(ws);
       const rows=data.map((r:any)=>({
         school_id,branch_id,full_name:r["اسم الطالب"]||"",class_name:r["الصف"]||"",
@@ -997,9 +1085,11 @@ function handlePrint(s: StudentWithFees){
         if(fileRef.current)fileRef.current.value="";
         reload();setTimeout(()=>setSuccess(""),4000);
       }
+    } catch {
+      setImportError("تعذر معالجة ملف الاستيراد");
+    } finally {
       setImporting(false);
-    };
-    reader.readAsBinaryString(file);
+    }
   }
 
   async function downloadTemplate(){
@@ -1010,18 +1100,8 @@ function handlePrint(s: StudentWithFees){
     ]);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"الطلاب");
-    XLSX.writeFile(wb,"نموذج_الطلاب.xlsx");
+    await XLSX.writeFile(wb,"نموذج_الطلاب.xlsx");
   }
-
-  const statusMap: Record<StudentStatus, {label: string, color: string, bg: string}> = {
-    active:      {label:"نشط",    color:"#065F46",bg:"#D1FAE5"},
-    transferred: {label:"منقول",  color:"#92400E",bg:"#FEF3C7"},
-    graduated:   {label:"متخرج",  color:"#1E40AF",bg:"#DBEAFE"},
-    withdrawn:   {label:"منسحب",  color:"#991B1B",bg:"#FEE2E2"},
-    archived:    {label:"مؤرشف",  color:"#374151",bg:"#F3F4F6"},
-    suspended:   {label:"موقوف",  color:"#7C2D12",bg:"#FEF3C7"},
-    deleted:     {label:"محذوف",  color:"#6B7280",bg:"#F3F4F6"},
-  };
 
 // Paged data already filtered server-side
   const tabStudents = pagedStudents;
@@ -1029,52 +1109,43 @@ function handlePrint(s: StudentWithFees){
   // Full students dataset (all pages)
   const [allStudentsDataset, setAllStudentsDataset] = useState<StudentWithFees[]>([]);
   const [datasetLoading, setDatasetLoading] = useState(false);
- blackboxai/ping-final
   const datasetFilterKeyRef = useRef<string>("");
 
   const loadStudentsDataset = useCallback(async () => {
-    // Key current filters for cache
-    const filterKey = [activeTab, debouncedSearch, filterClass, filterSection].join("::");
+    if (!profile) return [];
+
+    const filterKey = [
+      profile.id,
+      schoolScope.selectedSchoolId ?? "none",
+      activeTab,
+      debouncedSearch.trim(),
+      filterClass.trim(),
+      filterSection.trim(),
+    ].join("::");
 
     if (datasetFilterKeyRef.current === filterKey) {
       return allStudentsDataset;
     }
 
-    const schoolId = await resolveSchoolIdForProfile(profile!, {
+    const schoolId = await resolveSchoolIdForProfile(profile, {
       selectedSchoolId: schoolScope.selectedSchoolId,
-
-
-  const loadStudentsDataset = useCallback(async () => {
-    // Key current filters for cache
-    const filterKey = [activeTab, debouncedSearch, filterClass, filterSection].join('::');
-    if (allStudentsDataset.length > 0 && allStudentsDataset[0]?.filterKey === filterKey) {
-      return allStudentsDataset;
-    }
-    
-    const schoolId = await resolveSchoolIdForProfile(profile!, { 
-      selectedSchoolId: schoolScope.selectedSchoolId 
- main
     });
     if (!schoolId) return [];
 
     setDatasetLoading(true);
     try {
       const params = new URLSearchParams({
-        schoolId: encodeURIComponent(schoolId),
-        type: 'students',
+        schoolId,
+        type: "students",
         status: activeTab,
       });
-      if (debouncedSearch.trim()) params.append('search', debouncedSearch.trim());
-      if (filterClass.trim()) params.append('className', filterClass.trim());
-      if (filterSection.trim()) params.append('sectionName', filterSection.trim());
+      if (debouncedSearch.trim()) params.append("search", debouncedSearch.trim());
+      if (filterClass.trim()) params.append("className", filterClass.trim());
+      if (filterSection.trim()) params.append("sectionName", filterSection.trim());
 
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
- blackboxai/ping-final
         students?: StudentDatasetRow[];
         error?: { message?: string };
-
-        students?: StudentRow[];
- main
       }>(`/api/web/reports/dataset?${params.toString()}`);
       
       if (!response.ok) {
@@ -1082,39 +1153,13 @@ function handlePrint(s: StudentWithFees){
         return [];
       }
 
- blackboxai/ping-final
       const rawStudents: StudentDatasetRow[] = payload?.students ?? [];
-      const fullDataset: StudentWithFees[] = rawStudents.map((item): StudentWithFees => ({
-      const rawStudents: StudentRow[] = payload?.students ?? [];
-      const fullDataset: StudentWithFees[] = rawStudents.map((item, idx): StudentWithFees => ({
- main
-        id: item.id,
-        school_id: schoolId,
-        full_name: item.full_name,
-        class_name: item.class_name ?? null,
-        section: null, // API uses sectionName param
-        phone: item.phone ?? null,
-        address: item.address ?? null,
-        total_fee: item.total_fee ?? 0,
-        paid_fee: item.paid_fee ?? 0,
-        discount_value: 0,
-        status: item.status as StudentStatus ?? 'active',
-        remaining_fee: (item.total_fee ?? 0) - (item.paid_fee ?? 0),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        auth_user_id: null,
- blackboxai/ping-final
-      }));
+      const fullDataset: StudentWithFees[] = rawStudents.map((item) =>
+        mapStudentRecordToStudentWithFees(item, schoolId),
+      );
 
       setAllStudentsDataset(fullDataset);
       datasetFilterKeyRef.current = filterKey;
-
-        // Cache key for filter matching
-        filterKey,
-      }));
-
-      setAllStudentsDataset(fullDataset);
- main
       return fullDataset;
     } catch (err) {
       console.error("loadStudentsDataset error:", err);
@@ -1134,15 +1179,17 @@ function handlePrint(s: StudentWithFees){
     exportExcel(fullDataset);
     setSuccess(`${fullDataset.length} طالب مصدر بنجاح (الكل)`);
     setTimeout(() => setSuccess(""), 3000);
-  }, [loadStudentsDataset]);
+  }, [exportExcel, loadStudentsDataset]);
 
   // فلترة حسب البحث والصف والشعبة
-  const classes = Array.from(new Set(tabStudents.map((s) => s.class_name))).filter(Boolean) as string[];
-  const students = tabStudents;
-
-  // استخراج الشعب من بيانات الطلاب حسب الصف المختار
-  const sectionsSource = filterClass ? tabStudents.filter(s=>s.class_name===filterClass) : tabStudents;
-  const sectionsList = Array.from(new Set(sectionsSource.map((s) => s.section).filter(Boolean))) as string[];
+  const classes = Array.from(
+    new Set(
+      classFees
+        .map((item) => (typeof item.class_name === "string" ? item.class_name.trim() : ""))
+        .filter(Boolean),
+    ),
+  ) as string[];
+  const sectionsList = studentsMeta.sectionOptions;
 
   const filtered = tabStudents.filter(s=>{
     const matchSearch = s.full_name?.includes(search) || s.class_name?.includes(search);
@@ -1353,10 +1400,7 @@ function handlePrint(s: StudentWithFees){
               {/* TABS */}
               <div className="tabs">
                 {TABS.map(tab=>{
-                  const count=students.filter(s=>{
-                    if(tab.id==="active") return s.status==="active"||s.status==="graduated"||s.status==="archived"||s.status==="withdrawn";
-                    return s.status===tab.id;
-                  }).length;
+                  const count = studentsMeta.tabCounts[tab.id as keyof typeof studentsMeta.tabCounts] ?? 0;
                   return(
                     <button key={tab.id} className={`tab${activeTab===tab.id?" active":""}`} onClick={()=>setActiveTab(tab.id)}>
                       <span className="tab-ico"><AppIcon token={tab.icon} size={16} /></span>
@@ -1371,10 +1415,10 @@ function handlePrint(s: StudentWithFees){
               {activeTab==="active"&&(
                 <div className="stats">
                   {([
-                    ["إجمالي الطلاب",formatNumber(tabStudents.length)],
-                    ["الطلاب النشطون",formatNumber(tabStudents.filter(s=>s.status==="active").length)],
-                    ["إجمالي الرسوم",`د.ع ${formatNumber(tabStudents.reduce((a,s)=>a+s.total_fee,0))}`],
-                    ["الرصيد المتبقي",`د.ع ${formatNumber(tabStudents.reduce((a,s)=>a+s.remaining_fee,0))}`],
+                    ["إجمالي الطلاب",formatNumber(studentsMeta.summary.totalStudents)],
+                    ["الطلاب النشطون",formatNumber(studentsMeta.summary.activeStudents)],
+                    ["إجمالي الرسوم",`د.ع ${formatNumber(studentsMeta.summary.totalFee)}`],
+                    ["الرصيد المتبقي",`د.ع ${formatNumber(studentsMeta.summary.totalRemaining)}`],
                   ] as any[]).map(([l,v]:any,i:number)=>(
                     <div className="sc" key={i}><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
                   ))}
@@ -1423,10 +1467,6 @@ function handlePrint(s: StudentWithFees){
                 {activeTab==="active" && !isReadOnlyView && <>
                   {canManageStudentAccounts && (
                     <>
-                      <button className="btn-excel" onClick={()=>void handleGenerateDemoStudents()} disabled={generatingDemoStudents}>
-                        <AppIcon token="🧪" size={14} />
-                        {generatingDemoStudents ? "جارٍ توليد 30 ألف سجل..." : "إنشاء 30 ألف طالب تجريبي"}
-                      </button>
                       <button className="btn-add" onClick={()=>setShowModal(true)}>+ إضافة طالب</button>
                     </>
                   )}
@@ -1459,7 +1499,7 @@ function handlePrint(s: StudentWithFees){
                       </thead>
                       <tbody>
                         {pagedStudents.map((s,i)=>{
-                          const st=statusMap[s.status]||statusMap.active;
+                          const st=STATUS_MAP[s.status]||STATUS_MAP.active;
                           const actions=getActions(s);
                           return <tr key={s.id}>
                             <td style={{color:"var(--gray)",fontSize:".7rem"}}>{(page - 1) * pageSize + i + 1}</td>
@@ -1700,8 +1740,8 @@ function handlePrint(s: StudentWithFees){
           <div className="upload-area" onClick={()=>fileRef.current?.click()}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
             <div style={{fontWeight:700,marginBottom:".2rem"}}>اضغط لرفع ملف إكسل</div>
-            <div style={{fontSize:".75rem",color:"var(--gray)"}}>xlsx أو xls</div>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleFileChange}/>
+            <div style={{fontSize:".75rem",color:"var(--gray)"}}>xlsx فقط</div>
+            <input ref={fileRef} type="file" accept=".xlsx" style={{display:"none"}} onChange={handleFileChange}/>
           </div>
           {importError&&<div className="err">{importError}</div>}
           {importPreview.length>0&&(

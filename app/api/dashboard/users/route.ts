@@ -31,6 +31,7 @@ import {
   tableHasColumn,
   type ManagedUsersActorContext,
 } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number, fieldErrors?: Record<string, string>) {
@@ -684,6 +685,16 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "dashboard-managed-users-post",
+    windowMs: 10 * 60_000,
+    maxHits: 25,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const serviceSupabase = createServiceSupabaseClient();
   const branchId = await resolveSchoolBranchId(actorSupabase, targetSchoolId);
   const loginIdentifier = await generateManagedLoginIdentifier(actorSupabase, {

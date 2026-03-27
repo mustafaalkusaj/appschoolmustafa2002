@@ -17,6 +17,7 @@ import {
   type ManagedUsersActorContext,
   updateManagedUserLoginIdentifier,
 } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number, fieldErrors?: Record<string, string>) {
@@ -137,7 +138,17 @@ export async function PATCH(
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "managed-user-patch",
+    windowMs: 10 * 60_000,
+    maxHits: 30,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   let existing: ManagedUserRecord | null = null;
 
   try {
@@ -361,7 +372,17 @@ export async function DELETE(
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "managed-user-delete",
+    windowMs: 10 * 60_000,
+    maxHits: 12,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   let existing: ManagedUserRecord | null = null;
 
   try {

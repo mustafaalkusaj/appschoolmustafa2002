@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
@@ -42,6 +43,16 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "salaries-pay",
+    windowMs: 60_000,
+    maxHits: 40,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
   if (!canManageSalaries) {
     return jsonError("ليس لديك صلاحية صرف الرواتب.", 403);

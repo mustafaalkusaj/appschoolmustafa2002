@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolvePaymentsMeta } from "@/lib/payments-overview";
 
@@ -25,19 +26,28 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "payments-meta",
+    windowMs: 60_000,
+    maxHits: 90,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
 
   try {
     const payload = await resolvePaymentsMeta(actorSupabase, targetSchoolId);
-    return NextResponse.json({
-      ok: true,
-      ...payload,
-      students: [],
-      paymentCountsByStudent: {},
-      archiveNotice:
-        payload.archiveNotice || "تم نقل قائمة الطلاب المفصلة إلى تحميل مجزأ عبر /api/web/payments/students.",
-    });
+    return NextResponse.json(
+      { ok: true, ...payload },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      },
+    );
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر تحميل بيانات المدفوعات.", 500);
+    return jsonError(error instanceof Error ? error.message : "تعذر تحميل ملخص المدفوعات.", 500);
   }
 }

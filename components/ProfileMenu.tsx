@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, LogOut } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -80,7 +82,14 @@ export function ProfileMenu({ className }: { className?: string }) {
       >
         <span className="profile-menu__avatar">
           {avatarSrc && !avatarBroken ? (
-            <img src={avatarSrc} alt={displayName} className="profile-menu__avatar-image" onError={() => setAvatarBroken(true)} />
+            <img
+              src={avatarSrc}
+              alt={displayName}
+              className="profile-menu__avatar-image"
+              width={40}
+              height={40}
+              onError={() => setAvatarBroken(true)}
+            />
           ) : (
             <span>{avatarLabel}</span>
           )}
@@ -97,7 +106,14 @@ export function ProfileMenu({ className }: { className?: string }) {
           <div className="profile-menu__identity">
             <span className="profile-menu__avatar profile-menu__avatar--large">
               {avatarSrc && !avatarBroken ? (
-                <img src={avatarSrc} alt={displayName} className="profile-menu__avatar-image" onError={() => setAvatarBroken(true)} />
+                <img
+                  src={avatarSrc}
+                  alt={displayName}
+                  className="profile-menu__avatar-image"
+                  width={64}
+                  height={64}
+                  onError={() => setAvatarBroken(true)}
+                />
               ) : (
                 <span>{avatarLabel}</span>
               )}

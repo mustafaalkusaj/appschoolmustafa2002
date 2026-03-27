@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRuntimeBranding } from '@/hooks/useRuntimeBranding';
-import { usePathname } from 'next/navigation';
-import { getLocaleFromPath } from '@/lib/locale-routing';
+import { useTranslations } from "next-intl";
 
 interface PingResult {
   ms: number;
@@ -13,16 +11,13 @@ interface PingResult {
 export function PingIndicator() {
   const [ping, setPing] = useState<PingResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const pathname = usePathname();
-  const locale = getLocaleFromPath(pathname);
-  const branding = useRuntimeBranding();
+  const t = useTranslations();
 
-  const getSpeedLabel = (speed: string) => {
-    const t = (key: string) => key; // Replace with actual i18n hook
+  const getSpeedLabel = (speed: PingResult["speed"]) => {
     return t(`ping.speed${speed.charAt(0).toUpperCase() + speed.slice(1)}`);
   };
 
-  const getSpeedColor = (speed: string) => {
+  const getSpeedColor = (speed: PingResult["speed"]) => {
     if (speed === 'fast') return 'bg-green-500 text-white';
     if (speed === 'medium') return 'bg-yellow-500 text-black';
     return 'bg-red-500 text-white';
@@ -35,7 +30,7 @@ export function PingIndicator() {
       setLoading(true);
       const start = performance.now();
       try {
-        const response = await fetch('/api/ping', { cache: 'no-store' });
+        await fetch('/api/ping', { cache: 'no-store' });
         const end = performance.now();
         const ms = Math.round(end - start);
 
@@ -47,10 +42,8 @@ export function PingIndicator() {
         if (mounted) {
           setPing({ ms, speed });
         }
-      } catch (error) {
-        if (mounted) {
-          setPing({ ms: 999, speed: 'slow' });
-        }
+      } catch {
+        // Keep the last successful measurement instead of rendering a fake latency value.
       } finally {
         if (mounted) {
           setLoading(false);
@@ -78,7 +71,7 @@ export function PingIndicator() {
 
   if (!ping) return null;
 
-  const label = 'وقت الاستجابة (Ping)'; // t('ping.label') - hardcode for demo
+  const label = t("ping.label");
   const formattedMs = `~${ping.ms}ms`;
 
   return (
@@ -91,4 +84,3 @@ export function PingIndicator() {
     </div>
   );
 }
-

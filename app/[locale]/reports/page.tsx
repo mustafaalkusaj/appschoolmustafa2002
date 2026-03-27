@@ -289,7 +289,7 @@ export default function ReportsPage() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, `${fileName}_${formatDate(new Date())}.xlsx`);
+    await XLSX.writeFile(wb, `${fileName}_${formatDate(new Date())}.xlsx`);
   }
 
   async function exportStudentsExcel() {
@@ -409,7 +409,7 @@ export default function ReportsPage() {
       }
     });
 
-    XLSX.writeFile(wb, `تقرير_شامل_${formatDate(new Date())}.xlsx`);
+    await XLSX.writeFile(wb, `تقرير_شامل_${formatDate(new Date())}.xlsx`);
   }
 
   function printDocument(title: string, subtitle: string, bodyHtml: string) {

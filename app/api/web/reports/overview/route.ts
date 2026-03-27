@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+
+type ReportsMetrics = {
+  studentsCount: number;
+  activeStudents: number;
+  totalFees: number;
+  totalPaid: number;
+  totalRemaining: number;
+  paymentsCount: number;
+  paymentVolume: number;
+  todayPayments: number;
+  expensesCount: number;
+  expenseVolume: number;
+  expenseTypeCount: number;
+  salariesCount: number;
+  salaryVolume: number;
+  currentMonthSalaryCount: number;
+  netBalance: number;
+};
 
 function readRelationName(value: unknown) {
   if (Array.isArray(value)) {
@@ -18,46 +37,34 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
 
-export async function GET(req: NextRequest) {
-  const schoolId = req.nextUrl.searchParams.get("schoolId");
-  const context = await resolveSchoolScopedActorContext(
-    schoolId,
-    {
-      allowedRoles: ["super_admin", "admin"],
-      roleDeniedMessage: "التقارير متاحة للإدارة فقط.",
-    },
-    req.headers.get("authorization"),
-  );
+function isMissingReportsSummaryFunction(error: { code?: string | null; message?: string | null } | null | undefined) {
+  return error?.code === "42883" || error?.message?.includes("school_reports_summary") || false;
+}
 
-  if (!context.ok) {
-    return jsonError(
-      "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
-      "status" in context ? context.status : 500,
-    );
-  }
+function normalizeMetricNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
-  const { actorSupabase, targetSchoolId } = context.value;
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const todayKey = new Date().toDateString();
-
+async function loadFallbackMetrics(actorSupabase: any, schoolId: string, currentMonth: string, todayKey: string) {
   const [studentsResult, paymentsResult, expensesResult, salariesResult] = await Promise.allSettled([
     actorSupabase
       .from("students")
       .select("id, total_fee, paid_fee, remaining_fee, status")
-      .eq("school_id", targetSchoolId)
+      .eq("school_id", schoolId)
       .neq("status", "deleted"),
     actorSupabase
       .from("payments")
       .select("id, amount, created_at")
-      .eq("school_id", targetSchoolId),
+      .eq("school_id", schoolId),
     actorSupabase
       .from("expenses")
       .select("id, amount, expense_types(name)")
-      .eq("school_id", targetSchoolId),
+      .eq("school_id", schoolId),
     actorSupabase
       .from("salaries")
       .select("id, gross_salary, deductions, month")
-      .eq("school_id", targetSchoolId),
+      .eq("school_id", schoolId),
   ]);
 
   const students =
@@ -111,12 +118,11 @@ export async function GET(req: NextRequest) {
     currentMonthSalaryCount: salaries.filter((item) => item.month === currentMonth).length,
   };
 
-  return NextResponse.json({
-    ok: true,
+  return {
     metrics: {
       ...metrics,
       netBalance: metrics.paymentVolume - metrics.expenseVolume - metrics.salaryVolume,
-    },
+    } satisfies ReportsMetrics,
     warnings: [studentsResult, paymentsResult, expensesResult, salariesResult]
       .map((result, index) => {
         const labels = ["بيانات الطلاب", "بيانات الدفعات", "بيانات المصروفات", "بيانات الرواتب"];
@@ -125,5 +131,117 @@ export async function GET(req: NextRequest) {
         return null;
       })
       .filter(Boolean),
+  };
+}
+
+async function loadSummaryMetrics(actorSupabase: any, schoolId: string, currentMonth: string, todayDate: string) {
+  const { data, error } = await actorSupabase.rpc("school_reports_summary", {
+    p_school_id: schoolId,
+    p_current_month: currentMonth,
+    p_today: todayDate,
   });
+
+  if (error) {
+    throw error;
+  }
+
+  const record = Array.isArray(data) ? data[0] : data;
+  if (!record || typeof record !== "object") {
+    return null;
+  }
+
+  const source = record as Record<string, unknown>;
+  return {
+    studentsCount: normalizeMetricNumber(source.students_count),
+    activeStudents: normalizeMetricNumber(source.active_students),
+    totalFees: normalizeMetricNumber(source.total_fees),
+    totalPaid: normalizeMetricNumber(source.total_paid),
+    totalRemaining: normalizeMetricNumber(source.total_remaining),
+    paymentsCount: normalizeMetricNumber(source.payments_count),
+    paymentVolume: normalizeMetricNumber(source.payment_volume),
+    todayPayments: normalizeMetricNumber(source.today_payments),
+    expensesCount: normalizeMetricNumber(source.expenses_count),
+    expenseVolume: normalizeMetricNumber(source.expense_volume),
+    expenseTypeCount: normalizeMetricNumber(source.expense_type_count),
+    salariesCount: normalizeMetricNumber(source.salaries_count),
+    salaryVolume: normalizeMetricNumber(source.salary_volume),
+    currentMonthSalaryCount: normalizeMetricNumber(source.current_month_salary_count),
+    netBalance: normalizeMetricNumber(source.net_balance),
+  } satisfies ReportsMetrics;
+}
+
+export async function GET(req: NextRequest) {
+  const schoolId = req.nextUrl.searchParams.get("schoolId");
+  const context = await resolveSchoolScopedActorContext(
+    schoolId,
+    {
+      allowedRoles: ["super_admin", "admin"],
+      roleDeniedMessage: "التقارير متاحة للإدارة فقط.",
+    },
+    req.headers.get("authorization"),
+  );
+
+  if (!context.ok) {
+    return jsonError(
+      "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
+      "status" in context ? context.status : 500,
+    );
+  }
+
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "reports-overview",
+    windowMs: 60_000,
+    maxHits: 90,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const todayKey = new Date().toDateString();
+
+  try {
+    const metrics = await loadSummaryMetrics(actorSupabase, targetSchoolId, currentMonth, todayDate);
+    if (metrics) {
+      return NextResponse.json(
+        {
+          ok: true,
+          metrics,
+          warnings: [],
+        },
+        {
+          headers: {
+            "Cache-Control": "private, no-store, max-age=0",
+          },
+        },
+      );
+    }
+  } catch (error) {
+    if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
+      return jsonError(
+        error instanceof Error ? error.message : "تعذر تحميل ملخص التقارير.",
+        500,
+      );
+    }
+  }
+
+  const fallback = await loadFallbackMetrics(actorSupabase, targetSchoolId, currentMonth, todayKey);
+  return NextResponse.json(
+    {
+      ok: true,
+      metrics: fallback.metrics,
+      warnings: [
+        "ملخص التقارير يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدالة school_reports_summary لتحسين الأداء.",
+        ...fallback.warnings,
+      ],
+    },
+    {
+      headers: {
+        "Cache-Control": "private, no-store, max-age=0",
+      },
+    },
+  );
 }

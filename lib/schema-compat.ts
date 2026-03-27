@@ -10,7 +10,7 @@ export type AppSchemaCompat = {
   sectionsSchoolScope: boolean;
 };
 
-const DEFAULT_COMPAT: AppSchemaCompat = {
+export const DEFAULT_COMPAT: AppSchemaCompat = {
   schoolColors: false,
   schoolThemePreset: false,
   branchesIsMain: false,
@@ -38,6 +38,24 @@ async function probeColumnWithClient(client: SchemaCompatClient, table: string, 
   }
 }
 
+async function fetchCompatFromApi(): Promise<AppSchemaCompat> {
+  try {
+    const response = await fetch("/api/web/schema-compat", {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return DEFAULT_COMPAT;
+    }
+
+    const payload = (await response.json().catch(() => null)) as { compat?: AppSchemaCompat } | null;
+    return payload?.compat ?? DEFAULT_COMPAT;
+  } catch {
+    return DEFAULT_COMPAT;
+  }
+}
+
 export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient): Promise<AppSchemaCompat> {
   return Promise.all([
     probeColumnWithClient(client, "schools", "primary_color"),
@@ -60,7 +78,10 @@ export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient
 
 export async function detectAppSchemaCompat(): Promise<AppSchemaCompat> {
   if (!compatPromise) {
-    compatPromise = detectAppSchemaCompatWithClient(supabase);
+    compatPromise =
+      typeof window === "undefined"
+        ? detectAppSchemaCompatWithClient(supabase)
+        : fetchCompatFromApi();
   }
 
   return compatPromise;

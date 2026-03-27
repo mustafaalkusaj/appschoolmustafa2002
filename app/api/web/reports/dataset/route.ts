@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 type DatasetType = "students" | "payments" | "expenses" | "salaries" | "all";
+type StudentDatasetStatus = "active" | "transferred" | "suspended" | "deleted";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -20,9 +22,28 @@ function normalizeDatasetType(value: string | null): DatasetType | null {
   return null;
 }
 
+function normalizeStudentDatasetStatus(value: string | null): StudentDatasetStatus {
+  if (value === "transferred" || value === "suspended" || value === "deleted") {
+    return value;
+  }
+  return "active";
+}
+
+function normalizeSearchValue(value: string | null, maxLength = 80) {
+  return (value || "")
+    .replace(/[\u0000-\u001F\u007F,()%]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const dataset = normalizeDatasetType(req.nextUrl.searchParams.get("type"));
+  const studentStatus = normalizeStudentDatasetStatus(req.nextUrl.searchParams.get("status"));
+  const search = normalizeSearchValue(req.nextUrl.searchParams.get("search"));
+  const className = normalizeSearchValue(req.nextUrl.searchParams.get("className"), 60);
+  const sectionName = normalizeSearchValue(req.nextUrl.searchParams.get("sectionName"), 20);
 
   if (!dataset) {
     return jsonError("نوع التقرير المطلوب غير صالح.", 400);
@@ -44,15 +65,43 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "reports-dataset",
+    windowMs: 60_000,
+    maxHits: 45,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
 
   const loadStudents = async () => {
-    const { data, error } = await actorSupabase
+    let query = actorSupabase
       .from("students")
-      .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, status, phone, address")
+      .select("id, full_name, class_name, section, phone, address, total_fee, paid_fee, remaining_fee, discount_value, status, created_at")
       .eq("school_id", targetSchoolId)
-      .neq("status", "deleted")
       .order("created_at", { ascending: false });
+
+    if (studentStatus === "active") {
+      query = query.in("status", ["active", "graduated", "archived", "withdrawn"]);
+    } else {
+      query = query.eq("status", studentStatus);
+    }
+
+    if (search) {
+      query = query.or(`full_name.ilike.%${search}%,class_name.ilike.%${search}%`);
+    }
+
+    if (className) {
+      query = query.eq("class_name", className);
+    }
+
+    if (sectionName) {
+      query = query.eq("section", sectionName);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     return data ?? [];
   };
@@ -97,17 +146,21 @@ export async function GET(req: NextRequest) {
   };
 
   try {
+    const noStoreHeaders = {
+      "Cache-Control": "private, no-store, max-age=0",
+    };
+
     if (dataset === "students") {
-      return NextResponse.json({ ok: true, students: await loadStudents() });
+      return NextResponse.json({ ok: true, students: await loadStudents() }, { headers: noStoreHeaders });
     }
     if (dataset === "payments") {
-      return NextResponse.json({ ok: true, payments: await loadPayments() });
+      return NextResponse.json({ ok: true, payments: await loadPayments() }, { headers: noStoreHeaders });
     }
     if (dataset === "expenses") {
-      return NextResponse.json({ ok: true, expenses: await loadExpenses() });
+      return NextResponse.json({ ok: true, expenses: await loadExpenses() }, { headers: noStoreHeaders });
     }
     if (dataset === "salaries") {
-      return NextResponse.json({ ok: true, salaries: await loadSalaries() });
+      return NextResponse.json({ ok: true, salaries: await loadSalaries() }, { headers: noStoreHeaders });
     }
 
     const [students, payments, expenses, salaries] = await Promise.all([
@@ -123,7 +176,7 @@ export async function GET(req: NextRequest) {
       payments,
       expenses,
       salaries,
-    });
+    }, { headers: noStoreHeaders });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر تجهيز بيانات التقرير المطلوبة.", 500);
   }

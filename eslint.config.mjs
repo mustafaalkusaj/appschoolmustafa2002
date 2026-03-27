@@ -15,6 +15,13 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     ".claude/**",
+    // Ignore sibling projects and standalone artifacts that are not part of this Next.js app.
+    "00990090/**",
+    "school-acc-system/**",
+    "school-saas-next/**",
+    "artifacts/**",
+    "scripts/**/*.cjs",
+    "load-test.js",
   ]),
   {
     rules: {

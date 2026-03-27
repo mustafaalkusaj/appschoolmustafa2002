@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 import { useRole } from "@/hooks/useRole";
+import { sanitizeImageUrl } from "@/lib/asset-url";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import {
   DEFAULT_PRIMARY,
@@ -157,6 +158,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       }
 
       const schoolRecord = data as SchoolBrandingRecord;
+      const safeLogoUrl = sanitizeImageUrl(
+        typeof schoolRecord.logo_url === "string" ? schoolRecord.logo_url : null,
+      );
 
       const dbPrimaryColor =
         compat.schoolColors && typeof schoolRecord.primary_color === "string"
@@ -175,7 +179,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
       if (!resolvedPrimaryColor || !resolvedSecondaryColor) {
         const derivedPalette = await derivePaletteFromLogo(
-          typeof schoolRecord.logo_url === "string" ? schoolRecord.logo_url : null,
+          safeLogoUrl,
           typeof schoolRecord.name === "string" ? schoolRecord.name : "",
         );
         resolvedPrimaryColor = resolvedPrimaryColor ?? derivedPalette.primaryColor;
@@ -195,7 +199,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
       setBranding({
         schoolName: typeof schoolRecord.name === "string" ? schoolRecord.name : null,
-        logoUrl: typeof schoolRecord.logo_url === "string" ? schoolRecord.logo_url : null,
+        logoUrl: safeLogoUrl,
         primaryColor: resolvedPrimaryColor,
         secondaryColor: resolvedSecondaryColor,
         themePreset: storedBranding?.themePreset ?? dbThemePreset ?? null,

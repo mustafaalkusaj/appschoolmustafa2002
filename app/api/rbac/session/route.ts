@@ -8,6 +8,7 @@ import {
   hasRBACSecret,
   signRBACSession,
 } from "@/lib/rbac-session";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { createRouteSupabaseClient, getRouteAuthenticatedUser } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
@@ -26,6 +27,16 @@ export async function POST(req: NextRequest) {
 
   if (userError || !user?.id) {
     return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  }
+
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "rbac-session",
+    windowMs: 60_000,
+    maxHits: 30,
+    identifier: user.id,
+  });
+  if (rateLimited) {
+    return rateLimited;
   }
 
   // Use standard client with RLS (user can read own profile)
@@ -121,7 +132,16 @@ export async function POST(req: NextRequest) {
   return response;
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "rbac-session-delete",
+    windowMs: 60_000,
+    maxHits: 60,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const response = NextResponse.json({ ok: true });
   response.cookies.set(RBAC_COOKIE_NAME, "", {
     path: "/",

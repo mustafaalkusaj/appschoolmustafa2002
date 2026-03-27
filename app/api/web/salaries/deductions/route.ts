@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
@@ -25,7 +26,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "salaries-deductions-read",
+    windowMs: 60_000,
+    maxHits: 90,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const { data, error } = await actorSupabase
     .from("deductions")
     .select("id, teacher_id, amount, notes, deduction_date, teachers(full_name)")
@@ -76,6 +87,16 @@ export async function POST(req: NextRequest) {
 
   if (!context.ok) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
+  }
+
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "salaries-deductions-write",
+    windowMs: 60_000,
+    maxHits: 45,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
   }
 
   const canManageSalaries = await routeUserHasPermission(context.value.actorSupabase, context.value.actorUserId, "manage_salaries");

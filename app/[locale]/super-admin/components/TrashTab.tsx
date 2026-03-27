@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SectionCard, EmptyState, MigrationNotice, formatDate, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 
@@ -35,6 +36,8 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [itemToRestore, setItemToRestore] = useState<any>(null);
 
   const fetchDeleted = useCallback(async () => {
     if (availableEntities.length === 0) {
@@ -81,8 +84,6 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
   }, [activeEntity, availableEntities, fetchDeleted]);
 
   const handleRestore = async (id: string) => {
-    if (!confirm("هل أنت متأكد من استعادة هذا العنصر؟")) return;
-
     try {
       const table = activeEntity === "schools" ? "schools" : activeEntity === "users" ? "user_profiles" : "branches";
       const payload =
@@ -107,10 +108,11 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
         } من سلة المحذوفات`,
       });
 
+      setMessage("");
       fetchDeleted();
     } catch (err) {
       console.error("Restore error:", err);
-      alert("فشل في استعادة العنصر");
+      setMessage("فشل في استعادة العنصر المطلوب.");
     }
   };
 
@@ -122,6 +124,7 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
 
   return (
     <div className="space-y-6">
+      {message ? <MigrationNotice title="تنبيه" description={message} /> : null}
       <div className="flex gap-2">
         {availableEntities.includes("schools") ? (
           <button
@@ -222,7 +225,7 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
                   </div>
                 </div>
                 <button
-                  onClick={() => handleRestore(item.id)}
+                  onClick={() => setItemToRestore(item)}
                   className="ui-button ui-button--secondary inline-flex items-center gap-2"
                 >
                   <RotateCcw size={16} />
@@ -233,6 +236,22 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
           </div>
         )}
       </SectionCard>
+      <ConfirmDialog
+        open={Boolean(itemToRestore)}
+        title="استعادة عنصر من السلة"
+        description={itemToRestore ? `سيتم استعادة ${activeEntity === "schools" ? "المدرسة" : activeEntity === "users" ? "المستخدم" : "الفرع"} "${activeEntity === "schools" ? itemToRestore.name : activeEntity === "users" ? itemToRestore.full_name || itemToRestore.email : itemToRestore.name}".` : ""}
+        confirmLabel="نعم، استعد العنصر"
+        cancelLabel="إلغاء"
+        tone="primary"
+        onClose={() => setItemToRestore(null)}
+        onConfirm={async () => {
+          const target = itemToRestore;
+          setItemToRestore(null);
+          if (target?.id) {
+            await handleRestore(target.id);
+          }
+        }}
+      />
     </div>
   );
 }

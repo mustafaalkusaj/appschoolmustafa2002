@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMissingColumnError } from "@/lib/admin-infrastructure";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { ALL_PERMISSIONS, normalizePermissions, normalizeUserRole } from "@/types/roles";
 import {
   createRouteSupabaseClient,
@@ -97,6 +98,16 @@ export async function POST(req: NextRequest) {
 
   if (actorUserError || !actorUser?.id) {
     return NextResponse.json({ error: { message: "Unauthorized." } }, { status: 401 });
+  }
+
+  const rateLimitResponse = enforceRateLimit(req, {
+    namespace: "users-create",
+    windowMs: 10 * 60 * 1000,
+    maxHits: 10,
+    identifier: actorUser.id,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   // Use actorSupabase to check permissions (RLS)

@@ -1,11 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -45,18 +46,18 @@ const QUICK_ACCESS = [
   { id:"add_teacher", label:"إضافة أستاذ", icon:"👨‍🏫", bg:"#EDF6FF" },
   { id:"schedule", label:"الجدول", icon:"📅", bg:"#DBEAFE" },
   { id:"prices", label:"أسعار المحاضرات", icon:"🏷️", bg:"#FEF3C7" },
-  { id:"bonuses", label:"المكافآت", icon:"🎁", bg:"#D1FAE5" },
   { id:"subjects", label:"المواد الدراسية", icon:"📚", bg:"#EAF2FF" },
   { id:"titles", label:"المسميات الوظيفية", icon:"👔", bg:"#E6F4FF" },
   { id:"classes", label:"إضافة صف وشعبة", icon:"🏫", bg:"#CCFBF1" },
   { id:"print", label:"خيارات الطباعة", icon:"🖨️", bg:"#E0E7FF" },
-  { id:"import", label:"استيراد بيانات", icon:"📥", bg:"#E0F2FE" },
   { id:"export", label:"تصدير بيانات", icon:"📤", bg:"#DCFCE7" },
   { id:"deductions", label:"سحوبات", icon:"💸", bg:"#FEE2E2" },
   { id:"detailed_report", label:"تقرير تفصيلي", icon:"📊", bg:"#FFEDD5" },
   { id:"schedule_lessons", label:"توقيتات الدروس", icon:"⏰", bg:"#E8F3FF" },
   { id:"daily_log", label:"سجل يومي", icon:"📋", bg:"#F1F5F9" },
 ];
+
+type SalariesBootstrapScope = "core" | "reference" | "archive" | "all";
 
 export default function SalariesPage() {
   const pathname = usePathname();
@@ -79,9 +80,13 @@ export default function SalariesPage() {
   const [lecturePrices, setLecturePrices] = useState<any[]>([]);
   const [lectureSalaryCalc, setLectureSalaryCalc] = useState({count:0,total:0});
   const [loading, setLoading] = useState(true);
+  const [referenceLoading, setReferenceLoading] = useState(false);
+  const [referenceLoaded, setReferenceLoaded] = useState(false);
+  const [archivesLoading, setArchivesLoading] = useState(false);
+  const [archivesLoaded, setArchivesLoaded] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0,7));
+  const [currentMonth] = useState(new Date().toISOString().slice(0,7));
   const [showQuickAll, setShowQuickAll] = useState(false);
 
   // Teacher form
@@ -113,6 +118,9 @@ export default function SalariesPage() {
   // Reports
   const [reportView, setReportView] = useState<"summary"|"details">("summary");
   const [reportTeacher, setReportTeacher] = useState("");
+  const [reportSummary, setReportSummary] = useState<any[]>([]);
+  const [reportTotals, setReportTotals] = useState({lectureCount:0,total:0});
+  const [reportLoading, setReportLoading] = useState(false);
 
   // Calendar
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -148,13 +156,11 @@ export default function SalariesPage() {
   const [newSection, setNewSection] = useState("");
   const [newSectionGrade, setNewSectionGrade] = useState("");
   const [showPrices, setShowPrices] = useState(false);
-  const [showScheduleMdl, setShowScheduleMdl] = useState(false);
   const [showLessonTimes, setShowLessonTimes] = useState(false);
   const [showDailyLog, setShowDailyLog] = useState(false);
-  const [showDetailedReport, setShowDetailedReport] = useState(false);
-  const [showDeductionsMdl, setShowDeductionsMdl] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [teacherModalSaving, setTeacherModalSaving] = useState(false);
@@ -190,14 +196,16 @@ export default function SalariesPage() {
     });
   }
 
-  function openTeacherAdd() {
+  async function openTeacherAdd() {
+    await ensureReferenceData();
     setTeacherEditId(null);
     resetTeacherForm();
     setTeacherModalError("");
     setShowTeacherModal(true);
   }
 
-  function openTeacherEdit(t: any) {
+  async function openTeacherEdit(t: any) {
+    await ensureReferenceData();
     setTeacherEditId(t.id);
     const ct = (t.classes_taught as { grade: string; section: string }[]) || [];
     setTeacherForm({
@@ -278,6 +286,189 @@ export default function SalariesPage() {
     setTeacherModalSaving(false);
   }
 
+  const getBranchId = async()=>{
+    if (!schoolId) return null;
+    const {data}=await supabase.from("branches").select("id").eq("school_id", schoolId).limit(1);
+    return data?.[0]?.id;
+  };
+
+  const applyReferencePayload = useCallback((payload: {
+    classes?: any[];
+    subjects?: any[];
+    jobTitles?: any[];
+    lessonTimes?: any[];
+    lecturePrices?: any[];
+  }) => {
+    const classesData = payload.classes ?? [];
+    const subjectsData = payload.subjects ?? [];
+    const jobTitlesData = payload.jobTitles ?? [];
+    const lessonTimesData = payload.lessonTimes ?? [];
+    const lecturePricesData = payload.lecturePrices ?? [];
+
+    setClasses(classesData);
+    setSubjectsList(subjectsData);
+    setJobTitlesList(jobTitlesData);
+    setLessonTimes(lessonTimesData);
+    setLecturePrices(lecturePricesData);
+
+    const nextTimeEdits: {[k:string]:string} = {};
+    lessonTimesData.forEach((item:any) => {
+      nextTimeEdits[`${item.period}-${item.session_type}-start`] = item.start_time || "";
+      nextTimeEdits[`${item.period}-${item.session_type}-end`] = item.end_time || "";
+    });
+    setTimeEdits(nextTimeEdits);
+  }, []);
+
+  const fetchBootstrap = useCallback(async (scope: SalariesBootstrapScope, withLoader = false) => {
+    if (!schoolId) return;
+    if (withLoader) setLoading(true);
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        teachers?: any[];
+        salaries?: any[];
+        classes?: any[];
+        subjects?: any[];
+        jobTitles?: any[];
+        lessonTimes?: any[];
+        lecturePrices?: any[];
+        archives?: any[];
+        warnings?: string[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/bootstrap?schoolId=${encodeURIComponent(schoolId)}&scope=${scope}`);
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل بيانات الرواتب.");
+      }
+
+      if (scope === "core" || scope === "all") {
+        setTeachers(payload?.teachers ?? []);
+        setSalaries(payload?.salaries ?? []);
+      }
+
+      if (scope === "reference" || scope === "all") {
+        applyReferencePayload(payload ?? {});
+        setReferenceLoaded(true);
+      }
+
+      if (scope === "archive" || scope === "all") {
+        setArchives(payload?.archives ?? []);
+        setArchivesLoaded(true);
+      }
+
+      const warningText = (payload?.warnings ?? []).join(" ");
+      setError(warningText);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات الرواتب.");
+    } finally {
+      if (withLoader) setLoading(false);
+    }
+  }, [applyReferencePayload, schoolId]);
+
+  const fetchAll = useCallback(async () => {
+    if (!schoolId) return;
+    setReferenceLoaded(false);
+    setArchivesLoaded(false);
+    await fetchBootstrap("all", true);
+  }, [fetchBootstrap, schoolId]);
+
+  const ensureReferenceData = useCallback(async () => {
+    if (!schoolId || referenceLoaded || referenceLoading) return;
+    setReferenceLoading(true);
+    try {
+      await fetchBootstrap("reference");
+    } finally {
+      setReferenceLoading(false);
+    }
+  }, [fetchBootstrap, referenceLoaded, referenceLoading, schoolId]);
+
+  const ensureArchivesData = useCallback(async () => {
+    if (!schoolId || archivesLoaded || archivesLoading) return;
+    setArchivesLoading(true);
+    try {
+      await fetchBootstrap("archive");
+    } finally {
+      setArchivesLoading(false);
+    }
+  }, [archivesLoaded, archivesLoading, fetchBootstrap, schoolId]);
+
+  const fetchCalendarLectures = useCallback(async () => {
+    if (!schoolId) return;
+    const month = `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      dates?: string[];
+      error?: { message?: string };
+    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=calendar&month=${encodeURIComponent(month)}`);
+    if(response.ok){
+      setCalLectureDates(payload?.dates ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل تقويم المحاضرات.");
+    }
+  }, [calMonth, calYear, schoolId]);
+
+  const fetchDetailedReportAll = useCallback(async (teacherId = "") => {
+    if (!schoolId) return;
+    setReportLoading(true);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      lectures?: any[];
+      error?: { message?: string };
+    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}${teacherId ? `&teacherId=${encodeURIComponent(teacherId)}` : ""}`);
+    if(response.ok){
+      setDailyLectures(payload?.lectures ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل التقرير التفصيلي.");
+    }
+    setReportLoading(false);
+  }, [schoolId]);
+
+  const fetchReportSummary = useCallback(async () => {
+    if (!schoolId) return;
+    setReportLoading(true);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      summary?: any[];
+      totals?: { lectureCount?: number; total?: number };
+      error?: { message?: string };
+    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}&view=summary`);
+    if(response.ok){
+      setReportSummary(payload?.summary ?? []);
+      setReportTotals({
+        lectureCount: Number(payload?.totals?.lectureCount ?? 0) || 0,
+        total: Number(payload?.totals?.total ?? 0) || 0,
+      });
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل ملخص الرواتب.");
+    }
+    setReportLoading(false);
+  }, [schoolId]);
+
+  const fetchDeductionsList = useCallback(async () => {
+    if (!schoolId) return;
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      deductions?: any[];
+      error?: { message?: string };
+    }>(`/api/web/salaries/deductions?schoolId=${encodeURIComponent(schoolId)}`);
+    if(response.ok){
+      setDeductionsList(payload?.deductions ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل سجل السحوبات.");
+    }
+  }, [schoolId]);
+
+  const loadTeacherMonthLectures = useCallback(async (teacher:any, month:string) => {
+    if(!teacher || !schoolId) return {count:0,total:0};
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      summary?: { count?: number; total?: number };
+      error?: { message?: string };
+    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=summary&teacherId=${encodeURIComponent(teacher.id)}&month=${encodeURIComponent(month)}`);
+    if(!response.ok){
+      console.error("Error loading lectures:", payload?.error?.message || "unexpected error");
+      return {count:0,total:0};
+    }
+    return {
+      count: Number(payload?.summary?.count ?? 0) || 0,
+      total: Number(payload?.summary?.total ?? 0) || 0,
+    };
+  }, [schoolId]);
+
   useEffect(() => {
     if (schoolScope.scopeLoading) return;
     if (!profile) {
@@ -300,25 +491,53 @@ export default function SalariesPage() {
       setLecturePrices([]);
       setDeductionsList([]);
       setCalLectureDates([]);
+      setReportSummary([]);
+      setReportTotals({lectureCount:0,total:0});
+      setReferenceLoaded(false);
+      setArchivesLoaded(false);
+      setReferenceLoading(false);
+      setArchivesLoading(false);
       setLoading(false);
       return;
     }
-    void fetchAll();
-  }, [schoolId]);
+    setReferenceLoaded(false);
+    setArchivesLoaded(false);
+    void fetchBootstrap("core", true);
+  }, [fetchBootstrap, schoolId]);
   useEffect(()=>{
     const close=()=>setActiveMenu(null);
     document.addEventListener("click",close);
     return()=>document.removeEventListener("click",close);
   },[]);
   useEffect(()=>{
-    if(activeSection==="calendar") fetchCalendarLectures();
-  },[activeSection,calYear,calMonth]);
+    if(activeSection==="calendar") void fetchCalendarLectures();
+  },[activeSection,fetchCalendarLectures]);
   useEffect(()=>{
-    if(activeSection==="reports") fetchDetailedReportAll();
-  },[activeSection]);
+    if(activeSection==="reports" && reportView==="summary") void fetchReportSummary();
+    if(activeSection==="reports" && reportView==="details") void fetchDetailedReportAll(reportTeacher);
+  },[activeSection,fetchDetailedReportAll,fetchReportSummary,reportTeacher,reportView]);
   useEffect(()=>{
-    if(activeSection==="deductions") fetchDeductionsList();
-  },[activeSection]);
+    if(activeSection==="deductions") void fetchDeductionsList();
+  },[activeSection,fetchDeductionsList]);
+  useEffect(()=>{
+    if(activeSection==="archive") void ensureArchivesData();
+  },[activeSection,ensureArchivesData]);
+  useEffect(()=>{
+    if(activeSection==="schedule_tab") void ensureReferenceData();
+  },[activeSection,ensureReferenceData]);
+  useEffect(()=>{
+    if(showTeacherModal||showSubjectsMgr||showJobTitlesMgr||showClassesMgr||showPrices||showLessonTimes||showDailyLog||showExport) {
+      void ensureReferenceData();
+    }
+  },[ensureReferenceData,showClassesMgr,showDailyLog,showExport,showJobTitlesMgr,showLessonTimes,showPrices,showSubjectsMgr,showTeacherModal]);
+  useEffect(()=>{
+    if(!showPrices) return;
+    const edits:{[k:string]:number}={};
+    Array.from(new Set(classes.map((item:any)=>item.grade).filter(Boolean))).forEach((grade:any)=>{
+      edits[grade]=lecturePrices.find((price)=>price.grade===grade)?.price_per_lecture||0;
+    });
+    setPriceEdits(edits);
+  },[classes,lecturePrices,showPrices]);
 
   useEffect(()=>{
     if(!showPaySalary || !selectedTeacher || !schoolId) return;
@@ -341,123 +560,7 @@ export default function SalariesPage() {
     })();
 
     return () => { canceled = true; };
-  }, [showPaySalary, selectedTeacher, salaryForm.month, schoolId]);
-
-  const getBranchId = async()=>{
-    if (!schoolId) return null;
-    const {data}=await supabase.from("branches").select("id").eq("school_id", schoolId).limit(1);
-    return data?.[0]?.id;
-  };
-
-  async function fetchAll(){
-    if (!schoolId) return;
-    setLoading(true);
-    try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        teachers?: any[];
-        salaries?: any[];
-        classes?: any[];
-        subjects?: any[];
-        jobTitles?: any[];
-        lessonTimes?: any[];
-        lecturePrices?: any[];
-        archives?: any[];
-        warnings?: string[];
-        error?: { message?: string };
-      }>(`/api/web/salaries/bootstrap?schoolId=${encodeURIComponent(schoolId)}`);
-
-      if (!response.ok) {
-        throw new Error(payload?.error?.message || "تعذر تحميل بيانات الرواتب.");
-      }
-
-      const teachersData = payload?.teachers ?? [];
-      const salariesData = payload?.salaries ?? [];
-      const classesData = payload?.classes ?? [];
-      const subjectsData = payload?.subjects ?? [];
-      const jobTitlesData = payload?.jobTitles ?? [];
-      const lessonTimesData = payload?.lessonTimes ?? [];
-      const lecturePricesData = payload?.lecturePrices ?? [];
-      const archivesData = payload?.archives ?? [];
-
-      setTeachers(teachersData);
-      setSalaries(salariesData);
-      setClasses(classesData);
-      setSubjectsList(subjectsData);
-      setJobTitlesList(jobTitlesData);
-      setLessonTimes(lessonTimesData);
-      setLecturePrices(lecturePricesData);
-      setArchives(archivesData);
-      if (lessonTimesData) {
-        const ed: {[k:string]:string} = {};
-        lessonTimesData.forEach((x:any) => {
-          ed[`${x.period}-${x.session_type}-start`] = x.start_time || "";
-          ed[`${x.period}-${x.session_type}-end`] = x.end_time || "";
-        });
-        setTimeEdits(ed);
-      }
-      setError((payload?.warnings ?? []).join(" "));
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات الرواتب.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function fetchCalendarLectures(){
-    if (!schoolId) return;
-    const month = `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      dates?: string[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=calendar&month=${encodeURIComponent(month)}`);
-    if(response.ok){
-      setCalLectureDates(payload?.dates ?? []);
-    } else {
-      setError(payload?.error?.message || "تعذر تحميل تقويم المحاضرات.");
-    }
-  }
-
-  async function fetchDetailedReportAll(){
-    if (!schoolId) return;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      lectures?: any[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}`);
-    if(response.ok){
-      setDailyLectures(payload?.lectures ?? []);
-    } else {
-      setError(payload?.error?.message || "تعذر تحميل التقرير التفصيلي.");
-    }
-  }
-
-  async function fetchDeductionsList(){
-    if (!schoolId) return;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      deductions?: any[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/deductions?schoolId=${encodeURIComponent(schoolId)}`);
-    if(response.ok){
-      setDeductionsList(payload?.deductions ?? []);
-    } else {
-      setError(payload?.error?.message || "تعذر تحميل سجل السحوبات.");
-    }
-  }
-
-  async function loadTeacherMonthLectures(teacher:any, month:string){
-    if(!teacher || !schoolId) return {count:0,total:0};
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      summary?: { count?: number; total?: number };
-      error?: { message?: string };
-    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=summary&teacherId=${encodeURIComponent(teacher.id)}&month=${encodeURIComponent(month)}`);
-    if(!response.ok){
-      console.error("Error loading lectures:", payload?.error?.message || "unexpected error");
-      return {count:0,total:0};
-    }
-    return {
-      count: Number(payload?.summary?.count ?? 0) || 0,
-      total: Number(payload?.summary?.total ?? 0) || 0,
-    };
-  }
+  }, [showPaySalary, selectedTeacher, salaryForm.gross_salary, salaryForm.month, schoolId, loadTeacherMonthLectures]);
 
   // ===== SALARY =====
   async function handlePaySalary(e:React.FormEvent){
@@ -602,7 +705,6 @@ export default function SalariesPage() {
 
   // ===== ARCHIVE =====
   async function archiveMonth(){
-    if(!confirm("هل تريد أرشفة الشهر الحالي وتصفير العدادات؟"))return;
     try {
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
         archive?: any;
@@ -619,6 +721,7 @@ export default function SalariesPage() {
         setError(payload?.error?.message || "تعذر أرشفة الشهر الحالي.");
         return;
       }
+      setShowArchiveConfirm(false);
       setSuccess("تم أرشفة الشهر وتصفير عدادات محاضراته ✓");setTimeout(()=>setSuccess(""),3000);fetchAll();fetchDetailedReportAll();
     } catch (archiveError) {
       setError(archiveError instanceof Error ? archiveError.message : "تعذر أرشفة الشهر الحالي.");
@@ -627,6 +730,10 @@ export default function SalariesPage() {
 
   // ===== EXPORT =====
   async function doExport(){
+    await ensureReferenceData();
+    if(exportOptions.lectures && dailyLectures.length===0){
+      await fetchDetailedReportAll(reportTeacher);
+    }
     const XLSX = await loadXLSX();
     const wb=XLSX.utils.book_new();
     if(exportOptions.teachers){const rows=teachers.map(t=>({الاسم:t.full_name,المسمى:t.job_title||"",المادة:t.subject||"",الراتب:t.base_salary,"سعر المحاضرة":t.lecture_price||0}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الأساتذة");}
@@ -635,7 +742,7 @@ export default function SalariesPage() {
     if(exportOptions.fixed_salaries){const rows=salaries.map(s=>({الأستاذ:s.teachers?.full_name||"",الشهر:s.month,الإجمالي:s.gross_salary,الخصومات:s.deductions||0,الصافي:(s.gross_salary||0)-(s.deductions||0)}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الرواتب");}
     if(exportOptions.lectures){const rows=dailyLectures.map((l:any)=>({الأستاذ:l.teachers?.full_name||"",التاريخ:l.lecture_date,الصف:l.grade,الشعبة:l.section,الدرس:l.period,النوع:l.session_type,السعر:l.price}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"المحاضرات");}
     if(wb.SheetNames.length===0){setError("اختر بيانات للتصدير");return;}
-    XLSX.writeFile(wb,`تصدير_${formatDate(new Date())}.xlsx`);setShowExport(false);
+    await XLSX.writeFile(wb,`تصدير_${formatDate(new Date())}.xlsx`);setShowExport(false);
   }
 
   function openPrintWindow(title:string, subtitle:string, bodyHtml:string){
@@ -698,6 +805,11 @@ export default function SalariesPage() {
     );
   }
 
+  async function handlePrintReport(){
+    await fetchDetailedReportAll(reportTeacher);
+    printReport();
+  }
+
   function printAllTeachers(){
     openPrintWindow(
       isEnglish ? "Teachers summary" : "تقرير شامل",
@@ -722,17 +834,17 @@ export default function SalariesPage() {
   function openMenu(e:React.MouseEvent,teacher:any){e.stopPropagation();const rect=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPos({top:rect.bottom+4,left:rect.left-100});setActiveMenu(activeMenu===teacher.id?null:teacher.id);setSelectedTeacher(teacher);}
   const toggleArr=(arr:string[],val:string)=>arr.includes(val)?arr.filter(x=>x!==val):[...arr,val];
   function handleQuickAction(id:string){
-    if(id==="add_teacher"){openTeacherAdd();}
+    if(id==="add_teacher"){void openTeacherAdd();}
     else if(id==="classes")setShowClassesMgr(true);
     else if(id==="subjects")setShowSubjectsMgr(true);
     else if(id==="titles")setShowJobTitlesMgr(true);
-    else if(id==="prices"){const ed:{[k:string]:number}={};gradeOptions.forEach(g=>{ed[g]=lecturePrices.find(p=>p.grade===g)?.price_per_lecture||0;});setPriceEdits(ed);setShowPrices(true);}
-    else if(id==="schedule")setShowScheduleMdl(true);
+    else if(id==="prices"){setShowPrices(true);}
+    else if(id==="schedule")setActiveSection("schedule_tab");
     else if(id==="schedule_lessons")setShowLessonTimes(true);
     else if(id==="daily_log")setShowDailyLog(true);
-    else if(id==="detailed_report"){setActiveSection("reports");fetchDetailedReportAll();}
-    else if(id==="deductions")setShowDeductionsMdl(true);
-    else if(id==="export"){fetchDetailedReportAll();setShowExport(true);}
+    else if(id==="detailed_report"){setActiveSection("reports");setReportView("summary");void fetchReportSummary();}
+    else if(id==="deductions")setActiveSection("deductions");
+    else if(id==="export"){setShowExport(true);}
     else if(id==="print")setShowPrint(true);
   }
 
@@ -748,14 +860,6 @@ export default function SalariesPage() {
   const visibleQuick = QUICK_ACCESS.slice(0,7);
 
   // Report data
-  const teacherLectureStats=teachers.map(t=>{
-    const lects=dailyLectures.filter((l:any)=>l.teacher_id===t.id);
-    const total=lects.reduce((a:number,l:any)=>a+l.price,0);
-    const byGrade:{[k:string]:number}={};
-    lects.forEach((l:any)=>{byGrade[l.grade]=(byGrade[l.grade]||0)+1;});
-    return{...t,lectureCount:lects.length,lectureTotal:total,byGrade};
-  }).filter(t=>t.lectureCount>0);
-
   // Calendar helpers
   const daysInMonth=(y:number,m:number)=>new Date(y,m+1,0).getDate();
   const firstDayOfMonth=(y:number,m:number)=>new Date(y,m,1).getDay();
@@ -979,7 +1083,7 @@ export default function SalariesPage() {
       <div className="sal-sidebar">
         <div style={{fontSize:".72rem",fontWeight:800,color:"var(--p2)",padding:".4rem .7rem .6rem",borderBottom:"1px solid rgba(79,140,255,0.08)",marginBottom:".4rem"}}>الرواتب</div>
         {SIDEBAR_ITEMS.map(item=>(
-          <button key={item.id} className={`sal-nav${activeSection===item.id?" active":""}`} onClick={()=>{setActiveSection(item.id);if(item.id==="reports")fetchDetailedReportAll();if(item.id==="deductions")fetchDeductionsList();if(item.id==="calendar")fetchCalendarLectures();}}>
+          <button key={item.id} className={`sal-nav${activeSection===item.id?" active":""}`} onClick={()=>{setActiveSection(item.id);if(item.id==="reports")setReportView("summary");if(item.id==="deductions")void fetchDeductionsList();if(item.id==="calendar")void fetchCalendarLectures();}}>
             <AppIcon token={item.icon} size={15} /><span>{item.label}</span>
           </button>
         ))}
@@ -1071,7 +1175,7 @@ export default function SalariesPage() {
           {activeSection==="teachers"&&<>
             <div className="toolbar">
               <div className="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="بحث..."/></div>
-              <button type="button" className="btn-add" onClick={openTeacherAdd} style={{textDecoration:"none",border:"none",cursor:"pointer"}}>+ إضافة أستاذ</button>
+              <button type="button" className="btn-add" onClick={()=>void openTeacherAdd()} style={{textDecoration:"none",border:"none",cursor:"pointer"}}>+ إضافة أستاذ</button>
             </div>
             <div className="tbl-wrap">
               {loading?<div className="spin"/>:(
@@ -1094,7 +1198,7 @@ export default function SalariesPage() {
                           {t.classes_taught?.length>3&&<span className="grade-badge">+{t.classes_taught.length-3}</span>}
                         </td>
                         <td>
-                          <button type="button" className="btn-edit-s" onClick={()=>openTeacherEdit(t)} style={{display:"inline-flex",textDecoration:"none",border:"none",background:"transparent",cursor:"pointer"}}><AppIcon token="✏️" size={13} /></button>
+                          <button type="button" className="btn-edit-s" onClick={()=>void openTeacherEdit(t)} style={{display:"inline-flex",textDecoration:"none",border:"none",background:"transparent",cursor:"pointer"}}><AppIcon token="✏️" size={13} /></button>
                         </td>
                       </tr>
                     ))}
@@ -1199,17 +1303,17 @@ export default function SalariesPage() {
                 <button className="report-tab" style={{background:reportView==="summary"?"linear-gradient(135deg,var(--p3),var(--p2))":"#EEF6FF",color:reportView==="summary"?"white":"var(--p3)"}} onClick={()=>setReportView("summary")}>ملخص</button>
                 <button className="report-tab" style={{background:reportView==="details"?"linear-gradient(135deg,var(--p3),var(--p2))":"#EEF6FF",color:reportView==="details"?"white":"var(--p3)"}} onClick={()=>setReportView("details")}>تفاصيل السجلات</button>
               </div>
-              <button className="btn-add" onClick={printReport}><AppIcon token="🖨️" size={14} /> طباعة التقرير</button>
+              <button className="btn-add" onClick={()=>void handlePrintReport()}><AppIcon token="🖨️" size={14} /> طباعة التقرير</button>
             </div>
 
             {reportView==="summary"&&(
               <>
-                {teacherLectureStats.length===0?<div className="empty">لا توجد محاضرات مسجلة</div>:teacherLectureStats.map(t=>(
-                  <div className="report-card" key={t.id}>
+                {reportLoading?<div className="spin"/>:reportSummary.length===0?<div className="empty">لا توجد محاضرات مسجلة</div>:reportSummary.map(t=>(
+                  <div className="report-card" key={t.teacher_id}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div>
                         <div className="report-name">{t.full_name}</div>
-                        <div className="report-sub">{t.subject||"—"} • {t.job_title||""}</div>
+                        <div className="report-sub">{t.subject||"—"} • {teachers.find((teacher)=>teacher.id===t.teacher_id)?.job_title||""}</div>
                         <div style={{marginTop:".4rem"}}>
                           {Object.entries(t.byGrade).map(([grade,count]:any)=>(
                             <span key={grade} className="grade-badge">{grade}: {count}</span>
@@ -1223,10 +1327,10 @@ export default function SalariesPage() {
                     </div>
                   </div>
                 ))}
-                {teacherLectureStats.length>0&&(
+                {reportSummary.length>0&&(
                   <div style={{background:"linear-gradient(135deg,var(--p3),var(--p2))",borderRadius:13,padding:"1rem 1.4rem",color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:".5rem"}}>
-                    <span style={{fontWeight:700}}>إجمالي جميع المحاضرات: {dailyLectures.length}</span>
-                    <span style={{fontSize:"1.1rem",fontWeight:900}}>د.ع {formatNumber(dailyLectures.reduce((a:number,l:any)=>a+l.price,0))}</span>
+                    <span style={{fontWeight:700}}>إجمالي جميع المحاضرات: {reportTotals.lectureCount}</span>
+                    <span style={{fontSize:"1.1rem",fontWeight:900}}>د.ع {formatNumber(reportTotals.total)}</span>
                   </div>
                 )}
               </>
@@ -1241,7 +1345,7 @@ export default function SalariesPage() {
                   </select>
                 </div>
                 <div className="tbl-wrap">
-                  {(() => {
+                  {reportLoading ? <div className="spin" /> : (() => {
                     const filtered = reportTeacher ? dailyLectures.filter((l:any)=>l.teacher_id===reportTeacher) : dailyLectures;
                     return filtered.length===0?<div className="empty">لا توجد سجلات</div>:(
                       <table>
@@ -1304,7 +1408,7 @@ export default function SalariesPage() {
             <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:13,padding:"1rem 1.2rem",marginBottom:"1rem"}}>
               <div style={{fontSize:".88rem",fontWeight:800,color:"#92400E",marginBottom:".4rem",display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="⚠️" size={14} /> إجراء نهاية الشهر</div>
               <div style={{fontSize:".8rem",color:"#92400E",marginBottom:".8rem"}}>عند الضغط على "أرشفة الشهر الحالي"، سيتم حفظ نسخة من جميع البيانات الحالية وتفريغ العدادات لبدء شهر جديد.</div>
-              <button onClick={archiveMonth} style={{padding:".7rem 1.5rem",background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"white",border:"none",borderRadius:10,fontFamily:"Cairo,sans-serif",fontSize:".88rem",fontWeight:800,cursor:"pointer"}}>
+              <button onClick={()=>setShowArchiveConfirm(true)} style={{padding:".7rem 1.5rem",background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"white",border:"none",borderRadius:10,fontFamily:"Cairo,sans-serif",fontSize:".88rem",fontWeight:800,cursor:"pointer"}}>
                 <span style={{display:"inline-flex",alignItems:"center",gap:".35rem"}}><AppIcon token="🗄️" size={14} /> أرشفة الشهر الحالي وتصفير العدادات</span>
               </button>
             </div>
@@ -1357,7 +1461,7 @@ export default function SalariesPage() {
       <div className="dropdown-menu" style={{top:menuPos.top,left:menuPos.left}} onClick={e=>e.stopPropagation()}>
         <div className="d-item" onClick={()=>{setDetailTeacher(selectedTeacher);setShowDetail(true);setActiveMenu(null)}}><AppIcon token="📋" size={14} />التفاصيل</div>
         <div className="d-item" onClick={()=>{setSalaryForm({gross_salary:selectedTeacher.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);setActiveMenu(null);}}><AppIcon token="💰" size={14} />دفع الراتب</div>
-        <div className="d-item" onClick={()=>{openTeacherEdit(selectedTeacher);setActiveMenu(null);}}><AppIcon token="✏️" size={14} />تعديل البيانات</div>
+        <div className="d-item" onClick={()=>{void openTeacherEdit(selectedTeacher);setActiveMenu(null);}}><AppIcon token="✏️" size={14} />تعديل البيانات</div>
       </div>
     )}
 
@@ -1583,7 +1687,7 @@ export default function SalariesPage() {
             <div className="print-card-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="👤" size={14} /> تقرير أستاذ مفصل</div>
             <div className="print-card-desc">اختر الأستاذ لطباعة تقرير كامل بجميع محاضراته.</div>
             <select className="fis" value={printTeacher} onChange={e=>setPrintTeacher(e.target.value)} style={{marginBottom:".7rem"}}><option value="">اختر الأستاذ...</option>{teachers.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select>
-            <button style={{padding:".6rem 1rem",background:"linear-gradient(135deg,#06B6D4,#0891B2)",color:"white",border:"none",borderRadius:9,fontFamily:"Cairo,sans-serif",fontSize:".82rem",fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:".35rem"}} onClick={()=>{if(printTeacher){setReportTeacher(printTeacher);fetchDetailedReportAll();setTimeout(printReport,500);}}}><AppIcon token="🖨️" size={13} className="text-white" /> طباعة</button>
+            <button style={{padding:".6rem 1rem",background:"linear-gradient(135deg,#06B6D4,#0891B2)",color:"white",border:"none",borderRadius:9,fontFamily:"Cairo,sans-serif",fontSize:".82rem",fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:".35rem"}} onClick={async()=>{if(printTeacher){setReportTeacher(printTeacher);await fetchDetailedReportAll(printTeacher);printReport();}}}><AppIcon token="🖨️" size={13} className="text-white" /> طباعة</button>
           </div>
           <div className="print-card">
             <div className="print-card-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="👥" size={14} /> تقرير شامل</div>
@@ -1615,6 +1719,17 @@ export default function SalariesPage() {
         </div>
       </div>
     )}
+
+    <ConfirmDialog
+      open={showArchiveConfirm}
+      title="أرشفة شهر الرواتب"
+      description={`سيتم حفظ أرشيف شهر ${currentMonth} وتصفير عدادات المحاضرات الخاصة به. استخدم هذا الإجراء فقط عند إغلاق الشهر.`}
+      confirmLabel="نعم، أرشف الشهر"
+      cancelLabel="إلغاء"
+      tone="danger"
+      onClose={() => setShowArchiveConfirm(false)}
+      onConfirm={() => void archiveMonth()}
+    />
   </>
   </ProtectedRoute>
   );

@@ -6,6 +6,7 @@ import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -27,6 +28,34 @@ function buildReceiptNumber() {
   return `REC-${stamp}-${randomPart}`;
 }
 
+const SEARCH_DEBOUNCE_MS = 300;
+const PAGE_SIZE = 25;
+const EMPTY_SUMMARY = {
+  totalStudents: 0,
+  totalFee: 0,
+  totalPaid: 0,
+  totalRemaining: 0,
+  collectedCount: 0,
+};
+
+type PaymentsMetaState = {
+  summary: typeof EMPTY_SUMMARY;
+  classOptions: string[];
+  paymentYears: number[];
+  totalPaymentCount: number;
+  archives: any[];
+  archiveNotice: string;
+};
+
+type PaymentsPageState = {
+  students: any[];
+  paymentCountsByStudent: Record<string, number>;
+  totalCount: number;
+};
+
+const paymentsMetaCache = new Map<string, PaymentsMetaState>();
+const paymentsPageCache = new Map<string, PaymentsPageState>();
+
 export default function PaymentsPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
@@ -37,17 +66,23 @@ export default function PaymentsPage() {
   const canAddPayments = can("add_payments");
   const canDeletePayments = can("delete_payments");
   const [students, setStudents] = useState<any[]>([]);
+  const [classes, setClasses] = useState<string[]>([]);
   const [paymentCountsByStudent, setPaymentCountsByStudent] = useState<Record<string, number>>({});
   const [paymentYears, setPaymentYears] = useState<number[]>([]);
   const [totalPaymentCount, setTotalPaymentCount] = useState(0);
   const [paymentsByStudent, setPaymentsByStudent] = useState<Record<string, any[]>>({});
   const [paymentsLoadingStudentId, setPaymentsLoadingStudentId] = useState<string | null>(null);
   const [archives, setArchives] = useState<any[]>([]);
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [metaLoading, setMetaLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [resolvedSchoolId, setResolvedSchoolId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [archiveYear, setArchiveYear] = useState(new Date().getFullYear().toString());
   const [archiving, setArchiving] = useState(false);
   const [archiveNotice, setArchiveNotice] = useState("");
@@ -58,8 +93,6 @@ export default function PaymentsPage() {
   // فلاتر
   const [quickFilter, setQuickFilter] = useState("all");
   const [filterClass, setFilterClass] = useState("");
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
   const [filterSort, setFilterSort] = useState("name");
   const [filterDir, setFilterDir] = useState("asc");
 
@@ -69,6 +102,7 @@ export default function PaymentsPage() {
 
   // دفعة
   const [showPayModal, setShowPayModal] = useState(false);
+  const [pendingDeletePaymentId, setPendingDeletePaymentId] = useState<string | null>(null);
   const [payStudent, setPayStudent] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [payForm, setPayForm] = useState({
@@ -79,7 +113,10 @@ export default function PaymentsPage() {
     manual_receipt_number: "",
   });
   const [studentSearch, setStudentSearch] = useState("");
+  const [studentSearchResults, setStudentSearchResults] = useState<any[]>([]);
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,57 +127,254 @@ export default function PaymentsPage() {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const fetchAll = useCallback(async () => {
-    if (!profile) return;
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+
+    let cancelled = false;
+    setMetaLoading(true);
     setLoading(true);
     setError("");
 
-    try {
-      const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-      setResolvedSchoolId(scopedSchoolId);
+    void (async () => {
+      try {
+        const scopedSchoolId = await resolveSchoolIdForProfile(profile, {
+          selectedSchoolId: schoolScope.selectedSchoolId,
+        });
 
-      if (!scopedSchoolId) {
+        if (cancelled) return;
+
+        setResolvedSchoolId(scopedSchoolId);
+        setPage(1);
+        setPaymentsByStudent({});
+
+        if (!scopedSchoolId) {
+          setStudents([]);
+          setClasses([]);
+          setSummary(EMPTY_SUMMARY);
+          setPaymentCountsByStudent({});
+          setPaymentYears([]);
+          setTotalPaymentCount(0);
+          setArchives([]);
+          setArchiveNotice("");
+          setTotalCount(0);
+          setMetaLoading(false);
+          setLoading(false);
+        }
+      } catch (scopeError) {
+        if (cancelled) return;
+        setResolvedSchoolId(null);
         setStudents([]);
+        setClasses([]);
+        setSummary(EMPTY_SUMMARY);
         setPaymentCountsByStudent({});
         setPaymentYears([]);
         setTotalPaymentCount(0);
-        setPaymentsByStudent({});
         setArchives([]);
-        return;
+        setArchiveNotice("");
+        setTotalCount(0);
+        setMetaLoading(false);
+        setLoading(false);
+        setError(scopeError instanceof Error ? scopeError.message : "تعذر تحديد المدرسة الحالية.");
       }
+    })();
 
+    return () => {
+      cancelled = true;
+    };
+  }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
+
+  const fetchMeta = useCallback(async () => {
+    if (!resolvedSchoolId) return;
+
+    const cached = paymentsMetaCache.get(resolvedSchoolId);
+    if (cached) {
+      setSummary(cached.summary);
+      setClasses(cached.classOptions);
+      setPaymentYears(cached.paymentYears);
+      setTotalPaymentCount(cached.totalPaymentCount);
+      setArchives(cached.archives);
+      setArchiveNotice(cached.archiveNotice);
+      setMetaLoading(false);
+    } else {
+      setMetaLoading(true);
+    }
+
+    try {
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        students?: any[];
-        paymentCountsByStudent?: Record<string, number>;
+        summary?: typeof EMPTY_SUMMARY;
+        classOptions?: string[];
         paymentYears?: number[];
         totalPaymentCount?: number;
         archives?: any[];
         archiveNotice?: string;
         error?: { message?: string };
-      }>(`/api/web/payments/overview?schoolId=${encodeURIComponent(scopedSchoolId)}`);
+      }>(`/api/web/payments/meta?schoolId=${encodeURIComponent(resolvedSchoolId)}`);
 
       if (!response.ok) {
-        throw new Error(payload?.error?.message || "تعذر تحميل بيانات المدفوعات.");
+        throw new Error(payload?.error?.message || "تعذر تحميل ملخص المدفوعات.");
       }
 
-      setStudents(payload?.students ?? []);
-      setPaymentCountsByStudent(payload?.paymentCountsByStudent ?? {});
-      setPaymentYears(payload?.paymentYears ?? []);
-      setTotalPaymentCount(typeof payload?.totalPaymentCount === "number" ? payload.totalPaymentCount : 0);
-      setPaymentsByStudent({});
-      setArchives(payload?.archives ?? []);
-      setArchiveNotice(payload?.archiveNotice ?? "");
+      const nextMeta = {
+        summary: payload?.summary ?? EMPTY_SUMMARY,
+        classOptions: payload?.classOptions ?? [],
+        paymentYears: payload?.paymentYears ?? [],
+        totalPaymentCount: typeof payload?.totalPaymentCount === "number" ? payload.totalPaymentCount : 0,
+        archives: payload?.archives ?? [],
+        archiveNotice: payload?.archiveNotice ?? "",
+      } satisfies PaymentsMetaState;
+
+      paymentsMetaCache.set(resolvedSchoolId, nextMeta);
+      setSummary(nextMeta.summary);
+      setClasses(nextMeta.classOptions);
+      setPaymentYears(nextMeta.paymentYears);
+      setTotalPaymentCount(nextMeta.totalPaymentCount);
+      setArchives(nextMeta.archives);
+      setArchiveNotice(nextMeta.archiveNotice);
     } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات المدفوعات.");
+      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل ملخص المدفوعات.");
+    } finally {
+      setMetaLoading(false);
+    }
+  }, [resolvedSchoolId]);
+
+  const buildStudentsQueryParams = useCallback(() => {
+    const params = new URLSearchParams({
+      schoolId: resolvedSchoolId ?? "",
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+      quickFilter,
+      sort: filterSort,
+      dir: filterDir,
+    });
+
+    if (search) {
+      params.set("search", search);
+    }
+
+    if (filterClass) {
+      params.set("className", filterClass);
+    }
+
+    return params;
+  }, [filterClass, filterDir, filterSort, page, quickFilter, resolvedSchoolId, search]);
+
+  const fetchStudentsPage = useCallback(async () => {
+    if (!resolvedSchoolId) return;
+
+    const params = buildStudentsQueryParams();
+    const cacheKey = params.toString();
+    const cached = paymentsPageCache.get(cacheKey);
+
+    if (cached) {
+      setStudents(cached.students);
+      setPaymentCountsByStudent(cached.paymentCountsByStudent);
+      setTotalCount(cached.totalCount);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        students?: any[];
+        paymentCountsByStudent?: Record<string, number>;
+        totalCount?: number;
+        error?: { message?: string };
+      }>(`/api/web/payments/students?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل قائمة المدفوعات.");
+      }
+
+      const nextPage = {
+        students: payload?.students ?? [],
+        paymentCountsByStudent: payload?.paymentCountsByStudent ?? {},
+        totalCount: typeof payload?.totalCount === "number" ? payload.totalCount : 0,
+      } satisfies PaymentsPageState;
+
+      paymentsPageCache.set(cacheKey, nextPage);
+      setStudents(nextPage.students);
+      setPaymentCountsByStudent(nextPage.paymentCountsByStudent);
+      setTotalCount(nextPage.totalCount);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل قائمة المدفوعات.");
+      if (!cached) {
+        setStudents([]);
+        setPaymentCountsByStudent({});
+        setTotalCount(0);
+      }
     } finally {
       setLoading(false);
     }
-  }, [profile, schoolScope.selectedSchoolId]);
+  }, [buildStudentsQueryParams, resolvedSchoolId]);
 
   useEffect(() => {
-    if (!profile || schoolScope.scopeLoading) return;
-    void fetchAll();
-  }, [profile, schoolScope.scopeLoading, fetchAll]);
+    if (!resolvedSchoolId) return;
+    void fetchMeta();
+  }, [fetchMeta, resolvedSchoolId]);
+
+  useEffect(() => {
+    if (!resolvedSchoolId) return;
+    void fetchStudentsPage();
+  }, [fetchStudentsPage, resolvedSchoolId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [resolvedSchoolId, search, quickFilter, filterClass, filterSort, filterDir]);
+
+  useEffect(() => {
+    if (!showPayModal || !resolvedSchoolId || payStudent || !studentSearch.trim()) {
+      setStudentSearchResults([]);
+      setStudentSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setStudentSearchLoading(true);
+      void (async () => {
+        try {
+          const params = new URLSearchParams({
+            schoolId: resolvedSchoolId,
+            q: studentSearch.trim(),
+            limit: "8",
+          });
+          const { response, payload } = await fetchJsonWithAuthorizedSession<{
+            students?: any[];
+            error?: { message?: string };
+          }>(`/api/web/payments/student-search?${params.toString()}`);
+
+          if (cancelled) return;
+          if (!response.ok) {
+            throw new Error(payload?.error?.message || "تعذر تحميل نتائج البحث.");
+          }
+
+          setStudentSearchResults(payload?.students ?? []);
+        } catch (searchError) {
+          if (cancelled) return;
+          setStudentSearchResults([]);
+          setError(searchError instanceof Error ? searchError.message : "تعذر تحميل نتائج البحث.");
+        } finally {
+          if (!cancelled) {
+            setStudentSearchLoading(false);
+          }
+        }
+      })();
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [payStudent, resolvedSchoolId, showPayModal, studentSearch]);
 
   function applyStudentFinancialUpdate(studentId: string, update: { paid_fee: number; remaining_fee: number }) {
     setStudents((current) =>
@@ -298,6 +532,8 @@ export default function PaymentsPage() {
       });
       setPayStudent(null);
       setStudentSearch("");
+      setStudentSearchResults([]);
+      void fetchMeta();
       setTimeout(() => setSuccess(""), 3000);
     } catch (payError) {
       setError(payError instanceof Error ? payError.message : "تعذر تسجيل الدفعة.");
@@ -311,7 +547,6 @@ export default function PaymentsPage() {
       setError("ليس لديك صلاحية حذف الدفعات.");
       return;
     }
-    if (!confirm("هل تريد حذف هذه الدفعة؟")) return;
     if (!resolvedSchoolId || !selectedStudent?.id) {
       setError("تعذر تحديد سياق المدرسة أو الطالب لهذه العملية.");
       return;
@@ -350,6 +585,8 @@ export default function PaymentsPage() {
       if (payload?.warning) {
         setError(`تم حذف الدفعة لكن تعذر مزامنة رصيد الطالب بالكامل: ${payload.warning}`);
       }
+
+      void fetchMeta();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "تعذر حذف الدفعة.");
     }
@@ -403,6 +640,7 @@ export default function PaymentsPage() {
         });
       }
       setSuccess(payload?.created ? "تم إنشاء الأرشيف السنوي للحسابات ✓" : "تم تحديث الأرشيف السنوي للحسابات ✓");
+      void fetchMeta();
       setTimeout(() => setSuccess(""), 3000);
     } catch (archiveError) {
       setError(archiveError instanceof Error ? archiveError.message : "تعذر حفظ الأرشيف السنوي.");
@@ -481,7 +719,7 @@ export default function PaymentsPage() {
         XLSX.utils.book_append_sheet(wb, paymentsSheet, "الدفعات");
       }
 
-      XLSX.writeFile(wb, `أرشيف_حسابات_${archive.archive_year}_${formatDate(new Date())}.xlsx`);
+      await XLSX.writeFile(wb, `أرشيف_حسابات_${archive.archive_year}_${formatDate(new Date())}.xlsx`);
     } finally {
       setArchiveExportingId(null);
     }
@@ -524,59 +762,59 @@ export default function PaymentsPage() {
     w.document.close();
   }
 
-  const classes = Array.from(new Set(students.map((s) => s.class_name))).filter(Boolean) as string[];
-
-  // فلترة الطلاب
-  const studentPaymentsCount = (id: string) => paymentCountsByStudent[id] ?? 0;
-
-  let filteredStudents = students.filter((s) => {
-    if (quickFilter === "transferred") return s.status === "transferred";
-    if (quickFilter === "deleted") return s.status === "deleted";
-    if (quickFilter === "suspended") return s.status === "suspended";
-    if (quickFilter === "graduated") return s.status === "graduated";
-    if (quickFilter === "discounted") return (s.discount_value || 0) > 0;
-    if (quickFilter === "collected") return s.remaining_fee <= 0 && s.total_fee > 0;
-    if (quickFilter === "no_invoice") return studentPaymentsCount(s.id) === 0;
-    return s.status !== "deleted";
-  });
-
-  filteredStudents = filteredStudents.filter(
-    (s) => (s.full_name?.includes(search) || s.class_name?.includes(search)) && (filterClass ? s.class_name === filterClass : true),
-  );
-
-  // ترتيب
-  filteredStudents = [...filteredStudents].sort((a, b) => {
-    const va =
-      a[filterSort === "name" ? "full_name" : filterSort === "remaining" ? "remaining_fee" : filterSort === "total" ? "total_fee" : "full_name"];
-    const vb =
-      b[filterSort === "name" ? "full_name" : filterSort === "remaining" ? "remaining_fee" : filterSort === "total" ? "total_fee" : "full_name"];
-    if (typeof va === "string") return filterDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-    return filterDir === "asc" ? va - vb : vb - va;
-  });
-
   async function exportExcel() {
-    const XLSX = await loadXLSX();
-    const rows = filteredStudents.map((s) => ({
-      "اسم الطالب": s.full_name,
-      "الصف": s.class_name,
-      "الهاتف": s.phone || "",
-      "المبلغ الكلي": s.total_fee,
-      "المدفوع": s.paid_fee,
-      "الخصم": s.discount_value || 0,
-      "المتبقي": s.remaining_fee,
-      "الحالة": s.status,
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "فواتير الطلاب");
-    XLSX.writeFile(wb, `فواتير_${formatDate(new Date())}.xlsx`);
+    if (!resolvedSchoolId) return;
+
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({
+        schoolId: resolvedSchoolId,
+        quickFilter,
+        sort: filterSort,
+        dir: filterDir,
+      });
+
+      if (search) {
+        params.set("search", search);
+      }
+      if (filterClass) {
+        params.set("className", filterClass);
+      }
+
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        students?: any[];
+        error?: { message?: string };
+      }>(`/api/web/payments/export?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل بيانات التصدير.");
+      }
+
+      const XLSX = await loadXLSX();
+      const rows = (payload?.students ?? []).map((student) => ({
+        "اسم الطالب": student.full_name,
+        "الصف": student.class_name,
+        "الهاتف": student.phone || "",
+        "المبلغ الكلي": student.total_fee,
+        "المدفوع": student.paid_fee,
+        "الخصم": student.discount_value || 0,
+        "المتبقي": student.remaining_fee,
+        "الحالة": student.status,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "فواتير الطلاب");
+      await XLSX.writeFile(wb, `فواتير_${formatDate(new Date())}.xlsx`);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "تعذر تصدير البيانات.");
+    } finally {
+      setExporting(false);
+    }
   }
 
-  const studentPaymentsList = (id: string) =>
-    paymentsByStudent[id] ?? [];
-
-  const searchResults = students.filter((s) => s.full_name.includes(studentSearch) || s.class_name.includes(studentSearch)).slice(0, 8);
-
+  const studentPaymentsList = (id: string) => paymentsByStudent[id] ?? [];
+  const searchResults = studentSearchResults;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const nextReceiptNum = `REC-${(totalPaymentCount + 1001).toString()}`;
   const archiveYearOptions = Array.from(new Set([...paymentYears, ...archives.map((archive) => archive.archive_year), new Date().getFullYear()]))
     .sort((a, b) => b - a);
@@ -678,6 +916,10 @@ export default function PaymentsPage() {
           .ok{background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
           .err{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
           .results-count{font-size:.78rem;color:var(--gray);font-weight:500}
+          .pagination{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.85rem 1rem;border-top:1px solid rgba(108,74,182,0.08);background:#FCFBFF}
+          .btn-nav{padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:10px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer}
+          .btn-nav:disabled{opacity:.55;cursor:not-allowed}
+          .dropdown-status{padding:1rem;text-align:center;color:var(--gray);font-size:.8rem}
 
           /* DETAIL */
           .detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;display:flex;align-items:flex-start;justify-content:flex-start;backdrop-filter:blur(4px)}
@@ -777,7 +1019,7 @@ export default function PaymentsPage() {
           @media (max-width:1100px){.archive-kpis,.archive-stats{grid-template-columns:repeat(2,1fr)}}
           @media (max-width:780px){
             .stats,.adv-grid,.adv-grid2,.detail-cards,.pay-fields{grid-template-columns:1fr}
-            .ops-header,.ops-actions,.toolbar,.fa,.fg,.detail-header,.pay-row-top,.archive-controls,.archive-top,.archive-detail-head,.archive-section-top{flex-direction:column;align-items:stretch}
+            .ops-header,.ops-actions,.toolbar,.fa,.fg,.detail-header,.pay-row-top,.archive-controls,.archive-top,.archive-detail-head,.archive-section-top,.pagination{flex-direction:column;align-items:stretch}
             .srch,.btn-add,.btn-export,.bc,.bs{width:100%}
             .tbl-wrap,.archive-table-wrap{overflow:auto}
             th,td{white-space:nowrap}
@@ -795,7 +1037,7 @@ export default function PaymentsPage() {
           <div className="main">
             <AppShellTopbar
               title="فواتير الطلاب"
-              subtitle={`${students.filter((s) => s.status !== "deleted").length} طالباً مسجلاً`}
+              subtitle={metaLoading ? "جارٍ تحميل الملخص..." : `${formatNumber(summary.totalStudents)} طالباً مسجلاً`}
               scope={schoolScope}
             />
             <div className="content app-shell-content">
@@ -813,12 +1055,12 @@ export default function PaymentsPage() {
                   <div className="stats">
                     {(
                       [
-                        ["إجمالي الرسوم", `د.ع ${formatNumber(students.filter((s) => s.status !== "deleted").reduce((a, s) => a + s.total_fee, 0))}`],
-                        ["إجمالي المدفوع", `د.ع ${formatNumber(students.filter((s) => s.status !== "deleted").reduce((a, s) => a + s.paid_fee, 0))}`],
-                        ["إجمالي المتبقي", `د.ع ${formatNumber(students.filter((s) => s.status !== "deleted").reduce((a, s) => a + s.remaining_fee, 0))}`],
+                        ["إجمالي الرسوم", metaLoading ? "..." : `د.ع ${formatNumber(summary.totalFee)}`],
+                        ["إجمالي المدفوع", metaLoading ? "..." : `د.ع ${formatNumber(summary.totalPaid)}`],
+                        ["إجمالي المتبقي", metaLoading ? "..." : `د.ع ${formatNumber(summary.totalRemaining)}`],
                         [
                           "المسددة بالكامل",
-                          `${formatNumber(students.filter((s) => s.remaining_fee <= 0 && s.total_fee > 0).length)} / ${formatNumber(students.filter((s) => s.status !== "deleted").length)}`,
+                          metaLoading ? "..." : `${formatNumber(summary.collectedCount)} / ${formatNumber(summary.totalStudents)}`,
                         ],
                       ] as any[]
                     ).map(([l, v]: any, i: number) => (
@@ -836,8 +1078,8 @@ export default function PaymentsPage() {
                         <AppIcon token="⚙️" size={14} /> العمليات
                       </div>
                       <div className="ops-actions">
-                        <button className="btn-export" onClick={exportExcel}>
-                          <AppIcon token="⬇️" size={14} /> تصدير إكسل
+                        <button className="btn-export" onClick={exportExcel} disabled={exporting || !resolvedSchoolId}>
+                          <AppIcon token="⬇️" size={14} /> {exporting ? "جارٍ التصدير..." : "تصدير إكسل"}
                         </button>
                         {canAddPayments && (
                           <button
@@ -845,6 +1087,7 @@ export default function PaymentsPage() {
                             onClick={() => {
                               setPayStudent(null);
                               setStudentSearch("");
+                              setStudentSearchResults([]);
                               setShowPayModal(true);
                             }}
                           >
@@ -868,7 +1111,7 @@ export default function PaymentsPage() {
                   <div className="adv-title">
                     <AppIcon token="🔍" size={13} /> الفلاتر
                   </div>
-                  <div className="adv-grid">
+                  <div className="adv-grid2">
                     <div className="af-item">
                       <label className="af-label">الصف والشعبة</label>
                       <select className="af-input" value={filterClass} onChange={(e) => setFilterClass(e.target.value)}>
@@ -881,14 +1124,6 @@ export default function PaymentsPage() {
                       </select>
                     </div>
                     <div className="af-item">
-                      <label className="af-label">من تاريخ</label>
-                      <input className="af-input" type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
-                    </div>
-                    <div className="af-item">
-                      <label className="af-label">إلى تاريخ</label>
-                      <input className="af-input" type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
-                    </div>
-                    <div className="af-item">
                       <label className="af-label">ترتيب حسب</label>
                       <select className="af-input" value={filterSort} onChange={(e) => setFilterSort(e.target.value)}>
                         <option value="name">الاسم</option>
@@ -896,8 +1131,6 @@ export default function PaymentsPage() {
                         <option value="total">إجمالي الرسوم</option>
                       </select>
                     </div>
-                  </div>
-                  <div className="adv-grid2">
                     <div className="af-item">
                       <label className="af-label">اتجاه الترتيب</label>
                       <select className="af-input" value={filterDir} onChange={(e) => setFilterDir(e.target.value)}>
@@ -916,93 +1149,116 @@ export default function PaymentsPage() {
                     <circle cx="11" cy="11" r="8" />
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                   </svg>
-                  <input placeholder="بحث باسم الطالب أو الصف..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <input placeholder="بحث باسم الطالب أو الصف..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
                 </div>
-                <span className="results-count">{filteredStudents.length} نتيجة</span>
+                <span className="results-count">{loading ? "جارٍ التحميل..." : `${formatNumber(totalCount)} نتيجة`}</span>
               </div>
 
               {/* الجدول */}
               <div className="tbl-wrap">
                 {loading ? (
                   <div className="spin" />
-                ) : filteredStudents.length === 0 ? (
+                ) : students.length === 0 ? (
                   <div className="empty">لا توجد نتائج</div>
                 ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>اسم الطالب</th>
-                        <th>الصف والشعبة</th>
-                        <th>رقم الهاتف</th>
-                        <th>المبلغ الكلي</th>
-                        <th>المبلغ المدفوع</th>
-                        <th>الخصم</th>
-                        <th>المبلغ المتبقي</th>
-                        <th>العمليات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStudents.map((s, i) => {
-                        const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
-                        return (
-                          <tr key={s.id}>
-                            <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>{i + 1}</td>
-                            <td>
-                              <span
-                                className="student-link"
-                                onClick={() => {
-                                  void openStudentDetail(s);
-                                }}
-                              >
-                                {s.full_name}
-                              </span>
-                            </td>
-                            <td style={{ color: "var(--gray)" }}>{s.class_name}</td>
-                            <td style={{ color: "var(--gray)", fontSize: ".75rem" }}>{s.phone || "—"}</td>
-                            <td style={{ fontWeight: 700 }}>د.ع {formatNumber(s.total_fee)}</td>
-                            <td style={{ color: "#10B981", fontWeight: 700 }}>د.ع {formatNumber(s.paid_fee)}</td>
-                            <td style={{ color: "var(--gray)" }}>{s.discount_value > 0 ? `د.ع ${formatNumber(s.discount_value)}` : "—"}</td>
-                            <td>
-                              <div style={{ color: s.remaining_fee > 0 ? "#EF4444" : "#10B981", fontWeight: 700 }}>
-                                د.ع {formatNumber(s.remaining_fee)}
-                              </div>
-                              <div className="progress-bar">
-                                <div
-                                  className="progress-fill"
-                                  style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#6C4AB6" }}
-                                />
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{ display: "flex", gap: ".3rem", alignItems: "center" }}>
-                                <button
-                                  className="btn-pay"
-                                  title="إضافة دفعة"
-                                  onClick={() => {
-                                    setPayStudent(s);
-                                    setStudentSearch(s.full_name);
-                                    setShowPayModal(true);
-                                  }}
-                                >
-                                  <AppIcon token="$" size={14} className="text-white" />
-                                </button>
-                                <button
-                                  className="btn-print-sm"
-                                  title="تفاصيل"
+                  <>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>اسم الطالب</th>
+                          <th>الصف والشعبة</th>
+                          <th>رقم الهاتف</th>
+                          <th>المبلغ الكلي</th>
+                          <th>المبلغ المدفوع</th>
+                          <th>الخصم</th>
+                          <th>المبلغ المتبقي</th>
+                          <th>العمليات</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {students.map((s, i) => {
+                          const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
+                          return (
+                            <tr key={s.id}>
+                              <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>{(page - 1) * PAGE_SIZE + i + 1}</td>
+                              <td>
+                                <span
+                                  className="student-link"
                                   onClick={() => {
                                     void openStudentDetail(s);
                                   }}
                                 >
-                                  <AppIcon token="📋" size={13} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                  {s.full_name}
+                                </span>
+                                <div style={{ color: "var(--gray)", fontSize: ".7rem", marginTop: ".18rem" }}>
+                                  {formatNumber(paymentCountsByStudent[s.id] ?? 0)} دفعة مسجلة
+                                </div>
+                              </td>
+                              <td style={{ color: "var(--gray)" }}>{s.class_name}</td>
+                              <td style={{ color: "var(--gray)", fontSize: ".75rem" }}>{s.phone || "—"}</td>
+                              <td style={{ fontWeight: 700 }}>د.ع {formatNumber(s.total_fee)}</td>
+                              <td style={{ color: "#10B981", fontWeight: 700 }}>د.ع {formatNumber(s.paid_fee)}</td>
+                              <td style={{ color: "var(--gray)" }}>{s.discount_value > 0 ? `د.ع ${formatNumber(s.discount_value)}` : "—"}</td>
+                              <td>
+                                <div style={{ color: s.remaining_fee > 0 ? "#EF4444" : "#10B981", fontWeight: 700 }}>
+                                  د.ع {formatNumber(s.remaining_fee)}
+                                </div>
+                                <div className="progress-bar">
+                                  <div
+                                    className="progress-fill"
+                                    style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#6C4AB6" }}
+                                  />
+                                </div>
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", gap: ".3rem", alignItems: "center" }}>
+                                  <button
+                                    className="btn-pay"
+                                    title="إضافة دفعة"
+                                    onClick={() => {
+                                      setPayStudent(s);
+                                      setStudentSearch(s.full_name);
+                                      setStudentSearchResults([]);
+                                      setShowPayModal(true);
+                                    }}
+                                  >
+                                    <AppIcon token="$" size={14} className="text-white" />
+                                  </button>
+                                  <button
+                                    className="btn-print-sm"
+                                    title="تفاصيل"
+                                    onClick={() => {
+                                      void openStudentDetail(s);
+                                    }}
+                                  >
+                                    <AppIcon token="📋" size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {totalPages > 1 && (
+                      <div className="pagination">
+                        <button className="btn-nav" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                          السابق
+                        </button>
+                        <span className="results-count">
+                          صفحة {formatNumber(page)} من {formatNumber(totalPages)} | {formatNumber(totalCount)} طالب
+                        </span>
+                        <button
+                          className="btn-nav"
+                          disabled={page >= totalPages}
+                          onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                        >
+                          التالي
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1169,7 +1425,7 @@ export default function PaymentsPage() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".8rem" }}>
                   <span style={{ fontSize: ".88rem", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                    <AppIcon token="💳" size={14} /> معاملات الدفع ({studentPaymentsCount(selectedStudent.id)})
+                    <AppIcon token="💳" size={14} /> معاملات الدفع ({paymentCountsByStudent[selectedStudent.id] ?? studentPaymentsList(selectedStudent.id).length})
                   </span>
                   {canAddPayments && (
                     <button
@@ -1178,6 +1434,7 @@ export default function PaymentsPage() {
                       onClick={() => {
                         setPayStudent(selectedStudent);
                         setStudentSearch(selectedStudent.full_name);
+                        setStudentSearchResults([]);
                         setShowPayModal(true);
                       }}
                     >
@@ -1223,7 +1480,7 @@ export default function PaymentsPage() {
                             <AppIcon token="🖨️" size={13} />
                           </button>
                           {canDeletePayments && (
-                            <button className="btn-del-sm" onClick={() => deletePayment(p.id)}>
+                            <button className="btn-del-sm" onClick={() => setPendingDeletePaymentId(p.id)}>
                               حذف
                             </button>
                           )}
@@ -1449,8 +1706,10 @@ export default function PaymentsPage() {
                       )}
                       {showDropdown && !payStudent && studentSearch && (
                         <div className="dropdown">
-                          {searchResults.length === 0 ? (
-                            <div style={{ padding: "1rem", textAlign: "center", color: "var(--gray)", fontSize: ".8rem" }}>لا توجد نتائج</div>
+                          {studentSearchLoading ? (
+                            <div className="dropdown-status">جارٍ البحث...</div>
+                          ) : searchResults.length === 0 ? (
+                            <div className="dropdown-status">لا توجد نتائج</div>
                           ) : (
                             searchResults.map((s) => (
                               <div
@@ -1459,6 +1718,7 @@ export default function PaymentsPage() {
                                 onMouseDown={() => {
                                   setPayStudent(s);
                                   setStudentSearch(s.full_name);
+                                  setStudentSearchResults([]);
                                   setShowDropdown(false);
                                 }}
                               >
@@ -1564,6 +1824,22 @@ export default function PaymentsPage() {
             </div>
           </div>
         )}
+        <ConfirmDialog
+          open={Boolean(pendingDeletePaymentId)}
+          title="حذف الدفعة"
+          description={selectedStudent ? `سيتم حذف دفعة الطالب ${selectedStudent.full_name} وإعادة احتساب الرصيد المتبقي.` : "سيتم حذف الدفعة المحددة وإعادة احتساب الرصيد المتبقي."}
+          confirmLabel="نعم، احذف الدفعة"
+          cancelLabel="إلغاء"
+          tone="danger"
+          onClose={() => setPendingDeletePaymentId(null)}
+          onConfirm={async () => {
+            const targetId = pendingDeletePaymentId;
+            setPendingDeletePaymentId(null);
+            if (targetId) {
+              await deletePayment(targetId);
+            }
+          }}
+        />
       </>
     </ProtectedRoute>
   );

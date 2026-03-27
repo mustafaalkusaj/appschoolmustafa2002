@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useState } from "react";
+import { sanitizeImageUrl } from "@/lib/asset-url";
 
 function getInitial(value: string | null | undefined) {
   const normalized = (value || "").trim();
@@ -31,7 +32,7 @@ export function SchoolLogo({
   fallbackClassName?: string;
 }) {
   const [broken, setBroken] = useState(false);
-  const resolvedSrc = typeof src === "string" && src.trim().length > 0 ? src.trim() : null;
+  const resolvedSrc = sanitizeImageUrl(src);
   const fallbackLabel = useMemo(() => getInitial(label || alt), [alt, label]);
 
   useEffect(() => {

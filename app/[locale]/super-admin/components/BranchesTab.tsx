@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { isMissingRelationError } from "@/lib/admin-infrastructure";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 
@@ -23,6 +24,7 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<any>(null);
   const [message, setMessage] = useState("");
+  const [branchToDelete, setBranchToDelete] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -119,8 +121,6 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا الفرع؟")) return;
-
     if (!infrastructure.softDeleteBranches) {
       setMessage("أرشفة الفروع تحتاج تشغيل admin_infrastructure.sql لأن عمود deleted_at غير موجود في جدول branches.");
       return;
@@ -244,7 +244,7 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
                     <Pencil size={14} className="ml-1" />
                     تعديل
                   </button>
-                  <button onClick={() => handleDelete(branch.id)} className="ui-button ui-button--danger h-8 px-3 text-xs">
+                  <button onClick={() => setBranchToDelete(branch)} className="ui-button ui-button--danger h-8 px-3 text-xs">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -316,6 +316,22 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(branchToDelete)}
+        title="حذف الفرع"
+        description={branchToDelete ? `سيتم نقل الفرع "${branchToDelete.name}" إلى سلة المحذوفات.` : ""}
+        confirmLabel="نعم، احذف الفرع"
+        cancelLabel="إلغاء"
+        tone="danger"
+        onClose={() => setBranchToDelete(null)}
+        onConfirm={async () => {
+          const target = branchToDelete;
+          setBranchToDelete(null);
+          if (target?.id) {
+            await handleDelete(target.id);
+          }
+        }}
+      />
     </div>
   );
 }

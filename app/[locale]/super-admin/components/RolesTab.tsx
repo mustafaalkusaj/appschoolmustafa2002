@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { logAction } from "@/lib/audit";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   PERMISSION_GROUPS,
   ROLE_PERMISSIONS,
@@ -75,6 +76,7 @@ export function RolesTab({
   const [formData, setFormData] = useState(createInitialForm());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [roleToDelete, setRoleToDelete] = useState<CustomRoleRecord | null>(null);
 
   const schoolOptions = useMemo(
     () => schools.filter((school) => school.name.trim().length > 0),
@@ -217,8 +219,6 @@ export function RolesTab({
   }
 
   async function handleDelete(role: CustomRoleRecord) {
-    if (!confirm(`هل تريد حذف الدور "${role.name}"؟`)) return;
-
     try {
       const { error } = await supabase.from("custom_roles").delete().eq("id", role.id);
       if (error) throw error;
@@ -445,7 +445,7 @@ export function RolesTab({
                       <button
                         type="button"
                         className="ui-button ui-button--danger inline-flex items-center gap-2"
-                        onClick={() => void handleDelete(role)}
+                        onClick={() => setRoleToDelete(role)}
                       >
                         <Trash2 size={14} />
                         حذف
@@ -594,6 +594,22 @@ export function RolesTab({
           </div>
         </div>
       ) : null}
+      <ConfirmDialog
+        open={Boolean(roleToDelete)}
+        title="حذف الدور المخصص"
+        description={roleToDelete ? `سيتم حذف الدور "${roleToDelete.name}" نهائياً من قائمة الأدوار المخصصة.` : ""}
+        confirmLabel="نعم، احذف الدور"
+        cancelLabel="إلغاء"
+        tone="danger"
+        onClose={() => setRoleToDelete(null)}
+        onConfirm={async () => {
+          const target = roleToDelete;
+          setRoleToDelete(null);
+          if (target) {
+            await handleDelete(target);
+          }
+        }}
+      />
     </div>
   );
 }
