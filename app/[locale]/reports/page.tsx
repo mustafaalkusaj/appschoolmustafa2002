@@ -5,16 +5,15 @@ import { usePathname } from "next/navigation";
 import { formatDate, formatNumber } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
-import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
-import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
-import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
+import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 
 type StudentRow = {
@@ -664,15 +663,9 @@ export default function ReportsPage() {
         `}</style>
 
         <div className="layout">
-          <AppSidebar currentPath="/reports" />
+          <AppSidebar currentPath="/reports" showFloatingToggle />
 
           <div className="main">
-            <AppShellTopbar
-              title="التقارير الشاملة"
-              subtitle="تقارير الطلاب والحسابات والمصروفات والرواتب"
-              scope={schoolScope}
-            />
-
             <div className="content app-shell-content">
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />
               {schoolScope.shouldBlockContent ? (

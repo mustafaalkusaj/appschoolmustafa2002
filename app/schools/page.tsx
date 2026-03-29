@@ -5,9 +5,23 @@ import { supabase } from "@/lib/supabase";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
+type SchoolRecord = {
+  id: string;
+  name: string;
+  city: string | null;
+  is_active: boolean;
+};
+
+type SubscriptionRecord = {
+  id: string;
+  school_id: string;
+  status: string | null;
+  end_date: string | null;
+};
+
 export default function SchoolsPage() {
-  const [schools, setSchools] = useState<any[]>([]);
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [schools, setSchools] = useState<SchoolRecord[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -16,7 +30,7 @@ export default function SchoolsPage() {
   }, []);
 
   const latestSubscriptionsBySchool = useMemo(() => {
-    const map = new Map<string, any>();
+    const map = new Map<string, SubscriptionRecord>();
     for (const subscription of subscriptions) {
       if (!map.has(subscription.school_id)) {
         map.set(subscription.school_id, subscription);
@@ -31,12 +45,12 @@ export default function SchoolsPage() {
       supabase.from("schools").select("*").order("created_at", { ascending: false }),
       supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
     ]);
-    setSchools(schoolsData || []);
-    setSubscriptions(subscriptionsData || []);
+    setSchools((schoolsData as SchoolRecord[] | null) || []);
+    setSubscriptions((subscriptionsData as SubscriptionRecord[] | null) || []);
     setLoading(false);
   }
 
-  function getSubscriptionForSchool(schoolId: string) {
+  function getSubscriptionForSchool(schoolId: string): SubscriptionRecord | null {
     return latestSubscriptionsBySchool.get(schoolId) || null;
   }
 

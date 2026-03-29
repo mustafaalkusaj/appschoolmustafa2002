@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, EyeOff, KeyRound, Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Mail, ShieldCheck, Sparkles } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { supabase } from "@/lib/supabase";
@@ -13,8 +13,8 @@ import {
   signOutClient,
 } from "@/lib/auth";
 import { ThemeModeToggle } from "@/components/ThemeModeToggle";
-import { UltrathinkLogo } from "@/components/UltrathinkLogo";
-import { SCHOOL_BRAND } from "@/lib/branding";
+import { UltrathinkLogo } from "@/components/brand";
+import { SCHOOL_BRAND } from "@/lib/brand";
 import { getLocaleFromPath, localizeAppPath, sanitizeNextPath } from "@/lib/locale-routing";
 
 export default function LoginPage() {

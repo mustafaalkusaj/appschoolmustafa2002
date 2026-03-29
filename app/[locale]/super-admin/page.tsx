@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@/lib/icons";
 import {
   AlertTriangle,
   Bell,
@@ -34,7 +34,7 @@ import {
   GitBranch,
   FileDown,
   Flag,
-} from "lucide-react";
+} from "@/lib/icons";
 import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useToast } from "@/components/toast";
 import {
@@ -44,23 +44,22 @@ import {
   type Permission,
   type UserProfile,
 } from "@/lib/auth";
+import { SchoolLogo, UltrathinkLogo } from "@/components/brand";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SchoolLogo } from "@/components/SchoolLogo";
-import { UltrathinkLogo } from "@/components/UltrathinkLogo";
-import { requestRuntimeBrandingRefresh } from "@/hooks/useRuntimeBranding";
+import { requestRuntimeBrandingRefresh } from "@/hooks/brand";
 import {
   derivePaletteFromLogo,
   getStoredSchoolBranding,
   mixColors,
   setStoredSchoolBranding,
   shiftColor,
-} from "@/lib/brand-palette";
+} from "@/lib/brand/palette";
 import {
   type AdminInfrastructure,
   DEFAULT_ADMIN_INFRASTRUCTURE,
 } from "@/lib/admin-infrastructure";
-import { SCHOOL_BRAND } from "@/lib/branding";
+import { SCHOOL_BRAND } from "@/lib/brand";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { type AppSchemaCompat } from "@/lib/schema-compat";
 import { PERMISSION_GROUPS } from "@/types/roles";

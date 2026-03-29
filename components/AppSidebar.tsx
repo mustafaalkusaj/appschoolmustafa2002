@@ -2,25 +2,26 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { Menu, X } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 import { AppIcon } from "@/components/AppIcon";
+import { UltrathinkLogo } from "@/components/brand";
 import { useRole } from "@/hooks/useRole";
 import { getSidebarItemsForRole, isPathMatch } from "@/types/roles";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
-import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import {
   SCHOOL_SCOPE_CHANGE_EVENT,
   buildPathWithSchoolScope,
   isSuperAdminSchoolScopedPath,
   readSchoolScopeFromWindow,
-} from "@/lib/school-scope";
+} from "@/lib/school/scope";
 
 interface AppSidebarProps {
   currentPath: string;
   containerClassName?: string;
   navClassName?: string;
   separatorClassName?: string;
+  showFloatingToggle?: boolean;
 }
 
 export function AppSidebar({
@@ -28,6 +29,7 @@ export function AppSidebar({
   containerClassName,
   navClassName,
   separatorClassName,
+  showFloatingToggle = false,
 }: AppSidebarProps) {
   const { role } = useRole();
   const pathname = usePathname();
@@ -43,12 +45,14 @@ export function AppSidebar({
           "super-admin": "Super Admin",
           schools: "Schools",
           teachers: "Teachers",
+          monitoring: "Teacher Monitoring",
           students: "Students",
           payments: "Finance",
           expenses: "Expenses",
           salaries: "Salaries",
           attendance: "Attendance",
           reports: "Reports",
+          "fee-notifications": "Fee Notifications",
           subscriptions: "Subscriptions",
         }
       : null;
@@ -92,6 +96,16 @@ export function AppSidebar({
 
   return (
     <>
+      {showFloatingToggle && !mobileOpen ? (
+        <button
+          type="button"
+          className="app-sidebar__floating-toggle"
+          onClick={() => setMobileOpen(true)}
+          aria-label={locale === "en" ? "Open navigation" : "فتح التنقل"}
+        >
+          <Menu size={18} aria-hidden="true" />
+        </button>
+      ) : null}
       {mobileOpen ? <button type="button" className="app-sidebar__backdrop" onClick={() => setMobileOpen(false)} /> : null}
       <aside
         className={[

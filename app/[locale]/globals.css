@@ -545,6 +545,23 @@ html.dark .school-logo {
   -webkit-backdrop-filter: blur(8px);
 }
 
+.app-sidebar__floating-toggle {
+  position: fixed;
+  top: 1rem;
+  inset-inline-start: 1rem;
+  z-index: 45;
+  display: none;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 .app-sidebar {
   position: relative;
   z-index: 60;
@@ -699,6 +716,15 @@ html.dark .app-sidebar__link.is-active {
   margin: 0.85rem 1rem 0;
   border-radius: 28px;
   padding: 0.9rem 1rem;
+}
+
+.app-shell-topbar--fixed {
+  position: fixed;
+  top: 0.85rem;
+  inset-inline-start: calc(244px + 1rem);
+  inset-inline-end: 1rem;
+  margin: 0;
+  z-index: 40;
 }
 
 .app-shell-topbar__row {
@@ -989,6 +1015,10 @@ html.dark .app-sidebar__link.is-active {
   padding-top: 1rem;
 }
 
+.app-shell-content--with-fixed-topbar {
+  padding-top: 8.5rem;
+}
+
 .ui-backdrop {
   position: fixed;
   inset: 0;
@@ -1034,8 +1064,17 @@ html.dark .app-sidebar__link.is-active {
 }
 
 @media (max-width: 1180px) {
+  .app-sidebar__floating-toggle {
+    display: inline-flex;
+  }
+
   .app-shell-topbar {
     margin-inline: 0.85rem;
+  }
+
+  .app-shell-topbar--fixed {
+    inset-inline-start: 0.85rem;
+    inset-inline-end: 0.85rem;
   }
 
   .app-shell-topbar__menu {
@@ -1075,6 +1114,10 @@ html.dark .app-sidebar__link.is-active {
 }
 
 @media (max-width: 980px) {
+  .app-shell-content--with-fixed-topbar {
+    padding-top: 12.5rem;
+  }
+
   .app-shell-topbar__row {
     flex-direction: column;
     align-items: stretch;
@@ -1093,9 +1136,20 @@ html.dark .app-sidebar__link.is-active {
 }
 
 @media (max-width: 640px) {
+  .app-sidebar__floating-toggle {
+    top: 0.75rem;
+    inset-inline-start: 0.75rem;
+  }
+
   .app-shell-topbar {
     border-radius: 24px;
     padding: 0.8rem;
+  }
+
+  .app-shell-topbar--fixed {
+    top: 0.75rem;
+    inset-inline-start: 0.75rem;
+    inset-inline-end: 0.75rem;
   }
 
   .app-shell-topbar__school-name {
@@ -1109,6 +1163,10 @@ html.dark .app-sidebar__link.is-active {
   .app-shell-content {
     padding-inline: 1rem !important;
     padding-bottom: 1rem !important;
+  }
+
+  .app-shell-content--with-fixed-topbar {
+    padding-top: 14rem;
   }
 }
 

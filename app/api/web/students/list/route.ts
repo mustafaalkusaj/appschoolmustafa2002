@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { parseStudentsListFilters, resolveStudentsListPage } from "@/lib/students-overview";
+import { parseStudentsListFilters, resolveStudentsListPage } from "@/lib/students/overview";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });

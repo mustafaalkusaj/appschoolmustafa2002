@@ -11,8 +11,25 @@ const PLAN_LABELS: Record<string, string> = {
   enterprise: "مؤسسية",
 };
 
+type SchoolNameRelation = { name: string | null } | Array<{ name: string | null }> | null;
+
+type SubscriptionRecord = {
+  id: string;
+  school_id: string;
+  status: string | null;
+  end_date: string | null;
+  plan: string | null;
+  schools: SchoolNameRelation;
+};
+
+function relationName(value: SchoolNameRelation) {
+  if (!value) return null;
+  if (Array.isArray(value)) return value[0]?.name ?? null;
+  return value.name ?? null;
+}
+
 export default function SubscriptionsPage() {
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -21,7 +38,7 @@ export default function SubscriptionsPage() {
   }, []);
 
   const latestSubscriptions = useMemo(() => {
-    const map = new Map<string, any>();
+    const map = new Map<string, SubscriptionRecord>();
     for (const subscription of subscriptions) {
       if (!map.has(subscription.school_id)) {
         map.set(subscription.school_id, subscription);
@@ -36,7 +53,7 @@ export default function SubscriptionsPage() {
       .from("subscriptions")
       .select("*, schools(name)")
       .order("created_at", { ascending: false });
-    setSubscriptions(data || []);
+    setSubscriptions((data as SubscriptionRecord[] | null) || []);
     setLoading(false);
   }
 
@@ -150,7 +167,7 @@ export default function SubscriptionsPage() {
                   return (
                     <div key={sub.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <div className="font-bold text-slate-900">{sub.schools?.name || "مدرسة غير معروفة"}</div>
+                        <div className="font-bold text-slate-900">{relationName(sub.schools) || "مدرسة غير معروفة"}</div>
                         <div className="text-xs text-slate-500">
                           الباقة: {PLAN_LABELS[sub.plan] || "أساسية"} • تاريخ الانتهاء: {sub.end_date || "غير محدد"}
                         </div>

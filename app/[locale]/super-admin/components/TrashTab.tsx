@@ -9,7 +9,7 @@ import {
   Users,
   GitBranch,
   Search
-} from "lucide-react";
+} from "@/lib/icons";
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { ConfirmDialog } from "@/components/ConfirmDialog";

@@ -1,8 +1,10 @@
-import { AlertTriangle, type LucideIcon } from "lucide-react";
+import { AlertTriangle, type LucideIcon } from "@/lib/icons";
 
 export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
+
+type NamedRelation = { name: string | null } | Array<{ name: string | null }> | null | undefined;
 
 export function SectionCard({
   title,
@@ -134,7 +136,7 @@ export function statusTone(status: "success" | "warning" | "danger" | "info") {
   return "ui-pill";
 }
 
-export function relationName(value: any) {
+export function relationName(value: NamedRelation) {
   if (!value) return null;
   if (Array.isArray(value)) {
     return value[0]?.name ?? null;

@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Monitor, MoonStar, SunMedium } from "lucide-react";
+import { Monitor, MoonStar, SunMedium } from "@/lib/icons";
 import { useTheme } from "next-themes";
 import { SIDEBAR_ITEMS, isPathMatch, normalizePath } from "@/types/roles";
 import { getLocaleFromPath } from "@/lib/locale-routing";
+
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 type ThemeVariant = "floating" | "inline";
 
@@ -14,10 +18,6 @@ interface ThemeModeToggleProps {
   className?: string;
   showLabels?: boolean;
   compact?: boolean;
-}
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
 }
 
 export function ThemeModeToggle({

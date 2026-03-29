@@ -1,6 +1,6 @@
 "use client";
 
-import { UltrathinkLogo } from "@/components/UltrathinkLogo";
+import { UltrathinkLogo } from "@/components/brand";
 
 export function Header() {
   return (

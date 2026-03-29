@@ -17,6 +17,10 @@ export const ALL_PERMISSIONS = [
   "view_audit_logs",
   "manage_branches",
   "view_monitoring",
+  "view_teacher_activity",
+  "moderate_teacher_activity",
+  "view_fee_notifications",
+  "send_fee_notifications",
   "full_access",
 ] as const;
 
@@ -53,6 +57,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "view_salaries",
     "manage_salaries",
     "manage_branches",
+    "view_teacher_activity",
+    "moderate_teacher_activity",
+    "view_fee_notifications",
+    "send_fee_notifications",
   ],
   employee: [
     "view_students",
@@ -94,6 +102,15 @@ export const PERMISSION_GROUPS: Array<{
   {
     title: "المدرسة والمنشأة",
     permissions: [{ key: "manage_branches", label: "إدارة الفروع" }],
+  },
+  {
+    title: "مراقبة نشاط التطبيق",
+    permissions: [
+      { key: "view_teacher_activity", label: "عرض نشاط الأساتذة" },
+      { key: "moderate_teacher_activity", label: "تعديل وحذف محتوى الأساتذة" },
+      { key: "view_fee_notifications", label: "عرض سجل تنبيهات الأقساط" },
+      { key: "send_fee_notifications", label: "إرسال تنبيهات الأقساط" },
+    ],
   },
   {
     title: "الإدارة العليا",
@@ -218,6 +235,16 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
     requiresActiveSchool: true,
   },
   {
+    pathPrefix: "/monitoring",
+    roles: ["super_admin", "admin"],
+    requiresActiveSchool: true,
+  },
+  {
+    pathPrefix: "/fee-notifications",
+    roles: ["super_admin", "admin"],
+    requiresActiveSchool: true,
+  },
+  {
     pathPrefix: "/attendance",
     roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
@@ -236,6 +263,8 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pathPrefix: "/schools", permissions: ["manage_schools"] },
   { pathPrefix: "/subscriptions", permissions: ["manage_subscriptions"] },
   { pathPrefix: "/super-admin", permissions: ["full_access"] },
+  { pathPrefix: "/monitoring", permissions: ["view_teacher_activity"] },
+  { pathPrefix: "/fee-notifications", permissions: ["view_fee_notifications"] },
 ];
 
 export const DEFAULT_PATH_BY_ROLE: Record<UserRole, string> = {
@@ -282,6 +311,13 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     roles: ["super_admin", "admin"],
   },
   {
+    id: "monitoring",
+    label: "مراقبة الأساتذة",
+    href: "/monitoring",
+    iconToken: "🛰️",
+    roles: ["super_admin", "admin"],
+  },
+  {
     id: "students",
     label: "الطلاب",
     href: "/students",
@@ -321,6 +357,13 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     label: "التقارير",
     href: "/reports",
     iconToken: "📄",
+    roles: ["super_admin", "admin"],
+  },
+  {
+    id: "fee-notifications",
+    label: "تنبيهات الأقساط",
+    href: "/fee-notifications",
+    iconToken: "🔔",
     roles: ["super_admin", "admin"],
   },
   {

@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, LogOut } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 
 import { ROLE_LABELS, signOutClient } from "@/lib/auth";

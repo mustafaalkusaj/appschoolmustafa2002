@@ -4,14 +4,13 @@ import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
-import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { loadXLSX } from "@/lib/xlsx-loader";
-import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { resolveSchoolIdForProfile } from "@/lib/school/context";
 
 export default function ExpensesPage() {
   const { profile } = useRole();
@@ -326,14 +325,9 @@ export default function ExpensesPage() {
     `}</style>
 
     <div className="layout">
-      <AppSidebar currentPath="/expenses" />
+      <AppSidebar currentPath="/expenses" showFloatingToggle />
 
       <div className="main">
-        <AppShellTopbar
-          title="إدارة المصروفات"
-          subtitle={`${expenses.length} سجل مصروف`}
-          scope={schoolScope}
-        />
         <div className="content app-shell-content">
           {success&&<div className="ok">{success}</div>}
           {error&&<div className="err">{error}</div>}

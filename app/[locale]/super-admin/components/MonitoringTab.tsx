@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Building2,
   Clock,
-} from "lucide-react";
+} from "@/lib/icons";
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { SectionCard, MigrationNotice, cx } from "./UI";

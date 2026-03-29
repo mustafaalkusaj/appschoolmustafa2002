@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
-import { resolvePaymentsMeta } from "@/lib/payments-overview";
+import { resolvePaymentsMeta } from "@/lib/payments/overview";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });

@@ -11,17 +11,17 @@ import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useRole } from "@/hooks/useRole";
+import { requestRuntimeBrandingRefresh } from "@/hooks/brand";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import {
   derivePaletteFromLogo,
   getStoredSchoolBranding,
   setStoredSchoolBranding,
-} from "@/lib/brand-palette";
-import { BRAND_THEME_FAMILIES, getBrandThemePreset } from "@/lib/brand-themes";
+} from "@/lib/brand/palette";
+import { BRAND_THEME_FAMILIES, getBrandThemePreset } from "@/lib/brand/themes";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
-import { requestRuntimeBrandingRefresh } from "@/hooks/useRuntimeBranding";
+import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school/context";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 
@@ -793,9 +793,9 @@ export default function DashboardPage() {
       <AppSidebar currentPath="/dashboard" />
 
       <div className="main">
-        <AppShellTopbar title="لوحة التحكم" subtitle={dashboardSummary} scope={schoolScope} />
+        <AppShellTopbar title="لوحة التحكم" subtitle={dashboardSummary} scope={schoolScope} fixed />
 
-        <div className="content app-shell-content">
+        <div className="content app-shell-content app-shell-content--with-fixed-topbar">
           <SchoolScopeBanner scope={schoolScope} showSelector={false} />
           {schoolScope.shouldBlockContent ? (
             <SchoolScopeEmptyState

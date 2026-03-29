@@ -19,11 +19,10 @@ import {
   Trash2,
   Upload,
   Users,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import { AppSidebar } from "@/components/AppSidebar";
-import { AppShellTopbar } from "@/components/AppShellTopbar";
-import { SchoolLogo } from "@/components/SchoolLogo";
+import { SchoolLogo } from "@/components/brand";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { ListPagination } from "@/components/school/ListPagination";
@@ -41,7 +40,7 @@ import {
   type ManagedUserRecord,
   type ManagedUserRole,
 } from "@/lib/managed-users";
-import { escapeHtml, wrapPrintDocument } from "@/lib/print-branding";
+import { escapeHtml, wrapPrintDocument } from "@/lib/print/branding";
 import { fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
 type FieldErrors = Record<string, string>;
@@ -1126,15 +1125,9 @@ export default function TeachersManagementPage() {
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
       <div className="layout">
-        <AppSidebar currentPath="/teachers" />
+        <AppSidebar currentPath="/teachers" showFloatingToggle />
 
         <div className="main">
-          <AppShellTopbar
-            title="إدارة المدرسين"
-            subtitle="إدارة بيانات وحسابات دخول المدرسين وربطهم بالمادة والصف والشعبة"
-            scope={schoolScope}
-          />
-
           <div className="content app-shell-content space-y-5">
             {success ? (
               <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(47,182,122,0.18)] bg-[rgba(47,182,122,0.1)] px-4 py-3 text-[var(--success)]">

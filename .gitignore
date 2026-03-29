@@ -26,6 +26,8 @@
 .DS_Store
 *.pem
 .claude/
+.augment/
+.continue/
 .vscode/
 *.code-workspace
 .playwright-cli/

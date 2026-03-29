@@ -8,7 +8,7 @@ import {
   ChevronLeft, 
   History,
   Info
-} from "lucide-react";
+} from "@/lib/icons";
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { SectionCard, EmptyState, MigrationNotice, formatDate, cx } from "./UI";

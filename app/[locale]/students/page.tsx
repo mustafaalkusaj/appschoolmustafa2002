@@ -7,20 +7,19 @@ import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
-import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
-import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import type { ManagedUserAccountCard } from "@/lib/managed-users";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
-import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school-context";
+import { wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
+import { resolveSchoolBranchForProfile, resolveSchoolIdForProfile } from "@/lib/school/context";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
-import type { StudentListRow, StudentsMetaPayload } from "@/lib/students-overview";
+import type { StudentListRow, StudentsMetaPayload } from "@/lib/students/overview";
 
 const TABS = [
   { id:"active",      label:"جميع الطلاب",      icon:"👥" },
@@ -1366,15 +1365,9 @@ function handlePrint(s: StudentWithFees){
     `}</style>
 
     <div className="layout">
-      <AppSidebar currentPath="/students" />
+      <AppSidebar currentPath="/students" showFloatingToggle />
 
       <div className="main">
-        <AppShellTopbar
-          title="إدارة الطلاب"
-          subtitle={`${totalCount} طالب إجمالي | صفحة ${page} من ${totalPages}`}
-          scope={schoolScope}
-        />
-
         <div className="content app-shell-content">
           {success&&(
             <div className="ok">

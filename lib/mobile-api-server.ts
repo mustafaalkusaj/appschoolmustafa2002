@@ -150,6 +150,26 @@ function safeNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
+async function applyModerationVisibilityScope(
+  query: any,
+  client: ReturnType<typeof createServiceSupabaseClient>,
+  table: "notifications" | "assignments",
+) {
+  const [hasStatus, hasDeletedAt] = await Promise.all([
+    tableHasColumn(client, table, "status").catch(() => false),
+    tableHasColumn(client, table, "deleted_at").catch(() => false),
+  ]);
+
+  let nextQuery = query;
+  if (hasStatus) {
+    nextQuery = nextQuery.neq("status", "deleted_by_admin");
+  }
+  if (hasDeletedAt) {
+    nextQuery = nextQuery.is("deleted_at", null);
+  }
+  return nextQuery;
+}
+
 export function parseMobileListParams(req: NextRequest, defaults?: { limit?: number; maxLimit?: number }): MobileListParams {
   const url = new URL(req.url);
   const limit = Math.min(
@@ -267,11 +287,15 @@ async function queryStudentNotificationsInternal(
   ctx: MobileRouteContext,
   params: MobileListParams,
 ) {
-  const response = await ctx.serviceSupabase
+  let notificationsQuery = ctx.serviceSupabase
     .from("notifications")
     .select(NOTIFICATION_SELECT)
     .eq("user_id", ctx.authUserId)
-    .eq("school_id", ctx.schoolId)
+    .eq("school_id", ctx.schoolId);
+
+  notificationsQuery = await applyModerationVisibilityScope(notificationsQuery, ctx.serviceSupabase, "notifications");
+
+  const response = await notificationsQuery
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
 
@@ -284,12 +308,16 @@ async function queryStudentNotificationsInternal(
     };
   }
 
-  const unreadResponse = await ctx.serviceSupabase
+  let unreadQuery = ctx.serviceSupabase
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("user_id", ctx.authUserId)
     .eq("school_id", ctx.schoolId)
     .eq("is_read", false);
+
+  unreadQuery = await applyModerationVisibilityScope(unreadQuery, ctx.serviceSupabase, "notifications");
+
+  const unreadResponse = await unreadQuery;
 
   return {
     gate: AVAILABLE_GATE,
@@ -345,7 +373,11 @@ export async function queryStudentAssignments(
       }
     }
 
-    return queries.map((query) => query.order("created_at", { ascending: false }).limit(Math.max(params.limit * 3, 60)));
+    return queries.map(async (query) =>
+      (await applyModerationVisibilityScope(query, ctx.serviceSupabase, "assignments"))
+        .order("created_at", { ascending: false })
+        .limit(Math.max(params.limit * 3, 60)),
+    );
   };
 
   const results = await Promise.all(buildQueries());
@@ -491,11 +523,15 @@ export async function queryTeacherAssignments(
     return { gate: AVAILABLE_GATE, items: [] };
   }
 
-  const { data, error } = await ctx.serviceSupabase
+  let query = ctx.serviceSupabase
     .from("assignments")
     .select("*")
     .eq("school_id", ctx.schoolId)
-    .eq("teacher_id", teacher.id)
+    .eq("teacher_id", teacher.id);
+
+  query = await applyModerationVisibilityScope(query, ctx.serviceSupabase, "assignments");
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
 
@@ -559,11 +595,15 @@ export async function queryTeacherNotifications(
     return { gate: AVAILABLE_GATE, items: [] };
   }
 
-  const { data, error } = await ctx.serviceSupabase
+  let query = ctx.serviceSupabase
     .from("notifications")
     .select(NOTIFICATION_SELECT)
     .eq("school_id", ctx.schoolId)
-    .contains("metadata", { teacher_id: teacher.id })
+    .contains("metadata", { teacher_id: teacher.id });
+
+  query = await applyModerationVisibilityScope(query, ctx.serviceSupabase, "notifications");
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
 

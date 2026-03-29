@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition } from "react";
-import { Languages } from "lucide-react";
+import { Languages } from "@/lib/icons";
 import { usePathname, useRouter } from "next/navigation";
 import { getLocaleFromPath, localizeAppPath, stripLocaleFromPath, type AppLocale } from "@/lib/locale-routing";
 

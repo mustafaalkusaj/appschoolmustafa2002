@@ -5,17 +5,16 @@ import { usePathname } from "next/navigation";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
-import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
-import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
+import { wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { loadXLSX } from "@/lib/xlsx-loader";
-import { resolveBranchIdForSchool, resolveSchoolIdForProfile } from "@/lib/school-context";
+import { resolveBranchIdForSchool, resolveSchoolIdForProfile } from "@/lib/school/context";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
 function buildReceiptNumber() {
@@ -1032,14 +1031,9 @@ export default function PaymentsPage() {
         `}</style>
 
         <div className="layout">
-          <AppSidebar currentPath="/payments" />
+          <AppSidebar currentPath="/payments" showFloatingToggle />
 
           <div className="main">
-            <AppShellTopbar
-              title="فواتير الطلاب"
-              subtitle={metaLoading ? "جارٍ تحميل الملخص..." : `${formatNumber(summary.totalStudents)} طالباً مسجلاً`}
-              scope={schoolScope}
-            />
             <div className="content app-shell-content">
               {success && <div className="ok">{success}</div>}
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />

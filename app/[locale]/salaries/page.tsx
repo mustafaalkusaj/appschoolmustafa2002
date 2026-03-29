@@ -5,15 +5,14 @@ import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
-import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
-import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { wrapPrintDocument, escapeHtml } from "@/lib/print-branding";
+import { wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
@@ -1077,7 +1076,7 @@ export default function SalariesPage() {
 
     <div className="layout">
       {/* MAIN SIDEBAR */}
-      <AppSidebar currentPath="/salaries" containerClassName="main-sidebar" />
+      <AppSidebar currentPath="/salaries" containerClassName="main-sidebar" showFloatingToggle />
 
       {/* SALARIES SIDEBAR */}
       <div className="sal-sidebar">
@@ -1090,11 +1089,6 @@ export default function SalariesPage() {
       </div>
 
       <div className="main">
-        <AppShellTopbar
-          title={activeSection==="main"?"إدارة الرواتب":activeSection==="teachers"?"قائمة المدرسين":activeSection==="schedule_tab"?"الجدول الأسبوعي":activeSection==="deductions"?"السحوبات":activeSection==="reports"?"التقارير الشاملة":activeSection==="calendar"?"التقويم الشهري":activeSection==="archive"?"أرشيف الرواتب":"الإعدادات"}
-          subtitle={`${activeTeachers} مدرس نشط`}
-          scope={schoolScope}
-        />
         <div className="content app-shell-content">
           {success&&<div className="ok">{success}</div>}
           {error&&<div className="err">{error}</div>}

@@ -10,7 +10,7 @@ import {
   SUPER_ADMIN_SCHOOL_QUERY_PARAM,
   buildLocalizedScopedPath,
   readSchoolScopeFromWindow,
-} from "@/lib/school-scope";
+} from "@/lib/school/scope";
 
 export type ScopedSchool = {
   id: string;

@@ -1,12 +1,12 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Menu } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 
+import { SchoolLogo } from "@/components/brand";
 import { ProfileMenu } from "@/components/ProfileMenu";
-import { SchoolLogo } from "@/components/SchoolLogo";
 import type { SchoolScopeState } from "@/hooks/useSchoolScope";
-import { useRuntimeBranding } from "@/hooks/useRuntimeBranding";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { useRole } from "@/hooks/useRole";
 import { getAcademicYearLabel } from "@/lib/academic-year";
 import { getLocaleFromPath } from "@/lib/locale-routing";
@@ -21,6 +21,7 @@ export function AppShellTopbar({
   subtitle,
   scope,
   className,
+  fixed = false,
   showAcademicYear = true,
   actions,
 }: {
@@ -28,6 +29,7 @@ export function AppShellTopbar({
   subtitle?: string;
   scope?: SchoolScopeState;
   className?: string;
+  fixed?: boolean;
   showAcademicYear?: boolean;
   actions?: React.ReactNode;
 }) {
@@ -64,7 +66,7 @@ export function AppShellTopbar({
         : null;
 
   return (
-    <header className={cx("app-shell-topbar ui-glass", className)}>
+    <header className={cx("app-shell-topbar ui-glass", fixed && "app-shell-topbar--fixed", className)}>
       <div className="app-shell-topbar__row">
         <div className="app-shell-topbar__primary">
           <button

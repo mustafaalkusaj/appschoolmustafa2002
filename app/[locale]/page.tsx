@@ -4,9 +4,9 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppIcon } from "@/components/AppIcon";
+import { UltrathinkLogo } from "@/components/brand";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRole } from "@/hooks/useRole";
-import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import type { UserRole } from "@/types/roles";
 
