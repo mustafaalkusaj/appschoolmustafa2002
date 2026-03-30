@@ -196,6 +196,8 @@ function buildSuggestedBranding(primaryColor: string, secondaryColor: string) {
   };
 }
 
+import { BRAND_THEME_FAMILIES, BRAND_THEME_PRESETS, type BrandThemeFamilyId, type BrandThemePresetId, getBrandThemePreset } from "@/lib/brand/themes";
+
 const SCHOOL_BRANDING_PRESETS = [
   {
     id: "calm-blue",
@@ -225,6 +227,8 @@ function createSchoolFormState() {
     owner_email: "",
     city: "",
     logo_url: "",
+    familyId: null as BrandThemeFamilyId | null,
+    themePresetId: null as BrandThemePresetId | null,
     ...DEFAULT_SCHOOL_BRANDING,
     plan: "basic" as SchoolPlan,
   };
@@ -532,7 +536,7 @@ export default function SuperAdminPage() {
   const [saving, setSaving] = useState(false);
   const [schoolPaletteBusy, setSchoolPaletteBusy] = useState(false);
   const [schoolFormNotice, setSchoolFormNotice] = useState("");
-  const [schoolForm, setSchoolForm] = useState(createSchoolFormState);
+  const [schoolForm, setSchoolForm] = useState<ReturnType<typeof createSchoolFormState>>(createSchoolFormState());
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
@@ -667,6 +671,7 @@ export default function SuperAdminPage() {
       school.primary_color ?? DEFAULT_SCHOOL_BRANDING.primary_color,
       school.secondary_color ?? DEFAULT_SCHOOL_BRANDING.secondary_color,
     );
+    const preset = storedBranding?.themePreset ? getBrandThemePreset(storedBranding.themePreset) ?? null : null;
     setEditSchool(school);
     setSchoolFormNotice("");
     setSchoolForm({
@@ -676,6 +681,8 @@ export default function SuperAdminPage() {
       owner_email: school.owner_email ?? "",
       city: school.city ?? "",
       logo_url: school.logo_url ?? "",
+      familyId: preset?.familyId ?? null,
+      themePresetId: preset?.id ?? null,
       primary_color: school.primary_color ?? storedBranding?.primaryColor ?? DEFAULT_SCHOOL_BRANDING.primary_color,
       secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? DEFAULT_SCHOOL_BRANDING.secondary_color,
       sidebar_color: storedBranding?.sidebarColor ?? suggestedBranding.sidebar_color,
@@ -804,9 +811,10 @@ export default function SuperAdminPage() {
           setSchemaCompat(compat);
         }
 
-        setStoredSchoolBranding(editSchool.id, {
+setStoredSchoolBranding(editSchool.id, {
           primaryColor: schoolForm.primary_color || null,
           secondaryColor: schoolForm.secondary_color || null,
+          themePreset: schoolForm.themePresetId || null,
           sidebarColor: schoolForm.sidebar_color || null,
           accentColor: schoolForm.accent_color || null,
           textColor: schoolForm.text_color || null,
@@ -859,6 +867,7 @@ export default function SuperAdminPage() {
         setStoredSchoolBranding(payload.school.id, {
           primaryColor: schoolForm.primary_color || null,
           secondaryColor: schoolForm.secondary_color || null,
+          themePreset: schoolForm.themePresetId || null,
           sidebarColor: schoolForm.sidebar_color || null,
           accentColor: schoolForm.accent_color || null,
           textColor: schoolForm.text_color || null,
@@ -2388,38 +2397,56 @@ export default function SuperAdminPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">أنماط جاهزة للهوية</label>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {SCHOOL_BRANDING_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] p-3 text-right transition hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-xs)]"
-                      onClick={() =>
-                        setSchoolForm((current) => ({
-                          ...current,
-                          primary_color: preset.primary_color,
-                          secondary_color: preset.secondary_color,
-                          sidebar_color: preset.sidebar_color,
-                          accent_color: preset.accent_color,
-                          text_color: preset.text_color,
-                        }))
-                      }
-                    >
-                      <div className="mb-3 flex items-center gap-2">
-                        {[preset.primary_color, preset.secondary_color, preset.sidebar_color, preset.accent_color].map((color) => (
-                          <span
-                            key={color}
-                            className="inline-flex h-5 w-5 rounded-full border border-white/70 shadow-sm"
-                            style={{ background: color }}
-                          />
-                        ))}
-                      </div>
-                      <div className="text-sm font-black text-[var(--text-primary)]">{preset.label}</div>
-                      <div className="mt-1 text-xs font-bold text-[var(--text-secondary)]">{preset.description}</div>
-                    </button>
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">عائلة الثيم</label>
+                <select 
+                  className="ui-input mb-3"
+                  value={schoolForm.familyId || ''}
+                  onChange={(e) => {
+                    const familyId = e.target.value as BrandThemeFamilyId;
+                    const family = BRAND_THEME_FAMILIES.find(f => f.id === familyId);
+                    const firstPreset = family?.presets[0]?.id || null;
+                    setSchoolForm(prev => ({
+                      ...prev,
+                      familyId: familyId || null,
+                      themePresetId: firstPreset,
+                    }));
+                  }}
+                >
+                  <option value="">اختر عائلة...</option>
+                  {BRAND_THEME_FAMILIES.map((family) => (
+                    <option key={family.id} value={family.id}>{family.label}</option>
                   ))}
-                </div>
+                </select>
+
+                <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الثيم المحدد</label>
+                <select 
+                  className="ui-input"
+                  value={schoolForm.themePresetId || ''}
+                  onChange={(e) => {
+                    const presetId = e.target.value as BrandThemePresetId;
+                    const preset = getBrandThemePreset(presetId);
+                    if (preset) {
+                      setSchoolForm(prev => ({
+                        ...prev,
+                        themePresetId: presetId,
+                        primary_color: preset.primaryColor,
+                        secondary_color: preset.secondaryColor,
+                        sidebar_color: preset.sidebarColor,
+                        accentColor: preset.accentColor,
+                        text_color: preset.textColor,
+                      }));
+                    }
+                  }}
+                >
+                  <option value="">اختر ثيم...</option>
+                  {schoolForm.familyId && BRAND_THEME_FAMILIES
+                    .find(f => f.id === schoolForm.familyId)
+                    ?.presets.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                </select>
               </div>
               <div>
                 <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">اللون الأساسي</label>
