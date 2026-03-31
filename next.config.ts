@@ -14,9 +14,13 @@ function resolveOptionalOrigin(value: string | undefined) {
 const supabaseOrigin = resolveOptionalOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const supabaseHost = supabaseOrigin ? new URL(supabaseOrigin).hostname : undefined;
 const connectSrc = ["'self'"];
-const scriptSrc = ["'self'", "'unsafe-inline'"];
 const imageSrc = ["'self'", "data:", "blob:", "https:"];
 
+// TODO (security): replace 'unsafe-inline' in script-src with per-request nonces.
+// Next.js App Router injects inline hydration scripts, so nonces must be generated
+// in middleware and forwarded via response headers. See:
+// https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
+const scriptSrc = ["'self'", "'unsafe-inline'"];
 if (process.env.NODE_ENV !== "production") {
   scriptSrc.push("'unsafe-eval'");
 }

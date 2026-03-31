@@ -17,7 +17,26 @@ export interface RBACSessionPayload {
 }
 
 function getSecretKeyMaterial(): string {
-  return process.env.RBAC_COOKIE_SECRET || process.env.SUPABASE_JWT_SECRET || "";
+  const dedicated = process.env.RBAC_COOKIE_SECRET;
+  if (dedicated) return dedicated;
+
+  const fallback = process.env.SUPABASE_JWT_SECRET;
+  if (fallback) {
+    // Security warning: RBAC_COOKIE_SECRET is not configured.
+    // Falling back to SUPABASE_JWT_SECRET means a JWT secret compromise
+    // also compromises RBAC cookie integrity.
+    // Fix: set RBAC_COOKIE_SECRET to a separate value (openssl rand -base64 48).
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "[rbac-session] RBAC_COOKIE_SECRET is not set — falling back to " +
+          "SUPABASE_JWT_SECRET. Set a dedicated RBAC_COOKIE_SECRET in production " +
+          "to isolate signing credentials.",
+      );
+    }
+    return fallback;
+  }
+
+  return "";
 }
 
 export function hasRBACSecret() {

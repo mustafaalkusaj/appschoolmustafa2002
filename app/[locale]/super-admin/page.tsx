@@ -279,7 +279,8 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function relationName(value: SchoolRelation) {
+function relationName(value: SchoolRelation | undefined | null) {
+  if (!value) return null;
   if (Array.isArray(value)) {
     return value[0]?.name ?? null;
   }

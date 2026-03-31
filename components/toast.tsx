@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useTheme } from "next-themes";
 import { AppIcon } from "@/components/AppIcon";
 
 // ─── أنواع ───────────────────────────────────────────────────────────────────
@@ -30,40 +31,75 @@ export function useToast(): ToastContextValue {
 }
 
 // ─── إعدادات كل نوع ──────────────────────────────────────────────────────────
-const CONFIGS: Record<ToastType, { icon: string; color: string; bg: string; border: string; progress: string }> = {
+type ToastConfig = { icon: string; color: string; bg: string; border: string; progress: string };
+
+const CONFIGS_LIGHT: Record<ToastType, ToastConfig> = {
   success: {
     icon: "✓",
     color: "#065F46",
-    bg: "rgba(209,250,229,0.95)",
+    bg: "rgba(209,250,229,0.97)",
     border: "#6EE7B7",
     progress: "#10B981",
   },
   error: {
     icon: "✕",
     color: "#991B1B",
-    bg: "rgba(254,226,226,0.95)",
+    bg: "rgba(254,226,226,0.97)",
     border: "#FCA5A5",
     progress: "#EF4444",
   },
   warning: {
     icon: "⚠",
     color: "#92400E",
-    bg: "rgba(254,243,199,0.95)",
+    bg: "rgba(254,243,199,0.97)",
     border: "#FDE68A",
     progress: "#F59E0B",
   },
   info: {
     icon: "ℹ",
     color: "#1E40AF",
-    bg: "rgba(219,234,254,0.95)",
+    bg: "rgba(219,234,254,0.97)",
     border: "#93C5FD",
     progress: "#3B82F6",
   },
 };
 
+const CONFIGS_DARK: Record<ToastType, ToastConfig> = {
+  success: {
+    icon: "✓",
+    color: "#6EE7B7",
+    bg: "rgba(6,25,20,0.96)",
+    border: "rgba(110,231,183,0.28)",
+    progress: "#34D399",
+  },
+  error: {
+    icon: "✕",
+    color: "#FCA5A5",
+    bg: "rgba(30,5,5,0.96)",
+    border: "rgba(252,165,165,0.28)",
+    progress: "#F87171",
+  },
+  warning: {
+    icon: "⚠",
+    color: "#FCD34D",
+    bg: "rgba(28,16,2,0.96)",
+    border: "rgba(252,211,77,0.28)",
+    progress: "#FBBF24",
+  },
+  info: {
+    icon: "ℹ",
+    color: "#93C5FD",
+    bg: "rgba(5,15,30,0.96)",
+    border: "rgba(147,197,253,0.28)",
+    progress: "#60A5FA",
+  },
+};
+
 // ─── Toast Item ───────────────────────────────────────────────────────────────
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) => void }) {
-  const cfg = CONFIGS[toast.type];
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const cfg = isDark ? CONFIGS_DARK[toast.type] : CONFIGS_LIGHT[toast.type];
   const duration = toast.duration ?? 3500;
   const [visible, setVisible] = useState(false);
   const [progress, setProgress] = useState(100);
@@ -130,7 +166,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
         minWidth: "280px",
         maxWidth: "360px",
         overflow: "hidden",
-        transform: visible ? "translateX(0) scale(1)" : "translateX(60px) scale(0.95)",
+        transform: visible ? "translateX(0) scale(1)" : "translateX(-60px) scale(0.95)",
         opacity: visible ? 1 : 0,
         transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease",
       }}
@@ -222,7 +258,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div style={{
         position: "fixed",
         top: "1.2rem",
-        left: "1.2rem",
+        insetInlineStart: "1.2rem",
         zIndex: 99999,
         display: "flex",
         flexDirection: "column",

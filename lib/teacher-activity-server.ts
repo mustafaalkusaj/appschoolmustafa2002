@@ -96,9 +96,15 @@ function normalizeTargets(value: unknown) {
     );
 }
 
-export function jsonError(message: string, status: number, fieldErrors?: Record<string, string>) {
+export function jsonError(message: string, status: number, fieldErrors?: Record<string, string | undefined>) {
+  // Filter out undefined values so the serialised payload only contains actual errors
+  const cleanErrors = fieldErrors
+    ? (Object.fromEntries(
+        Object.entries(fieldErrors).filter((e): e is [string, string] => typeof e[1] === "string"),
+      ) as Record<string, string>)
+    : undefined;
   return NextResponse.json(
-    { error: { message, ...(fieldErrors && Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}) } },
+    { error: { message, ...(cleanErrors && Object.keys(cleanErrors).length > 0 ? { fieldErrors: cleanErrors } : {}) } },
     { status },
   );
 }

@@ -206,7 +206,7 @@ function buildImmediateManagedUser(input: {
   teacher?: {
     specialization: string | null;
     notes: string | null;
-    assignments: ManagedUserRecord["teacher"]["assignments"];
+    assignments: NonNullable<ManagedUserRecord["teacher"]>["assignments"];
   } | null;
 }): ManagedUserRecord {
   return {

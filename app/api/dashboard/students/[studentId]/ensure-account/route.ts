@@ -209,7 +209,7 @@ export async function POST(
       return jsonError("تعذر إعادة تحميل حساب الطالب بعد الربط.", 500);
     }
 
-    let accountCard = null;
+    let accountCard: Awaited<ReturnType<typeof buildManagedUserAccountCard>> | null = null;
 
     try {
       accountCard = await buildManagedUserAccountCard(actorSupabase, user);

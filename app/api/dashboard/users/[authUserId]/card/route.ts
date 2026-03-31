@@ -27,7 +27,7 @@ export async function GET(
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  let user = null;
+  let user: Awaited<ReturnType<typeof fetchManagedUserByAuthUserId>> = null;
   try {
     user = await fetchManagedUserByAuthUserId(actorSupabase, {
       authUserId,

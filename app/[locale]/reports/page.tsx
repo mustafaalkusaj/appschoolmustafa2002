@@ -234,10 +234,10 @@ export default function ReportsPage() {
       datasetCacheRef.current.salaries
     ) {
       return {
-        students: datasetCacheRef.current.students,
-        payments: datasetCacheRef.current.payments,
-        expenses: datasetCacheRef.current.expenses,
-        salaries: datasetCacheRef.current.salaries,
+        students: datasetCacheRef.current.students ?? [],
+        payments: datasetCacheRef.current.payments ?? [],
+        expenses: datasetCacheRef.current.expenses ?? [],
+        salaries: datasetCacheRef.current.salaries ?? [],
       };
     }
 
@@ -273,10 +273,10 @@ export default function ReportsPage() {
       };
 
       return {
-        students: datasetCacheRef.current.students,
-        payments: datasetCacheRef.current.payments,
-        expenses: datasetCacheRef.current.expenses,
-        salaries: datasetCacheRef.current.salaries,
+        students: datasetCacheRef.current.students ?? [],
+        payments: datasetCacheRef.current.payments ?? [],
+        expenses: datasetCacheRef.current.expenses ?? [],
+        salaries: datasetCacheRef.current.salaries ?? [],
       };
     } finally {
       setActionLoading((current) => (current === "all" ? null : current));
@@ -317,7 +317,7 @@ export default function ReportsPage() {
         الصف: item.students?.class_name || "—",
         المبلغ: item.amount || 0,
         "طريقة الدفع": paymentMethodLabel(item.payment_method),
-        التاريخ: formatDate(item.created_at),
+        التاريخ: formatDate(item.created_at ?? ""),
         "رقم الإيصال": item.receipt_number || "—",
         ملاحظات: item.notes || "",
       })),
@@ -332,7 +332,7 @@ export default function ReportsPage() {
       expenses.map((item) => ({
         النوع: item.expense_types?.name || "—",
         المبلغ: item.amount || 0,
-        التاريخ: formatDate(item.expense_date),
+        التاريخ: formatDate(item.expense_date ?? ""),
         المستلم: item.recipient || "—",
         "رقم الإيصال": item.receipt_number || "—",
         ملاحظات: item.notes || "",
@@ -380,7 +380,7 @@ export default function ReportsPage() {
         rows: payments.map((item) => ({
           الطالب: item.students?.full_name || "—",
           المبلغ: item.amount || 0,
-          التاريخ: formatDate(item.created_at),
+          التاريخ: formatDate(item.created_at ?? ""),
         })),
       },
       {
@@ -388,7 +388,7 @@ export default function ReportsPage() {
         rows: expenses.map((item) => ({
           النوع: item.expense_types?.name || "—",
           المبلغ: item.amount || 0,
-          التاريخ: formatDate(item.expense_date),
+          التاريخ: formatDate(item.expense_date ?? ""),
         })),
       },
       {
@@ -468,7 +468,7 @@ export default function ReportsPage() {
           <tbody>${payments
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.students?.full_name || "—")}</td><td>${escapeHtml(item.students?.class_name || "—")}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${escapeHtml(paymentMethodLabel(item.payment_method))}</td><td>${formatDate(item.created_at)}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${escapeHtml(item.students?.full_name || "—")}</td><td>${escapeHtml(item.students?.class_name || "—")}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${escapeHtml(paymentMethodLabel(item.payment_method))}</td><td>${formatDate(item.created_at ?? "")}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -487,7 +487,7 @@ export default function ReportsPage() {
           <tbody>${expenses
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.expense_types?.name || "—")}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.expense_date)}</td><td>${escapeHtml(item.recipient || "—")}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${escapeHtml(item.expense_types?.name || "—")}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.expense_date ?? "")}</td><td>${escapeHtml(item.recipient || "—")}</td></tr>`,
             )
             .join("")}</tbody>
         </table>

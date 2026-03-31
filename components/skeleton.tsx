@@ -1,8 +1,7 @@
 "use client";
 
-function ShimmerInject() {
-  return null;
-}
+// CSS variables (defined in globals.css via html.dark) drive the skeleton shimmer colour.
+// The card wrappers use var(--surface-card) / var(--border) to adapt automatically.
 
 // ─── خلية واحدة ──────────────────────────────────────────────────────────────
 function SkBox({ w = "100%", h = "14px", r = "8px", style = {} }: {
@@ -13,16 +12,26 @@ function SkBox({ w = "100%", h = "14px", r = "8px", style = {} }: {
   );
 }
 
+// ─── Card wrapper رياعي الثيم ─────────────────────────────────────────────────
+const skCard: React.CSSProperties = {
+  background: "var(--surface-strong)",
+  borderRadius: "12px",
+  border: "1px solid var(--border)",
+  boxShadow: "var(--shadow-xs)",
+};
+
+const skInner: React.CSSProperties = {
+  background: "var(--surface-soft)",
+  borderRadius: "11px",
+};
+
 // ─── 1. Skeleton بطاقة إحصائية ───────────────────────────────────────────────
 export function StatCardSkeleton() {
   return (
     <>
-      <ShimmerInject />
       <div style={{
-        background: "white", borderRadius: "12px", padding: ".9rem 1rem",
+        ...skCard, padding: ".9rem 1rem",
         display: "flex", alignItems: "center", gap: ".8rem",
-        border: "1px solid rgba(108,74,182,0.06)",
-        boxShadow: "0 2px 8px rgba(108,74,182,0.07)",
       }}>
         <SkBox w="40px" h="40px" r="11px" />
         <div style={{ flex: 1 }}>
@@ -50,14 +59,9 @@ function TableRowSkeleton({ cols = 8 }: { cols?: number }) {
 export function TableSkeleton({ rows = 6, cols = 8 }: { rows?: number; cols?: number }) {
   return (
     <>
-      <ShimmerInject />
-      <div style={{
-        background: "white", borderRadius: "13px",
-        border: "1px solid rgba(108,74,182,0.06)",
-        overflow: "hidden", boxShadow: "0 2px 8px rgba(108,74,182,0.06)",
-      }}>
+      <div style={{ ...skCard, borderRadius: "13px", overflow: "hidden" }}>
         {/* Header */}
-        <div style={{ background: "#F8F6FF", padding: ".65rem .9rem", display: "flex", gap: "1.5rem" }}>
+        <div style={{ ...skInner, borderRadius: 0, padding: ".65rem .9rem", display: "flex", gap: "1.5rem" }}>
           {Array.from({ length: cols }).map((_, i) => (
             <SkBox key={i} w={i === 1 ? "100px" : "60px"} h="12px" />
           ))}
@@ -79,18 +83,13 @@ export function TableSkeleton({ rows = 6, cols = 8 }: { rows?: number; cols?: nu
 export function AnalysisSkeleton() {
   return (
     <>
-      <ShimmerInject />
-      <div style={{
-        background: "white", borderRadius: "14px", padding: "1.2rem 1.4rem",
-        marginBottom: "1rem", boxShadow: "0 2px 8px rgba(108,74,182,0.07)",
-        border: "1px solid rgba(108,74,182,0.06)",
-      }}>
+      <div style={{ ...skCard, borderRadius: "14px", padding: "1.2rem 1.4rem", marginBottom: "1rem" }}>
         {/* عنوان */}
         <SkBox w="200px" h="16px" style={{ marginBottom: "1.2rem" }} />
         {/* كاردات مالية */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: ".7rem", marginBottom: "1.2rem" }}>
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} style={{ borderRadius: "11px", padding: ".8rem", background: "#F8F6FF" }}>
+            <div key={i} style={{ ...skInner, padding: ".8rem" }}>
               <SkBox w="80%" h="11px" style={{ marginBottom: ".5rem" }} />
               <SkBox w="60%" h="18px" />
             </div>
@@ -98,11 +97,11 @@ export function AnalysisSkeleton() {
         </div>
         {/* رسوم بيانية */}
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "1rem" }}>
-          <div style={{ background: "#F8F6FF", borderRadius: "12px", padding: "1rem" }}>
+          <div style={{ ...skInner, padding: "1rem" }}>
             <SkBox w="140px" h="13px" style={{ marginBottom: ".8rem" }} />
             <SkBox w="100%" h="180px" r="10px" />
           </div>
-          <div style={{ background: "#F8F6FF", borderRadius: "12px", padding: "1rem" }}>
+          <div style={{ ...skInner, padding: "1rem" }}>
             <SkBox w="100px" h="13px" style={{ marginBottom: ".8rem" }} />
             <SkBox w="100%" h="180px" r="10px" />
           </div>
@@ -116,12 +115,7 @@ export function AnalysisSkeleton() {
 export function StudentCardSkeleton() {
   return (
     <>
-      <ShimmerInject />
-      <div style={{
-        background: "white", borderRadius: "12px", padding: ".8rem 1rem",
-        border: "1px solid rgba(108,74,182,0.06)",
-        boxShadow: "0 2px 8px rgba(108,74,182,0.06)",
-      }}>
+      <div style={{ ...skCard, padding: ".8rem 1rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: ".7rem", marginBottom: ".6rem" }}>
           <SkBox w="36px" h="36px" r="10px" />
           <div style={{ flex: 1 }}>
@@ -139,7 +133,6 @@ export function StudentCardSkeleton() {
 export function DashboardSkeleton() {
   return (
     <>
-      <ShimmerInject />
       {/* إحصائيات سريعة */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: ".8rem", marginBottom: ".8rem" }}>
         {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
@@ -152,11 +145,7 @@ export function DashboardSkeleton() {
       {/* شبكة سفلية */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".8rem" }}>
         {[5, 3].map((rows, i) => (
-          <div key={i} style={{
-            background: "white", borderRadius: "12px", padding: "1rem 1.2rem",
-            boxShadow: "0 2px 8px rgba(108,74,182,0.07)",
-            border: "1px solid rgba(108,74,182,0.06)",
-          }}>
+          <div key={i} style={{ ...skCard, padding: "1rem 1.2rem" }}>
             <SkBox w="140px" h="14px" style={{ marginBottom: ".8rem" }} />
             {Array.from({ length: rows }).map((_, j) => (
               <div key={j} style={{ display: "flex", gap: ".7rem", padding: ".45rem 0", alignItems: "center", borderBottom: "1px solid rgba(108,74,182,0.05)" }}>
@@ -179,12 +168,10 @@ export function DashboardSkeleton() {
 export function StudentsPageSkeleton() {
   return (
     <>
-      <ShimmerInject />
       {/* Tabs */}
       <div style={{
         display: "flex", gap: ".4rem", marginBottom: "1rem",
-        background: "white", borderRadius: "13px", padding: ".5rem",
-        boxShadow: "0 2px 8px rgba(108,74,182,0.07)",
+        ...skCard, borderRadius: "13px", padding: ".5rem",
       }}>
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} style={{ flex: 1, borderRadius: "9px", padding: ".6rem .8rem", background: i === 0 ? "linear-gradient(135deg,#6C4AB6,#4C2F9E)" : "#F0EEFF" }}>
@@ -213,14 +200,10 @@ export function StudentsPageSkeleton() {
 export function PaymentsPageSkeleton() {
   return (
     <>
-      <ShimmerInject />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: ".7rem", marginBottom: "1rem" }}>
         {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
       </div>
-      <div style={{
-        background: "white", borderRadius: "14px", padding: "1.1rem 1.3rem",
-        marginBottom: "1rem", boxShadow: "0 2px 8px rgba(108,74,182,0.06)",
-      }}>
+      <div style={{ ...skCard, borderRadius: "14px", padding: "1.1rem 1.3rem", marginBottom: "1rem" }}>
         <SkBox w="120px" h="14px" style={{ marginBottom: ".9rem" }} />
         <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
           {Array.from({ length: 7 }).map((_, i) => (

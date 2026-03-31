@@ -384,7 +384,7 @@ export async function updateSuperAdminUserProfile(
     }
 
     if (isMissingColumnError(response.error, "user_profiles", "custom_permissions") && "custom_permissions" in updatePayload) {
-      delete updatePayload.custom_permissions;
+      delete (updatePayload as Record<string, unknown>).custom_permissions;
       select = select.replace(", custom_permissions", "");
       continue;
     }

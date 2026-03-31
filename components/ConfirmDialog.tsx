@@ -55,7 +55,8 @@ export function ConfirmDialog({
           width: "100%",
           maxWidth: 420,
           borderRadius: 22,
-          background: "#FFFFFF",
+          background: "var(--surface-strong)",
+          border: "1px solid var(--border-strong)",
           boxShadow: "0 24px 80px rgba(15,23,42,0.26)",
           padding: "1.25rem",
           direction: "rtl",
@@ -88,11 +89,11 @@ export function ConfirmDialog({
               <AppIcon token={isDanger ? "⚠️" : "ℹ️"} size={18} />
             </div>
             <div>
-              <div style={{ fontSize: "1rem", fontWeight: 900, color: "#111827", marginBottom: ".35rem" }}>
+              <div style={{ fontSize: "1rem", fontWeight: 900, color: "var(--text-primary)", marginBottom: ".35rem" }}>
                 {title}
               </div>
               {description ? (
-                <div style={{ fontSize: ".84rem", lineHeight: 1.8, color: "#6B7280" }}>{description}</div>
+                <div style={{ fontSize: ".84rem", lineHeight: 1.8, color: "var(--text-secondary)" }}>{description}</div>
               ) : null}
             </div>
           </div>
@@ -105,10 +106,10 @@ export function ConfirmDialog({
               width: 32,
               height: 32,
               borderRadius: 10,
-              border: "none",
+              border: "1px solid var(--border)",
               cursor: busy ? "not-allowed" : "pointer",
-              background: "#F3F4F6",
-              color: "#6B7280",
+              background: "var(--surface-soft)",
+              color: "var(--text-secondary)",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
@@ -150,13 +151,13 @@ export function ConfirmDialog({
               flex: 1,
               padding: ".78rem 1rem",
               borderRadius: 12,
-              border: "1px solid rgba(15,23,42,0.08)",
+              border: "1px solid var(--border)",
               cursor: busy ? "not-allowed" : "pointer",
-              color: "#4B5563",
+              color: "var(--text-secondary)",
               fontSize: ".86rem",
               fontWeight: 700,
               fontFamily: "inherit",
-              background: "#F9FAFB",
+              background: "var(--surface-soft)",
               opacity: busy ? 0.72 : 1,
             }}
           >

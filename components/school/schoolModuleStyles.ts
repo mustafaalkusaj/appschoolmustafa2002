@@ -60,4 +60,41 @@ export const SCHOOL_MODULE_CSS = `
       .tabs-mini{display:flex;gap:.35rem;margin-bottom:.75rem;flex-wrap:wrap}
       .tab-mini{padding:.35rem .75rem;border-radius:8px;border:1px solid rgba(79,140,255,0.15);background:white;cursor:pointer;font-size:.75rem;font-weight:600}
       .tab-mini.on{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border-color:transparent}
+
+      /* ── Breadcrumb ──────────────────────────────────────────────────────── */
+      .bc-nav{display:flex;align-items:center;gap:.25rem;flex-wrap:wrap;margin-bottom:.5rem}
+      .bc-item{display:inline-flex;align-items:center;gap:.25rem}
+      .bc-sep{color:var(--gray);font-size:.8rem;opacity:.6}
+      .bc-link{font-size:.72rem;color:var(--p2);text-decoration:none;opacity:.75;transition:opacity .15s}
+      .bc-link:hover{opacity:1;text-decoration:underline}
+      .bc-current{font-size:.72rem;color:var(--gray);font-weight:600}
+
+      /* ── Dark Mode Overrides ─────────────────────────────────────────────── */
+      html.dark .tbl-wrap{background:var(--surface-strong);border-color:var(--border)}
+      html.dark thead{background:var(--surface-soft)}
+      html.dark th{color:var(--text-secondary);border-color:var(--border)}
+      html.dark td{border-color:var(--border);color:var(--text-primary)}
+      html.dark tr:hover td{background:rgba(118,169,255,0.06)}
+      html.dark .topbar{background:var(--surface);border-color:var(--border)}
+      html.dark .srch input{background:var(--surface-soft);border-color:var(--border);color:var(--text-primary)}
+      html.dark .srch input:focus{border-color:var(--p3);background:var(--surface-strong)}
+      html.dark .filter-sel{background:var(--surface-soft);border-color:var(--border);color:var(--text-primary)}
+      html.dark .fi,html.dark .fs{background:var(--surface-soft);border-color:var(--border);color:var(--text-primary)}
+      html.dark .fi:focus,html.dark .fs:focus{background:var(--surface-strong);border-color:var(--p3)}
+      html.dark .pager button{background:var(--surface-strong);border-color:var(--border);color:var(--text-primary)}
+      html.dark .pager button:hover:not(:disabled){background:var(--surface-soft)}
+      html.dark .modal{background:var(--surface-strong);border:1px solid var(--border-strong)}
+      html.dark .mc{background:var(--surface-soft);color:var(--text-secondary)}
+      html.dark .bc{background:var(--surface-soft);color:var(--text-secondary)}
+      html.dark .ok{background:rgba(53,197,138,0.14);color:#35c58a;border-color:rgba(53,197,138,0.28)}
+      html.dark .err{background:rgba(240,90,90,0.14);color:#ff7272;border-color:rgba(240,90,90,0.28)}
+      html.dark .card{background:var(--surface-strong);border-color:var(--border)}
+      html.dark .tab-mini{background:var(--surface-strong);border-color:var(--border);color:var(--text-secondary)}
+      html.dark .bc-link{color:var(--p3)}
+      html.dark .btn-linkish{background:var(--surface-soft);color:var(--p3);border-color:rgba(118,169,255,0.22)}
+      html.dark .btn-linkish:hover{background:var(--surface-strong)}
+      html.dark .fee-btn-outline{background:var(--surface-soft);border-color:var(--p4)}
+      html.dark .fee-btn-outline:hover{background:var(--surface-strong)}
+      html.dark .ov-card{background:rgba(240,90,90,0.12);border-color:rgba(240,90,90,0.22)}
+      html.dark .paid-badge{background:rgba(53,197,138,0.16);color:#35c58a}
 `;

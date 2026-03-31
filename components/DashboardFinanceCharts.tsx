@@ -114,7 +114,7 @@ export function DashboardFinanceCharts({
               iconSize={8}
               formatter={(value) => <span style={{ fontSize: ".72rem", fontFamily: "Cairo" }}>{value}</span>}
             />
-            <Tooltip formatter={(value: number) => `د.ع ${formatNumber(value)}`} />
+            <Tooltip formatter={(value) => `د.ع ${formatNumber(Number(value))}`} />
           </PieChart>
         </ResponsiveContainer>
       </div>

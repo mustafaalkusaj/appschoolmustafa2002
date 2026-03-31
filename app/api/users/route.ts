@@ -49,7 +49,7 @@ function validateCreateUserInput(body: unknown) {
     return { ok: false as const, message: "is_active must be a boolean value." };
   }
 
-  let customPermissions = null;
+  let customPermissions: import("@/types/roles").Permission[] | null = null;
   if (Array.isArray(data.custom_permissions)) {
     const requestedPermissions = data.custom_permissions.filter(
       (permission): permission is string => typeof permission === "string" && permission.trim().length > 0,
@@ -172,8 +172,9 @@ export async function POST(req: NextRequest) {
   let { error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(profilePayload);
 
   if (isMissingColumnError(insertProfileError, "user_profiles", "custom_permissions")) {
-    const legacyPayload = { ...profilePayload };
-    delete legacyPayload.custom_permissions;
+    // Omit the custom_permissions column when the schema doesn't support it yet
+    const { custom_permissions: _omit, ...legacyPayload } = profilePayload;
+    void _omit;
     ({ error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(legacyPayload));
   }
   

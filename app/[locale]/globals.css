@@ -24,7 +24,8 @@
   --info: #4f8cff;
   --button-accent: #4f8cff;
   --button-accent-strong: #3e7df7;
-  --focus-ring: rgba(79, 140, 255, 0.22);
+  --focus-ring: rgba(79, 140, 255, 0.70);
+  --focus-ring-solid: #4f8cff;
   --shadow-xs: 0 8px 18px rgba(15, 23, 42, 0.08);
   --shadow-sm: 0 14px 38px rgba(15, 23, 42, 0.08);
   --shadow-md: 0 24px 56px rgba(15, 23, 42, 0.12);
@@ -70,7 +71,8 @@ html.dark {
   --info: #76a9ff;
   --button-accent: #76a9ff;
   --button-accent-strong: #5b95fb;
-  --focus-ring: rgba(118, 169, 255, 0.24);
+  --focus-ring: rgba(118, 169, 255, 0.72);
+  --focus-ring-solid: #76a9ff;
   --shadow-xs: 0 10px 22px rgba(2, 6, 23, 0.32);
   --shadow-sm: 0 18px 42px rgba(2, 6, 23, 0.42);
   --shadow-md: 0 26px 68px rgba(2, 6, 23, 0.5);
@@ -138,8 +140,14 @@ button {
 }
 
 :focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 4px var(--focus-ring);
+  /* Visible ring that satisfies WCAG 2.4.11 (3:1 contrast minimum).
+     We keep a transparent outline as a high-contrast-mode fallback
+     (forced-colors will show the outline even when box-shadow is hidden). */
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px var(--focus-ring-solid),
+    0 0 0 5px var(--focus-ring);
 }
 
 ::-webkit-scrollbar {
@@ -177,6 +185,16 @@ button {
   background-size: 600px 100%;
   animation: shimmer 1.35s ease-in-out infinite;
   border-radius: 999px;
+}
+
+html.dark .sk {
+  background: linear-gradient(
+    90deg,
+    rgba(118, 169, 255, 0.06) 25%,
+    rgba(138, 231, 255, 0.14) 50%,
+    rgba(118, 169, 255, 0.06) 75%
+  );
+  background-size: 600px 100%;
 }
 
 .ui-glass {
@@ -257,11 +275,11 @@ button {
 .ui-button--primary {
   background: linear-gradient(135deg, var(--button-accent-strong), var(--button-accent));
   color: #ffffff;
-  box-shadow: 0 16px 28px rgba(79, 140, 255, 0.22);
+  box-shadow: 0 16px 28px var(--focus-ring);
 }
 
 .ui-button--primary:hover:not(:disabled) {
-  box-shadow: 0 22px 34px rgba(79, 140, 255, 0.28);
+  box-shadow: 0 22px 34px var(--focus-ring);
 }
 
 .ui-button--secondary {
@@ -387,7 +405,7 @@ html.dark .ui-table tbody tr:hover {
 .theme-mode-switch--floating {
   position: fixed;
   top: 18px;
-  left: 18px;
+  inset-inline-start: 18px;
   z-index: 1100;
 }
 
@@ -849,7 +867,11 @@ html.dark .app-sidebar__link.is-active {
   background: var(--surface-soft);
   color: var(--text-primary);
   padding: 0 0.9rem;
-  outline: none;
+}
+
+.app-shell-topbar__select select:focus-visible {
+  outline: 2px solid var(--focus-ring-solid);
+  outline-offset: 2px;
 }
 
 .profile-menu {
@@ -1038,7 +1060,7 @@ html.dark .app-sidebar__link.is-active {
 @media (max-width: 768px) {
   .theme-mode-switch--floating {
     top: 12px;
-    left: 12px;
+    inset-inline-start: 12px;
   }
 
   .theme-mode-option {

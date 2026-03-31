@@ -41,7 +41,7 @@ export async function POST(
     return rateLimited;
   }
 
-  let user = null;
+  let user: Awaited<ReturnType<typeof fetchManagedUserByAuthUserId>> = null;
   try {
     user = await fetchManagedUserByAuthUserId(actorSupabase, {
       authUserId,

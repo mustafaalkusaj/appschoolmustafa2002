@@ -169,7 +169,7 @@ export default function SubscriptionsPage() {
                       <div>
                         <div className="font-bold text-slate-900">{relationName(sub.schools) || "مدرسة غير معروفة"}</div>
                         <div className="text-xs text-slate-500">
-                          الباقة: {PLAN_LABELS[sub.plan] || "أساسية"} • تاريخ الانتهاء: {sub.end_date || "غير محدد"}
+                          الباقة: {(sub.plan ? PLAN_LABELS[sub.plan] : null) || "أساسية"} • تاريخ الانتهاء: {sub.end_date || "غير محدد"}
                         </div>
                       </div>
 
