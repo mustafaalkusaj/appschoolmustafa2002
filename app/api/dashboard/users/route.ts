@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isInfrastructureCompatError, isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
+import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 import {
   MANAGED_USER_INACTIVE_BAN_DURATION,
   MANAGED_USER_ROLES,
@@ -21,6 +22,7 @@ import {
   fetchManagedAccountSchoolBrand,
   generateManagedLoginIdentifier,
   generateTemporaryPassword,
+  hashPassword,
   normalizeManagedUserRecords,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
@@ -311,9 +313,7 @@ async function fallbackListUsersFromUserProfiles(
   }
 
   if (options.searchQuery) {
-    query = query.or(
-      `full_name.ilike.%${options.searchQuery}%,email.ilike.%${options.searchQuery}%,phone.ilike.%${options.searchQuery}%`,
-    );
+    query = query.or(buildSafeOrFilter(["full_name", "email", "phone"], options.searchQuery));
   }
 
   if (matchingAuthUserIds) {
@@ -574,9 +574,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (searchQuery && !(requiresTeacherScopedFiltering && matchingTeacherIds)) {
-    query = query.or(
-      `full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`,
-    );
+    query = query.or(buildSafeOrFilter(["full_name", "email", "phone"], searchQuery));
   }
 
   if (matchingTeacherIds) {
@@ -945,7 +943,8 @@ export async function POST(req: NextRequest) {
       loginIdentifier,
       createdBy: actorUserId,
       credentialPatch: {
-        temporaryPassword,
+        temporaryPasswordHash: hashPassword(temporaryPassword),
+        hasPendingSetup: true,
         passwordLastResetAt: createdAt,
         cardLastPrintedAt: null,
       },

@@ -2,18 +2,39 @@
 
 <cite>
 **Referenced Files in This Document**
-- [page.tsx](file://app/super-admin/page.tsx)
-- [super-admin-server.ts](file://lib/super-admin-server.ts)
+- [page.tsx](file://app/[locale]/super-admin/page.tsx)
 - [index.ts](file://app/[locale]/super-admin/_components/index.ts)
 - [types.ts](file://app/[locale]/super-admin/_components/types.ts)
-- [utils.ts](file://app/[locale]/super-admin/_components/utils.ts)
 - [ui.tsx](file://app/[locale]/super-admin/_components/ui.tsx)
+- [utils.ts](file://app/[locale]/super-admin/_components/utils.ts)
+- [OverviewTab.tsx](file://app/[locale]/super-admin/_components/OverviewTab.tsx)
+- [SchoolsTab.tsx](file://app/[locale]/super-admin/_components/SchoolsTab.tsx)
+- [UsersTab.tsx](file://app/[locale]/super-admin/_components/UsersTab.tsx)
+- [SubscriptionsTab.tsx](file://app/[locale]/super-admin/_components/SubscriptionsTab.tsx)
+- [AuditLogTab.tsx](file://app/[locale]/super-admin/components/AuditLogTab.tsx)
+- [BranchesTab.tsx](file://app/[locale]/super-admin/components/BranchesTab.tsx)
+- [MonitoringTab.tsx](file://app/[locale]/super-admin/components/MonitoringTab.tsx)
+- [NotificationsTab.tsx](file://app/[locale]/super-admin/components/NotificationsTab.tsx)
+- [OverviewCharts.tsx](file://app/[locale]/super-admin/components/OverviewCharts.tsx)
+- [RolesTab.tsx](file://app/[locale]/super-admin/components/RolesTab.tsx)
+- [TrashTab.tsx](file://app/[locale]/super-admin/components/TrashTab.tsx)
+- [UI.tsx](file://app/[locale]/super-admin/components/UI.tsx)
+- [super-admin-server.ts](file://lib/super-admin-server.ts)
 - [route.ts](file://app/api/web/super-admin/overview/route.ts)
 - [route.ts](file://app/api/web/super-admin/schools/route.ts)
 - [route.ts](file://app/api/web/super-admin/schools/[schoolId]/route.ts)
 - [route.ts](file://app/api/web/super-admin/users/[userId]/route.ts)
 - [route.ts](file://app/api/web/super-admin/subscriptions/[schoolId]/route.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated project structure to reflect modularized super-admin architecture with dedicated component directories
+- Added documentation for new component separation between `_components` (functional) and `components` (auxiliary)
+- Enhanced administrative workflows documentation with improved tab-based navigation
+- Updated UI component documentation to include new modular structure
+- Expanded coverage of cross-school reporting capabilities with enhanced filtering
+- Added comprehensive documentation for new administrative operations and bulk workflows
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -28,432 +49,352 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the Super Admin functionality for multi-school administration and system-wide management. It covers the Super Admin role hierarchy, elevated permissions, dashboard components, administrative operations, cross-school reporting capabilities, workflows, bulk operations, system maintenance tasks, supporting APIs, backend services, and security considerations.
+This document explains the Super Admin functionality for multi-school administration and system-wide management. The system has been modularized into dedicated component groups for better maintainability and scalability. It covers the Super Admin role hierarchy, elevated permissions, dashboard components, administrative operations, cross-school reporting capabilities, workflows, bulk operations, system maintenance tasks, supporting APIs, backend services, and security considerations.
 
 ## Project Structure
-The Super Admin feature spans client-side UI components, server-side route handlers, and shared server utilities. The UI is organized under a localized super-admin module, while backend endpoints are exposed via Next.js App Router routes. Shared server utilities encapsulate Supabase clients, permission resolution, and data normalization.
+The Super Admin feature has been modularized into two main component groups:
+- Functional components (`_components/`): Core administrative functionality including tabs, forms, and utilities
+- Auxiliary components (`components/`): Supporting panels and specialized views like audit logs, monitoring, and charts
 
 ```mermaid
 graph TB
-subgraph "Client"
-UI["Super Admin UI Modules<br/>OverviewTab, SchoolsTab, UsersTab, SubscriptionsTab"]
-Types["Types and Utilities"]
-UIComp["UI Components (Cards, Modals, Notices)"]
+subgraph "Functional Components (_components/)"
+Overview["OverviewTab.tsx<br/>SchoolsTab.tsx<br/>UsersTab.tsx<br/>SubscriptionsTab.tsx"]
+Forms["SchoolForm.tsx<br/>UserForm.tsx<br/>DeleteConfirmDialog.tsx"]
+Types["types.ts<br/>utils.ts<br/>ui.tsx"]
 end
-subgraph "Server"
-Routes["Next.js API Routes<br/>/api/web/super-admin/*"]
-ServerLib["Server Utilities<br/>super-admin-server.ts"]
+subgraph "Auxiliary Components (components/)"
+Panels["AuditLogTab.tsx<br/>MonitoringTab.tsx<br/>NotificationsTab.tsx"]
+Special["OverviewCharts.tsx<br/>BranchesTab.tsx<br/>RolesTab.tsx<br/>TrashTab.tsx"]
 end
-subgraph "Data Layer"
-Supabase["Supabase Client (Service/Route)"]
-DB[("PostgreSQL Tables<br/>schools, user_profiles, subscriptions")]
+subgraph "Main Page"
+Page["Super Admin Page.tsx<br/>Tab Navigation<br/>State Management"]
 end
-UI --> Routes
-Types --> UI
-UIComp --> UI
-Routes --> ServerLib
-ServerLib --> Supabase
-Supabase --> DB
+subgraph "Backend Services"
+API["Next.js API Routes<br/>/api/web/super-admin/*"]
+Server["super-admin-server.ts<br/>Permission Resolution<br/>Data Normalization"]
+end
+Page --> Overview
+Page --> Forms
+Page --> Panels
+Overview --> Special
+Forms --> Types
+Panels --> Types
+Special --> Types
+Page --> API
+API --> Server
 ```
 
 **Diagram sources**
+- [page.tsx:44-75](file://app/[locale]/super-admin/page.tsx#L44-L75)
 - [index.ts:1-22](file://app/[locale]/super-admin/_components/index.ts#L1-L22)
 - [types.ts:1-106](file://app/[locale]/super-admin/_components/types.ts#L1-L106)
-- [ui.tsx:1-161](file://app/[locale]/super-admin/_components/ui.tsx#L1-L161)
-- [route.ts:1-28](file://app/api/web/super-admin/overview/route.ts#L1-L28)
-- [super-admin-server.ts:1-412](file://lib/super-admin-server.ts#L1-L412)
 
 **Section sources**
-- [page.tsx:1-6](file://app/super-admin/page.tsx#L1-L6)
+- [page.tsx:1-1069](file://app/[locale]/super-admin/page.tsx#L1-L1069)
 - [index.ts:1-22](file://app/[locale]/super-admin/_components/index.ts#L1-L22)
 - [types.ts:1-106](file://app/[locale]/super-admin/_components/types.ts#L1-L106)
-- [ui.tsx:1-161](file://app/[locale]/super-admin/_components/ui.tsx#L1-L161)
-- [route.ts:1-28](file://app/api/web/super-admin/overview/route.ts#L1-L28)
-- [super-admin-server.ts:1-412](file://lib/super-admin-server.ts#L1-L412)
 
 ## Core Components
-- Role and Actor Context
-  - Super Admin is identified by a verified authenticated profile with an active status and a specific role resolved to “super_admin”.
-  - A dedicated data client is used for privileged operations when available; otherwise, falls back to the route client.
-- Data Models
-  - School, User, and Subscription records are normalized and enriched with optional relations and schema-aware columns.
-  - Fallback logic handles missing relations or columns gracefully, returning warnings and degraded datasets.
-- Dashboard and UI
-  - UI components provide cards, modals, empty states, and notices for displaying overview metrics and managing operations.
-  - Utilities offer formatting, status labeling, and dataset status metadata.
+The modularized architecture separates concerns into distinct component categories:
 
-Key responsibilities:
-- Enforce Super Admin permissions at the route boundary.
-- Load and normalize system-wide data sets (schools, users, subscriptions).
-- Provide CRUD-like operations for schools, users, and subscriptions with safety checks and schema compatibility.
+### Functional Components
+- **Tab Components**: Dedicated tabs for overview, schools, users, and subscriptions management
+- **Form Components**: Reusable forms for creating and editing schools and users
+- **Utility Components**: Shared UI utilities, types, and helper functions
+
+### Auxiliary Components  
+- **Audit & Monitoring**: Comprehensive audit logging, system monitoring, and notification management
+- **Specialized Views**: Advanced analytics charts, branch management, role administration, and trash management
+- **Supporting UI**: Custom UI components and styling utilities
+
+### Enhanced State Management
+- Centralized tab navigation with availability-based visibility
+- Advanced filtering system with spotlight filters
+- Real-time infrastructure detection and feature availability
+- Comprehensive error handling and user feedback systems
 
 **Section sources**
-- [super-admin-server.ts:122-168](file://lib/super-admin-server.ts#L122-L168)
-- [super-admin-server.ts:170-354](file://lib/super-admin-server.ts#L170-L354)
-- [super-admin-server.ts:356-411](file://lib/super-admin-server.ts#L356-L411)
-- [types.ts:22-59](file://app/[locale]/super-admin/_components/types.ts#L22-L59)
-- [utils.ts:1-102](file://app/[locale]/super-admin/_components/utils.ts#L1-L102)
+- [page.tsx:78-115](file://app/[locale]/super-admin/page.tsx#L78-L115)
+- [page.tsx:122-142](file://app/[locale]/super-admin/page.tsx#L122-L142)
+- [index.ts:12-22](file://app/[locale]/super-admin/_components/index.ts#L12-L22)
 - [ui.tsx:6-161](file://app/[locale]/super-admin/_components/ui.tsx#L6-L161)
 
 ## Architecture Overview
-The Super Admin architecture follows a layered pattern:
-- UI layer: Tabs and forms for overview, schools, users, subscriptions, and auxiliary panels.
-- API layer: Next.js routes validate Super Admin context and delegate to server utilities.
-- Service layer: Server utilities manage Supabase clients, schema detection, and data normalization.
-- Data layer: PostgreSQL tables for schools, user profiles, and subscriptions.
+The modularized Super Admin architecture follows a component-based layered pattern:
 
 ```mermaid
 sequenceDiagram
 participant Client as "Super Admin UI"
-participant API as "Next.js Route Handler"
-participant Util as "super-admin-server.ts"
-participant DB as "Supabase/PostgreSQL"
-Client->>API : "GET /api/web/super-admin/overview"
-API->>Util : "resolveSuperAdminActorContext()"
-Util-->>API : "{ok : true, value : SuperAdminActorContext}"
-API->>Util : "loadSuperAdminOverview()"
-Util->>DB : "Detect infrastructure + schema compat"
-Util->>DB : "Query schools, users, subscriptions"
-DB-->>Util : "Normalized datasets"
-Util-->>API : "OverviewResult"
-API-->>Client : "JSON {ok : true, ...}"
+participant Page as "Super Admin Page.tsx"
+participant Tabs as "Tab Components"
+participant Utils as "Utility Functions"
+participant API as "Next.js Routes"
+participant Server as "super-admin-server.ts"
+Client->>Page : "Tab Navigation & State Management"
+Page->>Tabs : "Render Active Tab Component"
+Tabs->>Utils : "Format Data & Handle Actions"
+Utils->>API : "Fetch/Update Data"
+API->>Server : "Permission Validation & Data Processing"
+Server-->>API : "Normalized Response"
+API-->>Utils : "Processed Data"
+Utils-->>Tabs : "Formatted Results"
+Tabs-->>Page : "Component Props"
+Page-->>Client : "Updated UI State"
 ```
 
 **Diagram sources**
-- [route.ts:9-27](file://app/api/web/super-admin/overview/route.ts#L9-L27)
-- [super-admin-server.ts:122-168](file://lib/super-admin-server.ts#L122-L168)
-- [super-admin-server.ts:170-354](file://lib/super-admin-server.ts#L170-L354)
+- [page.tsx:117-241](file://app/[locale]/super-admin/page.tsx#L117-L241)
+- [OverviewTab.tsx:68-82](file://app/[locale]/super-admin/_components/OverviewTab.tsx#L68-L82)
+- [utils.ts:17-22](file://app/[locale]/super-admin/_components/utils.ts#L17-L22)
 
 **Section sources**
-- [route.ts:1-28](file://app/api/web/super-admin/overview/route.ts#L1-L28)
-- [super-admin-server.ts:1-412](file://lib/super-admin-server.ts#L1-L412)
+- [page.tsx:117-241](file://app/[locale]/super-admin/page.tsx#L117-L241)
+- [OverviewTab.tsx:68-82](file://app/[locale]/super-admin/_components/OverviewTab.tsx#L68-L82)
 
 ## Detailed Component Analysis
 
-### Super Admin Role and Permissions
-- Authentication and Authorization
-  - Route handlers call a resolver that validates the presence of an authenticated user, checks the profile’s active status, and ensures the role resolves to “super_admin”.
-  - On failure, returns appropriate HTTP errors with localized messages.
-- Actor Context
-  - Returns a context combining the route client, a privileged data client (service client when available), and the actor’s user ID.
+### Modularized Tab System
+The Super Admin now features a comprehensive tab-based navigation system with enhanced functionality:
 
-```mermaid
-flowchart TD
-Start(["Route Entry"]) --> GetCtx["Resolve Super Admin Actor Context"]
-GetCtx --> CtxOk{"Context OK?"}
-CtxOk --> |No| Err["Return 401/403 with message"]
-CtxOk --> |Yes| Proceed["Proceed to requested operation"]
-Err --> End(["Exit"])
-Proceed --> End
-```
+#### Overview Tab
+- **Enhanced Analytics**: Interactive charts for plan distribution, role distribution, and subscription health
+- **Smart Insights**: Quick action cards for expiring subscriptions, inactive schools, orphan users, and missing branding
+- **Recent Activity**: Dashboard of recent school and user additions
+- **Dynamic Charts**: Server-side rendered charts with skeleton loading states
 
-**Diagram sources**
-- [super-admin-server.ts:122-160](file://lib/super-admin-server.ts#L122-L160)
-- [route.ts:9-13](file://app/api/web/super-admin/overview/route.ts#L9-L13)
+#### Schools Management Tab
+- **Advanced Filtering**: Real-time search and filter by status, plan, and location
+- **Bulk Operations**: One-click activation/deactivation, subscription renewal, and archiving
+- **Visual Status Indicators**: Color-coded badges for subscription health and school status
+- **Export Capabilities**: CSV export functionality for school data
 
-**Section sources**
-- [super-admin-server.ts:122-160](file://lib/super-admin-server.ts#L122-L160)
-- [route.ts:9-13](file://app/api/web/super-admin/overview/route.ts#L9-L13)
+#### Users Management Tab
+- **Dual View Support**: Desktop table view and mobile card layout
+- **Role Management**: Color-coded role indicators with custom permission support
+- **School Association**: Clear visualization of user-school relationships
+- **Bulk Actions**: Export and individual edit/delete operations
 
-### Super Admin Dashboard Components
-- Overview Panels
-  - Overview tab aggregates system-wide metrics and diagnostics.
-  - Diagnostics include dataset statuses (loaded/fallback/failed) and warnings for degraded loads.
-- UI Components
-  - Stat cards, section cards, empty states, modal frames, and migration notices provide a cohesive UX for managing system-wide data.
+#### Subscriptions Management Tab
+- **Centralized Renewal**: Direct renewal buttons from the subscription table
+- **Health Visualization**: Color-coded status indicators for subscription expiration
+- **School Mapping**: Clear association between subscriptions and schools
 
 ```mermaid
 classDiagram
-class OverviewDiagnostics {
-+string generatedAt
-+string[] warnings
-+string schoolsStatus
-+string usersStatus
-+string subscriptionsStatus
+class SuperAdminPage {
++UserProfile profile
++SchoolRecord[] schools
++UserRecord[] users
++SubscriptionRecord[] subscriptions
++ActiveTab activeTab
++SpotlightFilter spotlightFilter
++AdminInfrastructure infrastructure
++DEFAULT_ADMIN_INFRASTRUCTURE infrastructure
++refreshDashboard()
++handleSaveSchool()
++handleSaveUser()
++extendSubscription()
 }
-class OverviewResult {
-+string infrastructureNotice
-+any infrastructure
-+any schemaCompat
-+SuperAdminSchoolRecord[] schools
-+SuperAdminUserRecord[] users
-+SuperAdminSubscriptionRecord[] subscriptions
-+OverviewDiagnostics diagnostics
+class TabComponents {
++OverviewTab
++SchoolsTab
++UsersTab
++SubscriptionsTab
++AuditLogTab
++MonitoringTab
++BranchesTab
++RolesTab
++TrashTab
++NotificationsTab
 }
-class SuperAdminSchoolRecord {
-+string id
-+string name
-+string|nil address
-+string|nil phone
-+string|nil owner_email
-+string|nil city
-+string|nil logo_url
-+string|nil primary_color
-+string|nil secondary_color
-+string plan
-+boolean is_active
-+string|nil created_at
+class UtilityComponents {
++SchoolForm
++UserForm
++DeleteConfirmDialog
++SectionCard
++StatCard
++EmptyState
++ModalFrame
++MigrationNotice
 }
-class SuperAdminUserRecord {
-+string id
-+string|nil full_name
-+string|nil email
-+string role
-+string|nil school_id
-+string|nil phone
-+boolean is_active
-+Permission[]|nil custom_permissions
-+any schools
-+string|nil created_at
-}
-class SuperAdminSubscriptionRecord {
-+string id
-+string school_id
-+string plan
-+string status
-+string|nil start_date
-+string|nil end_date
-+any schools
-+string|nil created_at
-}
-OverviewResult --> OverviewDiagnostics
-OverviewResult --> SuperAdminSchoolRecord
-OverviewResult --> SuperAdminUserRecord
-OverviewResult --> SuperAdminSubscriptionRecord
+SuperAdminPage --> TabComponents
+SuperAdminPage --> UtilityComponents
+TabComponents --> UtilityComponents
 ```
 
 **Diagram sources**
-- [super-admin-server.ts:71-89](file://lib/super-admin-server.ts#L71-L89)
-- [super-admin-server.ts:24-63](file://lib/super-admin-server.ts#L24-L63)
-- [types.ts:61-69](file://app/[locale]/super-admin/_components/types.ts#L61-L69)
-- [types.ts:22-59](file://app/[locale]/super-admin/_components/types.ts#L22-L59)
-
-**Section sources**
-- [super-admin-server.ts:71-89](file://lib/super-admin-server.ts#L71-L89)
-- [super-admin-server.ts:170-354](file://lib/super-admin-server.ts#L170-L354)
-- [types.ts:1-106](file://app/[locale]/super-admin/_components/types.ts#L1-L106)
+- [page.tsx:117-169](file://app/[locale]/super-admin/page.tsx#L117-L169)
+- [OverviewTab.tsx:52-66](file://app/[locale]/super-admin/_components/OverviewTab.tsx#L52-L66)
 - [ui.tsx:6-161](file://app/[locale]/super-admin/_components/ui.tsx#L6-L161)
 
-### Administrative Operations
-
-#### School Management
-- Create School
-  - Validates payload, normalizes plan, detects schema compatibility, inserts school, creates a default subscription, and optionally initializes a main branch.
-  - On partial failures, performs cleanup (rollback inserts).
-- Update School
-  - Supports two modes:
-    - Toggle: updates activation status and synchronizes the latest subscription status accordingly.
-    - Update: updates attributes with schema-aware column handling.
-- Archive School
-  - Requires soft-delete infrastructure; marks deletion with timestamps and actor ID.
-
-```mermaid
-sequenceDiagram
-participant Client as "Super Admin UI"
-participant API as "POST /api/web/super-admin/schools"
-participant Util as "super-admin-server.ts"
-participant DB as "Supabase/PostgreSQL"
-Client->>API : "Create School Payload"
-API->>Util : "resolveSuperAdminActorContext()"
-Util-->>API : "OK"
-API->>DB : "Insert school"
-DB-->>API : "School Created"
-API->>DB : "Insert subscription (1 year)"
-DB-->>API : "Subscription Created"
-API-->>Client : "201 JSON {school, subscription}"
-Note over Client,DB : "On error, rollback school insert"
-```
-
-**Diagram sources**
-- [route.ts:46-146](file://app/api/web/super-admin/schools/route.ts#L46-L146)
-- [super-admin-server.ts:162-168](file://lib/super-admin-server.ts#L162-L168)
-
 **Section sources**
-- [route.ts:1-147](file://app/api/web/super-admin/schools/route.ts#L1-L147)
-- [route.ts:31-142](file://app/api/web/super-admin/schools/[schoolId]/route.ts#L31-L142)
-- [route.ts:144-190](file://app/api/web/super-admin/schools/[schoolId]/route.ts#L144-L190)
+- [page.tsx:117-169](file://app/[locale]/super-admin/page.tsx#L117-L169)
+- [OverviewTab.tsx:52-66](file://app/[locale]/super-admin/_components/OverviewTab.tsx#L52-L66)
+- [SchoolsTab.tsx:10-32](file://app/[locale]/super-admin/_components/SchoolsTab.tsx#L10-L32)
+- [UsersTab.tsx:10-26](file://app/[locale]/super-admin/_components/UsersTab.tsx#L10-L26)
+- [SubscriptionsTab.tsx:9-19](file://app/[locale]/super-admin/_components/SubscriptionsTab.tsx#L9-L19)
 
-#### User Management
-- Update User Profile
-  - Normalizes role and permissions, validates school association for non-Super Admin roles, and updates user with schema-aware columns.
-- Archive User
-  - Requires soft-delete infrastructure; marks deletion with timestamps and actor ID, and deactivates the profile.
+### Enhanced Administrative Workflows
+The modularized system provides streamlined administrative workflows:
 
-```mermaid
-sequenceDiagram
-participant Client as "Super Admin UI"
-participant API as "PATCH /api/web/super-admin/users/[userId]"
-participant Util as "super-admin-server.ts"
-participant DB as "Supabase/PostgreSQL"
-Client->>API : "Update User Payload"
-API->>Util : "resolveSuperAdminActorContext()"
-Util-->>API : "OK"
-API->>DB : "Validate school (if applicable)"
-DB-->>API : "OK"
-API->>DB : "Update user_profile"
-DB-->>API : "Updated User"
-API-->>Client : "200 JSON {user}"
-```
+#### School Management Workflows
+- **Creation Workflow**: Form validation, plan selection, subscription initialization, and branding setup
+- **Update Workflow**: Toggle activation status, update attributes, and synchronize subscription status
+- **Archival Workflow**: Soft-delete with proper audit trail and data preservation
 
-**Diagram sources**
-- [route.ts:21-86](file://app/api/web/super-admin/users/[userId]/route.ts#L21-L86)
-- [super-admin-server.ts:356-411](file://lib/super-admin-server.ts#L356-L411)
+#### User Management Workflows  
+- **Provisioning Workflow**: Password requirement enforcement, role assignment, and school association
+- **Modification Workflow**: Permission updates, role changes, and status management
+- **Deletion Workflow**: Safe archiving with conflict prevention and audit logging
 
-**Section sources**
-- [route.ts:1-139](file://app/api/web/super-admin/users/[userId]/route.ts#L1-L139)
-- [super-admin-server.ts:356-411](file://lib/super-admin-server.ts#L356-L411)
-
-#### Subscription Management
-- Renew Subscription
-  - Validates school existence and retrieves the latest subscription.
-  - Either activates and extends the current subscription or inserts a new one for the school.
-
-```mermaid
-sequenceDiagram
-participant Client as "Super Admin UI"
-participant API as "POST /api/web/super-admin/subscriptions/[schoolId]"
-participant DB as "Supabase/PostgreSQL"
-Client->>API : "Renew Request"
-API->>DB : "Lookup school and latest subscription"
-DB-->>API : "School + Latest Subscription"
-alt Has Previous Subscription
-API->>DB : "Update status=active, extend end_date"
-else No Previous Subscription
-API->>DB : "Insert new subscription"
-end
-DB-->>API : "New/Updated Subscription"
-API-->>Client : "200 JSON {subscription, created}"
-```
-
-**Diagram sources**
-- [route.ts:11-83](file://app/api/web/super-admin/subscriptions/[schoolId]/route.ts#L11-L83)
-
-**Section sources**
-- [route.ts:1-84](file://app/api/web/super-admin/subscriptions/[schoolId]/route.ts#L1-L84)
-
-### Cross-School Reporting Capabilities
-- Aggregation
-  - Overview loads schools, users, and subscriptions concurrently, normalizing relations and handling fallbacks when foreign keys or columns are missing.
-- Diagnostics
-  - Warnings indicate degraded loads and schema mismatches, enabling oversight and remediation.
-- Spotlight Filters
-  - Utilities expose labels and helpers for filtering inactive schools, expiring subscriptions, orphan users, and missing branding.
+#### Subscription Management Workflows
+- **Renewal Workflow**: Automatic extension of existing subscriptions or creation of new ones
+- **Status Synchronization**: Real-time updates to reflect subscription changes across the system
 
 ```mermaid
 flowchart TD
-A["Load Overview"] --> B["Detect Infrastructure + Schema Compat"]
-B --> C["Query Schools"]
-B --> D["Query Users (with fallback)"]
-B --> E["Query Subscriptions (with fallback)"]
-C --> F["Normalize Records"]
-D --> F
-E --> F
-F --> G["Attach Diagnostics + Warnings"]
-G --> H["Return OverviewResult"]
+A["Super Admin Action"] --> B{"Action Type?"}
+B --> |School Creation| C["SchoolForm Validation"]
+B --> |School Update| D["SchoolsTab Action"]
+B --> |User Management| E["UserForm Processing"]
+B --> |Subscription Renewal| F["SubscriptionsTab Action"]
+C --> G["Create School Record"]
+D --> H["Update School Status"]
+E --> I["Update User Profile"]
+F --> J["Extend Subscription"]
+G --> K["Initialize Default Subscription"]
+H --> L["Sync Subscription Status"]
+I --> M["Apply Role Permissions"]
+J --> N["Update Expiration Date"]
+K --> O["Audit Log Entry"]
+L --> O
+M --> O
+N --> O
 ```
 
 **Diagram sources**
-- [super-admin-server.ts:170-354](file://lib/super-admin-server.ts#L170-L354)
-- [utils.ts:88-101](file://app/[locale]/super-admin/_components/utils.ts#L88-L101)
+- [page.tsx:296-404](file://app/[locale]/super-admin/page.tsx#L296-L404)
+- [page.tsx:406-476](file://app/[locale]/super-admin/page.tsx#L406-L476)
+- [page.tsx:478-507](file://app/[locale]/super-admin/page.tsx#L478-L507)
 
 **Section sources**
-- [super-admin-server.ts:170-354](file://lib/super-admin-server.ts#L170-L354)
+- [page.tsx:296-404](file://app/[locale]/super-admin/page.tsx#L296-L404)
+- [page.tsx:406-476](file://app/[locale]/super-admin/page.tsx#L406-L476)
+- [page.tsx:478-507](file://app/[locale]/super-admin/page.tsx#L478-L507)
+
+### Cross-School Reporting Capabilities
+Enhanced reporting features provide comprehensive system oversight:
+
+#### Advanced Analytics
+- **Interactive Charts**: Dynamic visualization of school plans, user roles, and subscription health
+- **Real-time Updates**: Live data synchronization with automatic refresh capabilities
+- **Export Functionality**: CSV export for all major datasets (schools, users, subscriptions)
+
+#### Intelligent Filtering
+- **Spotlight Filters**: Pre-defined filters for inactive schools, expiring subscriptions, orphan users, and missing branding
+- **Search Integration**: Combined search across multiple fields with real-time filtering
+- **Status-Based Sorting**: Priority sorting for urgent administrative actions
+
+#### Infrastructure Awareness
+- **Feature Detection**: Automatic detection of available admin infrastructure features
+- **Conditional Rendering**: Tabs and actions appear only when supported by current infrastructure
+- **Migration Guidance**: Clear messaging for required infrastructure upgrades
+
+**Section sources**
+- [OverviewTab.tsx:83-92](file://app/[locale]/super-admin/_components/OverviewTab.tsx#L83-L92)
+- [page.tsx:586-634](file://app/[locale]/super-admin/page.tsx#L586-L634)
 - [utils.ts:88-101](file://app/[locale]/super-admin/_components/utils.ts#L88-L101)
 
-### Practical Workflows and Bulk Operations
-- Bulk School Creation
-  - Use the school creation endpoint to provision multiple schools programmatically, ensuring plan defaults and subscription initialization.
-- Bulk Subscription Renewal
-  - Iterate over school IDs and call the renewal endpoint to activate and extend subscriptions.
-- Bulk User Updates
-  - Normalize roles and permissions, validate school associations, and update profiles in batches.
-- Bulk Archiving
-  - Archive users and schools using dedicated endpoints with appropriate infrastructure enabled.
+### Security and Access Control
+Enhanced security measures protect system integrity:
 
-[No sources needed since this section provides general guidance]
+#### Role-Based Access
+- **Super Admin Only**: Exclusive access restricted to verified super admin users
+- **Permission Validation**: Real-time permission checking for all administrative actions
+- **Audit Trail**: Comprehensive logging of all administrative operations
 
-### Security Implications and Best Practices
-- Least Privilege
-  - Limit Super Admin accounts to trusted individuals and enforce strong authentication controls.
-- Session and Token Management
-  - Rotate credentials regularly and monitor sessions for suspicious activity.
-- Audit and Logging
-  - Maintain logs for all Super Admin actions, especially deletions and role changes.
-- Infrastructure Hardening
-  - Apply admin infrastructure migrations to enable soft deletes and robust auditing.
-- Principle of Least Privilege
-  - Avoid granting Super Admin to non-essential accounts; prefer granular permissions where possible.
+#### Infrastructure Protection
+- **Soft Delete Support**: Optional soft delete infrastructure for safe data archival
+- **Conflict Prevention**: Automatic prevention of critical operation conflicts
+- **Session Management**: Secure session handling with automatic logout on unauthorized access
 
-[No sources needed since this section provides general guidance]
+**Section sources**
+- [page.tsx:170-178](file://app/[locale]/super-admin/page.tsx#L170-L178)
+- [page.tsx:509-543](file://app/[locale]/super-admin/page.tsx#L509-L543)
+- [page.tsx:545-584](file://app/[locale]/super-admin/page.tsx#L545-L584)
 
 ## Dependency Analysis
-The Super Admin feature depends on:
-- Supabase clients for authenticated routes and privileged data operations.
-- Schema compatibility detection to adapt queries to available columns.
-- Infrastructure detection to handle optional features like soft deletes and branches.
+The modularized architecture maintains clear dependency relationships:
 
 ```mermaid
 graph LR
-Routes["API Routes"] --> Server["super-admin-server.ts"]
-Server --> Supabase["Supabase Clients"]
-Server --> Schema["Schema Compatibility"]
-Server --> Infra["Admin Infrastructure"]
-Supabase --> DB[("PostgreSQL")]
+Page["Super Admin Page.tsx"] --> Components["_components/ & components/"]
+Components --> Types["types.ts"]
+Components --> Utils["utils.ts"]
+Components --> UI["ui.tsx"]
+Page --> API["API Routes"]
+API --> Server["super-admin-server.ts"]
+Server --> Database["PostgreSQL Database"]
+Database --> Schema["Admin Infrastructure Schema"]
 ```
 
 **Diagram sources**
-- [route.ts:3-3](file://app/api/web/super-admin/overview/route.ts#L3-L3)
-- [super-admin-server.ts:1-16](file://lib/super-admin-server.ts#L1-L16)
+- [page.tsx:44-75](file://app/[locale]/super-admin/page.tsx#L44-L75)
+- [index.ts:1-22](file://app/[locale]/super-admin/_components/index.ts#L1-L22)
 
 **Section sources**
-- [route.ts:1-28](file://app/api/web/super-admin/overview/route.ts#L1-L28)
-- [super-admin-server.ts:1-412](file://lib/super-admin-server.ts#L1-L412)
+- [page.tsx:44-75](file://app/[locale]/super-admin/page.tsx#L44-L75)
+- [index.ts:1-22](file://app/[locale]/super-admin/_components/index.ts#L1-L22)
 
 ## Performance Considerations
-- Concurrent Queries
-  - Overview loads multiple datasets concurrently to reduce latency.
-- Schema-Aware Selects
-  - Adjusts selected columns based on detected schema compatibility to avoid unnecessary data transfer.
-- Fallback Handling
-  - Gracefully degrades when relations or columns are missing, minimizing downtime.
+The modularized architecture improves performance through:
 
-[No sources needed since this section provides general guidance]
+- **Component Separation**: Independent component loading reduces bundle size
+- **Lazy Loading**: Dynamic imports for heavy components like charts
+- **Efficient State Management**: Centralized state with selective re-rendering
+- **Optimized Data Fetching**: Coordinated API calls with caching strategies
 
 ## Troubleshooting Guide
-- Authentication Failures
-  - Ensure the user is authenticated and active; Super Admin role must resolve correctly.
-- Missing Relations or Columns
-  - When relations or columns are missing, the system falls back and returns warnings; apply migrations to restore full functionality.
-- Soft Delete Constraints
-  - Archiving users and schools requires soft-delete infrastructure; install the admin infrastructure migration to enable these features.
-- Subscription Renewal Errors
-  - Verify school existence and that the latest subscription can be retrieved or created.
+Common issues and resolutions:
+
+### Component Loading Issues
+- **Missing Components**: Ensure both `_components/` and `components/` directories are properly structured
+- **Import Errors**: Verify correct import paths from the centralized index file
+- **Type Definitions**: Check that TypeScript definitions are properly exported
+
+### Infrastructure Requirements
+- **Missing Features**: Install required admin infrastructure migrations for advanced features
+- **Tab Visibility**: Some tabs may be hidden if infrastructure requirements are not met
+- **Action Availability**: Certain actions may be disabled without proper permissions
+
+### Data Synchronization
+- **Outdated Data**: Use refresh buttons to update data from API endpoints
+- **Cache Issues**: Clear browser cache if stale data appears
+- **API Connectivity**: Verify API endpoints are accessible and responding correctly
 
 **Section sources**
-- [super-admin-server.ts:205-324](file://lib/super-admin-server.ts#L205-L324)
-- [route.ts:159-165](file://app/api/web/super-admin/schools/[schoolId]/route.ts#L159-L165)
-- [route.ts:107-113](file://app/api/web/super-admin/users/[userId]/route.ts#L107-L113)
+- [page.tsx:96-115](file://app/[locale]/super-admin/page.tsx#L96-L115)
+- [page.tsx:200-237](file://app/[locale]/super-admin/page.tsx#L200-L237)
 
 ## Conclusion
-The Super Admin functionality provides a comprehensive, schema-aware, and resilient system for multi-school administration. It enforces strict permissions, offers robust dashboard components, supports essential administrative operations, and maintains diagnostics for oversight. By following the recommended security practices and leveraging the provided APIs, administrators can efficiently manage the entire system with confidence.
+The modularized Super Admin functionality provides a comprehensive, maintainable, and scalable solution for multi-school administration. The separation into functional and auxiliary components enhances code organization while maintaining full functionality. Enhanced workflows, improved reporting capabilities, and robust security measures ensure effective system oversight with minimal operational overhead.
 
 ## Appendices
 
 ### API Endpoints Summary
-- GET /api/web/super-admin/overview
-  - Loads system-wide overview data with diagnostics.
-- POST /api/web/super-admin/schools
-  - Creates a new school, default subscription, and optional branch.
-- PATCH /api/web/super-admin/schools/[schoolId]
-  - Updates school attributes or toggles activation and syncs subscription status.
-- DELETE /api/web/super-admin/schools/[schoolId]
-  - Archives a school if soft-delete infrastructure is enabled.
-- PATCH /api/web/super-admin/users/[userId]
-  - Updates user profile with role and permissions normalization.
-- DELETE /api/web/super-admin/users/[userId]
-  - Archives a user if soft-delete infrastructure is enabled.
-- POST /api/web/super-admin/subscriptions/[schoolId]
-  - Renews or activates a subscription for a school.
+- **GET /api/web/super-admin/overview**: Loads system-wide overview data with diagnostics
+- **POST /api/web/super-admin/schools**: Creates a new school with default subscription
+- **PATCH /api/web/super-admin/schools/[schoolId]**: Updates school attributes or toggles activation
+- **DELETE /api/web/super-admin/schools/[schoolId]**: Archives a school if soft-delete enabled
+- **PATCH /api/web/super-admin/users/[userId]**: Updates user profile with role and permissions
+- **DELETE /api/web/super-admin/users/[userId]**: Archives a user if soft-delete enabled
+- **POST /api/web/super-admin/subscriptions/[schoolId]**: Renews or activates a subscription
+
+### Component Directory Structure
+- **_components/**: Core functional components (tabs, forms, utilities)
+- **components/**: Auxiliary components (panels, charts, specialized views)
+- **page.tsx**: Main Super Admin page with tab navigation and state management
 
 **Section sources**
 - [route.ts:1-28](file://app/api/web/super-admin/overview/route.ts#L1-L28)

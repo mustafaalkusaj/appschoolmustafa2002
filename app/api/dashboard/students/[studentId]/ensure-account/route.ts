@@ -7,6 +7,7 @@ import {
   fetchManagedUserByAuthUserId,
   generateManagedLoginIdentifier,
   generateTemporaryPassword,
+  hashPassword,
   resolveManagedUsersActorContext,
   syncManagedUserAccountState,
   syncStudentTeacherLinks,
@@ -70,6 +71,7 @@ export async function POST(
   let authUserId = typeof student.auth_user_id === "string" ? student.auth_user_id : null;
   let loginIdentifier = "";
   let createdNewAccount = false;
+  let revealedPassword: string | null = null;
 
   try {
     if (!authUserId) {
@@ -102,6 +104,7 @@ export async function POST(
         preferredEmail: "",
       });
       const temporaryPassword = generateTemporaryPassword();
+      revealedPassword = temporaryPassword;
 
       const createdAt = new Date().toISOString();
       const authIdentityPayload = buildManagedAuthIdentityPayload({
@@ -111,7 +114,8 @@ export async function POST(
         loginIdentifier,
         createdBy: actorUserId,
         credentialPatch: {
-          temporaryPassword,
+          temporaryPasswordHash: hashPassword(temporaryPassword),
+          hasPendingSetup: true,
           passwordLastResetAt: createdAt,
           cardLastPrintedAt: null,
         },
@@ -215,6 +219,7 @@ export async function POST(
       accountCard = await buildManagedUserAccountCard(actorSupabase, user);
     } catch {
       const temporaryPassword = generateTemporaryPassword();
+      revealedPassword = temporaryPassword;
       const { error: updatePasswordError } = await serviceSupabase.auth.admin.updateUserById(authUserId, {
         password: temporaryPassword,
       });
@@ -239,7 +244,7 @@ export async function POST(
         return jsonError("تعذر تحميل الحساب بعد إصدار كلمة المرور المؤقتة.", 500);
       }
 
-      accountCard = await buildManagedUserAccountCard(actorSupabase, user);
+      accountCard = await buildManagedUserAccountCard(actorSupabase, user, { temporaryPassword });
     }
 
     try {
@@ -258,6 +263,8 @@ export async function POST(
       createdNewAccount,
       user,
       accountCard,
+      // Include the plaintext password for one-time reveal (only when a new password was generated)
+      temporary_password: revealedPassword,
     });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر تجهيز حساب التطبيق لهذا الطالب.", 500);

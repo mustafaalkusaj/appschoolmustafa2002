@@ -11,6 +11,7 @@
 - [hooks/usePagedSupabaseList.ts](file://hooks/usePagedSupabaseList.ts)
 - [migrations/20260324_000000_reliability_performance_indexes.sql](file://migrations/20260324_000000_reliability_performance_indexes.sql)
 - [migrations/20260326_020000_account_archives_table.sql](file://migrations/20260326_020000_account_archives_table.sql)
+- [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
 - [database_setup.sql](file://database_setup.sql)
 - [admin_infrastructure.sql](file://admin_infrastructure.sql)
 - [components/PingIndicator.tsx](file://components/PingIndicator.tsx)
@@ -20,6 +21,14 @@
 - [next.config.ts](file://next.config.ts)
 - [package.json](file://package.json)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated Database Indexing Strategy section to reflect newly added critical foreign key indexes
+- Enhanced Database Constraints section to document standardized CASCADE consistency
+- Added new subsection on Foreign Key Index Optimization
+- Updated Performance Considerations section with specific index benefits
+- Enhanced Troubleshooting Guide with index-related diagnostic guidance
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -60,6 +69,7 @@ end
 subgraph "Database"
 DB_Schema["Database Schema + RLS"]
 DB_Indexes["Performance Indexes"]
+DB_Constraints["Foreign Key Constraints"]
 end
 subgraph "Testing"
 K6["k6 Load Test"]
@@ -73,6 +83,7 @@ Comp_Ping --> Supa_Client
 Supa_Client --> DB_Schema
 Supa_Server --> DB_Schema
 DB_Schema --> DB_Indexes
+DB_Schema --> DB_Constraints
 RL --> Supa_Server
 K6 --> Supa_Server
 Audit --> Supa_Server
@@ -86,6 +97,7 @@ Report --> UI_SuperAdmin
 - [components/PingIndicator.tsx:1-54](file://components/PingIndicator.tsx#L1-L54)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [database_setup.sql:419-446](file://database_setup.sql#L419-L446)
 - [load-test.js:1-45](file://load-test.js#L1-L45)
 - [scripts/load-audit.mjs:1-399](file://scripts/load-audit.mjs#L1-L399)
@@ -98,6 +110,7 @@ Report --> UI_SuperAdmin
 - [components/PingIndicator.tsx:1-54](file://components/PingIndicator.tsx#L1-L54)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [database_setup.sql:419-446](file://database_setup.sql#L419-L446)
 - [load-test.js:1-45](file://load-test.js#L1-L45)
 - [scripts/load-audit.mjs:1-399](file://scripts/load-audit.mjs#L1-L399)
@@ -105,7 +118,8 @@ Report --> UI_SuperAdmin
 
 ## Core Components
 - Database schema and RLS policies enable multi-tenant isolation and efficient tenant-scoped queries.
-- Performance indexes reduce scan costs for common filters and sorts.
+- Performance indexes reduce scan costs for common filters and sorts, including newly added foreign key indexes.
+- Database constraints ensure data integrity with standardized CASCADE behavior for tenant-scoped operations.
 - Supabase clients (browser and server) encapsulate environment configuration and authentication flows.
 - Client-side caching hook reduces redundant network requests for paginated lists.
 - Rate limiting module protects APIs from abuse with sliding windows and cleanup.
@@ -114,6 +128,7 @@ Report --> UI_SuperAdmin
 **Section sources**
 - [database_setup.sql:524-614](file://database_setup.sql#L524-L614)
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
 - [lib/supabase-server.ts:1-75](file://lib/supabase-server.ts#L1-L75)
 - [hooks/usePagedSupabaseList.ts:50-121](file://hooks/usePagedSupabaseList.ts#L50-L121)
@@ -149,6 +164,7 @@ Hook-->>UI : Render with rows and totals
 - [hooks/usePagedSupabaseList.ts:50-121](file://hooks/usePagedSupabaseList.ts#L50-L121)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 
 ## Detailed Component Analysis
 
@@ -159,6 +175,10 @@ Hook-->>UI : Render with rows and totals
   - Deductions: school_id, deduction_date desc, teacher_id
   - Lecture prices: school_id, grade
   - Lesson times: school_id, session_type, period
+- **Updated** Critical foreign key indexes added for improved query performance:
+  - Students: school_id
+  - Expenses: school_id  
+  - Payments: student_id
 - Additional indexes on foreign keys and unique constraints ensure fast joins and uniqueness checks.
 - Tenant policies restrict access to data scoped by school_id, enforced by RLS.
 
@@ -194,20 +214,45 @@ uuid school_id FK
 text session_type
 text period
 }
+STUDENTS {
+uuid id PK
+uuid school_id FK
+}
+EXPENSES {
+uuid id PK
+uuid school_id FK
+}
 PAYMENTS }o--|| SCHOOL : "school_id"
 SALARIES }o--|| SCHOOL : "school_id"
 DEDUCTIONS }o--|| SCHOOL : "school_id"
 LECTURE_PRICES }o--|| SCHOOL : "school_id"
 LESSON_TIMES }o--|| SCHOOL : "school_id"
+STUDENTS }o--|| SCHOOL : "school_id"
+EXPENSES }o--|| SCHOOL : "school_id"
+PAYMENTS }o--|| STUDENT : "student_id"
 ```
 
 **Diagram sources**
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [database_setup.sql:524-614](file://database_setup.sql#L524-L614)
 
 **Section sources**
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [database_setup.sql:524-614](file://database_setup.sql#L524-L614)
+
+### Database Constraints and Data Integrity
+- **Updated** Standardized CASCADE consistency ensures referential integrity across tenant-scoped operations:
+  - Attendance records now use ON DELETE CASCADE for school_id foreign key constraint
+  - Matches the CASCADE behavior of other tenant-scoped tables (students, payments, expenses)
+  - Prevents orphaned records and maintains data consistency
+- RLS policies continue to enforce tenant boundaries and access controls
+- Unique constraints and indexes maintain data quality and query performance
+
+**Section sources**
+- [migrations/20260330_000000_add_missing_indexes.sql:6-11](file://migrations/20260330_000000_add_missing_indexes.sql#L6-L11)
+- [database_setup.sql:29-41](file://database_setup.sql#L29-L41)
 
 ### Query Optimization and Caching
 - Client-side caching for paginated lists reduces repeated network calls and improves perceived performance.
@@ -307,7 +352,7 @@ UI->>UI : Compute ms and classify speed
 - Supabase clients depend on environment variables for URL and keys; missing keys cause early errors.
 - Hooks depend on Supabase client availability and sessionStorage support.
 - Rate limiting depends on request headers for IP resolution and uses a Map for in-memory storage.
-- Database relies on RLS functions and indexes to enforce tenant boundaries and accelerate queries.
+- Database relies on RLS functions, indexes, and standardized constraints to enforce tenant boundaries and accelerate queries.
 
 ```mermaid
 graph LR
@@ -317,6 +362,7 @@ SupaTS --> Hook["hooks/usePagedSupabaseList.ts"]
 SupaServer --> DB["PostgreSQL"]
 RL["lib/rate-limit.ts"] --> SupaServer
 Indexes["Performance Indexes"] --> DB
+Constraints["Foreign Key Constraints"] --> DB
 RLS["RLS Policies"] --> DB
 ```
 
@@ -326,6 +372,7 @@ RLS["RLS Policies"] --> DB
 - [hooks/usePagedSupabaseList.ts:50-121](file://hooks/usePagedSupabaseList.ts#L50-L121)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [database_setup.sql:419-446](file://database_setup.sql#L419-L446)
 
 **Section sources**
@@ -334,13 +381,19 @@ RLS["RLS Policies"] --> DB
 - [hooks/usePagedSupabaseList.ts:50-121](file://hooks/usePagedSupabaseList.ts#L50-L121)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [database_setup.sql:419-446](file://database_setup.sql#L419-L446)
 
 ## Performance Considerations
 - Database
   - Maintain composite indexes aligned with tenant filters and time-based sorts.
+  - **Updated** Leverage newly added foreign key indexes for improved query performance:
+    - Students: school_id index for tenant-scoped student queries
+    - Expenses: school_id index for expense filtering by school
+    - Payments: student_id index for payment history lookups
   - Use RLS functions to enforce tenant scoping and avoid scanning unrelated rows.
   - Monitor slow queries and add targeted indexes for hotspots.
+  - **Updated** Ensure consistent CASCADE behavior across all tenant-scoped foreign key constraints.
 - Application
   - Prefer client-side caching for paginated datasets to reduce backend load.
   - Minimize re-renders by leveraging cached data and stable references.
@@ -352,7 +405,9 @@ RLS["RLS Policies"] --> DB
   - Configure Next.js headers for security and performance.
   - Scale horizontally by adding replicas and ensuring stateless server components.
 
-[No sources needed since this section provides general guidance]
+**Section sources**
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
+- [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
 
 ## Troubleshooting Guide
 - Symptom: Elevated p95/p99 latencies under concurrency
@@ -367,6 +422,12 @@ RLS["RLS Policies"] --> DB
 - Symptom: Rate limit exceeded errors
   - Action: Adjust window and maxHits; ensure cleanup interval prevents memory leaks; inspect headers for diagnostics.
   - Reference: [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
+- **Updated** Symptom: Slow tenant-scoped queries for students, expenses, or payments
+  - Action: Verify foreign key indexes exist and are being utilized; check query plans for proper index usage.
+  - Reference: [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
+- **Updated** Symptom: Orphaned records after school deletion
+  - Action: Verify CASCADE constraints are properly configured; check foreign key constraint definitions.
+  - Reference: [migrations/20260330_000000_add_missing_indexes.sql:6-11](file://migrations/20260330_000000_add_missing_indexes.sql#L6-L11)
 
 **Section sources**
 - [artifacts/reliability-audit/load-audit.json:1-237](file://artifacts/reliability-audit/load-audit.json#L1-L237)
@@ -375,12 +436,11 @@ RLS["RLS Policies"] --> DB
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
 - [hooks/usePagedSupabaseList.ts:50-121](file://hooks/usePagedSupabaseList.ts#L50-L121)
 - [migrations/20260324_000000_reliability_performance_indexes.sql:1-24](file://migrations/20260324_000000_reliability_performance_indexes.sql#L1-L24)
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 
 ## Conclusion
-The system employs a layered approach to performance and scalability: robust database indexing and RLS for tenant isolation, client caching to reduce load, rate limiting to protect resources, and comprehensive load testing to quantify and track regressions. By continuing to monitor latency and failure rates, iteratively adding indexes for hot queries, and expanding caching coverage, the platform can sustain growth while maintaining responsiveness.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The system employs a layered approach to performance and scalability: robust database indexing and RLS for tenant isolation, client caching to reduce load, rate limiting to protect resources, and comprehensive load testing to quantify and track regressions. **Updated** Recent enhancements include critical foreign key indexes for improved query performance and standardized CASCADE consistency for data integrity. By continuing to monitor latency and failure rates, iteratively adding indexes for hot queries, and expanding caching coverage, the platform can sustain growth while maintaining responsiveness.
 
 ## Appendices
 
@@ -391,6 +451,7 @@ The system employs a layered approach to performance and scalability: robust dat
 - Database scaling
   - Maintain tenant-focused indexes and RLS policies; partition or archive historical data to control growth.
   - Consider read replicas for reporting workloads; ensure queries leverage indexes.
+  - **Updated** Monitor foreign key index performance for tenant-scoped operations.
 - Caching
   - Extend client caching to more pages; introduce server-side caching for expensive computations.
 - Observability
@@ -401,3 +462,18 @@ The system employs a layered approach to performance and scalability: robust dat
 - [package.json:1-38](file://package.json#L1-L38)
 - [migrations/20260326_020000_account_archives_table.sql:1-63](file://migrations/20260326_020000_account_archives_table.sql#L1-L63)
 - [database_setup.sql:419-446](file://database_setup.sql#L419-L446)
+
+### Foreign Key Index Optimization
+**New Section**
+
+The addition of critical foreign key indexes significantly improves query performance for tenant-scoped operations:
+
+- **Students.school_id Index**: Optimizes queries filtering students by school, enabling fast tenant isolation
+- **Expenses.school_id Index**: Accelerates expense queries by school, improving financial reporting performance  
+- **Payments.student_id Index**: Enhances payment history lookups per student, reducing query times for payment records
+
+These indexes work in conjunction with existing composite indexes to provide optimal performance for common multi-tenant query patterns.
+
+**Section sources**
+- [migrations/20260330_000000_add_missing_indexes.sql:1-11](file://migrations/20260330_000000_add_missing_indexes.sql#L1-L11)
+- [database_setup.sql:411-413](file://database_setup.sql#L411-L413)

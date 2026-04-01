@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
@@ -15,48 +16,31 @@ import { getLocaleFromPath } from "@/lib/locale-routing";
 import { wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
-
-const SALARY_TYPES = [
-  {value:"fixed",label:"راتب ثابت"},
-  {value:"hourly",label:"محاضرات (آجور)"},
-  {value:"mixed",label:"ثابت + محاضرات"},
-];
-const DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
-const PERIODS = [1,2,3,4,5,6];
-const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-
-const CLASS_GRADES = [
-  "الأول",
-  "الثاني",
-  "الثالث",
-  "الرابع",
-  "الخامس",
-  "السادس",
-  "السابع",
-  "الثامن",
-  "التاسع",
-  "العاشر",
-  "الحادي عشر",
-  "الثاني عشر",
-];
-const SECTIONS_LIST = ["أ", "ب", "ج", "د", "هـ", "و", "ز", "ح"];
-
-const QUICK_ACCESS = [
-  { id:"add_teacher", label:"إضافة أستاذ", icon:"👨‍🏫", bg:"#EDF6FF" },
-  { id:"schedule", label:"الجدول", icon:"📅", bg:"#DBEAFE" },
-  { id:"prices", label:"أسعار المحاضرات", icon:"🏷️", bg:"#FEF3C7" },
-  { id:"subjects", label:"المواد الدراسية", icon:"📚", bg:"#EAF2FF" },
-  { id:"titles", label:"المسميات الوظيفية", icon:"👔", bg:"#E6F4FF" },
-  { id:"classes", label:"إضافة صف وشعبة", icon:"🏫", bg:"#CCFBF1" },
-  { id:"print", label:"خيارات الطباعة", icon:"🖨️", bg:"#E0E7FF" },
-  { id:"export", label:"تصدير بيانات", icon:"📤", bg:"#DCFCE7" },
-  { id:"deductions", label:"سحوبات", icon:"💸", bg:"#FEE2E2" },
-  { id:"detailed_report", label:"تقرير تفصيلي", icon:"📊", bg:"#FFEDD5" },
-  { id:"schedule_lessons", label:"توقيتات الدروس", icon:"⏰", bg:"#E8F3FF" },
-  { id:"daily_log", label:"سجل يومي", icon:"📋", bg:"#F1F5F9" },
-];
-
-type SalariesBootstrapScope = "core" | "reference" | "archive" | "all";
+import { useSalariesData } from "./_hooks";
+import {
+  SalariesSidebar,
+  StatsCards,
+  QuickAccessGrid,
+  TeachersTable,
+  TeacherDetailPanel,
+  TeacherModal,
+  PaySalaryModal,
+  TeacherDropdownMenu,
+  ScheduleSection,
+  DeductionsSection,
+  ReportsSection,
+  CalendarSection,
+  ArchiveSection,
+  SettingsSection,
+  PricesModal,
+  LessonTimesModal,
+  DailyLogModal,
+  ExportModal,
+  PrintModal,
+  ManagerModals,
+} from "./_components";
+import { EMPTY_TEACHER_FORM, EMPTY_SALARY_FORM, EMPTY_EXPORT_OPTIONS, type Teacher, type TeacherFormData, type SalaryFormData, type ExportOptions } from "./_types";
+import "./_components/salaries.css";
 
 export default function SalariesPage() {
   const pathname = usePathname();
@@ -66,86 +50,122 @@ export default function SalariesPage() {
   const runtimeBranding = useRuntimeBranding();
   const canManageTeacher = canAny(["manage_salaries"]);
   const schoolScope = useSchoolScope(profile);
-  const [schoolId, setSchoolId] = useState<string | null>(null);
+
+  // Main data hook
+  const salariesData = useSalariesData(profile, schoolScope);
+  const {
+    schoolId,
+    loading,
+    referenceLoaded: _referenceLoaded,
+    error,
+    success,
+    teachers,
+    salaries,
+    classes,
+    subjectsList,
+    jobTitlesList,
+    dailyLectures,
+    archives,
+    lessonTimes,
+    lecturePrices,
+    deductionsList,
+    calLectureDates,
+    reportSummary,
+    reportTotals,
+    reportLoading,
+    setSuccess,
+    setError,
+    setDeductionsList: _setDeductionsList,
+    setDailyLectures: _setDailyLectures,
+    setClasses: _setClasses,
+    setSubjectsList: _setSubjectsList,
+    setJobTitlesList: _setJobTitlesList,
+    setLessonTimes: _setLessonTimes,
+    setLecturePrices: _setLecturePrices,
+    fetchAll,
+    ensureReferenceData,
+    ensureArchivesData,
+    fetchCalendarLectures,
+    fetchDetailedReportAll,
+    fetchReportSummary,
+    fetchDeductionsList,
+    loadTeacherMonthLectures,
+    getBranchId,
+    archiveMonth,
+  } = salariesData;
+
+  // UI State
   const [activeSection, setActiveSection] = useState("main");
-  const [teachers, setTeachers] = useState<any[]>([]);
-  const [salaries, setSalaries] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [subjectsList, setSubjectsList] = useState<any[]>([]);
-  const [jobTitlesList, setJobTitlesList] = useState<any[]>([]);
-  const [dailyLectures, setDailyLectures] = useState<any[]>([]);
-  const [archives, setArchives] = useState<any[]>([]);
-  const [lessonTimes, setLessonTimes] = useState<any[]>([]);
-  const [lecturePrices, setLecturePrices] = useState<any[]>([]);
-  const [lectureSalaryCalc, setLectureSalaryCalc] = useState({count:0,total:0});
-  const [loading, setLoading] = useState(true);
-  const [referenceLoading, setReferenceLoading] = useState(false);
-  const [referenceLoaded, setReferenceLoaded] = useState(false);
-  const [archivesLoading, setArchivesLoading] = useState(false);
-  const [archivesLoaded, setArchivesLoaded] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
-  const [currentMonth] = useState(new Date().toISOString().slice(0,7));
   const [showQuickAll, setShowQuickAll] = useState(false);
+  const [currentMonth] = useState(new Date().toISOString().slice(0, 7));
 
-  // Teacher form
-  // Pay salary
+  // Teacher Modal State
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
+  const [teacherModalSaving, setTeacherModalSaving] = useState(false);
+  const [teacherModalError, setTeacherModalError] = useState("");
+  const [teacherEditId, setTeacherEditId] = useState<string | null>(null);
+  const [teacherForm, setTeacherForm] = useState<TeacherFormData>(EMPTY_TEACHER_FORM);
+
+  // Pay Salary Modal State
   const [showPaySalary, setShowPaySalary] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [savingSalary, setSavingSalary] = useState(false);
-  const [salaryForm, setSalaryForm] = useState({gross_salary:"",deductions:"0",notes:"",month:new Date().toISOString().slice(0,7)});
+  const [salaryForm, setSalaryForm] = useState<SalaryFormData>(EMPTY_SALARY_FORM);
+  const [lectureSalaryCalc, setLectureSalaryCalc] = useState({ count: 0, total: 0 });
 
-  // Detail
+  // Detail Panel State
   const [showDetail, setShowDetail] = useState(false);
-  const [detailTeacher, setDetailTeacher] = useState<any>(null);
-  const [activeMenu, setActiveMenu] = useState<string|null>(null);
-  const [menuPos, setMenuPos] = useState({top:0,left:0});
+  const [detailTeacher, setDetailTeacher] = useState<Teacher | null>(null);
 
-  // Schedule
+  // Dropdown Menu State
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  // Schedule State
   const [scheduleGrade, setScheduleGrade] = useState("");
   const [scheduleSection, setScheduleSection] = useState("");
-  const [scheduleGrid, setScheduleGrid] = useState<{[k:string]:string}>({});
+  const [scheduleGrid, setScheduleGrid] = useState<Record<string, string>>({});
   const [scheduleSaving, setScheduleSaving] = useState(false);
 
-  // Deductions
+  // Deductions State
   const [deductionTeacher, setDeductionTeacher] = useState("");
   const [deductionAmount, setDeductionAmount] = useState("0");
   const [deductionNotes, setDeductionNotes] = useState("");
   const [savingDeduction, setSavingDeduction] = useState(false);
-  const [deductionsList, setDeductionsList] = useState<any[]>([]);
 
-  // Reports
-  const [reportView, setReportView] = useState<"summary"|"details">("summary");
+  // Reports State
+  const [reportView, setReportView] = useState<"summary" | "details">("summary");
   const [reportTeacher, setReportTeacher] = useState("");
-  const [reportSummary, setReportSummary] = useState<any[]>([]);
-  const [reportTotals, setReportTotals] = useState({lectureCount:0,total:0});
-  const [reportLoading, setReportLoading] = useState(false);
 
-  // Calendar
+  // Calendar State
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
-  const [calLectureDates, setCalLectureDates] = useState<string[]>([]);
 
-  // Prices
-  const [priceEdits, setPriceEdits] = useState<{[k:string]:number}>({});
+  // Prices State
+  const [showPrices, setShowPrices] = useState(false);
+  const [priceEdits, setPriceEdits] = useState<Record<string, number>>({});
 
-  // Lesson times
-  const [timeEdits, setTimeEdits] = useState<{[k:string]:string}>({});
+  // Lesson Times State
+  const [showLessonTimes, setShowLessonTimes] = useState(false);
+  const [timeEdits, setTimeEdits] = useState<Record<string, string>>({});
 
-  // Daily log
+  // Daily Log State
+  const [showDailyLog, setShowDailyLog] = useState(false);
   const [dailyTeacher, setDailyTeacher] = useState("");
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split("T")[0]);
   const [dailyGrades, setDailyGrades] = useState<string[]>([]);
   const [dailyPeriods, setDailyPeriods] = useState<string[]>([]);
   const [savingDaily, setSavingDaily] = useState(false);
 
-  // Export
-  const [exportOptions, setExportOptions] = useState({lesson_times:false,classes:false,prices:false,teachers:false,subjects:false,fixed_salaries:false,lectures:false});
+  // Export State
+  const [showExport, setShowExport] = useState(false);
+  const [exportOptions, setExportOptions] = useState<ExportOptions>(EMPTY_EXPORT_OPTIONS);
 
-  // Print
+  // Print State
+  const [showPrint, setShowPrint] = useState(false);
   const [printTeacher, setPrintTeacher] = useState("");
 
-  // Subjects/job titles modals
+  // Manager Modals State
   const [showSubjectsMgr, setShowSubjectsMgr] = useState(false);
   const [newSubject, setNewSubject] = useState("");
   const [showJobTitlesMgr, setShowJobTitlesMgr] = useState(false);
@@ -154,63 +174,108 @@ export default function SalariesPage() {
   const [newGrade, setNewGrade] = useState("");
   const [newSection, setNewSection] = useState("");
   const [newSectionGrade, setNewSectionGrade] = useState("");
-  const [showPrices, setShowPrices] = useState(false);
-  const [showLessonTimes, setShowLessonTimes] = useState(false);
-  const [showDailyLog, setShowDailyLog] = useState(false);
-  const [showExport, setShowExport] = useState(false);
-  const [showPrint, setShowPrint] = useState(false);
+
+  // Archive Confirm
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
-  const [showTeacherModal, setShowTeacherModal] = useState(false);
-  const [teacherModalSaving, setTeacherModalSaving] = useState(false);
-  const [teacherModalError, setTeacherModalError] = useState("");
-  const [teacherEditId, setTeacherEditId] = useState<string | null>(null);
-  const [teacherForm, setTeacherForm] = useState({
-    full_name: "",
-    job_title: "",
-    salary_type: "fixed",
-    subject: "",
-    phone: "",
-    address: "",
-    base_salary: "",
-    lecture_price: "",
-    weekly_hours: "",
-    classes_taught: [{ grade: "", section: "" }] as { grade: string; section: string }[],
-    status: "active",
-  });
+  // Derived data
+  const monthSalaries = salaries.filter((s) => s.month === currentMonth);
+  const paidTeacherIds = monthSalaries.map((s) => s.teacher_id);
+  const unpaidTeachers = teachers.filter((t) => !paidTeacherIds.includes(t.id) && t.status === "active");
+  const totalBaseSalaries = teachers.filter((t) => t.status === "active").reduce((a, t) => a + t.base_salary, 0);
+  const totalPaidThisMonth = monthSalaries.reduce((a, s) => a + ((s.gross_salary || 0) - (s.deductions || 0)), 0);
+  const activeTeachers = teachers.filter((t) => t.status === "active").length;
+  const gradeOptions = Array.from(new Set(classes.map((c) => c.grade))) as string[];
 
-  function resetTeacherForm() {
-    setTeacherForm({
-      full_name: "",
-      job_title: "",
-      salary_type: "fixed",
-      subject: "",
-      phone: "",
-      address: "",
-      base_salary: "",
-      lecture_price: "",
-      weekly_hours: "",
-      classes_taught: [{ grade: "", section: "" }],
-      status: "active",
+  // Close menu on click outside
+  useEffect(() => {
+    const close = () => setActiveMenu(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
+
+  // Calendar effect
+  useEffect(() => {
+    if (activeSection === "calendar") void fetchCalendarLectures(calYear, calMonth);
+  }, [activeSection, calYear, calMonth, fetchCalendarLectures]);
+
+  // Reports effect
+  useEffect(() => {
+    if (activeSection === "reports" && reportView === "summary") void fetchReportSummary();
+    if (activeSection === "reports" && reportView === "details") void fetchDetailedReportAll(reportTeacher);
+  }, [activeSection, fetchDetailedReportAll, fetchReportSummary, reportTeacher, reportView]);
+
+  // Deductions effect
+  useEffect(() => {
+    if (activeSection === "deductions") void fetchDeductionsList();
+  }, [activeSection, fetchDeductionsList]);
+
+  // Archive effect
+  useEffect(() => {
+    if (activeSection === "archive") void ensureArchivesData();
+  }, [activeSection, ensureArchivesData]);
+
+  // Reference data effect
+  useEffect(() => {
+    if (activeSection === "schedule_tab") void ensureReferenceData();
+  }, [activeSection, ensureReferenceData]);
+
+  useEffect(() => {
+    if (showTeacherModal || showSubjectsMgr || showJobTitlesMgr || showClassesMgr || showPrices || showLessonTimes || showDailyLog || showExport) {
+      void ensureReferenceData();
+    }
+  }, [ensureReferenceData, showClassesMgr, showDailyLog, showExport, showJobTitlesMgr, showLessonTimes, showPrices, showSubjectsMgr, showTeacherModal]);
+
+  // Price edits effect
+  useEffect(() => {
+    if (!showPrices) return;
+    const edits: Record<string, number> = {};
+    gradeOptions.forEach((grade) => {
+      edits[grade] = lecturePrices.find((p) => p.grade === grade)?.price_per_lecture || 0;
     });
-  }
+    setPriceEdits(edits);
+  }, [classes, lecturePrices, showPrices]);
 
-  async function openTeacherAdd() {
+  // Lecture salary calc effect
+  useEffect(() => {
+    if (!showPaySalary || !selectedTeacher || !schoolId) return;
+    let canceled = false;
+    (async () => {
+      const stats = await loadTeacherMonthLectures(selectedTeacher, salaryForm.month);
+      if (canceled) return;
+      setLectureSalaryCalc(stats);
+      let grossBase = parseInt(salaryForm.gross_salary) || 0;
+      if (selectedTeacher.salary_type === "fixed") {
+        grossBase = Number(selectedTeacher.base_salary) || 0;
+      } else if (selectedTeacher.salary_type === "hourly") {
+        grossBase = stats.total;
+      } else if (selectedTeacher.salary_type === "mixed") {
+        grossBase = (Number(selectedTeacher.base_salary) || 0) + stats.total;
+      }
+      setSalaryForm((prev) => ({ ...prev, gross_salary: grossBase.toString() }));
+    })();
+    return () => { canceled = true; };
+  }, [showPaySalary, selectedTeacher, salaryForm.month, schoolId, loadTeacherMonthLectures]);
+
+  // Helper functions
+  const resetTeacherForm = () => setTeacherForm(EMPTY_TEACHER_FORM);
+
+  const openTeacherAdd = async () => {
     await ensureReferenceData();
     setTeacherEditId(null);
     resetTeacherForm();
     setTeacherModalError("");
     setShowTeacherModal(true);
-  }
+  };
 
-  async function openTeacherEdit(t: any) {
+  const openTeacherEdit = async (t: Teacher) => {
     await ensureReferenceData();
     setTeacherEditId(t.id);
     const ct = (t.classes_taught as { grade: string; section: string }[]) || [];
     setTeacherForm({
       full_name: String(t.full_name ?? ""),
       job_title: String(t.job_title ?? ""),
-      salary_type: String(t.salary_type ?? "fixed"),
+      salary_type: String(t.salary_type ?? "fixed") as any,
       subject: String(t.subject ?? ""),
       phone: String(t.phone ?? ""),
       address: String(t.address ?? ""),
@@ -218,26 +283,13 @@ export default function SalariesPage() {
       lecture_price: String(t.lecture_price ?? ""),
       weekly_hours: String(t.weekly_hours ?? ""),
       classes_taught: ct.length ? ct : [{ grade: "", section: "" }],
-      status: String(t.status ?? "active"),
+      status: String(t.status ?? "active") as any,
     });
     setTeacherModalError("");
     setShowTeacherModal(true);
-  }
+  };
 
-  function addTeacherClassRow() {
-    setTeacherForm((f) => ({ ...f, classes_taught: [...f.classes_taught, { grade: "", section: "" }] }));
-  }
-  function removeTeacherClassRow(i: number) {
-    setTeacherForm((f) => ({ ...f, classes_taught: f.classes_taught.filter((_, idx) => idx !== i) }));
-  }
-  function updateTeacherClassRow(i: number, field: "grade" | "section", val: string) {
-    setTeacherForm((f) => ({
-      ...f,
-      classes_taught: f.classes_taught.map((c, idx) => (idx === i ? { ...c, [field]: val } : c)),
-    }));
-  }
-
-  async function saveTeacherModal(e: React.FormEvent) {
+  const saveTeacherModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManageTeacher || !schoolId) return;
     setTeacherModalSaving(true);
@@ -262,20 +314,18 @@ export default function SalariesPage() {
       setTeacherModalSaving(false);
       return;
     }
-
     const endpoint = teacherEditId
       ? `/api/web/salaries/teachers/${encodeURIComponent(teacherEditId)}`
       : "/api/web/salaries/teachers";
     const method = teacherEditId ? "PATCH" : "POST";
     const { response, payload: responsePayload } = await fetchJsonWithAuthorizedSession<{
-      teacher?: any;
+      teacher?: Teacher;
       error?: { message?: string };
     }>(endpoint, {
       method,
       headers: withJsonHeaders(),
       body: JSON.stringify(payload),
     });
-
     if (!response.ok) {
       setTeacherModalError(responsePayload?.error?.message || "تعذر حفظ بيانات الأستاذ.");
     } else {
@@ -283,298 +333,24 @@ export default function SalariesPage() {
       await fetchAll();
     }
     setTeacherModalSaving(false);
-  }
-
-  const getBranchId = async()=>{
-    if (!schoolId) return null;
-    const {data}=await supabase.from("branches").select("id").eq("school_id", schoolId).limit(1);
-    return data?.[0]?.id;
   };
 
-  const applyReferencePayload = useCallback((payload: {
-    classes?: any[];
-    subjects?: any[];
-    jobTitles?: any[];
-    lessonTimes?: any[];
-    lecturePrices?: any[];
-  }) => {
-    const classesData = payload.classes ?? [];
-    const subjectsData = payload.subjects ?? [];
-    const jobTitlesData = payload.jobTitles ?? [];
-    const lessonTimesData = payload.lessonTimes ?? [];
-    const lecturePricesData = payload.lecturePrices ?? [];
-
-    setClasses(classesData);
-    setSubjectsList(subjectsData);
-    setJobTitlesList(jobTitlesData);
-    setLessonTimes(lessonTimesData);
-    setLecturePrices(lecturePricesData);
-
-    const nextTimeEdits: {[k:string]:string} = {};
-    lessonTimesData.forEach((item:any) => {
-      nextTimeEdits[`${item.period}-${item.session_type}-start`] = item.start_time || "";
-      nextTimeEdits[`${item.period}-${item.session_type}-end`] = item.end_time || "";
-    });
-    setTimeEdits(nextTimeEdits);
-  }, []);
-
-  const fetchBootstrap = useCallback(async (scope: SalariesBootstrapScope, withLoader = false) => {
-    if (!schoolId) return;
-    if (withLoader) setLoading(true);
-    try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        teachers?: any[];
-        salaries?: any[];
-        classes?: any[];
-        subjects?: any[];
-        jobTitles?: any[];
-        lessonTimes?: any[];
-        lecturePrices?: any[];
-        archives?: any[];
-        warnings?: string[];
-        error?: { message?: string };
-      }>(`/api/web/salaries/bootstrap?schoolId=${encodeURIComponent(schoolId)}&scope=${scope}`);
-
-      if (!response.ok) {
-        throw new Error(payload?.error?.message || "تعذر تحميل بيانات الرواتب.");
-      }
-
-      if (scope === "core" || scope === "all") {
-        setTeachers(payload?.teachers ?? []);
-        setSalaries(payload?.salaries ?? []);
-      }
-
-      if (scope === "reference" || scope === "all") {
-        applyReferencePayload(payload ?? {});
-        setReferenceLoaded(true);
-      }
-
-      if (scope === "archive" || scope === "all") {
-        setArchives(payload?.archives ?? []);
-        setArchivesLoaded(true);
-      }
-
-      const warningText = (payload?.warnings ?? []).join(" ");
-      setError(warningText);
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات الرواتب.");
-    } finally {
-      if (withLoader) setLoading(false);
-    }
-  }, [applyReferencePayload, schoolId]);
-
-  const fetchAll = useCallback(async () => {
-    if (!schoolId) return;
-    setReferenceLoaded(false);
-    setArchivesLoaded(false);
-    await fetchBootstrap("all", true);
-  }, [fetchBootstrap, schoolId]);
-
-  const ensureReferenceData = useCallback(async () => {
-    if (!schoolId || referenceLoaded || referenceLoading) return;
-    setReferenceLoading(true);
-    try {
-      await fetchBootstrap("reference");
-    } finally {
-      setReferenceLoading(false);
-    }
-  }, [fetchBootstrap, referenceLoaded, referenceLoading, schoolId]);
-
-  const ensureArchivesData = useCallback(async () => {
-    if (!schoolId || archivesLoaded || archivesLoading) return;
-    setArchivesLoading(true);
-    try {
-      await fetchBootstrap("archive");
-    } finally {
-      setArchivesLoading(false);
-    }
-  }, [archivesLoaded, archivesLoading, fetchBootstrap, schoolId]);
-
-  const fetchCalendarLectures = useCallback(async () => {
-    if (!schoolId) return;
-    const month = `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      dates?: string[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=calendar&month=${encodeURIComponent(month)}`);
-    if(response.ok){
-      setCalLectureDates(payload?.dates ?? []);
-    } else {
-      setError(payload?.error?.message || "تعذر تحميل تقويم المحاضرات.");
-    }
-  }, [calMonth, calYear, schoolId]);
-
-  const fetchDetailedReportAll = useCallback(async (teacherId = "") => {
-    if (!schoolId) return;
-    setReportLoading(true);
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      lectures?: any[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}${teacherId ? `&teacherId=${encodeURIComponent(teacherId)}` : ""}`);
-    if(response.ok){
-      setDailyLectures(payload?.lectures ?? []);
-    } else {
-      setError(payload?.error?.message || "تعذر تحميل التقرير التفصيلي.");
-    }
-    setReportLoading(false);
-  }, [schoolId]);
-
-  const fetchReportSummary = useCallback(async () => {
-    if (!schoolId) return;
-    setReportLoading(true);
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      summary?: any[];
-      totals?: { lectureCount?: number; total?: number };
-      error?: { message?: string };
-    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}&view=summary`);
-    if(response.ok){
-      setReportSummary(payload?.summary ?? []);
-      setReportTotals({
-        lectureCount: Number(payload?.totals?.lectureCount ?? 0) || 0,
-        total: Number(payload?.totals?.total ?? 0) || 0,
-      });
-    } else {
-      setError(payload?.error?.message || "تعذر تحميل ملخص الرواتب.");
-    }
-    setReportLoading(false);
-  }, [schoolId]);
-
-  const fetchDeductionsList = useCallback(async () => {
-    if (!schoolId) return;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      deductions?: any[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/deductions?schoolId=${encodeURIComponent(schoolId)}`);
-    if(response.ok){
-      setDeductionsList(payload?.deductions ?? []);
-    } else {
-      setError(payload?.error?.message || "تعذر تحميل سجل السحوبات.");
-    }
-  }, [schoolId]);
-
-  const loadTeacherMonthLectures = useCallback(async (teacher:any, month:string) => {
-    if(!teacher || !schoolId) return {count:0,total:0};
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      summary?: { count?: number; total?: number };
-      error?: { message?: string };
-    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=summary&teacherId=${encodeURIComponent(teacher.id)}&month=${encodeURIComponent(month)}`);
-    if(!response.ok){
-      console.error("Error loading lectures:", payload?.error?.message || "unexpected error");
-      return {count:0,total:0};
-    }
-    return {
-      count: Number(payload?.summary?.count ?? 0) || 0,
-      total: Number(payload?.summary?.total ?? 0) || 0,
-    };
-  }, [schoolId]);
-
-  useEffect(() => {
-    if (schoolScope.scopeLoading) return;
-    if (!profile) {
-      setSchoolId(null);
-      return;
-    }
-    setSchoolId(schoolScope.selectedSchoolId ?? profile.school_id ?? null);
-  }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
-
-  useEffect(() => {
-    if (!schoolId) {
-      setTeachers([]);
-      setSalaries([]);
-      setClasses([]);
-      setSubjectsList([]);
-      setJobTitlesList([]);
-      setDailyLectures([]);
-      setArchives([]);
-      setLessonTimes([]);
-      setLecturePrices([]);
-      setDeductionsList([]);
-      setCalLectureDates([]);
-      setReportSummary([]);
-      setReportTotals({lectureCount:0,total:0});
-      setReferenceLoaded(false);
-      setArchivesLoaded(false);
-      setReferenceLoading(false);
-      setArchivesLoading(false);
-      setLoading(false);
-      return;
-    }
-    setReferenceLoaded(false);
-    setArchivesLoaded(false);
-    void fetchBootstrap("core", true);
-  }, [fetchBootstrap, schoolId]);
-  useEffect(()=>{
-    const close=()=>setActiveMenu(null);
-    document.addEventListener("click",close);
-    return()=>document.removeEventListener("click",close);
-  },[]);
-  useEffect(()=>{
-    if(activeSection==="calendar") void fetchCalendarLectures();
-  },[activeSection,fetchCalendarLectures]);
-  useEffect(()=>{
-    if(activeSection==="reports" && reportView==="summary") void fetchReportSummary();
-    if(activeSection==="reports" && reportView==="details") void fetchDetailedReportAll(reportTeacher);
-  },[activeSection,fetchDetailedReportAll,fetchReportSummary,reportTeacher,reportView]);
-  useEffect(()=>{
-    if(activeSection==="deductions") void fetchDeductionsList();
-  },[activeSection,fetchDeductionsList]);
-  useEffect(()=>{
-    if(activeSection==="archive") void ensureArchivesData();
-  },[activeSection,ensureArchivesData]);
-  useEffect(()=>{
-    if(activeSection==="schedule_tab") void ensureReferenceData();
-  },[activeSection,ensureReferenceData]);
-  useEffect(()=>{
-    if(showTeacherModal||showSubjectsMgr||showJobTitlesMgr||showClassesMgr||showPrices||showLessonTimes||showDailyLog||showExport) {
-      void ensureReferenceData();
-    }
-  },[ensureReferenceData,showClassesMgr,showDailyLog,showExport,showJobTitlesMgr,showLessonTimes,showPrices,showSubjectsMgr,showTeacherModal]);
-  useEffect(()=>{
-    if(!showPrices) return;
-    const edits:{[k:string]:number}={};
-    Array.from(new Set(classes.map((item:any)=>item.grade).filter(Boolean))).forEach((grade:any)=>{
-      edits[grade]=lecturePrices.find((price)=>price.grade===grade)?.price_per_lecture||0;
-    });
-    setPriceEdits(edits);
-  },[classes,lecturePrices,showPrices]);
-
-  useEffect(()=>{
-    if(!showPaySalary || !selectedTeacher || !schoolId) return;
-    let canceled = false;
-
-    (async () => {
-      const lectureStats = await loadTeacherMonthLectures(selectedTeacher, salaryForm.month);
-      if(canceled) return;
-      setLectureSalaryCalc(lectureStats);
-
-      let grossBase = parseInt(salaryForm.gross_salary) || 0;
-      if(selectedTeacher.salary_type === "fixed") {
-        grossBase = Number(selectedTeacher.base_salary) || 0;
-      } else if(selectedTeacher.salary_type === "hourly") {
-        grossBase = lectureStats.total;
-      } else if(selectedTeacher.salary_type === "mixed") {
-        grossBase = (Number(selectedTeacher.base_salary) || 0) + lectureStats.total;
-      }
-      setSalaryForm(prev => ({...prev, gross_salary: grossBase.toString()}));
-    })();
-
-    return () => { canceled = true; };
-  }, [showPaySalary, selectedTeacher, salaryForm.gross_salary, salaryForm.month, schoolId, loadTeacherMonthLectures]);
-
-  // ===== SALARY =====
-  async function handlePaySalary(e:React.FormEvent){
-    e.preventDefault();if(!selectedTeacher)return;setSavingSalary(true);setError("");
+  const handlePaySalary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTeacher) return;
+    setSavingSalary(true);
+    setError("");
     let gross = 0;
-    if(selectedTeacher.salary_type === "fixed") {
+    if (selectedTeacher.salary_type === "fixed") {
       gross = Number(selectedTeacher.base_salary) || 0;
-    } else if(selectedTeacher.salary_type === "hourly") {
+    } else if (selectedTeacher.salary_type === "hourly") {
       gross = lectureSalaryCalc.total;
-    } else if(selectedTeacher.salary_type === "mixed") {
+    } else if (selectedTeacher.salary_type === "mixed") {
       gross = (Number(selectedTeacher.base_salary) || 0) + lectureSalaryCalc.total;
     } else {
       gross = parseInt(salaryForm.gross_salary) || Number(selectedTeacher.base_salary) || 0;
     }
-    const deductions=parseInt(salaryForm.deductions)||0;
+    const deductions = parseInt(salaryForm.deductions) || 0;
     try {
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
         salary?: any;
@@ -596,99 +372,111 @@ export default function SalariesPage() {
         setError(payload?.error?.message || "تعذر صرف الراتب.");
         return;
       }
-      if (payload?.salary) {
-        setSalaries((current) => [payload.salary, ...current.filter((item) => item.id !== payload.salary.id)]);
-      }
       setSuccess(
         payload?.warning
           ? `تم دفع راتب ${selectedTeacher.full_name} مع معالجة التكرارات المتزامنة ✓`
-          : `تم دفع راتب ${selectedTeacher.full_name} ✓`,
+          : `تم دفع راتب ${selectedTeacher.full_name} ✓`
       );
-      setShowPaySalary(false);setSalaryForm({gross_salary:"",deductions:"0",notes:"",month:new Date().toISOString().slice(0,7)});setSelectedTeacher(null);fetchAll();setTimeout(()=>setSuccess(""),3000);
+      setShowPaySalary(false);
+      setSalaryForm(EMPTY_SALARY_FORM);
+      setSelectedTeacher(null);
+      fetchAll();
+      setTimeout(() => setSuccess(""), 3000);
     } catch (payError) {
       setError(payError instanceof Error ? payError.message : "تعذر صرف الراتب.");
     } finally {
       setSavingSalary(false);
     }
-  }
+  };
 
-  // ===== SCHEDULE =====
-  async function fetchSchedule(grade:string,section:string){
-    const {data}=await supabase.from("weekly_schedule").select("*").eq("school_id",schoolId).eq("grade",grade).eq("section",section);
-    const grid:{[k:string]:string}={};
-    data?.forEach((s:any)=>{grid[`${s.day}-${s.period}-${s.session_type}`]=s.teacher_id||"";});
+  const fetchSchedule = async (grade: string, section: string) => {
+    const { data } = await supabase
+      .from("weekly_schedule")
+      .select("*")
+      .eq("school_id", schoolId)
+      .eq("grade", grade)
+      .eq("section", section);
+    const grid: Record<string, string> = {};
+    data?.forEach((s: any) => { grid[`${s.day}-${s.period}-${s.session_type}`] = s.teacher_id || ""; });
     setScheduleGrid(grid);
-  }
-  async function saveSchedule(){
+  };
+
+  const saveSchedule = async () => {
     setScheduleSaving(true);
-    await supabase.from("weekly_schedule").delete().eq("school_id",schoolId).eq("grade",scheduleGrade).eq("section",scheduleSection);
-    const bid=await getBranchId();const rows:any[]=[];
-    for(const [key,teacherId] of Object.entries(scheduleGrid)){
-      if(!teacherId)continue;
-      const [day,period,type]=key.split("-");
-      rows.push({school_id:schoolId,branch_id:bid,grade:scheduleGrade,section:scheduleSection,day,period:parseInt(period),session_type:type,teacher_id:teacherId});
+    await supabase.from("weekly_schedule").delete().eq("school_id", schoolId).eq("grade", scheduleGrade).eq("section", scheduleSection);
+    const bid = await getBranchId();
+    const rows: any[] = [];
+    for (const [key, teacherId] of Object.entries(scheduleGrid)) {
+      if (!teacherId) continue;
+      const [day, period, type] = key.split("-");
+      rows.push({ school_id: schoolId, branch_id: bid, grade: scheduleGrade, section: scheduleSection, day, period: parseInt(period), session_type: type, teacher_id: teacherId });
     }
-    if(rows.length)await supabase.from("weekly_schedule").insert(rows);
-    setSuccess("تم حفظ الجدول ✓");setScheduleSaving(false);setTimeout(()=>setSuccess(""),3000);
-  }
+    if (rows.length) await supabase.from("weekly_schedule").insert(rows);
+    setSuccess("تم حفظ الجدول ✓");
+    setScheduleSaving(false);
+    setTimeout(() => setSuccess(""), 3000);
+  };
 
-  // ===== PRICES =====
-  async function savePrices(){
-    const allGrades=gradeOptions;
-    for(const grade of allGrades){
-      const price=priceEdits[grade]||0;
-      const existing=lecturePrices.find(p=>p.grade===grade);
-      if(existing)await supabase.from("lecture_prices").update({price_per_lecture:price}).eq("id",existing.id);
-      else await supabase.from("lecture_prices").insert({school_id:schoolId,grade,price_per_lecture:price});
+  const savePrices = async () => {
+    for (const grade of gradeOptions) {
+      const price = priceEdits[grade] || 0;
+      const existing = lecturePrices.find((p) => p.grade === grade);
+      if (existing) await supabase.from("lecture_prices").update({ price_per_lecture: price }).eq("id", existing.id);
+      else await supabase.from("lecture_prices").insert({ school_id: schoolId, grade, price_per_lecture: price });
     }
-    setSuccess("تم حفظ الأسعار ✓");setTimeout(()=>setSuccess(""),3000);fetchAll();
-  }
+    setSuccess("تم حفظ الأسعار ✓");
+    setTimeout(() => setSuccess(""), 3000);
+    fetchAll();
+  };
 
-  // ===== LESSON TIMES =====
-  async function saveLessonTimes(){
-    for(const t of lessonTimes){
-      const start=timeEdits[`${t.period}-${t.session_type}-start`];
-      const end=timeEdits[`${t.period}-${t.session_type}-end`];
-      await supabase.from("lesson_times").update({start_time:start,end_time:end}).eq("id",t.id);
+  const saveLessonTimes = async () => {
+    for (const t of lessonTimes) {
+      const start = timeEdits[`${t.period}-${t.session_type}-start`];
+      const end = timeEdits[`${t.period}-${t.session_type}-end`];
+      await supabase.from("lesson_times").update({ start_time: start, end_time: end }).eq("id", t.id);
     }
-    setSuccess("تم حفظ توقيتات الدروس ✓");setTimeout(()=>setSuccess(""),3000);
-  }
+    setSuccess("تم حفظ توقيتات الدروس ✓");
+    setTimeout(() => setSuccess(""), 3000);
+  };
 
-  // ===== DAILY LOG =====
-  async function saveDailyLog(){
-    if(!dailyTeacher||!dailyDate)return;setSavingDaily(true);
-    const bid=await getBranchId();const rows:any[]=[];
+  const saveDailyLog = async () => {
+    if (!dailyTeacher || !dailyDate) return;
+    setSavingDaily(true);
+    const bid = await getBranchId();
+    const rows: any[] = [];
     const selectedTeacherRow = teachers.find((t) => t.id === dailyTeacher);
     const teacherLecturePrice = Number(selectedTeacherRow?.lecture_price) || 0;
-    for(const gradeSection of dailyGrades){
-      const [grade,section]=gradeSection.split("||");
-      const classPrice=lecturePrices.find(p=>p.grade===grade)?.price_per_lecture||0;
+    for (const gradeSection of dailyGrades) {
+      const [grade, section] = gradeSection.split("||");
+      const classPrice = lecturePrices.find((p) => p.grade === grade)?.price_per_lecture || 0;
       const price = teacherLecturePrice > 0 ? teacherLecturePrice : classPrice;
-      for(const p of dailyPeriods){
-        const [period,type]=p.split("-");
-        rows.push({school_id:schoolId,branch_id:bid,teacher_id:dailyTeacher,grade,section,period:parseInt(period),session_type:type,lecture_date:dailyDate,price});
+      for (const p of dailyPeriods) {
+        const [period, type] = p.split("-");
+        rows.push({ school_id: schoolId, branch_id: bid, teacher_id: dailyTeacher, grade, section, period: parseInt(period), session_type: type, lecture_date: dailyDate, price });
       }
     }
-    if(rows.length)await supabase.from("daily_lectures").insert(rows);
-    setSuccess(`تم تسجيل ${rows.length} محاضرة ✓`);setDailyGrades([]);setDailyPeriods([]);setSavingDaily(false);setTimeout(()=>setSuccess(""),3000);
-    fetchDetailedReportAll();fetchCalendarLectures();
-  }
+    if (rows.length) await supabase.from("daily_lectures").insert(rows);
+    setSuccess(`تم تسجيل ${rows.length} محاضرة ✓`);
+    setDailyGrades([]);
+    setDailyPeriods([]);
+    setSavingDaily(false);
+    setTimeout(() => setSuccess(""), 3000);
+    fetchDetailedReportAll();
+    fetchCalendarLectures(calYear, calMonth);
+  };
 
-  // ===== DEDUCTIONS =====
-  async function saveDeduction(){
-    if(!deductionTeacher||!deductionAmount)return;setSavingDeduction(true);
+  const saveDeduction = async () => {
+    if (!deductionTeacher || !deductionAmount) return;
+    setSavingDeduction(true);
     try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        deduction?: any;
-        error?: { message?: string };
-      }>("/api/web/salaries/deductions", {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>("/api/web/salaries/deductions", {
         method: "POST",
         headers: withJsonHeaders(),
         body: JSON.stringify({
           school_id: schoolId,
           teacher_id: deductionTeacher,
-          amount: parseInt(deductionAmount)||0,
-          notes: deductionNotes||null,
+          amount: parseInt(deductionAmount) || 0,
+          notes: deductionNotes || null,
           deduction_date: new Date().toISOString().split("T")[0],
         }),
       });
@@ -696,1035 +484,222 @@ export default function SalariesPage() {
         setError(payload?.error?.message || "تعذر تسجيل السحب.");
         return;
       }
-      setSuccess("تم تسجيل السحب ✓");setDeductionTeacher("");setDeductionAmount("0");setDeductionNotes("");setTimeout(()=>setSuccess(""),3000);fetchDeductionsList();
+      setSuccess("تم تسجيل السحب ✓");
+      setDeductionTeacher("");
+      setDeductionAmount("0");
+      setDeductionNotes("");
+      setTimeout(() => setSuccess(""), 3000);
+      fetchDeductionsList();
     } finally {
       setSavingDeduction(false);
     }
-  }
+  };
 
-  // ===== ARCHIVE =====
-  async function archiveMonth(){
-    try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        archive?: any;
-        error?: { message?: string };
-      }>("/api/web/salaries/archive", {
-        method: "POST",
-        headers: withJsonHeaders(),
-        body: JSON.stringify({
-          school_id: schoolId,
-          month: currentMonth,
-        }),
-      });
-      if (!response.ok) {
-        setError(payload?.error?.message || "تعذر أرشفة الشهر الحالي.");
-        return;
-      }
-      setShowArchiveConfirm(false);
-      setSuccess("تم أرشفة الشهر وتصفير عدادات محاضراته ✓");setTimeout(()=>setSuccess(""),3000);fetchAll();fetchDetailedReportAll();
-    } catch (archiveError) {
-      setError(archiveError instanceof Error ? archiveError.message : "تعذر أرشفة الشهر الحالي.");
-    }
-  }
-
-  // ===== EXPORT =====
-  async function doExport(){
+  const doExport = async () => {
     await ensureReferenceData();
-    if(exportOptions.lectures && dailyLectures.length===0){
+    if (exportOptions.lectures && dailyLectures.length === 0) {
       await fetchDetailedReportAll(reportTeacher);
     }
     const XLSX = await loadXLSX();
-    const wb=XLSX.utils.book_new();
-    if(exportOptions.teachers){const rows=teachers.map(t=>({الاسم:t.full_name,المسمى:t.job_title||"",المادة:t.subject||"",الراتب:t.base_salary,"سعر المحاضرة":t.lecture_price||0}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الأساتذة");}
-    if(exportOptions.subjects){const rows=subjectsList.map(s=>({المادة:s.name}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"المواد");}
-    if(exportOptions.classes){const rows=classes.map(c=>({الصف:c.grade,الشعبة:c.section}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الصفوف");}
-    if(exportOptions.fixed_salaries){const rows=salaries.map(s=>({الأستاذ:s.teachers?.full_name||"",الشهر:s.month,الإجمالي:s.gross_salary,الخصومات:s.deductions||0,الصافي:(s.gross_salary||0)-(s.deductions||0)}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"الرواتب");}
-    if(exportOptions.lectures){const rows=dailyLectures.map((l:any)=>({الأستاذ:l.teachers?.full_name||"",التاريخ:l.lecture_date,الصف:l.grade,الشعبة:l.section,الدرس:l.period,النوع:l.session_type,السعر:l.price}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"المحاضرات");}
-    if(wb.SheetNames.length===0){setError("اختر بيانات للتصدير");return;}
-    await XLSX.writeFile(wb,`تصدير_${formatDate(new Date())}.xlsx`);setShowExport(false);
-  }
+    const wb = XLSX.utils.book_new();
+    if (exportOptions.teachers) {
+      const rows = teachers.map((t) => ({ الاسم: t.full_name, المسمى: t.job_title || "", المادة: t.subject || "", الراتب: t.base_salary, "سعر المحاضرة": t.lecture_price || 0 }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "الأساتذة");
+    }
+    if (exportOptions.subjects) {
+      const rows = subjectsList.map((s) => ({ المادة: s.name }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "المواد");
+    }
+    if (exportOptions.classes) {
+      const rows = classes.map((c) => ({ الصف: c.grade, الشعبة: c.section }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "الصفوف");
+    }
+    if (exportOptions.fixed_salaries) {
+      const rows = salaries.map((s) => ({ الأستاذ: s.teachers?.full_name || "", الشهر: s.month, الإجمالي: s.gross_salary, الخصومات: s.deductions || 0, الصافي: (s.gross_salary || 0) - (s.deductions || 0) }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "الرواتب");
+    }
+    if (exportOptions.lectures) {
+      const rows = dailyLectures.map((l: any) => ({ الأستاذ: l.teachers?.full_name || "", التاريخ: l.lecture_date, الصف: l.grade, الشعبة: l.section, الدرس: l.period, النوع: l.session_type, السعر: l.price }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "المحاضرات");
+    }
+    if (wb.SheetNames.length === 0) { setError("اختر بيانات للتصدير"); return; }
+    await XLSX.writeFile(wb, `تصدير_${formatDate(new Date())}.xlsx`);
+    setShowExport(false);
+  };
 
-  function openPrintWindow(title:string, subtitle:string, bodyHtml:string){
-    const w=window.open("","_blank");
-    if(!w)return;
-    w.document.write(
-      wrapPrintDocument({
-        title,
-        subtitle,
-        bodyHtml,
-        branding:{
-          schoolName: runtimeBranding.schoolName,
-          logoUrl: runtimeBranding.logoUrl,
-          primaryColor: runtimeBranding.primaryColor,
-          secondaryColor: runtimeBranding.secondaryColor,
-          locale: isEnglish ? "en" : "ar",
-        },
-      }),
-    );
+  const openPrintWindow = (title: string, subtitle: string, bodyHtml: string) => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(wrapPrintDocument({ title, subtitle, bodyHtml, branding: { schoolName: runtimeBranding.schoolName, logoUrl: runtimeBranding.logoUrl, primaryColor: runtimeBranding.primaryColor, secondaryColor: runtimeBranding.secondaryColor, locale: isEnglish ? "en" : "ar" } }));
     w.document.close();
-  }
+  };
 
-  function printSalarySlip(salary:any){
-    const net=(salary.gross_salary||0)-(salary.deductions||0);
+  const printSalarySlip = (salary: any) => {
+    const net = (salary.gross_salary || 0) - (salary.deductions || 0);
     openPrintWindow(
       isEnglish ? "Salary slip" : "قسيمة راتب",
       escapeHtml(salary.teachers?.full_name || (isEnglish ? "Teacher account" : "سجل الأستاذ")),
-      `
-        <div class="print-grid">
-          <div class="print-panel"><span class="print-label">${isEnglish ? "Teacher" : "الاسم"}</span><div class="print-value">${escapeHtml(salary.teachers?.full_name||"—")}</div></div>
-          <div class="print-panel"><span class="print-label">${isEnglish ? "Month" : "الشهر"}</span><div class="print-value">${escapeHtml(salary.month || "—")}</div></div>
-          <div class="print-panel"><span class="print-label">${isEnglish ? "Gross salary" : "الإجمالي"}</span><div class="print-value">د.ع ${formatNumber(salary.gross_salary||0)}</div></div>
-          <div class="print-panel"><span class="print-label">${isEnglish ? "Deductions" : "الخصومات"}</span><div class="print-value" style="color:#dc2626">د.ع ${formatNumber(salary.deductions||0)}</div></div>
-        </div>
-        <div class="print-panel" style="margin-top:16px;text-align:center;background:linear-gradient(135deg,var(--print-surface),#ffffff)">
-          <span class="print-label">${isEnglish ? "Net amount" : "الصافي"}</span>
-          <div class="print-value" style="font-size:30px">د.ع ${formatNumber(net)}</div>
-        </div>
-      `,
+      `<div class="print-grid">
+        <div class="print-panel"><span class="print-label">${isEnglish ? "Teacher" : "الاسم"}</span><div class="print-value">${escapeHtml(salary.teachers?.full_name || "—")}</div></div>
+        <div class="print-panel"><span class="print-label">${isEnglish ? "Month" : "الشهر"}</span><div class="print-value">${escapeHtml(salary.month || "—")}</div></div>
+        <div class="print-panel"><span class="print-label">${isEnglish ? "Gross salary" : "الإجمالي"}</span><div class="print-value">د.ع ${formatNumber(salary.gross_salary || 0)}</div></div>
+        <div class="print-panel"><span class="print-label">${isEnglish ? "Deductions" : "الخصومات"}</span><div class="print-value" style="color:#dc2626">د.ع ${formatNumber(salary.deductions || 0)}</div></div>
+      </div>
+      <div class="print-panel" style="margin-top:16px;text-align:center;background:linear-gradient(135deg,var(--print-surface),#ffffff)">
+        <span class="print-label">${isEnglish ? "Net amount" : "الصافي"}</span>
+        <div class="print-value" style="font-size:30px">د.ع ${formatNumber(net)}</div>
+      </div>`
     );
-  }
+  };
 
-  function printReport(){
-    const teacher=reportTeacher?teachers.find(t=>t.id===reportTeacher):null;
-    const lectures=reportTeacher?dailyLectures.filter((l:any)=>l.teacher_id===reportTeacher):dailyLectures;
-    const total=lectures.reduce((a:number,l:any)=>a+l.price,0);
+  const printReport = () => {
+    const teacher = reportTeacher ? teachers.find((t) => t.id === reportTeacher) : null;
+    const lectures = reportTeacher ? dailyLectures.filter((l: any) => l.teacher_id === reportTeacher) : dailyLectures;
+    const total = lectures.reduce((a: number, l: any) => a + l.price, 0);
     openPrintWindow(
       isEnglish ? "Teacher statement" : "كشف حساب",
       teacher?.full_name || (isEnglish ? "All teachers" : "جميع الأساتذة"),
-      `
-        <table>
-          <thead><tr><th>#</th><th>${isEnglish ? "Date" : "التاريخ"}</th><th>${isEnglish ? "Class" : "الصف"}</th><th>${isEnglish ? "Section" : "الشعبة"}</th><th>${isEnglish ? "Lesson" : "الدرس"}</th><th>${isEnglish ? "Price" : "السعر"}</th></tr></thead>
-          <tbody>${lectures.map((l:any,i:number)=>`<tr><td>${i+1}</td><td>${formatDate(l.lecture_date)}</td><td>${escapeHtml(l.grade || "—")}</td><td>${escapeHtml(l.section || "—")}</td><td>${isEnglish ? "Lesson" : "الدرس"} ${escapeHtml(String(l.period ?? "—"))}</td><td>${formatNumber(l.price || 0)}</td></tr>`).join("")}</tbody>
-        </table>
-        <div class="print-panel" style="margin-top:16px;text-align:center">
-          <span class="print-label">${isEnglish ? "Total" : "الإجمالي"}</span>
-          <div class="print-value">د.ع ${formatNumber(total)}</div>
-        </div>
-      `,
+      `<table><thead><tr><th>#</th><th>${isEnglish ? "Date" : "التاريخ"}</th><th>${isEnglish ? "Class" : "الصف"}</th><th>${isEnglish ? "Section" : "الشعبة"}</th><th>${isEnglish ? "Lesson" : "الدرس"}</th><th>${isEnglish ? "Price" : "السعر"}</th></tr></thead>
+        <tbody>${lectures.map((l: any, i: number) => `<tr><td>${i + 1}</td><td>${formatDate(l.lecture_date)}</td><td>${escapeHtml(l.grade || "—")}</td><td>${escapeHtml(l.section || "—")}</td><td>${isEnglish ? "Lesson" : "الدرس"} ${escapeHtml(String(l.period ?? "—"))}</td><td>${formatNumber(l.price || 0)}</td></tr>`).join("")}</tbody></table>
+        <div class="print-panel" style="margin-top:16px;text-align:center"><span class="print-label">${isEnglish ? "Total" : "الإجمالي"}</span><div class="print-value">د.ع ${formatNumber(total)}</div></div>`
     );
-  }
+  };
 
-  async function handlePrintReport(){
-    await fetchDetailedReportAll(reportTeacher);
-    printReport();
-  }
-
-  function printAllTeachers(){
+  const printAllTeachers = () => {
     openPrintWindow(
       isEnglish ? "Teachers summary" : "تقرير شامل",
       isEnglish ? `${teachers.length} teachers` : `${teachers.length} أستاذ`,
-      `
-        <table>
-          <thead><tr><th>#</th><th>${isEnglish ? "Name" : "الاسم"}</th><th>${isEnglish ? "Job title" : "المسمى"}</th><th>${isEnglish ? "Subject" : "المادة"}</th><th>${isEnglish ? "Salary" : "الراتب"}</th><th>${isEnglish ? "Lecture price" : "سعر المحاضرة"}</th></tr></thead>
-          <tbody>${teachers.map((t,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(t.full_name || "—")}</td><td>${escapeHtml(t.job_title||"—")}</td><td>${escapeHtml(t.subject||"—")}</td><td>${formatNumber(t.base_salary || 0)}</td><td>${formatNumber(t.lecture_price||0)}</td></tr>`).join("")}</tbody>
-        </table>
-      `,
+      `<table><thead><tr><th>#</th><th>${isEnglish ? "Name" : "الاسم"}</th><th>${isEnglish ? "Job title" : "المسمى"}</th><th>${isEnglish ? "Subject" : "المادة"}</th><th>${isEnglish ? "Salary" : "الراتب"}</th><th>${isEnglish ? "Lecture price" : "سعر المحاضرة"}</th></tr></thead>
+        <tbody>${teachers.map((t, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(t.full_name || "—")}</td><td>${escapeHtml(t.job_title || "—")}</td><td>${escapeHtml(t.subject || "—")}</td><td>${formatNumber(t.base_salary || 0)}</td><td>${formatNumber(t.lecture_price || 0)}</td></tr>`).join("")}</tbody></table>`
     );
-  }
+  };
 
-  async function addSubject(){if(!newSubject.trim())return;await supabase.from("subjects").insert({school_id:schoolId,name:newSubject.trim()});setNewSubject("");fetchAll();}
-  async function deleteSubject(id:string){await supabase.from("subjects").delete().eq("id",id);fetchAll();}
-  async function addJobTitle(){if(!newJobTitle.trim())return;await supabase.from("job_titles").insert({school_id:schoolId,name:newJobTitle.trim()});setNewJobTitle("");fetchAll();}
-  async function deleteJobTitle(id:string){await supabase.from("job_titles").delete().eq("id",id);fetchAll();}
-  async function addClass(){if(!newGrade.trim())return;const bid=await getBranchId();await supabase.from("classes").insert({school_id:schoolId,branch_id:bid,grade:newGrade.trim(),section:"أ"});setNewGrade("");fetchAll();}
-  async function addSection(){if(!newSectionGrade||!newSection.trim())return;const bid=await getBranchId();await supabase.from("classes").insert({school_id:schoolId,branch_id:bid,grade:newSectionGrade,section:newSection.trim()});setNewSection("");fetchAll();}
-  async function deleteClass(id:string){await supabase.from("classes").delete().eq("id",id);fetchAll();}
+  const addSubject = async () => { if (!newSubject.trim()) return; await supabase.from("subjects").insert({ school_id: schoolId, name: newSubject.trim() }); setNewSubject(""); fetchAll(); };
+  const deleteSubject = async (id: string) => { await supabase.from("subjects").delete().eq("id", id); fetchAll(); };
+  const addJobTitle = async () => { if (!newJobTitle.trim()) return; await supabase.from("job_titles").insert({ school_id: schoolId, name: newJobTitle.trim() }); setNewJobTitle(""); fetchAll(); };
+  const deleteJobTitle = async (id: string) => { await supabase.from("job_titles").delete().eq("id", id); fetchAll(); };
+  const addClass = async () => { if (!newGrade.trim()) return; const bid = await getBranchId(); await supabase.from("classes").insert({ school_id: schoolId, branch_id: bid, grade: newGrade.trim(), section: "أ" }); setNewGrade(""); fetchAll(); };
+  const addSection = async () => { if (!newSectionGrade || !newSection.trim()) return; const bid = await getBranchId(); await supabase.from("classes").insert({ school_id: schoolId, branch_id: bid, grade: newSectionGrade, section: newSection.trim() }); setNewSection(""); fetchAll(); };
+  const deleteClass = async (id: string) => { await supabase.from("classes").delete().eq("id", id); fetchAll(); };
 
-  function openMenu(e:React.MouseEvent,teacher:any){e.stopPropagation();const rect=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPos({top:rect.bottom+4,left:rect.left-100});setActiveMenu(activeMenu===teacher.id?null:teacher.id);setSelectedTeacher(teacher);}
-  const toggleArr=(arr:string[],val:string)=>arr.includes(val)?arr.filter(x=>x!==val):[...arr,val];
-  function handleQuickAction(id:string){
-    if(id==="add_teacher"){void openTeacherAdd();}
-    else if(id==="classes")setShowClassesMgr(true);
-    else if(id==="subjects")setShowSubjectsMgr(true);
-    else if(id==="titles")setShowJobTitlesMgr(true);
-    else if(id==="prices"){setShowPrices(true);}
-    else if(id==="schedule")setActiveSection("schedule_tab");
-    else if(id==="schedule_lessons")setShowLessonTimes(true);
-    else if(id==="daily_log")setShowDailyLog(true);
-    else if(id==="detailed_report"){setActiveSection("reports");setReportView("summary");void fetchReportSummary();}
-    else if(id==="deductions")setActiveSection("deductions");
-    else if(id==="export"){setShowExport(true);}
-    else if(id==="print")setShowPrint(true);
-  }
+  const openMenu = (e: React.MouseEvent, teacher: Teacher) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 4, left: rect.left - 100 });
+    setActiveMenu(activeMenu === teacher.id ? null : teacher.id);
+    setSelectedTeacher(teacher);
+  };
 
-  const monthSalaries=salaries.filter(s=>s.month===currentMonth);
-  const paidTeacherIds=monthSalaries.map(s=>s.teacher_id);
-  const unpaidTeachers=teachers.filter(t=>!paidTeacherIds.includes(t.id)&&t.status==="active");
-  const totalBaseSalaries=teachers.filter(t=>t.status==="active").reduce((a,t)=>a+t.base_salary,0);
-  const totalPaidThisMonth=monthSalaries.reduce((a,s)=>a+((s.gross_salary||0)-(s.deductions||0)),0);
-  const activeTeachers=teachers.filter(t=>t.status==="active").length;
-  const teacherSalaries=(id:string)=>salaries.filter(s=>s.teacher_id===id).sort((a,b)=>b.month.localeCompare(a.month));
-  const gradeOptions=Array.from(new Set(classes.map(c=>c.grade))) as string[];
-  const sectionOptions=(grade:string)=>classes.filter(c=>c.grade===grade).map(c=>c.section);
-  const visibleQuick = QUICK_ACCESS.slice(0,7);
+  const handleQuickAction = (id: string) => {
+    if (id === "add_teacher") { void openTeacherAdd(); }
+    else if (id === "classes") setShowClassesMgr(true);
+    else if (id === "subjects") setShowSubjectsMgr(true);
+    else if (id === "titles") setShowJobTitlesMgr(true);
+    else if (id === "prices") setShowPrices(true);
+    else if (id === "schedule") setActiveSection("schedule_tab");
+    else if (id === "schedule_lessons") setShowLessonTimes(true);
+    else if (id === "daily_log") setShowDailyLog(true);
+    else if (id === "detailed_report") { setActiveSection("reports"); setReportView("summary"); void fetchReportSummary(); }
+    else if (id === "deductions") setActiveSection("deductions");
+    else if (id === "export") setShowExport(true);
+    else if (id === "print") setShowPrint(true);
+  };
 
-  // Report data
-  // Calendar helpers
-  const daysInMonth=(y:number,m:number)=>new Date(y,m+1,0).getDate();
-  const firstDayOfMonth=(y:number,m:number)=>new Date(y,m,1).getDay();
-  const today=new Date();
+  const onPaySalary = (teacher: Teacher) => {
+    setSelectedTeacher(teacher);
+    setSalaryForm({ gross_salary: teacher.base_salary.toString(), deductions: "0", notes: "", month: currentMonth });
+    setShowPaySalary(true);
+  };
 
-  const SIDEBAR_ITEMS=[
-    {id:"main",label:"الرئيسية",icon:"🏠"},
-    {id:"teachers",label:"الأساتذة",icon:"👥"},
-    {id:"schedule_tab",label:"الجدول",icon:"📅"},
-    {id:"deductions",label:"سحوبات",icon:"💸"},
-    {id:"reports",label:"التقارير",icon:"📋"},
-    {id:"calendar",label:"التقويم",icon:"📆"},
-    {id:"archive",label:"الأرشيف",icon:"🗄️"},
-    {id:"settings",label:"الإعدادات",icon:"⚙️"},
-  ];
+  const openPrintReport = async (teacherId: string) => {
+    setReportTeacher(teacherId);
+    await fetchDetailedReportAll(teacherId);
+    printReport();
+  };
 
   return (
-  <ProtectedRoute roles={["super_admin", "admin"]}>
-  <>
-    <style>{`
-      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      :root{--p2:#255EA8;--p3:#4F8CFF;--p4:#79D7FF;--bg:#EEF4FB;--dark:#16324F;--gray:#6B7280;}
-      body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
-      .layout{display:flex;height:100vh}
-
-      /* MAIN SIDEBAR */
-      .main-sidebar{width:190px;background:linear-gradient(180deg,#EDF6FF,#DDEAFB);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(79,140,255,0.1);flex-shrink:0}
-      .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
-      .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p3),var(--p4));display:flex;align-items:center;justify-content:center}
-      .logo-ico svg{width:18px;height:18px;fill:white}
-      .logo span{font-size:.88rem;font-weight:800;color:var(--p2)}
-      .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:var(--p2);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-      .nav:hover{background:rgba(79,140,255,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
-      .nav.danger{color:#EF4444}.nav.danger:hover{background:#FEE2E2}
-      .sep{height:1px;background:rgba(79,140,255,0.12);margin:.4rem 0}
-
-      /* SALARIES SIDEBAR */
-      .sal-sidebar{width:160px;background:white;display:flex;flex-direction:column;padding:.8rem .6rem;border-right:1px solid rgba(79,140,255,0.08);flex-shrink:0;box-shadow:2px 0 8px rgba(79,140,255,0.04)}
-      .sal-nav{display:flex;align-items:center;gap:.5rem;padding:.5rem .7rem;border-radius:9px;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--gray);transition:all .2s;border:none;background:none;font-family:var(--font-manrope),Segoe UI,sans-serif;width:100%}
-      .sal-nav:hover{background:#EEF6FF;color:var(--p3)}
-      .sal-nav.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 3px 10px rgba(79,140,255,0.25)}
-      .sal-sep{height:1px;background:rgba(79,140,255,0.08);margin:.3rem 0}
-      .sal-title{font-size:.68rem;font-weight:700;color:var(--gray);padding:.3rem .7rem;text-transform:uppercase;letter-spacing:.05em}
-
-      .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-      .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(79,140,255,0.08);flex-shrink:0}
-      .topbar-title{font-size:.95rem;font-weight:800}.topbar-sub{font-size:.7rem;color:var(--gray)}
-      .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
-      .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1rem}
-      .sc{background:white;border-radius:12px;padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 2px 8px rgba(79,140,255,0.07)}
-      .sc-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-      .sc-label{font-size:.7rem;color:var(--gray)}.sc-val{font-size:.9rem;font-weight:800}
-      .quick-section{background:white;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
-      .quick-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem}
-      .quick-title{font-size:.88rem;font-weight:800}
-      .show-all-btn{padding:.35rem .8rem;background:#EEF6FF;color:var(--p3);border:1.5px solid rgba(79,140,255,0.18);border-radius:20px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer}
-      .quick-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.6rem}
-      .qa-btn{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.7rem .4rem;border-radius:12px;cursor:pointer;border:none;background:transparent;font-family:var(--font-manrope),Segoe UI,sans-serif;transition:transform .15s}
-      .qa-btn:hover{transform:translateY(-3px)}
-      .qa-ico{width:50px;height:50px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 4px 12px rgba(0,0,0,0.08)}
-      .qa-label{font-size:.68rem;font-weight:700;color:var(--dark);line-height:1.3;text-align:center}
-      .tabs{display:flex;gap:.4rem;margin-bottom:1rem;background:white;border-radius:13px;padding:.5rem;box-shadow:0 2px 8px rgba(79,140,255,0.07)}
-      .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem;border-radius:9px;cursor:pointer;font-size:.8rem;font-weight:700;color:var(--gray);border:none;background:none;font-family:var(--font-manrope),Segoe UI,sans-serif;transition:all .2s}
-      .tab:hover{background:#EEF6FF;color:var(--p3)}
-      .tab.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 4px 12px rgba(79,140,255,0.3)}
-      .tab-count{padding:.1rem .4rem;border-radius:10px;font-size:.7rem;background:rgba(255,255,255,0.25)}
-      .tab:not(.active) .tab-count{background:rgba(79,140,255,0.1);color:var(--p3)}
-      .toolbar{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
-      .srch{position:relative;flex:1}
-      .srch svg{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--gray)}
-      .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:white;border:1px solid rgba(79,140,255,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
-      .month-pick{padding:.55rem .8rem;background:white;border:1px solid rgba(79,140,255,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;color:var(--dark)}
-      .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
-      .btn-export{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#DBEAFE;color:#1E40AF;border:1.5px solid #93C5FD;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer}
-      .tbl-wrap{background:white;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
-      table{width:100%;border-collapse:collapse}thead{background:#F7FBFF}
-      th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(79,140,255,0.08)}
-      td{padding:.6rem .9rem;font-size:.78rem;border-bottom:1px solid rgba(79,140,255,0.04)}
-      tr:last-child td{border-bottom:none}tr:hover td{background:#F8FBFF}
-      .badge{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.66rem;font-weight:700}
-      .name-link{font-weight:700;color:var(--p2);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-      .empty{text-align:center;padding:3rem;color:var(--gray);font-size:.85rem}
-      .spin{width:22px;height:22px;border:3px solid rgba(79,140,255,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
-      @keyframes sp{to{transform:rotate(360deg)}}
-      .btn-action{padding:.28rem .7rem;background:#EDF6FF;color:var(--p3);border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer}
-      .btn-pay-s{padding:.28rem .7rem;background:#D1FAE5;color:#065F46;border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;margin-left:.3rem}
-      .btn-edit-s{padding:.28rem .6rem;background:#DBEAFE;color:#1E40AF;border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;cursor:pointer;margin-left:.3rem}
-      .btn-del-s{padding:.28rem .6rem;background:#FEE2E2;color:#EF4444;border:none;border-radius:7px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;cursor:pointer}
-      .btn-print-sm{width:28px;height:28px;background:#EDF6FF;color:var(--p3);border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-      .btn-del-sm{width:28px;height:28px;background:#FEE2E2;color:#EF4444;border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-      .dropdown-menu{position:fixed;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid rgba(79,140,255,0.1);z-index:9999;min-width:180px;overflow:hidden}
-      .d-item{display:flex;align-items:center;gap:.6rem;padding:.62rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer;color:var(--dark);white-space:nowrap}
-      .d-item:hover{background:#F7FBFF}.d-item.danger{color:#EF4444}.d-item.danger:hover{background:#FEE2E2}
-      .d-sep{height:1px;background:rgba(79,140,255,0.08)}
-      .alert-box{background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:.8rem 1rem;margin-bottom:1rem;font-size:.8rem;color:#92400E;font-weight:600}
-      .ok{background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
-      .err{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
-      .section-title{font-size:1rem;font-weight:900;margin-bottom:1rem;color:var(--dark);display:flex;align-items:center;gap:.5rem}
-
-      /* CALENDAR */
-      .cal-wrap{background:white;border-radius:14px;padding:1.4rem;box-shadow:0 2px 8px rgba(79,140,255,0.07)}
-      .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
-      .cal-title{font-size:1rem;font-weight:800}
-      .cal-nav{width:34px;height:34px;border-radius:9px;background:#EEF6FF;color:var(--p3);border:none;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
-      .cal-days-header{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px}
-      .cal-day-name{text-align:center;font-size:.72rem;font-weight:700;color:var(--gray);padding:.3rem 0}
-      .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-      .cal-cell{aspect-ratio:1;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:600;cursor:pointer;position:relative}
-      .cal-cell.empty{background:transparent}
-      .cal-cell.normal{background:#F7FBFF;color:var(--dark)}
-      .cal-cell.has-lecture{background:linear-gradient(135deg,#10B981,#059669);color:white;box-shadow:0 2px 8px rgba(16,185,129,0.3)}
-      .cal-cell.today{border:2px solid var(--p3);color:var(--p3)}
-      .cal-cell.today.has-lecture{border:2px solid white}
-      .cal-legend{display:flex;gap:1rem;margin-top:.8rem;font-size:.75rem}
-      .cal-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:.3rem}
-
-      /* REPORT */
-      .report-tabs{display:flex;gap:.4rem;margin-bottom:1rem}
-      .report-tab{padding:.5rem 1rem;border-radius:9px;cursor:pointer;font-size:.82rem;font-weight:700;border:none;font-family:var(--font-manrope),Segoe UI,sans-serif;transition:all .2s}
-      .report-card{background:white;border-radius:13px;padding:1rem 1.2rem;margin-bottom:.6rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
-      .report-name{font-size:.9rem;font-weight:800}
-      .report-sub{font-size:.75rem;color:var(--gray)}
-      .report-amount{font-size:1rem;font-weight:900;color:#10B981}
-      .grade-badge{display:inline-flex;align-items:center;gap:.2rem;background:#EDF6FF;color:var(--p3);padding:.15rem .5rem;border-radius:20px;font-size:.7rem;font-weight:700;margin:.1rem}
-
-      /* ARCHIVE */
-      .arch-card{background:white;border-radius:13px;padding:1rem 1.2rem;margin-bottom:.6rem;box-shadow:0 2px 8px rgba(79,140,255,0.06);display:flex;align-items:center;justify-content:space-between}
-      .arch-month{font-size:.9rem;font-weight:800}
-      .arch-info{font-size:.75rem;color:var(--gray)}
-      .arch-amount{font-size:.88rem;font-weight:800;color:var(--p3)}
-      .arch-btn{background:#EEF6FF;color:var(--p3);border:none;border-radius:8px;padding:.3rem .7rem;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;cursor:pointer}
-
-      /* DEDUCTIONS TABLE */
-      .ded-form{background:white;border-radius:13px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
-
-      /* SETTINGS */
-      .settings-card{background:white;border-radius:13px;padding:1.2rem;margin-bottom:.8rem;box-shadow:0 2px 8px rgba(79,140,255,0.06)}
-      .settings-title{font-size:.88rem;font-weight:800;margin-bottom:.8rem;color:var(--dark)}
-      .btn-warning{padding:.65rem 1.2rem;background:linear-gradient(135deg,#F59E0B,#D97706);color:white;border:none;border-radius:10px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;width:100%;margin-bottom:.5rem}
-      .btn-success{padding:.65rem 1.2rem;background:linear-gradient(135deg,#10B981,#059669);color:white;border:none;border-radius:10px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;width:100%}
-
-      /* MODALS */
-      .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-      .modal{background:white;border-radius:18px;padding:1.6rem;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
-      .modal-lg{max-width:780px}.modal-sm{max-width:460px}
-      .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem}
-      .mt{font-size:1rem;font-weight:800}.mc{width:30px;height:30px;border-radius:7px;background:#F3F4F6;border:none;cursor:pointer;font-size:1rem}
-      .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
-      .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
-      .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-      .sec-lbl{font-size:.8rem;font-weight:800;color:var(--p2);margin:.6rem 0 .3rem;padding-bottom:.3rem;border-bottom:2px solid #EDF6FF;grid-column:1/-1}
-      .fis{padding:.65rem .85rem;background:#F7FBFF;border:1.5px solid rgba(79,140,255,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
-      .fis:focus{border-color:var(--p3);background:white}
-      .class-row{display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;align-items:end;grid-column:1/-1;margin-bottom:.3rem}
-      .btn-rm{width:32px;height:36px;background:#FEE2E2;color:#EF4444;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-      .btn-add-cls{display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem;background:#EDF6FF;color:var(--p3);border:1.5px dashed rgba(79,140,255,0.26);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;grid-column:1/-1}
-      .sal-preview{background:#EEF6FF;border-radius:10px;padding:.8rem 1rem;margin:.4rem 0}
-      .sp-row{display:flex;justify-content:space-between;font-size:.82rem;margin:.2rem 0}
-      .sp-label{color:var(--gray)}.sp-val{font-weight:700}.sp-net{font-size:.95rem;font-weight:900;color:var(--p2)}
-      .fa{display:flex;gap:.7rem;margin-top:1.1rem}
-      .bs{flex:1;padding:.75rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:700;cursor:pointer}
-      .bs:disabled{opacity:.65;cursor:not-allowed}
-      .bc{padding:.75rem 1.2rem;background:#F3F4F6;color:var(--gray);border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:600;cursor:pointer}
-      .det-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;display:flex;align-items:flex-start;justify-content:flex-start;backdrop-filter:blur(4px)}
-      .det-panel{background:white;width:620px;max-width:95vw;height:100vh;overflow-y:auto;box-shadow:-8px 0 40px rgba(0,0,0,0.2);padding:1.8rem;margin-right:auto}
-      .det-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem}
-      .det-ttl{font-size:1.05rem;font-weight:900}.det-cls{width:34px;height:34px;border-radius:9px;background:#F3F4F6;border:none;cursor:pointer;font-size:1.1rem}
-      .dp-cards{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.2rem}
-      .dp-card{background:#F7FBFF;border-radius:12px;padding:.9rem}
-      .dp-ct{font-size:.78rem;font-weight:700;color:var(--p2);margin-bottom:.6rem}
-      .dp-row{display:flex;justify-content:space-between;font-size:.8rem;margin:.25rem 0}
-      .dp-lbl{color:var(--gray)}.dp-val{font-weight:700}
-      .sal-row{display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid rgba(79,140,255,0.05)}
-      .sal-row:last-child{border-bottom:none}
-      .sal-num{width:28px;height:28px;border-radius:7px;background:#EDF6FF;color:var(--p3);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;flex-shrink:0}
-      .mgr-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;border-bottom:1px solid rgba(79,140,255,0.06)}
-      .mgr-item:last-child{border-bottom:none}
-      .btn-del-item{background:#FEE2E2;color:#EF4444;border:none;border-radius:7px;padding:.2rem .5rem;cursor:pointer;font-size:.8rem}
-      .sch-grid{width:100%;border-collapse:collapse;font-size:.74rem}
-      .sch-grid th{background:#EEF6FF;color:var(--p2);padding:.4rem .5rem;text-align:center;border:1px solid rgba(79,140,255,0.12);font-weight:700}
-      .sch-grid td{border:1px solid rgba(79,140,255,0.08);padding:.25rem .3rem}
-      .sch-sel{width:100%;padding:.2rem .3rem;background:white;border:1px solid rgba(79,140,255,0.12);border-radius:5px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.7rem;direction:rtl;outline:none}
-      .session-title{font-size:.82rem;font-weight:800;color:var(--p3);margin:.8rem 0 .4rem;padding:.3rem .5rem;background:#EEF6FF;border-radius:8px}
-      .times-row{display:flex;align-items:center;gap:.7rem;padding:.5rem 0;border-bottom:1px solid rgba(79,140,255,0.06)}
-      .times-lbl{font-size:.8rem;font-weight:700;min-width:60px}
-      .time-input{padding:.4rem .6rem;background:#F7FBFF;border:1.5px solid rgba(79,140,255,0.12);border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;width:100px}
-      .periods-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.4rem}
-      .period-box{width:40px;height:40px;border-radius:9px;background:#F7FBFF;border:2px solid rgba(79,140,255,0.15);display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s}
-      .period-box.sel{background:var(--p3);color:white;border-color:var(--p3)}
-      .exp-item{display:flex;align-items:center;justify-content:space-between;padding:.65rem .8rem;border-radius:10px;margin-bottom:.4rem;cursor:pointer;transition:background .15s}
-      .exp-item:hover{background:#F7FBFF}.exp-item.selected{background:#EDF6FF}
-      .exp-name{font-size:.85rem;font-weight:600}
-      .exp-cb{width:18px;height:18px;border-radius:5px;border:2px solid rgba(79,140,255,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-      .exp-cb.checked{background:var(--p3);border-color:var(--p3);color:white;font-size:.7rem}
-      .print-card{background:#F7FBFF;border-radius:13px;padding:1.1rem;margin-bottom:.8rem}
-      .print-card-title{font-size:.88rem;font-weight:800;color:var(--p3);margin-bottom:.4rem}
-      .print-card-desc{font-size:.78rem;color:var(--gray);margin-bottom:.8rem}
-      @media (max-width:1180px){
-        .layout{flex-wrap:wrap}
-        .sal-sidebar{order:1;width:100%;flex-direction:row;overflow:auto;white-space:nowrap;padding:.6rem;border-right:none;border-bottom:1px solid rgba(79,140,255,0.08);box-shadow:none}
-        .sal-nav{min-width:max-content}
-        .main{order:2;width:100%}
-        .stats{grid-template-columns:repeat(2,1fr)}
-        .quick-grid{grid-template-columns:repeat(4,1fr)}
-      }
-      @media (max-width:820px){
-        .stats,.dp-cards,.fg,.class-row{grid-template-columns:1fr}
-        .quick-grid{grid-template-columns:repeat(2,1fr)}
-        .toolbar,.quick-header,.fa,.report-tabs,.cal-header,.det-hdr,.mh{flex-direction:column;align-items:stretch}
-        .tbl-wrap{overflow:auto}
-        th,td{white-space:nowrap}
-        .modal,.modal-lg,.modal-sm,.det-panel{width:100%;max-width:100%}
-      }
-    `}</style>
-
-    <div className="layout">
-      {/* MAIN SIDEBAR */}
-      <AppSidebar currentPath="/salaries" containerClassName="main-sidebar" showFloatingToggle />
-
-      {/* SALARIES SIDEBAR */}
-      <div className="sal-sidebar">
-        <div style={{fontSize:".72rem",fontWeight:800,color:"var(--p2)",padding:".4rem .7rem .6rem",borderBottom:"1px solid rgba(79,140,255,0.08)",marginBottom:".4rem"}}>الرواتب</div>
-        {SIDEBAR_ITEMS.map(item=>(
-          <button key={item.id} className={`sal-nav${activeSection===item.id?" active":""}`} onClick={()=>{setActiveSection(item.id);if(item.id==="reports")setReportView("summary");if(item.id==="deductions")void fetchDeductionsList();if(item.id==="calendar")void fetchCalendarLectures();}}>
-            <AppIcon token={item.icon} size={15} /><span>{item.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="main">
-        <div className="content app-shell-content">
-          {success&&<div className="ok">{success}</div>}
-          {error&&<div className="err">{error}</div>}
-          <SchoolScopeBanner scope={schoolScope} showSelector={false} />
-          {schoolScope.shouldBlockContent ? (
-            <SchoolScopeEmptyState
-              scope={schoolScope}
-              title="بيانات الرواتب"
-              description="لن يتم تحميل المدرسين أو الرواتب أو الجداول قبل اختيار مدرسة صريحة لهذا القسم."
-            />
-          ) : (
-            <>
-          {/* ===== MAIN ===== */}
-          {activeSection==="main"&&<>
-            <div className="stats">
-              {([["عدد المدرسين",formatNumber(activeTeachers),"#EDF6FF","#4F8CFF"],["إجمالي الرواتب",`د.ع ${formatNumber(totalBaseSalaries)}`,"#D1FAE5","#10B981"],["مدفوع هذا الشهر",`د.ع ${formatNumber(totalPaidThisMonth)}`,"#DBEAFE","#3B82F6"],["غير مدفوع",formatNumber(unpaidTeachers.length)+" مدرس","#FEE2E2","#EF4444"]] as any[]).map(([l,v,bg,c]:any,i:number)=>(
-                <div className="sc" key={i}>
-                  <div className="sc-ico" style={{background:bg}}><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg></div>
-                  <div><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
-                </div>
-              ))}
-            </div>
-            <div className="quick-section">
-              <div className="quick-header"><div className="quick-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="📌" size={14} />الوصول السريع</div><button className="show-all-btn" onClick={()=>setShowQuickAll(!showQuickAll)}>{showQuickAll?"عرض أقل":"عرض الكل"}</button></div>
-              <div className="quick-grid">
-                {visibleQuick.map(qa=>(
-                  <button key={qa.id} className="qa-btn" onClick={()=>handleQuickAction(qa.id)}>
-                    <div className="qa-ico" style={{background:qa.bg}}><AppIcon token={qa.icon} size={20} /></div>
-                    <span className="qa-label">{qa.label}</span>
-                  </button>
-                ))}
-              </div>
-              {showQuickAll&&<div className="quick-grid" style={{marginTop:".6rem"}}>
-                {QUICK_ACCESS.slice(7).map(qa=>(
-                  <button key={qa.id} className="qa-btn" onClick={()=>handleQuickAction(qa.id)}>
-                    <div className="qa-ico" style={{background:qa.bg}}><AppIcon token={qa.icon} size={20} /></div>
-                    <span className="qa-label">{qa.label}</span>
-                  </button>
-                ))}
-              </div>}
-            </div>
-            <div className="tabs">
-              {[{id:"teachers_tab",label:"المدرسون",icon:"👨‍🏫",count:teachers.length},{id:"salaries_tab",label:"سجل الرواتب",icon:"💰",count:salaries.length},{id:"unpaid_tab",label:"غير مدفوع",icon:"⚠️",count:unpaidTeachers.length}].map(t=>(
-                <button key={t.id} className={`tab${activeSection===t.id?" active":""}`} onClick={()=>setActiveSection(t.id)}>
-                  <AppIcon token={t.icon} size={15} /><span>{t.label}</span><span className="tab-count">{t.count}</span>
-                </button>
-              ))}
-            </div>
-            {unpaidTeachers.length>0&&<div className="alert-box"><AppIcon token="⚠️" size={14} /> {unpaidTeachers.length} مدرس لم يستلم راتب شهر {currentMonth}</div>}
-            <div className="tbl-wrap">
-              {loading?<div className="spin"/>:teachers.length===0?<div className="empty">لا يوجد مدرسون — اضغط إضافة مدرس</div>:(
-                <table>
-                  <thead><tr><th>#</th><th>الاسم</th><th>المسمى</th><th>المادة</th><th>الراتب</th><th>سعر المحاضرة</th><th>حالة الشهر</th><th>خيارات</th></tr></thead>
-                  <tbody>
-                    {teachers.map((t,i)=>{
-                      const paid=paidTeacherIds.includes(t.id);
-                      return <tr key={t.id}>
-                        <td style={{color:"var(--gray)",fontSize:".7rem"}}>{i+1}</td>
-                        <td><span className="name-link" onClick={()=>{setDetailTeacher(t);setShowDetail(true)}}>{t.full_name}</span></td>
-                        <td style={{color:"var(--gray)",fontSize:".75rem"}}>{t.job_title||"—"}</td>
-                        <td style={{color:"var(--gray)"}}>{t.subject||"—"}</td>
-                        <td style={{fontWeight:700}}>د.ع {formatNumber(t.base_salary)}</td>
-                        <td style={{fontWeight:700,color:"#2563EB"}}>د.ع {formatNumber(t.lecture_price||0)}</td>
-                        <td>{paid?<span className="badge" style={{background:"#D1FAE5",color:"#065F46"}}>✓ مدفوع</span>:<span className="badge" style={{background:"#FEE2E2",color:"#991B1B"}}>غير مدفوع</span>}</td>
-                        <td>
-                          {!paid&&<button className="btn-pay-s" onClick={()=>{setSelectedTeacher(t);setSalaryForm({gross_salary:t.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);}}><AppIcon token="💰" size={13} /> دفع</button>}
-                          <button className="btn-action" onClick={(e)=>openMenu(e,t)}>▾</button>
-                        </td>
-                      </tr>;
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </>}
-
-          {/* ===== TEACHERS ===== */}
-          {activeSection==="teachers"&&<>
-            <div className="toolbar">
-              <div className="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="بحث..."/></div>
-              <button type="button" className="btn-add" onClick={()=>void openTeacherAdd()} style={{textDecoration:"none",border:"none",cursor:"pointer"}}>+ إضافة أستاذ</button>
-            </div>
-            <div className="tbl-wrap">
-              {loading?<div className="spin"/>:(
-                <table>
-                  <thead><tr><th>#</th><th>الاسم</th><th>المادة</th><th>سعر المحاضرة</th><th>الصف والشعبة</th><th>الملف</th></tr></thead>
-                  <tbody>
-                    {teachers.map((t,i)=>(
-                      <tr key={t.id}>
-                        <td style={{color:"var(--gray)",fontSize:".7rem"}}>{i+1}</td>
-                        <td>
-                          <div style={{fontWeight:700}}>{t.full_name}</div>
-                          <div style={{fontSize:".7rem",color:"var(--p3)"}}>{t.job_title||""}</div>
-                        </td>
-                        <td style={{color:"var(--gray)"}}>{t.subject||"—"}</td>
-                        <td style={{fontWeight:700,color:"#2563EB"}}>د.ع {formatNumber(t.lecture_price||0)}</td>
-                        <td>
-                          {t.classes_taught?.slice(0,3).map((c:any,i:number)=>(
-                            <span key={i} className="grade-badge">{c.grade} ({c.section})</span>
-                          ))}
-                          {t.classes_taught?.length>3&&<span className="grade-badge">+{t.classes_taught.length-3}</span>}
-                        </td>
-                        <td>
-                          <button type="button" className="btn-edit-s" onClick={()=>void openTeacherEdit(t)} style={{display:"inline-flex",textDecoration:"none",border:"none",background:"transparent",cursor:"pointer"}}><AppIcon token="✏️" size={13} /></button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </>}
-
-          {/* ===== SCHEDULE ===== */}
-          {activeSection==="schedule_tab"&&<>
-            <div style={{display:"flex",gap:".7rem",marginBottom:"1rem"}}>
-              <select className="month-pick" value={scheduleGrade} onChange={e=>{setScheduleGrade(e.target.value);setScheduleSection("");}}>
-                <option value="">اختر الصف...</option>
-                {gradeOptions.map(g=><option key={g} value={g}>{g}</option>)}
-              </select>
-              <select className="month-pick" value={scheduleSection} onChange={e=>{setScheduleSection(e.target.value);if(scheduleGrade&&e.target.value)fetchSchedule(scheduleGrade,e.target.value);}}>
-                <option value="">اختر الشعبة...</option>
-                {sectionOptions(scheduleGrade).map(s=><option key={s} value={s}>{s}</option>)}
-              </select>
-              {scheduleGrade&&scheduleSection&&<button className="btn-add" disabled={scheduleSaving} onClick={saveSchedule}>{scheduleSaving?"جارٍ الحفظ...":<><AppIcon token="💾" size={14} /> حفظ الجدول</>}</button>}
-            </div>
-            {scheduleGrade&&scheduleSection?(
-              ["morning","afternoon"].map(sessionType=>(
-                <div key={sessionType} style={{marginBottom:"1rem"}}>
-                  <div className="session-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-                    <AppIcon token={sessionType==="morning"?"🌅":"🌞"} size={14} />
-                    {sessionType==="morning"?"الدوام الصباحي":"الدوام الظهري"}
-                  </div>
-                  <div className="tbl-wrap">
-                    <table className="sch-grid">
-                      <thead><tr><th>اليوم / الدرس</th>{PERIODS.map(p=><th key={p}>{p}</th>)}</tr></thead>
-                      <tbody>
-                        {DAYS.map(day=>(
-                          <tr key={day}>
-                            <td style={{fontWeight:700,textAlign:"center",background:"#F7FBFF",padding:".4rem"}}>{day}</td>
-                            {PERIODS.map(p=>(
-                              <td key={p}>
-                                <select className="sch-sel" value={scheduleGrid[`${day}-${p}-${sessionType}`]||""} onChange={e=>setScheduleGrid({...scheduleGrid,[`${day}-${p}-${sessionType}`]:e.target.value})}>
-                                  <option value="">(فراغ)</option>
-                                  {teachers.filter(t=>t.status==="active").map(t=><option key={t.id} value={t.id}>{t.full_name.split(" ")[0]}</option>)}
-                                </select>
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))
-            ):<div className="empty">اختر الصف والشعبة لعرض الجدول</div>}
-          </>}
-
-          {/* ===== DEDUCTIONS ===== */}
-          {activeSection==="deductions"&&<>
-            <div className="ded-form">
-              <div style={{fontSize:".88rem",fontWeight:800,marginBottom:"1rem",display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="💸" size={14} /> تسجيل سحب جديد</div>
-              <div className="fg">
-                <div className="ff full">
-                  <label className="fl">اسم الأستاذ</label>
-                  <select className="fis" value={deductionTeacher} onChange={e=>setDeductionTeacher(e.target.value)}>
-                    <option value="">اختر الأستاذ...</option>
-                    {teachers.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}
-                  </select>
-                </div>
-                <div className="ff">
-                  <label className="fl">مبلغ السحب (د.ع)</label>
-                  <input type="number" className="fis" value={deductionAmount} onChange={e=>setDeductionAmount(e.target.value)}/>
-                </div>
-                <div className="ff">
-                  <label className="fl">الملاحظات <span className="opt">(اختياري)</span></label>
-                  <input className="fis" value={deductionNotes} onChange={e=>setDeductionNotes(e.target.value)} placeholder="أي ملاحظات..."/>
-                </div>
-              </div>
-              <button className="bs" style={{marginTop:".8rem",maxWidth:200}} disabled={savingDeduction||!deductionTeacher} onClick={saveDeduction}>{savingDeduction?"جارٍ الحفظ...":"حفظ السحب"}</button>
-            </div>
-            <div className="tbl-wrap">
-              {deductionsList.length===0?<div className="empty">لا توجد سحوبات مسجلة</div>:(
-                <table>
-                  <thead><tr><th>#</th><th>الأستاذ</th><th>المبلغ</th><th>التاريخ</th><th>ملاحظات</th></tr></thead>
-                  <tbody>
-                    {deductionsList.map((d:any,i:number)=>(
-                      <tr key={d.id}>
-                        <td style={{color:"var(--gray)",fontSize:".7rem"}}>{i+1}</td>
-                        <td style={{fontWeight:700}}>{d.teachers?.full_name||"—"}</td>
-                        <td style={{color:"#EF4444",fontWeight:700}}>د.ع {formatNumber(d.amount)}</td>
-                        <td style={{color:"var(--gray)",fontSize:".75rem"}}>{formatDate(d.deduction_date)}</td>
-                        <td style={{color:"var(--gray)",fontSize:".75rem"}}>{d.notes||"—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </>}
-
-          {/* ===== REPORTS ===== */}
-          {activeSection==="reports"&&<>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}}>
-              <div className="report-tabs">
-                <button className="report-tab" style={{background:reportView==="summary"?"linear-gradient(135deg,var(--p3),var(--p2))":"#EEF6FF",color:reportView==="summary"?"white":"var(--p3)"}} onClick={()=>setReportView("summary")}>ملخص</button>
-                <button className="report-tab" style={{background:reportView==="details"?"linear-gradient(135deg,var(--p3),var(--p2))":"#EEF6FF",color:reportView==="details"?"white":"var(--p3)"}} onClick={()=>setReportView("details")}>تفاصيل السجلات</button>
-              </div>
-              <button className="btn-add" onClick={()=>void handlePrintReport()}><AppIcon token="🖨️" size={14} /> طباعة التقرير</button>
-            </div>
-
-            {reportView==="summary"&&(
+    <ProtectedRoute roles={["super_admin", "admin"]}>
+      <div className="layout">
+        <AppSidebar currentPath="/salaries" containerClassName="main-sidebar" showFloatingToggle />
+        <SalariesSidebar
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+          onDeductionsLoad={() => void fetchDeductionsList()}
+          onCalendarLoad={() => void fetchCalendarLectures(calYear, calMonth)}
+        />
+        <div className="main">
+          <div className="content app-shell-content">
+            {success && <div className="ok">{success}</div>}
+            {error && <div className="err">{error}</div>}
+            <SchoolScopeBanner scope={schoolScope} showSelector={false} />
+            {schoolScope.shouldBlockContent ? (
+              <SchoolScopeEmptyState scope={schoolScope} title="بيانات الرواتب" description="لن يتم تحميل المدرسين أو الرواتب أو الجداول قبل اختيار مدرسة صريحة لهذا القسم." />
+            ) : (
               <>
-                {reportLoading?<div className="spin"/>:reportSummary.length===0?<div className="empty">لا توجد محاضرات مسجلة</div>:reportSummary.map(t=>(
-                  <div className="report-card" key={t.teacher_id}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div>
-                        <div className="report-name">{t.full_name}</div>
-                        <div className="report-sub">{t.subject||"—"} • {teachers.find((teacher)=>teacher.id===t.teacher_id)?.job_title||""}</div>
-                        <div style={{marginTop:".4rem"}}>
-                          {Object.entries(t.byGrade).map(([grade,count]:any)=>(
-                            <span key={grade} className="grade-badge">{grade}: {count}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div style={{textAlign:"left"}}>
-                        <div style={{fontSize:".75rem",color:"var(--gray)",marginBottom:".2rem"}}>عدد المحاضرات: <strong>{t.lectureCount}</strong></div>
-                        <div className="report-amount">د.ع {formatNumber(t.lectureTotal)}</div>
-                      </div>
+                {activeSection === "main" && (
+                  <>
+                    <StatsCards activeTeachers={activeTeachers} totalBaseSalaries={totalBaseSalaries} totalPaidThisMonth={totalPaidThisMonth} unpaidCount={unpaidTeachers.length} />
+                    <QuickAccessGrid showAll={showQuickAll} onToggleShowAll={() => setShowQuickAll(!showQuickAll)} onAction={handleQuickAction} />
+                    <div className="tabs">
+                      {[{ id: "teachers_tab", label: "المدرسون", icon: "👨‍🏫", count: teachers.length }, { id: "salaries_tab", label: "سجل الرواتب", icon: "💰", count: salaries.length }, { id: "unpaid_tab", label: "غير مدفوع", icon: "⚠️", count: unpaidTeachers.length }].map((t) => (
+                        <button key={t.id} className={`tab${activeSection === t.id ? " active" : ""}`} onClick={() => setActiveSection(t.id)}>
+                          <AppIcon token={t.icon} size={15} /><span>{t.label}</span><span className="tab-count">{t.count}</span>
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                ))}
-                {reportSummary.length>0&&(
-                  <div style={{background:"linear-gradient(135deg,var(--p3),var(--p2))",borderRadius:13,padding:"1rem 1.4rem",color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:".5rem"}}>
-                    <span style={{fontWeight:700}}>إجمالي جميع المحاضرات: {reportTotals.lectureCount}</span>
-                    <span style={{fontSize:"1.1rem",fontWeight:900}}>د.ع {formatNumber(reportTotals.total)}</span>
-                  </div>
+                    {unpaidTeachers.length > 0 && <div className="alert-box"><AppIcon token="⚠️" size={14} /> {unpaidTeachers.length} مدرس لم يستلم راتب شهر {currentMonth}</div>}
+                    <TeachersTable teachers={teachers} salaries={salaries} loading={loading} currentMonth={currentMonth} onPaySalary={onPaySalary} onShowDetail={(t) => { setDetailTeacher(t); setShowDetail(true); }} onOpenMenu={openMenu} />
+                  </>
                 )}
+                {activeSection === "teachers" && (
+                  <>
+                    <div className="toolbar">
+                      <div className="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg><input placeholder="بحث..." /></div>
+                      <button type="button" className="btn-add" onClick={() => void openTeacherAdd()}>+ إضافة أستاذ</button>
+                    </div>
+                    <div className="tbl-wrap">
+                      {loading ? <div className="spin" /> : (
+                        <table>
+                          <thead><tr><th>#</th><th>الاسم</th><th>المادة</th><th>سعر المحاضرة</th><th>الصف والشعبة</th><th>الملف</th></tr></thead>
+                          <tbody>
+                            {teachers.map((t, i) => (
+                              <tr key={t.id}>
+                                <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>{i + 1}</td>
+                                <td><div style={{ fontWeight: 700 }}>{t.full_name}</div><div style={{ fontSize: ".7rem", color: "var(--p3)" }}>{t.job_title || ""}</div></td>
+                                <td style={{ color: "var(--gray)" }}>{t.subject || "—"}</td>
+                                <td style={{ fontWeight: 700, color: "#2563EB" }}>د.ع {formatNumber(t.lecture_price || 0)}</td>
+                                <td>{(t.classes_taught || []).slice(0, 3).map((c: any, i: number) => <span key={i} className="grade-badge">{c.grade} ({c.section})</span>)}{(t.classes_taught || []).length > 3 && <span className="grade-badge">+{(t.classes_taught || []).length - 3}</span>}</td>
+                                <td><button type="button" className="btn-edit-s" onClick={() => void openTeacherEdit(t)}><AppIcon token="✏️" size={13} /></button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </>
+                )}
+                {activeSection === "schedule_tab" && <ScheduleSection teachers={teachers} classes={classes} scheduleGrade={scheduleGrade} scheduleSection={scheduleSection} scheduleGrid={scheduleGrid} saving={scheduleSaving} onGradeChange={setScheduleGrade} onSectionChange={setScheduleSection} onFetchSchedule={fetchSchedule} onGridChange={setScheduleGrid} onSave={saveSchedule} />}
+                {activeSection === "deductions" && <DeductionsSection teachers={teachers} deductionsList={deductionsList} deductionTeacher={deductionTeacher} deductionAmount={deductionAmount} deductionNotes={deductionNotes} saving={savingDeduction} onUpdateTeacher={setDeductionTeacher} onUpdateAmount={setDeductionAmount} onUpdateNotes={setDeductionNotes} onSave={saveDeduction} />}
+                {activeSection === "reports" && <ReportsSection reportView={reportView} reportTeacher={reportTeacher} reportLoading={reportLoading} reportSummary={reportSummary} reportTotals={reportTotals} dailyLectures={dailyLectures} teachers={teachers} onViewChange={setReportView} onTeacherChange={setReportTeacher} onPrintReport={() => void fetchDetailedReportAll(reportTeacher).then(printReport)} />}
+                {activeSection === "calendar" && <CalendarSection calYear={calYear} calMonth={calMonth} calLectureDates={calLectureDates} onYearChange={setCalYear} onMonthChange={setCalMonth} />}
+                {activeSection === "archive" && <ArchiveSection archives={archives} currentMonth={currentMonth} onArchive={() => setShowArchiveConfirm(true)} />}
+                {activeSection === "settings" && <SettingsSection classes={classes} onExport={() => setShowExport(true)} />}
               </>
             )}
-
-            {reportView==="details"&&(
-              <>
-                <div style={{marginBottom:".8rem"}}>
-                  <select className="month-pick" value={reportTeacher} onChange={e=>setReportTeacher(e.target.value)}>
-                    <option value="">كل الأساتذة</option>
-                    {teachers.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}
-                  </select>
-                </div>
-                <div className="tbl-wrap">
-                  {reportLoading ? <div className="spin" /> : (() => {
-                    const filtered = reportTeacher ? dailyLectures.filter((l:any)=>l.teacher_id===reportTeacher) : dailyLectures;
-                    return filtered.length===0?<div className="empty">لا توجد سجلات</div>:(
-                      <table>
-                        <thead><tr><th>#</th><th>التاريخ</th><th>الصف</th><th>الشعبة</th><th>الدرس</th><th>النوع</th><th>السعر</th></tr></thead>
-                        <tbody>
-                          {filtered.map((l:any,i:number)=>(
-                            <tr key={l.id}>
-                              <td style={{color:"var(--gray)",fontSize:".7rem"}}>{i+1}</td>
-                              <td>{l.lecture_date}</td>
-                              <td style={{fontWeight:600}}>{l.grade}</td>
-                              <td>({l.section})</td>
-                              <td>الدرس {l.period}</td>
-                              <td><span className="badge" style={{background:l.session_type==="morning"?"#DBEAFE":"#FEF3C7",color:l.session_type==="morning"?"#1E40AF":"#92400E"}}>{l.session_type==="morning"?"صباحي":"ظهري"}</span></td>
-                              <td style={{fontWeight:700,color:"var(--p3)"}}>د.ع {formatNumber(l.price)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    );
-                  })()}
-                </div>
-              </>
-            )}
-          </>}
-
-          {/* ===== CALENDAR ===== */}
-          {activeSection==="calendar"&&(
-            <div className="cal-wrap" style={{maxWidth:520}}>
-              <div className="cal-header">
-                <button className="cal-nav" onClick={()=>{let m=calMonth-1,y=calYear;if(m<0){m=11;y--;}setCalMonth(m);setCalYear(y);}}>{"<"}</button>
-                <div className="cal-title">{MONTHS_AR[calMonth]} {calYear}</div>
-                <button className="cal-nav" onClick={()=>{let m=calMonth+1,y=calYear;if(m>11){m=0;y++;}setCalMonth(m);setCalYear(y);}}>{">"}</button>
-              </div>
-              <div className="cal-days-header">
-                {["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"].map(d=>(
-                  <div key={d} className="cal-day-name">{d}</div>
-                ))}
-              </div>
-              <div className="cal-grid">
-                {Array.from({length:firstDayOfMonth(calYear,calMonth)}).map((_,i)=>(
-                  <div key={`e-${i}`} className="cal-cell empty"/>
-                ))}
-                {Array.from({length:daysInMonth(calYear,calMonth)}).map((_,i)=>{
-                  const day=i+1;
-                  const dateStr=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-                  const hasLecture=calLectureDates.includes(dateStr);
-                  const isToday=day===today.getDate()&&calMonth===today.getMonth()&&calYear===today.getFullYear();
-                  return <div key={day} className={`cal-cell${hasLecture?" has-lecture":" normal"}${isToday?" today":""}`}>{day}</div>;
-                })}
-              </div>
-              <div className="cal-legend">
-                <span><span className="cal-dot" style={{background:"#10B981",display:"inline-block"}}></span> دوام</span>
-                <span><span className="cal-dot" style={{background:"#E5E7EB",display:"inline-block"}}></span> لا يوجد سجل</span>
-              </div>
-            </div>
-          )}
-
-          {/* ===== ARCHIVE ===== */}
-          {activeSection==="archive"&&<>
-            <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:13,padding:"1rem 1.2rem",marginBottom:"1rem"}}>
-              <div style={{fontSize:".88rem",fontWeight:800,color:"#92400E",marginBottom:".4rem",display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="⚠️" size={14} /> إجراء نهاية الشهر</div>
-              <div style={{fontSize:".8rem",color:"#92400E",marginBottom:".8rem"}}>عند الضغط على "أرشفة الشهر الحالي"، سيتم حفظ نسخة من جميع البيانات الحالية وتفريغ العدادات لبدء شهر جديد.</div>
-              <button onClick={()=>setShowArchiveConfirm(true)} style={{padding:".7rem 1.5rem",background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"white",border:"none",borderRadius:10,fontFamily:"Cairo,sans-serif",fontSize:".88rem",fontWeight:800,cursor:"pointer"}}>
-                <span style={{display:"inline-flex",alignItems:"center",gap:".35rem"}}><AppIcon token="🗄️" size={14} /> أرشفة الشهر الحالي وتصفير العدادات</span>
-              </button>
-            </div>
-            <div style={{fontSize:".88rem",fontWeight:800,marginBottom:".7rem",color:"var(--dark)"}}>الأرشيفات السابقة</div>
-            {archives.length===0?<div className="empty">لا يوجد أرشيف محفوظ</div>:archives.map(a=>(
-              <div className="arch-card" key={a.id}>
-                <div>
-                  <div className="arch-month" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="📅" size={14} /> {a.month}</div>
-                  <div className="arch-info">{a.total_teachers} أستاذ • تاريخ الأرشفة: {formatDate(a.archive_date)}</div>
-                </div>
-                <div style={{textAlign:"left"}}>
-                  <div className="arch-amount">د.ع {formatNumber(a.total_amount)}</div>
-                </div>
-              </div>
-            ))}
-          </>}
-
-          {/* ===== SETTINGS ===== */}
-          {activeSection==="settings"&&<>
-            <div className="settings-card">
-              <div className="settings-title">أيام العطل الأسبوعية</div>
-              <div style={{fontSize:".8rem",color:"var(--gray)",marginBottom:".8rem"}}>حدد الصف ثم اختر أيام العطل الخاصة به.</div>
-              <select className="fis" style={{marginBottom:"1rem"}}>
-                <option value="">اختر الصف...</option>
-                {gradeOptions.map(g=><option key={g} value={g}>{g}</option>)}
-              </select>
-            </div>
-            <div className="settings-card">
-              <div className="settings-title">نسخ احتياطي</div>
-              <button className="btn-success" style={{marginBottom:".5rem"}} onClick={()=>setShowExport(true)}><AppIcon token="⬆️" size={13} /> احتياطية</button>
-              <button className="btn-warning" onClick={()=>setShowExport(true)}><AppIcon token="⬇️" size={13} /> من السحابة</button>
-            </div>
-            <div className="settings-card">
-              <div className="settings-title">نقل البيانات يدوياً (ملف)</div>
-              <div style={{display:"flex",gap:".7rem"}}>
-                <button className="btn-add" style={{flex:1}} onClick={()=>setShowExport(true)}><AppIcon token="📤" size={14} />تصدير ملف</button>
-                <button className="btn-export" style={{flex:1}}><AppIcon token="📥" size={14} />استيراد ملف</button>
-              </div>
-            </div>
-          </>}
-            </>
-          )}
-
-        </div>
-      </div>
-    </div>
-
-    {/* DROPDOWN */}
-    {activeMenu&&selectedTeacher&&(
-      <div className="dropdown-menu" style={{top:menuPos.top,left:menuPos.left}} onClick={e=>e.stopPropagation()}>
-        <div className="d-item" onClick={()=>{setDetailTeacher(selectedTeacher);setShowDetail(true);setActiveMenu(null)}}><AppIcon token="📋" size={14} />التفاصيل</div>
-        <div className="d-item" onClick={()=>{setSalaryForm({gross_salary:selectedTeacher.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);setActiveMenu(null);}}><AppIcon token="💰" size={14} />دفع الراتب</div>
-        <div className="d-item" onClick={()=>{void openTeacherEdit(selectedTeacher);setActiveMenu(null);}}><AppIcon token="✏️" size={14} />تعديل البيانات</div>
-      </div>
-    )}
-
-    {showTeacherModal&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowTeacherModal(false)}}>
-        <div className="modal" style={{maxWidth:560,maxHeight:"90vh",overflowY:"auto"}}>
-          <div className="mh">
-            <div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-              <AppIcon token={teacherEditId?"✏️":"👨‍🏫"} size={16} /> {teacherEditId?"تعديل بيانات الأستاذ":"إضافة أستاذ"}
-            </div>
-            <button type="button" className="mc" onClick={()=>setShowTeacherModal(false)}><AppIcon token="✕" size={14} /></button>
-          </div>
-          {!canManageTeacher&&<div style={{padding:".5rem 0",fontSize:".8rem",color:"#B45309"}}>ليس لديك صلاحية تعديل بيانات الأساتذة.</div>}
-          {teacherModalError&&<div style={{padding:".5rem 0",fontSize:".8rem",color:"#B91C1C"}}>{teacherModalError}</div>}
-          <form onSubmit={saveTeacherModal}>
-            <div className="fg">
-              <div className="ff full"><label className="fl">الاسم الثلاثي *</label><input className="fis" required value={teacherForm.full_name} onChange={e=>setTeacherForm({...teacherForm,full_name:e.target.value})} disabled={!canManageTeacher}/></div>
-              <div className="ff"><label className="fl">المسمى الوظيفي</label><select className="fis" value={teacherForm.job_title} onChange={e=>setTeacherForm({...teacherForm,job_title:e.target.value})} disabled={!canManageTeacher}><option value="">اختر...</option>{jobTitlesList.map((j:any)=><option key={j.id} value={j.name}>{j.name}</option>)}</select></div>
-              <div className="ff"><label className="fl">المادة</label><select className="fis" value={teacherForm.subject} onChange={e=>setTeacherForm({...teacherForm,subject:e.target.value})} disabled={!canManageTeacher}><option value="">اختر...</option>{subjectsList.map((s:any)=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
-              <div className="ff"><label className="fl">الهاتف</label><input className="fis" value={teacherForm.phone} onChange={e=>setTeacherForm({...teacherForm,phone:e.target.value})} disabled={!canManageTeacher}/></div>
-              <div className="ff full"><label className="fl">العنوان</label><input className="fis" value={teacherForm.address} onChange={e=>setTeacherForm({...teacherForm,address:e.target.value})} disabled={!canManageTeacher}/></div>
-              <div className="ff"><label className="fl">نظام الراتب</label><select className="fis" value={teacherForm.salary_type} onChange={e=>setTeacherForm({...teacherForm,salary_type:e.target.value})} disabled={!canManageTeacher}>{SALARY_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
-              <div className="ff"><label className="fl">الراتب الأساسي</label><input className="fis" type="number" value={teacherForm.base_salary} onChange={e=>setTeacherForm({...teacherForm,base_salary:e.target.value})} disabled={!canManageTeacher}/></div>
-              <div className="ff"><label className="fl">سعر المحاضرة</label><input className="fis" type="number" value={teacherForm.lecture_price} onChange={e=>setTeacherForm({...teacherForm,lecture_price:e.target.value})} disabled={!canManageTeacher}/></div>
-              <div className="ff"><label className="fl">حصص أسبوعية</label><input className="fis" type="number" value={teacherForm.weekly_hours} onChange={e=>setTeacherForm({...teacherForm,weekly_hours:e.target.value})} disabled={!canManageTeacher}/></div>
-              <div className="ff"><label className="fl">الحالة</label><select className="fis" value={teacherForm.status} onChange={e=>setTeacherForm({...teacherForm,status:e.target.value})} disabled={!canManageTeacher}><option value="active">نشط</option><option value="inactive">غير نشط</option></select></div>
-              <div className="ff full">
-                <label className="fl">الصفوف والشعب</label>
-                {teacherForm.classes_taught.map((cls, i) => (
-                  <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.35rem", alignItems: "flex-end" }}>
-                    <select className="fis" value={cls.grade} onChange={e=>updateTeacherClassRow(i,"grade",e.target.value)} disabled={!canManageTeacher}>
-                      <option value="">الصف...</option>
-                      {CLASS_GRADES.map((g) => (<option key={g} value={g}>{g}</option>))}
-                    </select>
-                    <select className="fis" value={cls.section} onChange={e=>updateTeacherClassRow(i,"section",e.target.value)} disabled={!canManageTeacher}>
-                      <option value="">الشعبة...</option>
-                      {SECTIONS_LIST.map((s) => (<option key={s} value={s}>{s}</option>))}
-                    </select>
-                    {teacherForm.classes_taught.length > 1 && (
-                      <button type="button" className="bc" onClick={()=>removeTeacherClassRow(i)} disabled={!canManageTeacher}><AppIcon token="✕" size={12} /></button>
-                    )}
-                  </div>
-                ))}
-                <button type="button" className="bc" style={{ marginTop: "0.35rem" }} onClick={addTeacherClassRow} disabled={!canManageTeacher}>+ صف</button>
-              </div>
-            </div>
-            <div className="fa">
-              <button type="submit" className="bs" disabled={teacherModalSaving||!canManageTeacher}>{teacherModalSaving?"جارٍ الحفظ...":"حفظ"}</button>
-              <button type="button" className="bc" onClick={()=>setShowTeacherModal(false)}>إلغاء</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )}
-
-    {/* ===== MODAL: دفع راتب ===== */}
-    {showPaySalary&&selectedTeacher&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowPaySalary(false)}}>
-        <div className="modal" style={{maxWidth:440}}>
-          <div className="mh">
-            <div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="💰" size={16} /> دفع راتب — {selectedTeacher.full_name}</div>
-            <button className="mc" onClick={()=>setShowPaySalary(false)}><AppIcon token="✕" size={14} /></button>
-          </div>
-          <form onSubmit={handlePaySalary}>
-            <div className="fg">
-              <div className="ff"><label className="fl">الشهر *</label><input className="fis" type="month" required value={salaryForm.month} onChange={e=>setSalaryForm({...salaryForm,month:e.target.value})}/></div>
-              <div className="ff"><label className="fl">الراتب الإجمالي *</label><input className="fis" type="number" required value={salaryForm.gross_salary} onChange={e=>setSalaryForm({...salaryForm,gross_salary:e.target.value})} readOnly={selectedTeacher?.salary_type!=="fixed"} /></div>
-              <div style={{fontSize:".74rem",color:"var(--gray)",marginTop:"-0.5rem",marginBottom:"0.5rem"}}>
-                {selectedTeacher?.salary_type === "hourly" && `محسوب آلياً: ${lectureSalaryCalc.count} × ${formatNumber(Number(selectedTeacher.lecture_price)||0)} = ${formatNumber(lectureSalaryCalc.total)} د.ع`}
-                {selectedTeacher?.salary_type === "mixed" && `أساسي ${formatNumber(Number(selectedTeacher.base_salary)||0)} + محاضرات ${formatNumber(lectureSalaryCalc.total)} = ${formatNumber((Number(selectedTeacher.base_salary)||0)+lectureSalaryCalc.total)} د.ع`}
-              </div>
-              <div className="ff"><label className="fl">الخصومات</label><input className="fis" type="number" value={salaryForm.deductions} onChange={e=>setSalaryForm({...salaryForm,deductions:e.target.value})}/></div>
-              <div className="ff"><label className="fl">ملاحظات</label><input className="fis" value={salaryForm.notes} onChange={e=>setSalaryForm({...salaryForm,notes:e.target.value})}/></div>
-            </div>
-            <div className="sal-preview">
-              <div className="sp-row"><span className="sp-label">الإجمالي:</span><span className="sp-val">د.ع {formatNumber(parseInt(salaryForm.gross_salary)||0)}</span></div>
-              <div className="sp-row"><span className="sp-label">الخصومات:</span><span className="sp-val" style={{color:"#EF4444"}}>- د.ع {formatNumber(parseInt(salaryForm.deductions)||0)}</span></div>
-              <div style={{borderTop:"1px dashed rgba(79,140,255,0.2)",marginTop:".4rem",paddingTop:".4rem"}}>
-                <div className="sp-row"><span className="sp-label">الصافي:</span><span className="sp-net">د.ع {formatNumber((parseInt(salaryForm.gross_salary)||0)-(parseInt(salaryForm.deductions)||0))}</span></div>
-              </div>
-            </div>
-            <div className="fa">
-              <button type="submit" className="bs" disabled={savingSalary}>{savingSalary?"جارٍ الدفع...":"تأكيد دفع الراتب"}</button>
-              <button type="button" className="bc" onClick={()=>setShowPaySalary(false)}>إلغاء</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )}
-
-    {/* ===== MODAL: أسعار المحاضرات ===== */}
-    {showPrices&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowPrices(false)}}>
-        <div className="modal modal-sm">
-          <div className="mh"><div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="🏷️" size={16} /> أسعار المحاضرات</div><button className="mc" onClick={()=>setShowPrices(false)}><AppIcon token="✕" size={14} /></button></div>
-          <p style={{fontSize:".8rem",color:"var(--gray)",marginBottom:"1rem"}}>حدد سعر المحاضرة الواحدة لكل صف ليتم احتساب الرواتب تلقائياً.</p>
-          {gradeOptions.map(grade=>(
-            <div key={grade} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:".6rem .4rem",borderBottom:"1px solid rgba(79,140,255,0.06)"}}>
-              <span style={{fontWeight:700,fontSize:".88rem"}}>{grade}</span>
-              <div style={{display:"flex",alignItems:"center",gap:".4rem"}}>
-                <input type="number" value={priceEdits[grade]||0} onChange={e=>setPriceEdits({...priceEdits,[grade]:parseInt(e.target.value)||0})} style={{width:100,padding:".4rem .6rem",background:"#F7FBFF",border:"1.5px solid rgba(79,140,255,0.15)",borderRadius:8,fontFamily:"Cairo,sans-serif",fontSize:".82rem",textAlign:"center",outline:"none"}}/>
-                <span style={{fontSize:".75rem",color:"var(--gray)"}}>د.ع</span>
-              </div>
-            </div>
-          ))}
-          <div className="fa"><button className="bs" onClick={savePrices}>حفظ الأسعار</button><button className="bc" onClick={()=>setShowPrices(false)}>إلغاء</button></div>
-        </div>
-      </div>
-    )}
-
-    {/* ===== MODAL: توقيتات الدروس ===== */}
-    {showLessonTimes&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowLessonTimes(false)}}>
-        <div className="modal modal-sm">
-          <div className="mh"><div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="⏰" size={16} /> توقيتات الدروس</div><button className="mc" onClick={()=>setShowLessonTimes(false)}><AppIcon token="✕" size={14} /></button></div>
-          {["morning","afternoon"].map(sessionType=>(
-            <div key={sessionType}>
-              <div className="session-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-                <AppIcon token={sessionType==="morning"?"🌅":"🌞"} size={14} />
-                {sessionType==="morning"?"الدوام الصباحي":"الدوام الظهري"}
-              </div>
-              {lessonTimes.filter(t=>t.session_type===sessionType).map(t=>(
-                <div key={t.id} className="times-row">
-                  <span className="times-lbl">الدرس {t.period}</span>
-                  <input type="time" className="time-input" value={timeEdits[`${t.period}-${t.session_type}-start`]||""} onChange={e=>setTimeEdits({...timeEdits,[`${t.period}-${t.session_type}-start`]:e.target.value})}/>
-                  <span style={{color:"var(--gray)"}}>-</span>
-                  <input type="time" className="time-input" value={timeEdits[`${t.period}-${t.session_type}-end`]||""} onChange={e=>setTimeEdits({...timeEdits,[`${t.period}-${t.session_type}-end`]:e.target.value})}/>
-                </div>
-              ))}
-            </div>
-          ))}
-          <div className="fa"><button className="bs" onClick={saveLessonTimes}>حفظ توقيتات الدروس</button><button className="bc" onClick={()=>setShowLessonTimes(false)}>إلغاء</button></div>
-        </div>
-      </div>
-    )}
-
-    {/* ===== MODAL: السجل اليومي ===== */}
-    {showDailyLog&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowDailyLog(false)}}>
-        <div className="modal">
-          <div className="mh"><div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="📋" size={16} /> السجل اليومي</div><button className="mc" onClick={()=>setShowDailyLog(false)}><AppIcon token="✕" size={14} /></button></div>
-          <div className="fg">
-            <div className="ff"><label className="fl">الأستاذ</label><select className="fis" value={dailyTeacher} onChange={e=>setDailyTeacher(e.target.value)}><option value="">اختر الأستاذ...</option>{teachers.filter(t=>t.status==="active").map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></div>
-            <div className="ff"><label className="fl">التاريخ</label><input type="date" className="fis" value={dailyDate} onChange={e=>setDailyDate(e.target.value)}/></div>
-            <div className="ff full">
-              <label className="fl">الصفوف (يمكن اختيار أكثر من صف)</label>
-              <div style={{display:"flex",flexWrap:"wrap",gap:".4rem",background:"#F7FBFF",padding:".6rem",borderRadius:9,border:"1.5px solid rgba(79,140,255,0.12)"}}>
-                {gradeOptions.map(g=>sectionOptions(g).map(sec=>(
-                  <span key={`${g}||${sec}`} onClick={()=>setDailyGrades(prev=>toggleArr(prev,`${g}||${sec}`))} style={{padding:".25rem .65rem",borderRadius:20,fontSize:".75rem",fontWeight:700,cursor:"pointer",background:dailyGrades.includes(`${g}||${sec}`)?"var(--p3)":"white",color:dailyGrades.includes(`${g}||${sec}`)?"white":"var(--dark)",border:"1px solid rgba(79,140,255,0.2)"}}>
-                    {g} ({sec})
-                  </span>
-                )))}
-              </div>
-            </div>
-            <div className="ff full">
-              <label className="fl">الحصص</label>
-              <div>
-                <div style={{fontSize:".75rem",fontWeight:700,color:"#10B981",marginBottom:".3rem"}}>الصباحي</div>
-                <div className="periods-grid" style={{marginBottom:".5rem"}}>
-                  {PERIODS.map(p=>(
-                    <div key={`${p}-morning`} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:".2rem",cursor:"pointer"}} onClick={()=>setDailyPeriods(prev=>toggleArr(prev,`${p}-morning`))}>
-                      <div className={`period-box${dailyPeriods.includes(`${p}-morning`)?" sel":""}`}>{p}</div>
-                      <span style={{fontSize:".65rem",color:"var(--gray)"}}>درس {p}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{fontSize:".75rem",fontWeight:700,color:"#F59E0B",marginBottom:".3rem"}}>الظهري</div>
-                <div className="periods-grid">
-                  {PERIODS.map(p=>(
-                    <div key={`${p}-afternoon`} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:".2rem",cursor:"pointer"}} onClick={()=>setDailyPeriods(prev=>toggleArr(prev,`${p}-afternoon`))}>
-                      <div className={`period-box${dailyPeriods.includes(`${p}-afternoon`)?" sel":""}`}>{p}<span style={{fontSize:".6rem"}}>(ظ)</span></div>
-                      <span style={{fontSize:".65rem",color:"var(--gray)"}}>درس {p}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          {dailyTeacher&&dailyGrades.length>0&&dailyPeriods.length>0&&(
-            <div style={{background:"#EEF6FF",borderRadius:10,padding:".7rem",marginTop:".5rem",fontSize:".8rem",fontWeight:600,color:"var(--p2)"}}>
-              سيتم تسجيل: {dailyGrades.length} صف × {dailyPeriods.length} حصة = <strong>{dailyGrades.length*dailyPeriods.length} محاضرة</strong>
-            </div>
-          )}
-          <div className="fa">
-            <button className="bs" disabled={savingDaily||!dailyTeacher||dailyGrades.length===0||dailyPeriods.length===0} onClick={saveDailyLog}>{savingDaily?"جارٍ الحفظ...":"تسجيل المحاضرات"}</button>
-            <button className="bc" onClick={()=>setShowDailyLog(false)}>إلغاء</button>
           </div>
         </div>
+        <TeacherDropdownMenu show={!!activeMenu && !!selectedTeacher} teacher={selectedTeacher} position={menuPos} onShowDetail={() => { setDetailTeacher(selectedTeacher); setShowDetail(true); }} onPaySalary={() => selectedTeacher && onPaySalary(selectedTeacher)} onEdit={() => selectedTeacher && void openTeacherEdit(selectedTeacher)} onClose={() => setActiveMenu(null)} />
+        <TeacherModal show={showTeacherModal} editId={teacherEditId} form={teacherForm} saving={teacherModalSaving} error={teacherModalError} canManage={canManageTeacher} subjectsList={subjectsList} jobTitlesList={jobTitlesList} onClose={() => setShowTeacherModal(false)} onSubmit={saveTeacherModal} onUpdateForm={(f) => setTeacherForm((prev) => ({ ...prev, ...f }))} onAddClassRow={() => setTeacherForm((f) => ({ ...f, classes_taught: [...f.classes_taught, { grade: "", section: "" }] }))} onRemoveClassRow={(i) => setTeacherForm((f) => ({ ...f, classes_taught: f.classes_taught.filter((_, idx) => idx !== i) }))} onUpdateClassRow={(i, field, val) => setTeacherForm((f) => ({ ...f, classes_taught: f.classes_taught.map((c, idx) => (idx === i ? { ...c, [field]: val } : c)) }))} />
+        <PaySalaryModal show={showPaySalary} teacher={selectedTeacher} form={salaryForm} saving={savingSalary} lectureSalaryCalc={lectureSalaryCalc} onSubmit={handlePaySalary} onClose={() => setShowPaySalary(false)} onUpdateForm={(f) => setSalaryForm((prev) => ({ ...prev, ...f }))} />
+        {showDetail && detailTeacher && <TeacherDetailPanel teacher={detailTeacher} salaries={salaries} currentMonth={currentMonth} onClose={() => setShowDetail(false)} onPaySalary={onPaySalary} onPrintSalarySlip={printSalarySlip} />}
+        <PricesModal show={showPrices} classes={classes} lecturePrices={lecturePrices} priceEdits={priceEdits} onClose={() => setShowPrices(false)} onPriceChange={(g, p) => setPriceEdits((prev) => ({ ...prev, [g]: p }))} onSave={savePrices} />
+        <LessonTimesModal show={showLessonTimes} lessonTimes={lessonTimes} timeEdits={timeEdits} onClose={() => setShowLessonTimes(false)} onTimeChange={(k, v) => setTimeEdits((prev) => ({ ...prev, [k]: v }))} onSave={saveLessonTimes} />
+        <DailyLogModal show={showDailyLog} teachers={teachers} classes={classes} lecturePrices={lecturePrices} dailyTeacher={dailyTeacher} dailyDate={dailyDate} dailyGrades={dailyGrades} dailyPeriods={dailyPeriods} saving={savingDaily} onClose={() => setShowDailyLog(false)} onTeacherChange={setDailyTeacher} onDateChange={setDailyDate} onGradesChange={setDailyGrades} onPeriodsChange={setDailyPeriods} onSave={saveDailyLog} />
+        <ExportModal show={showExport} exportOptions={exportOptions} onClose={() => setShowExport(false)} onOptionsChange={setExportOptions} onExport={doExport} />
+        <PrintModal show={showPrint} teachers={teachers} printTeacher={printTeacher} onClose={() => setShowPrint(false)} onTeacherChange={setPrintTeacher} onPrintReport={openPrintReport} onPrintAll={printAllTeachers} />
+        <ManagerModals showSubjectsMgr={showSubjectsMgr} subjectsList={subjectsList} newSubject={newSubject} onCloseSubjects={() => setShowSubjectsMgr(false)} onNewSubjectChange={setNewSubject} onAddSubject={addSubject} onDeleteSubject={deleteSubject} showJobTitlesMgr={showJobTitlesMgr} jobTitlesList={jobTitlesList} newJobTitle={newJobTitle} onCloseJobTitles={() => setShowJobTitlesMgr(false)} onNewJobTitleChange={setNewJobTitle} onAddJobTitle={addJobTitle} onDeleteJobTitle={deleteJobTitle} showClassesMgr={showClassesMgr} classes={classes} newGrade={newGrade} newSection={newSection} newSectionGrade={newSectionGrade} onCloseClasses={() => setShowClassesMgr(false)} onNewGradeChange={setNewGrade} onNewSectionChange={setNewSection} onNewSectionGradeChange={setNewSectionGrade} onAddClass={addClass} onAddSection={addSection} onDeleteClass={deleteClass} />
+        <ConfirmDialog open={showArchiveConfirm} title="أرشفة شهر الرواتب" description={`سيتم حفظ أرشيف شهر ${currentMonth} وتصفير عدادات المحاضرات الخاصة به. استخدم هذا الإجراء فقط عند إغلاق الشهر.`} confirmLabel="نعم، أرشف الشهر" cancelLabel="إلغاء" tone="danger" onClose={() => setShowArchiveConfirm(false)} onConfirm={() => void archiveMonth(currentMonth).then(() => setShowArchiveConfirm(false))} />
       </div>
-    )}
-
-    {/* ===== MODAL: تصدير ===== */}
-    {showExport&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowExport(false)}}>
-        <div className="modal modal-sm">
-          <div className="mh"><div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="📤" size={16} /> خيارات التصدير</div><button className="mc" onClick={()=>setShowExport(false)}><AppIcon token="✕" size={14} /></button></div>
-          <button style={{width:"100%",padding:".7rem",background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"white",border:"none",borderRadius:10,fontFamily:"Cairo,sans-serif",fontSize:".85rem",fontWeight:800,cursor:"pointer",marginBottom:".8rem",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:".35rem"}} onClick={()=>setExportOptions({lesson_times:true,classes:true,prices:true,teachers:true,subjects:true,fixed_salaries:true,lectures:true})}><AppIcon token="💾" size={14} /> تصدير كامل النظام</button>
-          {([
-            ["teachers","👨‍🏫","بيانات الأساتذة"],
-            ["subjects","📚","المواد الدراسية"],
-            ["classes","🏫","الصفوف والشعب"],
-            ["prices","🏷️","أسعار المحاضرات"],
-            ["fixed_salaries","💰","الرواتب الثابتة"],
-            ["lectures","📋","سجل المحاضرات"],
-            ["lesson_times","⏰","توقيتات الدروس"],
-          ] as [keyof typeof exportOptions,string,string][]).map(([key,icon,label])=>(
-            <div key={key} className={`exp-item${exportOptions[key]?" selected":""}`} onClick={()=>setExportOptions(prev=>({...prev,[key]:!prev[key]}))}>
-              <span className="exp-name" style={{display:"inline-flex",alignItems:"center",gap:".35rem"}}><AppIcon token={icon} size={13} /> {label}</span>
-              <div className={`exp-cb${exportOptions[key]?" checked":""}`}>{exportOptions[key]&&"✓"}</div>
-            </div>
-          ))}
-          <div className="fa"><button className="bs" onClick={doExport}><AppIcon token="⬇️" size={14} /> تصدير الآن</button><button className="bc" onClick={()=>setShowExport(false)}>إلغاء</button></div>
-        </div>
-      </div>
-    )}
-
-    {/* ===== MODAL: طباعة ===== */}
-    {showPrint&&(
-      <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowPrint(false)}}>
-        <div className="modal modal-sm">
-          <div className="mh"><div className="mt" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="🖨️" size={16} /> خيارات الطباعة</div><button className="mc" onClick={()=>setShowPrint(false)}><AppIcon token="✕" size={14} /></button></div>
-          <div className="print-card">
-            <div className="print-card-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="👤" size={14} /> تقرير أستاذ مفصل</div>
-            <div className="print-card-desc">اختر الأستاذ لطباعة تقرير كامل بجميع محاضراته.</div>
-            <select className="fis" value={printTeacher} onChange={e=>setPrintTeacher(e.target.value)} style={{marginBottom:".7rem"}}><option value="">اختر الأستاذ...</option>{teachers.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select>
-            <button style={{padding:".6rem 1rem",background:"linear-gradient(135deg,#06B6D4,#0891B2)",color:"white",border:"none",borderRadius:9,fontFamily:"Cairo,sans-serif",fontSize:".82rem",fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:".35rem"}} onClick={async()=>{if(printTeacher){setReportTeacher(printTeacher);await fetchDetailedReportAll(printTeacher);printReport();}}}><AppIcon token="🖨️" size={13} className="text-white" /> طباعة</button>
-          </div>
-          <div className="print-card">
-            <div className="print-card-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="👥" size={14} /> تقرير شامل</div>
-            <div className="print-card-desc">تقرير لجميع الأساتذة.</div>
-            <button style={{width:"100%",padding:".7rem",background:"#1F2937",color:"white",border:"none",borderRadius:9,fontFamily:"Cairo,sans-serif",fontSize:".85rem",fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:".35rem"}} onClick={printAllTeachers}><AppIcon token="☰" size={13} className="text-white" /> طباعة التقرير الشامل</button>
-          </div>
-          <div className="fa"><button className="bc" onClick={()=>setShowPrint(false)}>إغلاق</button></div>
-        </div>
-      </div>
-    )}
-
-    {/* ===== MODALS: مواد، مسميات، صفوف ===== */}
-    {showSubjectsMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowSubjectsMgr(false)}}><div className="modal modal-sm"><div className="mh"><div className="mt">المواد الدراسية</div><button className="mc" onClick={()=>setShowSubjectsMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"flex",gap:".6rem",marginBottom:"1rem"}}><input className="fis" placeholder="اسم المادة" value={newSubject} onChange={e=>setNewSubject(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSubject()} style={{flex:1}}/><button className="bs" style={{padding:".6rem 1rem",flex:"none",width:"auto"}} onClick={addSubject}>+ إضافة</button></div><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",maxHeight:320,overflowY:"auto"}}>{subjectsList.map(s=>(<div key={s.id} className="mgr-item"><span style={{fontSize:".85rem",fontWeight:600}}>{s.name}</span><button onClick={()=>deleteSubject(s.id)} className="btn-del-item"><AppIcon token="🗑️" size={12} /></button></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowSubjectsMgr(false)}>إغلاق</button></div></div></div>)}
-    {showJobTitlesMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowJobTitlesMgr(false)}}><div className="modal modal-sm"><div className="mh"><div className="mt">المسميات الوظيفية</div><button className="mc" onClick={()=>setShowJobTitlesMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"flex",gap:".6rem",marginBottom:"1rem"}}><input className="fis" placeholder="اسم المسمى" value={newJobTitle} onChange={e=>setNewJobTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addJobTitle()} style={{flex:1}}/><button className="bs" style={{padding:".6rem 1rem",flex:"none",width:"auto"}} onClick={addJobTitle}>+ إضافة</button></div><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",maxHeight:320,overflowY:"auto"}}>{jobTitlesList.map(j=>(<div key={j.id} className="mgr-item"><span style={{fontSize:".85rem",fontWeight:600}}>{j.name}</span><button onClick={()=>deleteJobTitle(j.id)} className="btn-del-item"><AppIcon token="🗑️" size={12} /></button></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowJobTitlesMgr(false)}>إغلاق</button></div></div></div>)}
-    {showClassesMgr&&(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)setShowClassesMgr(false)}}><div className="modal modal-lg"><div className="mh"><div className="mt">إدارة الصفوف والشعب</div><button className="mc" onClick={()=>setShowClassesMgr(false)}><AppIcon token="✕" size={12} /></button></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem"}}><div style={{fontSize:".82rem",fontWeight:800,color:"var(--p2)",marginBottom:".7rem"}}>إضافة صف جديد</div><input className="fis" placeholder="اسم الصف" value={newGrade} onChange={e=>setNewGrade(e.target.value)} style={{marginBottom:".5rem"}}/><button className="bs" style={{padding:".6rem",width:"100%"}} onClick={addClass}>إضافة صف</button></div><div style={{background:"#F0FDF4",borderRadius:12,padding:"1rem",border:"1px solid #D1FAE5"}}><div style={{fontSize:".82rem",fontWeight:800,color:"#065F46",marginBottom:".7rem"}}>إضافة شعبة</div><select className="fis" value={newSectionGrade} onChange={e=>setNewSectionGrade(e.target.value)} style={{marginBottom:".5rem"}}><option value="">اختر الصف...</option>{gradeOptions.map(g=><option key={g} value={g}>{g}</option>)}</select><input className="fis" placeholder="اسم الشعبة" value={newSection} onChange={e=>setNewSection(e.target.value)} style={{marginBottom:".5rem"}}/><button onClick={addSection} style={{width:"100%",padding:".6rem",background:"linear-gradient(135deg,#10B981,#059669)",color:"white",border:"none",borderRadius:9,fontFamily:"Cairo,sans-serif",fontWeight:700,cursor:"pointer"}}>إضافة شعبة</button></div></div><div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",maxHeight:300,overflowY:"auto"}}>{gradeOptions.map(grade=>(<div key={grade} style={{marginBottom:".6rem",borderBottom:"1px solid rgba(79,140,255,0.08)",paddingBottom:".6rem"}}><div style={{fontWeight:800,fontSize:".85rem",marginBottom:".4rem"}}>{grade}</div><div style={{display:"flex",flexWrap:"wrap",gap:".3rem"}}>{classes.filter(c=>c.grade===grade).map(c=>(<span key={c.id} style={{display:"inline-flex",alignItems:"center",gap:".3rem",background:"#EDF6FF",color:"var(--p3)",padding:".2rem .6rem",borderRadius:20,fontSize:".75rem",fontWeight:700}}>{c.section}<button onClick={()=>deleteClass(c.id)} style={{background:"#EF4444",color:"white",border:"none",borderRadius:"50%",width:14,height:14,cursor:"pointer",fontSize:".6rem",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><AppIcon token="✕" size={12} /></button></span>))}</div></div>))}</div><div className="fa"><button className="bc" onClick={()=>setShowClassesMgr(false)}>إغلاق</button></div></div></div>)}
-
-    {/* DETAIL PANEL */}
-    {showDetail&&detailTeacher&&(
-      <div className="det-overlay" onClick={e=>{if(e.target===e.currentTarget)setShowDetail(false)}}>
-        <div className="det-panel">
-          <div className="det-hdr"><div className="det-ttl">تفاصيل — {detailTeacher.full_name}</div><button className="det-cls" onClick={()=>setShowDetail(false)}><AppIcon token="✕" size={12} /></button></div>
-          <div className="dp-cards">
-            <div className="dp-card"><div className="dp-ct">المعلومات</div><div className="dp-row"><span className="dp-lbl">الاسم:</span><span className="dp-val">{detailTeacher.full_name}</span></div><div className="dp-row"><span className="dp-lbl">المسمى:</span><span className="dp-val">{detailTeacher.job_title||"—"}</span></div><div className="dp-row"><span className="dp-lbl">المادة:</span><span className="dp-val">{detailTeacher.subject||"—"}</span></div><div className="dp-row"><span className="dp-lbl">الهاتف:</span><span className="dp-val">{detailTeacher.phone||"—"}</span></div></div>
-            <div className="dp-card"><div className="dp-ct">الرواتب</div><div className="dp-row"><span className="dp-lbl">نظام الراتب:</span><span className="dp-val">{SALARY_TYPES.find(s=>s.value===detailTeacher.salary_type)?.label||"—"}</span></div><div className="dp-row"><span className="dp-lbl">الأساسي:</span><span className="dp-val">د.ع {formatNumber(detailTeacher.base_salary)}</span></div><div className="dp-row"><span className="dp-lbl">سعر المحاضرة:</span><span className="dp-val">د.ع {formatNumber(detailTeacher.lecture_price||0)}</span></div><div className="dp-row"><span className="dp-lbl">عدد الرواتب:</span><span className="dp-val">{teacherSalaries(detailTeacher.id).length}</span></div><div className="dp-row"><span className="dp-lbl">إجمالي المستلم:</span><span className="dp-val" style={{color:"#10B981"}}>د.ع {formatNumber(teacherSalaries(detailTeacher.id).reduce((a,s)=>(a+(s.gross_salary||0)-(s.deductions||0)),0))}</span></div></div>
-          </div>
-          {detailTeacher.classes_taught?.length>0&&(<div style={{background:"#F7FBFF",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}><div style={{fontSize:".8rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الصفوف والشعب</div><div style={{display:"flex",flexWrap:"wrap",gap:".4rem"}}>{detailTeacher.classes_taught.map((c:any,i:number)=>(<span key={i} className="badge" style={{background:"#EDF6FF",color:"var(--p3)",fontSize:".75rem"}}>{c.grade} ({c.section})</span>))}</div></div>)}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:".8rem"}}><span style={{fontSize:".88rem",fontWeight:800}}>سجل الرواتب ({teacherSalaries(detailTeacher.id).length})</span><button className="btn-add" style={{padding:".4rem .8rem",fontSize:".75rem"}} onClick={()=>{setSelectedTeacher(detailTeacher);setSalaryForm({gross_salary:detailTeacher.base_salary.toString(),deductions:"0",notes:"",month:currentMonth});setShowPaySalary(true);}}>+ دفع راتب</button></div>
-          {teacherSalaries(detailTeacher.id).length===0?<div style={{textAlign:"center",padding:"2rem",color:"var(--gray)",fontSize:".85rem"}}>لا توجد رواتب بعد</div>:teacherSalaries(detailTeacher.id).map((s,i)=>{const net=(s.gross_salary||0)-(s.deductions||0);return <div className="sal-row" key={s.id}><div className="sal-num">{i+1}</div><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:".5rem"}}><span style={{fontWeight:800,color:"#10B981",fontSize:".85rem"}}>د.ع {formatNumber(net)}</span><span className="badge" style={{background:"#EDF6FF",color:"var(--p3)",fontSize:".65rem"}}>{s.month}</span></div><div style={{fontSize:".7rem",color:"var(--gray)"}}>{s.paid_at?formatDate(s.paid_at):"—"}</div></div><button className="btn-print-sm" onClick={()=>printSalarySlip(s)}><AppIcon token="🖨️" size={12} /></button></div>;})}
-        </div>
-      </div>
-    )}
-
-    <ConfirmDialog
-      open={showArchiveConfirm}
-      title="أرشفة شهر الرواتب"
-      description={`سيتم حفظ أرشيف شهر ${currentMonth} وتصفير عدادات المحاضرات الخاصة به. استخدم هذا الإجراء فقط عند إغلاق الشهر.`}
-      confirmLabel="نعم، أرشف الشهر"
-      cancelLabel="إلغاء"
-      tone="danger"
-      onClose={() => setShowArchiveConfirm(false)}
-      onConfirm={() => void archiveMonth()}
-    />
-  </>
-  </ProtectedRoute>
+    </ProtectedRoute>
   );
 }

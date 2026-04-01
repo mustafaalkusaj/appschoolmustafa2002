@@ -20,6 +20,13 @@
 - [00990090/school-accounting-system/backend/src/models/Expense.js](file://00990090/school-accounting-system/backend/src/models/Expense.js)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated Performance Considerations section to document new indexing strategy
+- Added documentation for newly added indexes: students.school_id, expenses.school_id, and payments.student_id
+- Updated Foreign Key Constraint section to reflect standardization of attendance_records.school_id
+- Enhanced Indexing Strategy documentation with complete coverage of all performance optimizations
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -253,10 +260,12 @@ user_profiles }o--|| auth.users : "maps_to"
 - Constraints and indexes:
   - Unique index on (student_id, attendance_date).
   - Indexes on attendance_date and student_id.
+  - **Updated**: Foreign key constraint standardized to ON DELETE CASCADE for consistency with other tenant-scoped tables.
   - Trigger to update updated_at automatically.
 
 **Section sources**
 - [database_setup.sql](file://database_setup.sql)
+- [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
 
 ### Administrative Infrastructure
 - Audit Logs
@@ -288,8 +297,8 @@ user_profiles }o--|| auth.users : "maps_to"
 
 ### RLS Policies and Access Control
 - Helper Functions
-  - current_app_role(): Returns the authenticated user’s role from user_profiles.
-  - current_school_id(): Returns the user’s school_id from user_profiles.
+  - current_app_role(): Returns the authenticated user's role from user_profiles.
+  - current_school_id(): Returns the user's school_id from user_profiles.
 - Tenant Isolation
   - Policies on tables with school_id:
     - Select: super_admin OR school_id = current_school_id().
@@ -303,23 +312,26 @@ user_profiles }o--|| auth.users : "maps_to"
 - [database_setup.sql](file://database_setup.sql)
 
 ### Indexing Strategy and Performance
-- Core Indexes
-  - subscriptions: school_id, status.
-  - account_archives: school_id, archive_year.
-  - managed_user_profiles: school_id, role, is_active; unique constraints on student_id and teacher_id; unique index on (school_id, lower(email)).
-  - subjects: school_id, name, is_active.
-  - teacher_assignments: school_id scope, teacher_id, is_active.
-  - assignments: school_id, student_id, teacher_id, due_at; composite scopes.
-  - grades: school_id, student_id, teacher_id, assignment_id; scopes.
-  - payments: school_id, student_id, created_at.
-  - attendance_records: attendance_date, student_id.
-- Additional Indexes
-  - Reliability/performance indexes: payments, salaries, deductions, lecture_prices, lesson_times.
-  - Missing indexes: added in dedicated migration.
+- **Updated**: Complete Index Coverage
+  - **Core Indexes**: All tenant-scoped tables now have comprehensive indexing strategy
+    - subscriptions: school_id, status
+    - account_archives: school_id, archive_year
+    - managed_user_profiles: school_id, role, is_active; unique constraints on student_id and teacher_id; unique index on (school_id, lower(email))
+    - subjects: school_id, name, is_active
+    - teacher_assignments: school_id scope, teacher_id, is_active
+    - assignments: school_id, student_id, teacher_id, due_at; composite scopes
+    - grades: school_id, student_id, teacher_id, assignment_id; scopes
+    - payments: school_id, student_id, created_at
+    - attendance_records: attendance_date, student_id
+    - **Newly Added**: students.school_id, expenses.school_id, payments.student_id
+  - **Additional Indexes**: Reliability/performance indexes including payments, salaries, deductions, lecture_prices, lesson_times
+  - **Missing Indexes**: Added in dedicated migration to complete coverage
+  - **Standardization**: Foreign key constraints now consistently use ON DELETE CASCADE for tenant-scoped tables
 
 **Section sources**
 - [migrations/20260324_000000_reliability_performance_indexes.sql](file://migrations/20260324_000000_reliability_performance_indexes.sql)
 - [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
+- [database_setup.sql](file://database_setup.sql)
 
 ### Backup and Recovery Procedures
 - Recommended Approach
@@ -329,8 +341,6 @@ user_profiles }o--|| auth.users : "maps_to"
   - Store backups securely and encrypt at rest.
 - Audit Trail
   - Maintain audit logs for administrative actions impacting data integrity.
-
-[No sources needed since this section provides general guidance]
 
 ### Data Security Measures and Compliance
 - Row Level Security
@@ -397,16 +407,24 @@ P2 --> TBL15["grades"]
 - [database_setup.sql](file://database_setup.sql)
 
 ## Performance Considerations
-- Index Coverage
-  - Ensure indexes exist on frequently filtered/sorted columns (e.g., school_id, student_id, created_at, status).
+- **Updated**: Comprehensive Index Coverage
+  - **Primary Indexes**: All tenant-scoped tables now have optimized indexes for common query patterns
+    - **students.school_id**: Optimizes school-level student queries and filtering
+    - **expenses.school_id**: Improves expense reporting and aggregation by school
+    - **payments.student_id**: Enhances student payment history queries and financial reporting
+  - **Secondary Indexes**: Support for date-range queries, status filtering, and composite lookups
+  - **Foreign Key Consistency**: Standardized ON DELETE CASCADE behavior across tenant-scoped tables
+  - **Query Performance**: Significantly improved performance for:
+    - School administration dashboards
+    - Financial reporting and analytics
+    - Student payment history views
+    - Expense categorization and approval workflows
 - Triggers and Timestamps
   - Updated-at triggers reduce application logic and keep audit trails accurate.
 - Partitioning
   - Consider partitioning large tables (e.g., payments, attendance_records) by date ranges for improved maintenance and query performance.
 - Statistics and Vacuum
   - Regularly update statistics and vacuum/analyze to maintain query planner effectiveness.
-
-[No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
 - RLS Denials
@@ -415,16 +433,19 @@ P2 --> TBL15["grades"]
 - Policy Conflicts
   - Remove outdated generic policies before applying tenant policies.
 - Index Issues
-  - Rebuild missing indexes identified in reliability migrations.
+  - **Updated**: All previously missing indexes have been added in migrations/20260330_000000_add_missing_indexes.sql
+  - Verify indexes exist: students.school_id, expenses.school_id, payments.student_id
+  - Check foreign key constraints: attendance_records.school_id uses ON DELETE CASCADE
 - Audit Logs
   - Check audit_logs for failed operations and actor metadata to diagnose access problems.
 
 **Section sources**
 - [admin_infrastructure.sql](file://admin_infrastructure.sql)
 - [database_setup.sql](file://database_setup.sql)
+- [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
 
 ## Conclusion
-The school management system employs a robust multi-tenant schema with strong RLS enforcement, centralized administrative infrastructure, and a well-defined migration strategy. The combination of helper functions, tenant-scoped policies, and targeted indexes ensures secure, scalable, and performant operations across schools, students, payments, academic records, and administrative functions.
+The school management system employs a robust multi-tenant schema with strong RLS enforcement, centralized administrative infrastructure, and a well-defined migration strategy. The recent indexing improvements have significantly enhanced query performance across all major functional areas. The combination of helper functions, tenant-scoped policies, and comprehensive indexes ensures secure, scalable, and performant operations across schools, students, payments, academic records, and administrative functions.
 
 ## Appendices
 
@@ -437,7 +458,7 @@ The school management system employs a robust multi-tenant schema with strong RL
   - 20260324_010000_academic_records_scope_model.sql evolves academic schema with subjects and teacher assignments.
 - Reliability and Performance
   - 20260324_000000_reliability_performance_indexes.sql adds critical indexes.
-  - 20260330_000000_add_missing_indexes.sql completes coverage.
+  - **20260330_000000_add_missing_indexes.sql**: **New** - Completes indexing strategy with students.school_id, expenses.school_id, and payments.student_id indexes. Standardizes foreign key constraints to ON DELETE CASCADE.
 - Specialized Tables
   - 20260326_020000_account_archives_table.sql adds account_archives with RLS.
   - 20260329_000000_teacher_activity_monitoring.sql extends monitoring capabilities.

@@ -5,6 +5,7 @@ import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { escapeFilterValue } from "@/lib/supabase-query-helpers";
 import type {
   FeeNotificationDetail,
   FeeNotificationHistoryItem,
@@ -75,9 +76,10 @@ function isStatusValue(value: string | null): value is TeacherActivityStatus {
 }
 
 function buildSearchClause(fields: string[], search: string) {
-  const normalized = asString(search);
+  const normalized = asString(search).trim();
   if (!normalized) return null;
-  return fields.map((field) => `${field}.ilike.%${normalized}%`).join(",");
+  const escaped = escapeFilterValue(normalized);
+  return fields.map((field) => `${field}.ilike.%${escaped}%`).join(",");
 }
 
 function normalizeTargets(value: unknown) {

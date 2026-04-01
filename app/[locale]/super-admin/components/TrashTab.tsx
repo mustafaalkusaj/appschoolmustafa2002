@@ -15,6 +15,7 @@ import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SectionCard, EmptyState, MigrationNotice, formatDate, cx } from "./UI";
 import { logAction } from "@/lib/audit";
+import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 type TrashEntity = "schools" | "users" | "branches";
 
@@ -60,7 +61,7 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
         } else if (activeEntity === "branches") {
           q = q.ilike("name", `%${query}%`);
         } else {
-          q = q.or(`full_name.ilike.%${query}%,email.ilike.%${query}%`);
+          q = q.or(buildSafeOrFilter(["full_name", "email"], query));
         }
       }
 

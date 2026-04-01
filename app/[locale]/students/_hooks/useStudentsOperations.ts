@@ -41,6 +41,7 @@ export interface UseStudentsOperationsOptions {
     setForm: (form: StudentFormData) => void;
     setEditForm: (form: StudentFormData) => void;
     setAccountCard: (card: ManagedUserAccountCard | null) => void;
+    setRevealedPassword: (password: string | null) => void;
     setSelectedStudent: (student: StudentWithFees | null) => void;
     setActiveMenu: (menu: string | null) => void;
     form: StudentFormData;
@@ -361,6 +362,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       return;
     }
     modals.setError("");
+    modals.setRevealedPassword(null);
     const { school_id } = await getSchoolBranch();
     if (!school_id) {
       modals.setError("يجب تحديد مدرسة قبل عرض بطاقة الدخول.");
@@ -377,6 +379,8 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
           throw new Error(readApiError(ensurePayload, `تعذر إنشاء حساب التطبيق للطالب ${student.full_name}.`));
         }
         modals.setAccountCard(ensurePayload.accountCard);
+        // New accounts get a revealed password from the ensure-account endpoint
+        modals.setRevealedPassword((ensurePayload?.temporary_password as string | null) ?? null);
         modals.setSuccess("تم إنشاء حساب التطبيق لهذا الطالب وتجهيز بطاقة الدخول فوراً.");
       } else {
         const cardResponse = await fetchWithAuthorizedSession(
@@ -397,6 +401,8 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
             throw new Error(readApiError(resetPayload, `تعذر إنشاء بطاقة دخول للطالب ${student.full_name}.`));
           }
           modals.setAccountCard(resetPayload.accountCard);
+          // Store the revealed password from the reset response (one-time reveal)
+          modals.setRevealedPassword((resetPayload?.temporary_password as string | null) ?? null);
         }
       }
       void reload();

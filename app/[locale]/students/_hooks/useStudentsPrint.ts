@@ -92,22 +92,30 @@ export function useStudentsPrint(options: UseStudentsPrintOptions) {
     w.document.close();
   }, [locale, printOptions, runtimeBranding, setError]);
 
-  const openAccountCardWindow = useCallback((card: ManagedUserAccountCard, autoPrint = true) => {
+  const openAccountCardWindow = useCallback((card: ManagedUserAccountCard, autoPrint = true, revealedPassword?: string | null) => {
     const w = window.open("", "_blank");
     if (!w) {
       setError("يرجى السماح بالنوافذ المنبثقة لعرض بطاقة الحساب");
       return;
     }
+    // Use the revealed password if available, otherwise the card's password (which may be a placeholder)
+    const passwordToShow = revealedPassword && revealedPassword !== "••••••••"
+      ? revealedPassword
+      : card.temporary_password;
+    const cardWithPassword = { ...card, temporary_password: passwordToShow };
     w.document.open();
-    w.document.write(buildPrintableCardHtml(card, printOptions, autoPrint));
+    w.document.write(buildPrintableCardHtml(cardWithPassword, printOptions, autoPrint));
     w.document.close();
   }, [printOptions, setError]);
 
   const copyAccountCardCredentials = useCallback(
-    async (card: ManagedUserAccountCard | null, setSuccess: (msg: string) => void) => {
+    async (card: ManagedUserAccountCard | null, setSuccess: (msg: string) => void, revealedPassword?: string | null) => {
       if (!card) return;
+      const passwordText = revealedPassword && revealedPassword !== "••••••••"
+        ? revealedPassword
+        : "تم التعيين (غير متوفر للنسخ)";
       await navigator.clipboard.writeText(
-        `معرّف الدخول: ${card.login_identifier}\nكلمة المرور المؤقتة: ${card.temporary_password}`
+        `معرّف الدخول: ${card.login_identifier}\nكلمة المرور المؤقتة: ${passwordText}`
       );
       setSuccess("تم نسخ بيانات الدخول المؤقتة");
     },

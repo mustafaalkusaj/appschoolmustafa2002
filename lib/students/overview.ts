@@ -1,4 +1,5 @@
 import type { StudentStatus } from "@/types/student";
+import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 export type StudentsStatusTab = "active" | "transferred" | "suspended" | "deleted";
 
@@ -70,9 +71,7 @@ function normalizeStatusTab(value: string | null): StudentsStatusTab {
   }
 }
 
-function escapeSearchValue(value: string) {
-  return value.replace(/[%_,()]/g, " ").trim();
-}
+
 
 function normalizeNumber(value: unknown) {
   const parsed = Number(value ?? 0);
@@ -103,10 +102,7 @@ function applyStudentFilters(query: any, filters: StudentsListFilters, options: 
   }
 
   if (filters.search) {
-    const escaped = escapeSearchValue(filters.search);
-    if (escaped) {
-      nextQuery = nextQuery.or(`full_name.ilike.%${escaped}%,class_name.ilike.%${escaped}%`);
-    }
+    nextQuery = nextQuery.or(buildSafeOrFilter(["full_name", "class_name"], filters.search));
   }
 
   return nextQuery;

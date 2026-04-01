@@ -44,6 +44,9 @@ export interface UseStudentsModalsReturn {
   // Account card
   accountCard: ManagedUserAccountCard | null;
   setAccountCard: (card: ManagedUserAccountCard | null) => void;
+  /** The plaintext password from a reset action (one-time reveal). Cleared when modal closes. */
+  revealedPassword: string | null;
+  setRevealedPassword: (password: string | null) => void;
   
   // Import preview
   importPreview: Record<string, unknown>[];
@@ -87,6 +90,7 @@ export function useStudentsModals(): UseStudentsModalsReturn {
   const [error, setError] = useState("");
   
   const [accountCard, setAccountCard] = useState<ManagedUserAccountCard | null>(null);
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   
   const [importPreview, setImportPreview] = useState<Record<string, unknown>[]>([]);
   const [importError, setImportError] = useState("");
@@ -181,6 +185,8 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     setError,
     accountCard,
     setAccountCard,
+    revealedPassword,
+    setRevealedPassword,
     importPreview,
     setImportPreview,
     importError,

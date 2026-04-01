@@ -2,6 +2,8 @@
 
 <cite>
 **Referenced Files in This Document**
+- [next.config.ts](file://next.config.ts)
+- [proxy.ts](file://proxy.ts)
 - [app/api/ping/route.ts](file://app/api/ping/route.ts)
 - [app/api/rbac/session/route.ts](file://app/api/rbac/session/route.ts)
 - [app/api/account/me/route.ts](file://app/api/account/me/route.ts)
@@ -17,20 +19,28 @@
 - [lib/supabase.ts](file://lib/supabase.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated security configuration section to reflect streamlined Next.js build configuration
+- Added new section documenting dynamic security headers and CSP implementation
+- Updated API endpoint organization documentation to reflect current routing structure
+- Enhanced proxy middleware documentation explaining CSP nonce generation
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
-3. [Core Components](#core-components)
-4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+3. [Security Configuration](#security-configuration)
+4. [Core Components](#core-components)
+5. [Architecture Overview](#architecture-overview)
+6. [Detailed Component Analysis](#detailed-component-analysis)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
-This document provides a comprehensive API reference for the school management system’s RESTful endpoints. It covers authentication, user management, student records, financial operations, and administrative functions. It also documents the Next.js App Router routing model, request parameter validation, response formatting, rate limiting, RBAC session management, and security considerations.
+This document provides a comprehensive API reference for the school management system's RESTful endpoints. It covers authentication, user management, student records, financial operations, and administrative functions. It also documents the Next.js App Router routing model, request parameter validation, response formatting, rate limiting, RBAC session management, and security considerations.
 
 ## Project Structure
 The API surface is implemented using Next.js App Router under the app/api directory. Each route file exports HTTP handlers (GET, POST, PATCH, DELETE) and is organized by functional domain (web, mobile, dashboard, super-admin). Shared utilities handle authentication, rate limiting, and Supabase integration.
@@ -47,6 +57,10 @@ WEB_STUDENTS["/api/web/students/list"]
 SUPER_ADMIN["/api/web/super-admin/overview"]
 MOBILE_ATT["/api/mobile/student/attendance"]
 DASHBOARD_USERS["/api/dashboard/users/[authUserId]"]
+end
+subgraph "Security Layer"
+PROXY["proxy.ts (Middleware)"]
+NEXT_CONFIG["next.config.ts"]
 end
 subgraph "Shared Utilities"
 AUTH_LIB["lib/auth.ts"]
@@ -69,6 +83,7 @@ WEB_STUDENTS --> RATE_LIMIT
 DASHBOARD_USERS --> RATE_LIMIT
 ACCOUNT_ME --> AUTH_API
 RBAC --> AUTH_API
+PROXY --> NEXT_CONFIG
 ```
 
 **Diagram sources**
@@ -85,6 +100,8 @@ RBAC --> AUTH_API
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [lib/authorized-api.ts:1-49](file://lib/authorized-api.ts#L1-L49)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
+- [next.config.ts:1-50](file://next.config.ts#L1-L50)
+- [proxy.ts:1-139](file://proxy.ts#L1-L139)
 
 **Section sources**
 - [app/api/ping/route.ts:1-51](file://app/api/ping/route.ts#L1-L51)
@@ -100,6 +117,52 @@ RBAC --> AUTH_API
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [lib/authorized-api.ts:1-49](file://lib/authorized-api.ts#L1-L49)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
+
+## Security Configuration
+
+**Updated** The security configuration has been streamlined with a focus on dynamic security headers and CSP implementation through proxy middleware.
+
+### Next.js Build Configuration
+The Next.js configuration now focuses on static asset optimization and minimal security headers for static resources only:
+
+- **Static Asset Security**: Basic security headers applied only to static assets via `next.config.ts`
+- **Dynamic Security Headers**: Advanced CSP with per-request nonces moved to proxy middleware
+- **Output Tracing**: Optimized for deployment efficiency with `outputFileTracingRoot`
+
+### Proxy Middleware Security Implementation
+The proxy middleware (`proxy.ts`) now handles comprehensive security headers dynamically:
+
+- **Content Security Policy (CSP)**: Generated with unique nonces for each request
+- **Dynamic Origins**: Automatically resolves Supabase origins for secure connections
+- **Per-Request Nonces**: Cryptographically secure nonces for script tag validation
+- **Environment-Specific Settings**: Different configurations for development vs production
+
+```mermaid
+sequenceDiagram
+participant Client as "Client Request"
+participant Proxy as "Proxy Middleware"
+participant CSPGen as "CSP Generator"
+participant Response as "Response"
+Client->>Proxy : "HTTP Request"
+Proxy->>CSPGen : "Generate cryptographically secure nonce"
+CSPGen-->>Proxy : "Unique nonce value"
+Proxy->>Proxy : "Build CSP with nonce and origins"
+Proxy->>Response : "Set Content-Security-Policy header"
+Proxy->>Response : "Set Referrer-Policy, X-Frame-Options"
+Proxy->>Response : "Set Permissions-Policy, X-Content-Type-Options"
+Proxy->>Response : "Set HSTS in production"
+Proxy->>Response : "Store nonce in x-csp-nonce header"
+Proxy-->>Client : "Secured response with CSP"
+```
+
+**Diagram sources**
+- [proxy.ts:7-17](file://proxy.ts#L7-L17)
+- [proxy.ts:44-85](file://proxy.ts#L44-L85)
+- [proxy.ts:91-123](file://proxy.ts#L91-L123)
+
+**Section sources**
+- [next.config.ts:1-50](file://next.config.ts#L1-L50)
+- [proxy.ts:1-139](file://proxy.ts#L1-L139)
 
 ## Core Components
 - Authentication and Authorization
@@ -282,7 +345,7 @@ ProfileOK --> |Yes| Ok201["201 Created { ok, user }"]
 ### Web: Payments Overview
 - Method: GET
 - Path: /api/web/payments/overview
-- Purpose: Retrieve payments overview scoped to the authenticated user’s school.
+- Purpose: Retrieve payments overview scoped to the authenticated user's school.
 - Authentication: Required
 - Query parameters:
   - schoolId: optional; if omitted, inferred from actor context
@@ -303,7 +366,7 @@ ProfileOK --> |Yes| Ok201["201 Created { ok, user }"]
 ### Web: Students List
 - Method: GET
 - Path: /api/web/students/list
-- Purpose: Paginated and filtered list of students scoped to the authenticated user’s school.
+- Purpose: Paginated and filtered list of students scoped to the authenticated user's school.
 - Authentication: Required
 - Query parameters:
   - schoolId: optional; inferred from actor context if absent
@@ -358,7 +421,7 @@ ProfileOK --> |Yes| Ok201["201 Created { ok, user }"]
 ### Dashboard: Managed User (Patch/Delete)
 - Methods: PATCH, DELETE
 - Path: /api/dashboard/users/[authUserId]
-- Purpose: Update or delete a managed user (student/teacher) within the actor’s school scope.
+- Purpose: Update or delete a managed user (student/teacher) within the actor's school scope.
 - Authentication: Required
 - Path parameter:
   - authUserId: target user ID
@@ -460,11 +523,15 @@ ROUTE_ACCOUNT_ME --> SB
   - Students list explicitly disables caching.
 - Network:
   - Supabase connectivity probe uses short timeouts to avoid blocking health checks.
+- Security Headers:
+  - Dynamic CSP generation with per-request nonces adds minimal overhead.
+  - Proxy middleware processes only non-static routes for security headers.
 
 **Section sources**
 - [lib/rate-limit.ts:53-63](file://lib/rate-limit.ts#L53-L63)
 - [app/api/ping/route.ts:44-49](file://app/api/ping/route.ts#L44-L49)
 - [app/api/web/students/list/route.ts:46-49](file://app/api/web/students/list/route.ts#L46-L49)
+- [proxy.ts:91-123](file://proxy.ts#L91-L123)
 
 ## Troubleshooting Guide
 - Authentication failures:
@@ -481,15 +548,19 @@ ROUTE_ACCOUNT_ME --> SB
 - Managed user operations:
   - Validate role transitions are not attempted; updates are constrained by existing role.
   - Handle rollback scenarios when partial updates succeed.
+- Security Headers:
+  - Verify CSP nonce is being generated correctly in proxy middleware.
+  - Check that Supabase origins are properly resolved for CSP configuration.
 
 **Section sources**
 - [app/api/rbac/session/route.ts:14-133](file://app/api/rbac/session/route.ts#L14-L133)
 - [lib/rate-limit.ts:86-101](file://lib/rate-limit.ts#L86-L101)
 - [app/api/ping/route.ts:10-50](file://app/api/ping/route.ts#L10-L50)
 - [app/api/dashboard/users/[authUserId]/route.ts](file://app/api/dashboard/users/[authUserId]/route.ts#L169-L173)
+- [proxy.ts:44-85](file://proxy.ts#L44-L85)
 
 ## Conclusion
-The API provides a secure, rate-limited, and role-scoped interface for managing users, students, payments, and administrative data. RBAC session cookies enable privileged operations, while Supabase enforces row-level security. Clients should attach Authorization headers, honor rate-limiting headers, and use the documented endpoints to integrate effectively.
+The API provides a secure, rate-limited, and role-scoped interface for managing users, students, payments, and administrative data. RBAC session cookies enable privileged operations, while Supabase enforces row-level security. The streamlined security configuration with dynamic CSP implementation through proxy middleware ensures robust protection. Clients should attach Authorization headers, honor rate-limiting headers, and use the documented endpoints to integrate effectively.
 
 ## Appendices
 
@@ -545,3 +616,22 @@ The API provides a secure, rate-limited, and role-scoped interface for managing 
 
 **Section sources**
 - [lib/supabase.ts:8-19](file://lib/supabase.ts#L8-L19)
+
+### Security Headers and CSP Implementation
+- Dynamic CSP Generation:
+  - Per-request nonces generated using Web Crypto API
+  - Automatic Supabase origin resolution for secure connections
+  - Environment-specific script-src policies (unsafe-eval in development)
+- Header Configuration:
+  - Content-Security-Policy with nonce for script validation
+  - Referrer-Policy: strict-origin-when-cross-origin
+  - X-Content-Type-Options: nosniff
+  - X-Frame-Options: DENY
+  - Permissions-Policy: camera=(), microphone=(), geolocation=()
+  - Strict-Transport-Security: 31536000 seconds in production
+
+**Section sources**
+- [proxy.ts:7-17](file://proxy.ts#L7-L17)
+- [proxy.ts:44-85](file://proxy.ts#L44-L85)
+- [proxy.ts:91-123](file://proxy.ts#L91-L123)
+- [next.config.ts:10-44](file://next.config.ts#L10-L44)

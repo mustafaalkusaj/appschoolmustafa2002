@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { SectionCard, EmptyState, MigrationNotice, formatDate, cx } from "./UI";
+import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 interface AuditLog {
   id: string;
@@ -48,7 +49,7 @@ export function AuditLogTab({ infrastructure }: { infrastructure: AdminInfrastru
         .select("*", { count: "exact" });
 
       if (query) {
-        q = q.or(`summary.ilike.%${query}%,actor_name.ilike.%${query}%,actor_email.ilike.%${query}%`);
+        q = q.or(buildSafeOrFilter(["summary", "actor_name", "actor_email"], query));
       }
 
       if (actionFilter !== "all") {

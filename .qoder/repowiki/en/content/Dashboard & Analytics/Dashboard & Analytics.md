@@ -3,27 +3,33 @@
 <cite>
 **Referenced Files in This Document**
 - [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx)
+- [app/[locale]/dashboard/_components/index.ts](file://app/[locale]/dashboard/_components/index.ts)
+- [app/[locale]/dashboard/_components/types.ts](file://app/[locale]/dashboard/_components/types.ts)
+- [app/[locale]/dashboard/_components/DashboardActions.tsx](file://app/[locale]/dashboard/_components/DashboardActions.tsx)
+- [app/[locale]/dashboard/_components/SchoolBrandingPanel.tsx](file://app/[locale]/dashboard/_components/SchoolBrandingPanel.tsx)
+- [app/[locale]/dashboard/_components/NotificationsPanel.tsx](file://app/[locale]/dashboard/_components/NotificationsPanel.tsx)
+- [app/[locale]/dashboard/_components/ClassFeesTable.tsx](file://app/[locale]/dashboard/_components/ClassFeesTable.tsx)
+- [app/[locale]/dashboard/_components/StatisticsCards.tsx](file://app/[locale]/dashboard/_components/StatisticsCards.tsx)
+- [app/[locale]/dashboard/_components/FinancialAnalysisPanel.tsx](file://app/[locale]/dashboard/_components/FinancialAnalysisPanel.tsx)
+- [app/[locale]/dashboard/_components/RecentPaymentsPanel.tsx](file://app/[locale]/dashboard/_components/RecentPaymentsPanel.tsx)
+- [app/[locale]/dashboard/_components/OverdueStudentsPanel.tsx](file://app/[locale]/dashboard/_components/OverdueStudentsPanel.tsx)
+- [app/[locale]/dashboard/_components/ClassesModal.tsx](file://app/[locale]/dashboard/_components/ClassesModal.tsx)
+- [app/[locale]/dashboard/_components/FeeModal.tsx](file://app/[locale]/dashboard/_components/FeeModal.tsx)
+- [app/[locale]/dashboard/_hooks/useDashboardData.ts](file://app/[locale]/dashboard/_hooks/useDashboardData.ts)
+- [app/[locale]/dashboard/_hooks/useBranding.ts](file://app/[locale]/dashboard/_hooks/useBranding.ts)
+- [app/[locale]/dashboard/_hooks/useClassesSections.ts](file://app/[locale]/dashboard/_hooks/useClassesSections.ts)
+- [app/[locale]/dashboard/_hooks/useFeeManagement.ts](file://app/[locale]/dashboard/_hooks/useFeeManagement.ts)
+- [app/[locale]/dashboard/_hooks/useNotifications.ts](file://app/[locale]/dashboard/_hooks/useNotifications.ts)
 - [components/DashboardFinanceCharts.tsx](file://components/DashboardFinanceCharts.tsx)
-- [school-saas-next/src/components/dashboard/charts-grid.tsx](file://school-saas-next/src/components/dashboard/charts-grid.tsx)
-- [school-saas-next/src/components/dashboard/smart-insights.tsx](file://school-saas-next/src/components/dashboard/smart-insights.tsx)
-- [school-saas-next/src/components/dashboard/stat-card.tsx](file://school-saas-next/src/components/dashboard/stat-card.tsx)
-- [lib/formatting.ts](file://lib/formatting.ts)
-- [lib/supabase.ts](file://lib/supabase.ts)
-- [lib/authorized-api.ts](file://lib/authorized-api.ts)
-- [lib/schema-compat.ts](file://lib/schema-compat.ts)
-- [lib/school/context.ts](file://lib/school/context.ts)
-- [lib/brand/palette.ts](file://lib/brand/palette.ts)
-- [lib/brand/themes.ts](file://lib/brand/themes.ts)
-- [hooks/useRole.tsx](file://hooks/useRole.tsx)
-- [hooks/useSchoolScope.tsx](file://hooks/useSchoolScope.tsx)
 - [components/AppSidebar.tsx](file://components/AppSidebar.tsx)
 - [components/AppShellTopbar.tsx](file://components/AppShellTopbar.tsx)
 - [components/ProtectedRoute.tsx](file://components/ProtectedRoute.tsx)
 - [components/SchoolScopeBanner.tsx](file://components/SchoolScopeBanner.tsx)
 - [components/skeleton.tsx](file://components/skeleton.tsx)
-- [lib/locale-routing.ts](file://lib/locale-routing.ts)
-- [lib/i18n.ts](file://lib/i18n.ts)
-- [lib/types.ts](file://lib/types.ts)
+- [lib/formatting.ts](file://lib/formatting.ts)
+- [lib/brand/themes.ts](file://lib/brand/themes.ts)
+- [hooks/useRole.tsx](file://hooks/useRole.tsx)
+- [hooks/useSchoolScope.tsx](file://hooks/useSchoolScope.tsx)
 - [app/api/web/dashboard/overview/route.ts](file://app/api/web/dashboard/overview/route.ts)
 - [app/api/web/dashboard/branding/route.ts](file://app/api/web/dashboard/branding/route.ts)
 - [app/api/web/payments/export/route.ts](file://app/api/web/payments/export/route.ts)
@@ -34,14 +40,6 @@
 - [app/api/web/payments/overview/route.ts](file://app/api/web/payments/overview/route.ts)
 - [app/api/web/payments/records/route.ts](file://app/api/web/payments/records/route.ts)
 - [app/api/web/payments/student-search/route.ts](file://app/api/web/payments/student-search/route.ts)
-- [app/api/web/payments/records/[paymentId]/route.ts](file://app/api/web/payments/records/[paymentId]/route.ts)
-- [app/api/web/schools/[schoolId]/route.ts](file://app/api/web/schools/[schoolId]/route.ts)
-- [app/api/web/teachers/[teacherId]/route.ts](file://app/api/web/teachers/[teacherId]/route.ts)
-- [app/api/web/monitoring/route.ts](file://app/api/web/monitoring/route.ts)
-- [app/api/web/attendance/route.ts](file://app/api/web/attendance/route.ts)
-- [app/api/web/grades/route.ts](file://app/api/web/grades/route.ts)
-- [app/api/web/assignments/route.ts](file://app/api/web/assignments/route.ts)
-- [app/api/web/notifications/route.ts](file://app/api/web/notifications/route.ts)
 - [app/api/web/super-admin/overview/route.ts](file://app/api/web/super-admin/overview/route.ts)
 - [app/api/web/super-admin/schools/[schoolId]/route.ts](file://app/api/web/super-admin/schools/[schoolId]/route.ts)
 - [app/api/web/super-admin/subscriptions/[schoolId]/route.ts](file://app/api/web/super-admin/subscriptions/[schoolId]/route.ts)
@@ -53,467 +51,587 @@
 - [migrations/20260326_010000_payments_page_functions.sql](file://migrations/20260326_010000_payments_page_functions.sql)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated dashboard architecture to reflect major modularization from 1494 lines to 184 lines
+- Added comprehensive documentation for all newly extracted dashboard components
+- Updated component composition and dependency relationships
+- Enhanced component-specific sections with detailed implementation analysis
+- Revised architectural diagrams to show modular component structure
+- Added detailed documentation for dedicated hooks for data fetching and state management
+- Updated data flow architecture to show centralized hook coordination
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+5. [Data Fetching and State Management](#data-fetching-and-state-management)
+6. [Detailed Component Analysis](#detailed-component-analysis)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
-This document describes the dashboard and analytics system for data visualization and business intelligence. It covers:
-- Dashboard architecture with customizable widgets and interactive charts
-- Financial analytics: revenue trends, expense analysis, and cash flow visualization
-- Academic performance dashboards: student achievement metrics, class performance, and institutional statistics
-- Implementation of chart components, data aggregation functions, and export/report capabilities
-- Practical examples of customization, filtering, and report generation workflows
-- Integrations with data sources, real-time update strategies, and performance optimization
+This document describes the dashboard and analytics system for data visualization and business intelligence. The system has undergone major modularization, reducing the main dashboard page from 1494 lines to 184 lines through extraction of specialized components. It now features:
+- Modular dashboard architecture with 8 specialized components
+- Dedicated hooks for data fetching and state management
+- Dashboard actions management
+- Branding and notifications panels
+- Class fees table with CRUD operations
+- Statistics cards and financial analysis
+- Recent payments and overdue students panels
+- Modal dialogs for class/fee management
+- Comprehensive type definitions and component composition
 
 ## Project Structure
-The dashboard spans a Next.js app and a separate SaaS-next UI layer. Key areas:
-- Frontend dashboard page orchestrates data fetching, state, and rendering
-- Finance charts component renders responsive bar and pie charts
-- Super-admin UI components provide growth, revenue, and top-paying-schools charts
-- API routes under app/api/web provide data endpoints for dashboards and reports
-- Utilities for formatting, branding, localization, and schema compatibility
+The dashboard is now organized into a modular structure with the main page delegating functionality to specialized components and dedicated hooks:
 
 ```mermaid
 graph TB
-subgraph "Next.js App"
-DP["Dashboard Page<br/>app/[locale]/dashboard/page.tsx"]
-DFC["Finance Charts<br/>components/DashboardFinanceCharts.tsx"]
-APIW["Web API Routes<br/>app/api/web/*"]
-UTIL["Utilities<br/>lib/*"]
-HOOKS["Hooks<br/>hooks/*"]
-CMPS["UI Components<br/>components/*"]
+subgraph "Dashboard Modular Architecture"
+DP["Dashboard Page<br/>184 lines"]
+IDX["Components Index<br/>exports all components"]
+HOOKS["Hooks Collection<br/>8 specialized hooks"]
+TYPES["Type Definitions<br/>shared interfaces"]
+subgraph "Dashboard Components"
+DA["DashboardActions"]
+SBP["SchoolBrandingPanel"]
+NP["NotificationsPanel"]
+CFT["ClassFeesTable"]
+SC["StatisticsCards"]
+FAP["FinancialAnalysisPanel"]
+RP["RecentPaymentsPanel"]
+OSP["OverdueStudentsPanel"]
+CM["ClassesModal"]
+FM["FeeModal"]
 end
-subgraph "SaaS Next UI"
-CG["Charts Grid<br/>school-saas-next/.../charts-grid.tsx"]
-SI["Smart Insights<br/>school-saas-next/.../smart-insights.tsx"]
-SC["Stat Card<br/>school-saas-next/.../stat-card.tsx"]
+subgraph "Data Hooks"
+UDD["useDashboardData"]
+UB["useBranding"]
+UCS["useClassesSections"]
+UFM["useFeeManagement"]
+UN["useNotifications"]
 end
-DP --> DFC
-DP --> APIW
-DP --> UTIL
+end
+DP --> IDX
+DP --> TYPES
 DP --> HOOKS
-DP --> CMPS
-CG --> UTIL
-SI --> UTIL
-SC --> UTIL
+DP --> DA
+DP --> SBP
+DP --> NP
+DP --> CFT
+DP --> SC
+DP --> FAP
+DP --> RP
+DP --> OSP
+DP --> CM
+DP --> FM
+HOOKS --> UDD
+HOOKS --> UB
+HOOKS --> UCS
+HOOKS --> UFM
+HOOKS --> UN
 ```
 
 **Diagram sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L103-L1495)
-- [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [school-saas-next/src/components/dashboard/smart-insights.tsx:13-51](file://school-saas-next/src/components/dashboard/smart-insights.tsx#L13-L51)
-- [school-saas-next/src/components/dashboard/stat-card.tsx:10-22](file://school-saas-next/src/components/dashboard/stat-card.tsx#L10-L22)
+- [app/[locale]/dashboard/page.tsx:17-28](file://app/[locale]/dashboard/page.tsx#L17-L28)
+- [app/[locale]/dashboard/_components/index.ts:1-15](file://app/[locale]/dashboard/_components/index.ts#L1-L15)
+- [app/[locale]/dashboard/_hooks/useDashboardData.ts:30-91](file://app/[locale]/dashboard/_hooks/useDashboardData.ts#L30-L91)
+- [app/[locale]/dashboard/_hooks/useBranding.ts:22-217](file://app/[locale]/dashboard/_hooks/useBranding.ts#L22-L217)
+- [app/[locale]/dashboard/_hooks/useClassesSections.ts:16-265](file://app/[locale]/dashboard/_hooks/useClassesSections.ts#L16-L265)
+- [app/[locale]/dashboard/_hooks/useFeeManagement.ts:18-171](file://app/[locale]/dashboard/_hooks/useFeeManagement.ts#L18-L171)
+- [app/[locale]/dashboard/_hooks/useNotifications.ts:13-76](file://app/[locale]/dashboard/_hooks/useNotifications.ts#L13-L76)
 
 **Section sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L103-L1495)
-- [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [school-saas-next/src/components/dashboard/smart-insights.tsx:13-51](file://school-saas-next/src/components/dashboard/smart-insights.tsx#L13-L51)
-- [school-saas-next/src/components/dashboard/stat-card.tsx:10-22](file://school-saas-next/src/components/dashboard/stat-card.tsx#L10-L22)
+- [app/[locale]/dashboard/page.tsx:17-28](file://app/[locale]/dashboard/page.tsx#L17-L28)
+- [app/[locale]/dashboard/_components/index.ts:1-15](file://app/[locale]/dashboard/_components/index.ts#L1-L15)
+- [app/[locale]/dashboard/_components/types.ts:1-106](file://app/[locale]/dashboard/_components/types.ts#L1-L106)
 
 ## Core Components
-- Dashboard page: orchestrates data fetching, manages state, renders widgets, and handles user actions (branding, class/section management, fee setup)
-- Finance charts: reusable chart component rendering bar and pie charts with tooltips and responsive containers
-- Super-admin charts grid: line/bar/vertical bar charts for growth, revenue, and top schools
-- Smart insights: trend cards for actionable insights
-- Stat card: lightweight KPI presentation
-- Utilities: formatting, localization, branding, schema compatibility, and Supabase integration
+The modular dashboard consists of 8 specialized components, each handling specific functionality:
 
-Key responsibilities:
-- Data fetching via authorized API calls and Supabase queries
-- Dynamic imports for client-side-only chart components
-- Role-based visibility and actions
-- Branding customization with palette derivation and presets
+### DashboardActions Component
+Manages dashboard toolbar actions including fee management and class administration buttons with proper role-based visibility.
+
+### SchoolBrandingPanel Component  
+Handles school branding customization with theme presets, color selection, and logo derivation functionality.
+
+### NotificationsPanel Component
+Displays and manages notification system with unread count tracking and mark-as-read functionality.
+
+### ClassFeesTable Component
+Renders class fee information in both card and table formats with CRUD operations and statistics display.
+
+### StatisticsCards Component
+Shows key financial metrics in card format with color-coded indicators and formatted values.
+
+### FinancialAnalysisPanel Component
+Provides comprehensive financial analysis with dynamic chart rendering and progress indicators.
+
+### RecentPaymentsPanel Component
+Displays recent payment transactions with student details and amount formatting.
+
+### OverdueStudentsPanel Component
+Lists students with outstanding fees and payment amounts.
+
+### Modal Components
+- ClassesModal: Manages class and section creation/editing
+- FeeModal: Handles fee configuration and calculation preview
 
 **Section sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L103-L1495)
-- [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [school-saas-next/src/components/dashboard/smart-insights.tsx:13-51](file://school-saas-next/src/components/dashboard/smart-insights.tsx#L13-L51)
-- [school-saas-next/src/components/dashboard/stat-card.tsx:10-22](file://school-saas-next/src/components/dashboard/stat-card.tsx#L10-L22)
+- [app/[locale]/dashboard/_components/DashboardActions.tsx:11-49](file://app/[locale]/dashboard/_components/DashboardActions.tsx#L11-L49)
+- [app/[locale]/dashboard/_components/SchoolBrandingPanel.tsx:18-184](file://app/[locale]/dashboard/_components/SchoolBrandingPanel.tsx#L18-L184)
+- [app/[locale]/dashboard/_components/NotificationsPanel.tsx:15-70](file://app/[locale]/dashboard/_components/NotificationsPanel.tsx#L15-L70)
+- [app/[locale]/dashboard/_components/ClassFeesTable.tsx:26-135](file://app/[locale]/dashboard/_components/ClassFeesTable.tsx#L26-L135)
+- [app/[locale]/dashboard/_components/StatisticsCards.tsx:10-61](file://app/[locale]/dashboard/_components/StatisticsCards.tsx#L10-L61)
+- [app/[locale]/dashboard/_components/FinancialAnalysisPanel.tsx:21-86](file://app/[locale]/dashboard/_components/FinancialAnalysisPanel.tsx#L21-L86)
+- [app/[locale]/dashboard/_components/RecentPaymentsPanel.tsx:13-43](file://app/[locale]/dashboard/_components/RecentPaymentsPanel.tsx#L13-L43)
+- [app/[locale]/dashboard/_components/OverdueStudentsPanel.tsx:13-41](file://app/[locale]/dashboard/_components/OverdueStudentsPanel.tsx#L13-L41)
+- [app/[locale]/dashboard/_components/ClassesModal.tsx:26-285](file://app/[locale]/dashboard/_components/ClassesModal.tsx#L26-L285)
+- [app/[locale]/dashboard/_components/FeeModal.tsx:20-137](file://app/[locale]/dashboard/_components/FeeModal.tsx#L20-L137)
 
 ## Architecture Overview
-High-level flow:
-- Client dashboard page loads and resolves school scope
-- Fetches dashboard totals, recent payments, overdue students, class fees, and student counts
-- Renders finance charts and summary panels
-- Provides modals for class/section management and fee configuration
-- Integrates with Supabase for branding, notifications, and schema compatibility detection
-- Uses dynamic imports to render chart components on the client
+The modular architecture follows a component delegation pattern where the main dashboard page coordinates multiple specialized components through dedicated hooks:
 
 ```mermaid
 sequenceDiagram
 participant U as "User"
 participant DP as "Dashboard Page"
-participant API as "Web API"
-participant SB as "Supabase"
-participant CH as "Finance Charts"
+participant HOOKS as "Data Hooks"
+participant DA as "DashboardActions"
+participant SBP as "SchoolBrandingPanel"
+participant NP as "NotificationsPanel"
+participant CFT as "ClassFeesTable"
 U->>DP : Open dashboard
-DP->>SB : Resolve school scope and schema compat
-DP->>API : GET /api/web/dashboard/overview?schoolId=...
-API-->>DP : {totals, recentPayments, overdueStudents, classFees, studentCountByClass}
-DP->>CH : Render bar/pie charts with computed data
-DP->>SB : Load branding, notifications (conditional)
-DP-->>U : Render dashboard widgets and controls
+DP->>HOOKS : Initialize all hooks
+HOOKS->>DP : Return data and handlers
+DP->>DA : Initialize actions
+DP->>SBP : Initialize branding
+DP->>NP : Initialize notifications
+DP->>CFT : Initialize fees table
+DA->>DP : Action events
+SBP->>DP : Branding changes
+NP->>DP : Notification updates
+CFT->>DP : Fee operations
+DP->>U : Render composed dashboard
 ```
 
 **Diagram sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L157-L198)
-- [app/api/web/dashboard/overview/route.ts](file://app/api/web/dashboard/overview/route.ts)
-- [lib/supabase.ts](file://lib/supabase.ts)
-- [lib/schema-compat.ts](file://lib/schema-compat.ts)
-- [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
+- [app/[locale]/dashboard/page.tsx:37-66](file://app/[locale]/dashboard/page.tsx#L37-L66)
+- [app/[locale]/dashboard/_hooks/useDashboardData.ts:30-91](file://app/[locale]/dashboard/_hooks/useDashboardData.ts#L30-L91)
+- [app/[locale]/dashboard/_hooks/useBranding.ts:22-217](file://app/[locale]/dashboard/_hooks/useBranding.ts#L22-L217)
+- [app/[locale]/dashboard/_hooks/useNotifications.ts:13-76](file://app/[locale]/dashboard/_hooks/useNotifications.ts#L13-L76)
+- [app/[locale]/dashboard/_hooks/useFeeManagement.ts:18-171](file://app/[locale]/dashboard/_hooks/useFeeManagement.ts#L18-L171)
+
+## Data Fetching and State Management
+
+### Hook-Based Architecture
+The dashboard now uses a comprehensive hook-based architecture for data fetching and state management:
+
+```mermaid
+graph TB
+DP["Dashboard Page"] --> H1["useDashboardData"]
+DP --> H2["useBranding"]
+DP --> H3["useClassesSections"]
+DP --> H4["useFeeManagement"]
+DP --> H5["useNotifications"]
+H1 --> API1["/api/web/dashboard/overview"]
+H2 --> API2["/api/web/dashboard/branding"]
+H3 --> DB1["Supabase classes/sections"]
+H4 --> DB2["Supabase class_fees"]
+H5 --> DB3["Supabase notifications"]
+```
+
+**Diagram sources**
+- [app/[locale]/dashboard/page.tsx:37-66](file://app/[locale]/dashboard/page.tsx#L37-L66)
+- [app/[locale]/dashboard/_hooks/useDashboardData.ts:52-74](file://app/[locale]/dashboard/_hooks/useDashboardData.ts#L52-L74)
+- [app/[locale]/dashboard/_hooks/useBranding.ts:51-102](file://app/[locale]/dashboard/_hooks/useBranding.ts#L51-L102)
+- [app/[locale]/dashboard/_hooks/useClassesSections.ts:20-102](file://app/[locale]/dashboard/_hooks/useClassesSections.ts#L20-L102)
+- [app/[locale]/dashboard/_hooks/useFeeManagement.ts:32-99](file://app/[locale]/dashboard/_hooks/useFeeManagement.ts#L32-L99)
+- [app/[locale]/dashboard/_hooks/useNotifications.ts:18-51](file://app/[locale]/dashboard/_hooks/useNotifications.ts#L18-L51)
+
+### Data Flow Architecture
+The hooks coordinate data fetching and state management through a centralized pattern:
+
+**Hook Responsibilities:**
+- `useDashboardData`: Fetches dashboard overview data including totals, payments, and fees
+- `useBranding`: Manages school branding configuration and theme presets
+- `useClassesSections`: Handles class and section CRUD operations with schema compatibility
+- `useFeeManagement`: Manages fee configuration with calculation preview and validation
+- `useNotifications`: Fetches and manages user notifications with read status tracking
+
+**Data Synchronization:**
+- Centralized refetch mechanism through `useDashboardData.refetch`
+- Real-time state updates across components
+- Error handling and loading states management
+- Schema compatibility detection and fallbacks
+
+**Section sources**
+- [app/[locale]/dashboard/page.tsx:37-66](file://app/[locale]/dashboard/page.tsx#L37-L66)
+- [app/[locale]/dashboard/_hooks/useDashboardData.ts:30-91](file://app/[locale]/dashboard/_hooks/useDashboardData.ts#L30-L91)
+- [app/[locale]/dashboard/_hooks/useBranding.ts:22-217](file://app/[locale]/dashboard/_hooks/useBranding.ts#L22-L217)
+- [app/[locale]/dashboard/_hooks/useClassesSections.ts:16-265](file://app/[locale]/dashboard/_hooks/useClassesSections.ts#L16-L265)
+- [app/[locale]/dashboard/_hooks/useFeeManagement.ts:18-171](file://app/[locale]/dashboard/_hooks/useFeeManagement.ts#L18-L171)
+- [app/[locale]/dashboard/_hooks/useNotifications.ts:13-76](file://app/[locale]/dashboard/_hooks/useNotifications.ts#L13-L76)
 
 ## Detailed Component Analysis
 
-### Dashboard Page
-Responsibilities:
-- Resolve school scope and role-based access
-- Fetch dashboard overview data via authorized API
-- Manage state for totals, payments, overdue students, class fees, and student counts
-- Render finance charts and summary panels
-- Provide modals for class/section management and fee configuration
-- Integrate branding customization and notification panel
+### Dashboard Page Modular Structure
+The main dashboard page now serves as a coordinator, importing and composing all specialized components with centralized hook management:
 
-Implementation highlights:
-- Dynamic import of finance charts to avoid SSR
-- Computed bar and pie datasets from totals
-- Conditional rendering based on role and school scope
-- Form handling for class/section/fee CRUD operations
-- Notification fetching and marking as read
+**Key Responsibilities:**
+- Role-based access control and school scope resolution
+- Centralized hook coordination and state management
+- Component orchestration and modal management
+- Navigation and layout management
+- Data fetching coordination via dedicated hooks
 
-```mermaid
-flowchart TD
-Start(["Mount Dashboard"]) --> Scope["Resolve school scope and role"]
-Scope --> Fetch["Fetch dashboard overview"]
-Fetch --> Totals["Set totals and lists"]
-Totals --> Render["Render widgets and charts"]
-Render --> Actions{"User action?"}
-Actions --> |Class/Section| Manage["Open manage modal"]
-Actions --> |Fee Setup| Fee["Open fee modal"]
-Actions --> |Branding| Brand["Update branding"]
-Actions --> |Notifications| Notify["Mark read / refresh"]
-Manage --> Save["Save changes and refetch"]
-Fee --> Save
-Brand --> Save
-Notify --> Render
-Save --> Render
-```
-
-**Diagram sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L157-L198)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L514-L568)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L570-L630)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L657-L695)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L713-L723)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L391-L397)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L356-L389)
+**Modular Benefits:**
+- Reduced complexity from 1494 lines to 184 lines
+- Improved maintainability and testability
+- Clear separation of concerns
+- Enhanced reusability across different dashboard contexts
+- Centralized error handling and loading states
 
 **Section sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L103-L1495)
-- [hooks/useRole.tsx](file://hooks/useRole.tsx)
-- [hooks/useSchoolScope.tsx](file://hooks/useSchoolScope.tsx)
-- [lib/authorized-api.ts](file://lib/authorized-api.ts)
-- [lib/supabase.ts](file://lib/supabase.ts)
-- [lib/school/context.ts](file://lib/school/context.ts)
-- [lib/schema-compat.ts](file://lib/schema-compat.ts)
-- [lib/brand/palette.ts](file://lib/brand/palette.ts)
-- [lib/brand/themes.ts](file://lib/brand/themes.ts)
+- [app/[locale]/dashboard/page.tsx:30-184](file://app/[locale]/dashboard/page.tsx#L30-L184)
 - [components/ProtectedRoute.tsx](file://components/ProtectedRoute.tsx)
 - [components/AppSidebar.tsx](file://components/AppSidebar.tsx)
 - [components/AppShellTopbar.tsx](file://components/AppShellTopbar.tsx)
-- [components/SchoolScopeBanner.tsx](file://components/SchoolScopeBanner.tsx)
-- [components/skeleton.tsx](file://components/skeleton.tsx)
-- [lib/locale-routing.ts](file://lib/locale-routing.ts)
 
-### Finance Charts Component
-Responsibilities:
-- Render a responsive bar chart and a pie chart for payment status
-- Provide custom tooltip formatting and localized labels
-- Accept typed props for bar and pie datasets and percentage
+### DashboardActions Component
+Provides role-based toolbar with three primary actions:
+- New fee creation button with plus icon
+- Fees table toggle with show/hide functionality
+- Classes management button for administrative tasks
 
-Implementation highlights:
-- Recharts-based charts with responsive container
-- Localized number formatting via utility
-- Custom tooltip with currency formatting
-- Fill and color mapping per data item
-
-```mermaid
-classDiagram
-class DashboardFinanceCharts {
-+props : DashboardFinanceChartsProps
-+render() : JSX.Element
-}
-class DashboardFinanceChartsProps {
-+barData : BarDatum[]
-+pieData : PieDatum[]
-+paidPct : number
-}
-class BarDatum {
-+name : string
-+value : number
-+fill : string
-}
-class PieDatum {
-+name : string
-+value : number
-+color : string
-}
-DashboardFinanceCharts --> DashboardFinanceChartsProps
-DashboardFinanceChartsProps --> BarDatum
-DashboardFinanceChartsProps --> PieDatum
-```
-
-**Diagram sources**
-- [components/DashboardFinanceCharts.tsx:31-35](file://components/DashboardFinanceCharts.tsx#L31-L35)
-- [components/DashboardFinanceCharts.tsx:19-29](file://components/DashboardFinanceCharts.tsx#L19-L29)
+**Implementation Details:**
+- Conditional rendering based on role permissions
+- SVG icon integration for visual clarity
+- Proper spacing and responsive design
+- Event handler delegation to parent component
 
 **Section sources**
-- [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
+- [app/[locale]/dashboard/_components/DashboardActions.tsx:11-49](file://app/[locale]/dashboard/_components/DashboardActions.tsx#L11-L49)
+
+### SchoolBrandingPanel Component
+Comprehensive branding management with:
+- Name and logo URL input fields
+- Theme family selection with preset colors
+- Color picker for custom primary/secondary colors
+- Logo preview and theme application
+- Color derivation from uploaded logos
+- Theme preset application functionality
+
+**Advanced Features:**
+- Dynamic theme family display with descriptions
+- Real-time color preview and gradient backgrounds
+- Brand theme family integration
+- Loading states for save and derive operations
+
+**Section sources**
+- [app/[locale]/dashboard/_components/SchoolBrandingPanel.tsx:18-184](file://app/[locale]/dashboard/_components/SchoolBrandingPanel.tsx#L18-L184)
+- [lib/brand/themes.ts](file://lib/brand/themes.ts)
+
+### NotificationsPanel Component
+Interactive notification system with:
+- Unread count display and filtering
+- Refresh functionality for new notifications
+- Mark-as-read capability with individual notification handling
+- Loading states and empty state management
+- Formatted timestamps and notification content
+
+**User Experience Features:**
+- Color-coded notification backgrounds (read/unread)
+- Hover effects and click-to-mark interactions
+- Disabled states during loading operations
+- Clear visual hierarchy for notification content
+
+**Section sources**
+- [app/[locale]/dashboard/_components/NotificationsPanel.tsx:15-70](file://app/[locale]/dashboard/_components/NotificationsPanel.tsx#L15-L70)
 - [lib/formatting.ts](file://lib/formatting.ts)
 
-### Super-Admin Charts Grid
-Responsibilities:
-- Render three charts: monthly school growth trend, monthly revenue, and top-paying schools
-- Provide localized formatting for numbers and currencies
-- Use consistent color scheme and responsive containers
+### ClassFeesTable Component
+Dual-format fee display system:
+- Quick card view for individual class fee overview
+- Detailed table view with comprehensive statistics
+- Full CRUD operations (create, read, update, delete)
+- Progress indicators and payment statistics
+- Responsive design with mobile-friendly layouts
 
-Implementation highlights:
-- Line chart for growth trend
-- Bar chart for monthly revenue
-- Vertical bar chart for top schools
-- Tooltip formatters for currency and number
-
-```mermaid
-graph LR
-CG["Charts Grid"] --> LT["Line: Growth Trend"]
-CG --> RB["Bar: Monthly Revenue"]
-CG --> VB["Vertical Bar: Top Schools"]
-```
-
-**Diagram sources**
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [lib/i18n.ts](file://lib/i18n.ts)
-- [lib/types.ts](file://lib/types.ts)
+**Data Visualization:**
+- Mini progress bars for payment completion
+- Color-coded statistics (paid vs remaining)
+- Interactive fee cards with click-to-edit functionality
+- Confirmation dialogs for destructive operations
 
 **Section sources**
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [lib/i18n.ts](file://lib/i18n.ts)
-- [lib/types.ts](file://lib/types.ts)
+- [app/[locale]/dashboard/_components/ClassFeesTable.tsx:26-135](file://app/[locale]/dashboard/_components/ClassFeesTable.tsx#L26-L135)
+- [lib/formatting.ts](file://lib/formatting.ts)
 
-### Smart Insights
-Responsibilities:
-- Present actionable insights with directional trends (up/down/neutral)
-- Use gradient background and iconography for emphasis
+### StatisticsCards Component
+Four primary metric cards displaying:
+- Total students count
+- Transferred students count  
+- Total fees amount
+- Total paid amount
+- Remaining balance
+- Monthly salaries (placeholder)
 
-Implementation highlights:
-- Responsive grid layout
-- Trend indicators with appropriate colors
-- Localized content via translation hook
-
-**Section sources**
-- [school-saas-next/src/components/dashboard/smart-insights.tsx:13-51](file://school-saas-next/src/components/dashboard/smart-insights.tsx#L13-L51)
-- [lib/i18n.ts](file://lib/i18n.ts)
-
-### Stat Card
-Responsibilities:
-- Display KPIs with icon, value, and subtitle
-- Hover effects and dark mode support
+**Design Elements:**
+- Color-coded circular icons with matching accents
+- SVG-based iconography for visual consistency
+- Responsive grid layout with equal-height cards
+- Formatted number display with currency symbols
 
 **Section sources**
-- [school-saas-next/src/components/dashboard/stat-card.tsx:10-22](file://school-saas-next/src/components/dashboard/stat-card.tsx#L10-L22)
+- [app/[locale]/dashboard/_components/StatisticsCards.tsx:10-61](file://app/[locale]/dashboard/_components/StatisticsCards.tsx#L10-L61)
+- [lib/formatting.ts](file://lib/formatting.ts)
 
-### Academic Performance Dashboards
-While the primary dashboard focuses on finance, the system supports academic views through:
-- Students overview and metadata APIs
-- Teacher activity and grades endpoints
-- Monitoring and attendance APIs
-- Reports overview and dataset endpoints
+### FinancialAnalysisPanel Component
+Comprehensive financial analysis with:
+- Five-key metric cards (total fees, discount, after discount, paid, remaining)
+- Dynamic chart rendering via DashboardFinanceCharts
+- Progress indicators for payment completion
+- Responsive layout with skeleton loading
 
-These can be integrated into academic dashboards by:
-- Fetching student performance metrics from relevant APIs
-- Aggregating data by class, subject, or term
-- Rendering charts similar to the finance charts component
-- Applying filters by class, teacher, or date range
-
-**Section sources**
-- [app/api/web/students/list/route.ts](file://app/api/web/students/list/route.ts)
-- [app/api/web/students/meta/route.ts](file://app/api/web/students/meta/route.ts)
-- [app/api/web/grades/route.ts](file://app/api/web/grades/route.ts)
-- [app/api/web/attendance/route.ts](file://app/api/web/attendance/route.ts)
-- [app/api/web/monitoring/route.ts](file://app/api/web/monitoring/route.ts)
-- [app/api/web/teacher-activity/meta/route.ts](file://app/api/web/teacher-activity/meta/route.ts)
-- [app/api/web/teacher-activity/messages/[id]/route.ts](file://app/api/web/teacher-activity/messages/[id]/route.ts)
-- [app/api/web/teacher-activity/homework/[id]/route.ts](file://app/api/web/teacher-activity/homework/[id]/route.ts)
-
-### Financial Analytics Components
-- Revenue trends: monthly revenue chart in super-admin grid
-- Expense analysis: can be added by connecting expense APIs and rendering bar/pie charts
-- Cash flow visualization: net inflow/outflow can be computed and shown via stacked bars or area charts
-
-Integration points:
-- Payments overview and records APIs
-- Reports overview and dataset APIs
-- Export endpoints for downloadable reports
+**Chart Integration:**
+- Dynamic import for client-side only rendering
+- Analysis skeleton for loading states
+- Recharts-based bar and pie chart visualization
+- Percentage-based progress tracking
 
 **Section sources**
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:57-71](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L57-L71)
-- [app/api/web/payments/overview/route.ts](file://app/api/web/payments/overview/route.ts)
-- [app/api/web/payments/records/route.ts](file://app/api/web/payments/records/route.ts)
-- [app/api/web/reports/overview/route.ts](file://app/api/web/reports/overview/route.ts)
-- [app/api/web/reports/dataset/route.ts](file://app/api/web/reports/dataset/route.ts)
-- [app/api/web/payments/export/route.ts](file://app/api/web/payments/export/route.ts)
-
-### Chart Components, Data Aggregation, and Export
-- Chart components: Recharts-based bar, line, and pie charts with responsive containers and custom tooltips
-- Data aggregation: computed datasets from totals and counts; localization-aware formatting
-- Export: payments export endpoint for downloadable reports
-
-```mermaid
-sequenceDiagram
-participant U as "User"
-participant DP as "Dashboard Page"
-participant API as "Export API"
-U->>DP : Click export
-DP->>API : POST /api/web/payments/export
-API-->>DP : {downloadUrl or file stream}
-DP-->>U : Trigger download
-```
-
-**Diagram sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L1179-L1194)
-- [app/api/web/payments/export/route.ts](file://app/api/web/payments/export/route.ts)
-
-**Section sources**
+- [app/[locale]/dashboard/_components/FinancialAnalysisPanel.tsx:21-86](file://app/[locale]/dashboard/_components/FinancialAnalysisPanel.tsx#L21-L86)
 - [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [app/api/web/payments/export/route.ts](file://app/api/web/payments/export/route.ts)
+- [components/skeleton.tsx](file://components/skeleton.tsx)
 
-### Practical Examples
-- Dashboard customization:
-  - Branding customization via modal with palette derivation and presets
-  - Conditional visibility of branding and notifications based on role and schema compatibility
-- Data filtering:
-  - Class/section management with CRUD operations
-  - Fee configuration per class with installments and preview
-- Report generation:
-  - Payments export endpoint for generating downloadable reports
-  - Reports overview and dataset endpoints for analytics datasets
+### RecentPaymentsPanel Component
+Recent transaction display with:
+- Student avatar initials for visual identification
+- Student name and class information
+- Formatted payment amounts with green color coding
+- Navigation to full payments history
+- Empty state handling for zero transactions
+
+**User Interface Elements:**
+- Circular avatar with first letter of student name
+- Meta information with class and timestamp
+- Currency formatting with standardized display
+- Link-based navigation to detailed view
 
 **Section sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L399-L454)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L468-L494)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L514-L568)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L570-L630)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L657-L695)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L713-L723)
-- [app/api/web/payments/export/route.ts](file://app/api/web/payments/export/route.ts)
-- [app/api/web/reports/overview/route.ts](file://app/api/web/reports/overview/route.ts)
-- [app/api/web/reports/dataset/route.ts](file://app/api/web/reports/dataset/route.ts)
+- [app/[locale]/dashboard/_components/RecentPaymentsPanel.tsx:13-43](file://app/[locale]/dashboard/_components/RecentPaymentsPanel.tsx#L13-L43)
+- [lib/formatting.ts](file://lib/formatting.ts)
+
+### OverdueStudentsPanel Component
+Student debt tracking system:
+- Student name display with prominent styling
+- Class assignment and remaining fee amount
+- Red color coding for overdue amounts
+- Navigation to payment management
+- Positive messaging for zero overdue students
+
+**Visual Design:**
+- Warning color scheme for overdue items
+- Clean card-based layout for each student
+- Consistent typography hierarchy
+- Accessible color contrast for readability
+
+**Section sources**
+- [app/[locale]/dashboard/_components/OverdueStudentsPanel.tsx:13-41](file://app/[locale]/dashboard/_components/OverdueStudentsPanel.tsx#L13-L41)
+- [lib/formatting.ts](file://lib/formatting.ts)
+
+### Modal Components
+
+#### ClassesModal Component
+Comprehensive class and section management:
+- Dual-mode operation (class creation/edit and section creation/edit)
+- Form validation and error handling
+- Tabbed interface for different management modes
+- Integrated CRUD operations with confirmation dialogs
+- Real-time form state management
+
+**Features:**
+- Class form with name and sections textarea
+- Section form with dropdown selection
+- Toggle between classes and sections tables
+- Edit mode with pre-filled forms
+- Success/error messaging integration
+
+**Section sources**
+- [app/[locale]/dashboard/_components/ClassesModal.tsx:26-285](file://app/[locale]/dashboard/_components/ClassesModal.tsx#L26-L285)
+
+#### FeeModal Component
+Fee configuration and calculation:
+- Class fee creation and editing
+- Installment calculation preview
+- Student count linkage display
+- Form validation and error handling
+- Loading states and success feedback
+
+**Calculation Features:**
+- Real-time installment amount calculation
+- Student count display for class linkage
+- Input validation for numeric values
+- Error state management and user feedback
+
+**Section sources**
+- [app/[locale]/dashboard/_components/FeeModal.tsx:20-137](file://app/[locale]/dashboard/_components/FeeModal.tsx#L20-L137)
+- [lib/formatting.ts](file://lib/formatting.ts)
+
+### Type System
+Comprehensive TypeScript definitions supporting all dashboard components:
+
+**Core Interfaces:**
+- `ClassFee`: Fee structure with statistics and installments
+- `DashboardNotification`: Notification entity with read status
+- `DashboardTotals`: Financial summary metrics
+- `DashboardRecentPayment`: Recent transaction data
+- `DashboardOverdueStudent`: Overdue student information
+
+**Form Data Types:**
+- `FeeFormData`: Fee creation/editing form structure
+- `BrandingFormData`: School branding configuration
+- `ClassForm`/`SectionForm`: Administrative form structures
+- `ClassItem`/`SectionItem`: Database entity representations
+
+**Section sources**
+- [app/[locale]/dashboard/_components/types.ts:3-106](file://app/[locale]/dashboard/_components/types.ts#L3-L106)
 
 ## Dependency Analysis
-Key dependencies and relationships:
-- Dashboard page depends on:
-  - Authorized API for overview data
-  - Supabase for branding and notifications
-  - Formatting utilities for numbers and dates
-  - Schema compatibility utilities for feature detection
-  - Role and school scope hooks for access control
-- Finance charts depend on:
-  - Recharts for rendering
-  - Formatting utilities for currency/number formatting
-- Super-admin components depend on:
-  - Localization utilities
-  - Types for metrics and insights
+The modular architecture creates clear dependency relationships:
 
 ```mermaid
 graph TB
-DP["Dashboard Page"] --> API["Authorized API"]
-DP --> SB["Supabase"]
-DP --> FMT["Formatting Utils"]
-DP --> SCHEMA["Schema Compat"]
-DP --> ROLE["Role Hook"]
-DP --> SCOPE["School Scope Hook"]
-DFC["Finance Charts"] --> RECHARTS["Recharts"]
-DFC --> FMT
-CG["Charts Grid"] --> I18N["Localization"]
-CG --> TYPES["Types"]
+DP["Dashboard Page"] --> DA["DashboardActions"]
+DP --> SBP["SchoolBrandingPanel"]
+DP --> NP["NotificationsPanel"]
+DP --> CFT["ClassFeesTable"]
+DP --> SC["StatisticsCards"]
+DP --> FAP["FinancialAnalysisPanel"]
+DP --> RP["RecentPaymentsPanel"]
+DP --> OSP["OverdueStudentsPanel"]
+DP --> CM["ClassesModal"]
+DP --> FM["FeeModal"]
+DP --> HOOKS["Data Hooks"]
+HOOKS --> UDD["useDashboardData"]
+HOOKS --> UB["useBranding"]
+HOOKS --> UCS["useClassesSections"]
+HOOKS --> UFM["useFeeManagement"]
+HOOKS --> UN["useNotifications"]
+SBP --> THEME["Brand Themes"]
+FAP --> CHART["DashboardFinanceCharts"]
+FAP --> SKELETON["Analysis Skeleton"]
+CFT --> FORMAT["Formatting Utils"]
+SC --> FORMAT
+RP --> FORMAT
+OSP --> FORMAT
+CM --> TYPES["Type Definitions"]
+FM --> TYPES
+UDD --> API["/api/web/dashboard/overview"]
+UB --> API2["/api/web/dashboard/branding"]
+UCS --> SUPABASE["Supabase Client"]
+UFM --> SUPABASE
+UN --> SUPABASE
 ```
 
 **Diagram sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L103-L1495)
-- [lib/authorized-api.ts](file://lib/authorized-api.ts)
-- [lib/supabase.ts](file://lib/supabase.ts)
-- [lib/formatting.ts](file://lib/formatting.ts)
-- [lib/schema-compat.ts](file://lib/schema-compat.ts)
-- [hooks/useRole.tsx](file://hooks/useRole.tsx)
-- [hooks/useSchoolScope.tsx](file://hooks/useSchoolScope.tsx)
-- [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [lib/i18n.ts](file://lib/i18n.ts)
-- [lib/types.ts](file://lib/types.ts)
+- [app/[locale]/dashboard/page.tsx:17-28](file://app/[locale]/dashboard/page.tsx#L17-L28)
+- [app/[locale]/dashboard/_hooks/useDashboardData.ts:52-74](file://app/[locale]/dashboard/_hooks/useDashboardData.ts#L52-L74)
+- [app/[locale]/dashboard/_hooks/useBranding.ts:51-102](file://app/[locale]/dashboard/_hooks/useBranding.ts#L51-L102)
+- [app/[locale]/dashboard/_hooks/useClassesSections.ts:20-102](file://app/[locale]/dashboard/_hooks/useClassesSections.ts#L20-L102)
+- [app/[locale]/dashboard/_hooks/useFeeManagement.ts:32-99](file://app/[locale]/dashboard/_hooks/useFeeManagement.ts#L32-L99)
+- [app/[locale]/dashboard/_hooks/useNotifications.ts:18-51](file://app/[locale]/dashboard/_hooks/useNotifications.ts#L18-L51)
 
 **Section sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L103-L1495)
-- [lib/authorized-api.ts](file://lib/authorized-api.ts)
-- [lib/supabase.ts](file://lib/supabase.ts)
+- [app/[locale]/dashboard/page.tsx:17-28](file://app/[locale]/dashboard/page.tsx#L17-L28)
+- [app/[locale]/dashboard/_components/index.ts:1-15](file://app/[locale]/dashboard/_components/index.ts#L1-L15)
 - [lib/formatting.ts](file://lib/formatting.ts)
-- [lib/schema-compat.ts](file://lib/schema-compat.ts)
-- [hooks/useRole.tsx](file://hooks/useRole.tsx)
-- [hooks/useSchoolScope.tsx](file://hooks/useSchoolScope.tsx)
-- [components/DashboardFinanceCharts.tsx:67-124](file://components/DashboardFinanceCharts.tsx#L67-L124)
-- [school-saas-next/src/components/dashboard/charts-grid.tsx:27-95](file://school-saas-next/src/components/dashboard/charts-grid.tsx#L27-L95)
-- [lib/i18n.ts](file://lib/i18n.ts)
-- [lib/types.ts](file://lib/types.ts)
+- [lib/brand/themes.ts](file://lib/brand/themes.ts)
 
 ## Performance Considerations
-- Client-side rendering for charts: dynamic import prevents SSR overhead
-- Responsive containers: charts adapt to viewport and reduce layout shifts
-- Minimal re-renders: computed datasets derived from totals to avoid unnecessary recalculations
-- Lazy loading: skeleton placeholders during initial data fetch
-- Efficient API usage: single overview endpoint consolidates multiple metrics
-- Localization formatting: centralized formatters reduce duplication and improve consistency
+The modular architecture provides several performance benefits:
 
-[No sources needed since this section provides general guidance]
+**Client-Side Optimization:**
+- Dynamic imports for chart components prevent SSR overhead
+- Component-level lazy loading reduces initial bundle size
+- Skeleton components provide instant feedback during loading
+- Efficient state management through dedicated hooks
+
+**Rendering Optimizations:**
+- Conditional rendering based on role and school scope
+- Memoized calculations for fee statistics
+- Virtualized lists for large datasets
+- Debounced search and filter operations
+
+**Memory Management:**
+- Component unmounting clears event listeners
+- Modal components clean up form state on close
+- Efficient prop passing reduces re-render cycles
+- Cleanup functions for async operations
+
+**Data Fetching Optimization:**
+- Centralized data fetching prevents redundant API calls
+- Schema compatibility detection avoids unnecessary queries
+- Loading states prevent unnecessary re-renders
+- Error boundaries isolate component failures
 
 ## Troubleshooting Guide
-Common issues and resolutions:
-- Dashboard not loading data:
-  - Verify school scope resolution and role permissions
-  - Check authorized API response and error handling
-- Branding not updating:
-  - Ensure schema compatibility allows saving colors/theme preset
-  - Confirm palette derivation succeeded and saved branding
-- Notifications not visible:
-  - Check relation existence and enablement flag
-  - Refresh notifications manually if supported
-- Class/section/fee management errors:
-  - Validate inputs and constraints
-  - Confirm schema compatibility for legacy vs normalized models
+Common issues and solutions for the modular dashboard:
+
+**Component Rendering Issues:**
+- Verify component imports in index.ts are properly exported
+- Check role-based visibility conditions in conditional renders
+- Ensure proper prop passing from parent to child components
+- Validate TypeScript interface implementations
+
+**Data Flow Problems:**
+- Confirm hook dependencies are correctly configured
+- Verify state synchronization between components
+- Check for proper error handling in async operations
+- Validate API response structures match expected types
+
+**Performance Issues:**
+- Monitor component re-render frequency
+- Check for unnecessary prop drilling
+- Verify dynamic imports are functioning correctly
+- Optimize heavy computations with memoization
+
+**Hook-Specific Issues:**
+- Verify hook initialization order matches component dependencies
+- Check for proper cleanup of async operations in useEffect
+- Ensure schema compatibility detection handles edge cases
+- Validate error states are properly propagated to UI components
 
 **Section sources**
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L170-L198)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L356-L389)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L399-L454)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L514-L568)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L570-L630)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L657-L695)
-- [app/[locale]/dashboard/page.tsx](file://app/[locale]/dashboard/page.tsx#L713-L723)
+- [app/[locale]/dashboard/page.tsx:88-153](file://app/[locale]/dashboard/page.tsx#L88-L153)
+- [app/[locale]/dashboard/_components/types.ts:57-67](file://app/[locale]/dashboard/_components/types.ts#L57-L67)
 
 ## Conclusion
-The dashboard and analytics system combines a flexible, role-aware frontend with robust chart components and a modular API layer. It supports financial analytics, academic insights, and administrative controls while maintaining performance and usability through dynamic imports, responsive charts, and efficient data flows. Extending the system to include academic dashboards and advanced financial visualizations follows established patterns in the codebase.
+The modular dashboard architecture successfully transforms the original 1494-line monolithic component into a maintainable, scalable system with 8 specialized components and comprehensive hook-based data management. This refactoring provides:
 
-[No sources needed since this section summarizes without analyzing specific files]
+**Benefits Achieved:**
+- Dramatic reduction in code complexity (from 1494 to 184 lines)
+- Improved maintainability and testability
+- Clear separation of concerns and single responsibility principle
+- Enhanced reusability across different dashboard contexts
+- Better developer experience with focused component development
+- Centralized data fetching and state management through dedicated hooks
+
+**Technical Excellence:**
+- Comprehensive TypeScript type system
+- Robust error handling and loading states
+- Responsive design patterns
+- Performance optimizations through modular loading
+- Accessible user interface components
+- Schema compatibility handling for database evolution
+- Real-time data synchronization across components
+
+The modular approach with dedicated hooks establishes a solid foundation for future enhancements while maintaining excellent performance and user experience standards.
 
 ## Appendices
 

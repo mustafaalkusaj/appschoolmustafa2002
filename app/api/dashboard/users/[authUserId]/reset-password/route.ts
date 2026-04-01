@@ -72,11 +72,16 @@ export async function POST(
     temporaryPassword,
   });
 
-  const accountCard = await buildManagedUserAccountCard(actorSupabase, user);
+  // Pass the plaintext password to the account card builder for one-time reveal
+  const accountCard = await buildManagedUserAccountCard(actorSupabase, user, {
+    temporaryPassword,
+  });
 
   return NextResponse.json({
     ok: true,
     user,
     accountCard,
+    // Include the plaintext password in the response for one-time reveal
+    temporary_password: temporaryPassword,
   });
 }

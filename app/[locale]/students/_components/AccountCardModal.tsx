@@ -4,13 +4,17 @@ import type { ManagedUserAccountCard } from "../_types";
 
 interface AccountCardModalProps {
   accountCard: ManagedUserAccountCard | null;
+  /** The plaintext password from a reset action (one-time reveal). If not provided, shows a placeholder message. */
+  revealedPassword?: string | null;
   onPrint: (card: ManagedUserAccountCard, autoPrint: boolean) => void;
   onCopy: () => void;
   onClose: () => void;
 }
 
-export function AccountCardModal({ accountCard, onPrint, onCopy, onClose }: AccountCardModalProps) {
+export function AccountCardModal({ accountCard, revealedPassword, onPrint, onCopy, onClose }: AccountCardModalProps) {
   if (!accountCard) return null;
+
+  const isPasswordRevealed = revealedPassword && revealedPassword !== "••••••••";
 
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -93,13 +97,18 @@ export function AccountCardModal({ accountCard, onPrint, onCopy, onClose }: Acco
                 marginTop: ".4rem",
                 fontSize: "1rem",
                 fontWeight: 900,
-                color: "var(--p2)",
+                color: isPasswordRevealed ? "var(--p2)" : "#888",
                 direction: "ltr",
                 textAlign: "left",
               }}
             >
-              {accountCard.temporary_password}
+              {isPasswordRevealed ? revealedPassword : "••••••••"}
             </div>
+            {!isPasswordRevealed && (
+              <div style={{ fontSize: ".7rem", color: "#888", marginTop: ".3rem" }}>
+                كلمة المرور تم تعيينها — لا يمكن استرجاعها. استخدم "إعادة ضبط المرور" لإنشاء كلمة مرور جديدة.
+              </div>
+            )}
           </div>
         </div>
         <div

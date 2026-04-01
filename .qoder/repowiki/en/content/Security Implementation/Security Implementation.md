@@ -3,6 +3,8 @@
 <cite>
 **Referenced Files in This Document**
 - [SECURITY.md](file://SECURITY.md)
+- [proxy.ts](file://proxy.ts)
+- [next.config.ts](file://next.config.ts)
 - [lib/auth.ts](file://lib/auth.ts)
 - [lib/rate-limit.ts](file://lib/rate-limit.ts)
 - [lib/audit.ts](file://lib/audit.ts)
@@ -14,7 +16,16 @@
 - [migrations/20260322_managed_mobile_rls.sql](file://migrations/20260322_managed_mobile_rls.sql)
 - [migrations/20260322_mobile_attachments_storage.sql](file://migrations/20260322_mobile_attachments_storage.sql)
 - [lib/admin-infrastructure.ts](file://lib/admin-infrastructure.ts)
+- [types/roles.ts](file://types/roles.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced Content Security Policy (CSP) implementation with robust nonce-based approach in proxy.ts middleware
+- Strengthened RBAC session management with mandatory dedicated secrets in production environments
+- Implemented comprehensive security headers including Strict-Transport-Security and X-Content-Type-Options
+- Updated security header configuration to use dynamic per-request approach through proxy middleware
+- Improved RBAC cookie secret requirements with explicit production enforcement
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -29,11 +40,12 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the multi-layered security implementation for the school management platform. It covers authentication and session management, authorization enforcement, data protection via Supabase Row-Level Security (RLS), audit logging, rate limiting, input validation, and protections against common vulnerabilities. It also documents Supabase configuration including RLS policies, storage security, and database access controls, along with practical secure coding practices, vulnerability assessment, incident response, monitoring, and compliance considerations.
+This document explains the multi-layered security implementation for the school management platform. It covers authentication and session management, authorization enforcement, data protection via Supabase Row-Level Security (RLS), audit logging, rate limiting, input validation, and protections against common vulnerabilities. The platform now features comprehensive security hardening including a nonce-based Content Security Policy, enhanced RBAC cookie security, and dynamic security headers implemented through Next.js proxy middleware.
 
 ## Project Structure
 Security-related capabilities are distributed across:
 - Authentication and RBAC session management in the frontend and API
+- Next.js proxy middleware for dynamic security headers and CSP
 - Supabase client configuration and server-side clients
 - Database-level RLS policies and storage security
 - Audit logging utilities
@@ -47,35 +59,38 @@ A["lib/auth.ts<br/>User profiles, access decisions"]
 B["lib/rbac-session.ts<br/>Signed RBAC cookie"]
 C["lib/authorized-api.ts<br/>Authorized fetch helpers"]
 end
-subgraph "Edge/API"
-D["app/api/rbac/session/route.ts<br/>RBAC session endpoint"]
-E["lib/rate-limit.ts<br/>Per-user rate limiter"]
+subgraph "Edge/Middleware"
+D["proxy.ts<br/>Dynamic CSP + security headers"]
+E["app/api/rbac/session/route.ts<br/>RBAC session endpoint"]
+F["lib/rate-limit.ts<br/>Per-user rate limiter"]
 end
 subgraph "Supabase Layer"
-F["lib/supabase.ts<br/>Browser client"]
-G["lib/supabase-server.ts<br/>Server client + service client"]
-H["migrations/*_managed_mobile_rls.sql<br/>RLS functions/policies"]
-I["migrations/*_mobile_attachments_storage.sql<br/>Storage RLS"]
-J["lib/admin-infrastructure.ts<br/>Feature probing"]
+G["lib/supabase.ts<br/>Browser client"]
+H["lib/supabase-server.ts<br/>Server client + service client"]
+I["migrations/*_managed_mobile_rls.sql<br/>RLS functions/policies"]
+J["migrations/*_mobile_attachments_storage.sql<br/>Storage RLS"]
+K["lib/admin-infrastructure.ts<br/>Feature probing"]
 end
-K["lib/audit.ts<br/>Audit logging"]
+L["lib/audit.ts<br/>Audit logging"]
 A --> B
-B --> D
-C --> D
-D --> E
-A --> F
-D --> F
-D --> G
-A --> H
+B --> E
+C --> E
+E --> F
+A --> G
+E --> G
+E --> H
 A --> I
-K --> F
-J --> A
+A --> J
+L --> G
+K --> A
+D --> E
 ```
 
 **Diagram sources**
 - [lib/auth.ts:1-341](file://lib/auth.ts#L1-L341)
 - [lib/rbac-session.ts:1-153](file://lib/rbac-session.ts#L1-L153)
 - [lib/authorized-api.ts:1-49](file://lib/authorized-api.ts#L1-L49)
+- [proxy.ts:1-139](file://proxy.ts#L1-L139)
 - [app/api/rbac/session/route.ts:1-155](file://app/api/rbac/session/route.ts#L1-L155)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
@@ -89,6 +104,7 @@ J --> A
 - [SECURITY.md:1-36](file://SECURITY.md#L1-L36)
 - [lib/auth.ts:1-341](file://lib/auth.ts#L1-L341)
 - [lib/rbac-session.ts:1-153](file://lib/rbac-session.ts#L1-L153)
+- [proxy.ts:1-139](file://proxy.ts#L1-L139)
 - [app/api/rbac/session/route.ts:1-155](file://app/api/rbac/session/route.ts#L1-L155)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
@@ -100,6 +116,9 @@ J --> A
 
 ## Core Components
 - RBAC session cookie: Signed, short-lived cookie containing role, permissions, and school/subscription context. Enforced by dedicated API endpoint and validated on subsequent requests.
+- Robust CSP with per-request nonce: Next.js proxy middleware generates cryptographically random nonces per request for Content Security Policy, eliminating reliance on unsafe-inline scripts.
+- Enhanced RBAC cookie secret requirements: Dedicated cookie secret is now mandatory in production; fallback to Supabase JWT secret is explicitly prohibited in production for security reasons.
+- Comprehensive security headers: Proxy middleware sets dynamic security headers (Referrer-Policy, X-Content-Type-Options, X-Frame-Options, Permissions-Policy, HSTS) per request.
 - Supabase Auth integration: Frontend and server clients integrate with Supabase Auth for identity and session retrieval.
 - Database RLS: Fine-grained row-level policies scoped by role, school, and subscription state; storage policies restrict media access.
 - Audit logging: Structured audit logs capture actions with actor metadata and optional metadata.
@@ -108,6 +127,7 @@ J --> A
 
 **Section sources**
 - [lib/rbac-session.ts:1-153](file://lib/rbac-session.ts#L1-L153)
+- [proxy.ts:1-139](file://proxy.ts#L1-L139)
 - [app/api/rbac/session/route.ts:1-155](file://app/api/rbac/session/route.ts#L1-L155)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
 - [lib/supabase-server.ts:1-75](file://lib/supabase-server.ts#L1-L75)
@@ -118,15 +138,19 @@ J --> A
 - [lib/admin-infrastructure.ts:1-209](file://lib/admin-infrastructure.ts#L1-L209)
 
 ## Architecture Overview
-The security architecture combines client-side RBAC session signing, server-side session initialization, database RLS, and storage policies. Requests flow through rate-limited endpoints, validated against Supabase Auth and RBAC session state, enforced by database policies.
+The security architecture combines client-side RBAC session signing, server-side session initialization, robust CSP with nonce generation, and comprehensive security headers. Requests flow through rate-limited endpoints, validated against Supabase Auth and RBAC session state, enforced by database policies.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Browser"
+participant Proxy as "proxy.ts Middleware"
 participant API as "RBAC Session API"
 participant Supabase as "Supabase Auth"
 participant DB as "PostgreSQL (RLS)"
 participant Storage as "Storage (RLS)"
+Client->>Proxy : "HTTP Request"
+Proxy->>Proxy : "Generate CSP Nonce"
+Proxy->>Client : "Set Security Headers + CSP"
 Client->>API : "POST /api/rbac/session"
 API->>Supabase : "Get user (header or session)"
 Supabase-->>API : "User info"
@@ -143,6 +167,7 @@ API-->>Client : "Response"
 ```
 
 **Diagram sources**
+- [proxy.ts:91-123](file://proxy.ts#L91-L123)
 - [app/api/rbac/session/route.ts:14-133](file://app/api/rbac/session/route.ts#L14-L133)
 - [lib/supabase-server.ts:60-74](file://lib/supabase-server.ts#L60-L74)
 - [migrations/20260322_managed_mobile_rls.sql:315-577](file://migrations/20260322_managed_mobile_rls.sql#L315-L577)
@@ -150,12 +175,46 @@ API-->>Client : "Response"
 
 ## Detailed Component Analysis
 
+### Proxy Middleware and Dynamic Security Headers
+- Purpose: Next.js 16 proxy function (formerly middleware) that generates cryptographically random nonces and sets comprehensive security headers on every request.
+- CSP Implementation: Generates 16-byte random nonces using Web Crypto API, builds CSP with `'nonce-${nonce}'` for script-src, and includes strict-dynamic for modern browser support.
+- Security Headers: Sets Referrer-Policy, X-Content-Type-Options, X-Frame-Options, Permissions-Policy, and HSTS (only in production).
+- Supabase Integration: Dynamically resolves Supabase origins and adds them to connect-src and img-src for WebSocket connections.
+- Matching Strategy: Excludes static files, API routes, Next.js internals, and public files from CSP enforcement.
+
+```mermaid
+flowchart TD
+Start(["Incoming Request"]) --> GenNonce["Generate 16-byte CSP Nonce"]
+GenNonce --> BuildCSP["Build CSP with 'nonce-${nonce}'"]
+BuildCSP --> SetHeaders["Set Security Headers"]
+SetHeaders --> SupabaseCheck{"NEXT_PUBLIC_SUPABASE_URL?"}
+SupabaseCheck --> |Yes| AddOrigins["Add Supabase Origins"]
+SupabaseCheck --> |No| SkipOrigins["Skip Supabase Origins"]
+AddOrigins --> HSTS{"Production?"}
+SkipOrigins --> HSTS
+HSTS --> |Yes| SetHSTS["Set HSTS Header"]
+HSTS --> |No| SkipHSTS["Skip HSTS"]
+SetHSTS --> StoreNonce["Store x-csp-nonce Header"]
+SkipHSTS --> StoreNonce
+StoreNonce --> Done(["Return Response"])
+```
+
+**Diagram sources**
+- [proxy.ts:7-17](file://proxy.ts#L7-L17)
+- [proxy.ts:44-85](file://proxy.ts#L44-L85)
+- [proxy.ts:91-123](file://proxy.ts#L91-L123)
+- [proxy.ts:125-138](file://proxy.ts#L125-L138)
+
+**Section sources**
+- [proxy.ts:1-139](file://proxy.ts#L1-L139)
+- [next.config.ts:1-50](file://next.config.ts#L1-L50)
+
 ### RBAC Session Management
 - Purpose: Maintain a signed, server-signed cookie containing role, permissions, and school/subscription context to enforce authorization without relying solely on client-side state.
-- Secret handling: Dedicated cookie secret is required in production; fallback to Supabase JWT secret is warned in development.
-- Payload building: Includes issuance/expiry timestamps and versioning.
-- Cookie options: HttpOnly, SameSite lax, secure in production, path “/”, max age 8 hours.
-- Endpoint behavior:
+- Enhanced Secret Handling: Dedicated cookie secret is now mandatory in production; explicit error thrown if not configured. Development mode allows fallback to SUPABASE_JWT_SECRET with warnings.
+- Payload Building: Includes issuance/expiry timestamps and versioning.
+- Cookie Options: HttpOnly, SameSite lax, secure in production, path "/", max age 8 hours.
+- Endpoint Behavior:
   - POST initializes session by fetching profile, normalizing permissions, computing school/subscription state, building payload, signing, and setting cookie.
   - DELETE clears the cookie with immediate expiry.
   - Rate limits are enforced per endpoint.
@@ -163,7 +222,8 @@ API-->>Client : "Response"
 ```mermaid
 flowchart TD
 Start(["POST /api/rbac/session"]) --> CheckSecret["Check RBAC_COOKIE_SECRET"]
-CheckSecret --> |Missing| Return500["Return 500"]
+CheckSecret --> |Missing in prod| ThrowError["Throw Production Error"]
+CheckSecret --> |Missing in dev| WarnFallback["Warn about fallback"]
 CheckSecret --> |Present| GetUser["Resolve authenticated user"]
 GetUser --> |Invalid| Return401["Return 401"]
 GetUser --> FetchProfile["Fetch user profile + school/subscription"]
@@ -236,7 +296,7 @@ SupaS-->>Client : "Response"
 - Conditional policy application:
   - Policies are created only if target tables exist.
 - Storage security:
-  - Storage bucket “school-media” is configured private with file size limits.
+  - Storage bucket "school-media" is configured private with file size limits.
   - Functions and policies restrict read/write/delete based on managed roles and object ownership.
 
 ```mermaid
@@ -367,26 +427,26 @@ Check --> |No| Block["429 with headers"]
 
 ### Input Validation and Protection Against Common Vulnerabilities
 - Input validation: Use server-side validation and sanitization for all user-provided inputs. Validate types, lengths, and formats before processing.
-- XSS protection: Escape HTML and sanitize user-generated content rendered in templates. Use framework-safe rendering and avoid innerHTML.
+- XSS protection: Escape HTML and sanitize user-generated content rendered in templates. Use framework-safe rendering and avoid innerHTML. CSP with nonce eliminates most script injection vectors.
 - CSRF protection: Enforce SameSite cookies and consider CSRF tokens for state-changing forms. Ensure all state-changing requests originate from trusted origins.
 - Injection prevention: Use parameterized queries and avoid dynamic SQL construction. Validate and whitelist inputs for database operations.
-- Secure headers: Apply security headers at the edge layer to mitigate common web vulnerabilities.
-
-[No sources needed since this section provides general guidance]
+- Secure headers: Dynamic security headers at the edge layer mitigate common web vulnerabilities.
 
 ### Practical Secure Coding Practices
-- Secrets management: Store secrets in environment variables; never commit secrets to source control. Rotate keys regularly and revoke compromised ones immediately.
+- Secrets management: Store secrets in environment variables; never commit secrets to source control. Rotate keys regularly and revoke compromised ones immediately. RBAC_COOKIE_SECRET is now mandatory in production.
 - Least privilege: Use service role keys only where necessary and disable persistent sessions for service clients.
 - Error handling: Log errors securely without exposing sensitive data. Use generic messages to clients while preserving details in logs.
 - Feature detection: Use admin infrastructure probing to gracefully handle missing features and warn administrators.
+- CSP compliance: Use nonce-based CSP instead of unsafe-inline scripts. Store CSP nonce in x-csp-nonce header for server components.
 
 **Section sources**
 - [SECURITY.md:30-36](file://SECURITY.md#L30-L36)
 - [lib/supabase-server.ts:39-50](file://lib/supabase-server.ts#L39-L50)
 - [lib/admin-infrastructure.ts:112-209](file://lib/admin-infrastructure.ts#L112-L209)
+- [lib/rbac-session.ts:23-30](file://lib/rbac-session.ts#L23-L30)
 
 ### Vulnerability Assessment and Incident Response
-- Assessment: Conduct regular dependency audits, static analysis, and dynamic scanning. Review Supabase configuration and RLS policies periodically.
+- Assessment: Conduct regular dependency audits, static analysis, and dynamic scanning. Review Supabase configuration and RLS policies periodically. Test CSP nonce generation and RBAC secret requirements.
 - Reporting: Follow private reporting guidelines for security issues. Treat credential exposure, privilege escalation, and isolation failures as critical.
 - Response: Rotate affected secrets, apply patches, and communicate remediation steps. Monitor audit logs and alerts for suspicious activity.
 
@@ -396,18 +456,16 @@ Check --> |No| Block["429 with headers"]
 ### Security Monitoring, Threat Detection, and Compliance
 - Monitoring: Integrate audit logs with SIEM or analytics platforms. Alert on unusual spikes in 429 responses, repeated failures, or unauthorized access attempts.
 - Compliance: Maintain audit trails, enforce retention policies, and ensure data minimization. Regularly review RLS coverage and storage access controls.
-
-[No sources needed since this section provides general guidance]
+- CSP monitoring: Verify nonce generation and header injection in production. Monitor for CSP violations in browser developer tools.
 
 ### Common Security Scenarios, Penetration Testing, and Maintenance
-- Scenarios: Test cross-role access, tenant isolation, and storage access bypass attempts. Validate rate limiting effectiveness and session invalidation.
-- Pen testing: Perform authorized penetration tests focusing on RBAC session integrity, RLS bypass vectors, and storage exposure.
+- Scenarios: Test cross-role access, tenant isolation, storage access bypass attempts, CSP nonce bypass attempts, and RBAC secret validation.
+- Pen testing: Perform authorized penetration tests focusing on RBAC session integrity, RLS bypass vectors, storage exposure, and CSP nonce effectiveness.
 - Maintenance: Apply database migrations before deploying dependent features. Re-run linters, type checks, builds, and load tests before production releases.
-
-[No sources needed since this section provides general guidance]
 
 ## Dependency Analysis
 - RBAC session signing depends on a dedicated secret; absence triggers warnings or errors depending on environment.
+- Proxy middleware generates cryptographically secure nonces and sets comprehensive security headers.
 - RBAC session endpoint depends on Supabase Auth for user resolution, Supabase server client for profile/school/subscription queries, and rate limiting.
 - Database RLS depends on managed user functions and policies; storage RLS depends on bucket configuration and policy functions.
 - Audit logging depends on Supabase client and admin infrastructure probing to handle missing tables gracefully.
@@ -415,6 +473,8 @@ Check --> |No| Block["429 with headers"]
 ```mermaid
 graph LR
 RBACSession["lib/rbac-session.ts"] --> Secret["Environment secret"]
+Proxy["proxy.ts"] --> Crypto["Web Crypto API"]
+Proxy --> SupabaseURL["NEXT_PUBLIC_SUPABASE_URL"]
 RBACRoute["app/api/rbac/session/route.ts"] --> SupaServer["lib/supabase-server.ts"]
 RBACRoute --> RateLimit["lib/rate-limit.ts"]
 RBACRoute --> SupaBrowser["lib/supabase.ts"]
@@ -427,6 +487,8 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 
 **Diagram sources**
 - [lib/rbac-session.ts:19-50](file://lib/rbac-session.ts#L19-L50)
+- [proxy.ts:7-16](file://proxy.ts#L7-L16)
+- [proxy.ts:32-33](file://proxy.ts#L32-L33)
 - [app/api/rbac/session/route.ts:22-133](file://app/api/rbac/session/route.ts#L22-L133)
 - [lib/supabase-server.ts:1-75](file://lib/supabase-server.ts#L1-L75)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
@@ -439,6 +501,7 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 
 **Section sources**
 - [lib/rbac-session.ts:1-153](file://lib/rbac-session.ts#L1-L153)
+- [proxy.ts:1-139](file://proxy.ts#L1-L139)
 - [app/api/rbac/session/route.ts:1-155](file://app/api/rbac/session/route.ts#L1-L155)
 - [lib/supabase-server.ts:1-75](file://lib/supabase-server.ts#L1-L75)
 - [lib/supabase.ts:1-22](file://lib/supabase.ts#L1-L22)
@@ -451,15 +514,16 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 
 ## Performance Considerations
 - RBAC session signing uses HMAC-SHA256; keep payloads minimal to reduce overhead.
+- CSP nonce generation uses Web Crypto API; minimal performance impact but ensures cryptographic security.
 - Rate limiter uses in-memory Map with periodic cleanup; monitor memory growth under high concurrency.
 - RLS evaluation occurs server-side; ensure appropriate indexes on filtered columns (e.g., student_id, school_id).
 - Storage RLS checks traverse related tables; maintain indexes on lookup columns.
 
-[No sources needed since this section provides general guidance]
-
 ## Troubleshooting Guide
 - Missing Supabase environment variables: Browser client creation throws if URL or keys are missing.
-- RBAC secret not configured: Production requires a dedicated secret; development falls back with warnings.
+- RBAC secret not configured: Production requires a dedicated secret; explicit error thrown. Development falls back with warnings.
+- CSP nonce generation failing: Check Web Crypto API availability in Next.js runtime.
+- Proxy middleware not applying headers: Verify matcher configuration excludes static files and API routes correctly.
 - Profile not found: RBAC session endpoint returns 404 when user profile cannot be retrieved.
 - Unauthorized access: RBAC session endpoint returns 401 if user is not authenticated.
 - Audit table missing: Audit logging ignores missing table errors and logs a warning.
@@ -468,20 +532,22 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 **Section sources**
 - [lib/supabase.ts:8-19](file://lib/supabase.ts#L8-L19)
 - [lib/rbac-session.ts:26-49](file://lib/rbac-session.ts#L26-L49)
+- [proxy.ts:125-138](file://proxy.ts#L125-L138)
 - [app/api/rbac/session/route.ts:49-56](file://app/api/rbac/session/route.ts#L49-L56)
 - [app/api/rbac/session/route.ts:28-30](file://app/api/rbac/session/route.ts#L28-L30)
 - [lib/audit.ts:56-62](file://lib/audit.ts#L56-L62)
 - [lib/rate-limit.ts:86-101](file://lib/rate-limit.ts#L86-L101)
 
 ## Conclusion
-The platform implements a robust, layered security model combining Supabase Auth, signed RBAC session cookies, database RLS, storage policies, audit logging, and rate limiting. Administrators should ensure proper secret management, apply migrations before feature deployment, and continuously monitor and test for vulnerabilities. Compliance and operational expectations are documented to guide responsible disclosure and maintenance.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The platform implements a robust, layered security model combining Supabase Auth, signed RBAC session cookies, dynamic CSP with nonce-based approach, comprehensive security headers, database RLS, storage policies, audit logging, and rate limiting. The recent security hardening includes mandatory dedicated RBAC cookie secrets in production, comprehensive CSP implementation with per-request nonces, and dynamic security headers through proxy middleware. Administrators should ensure proper secret management, apply migrations before feature deployment, continuously monitor and test for vulnerabilities, and verify CSP nonce generation and header injection in production environments.
 
 ## Appendices
 - Security policy scope and operational expectations are documented centrally.
 - Admin infrastructure probing helps identify missing features and compatibility warnings.
+- RBAC_COOKIE_SECRET is now mandatory in production for enhanced security posture.
 
 **Section sources**
 - [SECURITY.md:1-36](file://SECURITY.md#L1-L36)
 - [lib/admin-infrastructure.ts:112-209](file://lib/admin-infrastructure.ts#L112-L209)
+- [lib/rbac-session.ts:23-30](file://lib/rbac-session.ts#L23-L30)
+- [proxy.ts:38-43](file://proxy.ts#L38-L43)

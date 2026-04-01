@@ -14,12 +14,26 @@
 - [lib/authorized-api.ts](file://lib/authorized-api.ts)
 - [types/roles.ts](file://types/roles.ts)
 - [hooks/useAuth.ts](file://hooks/useAuth.ts)
+- [hooks/useRole.tsx](file://hooks/useRole.tsx)
+- [hooks/useRuntimeBranding.tsx](file://hooks/useRuntimeBranding.tsx)
 - [components/ui/button.tsx](file://components/ui/button.tsx)
+- [components/school/SchoolModuleLayout.tsx](file://components/school/SchoolModuleLayout.tsx)
+- [components/brand/BrandLockup.tsx](file://components/brand/BrandLockup.tsx)
+- [components/brand/index.ts](file://components/brand/index.ts)
+- [app/[locale]/dashboard/_components/index.ts](file://app/[locale]/dashboard/_components/index.ts)
+- [app/[locale]/payments/_components/index.ts](file://app/[locale]/payments/_components/index.ts)
 - [app/layout.tsx](file://app/layout.tsx)
 - [school-saas-next/eslint.config.mjs](file://school-saas-next/eslint.config.mjs)
 - [school-saas-next/tsconfig.json](file://school-saas-next/tsconfig.json)
 - [school-saas-next/package.json](file://school-saas-next/package.json)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced TypeScript strict mode enforcement with comprehensive strict: true and noImplicitAny: true configurations across all applications
+- Updated ESLint configuration to include @typescript-eslint/no-unused-vars rule set to error level with underscore pattern support
+- Adopted comprehensive component-based architecture patterns with modular component exports and standardized component interfaces
+- Strengthened type safety across all application layers with improved component typing and prop interfaces
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -35,6 +49,8 @@
 
 ## Introduction
 This document defines developer standards, contribution processes, and best practices for the school administration platform. It covers TypeScript configuration, ESLint rules, code formatting, development workflow, project structure conventions, testing and documentation expectations, quality gates, and practical examples for implementing features, refactoring, and integrating with shared backend services. It also describes the development environment setup, debugging techniques, and performance profiling approaches.
+
+**Updated** The platform now enforces comprehensive TypeScript strict mode across all applications, significantly enhancing type safety and code quality through strict: true and noImplicitAny: true configurations, along with enhanced ESLint rules including @typescript-eslint/no-unused-vars set to error level. The architecture has evolved to embrace comprehensive component-based patterns with standardized component interfaces and modular exports.
 
 ## Project Structure
 The repository is a monorepo-like structure with multiple apps and shared libraries:
@@ -90,6 +106,9 @@ SA_Lib --> SB_Lib
 - ESLint configuration: Next.js core-web-vitals and TypeScript presets, custom overrides, and project-specific ignores.
 - Build and lint scripts: dev, build, lint, typecheck, check, audit.
 - Security headers and CSP: dynamic generation via a proxy with per-request nonces and environment-aware HSTS.
+- Component architecture: modular component exports, standardized prop interfaces, and reusable component patterns.
+
+**Updated** Enhanced with comprehensive TypeScript strict mode enforcement including strict: true and noImplicitAny: true throughout the application, ensuring rigorous type checking and eliminating implicit any types. The component architecture now follows standardized patterns with clear prop interfaces and modular exports.
 
 **Section sources**
 - [tsconfig.json:1-49](file://tsconfig.json#L1-L49)
@@ -129,15 +148,18 @@ Proxy --> Client
 ## Detailed Component Analysis
 
 ### TypeScript Configuration and Formatting Standards
-- Strictness: enabled with no implicit any and no emit for type checks.
+- Strictness: enabled with strict: true and noImplicitAny: true throughout the application, ensuring comprehensive type safety and eliminating implicit any types.
 - Module resolution: bundler for ESM and isolated modules for build safety.
 - Path aliases: @/* mapped to repository root for clean imports.
-- Include/exclude: targets TS/TSX files and Next’s generated types; excludes sibling projects and artifacts.
+- Include/exclude: targets TS/TSX files and Next's generated types; excludes sibling projects and artifacts.
 - Formatting: enforced via ESLint rules and Next presets; avoid unsafe inline scripts by generating nonces in CSP.
+
+**Updated** The TypeScript configuration now enforces strict: true and noImplicitAny: true across all applications, providing comprehensive type safety guarantees and catching potential type-related issues early in the development process. This applies to both the main application and the SaaS Next.js app with identical strict mode configurations.
 
 **Section sources**
 - [tsconfig.json:11-31](file://tsconfig.json#L11-L31)
 - [tsconfig.json:33-47](file://tsconfig.json#L33-L47)
+- [school-saas-next/tsconfig.json:2-24](file://school-saas-next/tsconfig.json#L2-L24)
 - [eslint.config.mjs:27-35](file://eslint.config.mjs#L27-L35)
 
 ### ESLint Rules and Code Quality
@@ -145,8 +167,11 @@ Proxy --> Client
 - Overrides: disable specific React Hooks purity and setState-in-effect checks; warn on unused vars with underscore pattern; prefer const; warn on explicit any.
 - Ignores: exclude sibling projects and artifacts; keep Next internals and build outputs ignored.
 
+**Updated** Enhanced ESLint configuration now includes @typescript-eslint/no-unused-vars rule set to error level, with argsIgnorePattern and varsIgnorePattern configured to allow underscore-prefixed variables. This ensures all unused variables are caught during development, improving code cleanliness and maintainability. The rule configuration supports both main application and SaaS Next.js app with consistent patterns.
+
 **Section sources**
 - [eslint.config.mjs:5-37](file://eslint.config.mjs#L5-L37)
+- [school-saas-next/eslint.config.mjs:1-19](file://school-saas-next/eslint.config.mjs#L1-L19)
 
 ### Security Headers and CSP (Dynamic Nonce Injection)
 - Per-request nonce generation for CSP script-src.
@@ -220,12 +245,19 @@ SchoolOK --> |Yes| Allow["Allow (Read-Only?)"]
 **Section sources**
 - [lib/supabase.ts:8-22](file://lib/supabase.ts#L8-L22)
 
-### UI Component Conventions
-- Reusable UI components use forwardRef and Tailwind-based variants/sizes.
-- Consistent props and class composition via a small utility.
+### Component-Based Architecture Patterns
+- Modular component exports with standardized interfaces and prop types.
+- Reusable UI components with forwardRef and Tailwind-based variants/sizes.
+- Component composition patterns with clear separation of concerns.
+- Branding and school-specific components with runtime customization support.
+
+**Updated** The component architecture now follows comprehensive patterns with standardized component interfaces, modular exports, and clear separation of concerns. Components like Button, SchoolModuleLayout, and BrandLockup demonstrate consistent typing, prop interfaces, and composition patterns that enhance maintainability and reusability.
 
 **Section sources**
 - [components/ui/button.tsx:15-35](file://components/ui/button.tsx#L15-L35)
+- [components/school/SchoolModuleLayout.tsx:7-21](file://components/school/SchoolModuleLayout.tsx#L7-L21)
+- [components/brand/BrandLockup.tsx:11-20](file://components/brand/BrandLockup.tsx#L11-L20)
+- [components/brand/index.ts:1-3](file://components/brand/index.ts#L1-L3)
 
 ### Application Layout and Providers
 - Global metadata and RTL layout with hydration suppression.
@@ -233,6 +265,18 @@ SchoolOK --> |Yes| Allow["Allow (Read-Only?)"]
 
 **Section sources**
 - [app/layout.tsx:6-31](file://app/layout.tsx#L6-L31)
+
+### Hook-Based State Management
+- Centralized authentication state management with useRole and useAuth hooks.
+- Provider pattern for role context with memoized callbacks and optimized rendering.
+- Runtime branding integration with hook-based customization.
+
+**Updated** The hook-based architecture provides centralized state management with optimized performance patterns. The useRole hook implements provider pattern with memoized callbacks, efficient state updates, and proper context management. The useAuth hook simplifies role-based access patterns for component usage.
+
+**Section sources**
+- [hooks/useAuth.ts:5-21](file://hooks/useAuth.ts#L5-L21)
+- [hooks/useRole.tsx:41-167](file://hooks/useRole.tsx#L41-L167)
+- [hooks/useRuntimeBranding.tsx:1-2](file://hooks/useRuntimeBranding.tsx#L1-L2)
 
 ### SaaS Next.js App Configuration
 - Separate ESLint and TypeScript configs for the SaaS app with minimal ignores.
@@ -268,8 +312,10 @@ SA --> P
 ## Performance Considerations
 - Prefer isolated modules and bundler module resolution for faster builds and accurate diagnostics.
 - Keep strict mode enabled to catch potential performance pitfalls early.
-- Use the proxy’s CSP with nonces to minimize render-blocking script risks.
+- Use the proxy's CSP with nonces to minimize render-blocking script risks.
 - Leverage Next.js static headers for static assets and dynamic headers only for non-static routes.
+
+**Updated** The comprehensive TypeScript strict mode implementation enhances build-time performance by catching type-related issues early, reducing runtime errors and improving overall application stability. Component-based architecture patterns with proper typing and modular exports contribute to better tree-shaking and reduced bundle sizes.
 
 **Section sources**
 - [tsconfig.json:14-18](file://tsconfig.json#L14-L18)
@@ -281,6 +327,7 @@ SA --> P
 - If RBAC session initialization fails, the wrapper throws a descriptive error when strict mode is enabled; otherwise it logs and continues.
 - For access denied issues, inspect the access decision reasons returned by the RBAC logic and verify role, permissions, active school, and subscription status.
 - To debug CSP, confirm the nonce header is present and that dynamic routes match the proxy matcher configuration.
+- **Updated** With enhanced strict mode, type-related compilation errors will now surface immediately during development, helping identify issues like missing type annotations, implicit any types, and incorrect type usage before they reach runtime. Unused variable warnings are now elevated to errors, ensuring cleaner codebases.
 
 **Section sources**
 - [lib/supabase.ts:8-19](file://lib/supabase.ts#L8-L19)
@@ -290,6 +337,8 @@ SA --> P
 
 ## Conclusion
 These guidelines establish a consistent, secure, and maintainable development process across the web admin app, shared backend, and SaaS app. By adhering to TypeScript strictness, ESLint rules, CSP with nonces, and centralized auth/RBAC patterns, contributors can implement features safely and efficiently while preserving code quality and performance.
+
+**Updated** The comprehensive TypeScript strict mode implementation significantly strengthens the codebase's reliability and maintainability by enforcing strict type checking, eliminating implicit any types, and catching potential type-related issues early in the development cycle. The adoption of component-based architecture patterns with standardized interfaces and modular exports enhances code organization, reusability, and long-term maintainability.
 
 ## Appendices
 
@@ -372,3 +421,29 @@ These guidelines establish a consistent, secure, and maintainable development pr
 - Keep CSP minimal and nonces per request to reduce render-blocking risks.
 
 [No sources needed since this section provides general guidance]
+
+### TypeScript Strict Mode Best Practices
+**Updated** With the comprehensive TypeScript strict mode implementation, developers should follow these enhanced best practices:
+
+- **Eliminate Implicit Any Types**: All variables, parameters, and return values must have explicit type annotations. Remove any implicit any types that may have existed previously.
+- **Enable Strict Type Checking**: The strict: true configuration ensures comprehensive type checking including strictNullChecks, strictFunctionTypes, and strictPropertyInitialization.
+- **Handle Optional Properties Properly**: Use proper optional chaining and nullish coalescing operators when dealing with potentially undefined properties.
+- **Use Exhaustive Type Checking**: Implement exhaustive switch statements and conditional checks to handle all possible union types.
+- **Leverage Type Guards**: Use type guards and discriminated unions to narrow types in complex conditional logic.
+- **Avoid Type Assertions**: Minimize the use of type assertions (as) and type casting. Instead, fix underlying type issues at their source.
+- **Implement Generic Constraints**: Use proper generic constraints and type parameters to maintain type safety in reusable components and utilities.
+- **Follow Component Interface Patterns**: Adhere to standardized component prop interfaces and typing patterns established in the component library.
+
+These practices ensure that the enhanced strict mode configuration maintains code quality and prevents type-related runtime errors while supporting the evolving component-based architecture patterns.
+
+### Component Architecture Guidelines
+**Updated** The component-based architecture follows these established patterns:
+
+- **Standardized Interfaces**: All components use consistent prop interfaces with clear type definitions and optional properties.
+- **Modular Exports**: Components are organized in logical groups with barrel exports for easy consumption.
+- **ForwardRef Implementation**: Interactive components implement forwardRef for proper DOM access and ref forwarding.
+- **Tailwind Integration**: Components use Tailwind CSS classes with consistent variant patterns and responsive design.
+- **Runtime Customization**: Branding and theming are handled through runtime hooks and context providers.
+- **Composition Patterns**: Complex components are built from smaller, reusable pieces following single responsibility principles.
+
+These guidelines ensure consistency across the component library and support maintainable, scalable UI development.

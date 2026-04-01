@@ -114,6 +114,7 @@ export default function StudentsPage() {
       setForm: modals.setForm,
       setEditForm: modals.setEditForm,
       setAccountCard: modals.setAccountCard,
+      setRevealedPassword: modals.setRevealedPassword,
       setSelectedStudent: modals.setSelectedStudent,
       setActiveMenu: modals.setActiveMenu,
       form: modals.form,
@@ -340,9 +341,13 @@ export default function StudentsPage() {
         />
         <AccountCardModal
           accountCard={modals.accountCard}
-          onPrint={print.openAccountCardWindow}
-          onCopy={() => print.copyAccountCardCredentials(modals.accountCard, modals.setSuccess)}
-          onClose={() => modals.setAccountCard(null)}
+          revealedPassword={modals.revealedPassword}
+          onPrint={(card, autoPrint) => print.openAccountCardWindow(card, autoPrint, modals.revealedPassword)}
+          onCopy={() => print.copyAccountCardCredentials(modals.accountCard, modals.setSuccess, modals.revealedPassword)}
+          onClose={() => {
+            modals.setAccountCard(null);
+            modals.setRevealedPassword(null);
+          }}
         />
       </>
     </ProtectedRoute>

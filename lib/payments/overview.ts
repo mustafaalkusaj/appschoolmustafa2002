@@ -1,4 +1,5 @@
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 export type PaymentsQuickFilter =
   | "all"
@@ -140,9 +141,7 @@ function normalizeSortDir(value: string | null): PaymentsSortDir {
   return value === "desc" ? "desc" : "asc";
 }
 
-function escapeSearchValue(value: string) {
-  return value.replace(/[%_,()]/g, " ").trim();
-}
+
 
 function getClassOptionName(option: { name?: string | null; grade?: string | null }) {
   if (typeof option.name === "string" && option.name.trim()) return option.name.trim();
@@ -174,10 +173,7 @@ function applyStudentFilters(query: any, filters: PaymentsListFilters) {
   }
 
   if (filters.search) {
-    const escaped = escapeSearchValue(filters.search);
-    if (escaped) {
-      nextQuery = nextQuery.or(`full_name.ilike.%${escaped}%,class_name.ilike.%${escaped}%`);
-    }
+    nextQuery = nextQuery.or(buildSafeOrFilter(["full_name", "class_name"], filters.search));
   }
 
   if (filters.sort === "remaining") {
@@ -743,10 +739,8 @@ export async function searchPaymentStudents(actorSupabase: any, schoolId: string
     .order("full_name", { ascending: true })
     .limit(Math.max(1, Math.min(limit, 20)));
 
-  const escaped = escapeSearchValue(normalizedSearch);
-  if (escaped) {
-    query = query.or(`full_name.ilike.%${escaped}%,class_name.ilike.%${escaped}%`);
-  }
+  const escaped = buildSafeOrFilter(["full_name", "class_name"], normalizedSearch);
+  query = query.or(escaped);
 
   const { data, error } = await query;
   if (error) {

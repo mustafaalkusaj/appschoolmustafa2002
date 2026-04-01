@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 type DatasetType = "students" | "payments" | "expenses" | "salaries" | "all";
 type StudentDatasetStatus = "active" | "transferred" | "suspended" | "deleted";
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`full_name.ilike.%${search}%,class_name.ilike.%${search}%`);
+      query = query.or(buildSafeOrFilter(["full_name", "class_name"], search));
     }
 
     if (className) {

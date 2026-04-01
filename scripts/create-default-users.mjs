@@ -41,25 +41,42 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const REQUIRED_SEED_VARS = [
+  "SEED_SUPER_ADMIN_PASSWORD",
+  "SEED_ADMIN_PASSWORD",
+  "SEED_EMPLOYEE_PASSWORD",
+];
+
+const missing = REQUIRED_SEED_VARS.filter((v) => !env[v]);
+if (missing.length > 0) {
+  console.error(
+    `\n❌ Missing required environment variables for seed script:\n` +
+    missing.map((v) => `   - ${v}`).join("\n") +
+    `\n\nSet them in .env.local or pass inline:\n` +
+    `   SEED_SUPER_ADMIN_PASSWORD=... SEED_ADMIN_PASSWORD=... SEED_EMPLOYEE_PASSWORD=... node scripts/create-default-users.mjs\n`
+  );
+  process.exit(1);
+}
+
 const DEFAULT_USERS = [
   {
     key: "super_admin",
     email: env.SEED_SUPER_ADMIN_EMAIL || "super.admin@schoolapp.com",
-    password: env.SEED_SUPER_ADMIN_PASSWORD || "Owner@12345",
+    password: env.SEED_SUPER_ADMIN_PASSWORD,
     full_name: "System Owner",
     role: "super_admin",
   },
   {
     key: "admin",
     email: env.SEED_ADMIN_EMAIL || "admin@schoolapp.com",
-    password: env.SEED_ADMIN_PASSWORD || "Admin@12345",
+    password: env.SEED_ADMIN_PASSWORD,
     full_name: "School Admin",
     role: "admin",
   },
   {
     key: "employee",
     email: env.SEED_EMPLOYEE_EMAIL || "employee@schoolapp.com",
-    password: env.SEED_EMPLOYEE_PASSWORD || "Employee@12345",
+    password: env.SEED_EMPLOYEE_PASSWORD,
     full_name: "School Employee",
     role: "employee",
   },

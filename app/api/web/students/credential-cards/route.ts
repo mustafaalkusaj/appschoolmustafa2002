@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (search) {
-    query = query.or(`full_name.ilike.%${search}%,class_name.ilike.%${search}%`);
+    query = query.or(buildSafeOrFilter(["full_name", "class_name"], search));
   }
 
   if (className) {
