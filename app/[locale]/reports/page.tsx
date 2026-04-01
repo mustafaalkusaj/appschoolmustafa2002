@@ -187,12 +187,18 @@ export default function ReportsPage() {
   }, [profile, schoolScope.selectedSchoolId]);
 
   const loadDataset = useCallback(
-    async (type: Exclude<DatasetType, "all">) => {
+    async <T extends Exclude<DatasetType, "all">>(type: T): Promise<
+      T extends "students" ? StudentRow[] :
+      T extends "payments" ? PaymentRow[] :
+      T extends "expenses" ? ExpenseRow[] :
+      T extends "salaries" ? SalaryRow[] :
+      never
+    > => {
       const cached = datasetCacheRef.current[type];
-      if (cached) return cached;
+      if (cached) return cached as never;
 
       const schoolId = await getScopedSchoolId();
-      if (!schoolId) return [];
+      if (!schoolId) return [] as never;
 
       setActionLoading(type);
       try {
@@ -218,7 +224,7 @@ export default function ReportsPage() {
                 : payload?.salaries ?? [];
 
         datasetCacheRef.current[type] = nextRows as never;
-        return nextRows;
+        return nextRows as never;
       } finally {
         setActionLoading((current) => (current === type ? null : current));
       }

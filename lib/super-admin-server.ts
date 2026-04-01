@@ -405,7 +405,7 @@ export async function updateSuperAdminUserProfile(
     ...response.data,
     schools: normalizeSchoolRelation(response.data.schools),
     custom_permissions: Array.isArray(response.data.custom_permissions)
-      ? (response.data.custom_permissions.filter((item): item is Permission => typeof item === "string") as Permission[])
+      ? (response.data.custom_permissions.filter((item: unknown): item is Permission => typeof item === "string") as Permission[])
       : null,
   } as SuperAdminUserRecord;
 }

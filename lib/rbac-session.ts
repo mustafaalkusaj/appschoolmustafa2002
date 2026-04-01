@@ -20,22 +20,32 @@ function getSecretKeyMaterial(): string {
   const dedicated = process.env.RBAC_COOKIE_SECRET;
   if (dedicated) return dedicated;
 
+  // In production, RBAC_COOKIE_SECRET is mandatory.
+  // Falling back to SUPABASE_JWT_SECRET in production is a security risk
+  // because a JWT secret compromise would also compromise RBAC cookie integrity.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "[rbac-session] RBAC_COOKIE_SECRET must be configured for production deployments. " +
+        "Generate a secure secret with: openssl rand -base64 48",
+    );
+  }
+
+  // Development mode: allow fallback to SUPABASE_JWT_SECRET with a warning
   const fallback = process.env.SUPABASE_JWT_SECRET;
   if (fallback) {
-    // Security warning: RBAC_COOKIE_SECRET is not configured.
-    // Falling back to SUPABASE_JWT_SECRET means a JWT secret compromise
-    // also compromises RBAC cookie integrity.
-    // Fix: set RBAC_COOKIE_SECRET to a separate value (openssl rand -base64 48).
-    if (process.env.NODE_ENV === "production") {
-      console.warn(
-        "[rbac-session] RBAC_COOKIE_SECRET is not set — falling back to " +
-          "SUPABASE_JWT_SECRET. Set a dedicated RBAC_COOKIE_SECRET in production " +
-          "to isolate signing credentials.",
-      );
-    }
+    console.warn(
+      "[rbac-session] RBAC_COOKIE_SECRET is not set — falling back to " +
+        "SUPABASE_JWT_SECRET. Set a dedicated RBAC_COOKIE_SECRET in production " +
+        "(generate with: openssl rand -base64 48).",
+    );
     return fallback;
   }
 
+  // No secret available in development - return empty string
+  console.warn(
+    "[rbac-session] No secret configured. RBAC session signing disabled. " +
+      "Set RBAC_COOKIE_SECRET or SUPABASE_JWT_SECRET for full functionality.",
+  );
   return "";
 }
 

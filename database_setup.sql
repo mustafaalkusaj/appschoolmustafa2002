@@ -30,7 +30,7 @@ ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS section TEXT;
 CREATE TABLE IF NOT EXISTS attendance_records (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  school_id UUID NULL REFERENCES schools(id) ON DELETE SET NULL,
+  school_id UUID NULL REFERENCES schools(id) ON DELETE CASCADE,
   branch_id UUID NULL REFERENCES branches(id) ON DELETE SET NULL,
   attendance_date DATE NOT NULL DEFAULT CURRENT_DATE,
   status TEXT NOT NULL CHECK (status IN ('present', 'absent', 'late', 'excused')),
@@ -408,6 +408,9 @@ CREATE INDEX IF NOT EXISTS idx_classes_school_id ON classes(school_id);
 CREATE INDEX IF NOT EXISTS idx_sections_school_id ON sections(school_id);
 CREATE INDEX IF NOT EXISTS idx_class_fees_school_id ON class_fees(school_id);
 CREATE INDEX IF NOT EXISTS idx_expense_types_school_id ON expense_types(school_id);
+CREATE INDEX IF NOT EXISTS idx_students_school_id ON students(school_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_school_id ON expenses(school_id);
+CREATE INDEX IF NOT EXISTS idx_payments_student_id ON payments(student_id);
 
 -- ----------------------------------------------------------------------------
 -- Helper functions for RLS

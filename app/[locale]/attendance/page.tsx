@@ -47,6 +47,13 @@ type AttendanceHistoryRow = {
   status: string;
 };
 
+type AttendanceStatusCounts = {
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+};
+
 type HistorySummary = {
   date: string;
   present: number;
@@ -197,14 +204,15 @@ export default function AttendancePage() {
 
     if (error) return;
 
-    const grouped: Record<string, { present: number; absent: number; late: number; excused: number }> = {};
+    const grouped: Record<string, AttendanceStatusCounts> = {};
 
     ((data || []) as AttendanceHistoryRow[]).forEach((row) => {
       if (!grouped[row.attendance_date]) {
         grouped[row.attendance_date] = { present: 0, absent: 0, late: 0, excused: 0 };
       }
       if (row.status in grouped[row.attendance_date]) {
-        grouped[row.attendance_date][row.status] += 1;
+        const statusKey = row.status as keyof AttendanceStatusCounts;
+        grouped[row.attendance_date][statusKey] += 1;
       }
     });
 

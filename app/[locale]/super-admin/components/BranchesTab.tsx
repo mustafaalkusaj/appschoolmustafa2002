@@ -17,6 +17,22 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 
+type BranchSchool = {
+  id: string;
+  name: string;
+};
+
+type BranchRecord = {
+  id: string;
+  name: string;
+  school_id: string;
+  address: string | null;
+  phone: string | null;
+  is_active: boolean;
+  schools?: { name: string | null } | null;
+  [key: string]: unknown;
+};
+
 export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const [branches, setBranches] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
@@ -75,9 +91,9 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
 
       if (branchesRes.error) throw branchesRes.error;
       if (schoolsRes.error) throw schoolsRes.error;
-      const nextSchools = schoolsRes.data || [];
-      const schoolNamesById = new Map(nextSchools.map((school) => [school.id, school.name]));
-      const nextBranches = (branchesRes.data || []).map((branch) => ({
+      const nextSchools = (schoolsRes.data || []) as BranchSchool[];
+      const schoolNamesById = new Map(nextSchools.map((school: BranchSchool) => [school.id, school.name]));
+      const nextBranches = ((branchesRes.data || []) as BranchRecord[]).map((branch: BranchRecord) => ({
         ...branch,
         schools: branch.schools ?? (branch.school_id ? { name: schoolNamesById.get(branch.school_id) ?? null } : null),
       }));

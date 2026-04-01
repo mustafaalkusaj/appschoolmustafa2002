@@ -1,0 +1,171 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import { detectAppSchemaCompat } from "@/lib/schema-compat";
+import { resolveSchoolIdForProfile } from "@/lib/school/context";
+import type { UserProfile } from "@/lib/auth";
+import { ClassFee, FeeFormData } from "../_components/types";
+
+interface UseFeeManagementProps {
+  profile: UserProfile | null;
+  selectedSchoolId: string | null;
+  classFees: ClassFee[];
+  studentCountByClass: Record<string, number>;
+  onRefetch: () => Promise<void>;
+}
+
+export function useFeeManagement({ profile, selectedSchoolId, classFees, studentCountByClass, onRefetch }: UseFeeManagementProps) {
+  const [showFeeModal, setShowFeeModal] = useState(false);
+  const [feeForm, setFeeForm] = useState<FeeFormData>({
+    class_name: "",
+    total_fee: "",
+    installments: "4",
+    notes: "",
+  });
+  const [feeLoading, setFeeLoading] = useState(false);
+  const [feeError, setFeeError] = useState("");
+  const [feeSuccess, setFeeSuccess] = useState("");
+  const [editingFee, setEditingFee] = useState<ClassFee | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const handleSaveFee = useCallback(async () => {
+    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const compat = await detectAppSchemaCompat();
+    setFeeError("");
+    setFeeSuccess("");
+    if (!feeForm.class_name.trim()) {
+      setFeeError("يرجى إدخال اسم الصف");
+      return;
+    }
+    if (!feeForm.total_fee || isNaN(Number(feeForm.total_fee)) || Number(feeForm.total_fee) <= 0) {
+      setFeeError("يرجى إدخال المبلغ الكلي بشكل صحيح");
+      return;
+    }
+    const installments = parseInt(feeForm.installments) || 1;
+    const total_fee = parseFloat(feeForm.total_fee);
+    const installment_amount = Math.round(total_fee / installments);
+
+    setFeeLoading(true);
+    if (editingFee) {
+      const { error } = await supabase.from("class_fees").update({
+        class_name: feeForm.class_name.trim(),
+        total_fee,
+        installments,
+        installment_amount,
+        notes: feeForm.notes.trim(),
+      }).eq("id", editingFee.id);
+      if (error) {
+        setFeeError("حدث خطأ أثناء التعديل: " + error.message);
+      } else {
+        setFeeSuccess("تم تعديل سعر القسط بنجاح ✓");
+      }
+    } else {
+      if (!schoolId) {
+        setFeeError("لا يمكن تحديد المدرسة الحالية");
+        setFeeLoading(false);
+        return;
+      }
+      const exists = classFees.find(cf => cf.class_name.trim() === feeForm.class_name.trim());
+      if (exists) {
+        setFeeError("هذا الصف موجود مسبقاً، يمكنك تعديله");
+        setFeeLoading(false);
+        return;
+      }
+      const { error } = await supabase.from("class_fees").insert({
+        ...(compat.classFeesSchoolScope ? { school_id: schoolId } : {}),
+        class_name: feeForm.class_name.trim(),
+        total_fee,
+        installments,
+        installment_amount,
+        notes: feeForm.notes.trim(),
+      });
+      if (error) {
+        setFeeError("حدث خطأ أثناء الحفظ: " + error.message);
+      } else {
+        setFeeSuccess("تم حفظ سعر القسط بنجاح ✓");
+      }
+    }
+    setFeeLoading(false);
+    if (!feeError) {
+      await onRefetch();
+      setTimeout(() => {
+        setFeeSuccess("");
+        setShowFeeModal(false);
+        setEditingFee(null);
+        setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
+      }, 1200);
+    }
+  }, [profile, selectedSchoolId, feeForm, editingFee, classFees, feeError, onRefetch]);
+
+  const handleDeleteFee = useCallback(async (id: string) => {
+    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const compat = await detectAppSchemaCompat();
+    let query = supabase.from("class_fees").delete().eq("id", id);
+    if (schoolId && compat.classFeesSchoolScope) {
+      query = query.eq("school_id", schoolId);
+    }
+    await query;
+    setDeleteConfirm(null);
+    await onRefetch();
+  }, [profile, selectedSchoolId, onRefetch]);
+
+  const openEditFee = useCallback((cf: ClassFee) => {
+    setEditingFee(cf);
+    setFeeForm({
+      class_name: cf.class_name,
+      total_fee: String(cf.total_fee),
+      installments: String(cf.installments),
+      notes: cf.notes || "",
+    });
+    setFeeError("");
+    setFeeSuccess("");
+    setShowFeeModal(true);
+  }, []);
+
+  const openNewFee = useCallback(() => {
+    setEditingFee(null);
+    setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
+    setFeeError("");
+    setFeeSuccess("");
+    setShowFeeModal(true);
+  }, []);
+
+  const closeFeeModal = useCallback(() => {
+    setShowFeeModal(false);
+    setEditingFee(null);
+    setFeeError("");
+    setFeeSuccess("");
+  }, []);
+
+  const getClassStats = useCallback((cf: ClassFee) => {
+    return (
+      cf.stats ?? {
+        count: studentCountByClass[cf.class_name] ?? 0,
+        totalExpected: 0,
+        totalPaid: 0,
+        totalRemaining: 0,
+        paidPct: 0,
+      }
+    );
+  }, [studentCountByClass]);
+
+  return {
+    showFeeModal,
+    setShowFeeModal,
+    feeForm,
+    setFeeForm,
+    feeLoading,
+    feeError,
+    feeSuccess,
+    editingFee,
+    deleteConfirm,
+    setDeleteConfirm,
+    handleSaveFee,
+    handleDeleteFee,
+    openEditFee,
+    openNewFee,
+    closeFeeModal,
+    getClassStats,
+  };
+}

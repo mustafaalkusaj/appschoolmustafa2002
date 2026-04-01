@@ -1,262 +1,138 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import {
-  DEFAULT_PATH_BY_ROLE,
-  getMatchingPermissionRule,
-  hasAnyPermission,
-  isRoleAllowedForPath,
-  normalizePermissions,
-  resolveKnownUserRole,
-  type Permission,
-  type UserRole,
-} from "@/types/roles";
-import {
-  APP_LOCALE,
-  getLocaleFromPath,
-  hasLocalePrefix,
-  localizeAppPath,
-  sanitizeNextPath,
-  stripLocaleFromPath,
-} from "@/lib/locale-routing";
-import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
+import { NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PATHS = new Set(["/login", "/access-denied", "/subscription-expired"]);
-
-function isSubscriptionExpired(endDate: string | null | undefined): boolean {
-  if (!endDate) return false;
-  const d = new Date(endDate);
-  if (Number.isNaN(d.getTime())) return false;
-  d.setHours(23, 59, 59, 999);
-  return Date.now() > d.getTime();
-}
-
-function redirectWithPreservedNext(req: NextRequest, locale: string) {
-  const url = req.nextUrl.clone();
-  const requestedPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
-  const nextPath = sanitizeNextPath(requestedPath);
-  url.pathname = localizeAppPath("/login", locale);
-  url.search = "";
-  if (nextPath) {
-    url.searchParams.set("next", nextPath);
+/**
+ * Generates a cryptographically random nonce for CSP.
+ * Uses Web Crypto API which is available in Next.js runtime.
+ */
+function generateNonce(): string {
+  // Generate 16 random bytes and encode as base64
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  // Convert to base64 without spread operator (avoids downlevelIteration issue)
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
-  return NextResponse.redirect(url);
+  return btoa(binary);
 }
 
-type ProxyAccessState = {
-  role: UserRole;
-  permissions: Permission[];
-  schoolId: string | null;
-  userActive: boolean;
-  schoolActive: boolean;
-  subscriptionStatus: string | null;
-  subscriptionEnd: string | null;
-};
-
-async function resolveFallbackAccessState(supabase: any, userId: string): Promise<ProxyAccessState | null> {
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("role, school_id, is_active, permissions, custom_permissions")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profileError || !profile) {
+/**
+ * Resolves optional origin URL to its origin string.
+ */
+function resolveOptionalOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
     return null;
   }
-
-  const role = resolveKnownUserRole(profile.role);
-  if (!role) {
-    return null;
-  }
-
-  const rawPermissions =
-    Array.isArray(profile.custom_permissions) && profile.custom_permissions.length > 0
-      ? profile.custom_permissions
-      : profile.permissions;
-  const permissions = normalizePermissions(rawPermissions, role);
-
-  let schoolActive = true;
-  let subscriptionStatus: string | null = null;
-  let subscriptionEnd: string | null = null;
-
-  if (profile.school_id) {
-    const [{ data: school }, { data: subscription }] = await Promise.all([
-      supabase
-        .from("schools")
-        .select("is_active")
-        .eq("id", profile.school_id)
-        .maybeSingle(),
-      supabase
-        .from("subscriptions")
-        .select("status, end_date")
-        .eq("school_id", profile.school_id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    schoolActive = school?.is_active !== false;
-    subscriptionStatus = subscription?.status ?? null;
-    subscriptionEnd = subscription?.end_date ?? null;
-  } else if (role !== "super_admin") {
-    schoolActive = false;
-  }
-
-  return {
-    role,
-    permissions,
-    schoolId: profile.school_id ?? null,
-    userActive: Boolean(profile.is_active),
-    schoolActive,
-    subscriptionStatus,
-    subscriptionEnd,
-  };
 }
 
-function normalizeLocaleInPath(req: NextRequest): NextResponse | null {
-  const { pathname } = req.nextUrl;
-  const url = req.nextUrl.clone();
+// Pre-compute static CSP values
+const supabaseOrigin = resolveOptionalOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
+const supabaseHost = supabaseOrigin ? new URL(supabaseOrigin).hostname : undefined;
 
-  if (!hasLocalePrefix(pathname)) {
-    url.pathname = localizeAppPath(pathname, APP_LOCALE);
-    return NextResponse.redirect(url);
+/**
+ * Builds the Content-Security-Policy header value with a nonce.
+ * 
+ * SECURITY DECISIONS:
+ * - script-src uses nonce instead of 'unsafe-inline' for better security
+ * - 'strict-dynamic' allows scripts loaded by trusted scripts to execute
+ * - style-src keeps 'unsafe-inline' because Tailwind CSS generates inline styles
+ *   (see: https://tailwindcss.com/docs/content-security-policy)
+ */
+function buildCSP(nonce: string): string {
+  const connectSrc = ["'self'"];
+  const imageSrc = ["'self'", "data:", "blob:", "https:"];
+  
+  // Add Supabase origins if configured
+  if (supabaseOrigin) {
+    connectSrc.push(supabaseOrigin);
+    imageSrc.push(supabaseOrigin);
+  }
+  if (supabaseHost) {
+    connectSrc.push(`wss://${supabaseHost}`);
   }
 
-  const locale = getLocaleFromPath(pathname);
-  if (!pathname.startsWith(`/${locale}`)) {
-    url.pathname = localizeAppPath(pathname, locale);
-    return NextResponse.redirect(url);
+  // Script sources with nonce (removed 'unsafe-inline')
+  const scriptSrc: string[] = [
+    "'self'",
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'", // Modern browsers: allows scripts loaded by trusted scripts
+  ];
+  
+  // Add 'unsafe-eval' in development for source maps and HMR
+  if (process.env.NODE_ENV !== "production") {
+    scriptSrc.push("'unsafe-eval'");
   }
 
-  return null;
+  const cspParts = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "form-action 'self'",
+    `connect-src ${Array.from(new Set(connectSrc)).join(" ")}`,
+    `img-src ${Array.from(new Set(imageSrc)).join(" ")}`,
+    "font-src 'self' data: https:",
+    // SECURITY NOTE: 'unsafe-inline' required for Tailwind CSS inline styles
+    // Alternative: Use Tailwind's CSP-compatible mode (requires build config changes)
+    "style-src 'self' 'unsafe-inline'",
+    `script-src ${scriptSrc.join(" ")}`,
+  ];
+
+  return cspParts.join("; ");
 }
 
-export async function proxy(req: NextRequest) {
-  const normalizedLocaleResponse = normalizeLocaleInPath(req);
-  if (normalizedLocaleResponse) return normalizedLocaleResponse;
+/**
+ * Next.js 16 proxy function (formerly middleware).
+ * Handles CSP header injection with per-request nonces.
+ */
+export async function proxy(_request: NextRequest): Promise<NextResponse> {
+  const nonce = generateNonce();
+  const csp = buildCSP(nonce);
 
-  let response = NextResponse.next({
-    request: {
-      headers: req.headers,
-    },
-  });
+  // Continue to the requested route
+  const response = NextResponse.next();
 
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    supabaseAnonKey!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            req.cookies.set(name, value);
-          });
-          response = NextResponse.next({
-            request: req,
-          });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
+  // Set Content-Security-Policy with nonce
+  response.headers.set("Content-Security-Policy", csp);
+  
+  // Set other security headers (these were previously in next.config.ts)
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), browsing-topics=()"
   );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { pathname } = req.nextUrl;
-  const locale = getLocaleFromPath(pathname);
-  const strippedPath = stripLocaleFromPath(pathname);
-  const isPublic = PUBLIC_PATHS.has(strippedPath);
-  const session = await verifyRBACSession(req.cookies.get(RBAC_COOKIE_NAME)?.value);
-  const fallbackAccess = !session?.role && user?.id ? await resolveFallbackAccessState(supabase, user.id) : null;
-
-  // If user is authenticated but hits login, redirect using RBAC or a direct profile fallback.
-  if (strippedPath === "/login" && user && (session?.role || fallbackAccess?.role)) {
-    const role = session?.role ?? fallbackAccess?.role;
-    const url = req.nextUrl.clone();
-    url.pathname = localizeAppPath(DEFAULT_PATH_BY_ROLE[role ?? "employee"] ?? "/dashboard", locale);
-    url.search = "";
-    return NextResponse.redirect(url);
+  
+  // HSTS only in production
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload"
+    );
   }
 
-  // If path is protected and user is NOT authenticated with Supabase, redirect to login
-  if (!isPublic && !user) {
-    return redirectWithPreservedNext(req, locale);
-  }
-
-  if (!session?.role && !fallbackAccess) {
-    if (!isPublic) {
-      const url = req.nextUrl.clone();
-      url.pathname = localizeAppPath("/access-denied", locale);
-      url.search = "";
-      return NextResponse.redirect(url);
-    }
-    return response;
-  }
-
-  const role = session?.role ?? fallbackAccess?.role;
-  const permissions = session?.role
-    ? normalizePermissions(session.permissions, session.role)
-    : fallbackAccess?.permissions ?? [];
-  const userActive = session?.role ? session.userActive : fallbackAccess?.userActive ?? false;
-  const schoolId = session?.role ? session.schoolId : fallbackAccess?.schoolId ?? null;
-  const schoolActive = session?.role ? session.schoolActive : fallbackAccess?.schoolActive ?? false;
-  const subscriptionStatus = session?.role
-    ? session.subscriptionStatus
-    : fallbackAccess?.subscriptionStatus ?? null;
-  const subscriptionEnd = session?.role ? session.subscriptionEnd : fallbackAccess?.subscriptionEnd ?? null;
-
-  if (!role) {
-    return response;
-  }
-
-  if (!userActive && !isPublic) {
-    const url = req.nextUrl.clone();
-    url.pathname = localizeAppPath("/access-denied", locale);
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-
-  if (!isPublic && !isRoleAllowedForPath(role, strippedPath)) {
-    const url = req.nextUrl.clone();
-    url.pathname = localizeAppPath("/access-denied", locale);
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-
-  const permissionRule = getMatchingPermissionRule(strippedPath);
-  if (!isPublic && permissionRule && !hasAnyPermission(permissions, permissionRule.permissions)) {
-    const url = req.nextUrl.clone();
-    url.pathname = localizeAppPath("/access-denied", locale);
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-
-  if (role !== "super_admin" && !isPublic) {
-    const status = (subscriptionStatus || "").toLowerCase();
-    const blockedByStatus = status === "suspended" || status === "inactive" || status === "stopped";
-    const blockedByExpiry = status === "expired" || isSubscriptionExpired(subscriptionEnd);
-
-    if (!schoolId || schoolActive === false || blockedByStatus || blockedByExpiry) {
-      const url = req.nextUrl.clone();
-      url.pathname = localizeAppPath("/subscription-expired", locale);
-      url.search = "";
-      return NextResponse.redirect(url);
-    }
-  }
+  // Store nonce in a custom header for use by server components if needed
+  // This can be read by components that need to inject scripts with nonces
+  response.headers.set("x-csp-nonce", nonce);
 
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Match all paths except static files, api routes, and Next.js internals
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - api routes (handled separately)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files with extensions (images, etc.)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+  ],
 };

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect } from "react";
 
 /**
@@ -53,12 +55,12 @@ export default function LocaleError({
         >
           حاول مجدداً
         </button>
-        <a
-          href="/ar/dashboard"
+        <Link
+          href={`/${(useParams() as { locale?: string }).locale ?? "ar"}/dashboard`}
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
         >
           الصفحة الرئيسية
-        </a>
+        </Link>
       </div>
     </div>
   );

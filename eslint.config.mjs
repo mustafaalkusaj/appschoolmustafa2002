@@ -25,12 +25,13 @@ const eslintConfig = defineConfig([
   ]),
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
       "react-hooks/immutability": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "off",
       "react/no-unescaped-entities": "off",
-      "prefer-const": "off",
+      "prefer-const": "warn",
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
     },
   },
 ]);
