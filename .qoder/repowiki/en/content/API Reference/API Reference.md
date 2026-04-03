@@ -21,10 +21,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated security configuration section to reflect streamlined Next.js build configuration
-- Added new section documenting dynamic security headers and CSP implementation
-- Updated API endpoint organization documentation to reflect current routing structure
-- Enhanced proxy middleware documentation explaining CSP nonce generation
+- Updated to reflect current REST API architecture with experimental GraphQL API implementation and temporary logging enhancements removed
+- Removed references to GraphQL endpoints and logging middleware from documentation
+- Streamlined security configuration to focus on current REST API security measures
+- Updated API endpoint organization to reflect current Next.js App Router structure
+- Enhanced proxy middleware documentation to emphasize CSP implementation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,10 +41,10 @@
 11. [Appendices](#appendices)
 
 ## Introduction
-This document provides a comprehensive API reference for the school management system's RESTful endpoints. It covers authentication, user management, student records, financial operations, and administrative functions. It also documents the Next.js App Router routing model, request parameter validation, response formatting, rate limiting, RBAC session management, and security considerations.
+This document provides a comprehensive API reference for the school management system's RESTful endpoints. It covers authentication, user management, student records, financial operations, and administrative functions. The API follows a clean REST architecture implemented using Next.js App Router, with robust security measures including RBAC session management, rate limiting, and dynamic CSP headers.
 
 ## Project Structure
-The API surface is implemented using Next.js App Router under the app/api directory. Each route file exports HTTP handlers (GET, POST, PATCH, DELETE) and is organized by functional domain (web, mobile, dashboard, super-admin). Shared utilities handle authentication, rate limiting, and Supabase integration.
+The API surface is implemented using Next.js App Router under the app/api directory. Each route file exports HTTP handlers (GET, POST, PATCH, DELETE) and is organized by functional domain (web, mobile, dashboard, super-admin). The architecture emphasizes clean separation of concerns with shared utilities handling authentication, rate limiting, and Supabase integration.
 
 ```mermaid
 graph TB
@@ -120,17 +121,17 @@ PROXY --> NEXT_CONFIG
 
 ## Security Configuration
 
-**Updated** The security configuration has been streamlined with a focus on dynamic security headers and CSP implementation through proxy middleware.
+**Updated** The security configuration has been streamlined to focus on the current REST API architecture with emphasis on dynamic security headers and CSP implementation.
 
 ### Next.js Build Configuration
-The Next.js configuration now focuses on static asset optimization and minimal security headers for static resources only:
+The Next.js configuration focuses on static asset optimization and minimal security headers for static resources only:
 
 - **Static Asset Security**: Basic security headers applied only to static assets via `next.config.ts`
 - **Dynamic Security Headers**: Advanced CSP with per-request nonces moved to proxy middleware
 - **Output Tracing**: Optimized for deployment efficiency with `outputFileTracingRoot`
 
 ### Proxy Middleware Security Implementation
-The proxy middleware (`proxy.ts`) now handles comprehensive security headers dynamically:
+The proxy middleware (`proxy.ts`) handles comprehensive security headers dynamically:
 
 - **Content Security Policy (CSP)**: Generated with unique nonces for each request
 - **Dynamic Origins**: Automatically resolves Supabase origins for secure connections

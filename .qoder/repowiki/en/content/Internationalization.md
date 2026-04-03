@@ -10,11 +10,19 @@
 - [app/[locale]/layout.tsx](file://app/[locale]/layout.tsx)
 - [app/[locale]/error.tsx](file://app/[locale]/error.tsx)
 - [components/LanguageToggle.tsx](file://components/LanguageToggle.tsx)
-- [components/LegacyLocaleBridge.tsx](file://components/LegacyLocaleBridge.tsx)
+- [components/LocaleHtmlAttributes.tsx](file://components/LocaleHtmlAttributes.tsx)
 - [lib/locale-routing.ts](file://lib/locale-routing.ts)
 - [lib/legacy-locale.ts](file://lib/legacy-locale.ts)
 - [lib/formatting.ts](file://lib/formatting.ts)
+- [app/[locale]/providers.tsx](file://app/[locale]/providers.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Replaced LegacyLocaleBridge component with new LocaleHtmlAttributes component
+- Updated global layout files to properly handle Arabic language support with right-to-left text direction
+- Enhanced locale-aware metadata handling through dynamic HTML attribute management
+- Maintained backward compatibility while improving RTL/LTR directionality handling
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,7 +45,7 @@ The i18n implementation spans server-side configuration, client-side providers, 
 - Client-side providers and layouts integrate Next Intl and manage RTL/LTR directionality.
 - Routing utilities normalize and manipulate locale prefixes in URLs.
 - Message catalogs provide translations for navigation, common actions, authentication, access gates, and health checks.
-- UI components implement language toggling and legacy text bridging for backward compatibility.
+- UI components implement language toggling and modern locale-aware HTML attribute management.
 
 ```mermaid
 graph TB
@@ -50,7 +58,7 @@ Layout["app/[locale]/layout.tsx"]
 RootLayout["app/layout.tsx"]
 Intl["NextIntlClientProvider"]
 Toggle["LanguageToggle.tsx"]
-Bridge["LegacyLocaleBridge.tsx"]
+HtmlAttrs["LocaleHtmlAttributes.tsx"]
 end
 subgraph "Routing"
 LR["lib/locale-routing.ts"]
@@ -63,19 +71,18 @@ Cfg --> I18N
 I18N --> EN
 I18N --> AR
 Layout --> Intl
+Layout --> HtmlAttrs
 RootLayout --> Layout
 Toggle --> LR
-Bridge --> LR
-Bridge --> LL["lib/legacy-locale.ts"]
 ```
 
 **Diagram sources**
 - [i18n.ts:1-18](file://i18n.ts#L1-L18)
 - [next.config.ts:47-49](file://next.config.ts#L47-L49)
-- [app/[locale]/layout.tsx:12-34](file://app/[locale]/layout.tsx#L12-L34)
+- [app/[locale]/layout.tsx:12-43](file://app/[locale]/layout.tsx#L12-L43)
 - [app/layout.tsx:14-31](file://app/layout.tsx#L14-L31)
 - [components/LanguageToggle.tsx:12-47](file://components/LanguageToggle.tsx#L12-L47)
-- [components/LegacyLocaleBridge.tsx:48-82](file://components/LegacyLocaleBridge.tsx#L48-L82)
+- [components/LocaleHtmlAttributes.tsx:6-16](file://components/LocaleHtmlAttributes.tsx#L6-L16)
 - [lib/locale-routing.ts:1-50](file://lib/locale-routing.ts#L1-L50)
 - [messages/en.json:1-2](file://messages/en.json#L1-L2)
 - [messages/ar.json:1-2](file://messages/ar.json#L1-L2)
@@ -83,7 +90,7 @@ Bridge --> LL["lib/legacy-locale.ts"]
 **Section sources**
 - [i18n.ts:1-18](file://i18n.ts#L1-L18)
 - [next.config.ts:47-49](file://next.config.ts#L47-L49)
-- [app/[locale]/layout.tsx:12-34](file://app/[locale]/layout.tsx#L12-L34)
+- [app/[locale]/layout.tsx:12-43](file://app/[locale]/layout.tsx#L12-L43)
 - [app/layout.tsx:14-31](file://app/layout.tsx#L14-L31)
 - [lib/locale-routing.ts:1-50](file://lib/locale-routing.ts#L1-L50)
 - [messages/en.json:1-2](file://messages/en.json#L1-L2)
@@ -95,23 +102,23 @@ Bridge --> LL["lib/legacy-locale.ts"]
 - Locale routing utilities: Normalize, detect, strip, and prepend locale prefixes.
 - Message catalogs: JSON files keyed by categories and keys for each locale.
 - Language toggle: Switches between Arabic and English and preserves query/hash.
-- Legacy locale bridge: Applies English-to-Arabic translations and sets RTL directionality.
+- Locale HTML attributes: Dynamically manages HTML lang and dir attributes based on current locale.
 
 **Section sources**
 - [i18n.ts:1-18](file://i18n.ts#L1-L18)
-- [app/[locale]/layout.tsx:16-33](file://app/[locale]/layout.tsx#L16-L33)
+- [app/[locale]/layout.tsx:16-43](file://app/[locale]/layout.tsx#L16-L43)
 - [lib/locale-routing.ts:1-50](file://lib/locale-routing.ts#L1-L50)
 - [messages/en.json:1-2](file://messages/en.json#L1-L2)
 - [messages/ar.json:1-2](file://messages/ar.json#L1-L2)
 - [components/LanguageToggle.tsx:12-47](file://components/LanguageToggle.tsx#L12-L47)
-- [components/LegacyLocaleBridge.tsx:48-82](file://components/LegacyLocaleBridge.tsx#L48-L82)
+- [components/LocaleHtmlAttributes.tsx:6-16](file://components/LocaleHtmlAttributes.tsx#L6-L16)
 
 ## Architecture Overview
 The i18n pipeline integrates server and client layers:
 - Server: Validates and resolves locale, imports messages, and forwards them to the client.
 - Client: Initializes Next Intl with messages, applies HTML lang/dir, and renders localized content.
 - Routing: Ensures URLs carry a locale prefix and supports switching without losing query/hash.
-- Bridging: Translates legacy English text into Arabic and sets RTL directionality when applicable.
+- HTML Attributes: Dynamically manages HTML lang and dir attributes for proper RTL/LTR handling.
 
 ```mermaid
 sequenceDiagram
@@ -121,6 +128,7 @@ participant Server as "getRequestConfig (i18n.ts)"
 participant Messages as "messages/*.json"
 participant ClientLayout as "app/[locale]/layout.tsx"
 participant Intl as "NextIntlClientProvider"
+participant HtmlAttrs as "LocaleHtmlAttributes.tsx"
 Browser->>NextCfg : "Build-time plugin registration"
 Browser->>Server : "HTTP request with Accept-Language"
 Server->>Server : "Normalize locale"
@@ -128,6 +136,8 @@ Server->>Messages : "Import locale messages"
 Messages-->>Server : "Translation dictionary"
 Server-->>ClientLayout : "Locale + messages"
 ClientLayout->>Intl : "Provide locale + messages"
+ClientLayout->>HtmlAttrs : "Set HTML lang/dir"
+HtmlAttrs-->>Browser : "Dynamic locale metadata"
 Intl-->>Browser : "Localized UI rendered"
 ```
 
@@ -136,7 +146,8 @@ Intl-->>Browser : "Localized UI rendered"
 - [i18n.ts:6-17](file://i18n.ts#L6-L17)
 - [messages/en.json:1-2](file://messages/en.json#L1-L2)
 - [messages/ar.json:1-2](file://messages/ar.json#L1-L2)
-- [app/[locale]/layout.tsx:24-33](file://app/[locale]/layout.tsx#L24-L33)
+- [app/[locale]/layout.tsx:24-43](file://app/[locale]/layout.tsx#L24-L43)
+- [components/LocaleHtmlAttributes.tsx:10-13](file://components/LocaleHtmlAttributes.tsx#L10-L13)
 
 ## Detailed Component Analysis
 
@@ -174,20 +185,43 @@ sequenceDiagram
 participant Root as "app/layout.tsx"
 participant Locale as "app/[locale]/layout.tsx"
 participant Intl as "NextIntlClientProvider"
+participant HtmlAttrs as "LocaleHtmlAttributes.tsx"
 Root->>Locale : "Render with locale param"
 Locale->>Locale : "normalizeLocale()"
 Locale->>Locale : "load messages/<locale>.json"
 Locale->>Intl : "Provide { locale, messages }"
-Intl-->>Locale : "Localized tree"
+Intl->>HtmlAttrs : "Set HTML lang/dir"
+HtmlAttrs-->>Locale : "Dynamic attributes applied"
 ```
 
 **Diagram sources**
 - [app/layout.tsx:14-31](file://app/layout.tsx#L14-L31)
-- [app/[locale]/layout.tsx:12-34](file://app/[locale]/layout.tsx#L12-L34)
+- [app/[locale]/layout.tsx:12-43](file://app/[locale]/layout.tsx#L12-L43)
+- [components/LocaleHtmlAttributes.tsx:10-13](file://components/LocaleHtmlAttributes.tsx#L10-L13)
 
 **Section sources**
 - [app/layout.tsx:14-31](file://app/layout.tsx#L14-L31)
-- [app/[locale]/layout.tsx:12-34](file://app/[locale]/layout.tsx#L12-L34)
+- [app/[locale]/layout.tsx:12-43](file://app/[locale]/layout.tsx#L12-L43)
+
+### Locale HTML Attributes Component
+- **Updated** The new LocaleHtmlAttributes component dynamically manages HTML lang and dir attributes.
+- Extracts locale from Next.js route parameters.
+- Uses useEffect to update document.documentElement attributes when locale changes.
+- Provides clean separation between locale routing logic and HTML attribute management.
+
+```mermaid
+flowchart TD
+Init["Mount LocaleHtmlAttributes"] --> GetParams["Get locale from useParams()"]
+GetParams --> SetAttrs["Set document.documentElement.lang/dir"]
+SetAttrs --> Effect["useEffect cleanup"]
+Effect --> Update["Update on locale changes"]
+```
+
+**Diagram sources**
+- [components/LocaleHtmlAttributes.tsx:6-16](file://components/LocaleHtmlAttributes.tsx#L6-L16)
+
+**Section sources**
+- [components/LocaleHtmlAttributes.tsx:6-16](file://components/LocaleHtmlAttributes.tsx#L6-L16)
 
 ### Locale Routing Utilities
 - Normalize and detect locale from URL segments.
@@ -224,12 +258,12 @@ Layout --> Intl["NextIntlClientProvider"]
 **Diagram sources**
 - [messages/en.json:1-2](file://messages/en.json#L1-L2)
 - [messages/ar.json:1-2](file://messages/ar.json#L1-L2)
-- [app/[locale]/layout.tsx:24-25](file://app/[locale]/layout.tsx#L24-L25)
+- [app/[locale]/layout.tsx:32-32](file://app/[locale]/layout.tsx#L32-L32)
 
 **Section sources**
 - [messages/en.json:1-2](file://messages/en.json#L1-L2)
 - [messages/ar.json:1-2](file://messages/ar.json#L1-L2)
-- [app/[locale]/layout.tsx:24-25](file://app/[locale]/layout.tsx#L24-L25)
+- [app/[locale]/layout.tsx:32-32](file://app/[locale]/layout.tsx#L32-L32)
 
 ### Language Toggle Component
 - Determines the current locale from the URL and computes the next locale.
@@ -258,28 +292,6 @@ Router-->>User : "URL updated (same page)"
 - [components/LanguageToggle.tsx:12-47](file://components/LanguageToggle.tsx#L12-L47)
 - [lib/locale-routing.ts:18-43](file://lib/locale-routing.ts#L18-L43)
 
-### Legacy Locale Bridge
-- Observes DOM mutations and translates English text into Arabic for backward compatibility.
-- Sets HTML lang and dir attributes based on the detected locale.
-- Skips script/style/noscript nodes and specific attributes to avoid breaking functionality.
-
-```mermaid
-flowchart TD
-Init["Mount LegacyLocaleBridge"] --> Detect["Detect locale from pathname"]
-Detect --> Apply["Set html lang/dir"]
-Apply --> Observe["Setup MutationObserver"]
-Observe --> Mutate["On mutations: translate text and attributes"]
-Mutate --> Done["Continue observing"]
-```
-
-**Diagram sources**
-- [components/LegacyLocaleBridge.tsx:48-82](file://components/LegacyLocaleBridge.tsx#L48-L82)
-- [lib/legacy-locale.ts:182-205](file://lib/legacy-locale.ts#L182-L205)
-
-**Section sources**
-- [components/LegacyLocaleBridge.tsx:12-82](file://components/LegacyLocaleBridge.tsx#L12-L82)
-- [lib/legacy-locale.ts:182-205](file://lib/legacy-locale.ts#L182-L205)
-
 ### Locale Detection and Fallback Mechanisms
 - Server-side normalization defaults to Arabic if no locale is provided.
 - Unsupported locales trigger a 404.
@@ -307,23 +319,25 @@ Keep --> End
 ### RTL Layout Handling and Bidirectional Text Rendering
 - The root layout sets default HTML attributes for the app shell.
 - The locale layout applies lang/dir per locale.
-- The legacy bridge sets RTL directionality for Arabic and ensures English text is translated where applicable.
+- The new LocaleHtmlAttributes component provides dynamic HTML attribute management for proper RTL/LTR handling.
+
+**Updated** Enhanced RTL handling through dedicated component that manages HTML lang and dir attributes dynamically based on current locale.
 
 ```mermaid
 graph TB
 Root["app/layout.tsx<br/>lang='ar', dir='rtl'"] --> Locale["app/[locale]/layout.tsx<br/>lang=locale, dir=locale==='ar'?'rtl':'ltr'"]
-Locale --> Bridge["LegacyLocaleBridge.tsx<br/>set html dir"]
+Locale --> HtmlAttrs["LocaleHtmlAttributes.tsx<br/>dynamic lang/dir"]
 ```
 
 **Diagram sources**
-- [app/layout.tsx:21-21](file://app/layout.tsx#L21-L21)
-- [app/[locale]/layout.tsx:29-29](file://app/[locale]/layout.tsx#L29-L29)
-- [components/LegacyLocaleBridge.tsx:52-54](file://components/LegacyLocaleBridge.tsx#L52-L54)
+- [app/layout.tsx:20-20](file://app/layout.tsx#L20-L20)
+- [app/[locale]/layout.tsx:37-37](file://app/[locale]/layout.tsx#L37-L37)
+- [components/LocaleHtmlAttributes.tsx:10-13](file://components/LocaleHtmlAttributes.tsx#L10-L13)
 
 **Section sources**
-- [app/layout.tsx:21-21](file://app/layout.tsx#L21-L21)
-- [app/[locale]/layout.tsx:29-29](file://app/[locale]/layout.tsx#L29-L29)
-- [components/LegacyLocaleBridge.tsx:52-54](file://components/LegacyLocaleBridge.tsx#L52-L54)
+- [app/layout.tsx:20-20](file://app/layout.tsx#L20-L20)
+- [app/[locale]/layout.tsx:37-37](file://app/[locale]/layout.tsx#L37-L37)
+- [components/LocaleHtmlAttributes.tsx:10-13](file://components/LocaleHtmlAttributes.tsx#L10-L13)
 
 ### Locale-Specific Formatting for Dates and Numbers
 - Number formatting uses a fixed locale for consistency.
@@ -347,7 +361,7 @@ InDate["Date input"] --> DateFmt["formatDate(d) -> toLocaleDateString('en-US')"]
 - The language toggle integrates with routing utilities to maintain query/hash during transitions.
 
 **Section sources**
-- [app/[locale]/layout.tsx:24-33](file://app/[locale]/layout.tsx#L24-L33)
+- [app/[locale]/layout.tsx:35-43](file://app/[locale]/layout.tsx#L35-L43)
 - [app/[locale]/error.tsx:12-48](file://app/[locale]/error.tsx#L12-L48)
 - [components/LanguageToggle.tsx:19-47](file://components/LanguageToggle.tsx#L19-L47)
 
@@ -356,7 +370,7 @@ The i18n system exhibits clear separation of concerns:
 - Server configuration depends on message catalogs and enforces supported locales.
 - Client layouts depend on routing utilities and Next Intl.
 - UI components depend on routing utilities for navigation and on the provider for translations.
-- Legacy bridge depends on routing utilities and a translation map.
+- **Updated** LocaleHtmlAttributes component depends on routing utilities and Next.js params for dynamic attribute management.
 
 ```mermaid
 graph LR
@@ -364,48 +378,46 @@ I18N["i18n.ts"] --> EN["messages/en.json"]
 I18N --> AR["messages/ar.json"]
 Layout["app/[locale]/layout.tsx"] --> I18N
 Layout --> LR["lib/locale-routing.ts"]
+Layout --> HtmlAttrs["components/LocaleHtmlAttributes.tsx"]
 Toggle["LanguageToggle.tsx"] --> LR
-Bridge["LegacyLocaleBridge.tsx"] --> LR
-Bridge --> LL["lib/legacy-locale.ts"]
+HtmlAttrs --> LR
 ```
 
 **Diagram sources**
 - [i18n.ts:6-17](file://i18n.ts#L6-L17)
 - [messages/en.json:1-2](file://messages/en.json#L1-L2)
 - [messages/ar.json:1-2](file://messages/ar.json#L1-L2)
-- [app/[locale]/layout.tsx:24-33](file://app/[locale]/layout.tsx#L24-L33)
+- [app/[locale]/layout.tsx:35-43](file://app/[locale]/layout.tsx#L35-L43)
 - [lib/locale-routing.ts:18-43](file://lib/locale-routing.ts#L18-L43)
 - [components/LanguageToggle.tsx:19-26](file://components/LanguageToggle.tsx#L19-L26)
-- [components/LegacyLocaleBridge.tsx:49-50](file://components/LegacyLocaleBridge.tsx#L49-L50)
-- [lib/legacy-locale.ts:182-205](file://lib/legacy-locale.ts#L182-L205)
+- [components/LocaleHtmlAttributes.tsx:7-8](file://components/LocaleHtmlAttributes.tsx#L7-L8)
 
 **Section sources**
 - [i18n.ts:6-17](file://i18n.ts#L6-L17)
-- [app/[locale]/layout.tsx:24-33](file://app/[locale]/layout.tsx#L24-L33)
+- [app/[locale]/layout.tsx:35-43](file://app/[locale]/layout.tsx#L35-L43)
 - [lib/locale-routing.ts:18-43](file://lib/locale-routing.ts#L18-L43)
 - [components/LanguageToggle.tsx:19-26](file://components/LanguageToggle.tsx#L19-L26)
-- [components/LegacyLocaleBridge.tsx:49-50](file://components/LegacyLocaleBridge.tsx#L49-L50)
-- [lib/legacy-locale.ts:182-205](file://lib/legacy-locale.ts#L182-L205)
+- [components/LocaleHtmlAttributes.tsx:7-8](file://components/LocaleHtmlAttributes.tsx#L7-L8)
 
 ## Performance Considerations
 - Dynamic imports of message catalogs occur per request; caching and static generation reduce overhead.
-- MutationObserver in the legacy bridge runs continuously; limit observed subtrees and skip unnecessary nodes.
+- **Updated** LocaleHtmlAttributes component uses efficient useEffect cleanup and only updates when locale changes.
 - Prefer predefining translation keys to minimize runtime lookups and improve cache hits.
 
 ## Troubleshooting Guide
 - Unsupported locale: The server triggers a 404 for unknown locales; ensure the locale is one of the supported values.
 - Incorrect directionality: Verify that HTML lang/dir are set correctly in both root and locale layouts.
 - Missing translations: Confirm that the message catalog contains the required keys for the active locale.
-- Legacy text not translated: Ensure the legacy bridge is mounted and that the locale is English; check skipped tags and attributes.
+- **Updated** HTML attributes not updating: Ensure LocaleHtmlAttributes component is properly mounted and receiving correct locale from route params.
 
 **Section sources**
 - [i18n.ts:9-11](file://i18n.ts#L9-L11)
-- [app/layout.tsx:21-21](file://app/layout.tsx#L21-L21)
-- [app/[locale]/layout.tsx:29-29](file://app/[locale]/layout.tsx#L29-L29)
-- [components/LegacyLocaleBridge.tsx:52-54](file://components/LegacyLocaleBridge.tsx#L52-L54)
+- [app/layout.tsx:20-20](file://app/layout.tsx#L20-L20)
+- [app/[locale]/layout.tsx:37-37](file://app/[locale]/layout.tsx#L37-L37)
+- [components/LocaleHtmlAttributes.tsx:10-13](file://components/LocaleHtmlAttributes.tsx#L10-L13)
 
 ## Conclusion
-The i18n system combines server-side locale enforcement, client-side Next Intl integration, robust routing utilities, and a legacy bridge to deliver a cohesive multilingual experience. Arabic and English are supported with proper RTL handling and cultural adaptation. The system is extensible and can accommodate additional locales and improved formatting with minimal changes.
+The i18n system combines server-side locale enforcement, client-side Next Intl integration, robust routing utilities, and modern HTML attribute management to deliver a cohesive multilingual experience. Arabic and English are supported with proper RTL handling and cultural adaptation. The replacement of LegacyLocaleBridge with LocaleHtmlAttributes provides cleaner, more efficient locale-aware metadata handling while maintaining backward compatibility.
 
 ## Appendices
 
@@ -425,10 +437,24 @@ The i18n system combines server-side locale enforcement, client-side Next Intl i
   - Preserve query and hash when switching languages using the language toggle.
 
 - Integrating with forms and validation
-  - Localize placeholder, title, and aria-label attributes using the legacy bridge for English content.
+  - Localize placeholder, title, and aria-label attributes using the LocaleHtmlAttributes component for proper RTL/LTR handling.
   - Ensure validation messages are drawn from the message catalog and rendered conditionally based on the active locale.
 
 - Testing strategies
   - Unit tests for locale routing utilities to verify normalization and prefix handling.
   - Snapshot tests for UI components under both Arabic and English locales.
   - End-to-end tests for language switching that assert URL updates and content localization.
+  - Test HTML attribute updates in LocaleHtmlAttributes component for proper RTL/LTR behavior.
+
+### Migration from LegacyLocaleBridge
+**Updated** For projects migrating from LegacyLocaleBridge to LocaleHtmlAttributes:
+
+1. Remove LegacyLocaleBridge component from layouts
+2. Add LocaleHtmlAttributes component to app/[locale]/layout.tsx
+3. Verify HTML lang/dir attributes are properly managed
+4. Test RTL/LTR behavior across different locales
+5. Ensure no conflicts with existing locale routing logic
+
+**Section sources**
+- [components/LocaleHtmlAttributes.tsx:6-16](file://components/LocaleHtmlAttributes.tsx#L6-L16)
+- [app/[locale]/layout.tsx:36-36](file://app/[locale]/layout.tsx#L36-L36)

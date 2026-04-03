@@ -26,15 +26,26 @@
 - [usePaymentsMeta.ts](file://app/[locale]/payments/_hooks/usePaymentsMeta.ts)
 - [useStudentsPage.ts](file://app/[locale]/payments/_hooks/useStudentsPage.ts)
 - [_types.ts](file://app/[locale]/payments/_types.ts)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
+- [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
+- [usePrintFunctions.ts](file://app/[locale]/salaries/_hooks/usePrintFunctions.ts)
+- [SalariesSidebar.tsx](file://app/[locale]/salaries/_components/SalariesSidebar.tsx)
+- [StatsCards.tsx](file://app/[locale]/salaries/_components/StatsCards.tsx)
+- [TeachersTable.tsx](file://app/[locale]/salaries/_components/TeachersTable.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
+- [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
+- [_types.ts](file://app/[locale]/salaries/_types.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated payments module architecture to reflect comprehensive component library restructuring
-- Added documentation for new modular component structure including PaymentsTable, PaymentsFilters, PaymentModal, PaymentsArchive, and ArchiveDetailModal
-- Enhanced payment operations hooks documentation with improved state management and business logic
-- Updated payment processing workflow to include new modal-based interface and enhanced student detail panel
-- Expanded archive management documentation with new archive operations and export functionality
+- Added comprehensive documentation for the newly redesigned salary management system with modular component architecture
+- Documented sophisticated features including monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities
+- Updated financial operations to include salary processing alongside traditional payment operations
+- Enhanced payment processing workflow to include salary management integration
+- Expanded financial reporting system to encompass both payment and salary analytics
+- Added documentation for teacher management, deduction tracking, and comprehensive export capabilities
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,29 +54,35 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Payment Operations](#enhanced-payment-operations)
-7. [Archive Management System](#archive-management-system)
-8. [Dependency Analysis](#dependency-analysis)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
-12. [Appendices](#appendices)
+7. [Salary Management System](#salary-management-system)
+8. [Archive Management System](#archive-management-system)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
+13. [Appendices](#appendices)
 
 ## Introduction
-This document explains the financial operations system for payment processing, expense management, and financial reporting. It covers invoice generation, payment collection, reconciliation, dashboards for revenue tracking, expense monitoring, and cash flow analysis. It also documents supported payment methods, refund processing, financial audit trails, fee structures, discount management, subscription billing, integration with student management, invoice systems, export functionality for accounting, and common financial scenarios including payment failures and reconciliation procedures.
+This document explains the financial operations system for payment processing, expense management, financial reporting, and salary management. It covers invoice generation, payment collection, reconciliation, dashboards for revenue tracking, expense monitoring, cash flow analysis, and comprehensive salary processing workflows. The system now includes sophisticated features for teacher management, monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities. It documents supported payment methods, refund processing, financial audit trails, fee structures, discount management, subscription billing, integration with student management, invoice systems, export functionality for accounting, and common financial scenarios including payment failures and reconciliation procedures.
 
-**Updated** The payments system has undergone a comprehensive redesign with a complete component library restructuring, reducing the main page from 1841 lines to 200 lines through modular architecture and introducing advanced payment operations with enhanced state management.
+**Updated** The financial operations system has been significantly expanded to include a comprehensive salary management module with modular component architecture containing over 20 React components, sophisticated monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities.
 
 ## Project Structure
-The financial domain is implemented as a set of Next.js API routes under app/api/web, backed by Supabase queries and server-side helpers. The payments page now follows a comprehensive modular component architecture with extracted UI components, centralized hooks, and enhanced payment operations.
+The financial domain is implemented as a set of Next.js API routes under app/api/web, backed by Supabase queries and server-side helpers. The system now includes two primary modules: payments management and salary management, each with comprehensive component libraries, centralized hooks, and enhanced operational capabilities.
 
-**Updated** The payments page structure has been completely redesigned with a comprehensive component library:
+**Updated** The financial operations system now encompasses two major modules with comprehensive architectural redesign:
 
 ```mermaid
 graph TB
-subgraph "Payments Page (Main)"
+subgraph "Payments Module"
 P_MAIN["app/[locale]/payments/page.tsx<br/>(200 lines)"]
 P_HOOKS["usePaymentsPage.ts<br/>(317 lines)"]
 P_TYPES["_types.ts<br/>(91 lines)"]
+end
+subgraph "Salary Management Module"
+S_MAIN["app/[locale]/salaries/page.tsx<br>(706 lines)"]
+S_HOOKS["useSalariesData.ts<br/>(398 lines)"]
+S_TYPES["_types.ts<br/>(278 lines)"]
 end
 subgraph "Core Components Library"
 COMP_STATS["PaymentsStats.tsx"]
@@ -77,11 +94,34 @@ COMP_DETAIL["StudentDetailPanel.tsx"]
 COMP_ARCHIVE["PaymentsArchive.tsx"]
 COMP_ARCH_DETAIL["ArchiveDetailModal.tsx"]
 end
+subgraph "Enhanced Salary Components"
+S_STATS["StatsCards.tsx"]
+S_TABLE["TeachersTable.tsx"]
+S_SIDEBAR["SalariesSidebar.tsx"]
+S_ARCHIVE["ArchiveSection.tsx"]
+S_CALENDAR["CalendarSection.tsx"]
+S_DEDUCTIONS["DeductionsSection.tsx"]
+S_REPORTS["ReportsSection.tsx"]
+S_SCHEDULE["ScheduleSection.tsx"]
+S_PRICES["PricesModal.tsx"]
+S_LESSON_TIMES["LessonTimesModal.tsx"]
+S_DAILY_LOG["DailyLogModal.tsx"]
+S_EXPORT["ExportModal.tsx"]
+S_PRINT["PrintModal.tsx"]
+S_MANAGER["ManagerModals.tsx"]
+S_PAY["PaySalaryModal.tsx"]
+S_DETAIL["TeacherDetailPanel.tsx"]
+S_DROPDOWN["TeacherDropdownMenu.tsx"]
+S_TEACHER["TeacherModal.tsx"]
+end
 subgraph "Enhanced Hooks"
 HOOK_PAYMENTS["usePaymentOperations.ts<br/>(349 lines)"]
 HOOK_ARCHIVE["useArchiveOperations.ts<br/>(114 lines)"]
 HOOK_META["usePaymentsMeta.ts<br/>(133 lines)"]
 HOOK_STUDENTS["useStudentsPage.ts<br/>(134 lines)"]
+HOOK_SALARIES["useSalariesData.ts<br/>(398 lines)"]
+HOOK_TEACHER["useTeacherOperations.ts<br/>(219 lines)"]
+HOOK_PRINT["usePrintFunctions.ts<br/>(85 lines)"]
 end
 subgraph "API Routes"
 API_OVERVIEW["/api/web/payments/overview"]
@@ -89,33 +129,24 @@ API_RECORDS["/api/web/payments/records"]
 API_EXPORT["/api/web/payments/export"]
 API_ARCHIVE["/api/web/payments/archive"]
 API_META["/api/web/payments/meta"]
+API_SALARY_BOOTSTRAP["/api/web/salaries/bootstrap"]
+API_SALARY_PAY["/api/web/salaries/pay"]
+API_SALARY_REPORT["/api/web/salaries/report"]
+API_SALARY_LECTURES["/api/web/salaries/lectures"]
+API_SALARY_DEDUCTIONS["/api/web/salaries/deductions"]
+API_SALARY_ARCHIVE["/api/web/salaries/archive"]
 end
 subgraph "Server Libraries"
 LIB_SERVER["lib/payments-server.ts"]
 LIB_OVERVIEW["lib/payments-overview.ts"]
-end
-P_MAIN --> P_HOOKS
-P_MAIN --> COMP_STATS
-P_MAIN --> COMP_FILTERS
-P_MAIN --> COMP_TOOLBAR
-P_MAIN --> COMP_TABLE
-P_MAIN --> COMP_MODAL
-P_MAIN --> COMP_DETAIL
-P_MAIN --> COMP_ARCHIVE
-P_MAIN --> COMP_ARCH_DETAIL
-COMP_MODAL --> HOOK_PAYMENTS
-COMP_TABLE --> HOOK_STUDENTS
-COMP_DETAIL --> HOOK_PAYMENTS
-COMP_ARCHIVE --> HOOK_ARCHIVE
-HOOK_PAYMENTS --> API_RECORDS
-HOOK_PAYMENTS --> API_EXPORT
-HOOK_ARCHIVE --> API_ARCHIVE
-HOOK_META --> API_META
+END
 ```
 
 **Diagram sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
 - [PaymentsStats.tsx](file://app/[locale]/payments/_components/PaymentsStats.tsx)
 - [PaymentsFilters.tsx](file://app/[locale]/payments/_components/PaymentsFilters.tsx)
 - [PaymentsToolbar.tsx](file://app/[locale]/payments/_components/PaymentsToolbar.tsx)
@@ -124,26 +155,61 @@ HOOK_META --> API_META
 - [StudentDetailPanel.tsx](file://app/[locale]/payments/_components/StudentDetailPanel.tsx)
 - [PaymentsArchive.tsx](file://app/[locale]/payments/_components/PaymentsArchive.tsx)
 - [ArchiveDetailModal.tsx](file://app/[locale]/payments/_components/ArchiveDetailModal.tsx)
+- [StatsCards.tsx](file://app/[locale]/salaries/_components/StatsCards.tsx)
+- [TeachersTable.tsx](file://app/[locale]/salaries/_components/TeachersTable.tsx)
+- [SalariesSidebar.tsx](file://app/[locale]/salaries/_components/SalariesSidebar.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
+- [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
+- [DeductionsSection.tsx](file://app/[locale]/salaries/_components/DeductionsSection.tsx)
+- [ReportsSection.tsx](file://app/[locale]/salaries/_components/ReportsSection.tsx)
+- [ScheduleSection.tsx](file://app/[locale]/salaries/_components/ScheduleSection.tsx)
+- [PricesModal.tsx](file://app/[locale]/salaries/_components/PricesModal.tsx)
+- [LessonTimesModal.tsx](file://app/[locale]/salaries/_components/LessonTimesModal.tsx)
+- [DailyLogModal.tsx](file://app/[locale]/salaries/_components/DailyLogModal.tsx)
+- [ExportModal.tsx](file://app/[locale]/salaries/_components/ExportModal.tsx)
+- [PrintModal.tsx](file://app/[locale]/salaries/_components/PrintModal.tsx)
+- [ManagerModals.tsx](file://app/[locale]/salaries/_components/ManagerModals.tsx)
+- [PaySalaryModal.tsx](file://app/[locale]/salaries/_components/PaySalaryModal.tsx)
+- [TeacherDetailPanel.tsx](file://app/[locale]/salaries/_components/TeacherDetailPanel.tsx)
+- [TeacherDropdownMenu.tsx](file://app/[locale]/salaries/_components/TeacherDropdownMenu.tsx)
+- [TeacherModal.tsx](file://app/[locale]/salaries/_components/TeacherModal.tsx)
 - [usePaymentOperations.ts](file://app/[locale]/payments/_hooks/usePaymentOperations.ts)
 - [useArchiveOperations.ts](file://app/[locale]/payments/_hooks/useArchiveOperations.ts)
 - [usePaymentsMeta.ts](file://app/[locale]/payments/_hooks/usePaymentsMeta.ts)
 - [useStudentsPage.ts](file://app/[locale]/payments/_hooks/useStudentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
+- [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
+- [usePrintFunctions.ts](file://app/[locale]/salaries/_hooks/usePrintFunctions.ts)
 - [route.ts](file://app/api/web/payments/overview/route.ts)
 - [route.ts](file://app/api/web/payments/records/route.ts)
 - [route.ts](file://app/api/web/payments/export/route.ts)
 - [route.ts](file://app/api/web/payments/archive/route.ts)
 - [route.ts](file://app/api/web/payments/meta/route.ts)
+- [route.ts](file://app/api/web/salaries/bootstrap/route.ts)
+- [route.ts](file://app/api/web/salaries/pay/route.ts)
+- [route.ts](file://app/api/web/salaries/report/route.ts)
+- [route.ts](file://app/api/web/salaries/lectures/route.ts)
+- [route.ts](file://app/api/web/salaries/deductions/route.ts)
+- [route.ts](file://app/api/web/salaries/archive/route.ts)
 - [payments-server.ts](file://lib/payments-server.ts)
 - [payments-overview.ts](file://lib/payments-overview.ts)
 
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
 - [route.ts](file://app/api/web/payments/overview/route.ts)
 - [route.ts](file://app/api/web/payments/records/route.ts)
 - [route.ts](file://app/api/web/payments/export/route.ts)
 - [route.ts](file://app/api/web/payments/archive/route.ts)
 - [route.ts](file://app/api/web/payments/meta/route.ts)
+- [route.ts](file://app/api/web/salaries/bootstrap/route.ts)
+- [route.ts](file://app/api/web/salaries/pay/route.ts)
+- [route.ts](file://app/api/web/salaries/report/route.ts)
+- [route.ts](file://app/api/web/salaries/lectures/route.ts)
+- [route.ts](file://app/api/web/salaries/deductions/route.ts)
+- [route.ts](file://app/api/web/salaries/archive/route.ts)
 - [payments-server.ts](file://lib/payments-server.ts)
 - [payments-overview.ts](file://lib/payments-overview.ts)
 
@@ -158,11 +224,22 @@ HOOK_META --> API_META
 - **Payments Archive**: Advanced archive management with year selection, export functionality, and annual snapshot generation.
 - **Archive Detail Modal**: Detailed archive view with comprehensive student and payment listings for annual snapshot inspection.
 - **Centralized Hooks**: Enhanced hooks managing state, API operations, and business logic across all components with improved error handling.
+- **Salary Management Main**: Comprehensive 706-line page orchestrating the complete salary management interface with modular component architecture.
+- **Salary Stats Cards**: Financial summary cards displaying teacher counts, total base salaries, monthly payments, and unpaid teacher statistics.
+- **Teachers Table**: Comprehensive data table displaying teacher information with salary status, payment actions, and detailed view options.
+- **Salary Sidebar**: Navigation sidebar with sections for main dashboard, teacher management, schedule, deductions, reports, calendar, archive, and settings.
+- **Monthly Archive Section**: Advanced archive management with archive creation, historical data display, and archive export functionality.
+- **Calendar Section**: Interactive calendar for lecture scheduling with month navigation, date highlighting, and lecture visualization.
+- **Deductions Section**: Comprehensive deduction tracking with teacher selection, amount input, notes, and deduction history.
+- **Reports Section**: Detailed reporting system with summary and detailed views, teacher filtering, and print functionality.
+- **Schedule Section**: Weekly schedule management with grade/section selection, grid editing, and schedule saving.
+- **Enhanced Salary Components**: 15+ specialized components for teacher management, pricing, lesson times, daily logging, export, printing, and administrative functions.
 
-**Updated** The core components now follow a comprehensive modular architecture with clear separation of concerns and enhanced functionality:
+**Updated** The core components now include a comprehensive salary management module with sophisticated functionality:
 
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
 - [PaymentModal.tsx](file://app/[locale]/payments/_components/PaymentModal.tsx)
 - [PaymentsStats.tsx](file://app/[locale]/payments/_components/PaymentsStats.tsx)
 - [PaymentsFilters.tsx](file://app/[locale]/payments/_components/PaymentsFilters.tsx)
@@ -171,47 +248,77 @@ HOOK_META --> API_META
 - [StudentDetailPanel.tsx](file://app/[locale]/payments/_components/StudentDetailPanel.tsx)
 - [PaymentsArchive.tsx](file://app/[locale]/payments/_components/PaymentsArchive.tsx)
 - [ArchiveDetailModal.tsx](file://app/[locale]/payments/_components/ArchiveDetailModal.tsx)
+- [StatsCards.tsx](file://app/[locale]/salaries/_components/StatsCards.tsx)
+- [TeachersTable.tsx](file://app/[locale]/salaries/_components/TeachersTable.tsx)
+- [SalariesSidebar.tsx](file://app/[locale]/salaries/_components/SalariesSidebar.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
+- [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
+- [DeductionsSection.tsx](file://app/[locale]/salaries/_components/DeductionsSection.tsx)
+- [ReportsSection.tsx](file://app/[locale]/salaries/_components/ReportsSection.tsx)
+- [ScheduleSection.tsx](file://app/[locale]/salaries/_components/ScheduleSection.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
 
 ## Architecture Overview
-The system integrates Next.js API routes with Supabase for data persistence and computation. The redesigned payments page follows a comprehensive component-based architecture with centralized state management through enhanced hooks. Payments are recorded against students and immediately reconciled to update balances. Reporting leverages a dedicated RPC for performance and falls back to client-side aggregation when unavailable. Export endpoints support CSV/XLSX downloads for accounting systems. The enhanced architecture includes comprehensive error handling, caching mechanisms, and improved user experience through modal-based interactions.
+The system integrates Next.js API routes with Supabase for data persistence and computation. The redesigned financial operations system now encompasses two major modules: payments management with comprehensive component library and salary management with sophisticated modular architecture. Payments are recorded against students and immediately reconciled to update balances. Salary management includes teacher creation/editing, monthly payment processing, lecture scheduling, deduction tracking, and comprehensive reporting. Reporting leverages dedicated RPCs for performance and falls back to client-side aggregation when unavailable. Export endpoints support CSV/XLSX downloads for accounting systems. The enhanced architecture includes comprehensive error handling, caching mechanisms, improved user experience through modal-based interactions, and seamless integration between payment and salary operations.
 
-**Updated** The architecture now emphasizes comprehensive modularity, enhanced state management, and improved user experience:
+**Updated** The architecture now emphasizes dual-module design with comprehensive modularity, enhanced state management, and improved user experience across both payment and salary operations:
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
-participant Page as "PaymentsPage"
-participant Hooks as "usePaymentsPage"
-participant Modal as "PaymentModal"
+participant PaymentsPage as "PaymentsPage"
+participant SalariesPage as "SalariesPage"
+participant PaymentsHooks as "usePaymentsPage"
+participant SalariesHooks as "useSalariesData"
+participant PaymentModal as "PaymentModal"
+participant SalaryModal as "PaySalaryModal"
 participant API as "Next.js API"
 participant Lib as "Server Libraries"
 participant DB as "Supabase"
-Client->>Page : Navigate to /payments
-Page->>Hooks : Initialize enhanced hooks and state
-Hooks->>API : Load payments metadata with caching
+Client->>PaymentsPage : Navigate to /payments
+Client->>SalariesPage : Navigate to /salaries
+PaymentsPage->>PaymentsHooks : Initialize enhanced hooks and state
+SalariesPage->>SalariesHooks : Initialize comprehensive hooks and state
+PaymentsHooks->>API : Load payments metadata with caching
+SalariesHooks->>API : Load salary bootstrap data
 API->>DB : Query payments overview
+API->>DB : Query salary bootstrap data
 DB-->>API : Cached/Real-time metadata response
-API-->>Hooks : {summary, classes, archives}
-Hooks-->>Page : Component props with enhanced state
-Client->>Modal : Click "Add Payment"
-Modal->>Modal : Validate form with enhanced validation
-Modal->>API : POST /api/web/payments/records
+API-->>PaymentsHooks : {summary, classes, archives}
+API-->>SalariesHooks : {teachers, salaries, classes, subjects}
+PaymentsHooks-->>PaymentsPage : Component props with enhanced state
+SalariesHooks-->>SalariesPage : Component props with comprehensive state
+Client->>PaymentModal : Click "Add Payment"
+PaymentModal->>PaymentModal : Validate form with enhanced validation
+PaymentModal->>API : POST /api/web/payments/records
 API->>DB : Insert payment row
 DB-->>API : Created payment
 API->>Lib : Recompute student paid fee
 Lib->>DB : Select payments for student
 Lib->>DB : Update student.paid_fee
 DB-->>Lib : OK
-API-->>Modal : {ok, payment, studentUpdate, warning}
-Modal-->>Page : Update UI state with enhanced feedback
+API-->>PaymentModal : {ok, payment, studentUpdate, warning}
+PaymentModal-->>PaymentsPage : Update UI state with enhanced feedback
+Client->>SalaryModal : Click "Pay Salary"
+SalaryModal->>SalaryModal : Calculate lecture salary with enhanced logic
+SalaryModal->>API : POST /api/web/salaries/pay
+API->>DB : Insert salary payment
+DB-->>API : Created salary record
+API->>Lib : Update teacher salary status
+API-->>SalaryModal : {ok, salary, warning}
+SalaryModal-->>SalariesPage : Update UI state with comprehensive feedback
 ```
 
 **Diagram sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
 - [PaymentModal.tsx](file://app/[locale]/payments/_components/PaymentModal.tsx)
+- [PaySalaryModal.tsx](file://app/[locale]/salaries/_components/PaySalaryModal.tsx)
 - [route.ts](file://app/api/web/payments/records/route.ts)
+- [route.ts](file://app/api/web/salaries/pay/route.ts)
 - [payments-server.ts](file://lib/payments-server.ts)
 
 ## Detailed Component Analysis
@@ -251,6 +358,41 @@ classDef default fill:#fff,stroke:#333,color:#000
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
 
+### Salary Management Main: Comprehensive Salary Operations Interface
+**Updated** The main salaries page has been redesigned from a monolithic structure to a comprehensive modular architecture:
+
+Purpose:
+- Serve as the central orchestrator for the complete salary management interface
+- Import and coordinate 15+ specialized components from the _components directory
+- Manage comprehensive state for teacher management, salary processing, lecture scheduling, and reporting
+- Handle role-based access control with enhanced permissions for salary operations
+- Coordinate between multiple specialized hooks for different aspects of salary management
+
+Key behaviors:
+- Imports comprehensive component library including StatsCards, TeachersTable, SalariesSidebar, and 15+ specialized components
+- Uses ProtectedRoute for role-based access control with enhanced permissions for salary management
+- Integrates with useSalariesData hook for comprehensive state management with caching
+- Manages multiple modal dialogs including TeacherModal, PaySalaryModal, DailyLogModal, and ExportModal
+- Handles school scope validation and comprehensive error handling with improved user feedback
+- Coordinates between teacher operations, salary processing, archive management, and reporting systems
+
+```mermaid
+flowchart TD
+Start(["Comprehensive SalariesPage Component"]) --> Import["Import Modular Component Library (15+ components)"]
+Import --> Hooks["Initialize useSalariesData Hook"]
+Hooks --> State["Setup Comprehensive State & Handlers"]
+State --> Render["Render Modular Layout & Components"]
+Render --> Modals["Manage Multiple Specialized Modals"]
+Modals --> End(["Complete Salary Management Interface"])
+classDef default fill:#fff,stroke:#333,color:#000
+```
+
+**Diagram sources**
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
+
+**Section sources**
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
+
 ### Payment Modal: Advanced Payment Creation Interface
 Purpose:
 - Provide a sophisticated interface for creating new payments with enhanced user experience
@@ -270,87 +412,106 @@ Key behaviors:
 **Section sources**
 - [PaymentModal.tsx](file://app/[locale]/payments/_components/PaymentModal.tsx)
 
-### Payments Table: Comprehensive Student Payment Display
+### Salary Stats Cards: Comprehensive Financial Overview
+**Updated** Enhanced with comprehensive salary management metrics:
+
 Purpose:
-- Display comprehensive student payment information in a sortable, paginated table
-- Show payment progress with sophisticated visual indicators and enhanced styling
-- Provide quick actions for adding payments and viewing detailed student information
-- Support advanced pagination with improved user experience
+- Provide comprehensive financial overview cards for salary management
+- Display teacher statistics, salary totals, monthly payment summaries, and unpaid teacher counts
+- Enable quick access to salary management operations through visual indicators
+- Support responsive design with enhanced styling and improved readability
+
+Key behaviors:
+- Active teacher count with enhanced badge styling and visual indicators
+- Total base salaries calculation with improved formatting and currency display
+- Monthly payment totals with enhanced progress indicators and visual feedback
+- Unpaid teacher statistics with enhanced alert messaging and action prompts
+- Responsive design with improved accessibility and user experience
+
+**Section sources**
+- [StatsCards.tsx](file://app/[locale]/salaries/_components/StatsCards.tsx)
+
+### Teachers Table: Comprehensive Teacher Management Display
+**Updated** Enhanced with comprehensive teacher management functionality:
+
+Purpose:
+- Display comprehensive teacher information in a sortable, paginated table
+- Show teacher salary status with sophisticated visual indicators and enhanced styling
+- Provide quick actions for salary payments, detailed views, and teacher management
+- Support advanced pagination with improved user experience and teacher filtering
 
 Key behaviors:
 - Loading states with enhanced visual feedback and empty state handling
 - Pagination with improved navigation controls and page size management
-- Progress bars with sophisticated styling showing payment completion percentage
+- Salary status indicators with sophisticated styling showing payment completion
 - Action buttons with enhanced icons and tooltips for payment entry and detail viewing
 - Responsive design with improved currency formatting and accessibility
 - Enhanced sorting and filtering capabilities with improved user experience
 
 **Section sources**
-- [PaymentsTable.tsx](file://app/[locale]/payments/_components/PaymentsTable.tsx)
+- [TeachersTable.tsx](file://app/[locale]/salaries/_components/TeachersTable.tsx)
 
-### Student Detail Panel: Complete Student View
-**Updated** Enhanced with comprehensive functionality for payment management:
+### Salary Sidebar: Comprehensive Navigation Interface
+**Updated** Enhanced with comprehensive navigation and quick access functionality:
 
 Purpose:
-- Provide detailed view of individual student's complete financial information
-- Display comprehensive payment history with transaction details and enhanced formatting
-- Enable payment deletion with improved confirmation dialogs and receipt printing
-- Show comprehensive financial summary with enhanced progress indicators and visualizations
+- Provide comprehensive navigation for salary management sections
+- Support quick access to main dashboard, teacher management, schedule, deductions, reports, calendar, archive, and settings
+- Enable dynamic section loading with enhanced performance optimization
+- Support conditional loading of reference data and archive data based on active section
 
 Key behaviors:
-- Financial summary cards with enhanced formatting for total, paid, discounted, and remaining amounts
-- Payment history table with improved method badges, action buttons, and enhanced styling
-- Progress bar visualization with sophisticated gradient styling and payment completion percentage
-- Integration with payment operations for comprehensive CRUD actions with enhanced error handling
-- Print receipt functionality with improved branded templates and enhanced formatting
-- Enhanced responsive design with improved accessibility and user experience
+- Section-based navigation with enhanced active state management
+- Dynamic reference data loading with conditional API calls
+- Archive data loading with enhanced caching and performance optimization
+- Quick access to specialized modals and administrative functions
+- Enhanced user experience with improved visual feedback and navigation cues
 
 **Section sources**
-- [StudentDetailPanel.tsx](file://app/[locale]/payments/_components/StudentDetailPanel.tsx)
+- [SalariesSidebar.tsx](file://app/[locale]/salaries/_components/SalariesSidebar.tsx)
 
-### Payments Archive: Advanced Archive Management
+### Monthly Archive Section: Advanced Archive Management
 **Updated** Enhanced with comprehensive archive functionality:
 
 Purpose:
-- Provide advanced archive management with year selection and export functionality
-- Generate annual archives of payments and student snapshots with enhanced data integrity
-- Support comprehensive archive viewing with detailed student and payment listings
+- Provide advanced archive management with archive creation and historical data display
+- Generate annual archives of salary data and teacher snapshots with enhanced data integrity
+- Support comprehensive archive viewing with detailed teacher and payment listings
 - Enable archive export with improved Excel generation and enhanced formatting
 
 Key behaviors:
-- Year selection with comprehensive year options and validation
 - Archive creation with enhanced permission checking and data validation
-- Archive viewing with detailed student and payment listings with enhanced formatting
-- Archive export with improved Excel generation and comprehensive data export
-- Enhanced archive statistics with improved calculations and display
-- Archive detail modal with comprehensive archive inspection capabilities
+- Archive confirmation dialog with enhanced user experience and safety measures
+- Historical archive display with enhanced data organization and visual presentation
+- Archive statistics with improved calculations and display formatting
+- Archive detail inspection with comprehensive archive data visualization
 
 **Section sources**
-- [PaymentsArchive.tsx](file://app/[locale]/payments/_components/PaymentsArchive.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
 
-### Archive Detail Modal: Comprehensive Archive Inspection
-**Updated** Enhanced with detailed archive inspection capabilities:
+### Calendar Section: Interactive Lecture Scheduling
+**Updated** Enhanced with comprehensive calendar functionality:
 
 Purpose:
-- Provide comprehensive inspection of individual archive snapshots
-- Display detailed student listings with enhanced financial information
-- Show comprehensive payment listings with improved formatting and sorting
-- Enable archive export with enhanced Excel generation and formatting
+- Provide interactive calendar interface for lecture scheduling and visualization
+- Support month navigation with enhanced user experience and intuitive controls
+- Display lecture dates with sophisticated visual indicators and enhanced styling
+- Enable lecture date highlighting with improved user feedback and calendar integration
 
 Key behaviors:
-- Archive summary with enhanced KPI display and calculations
-- Student listing with comprehensive financial information and enhanced styling
-- Payment listing with improved sorting and enhanced formatting
-- Archive export with comprehensive data export and enhanced Excel generation
-- Detailed archive inspection with improved user interface and enhanced accessibility
+- Month navigation with enhanced prev/next controls and year adjustment
+- Calendar grid generation with improved date calculation and rendering
+- Lecture date highlighting with enhanced visual indicators and color coding
+- Today's date marking with improved styling and user orientation
+- Calendar legend with enhanced explanation and visual cues
 
 **Section sources**
-- [ArchiveDetailModal.tsx](file://app/[locale]/payments/_components/ArchiveDetailModal.tsx)
+- [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
 
-## Enhanced Payment Operations
+### Enhanced Payment Operations
 **Updated** The payment operations system has been comprehensively enhanced with improved state management and business logic:
 
-### usePaymentOperations: Comprehensive Payment Management
+#### usePaymentOperations: Comprehensive Payment Management
 Purpose:
 - Provide comprehensive state management for payment operations with enhanced functionality
 - Handle complex payment creation, deletion, and management operations
@@ -365,7 +526,7 @@ Key behaviors:
 - Enhanced payment loading with caching and improved performance
 - Comprehensive payment history management with enhanced state updates
 
-### useArchiveOperations: Advanced Archive Management
+#### useArchiveOperations: Advanced Archive Management
 Purpose:
 - Provide comprehensive state management for archive operations with enhanced functionality
 - Handle complex archive creation, viewing, and export operations
@@ -379,7 +540,7 @@ Key behaviors:
 - Archive export with enhanced Excel generation and progress indication
 - Enhanced archive operations with improved error handling and user feedback
 
-### usePaymentsMeta: Enhanced Metadata Management
+#### usePaymentsMeta: Enhanced Metadata Management
 Purpose:
 - Provide comprehensive state management for payment metadata with enhanced caching
 - Handle complex metadata loading, updating, and caching operations
@@ -393,7 +554,7 @@ Key behaviors:
 - Archive management with enhanced state updates and notifications
 - Payment year management with improved sorting and validation
 
-### useStudentsPage: Advanced Student Management
+#### useStudentsPage: Advanced Student Management
 Purpose:
 - Provide comprehensive state management for student data with enhanced caching
 - Handle complex student loading, pagination, and filtering operations
@@ -413,10 +574,59 @@ Key behaviors:
 - [usePaymentsMeta.ts](file://app/[locale]/payments/_hooks/usePaymentsMeta.ts)
 - [useStudentsPage.ts](file://app/[locale]/payments/_hooks/useStudentsPage.ts)
 
-## Archive Management System
-**Updated** The archive management system has been comprehensively enhanced:
+### Salary Operations: Comprehensive Salary Management
+**Updated** The salary management system includes comprehensive operations for teacher management and salary processing:
 
-### Archive Creation Process
+#### useSalariesData: Enhanced Salary Data Management
+Purpose:
+- Provide comprehensive state management for salary operations with enhanced caching
+- Handle complex bootstrap data loading, teacher management, and salary processing operations
+- Coordinate between multiple components and API operations with improved performance
+- Manage comprehensive salary data including teachers, salaries, classes, subjects, and reporting
+
+Key behaviors:
+- Enhanced bootstrap data loading with improved scope-based loading (core, reference, archive)
+- Comprehensive teacher data management with enhanced caching and state updates
+- Salary processing with improved calculation logic and deduction handling
+- Report generation with enhanced summary and detailed views
+- Archive management with improved monthly archiving and historical data handling
+
+#### useTeacherOperations: Advanced Teacher Management
+Purpose:
+- Provide comprehensive state management for teacher operations with enhanced functionality
+- Handle complex teacher creation, editing, and management operations
+- Coordinate between multiple components and API operations with improved error handling
+- Manage teacher form state, validation, and API interactions with enhanced user experience
+
+Key behaviors:
+- Enhanced teacher form management with improved validation and state handling
+- Comprehensive teacher CRUD operations with enhanced error handling and success feedback
+- Teacher class assignment management with improved form handling and validation
+- Teacher modal state management with enhanced user experience and form persistence
+- Teacher reference data loading with improved caching and performance optimization
+
+#### usePrintFunctions: Enhanced Printing Capabilities
+Purpose:
+- Provide comprehensive printing functionality for salary slips, reports, and teacher summaries
+- Handle complex HTML generation, print window management, and branded print templates
+- Support multiple print formats including salary slips, teacher statements, and comprehensive reports
+
+Key behaviors:
+- Enhanced print window management with improved branding and template handling
+- Comprehensive salary slip printing with enhanced formatting and currency display
+- Detailed report printing with improved table formatting and data visualization
+- Teacher summary printing with enhanced table layouts and data organization
+- Print template management with improved HTML generation and styling
+
+**Section sources**
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
+- [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
+- [usePrintFunctions.ts](file://app/[locale]/salaries/_hooks/usePrintFunctions.ts)
+
+## Archive Management System
+**Updated** The archive management system has been comprehensively enhanced with dual-module support:
+
+### Payments Archive Creation Process
 Purpose:
 - Provide comprehensive annual archive creation with enhanced data integrity
 - Handle complex archive generation, validation, and storage operations
@@ -429,7 +639,25 @@ Key behaviors:
 - Archive storage with enhanced upsert operations and conflict resolution
 - Archive notification with enhanced success/error messaging
 
+### Salary Archive Creation Process
+**Updated** Enhanced with comprehensive monthly archive functionality:
+
+Purpose:
+- Provide comprehensive monthly archive creation for salary management
+- Handle complex salary data archiving, validation, and storage operations
+- Support archive export with enhanced Excel generation and comprehensive data formatting
+
+Key behaviors:
+- Monthly archive validation with enhanced date and data checking
+- Salary data collection with comprehensive teacher and payment retrieval
+- Archive snapshot creation with enhanced salary data structuring and validation
+- Archive storage with enhanced upsert operations and conflict resolution
+- Archive confirmation with enhanced user experience and safety measures
+- Archive statistics with improved calculations and display formatting
+
 ### Archive Export Functionality
+**Updated** Enhanced with comprehensive export capabilities:
+
 Purpose:
 - Provide comprehensive archive export with enhanced Excel generation
 - Handle complex archive data export with improved formatting and validation
@@ -444,16 +672,24 @@ Key behaviors:
 **Section sources**
 - [PaymentsArchive.tsx](file://app/[locale]/payments/_components/PaymentsArchive.tsx)
 - [ArchiveDetailModal.tsx](file://app/[locale]/payments/_components/ArchiveDetailModal.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
 - [useArchiveOperations.ts](file://app/[locale]/payments/_hooks/useArchiveOperations.ts)
 
 ## Dependency Analysis
-**Updated** The dependency structure now reflects the comprehensive modular component architecture:
+**Updated** The dependency structure now reflects the comprehensive modular component architecture with dual-module support:
 
 - **Payments Page Main** depends on:
   - Complete component library from _components directory with enhanced exports
   - Centralized hooks for comprehensive state management
   - Enhanced internationalization and localization utilities
   - ProtectedRoute for role-based access control with improved permissions
+
+- **Salary Management Main** depends on:
+  - Comprehensive component library with 15+ specialized components from _components directory
+  - Enhanced useSalariesData hook for comprehensive state management
+  - Multiple specialized hooks for different aspects of salary management
+  - Enhanced internationalization and localization utilities
+  - ProtectedRoute for role-based access control with enhanced permissions
 
 - **Individual Components** depend on:
   - Shared types from _types.ts with enhanced type definitions
@@ -472,11 +708,16 @@ Key behaviors:
   - PaymentsTable depends on useStudentsPage for student data
   - StudentDetailPanel depends on usePaymentOperations for payment management
   - PaymentsArchive depends on useArchiveOperations for archive management
+  - Salary components depend on useSalariesData for comprehensive state management
+  - Teacher components depend on useTeacherOperations for teacher management
+  - Print components depend on usePrintFunctions for enhanced printing capabilities
 
 ```mermaid
 graph LR
 P_MAIN["payments/page.tsx"] --> HOOKS["Enhanced usePaymentsPage.ts"]
 P_MAIN --> COMPONENTS["Comprehensive Component Library"]
+S_MAIN["salaries/page.tsx"] --> SALARIES_HOOKS["useSalariesData.ts"]
+S_MAIN --> SALARIES_COMPONENTS["15+ Specialized Components"]
 COMPONENTS --> STATS["PaymentsStats.tsx"]
 COMPONENTS --> FILTERS["PaymentsFilters.tsx"]
 COMPONENTS --> TOOLBAR["PaymentsToolbar.tsx"]
@@ -485,97 +726,202 @@ COMPONENTS --> MODAL["PaymentModal.tsx"]
 COMPONENTS --> DETAIL["StudentDetailPanel.tsx"]
 COMPONENTS --> ARCHIVE["PaymentsArchive.tsx"]
 COMPONENTS --> ARCH_DETAIL["ArchiveDetailModal.tsx"]
+SALARIES_COMPONENTS --> S_STATS["StatsCards.tsx"]
+SALARIES_COMPONENTS --> S_TABLE["TeachersTable.tsx"]
+SALARIES_COMPONENTS --> S_SIDEBAR["SalariesSidebar.tsx"]
+SALARIES_COMPONENTS --> S_ARCHIVE["ArchiveSection.tsx"]
+SALARIES_COMPONENTS --> S_CALENDAR["CalendarSection.tsx"]
+SALARIES_COMPONENTS --> S_DEDUCTIONS["DeductionsSection.tsx"]
+SALARIES_COMPONENTS --> S_REPORTS["ReportsSection.tsx"]
+SALARIES_COMPONENTS --> S_SCHEDULE["ScheduleSection.tsx"]
+SALARIES_COMPONENTS --> S_PRICES["PricesModal.tsx"]
+SALARIES_COMPONENTS --> S_LESSON_TIMES["LessonTimesModal.tsx"]
+SALARIES_COMPONENTS --> S_DAILY_LOG["DailyLogModal.tsx"]
+SALARIES_COMPONENTS --> S_EXPORT["ExportModal.tsx"]
+SALARIES_COMPONENTS --> S_PRINT["PrintModal.tsx"]
+SALARIES_COMPONENTS --> S_MANAGER["ManagerModals.tsx"]
+SALARIES_COMPONENTS --> S_PAY["PaySalaryModal.tsx"]
+SALARIES_COMPONENTS --> S_DETAIL["TeacherDetailPanel.tsx"]
+SALARIES_COMPONENTS --> S_DROPDOWN["TeacherDropdownMenu.tsx"]
+SALARIES_COMPONENTS --> S_TEACHER["TeacherModal.tsx"]
 MODAL --> HOOK_PAYMENTS["usePaymentOperations.ts"]
 TABLE --> HOOK_STUDENTS["useStudentsPage.ts"]
 DETAIL --> HOOK_PAYMENTS
 ARCHIVE --> HOOK_ARCHIVE["useArchiveOperations.ts"]
 ARCH_DETAIL --> HOOK_ARCHIVE
-HOOKS --> API_RECORDS["payments/records/route.ts"]
-HOOKS --> API_EXPORT["payments/export/route.ts"]
-HOOKS --> API_ARCHIVE["payments/archive/route.ts"]
-HOOKS --> API_META["payments/meta/route.ts"]
+S_SIDEBAR --> HOOK_SALARIES["useSalariesData.ts"]
+S_PAY --> HOOK_SALARIES
+S_TABLE --> HOOK_SALARIES
+S_STATS --> HOOK_SALARIES
+S_ARCHIVE --> HOOK_SALARIES
+S_CALENDAR --> HOOK_SALARIES
+S_DEDUCTIONS --> HOOK_SALARIES
+S_REPORTS --> HOOK_SALARIES
+S_SCHEDULE --> HOOK_SALARIES
+S_PRICES --> HOOK_SALARIES
+S_LESSON_TIMES --> HOOK_SALARIES
+S_DAILY_LOG --> HOOK_SALARIES
+S_EXPORT --> HOOK_SALARIES
+S_PRINT --> HOOK_SALARIES
+S_MANAGER --> HOOK_SALARIES
+S_DETAIL --> HOOK_SALARIES
+S_DROPDOWN --> HOOK_SALARIES
+S_TEACHER --> HOOK_TEACHER["useTeacherOperations.ts"]
+HOOK_SALARIES --> API_SALARY_BOOTSTRAP["salaries/bootstrap/route.ts"]
+HOOK_SALARIES --> API_SALARY_PAY["salaries/pay/route.ts"]
+HOOK_SALARIES --> API_SALARY_REPORT["salaries/report/route.ts"]
+HOOK_SALARIES --> API_SALARY_LECTURES["salaries/lectures/route.ts"]
+HOOK_SALARIES --> API_SALARY_DEDUCTIONS["salaries/deductions/route.ts"]
+HOOK_SALARIES --> API_SALARY_ARCHIVE["salaries/archive/route.ts"]
+HOOK_PAYMENTS --> API_RECORDS["payments/records/route.ts"]
+HOOK_PAYMENTS --> API_EXPORT["payments/export/route.ts"]
+HOOK_PAYMENTS --> API_ARCHIVE["payments/archive/route.ts"]
+HOOK_PAYMENTS --> API_META["payments/meta/route.ts"]
 ```
 
 **Diagram sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
 - [PaymentModal.tsx](file://app/[locale]/payments/_components/PaymentModal.tsx)
-- [PaymentsTable.tsx](file://app/[locale]/payments/_components/PaymentsTable.tsx)
-- [StudentDetailPanel.tsx](file://app/[locale]/payments/_components/StudentDetailPanel.tsx)
+- [TeachersTable.tsx](file://app/[locale]/salaries/_components/TeachersTable.tsx)
+- [SalariesSidebar.tsx](file://app/[locale]/salaries/_components/SalariesSidebar.tsx)
 - [PaymentsArchive.tsx](file://app/[locale]/payments/_components/PaymentsArchive.tsx)
 - [ArchiveDetailModal.tsx](file://app/[locale]/payments/_components/ArchiveDetailModal.tsx)
+- [StatsCards.tsx](file://app/[locale]/salaries/_components/StatsCards.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
+- [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
+- [DeductionsSection.tsx](file://app/[locale]/salaries/_components/DeductionsSection.tsx)
+- [ReportsSection.tsx](file://app/[locale]/salaries/_components/ReportsSection.tsx)
+- [ScheduleSection.tsx](file://app/[locale]/salaries/_components/ScheduleSection.tsx)
+- [PricesModal.tsx](file://app/[locale]/salaries/_components/PricesModal.tsx)
+- [LessonTimesModal.tsx](file://app/[locale]/salaries/_components/LessonTimesModal.tsx)
+- [DailyLogModal.tsx](file://app/[locale]/salaries/_components/DailyLogModal.tsx)
+- [ExportModal.tsx](file://app/[locale]/salaries/_components/ExportModal.tsx)
+- [PrintModal.tsx](file://app/[locale]/salaries/_components/PrintModal.tsx)
+- [ManagerModals.tsx](file://app/[locale]/salaries/_components/ManagerModals.tsx)
+- [PaySalaryModal.tsx](file://app/[locale]/salaries/_components/PaySalaryModal.tsx)
+- [TeacherDetailPanel.tsx](file://app/[locale]/salaries/_components/TeacherDetailPanel.tsx)
+- [TeacherDropdownMenu.tsx](file://app/[locale]/salaries/_components/TeacherDropdownMenu.tsx)
+- [TeacherModal.tsx](file://app/[locale]/salaries/_components/TeacherModal.tsx)
 - [usePaymentOperations.ts](file://app/[locale]/payments/_hooks/usePaymentOperations.ts)
 - [useArchiveOperations.ts](file://app/[locale]/payments/_hooks/useArchiveOperations.ts)
 - [usePaymentsMeta.ts](file://app/[locale]/payments/_hooks/usePaymentsMeta.ts)
 - [useStudentsPage.ts](file://app/[locale]/payments/_hooks/useStudentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
+- [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
+- [usePrintFunctions.ts](file://app/[locale]/salaries/_hooks/usePrintFunctions.ts)
 - [route.ts](file://app/api/web/payments/records/route.ts)
 - [route.ts](file://app/api/web/payments/export/route.ts)
 - [route.ts](file://app/api/web/payments/archive/route.ts)
 - [route.ts](file://app/api/web/payments/meta/route.ts)
+- [route.ts](file://app/api/web/salaries/bootstrap/route.ts)
+- [route.ts](file://app/api/web/salaries/pay/route.ts)
+- [route.ts](file://app/api/web/salaries/report/route.ts)
+- [route.ts](file://app/api/web/salaries/lectures/route.ts)
+- [route.ts](file://app/api/web/salaries/deductions/route.ts)
+- [route.ts](file://app/api/web/salaries/archive/route.ts)
 
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
 - [PaymentModal.tsx](file://app/[locale]/payments/_components/PaymentModal.tsx)
-- [PaymentsTable.tsx](file://app/[locale]/payments/_components/PaymentsTable.tsx)
-- [StudentDetailPanel.tsx](file://app/[locale]/payments/_components/StudentDetailPanel.tsx)
+- [TeachersTable.tsx](file://app/[locale]/salaries/_components/TeachersTable.tsx)
+- [SalariesSidebar.tsx](file://app/[locale]/salaries/_components/SalariesSidebar.tsx)
 - [PaymentsArchive.tsx](file://app/[locale]/payments/_components/PaymentsArchive.tsx)
 - [ArchiveDetailModal.tsx](file://app/[locale]/payments/_components/ArchiveDetailModal.tsx)
+- [StatsCards.tsx](file://app/[locale]/salaries/_components/StatsCards.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
+- [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
+- [DeductionsSection.tsx](file://app/[locale]/salaries/_components/DeductionsSection.tsx)
+- [ReportsSection.tsx](file://app/[locale]/salaries/_components/ReportsSection.tsx)
+- [ScheduleSection.tsx](file://app/[locale]/salaries/_components/ScheduleSection.tsx)
+- [PricesModal.tsx](file://app/[locale]/salaries/_components/PricesModal.tsx)
+- [LessonTimesModal.tsx](file://app/[locale]/salaries/_components/LessonTimesModal.tsx)
+- [DailyLogModal.tsx](file://app/[locale]/salaries/_components/DailyLogModal.tsx)
+- [ExportModal.tsx](file://app/[locale]/salaries/_components/ExportModal.tsx)
+- [PrintModal.tsx](file://app/[locale]/salaries/_components/PrintModal.tsx)
+- [ManagerModals.tsx](file://app/[locale]/salaries/_components/ManagerModals.tsx)
+- [PaySalaryModal.tsx](file://app/[locale]/salaries/_components/PaySalaryModal.tsx)
+- [TeacherDetailPanel.tsx](file://app/[locale]/salaries/_components/TeacherDetailPanel.tsx)
+- [TeacherDropdownMenu.tsx](file://app/[locale]/salaries/_components/TeacherDropdownMenu.tsx)
+- [TeacherModal.tsx](file://app/[locale]/salaries/_components/TeacherModal.tsx)
 - [usePaymentOperations.ts](file://app/[locale]/payments/_hooks/usePaymentOperations.ts)
 - [useArchiveOperations.ts](file://app/[locale]/payments/_hooks/useArchiveOperations.ts)
 - [usePaymentsMeta.ts](file://app/[locale]/payments/_hooks/usePaymentsMeta.ts)
 - [useStudentsPage.ts](file://app/[locale]/payments/_hooks/useStudentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
+- [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
+- [usePrintFunctions.ts](file://app/[locale]/salaries/_hooks/usePrintFunctions.ts)
 - [route.ts](file://app/api/web/payments/records/route.ts)
 - [route.ts](file://app/api/web/payments/export/route.ts)
 - [route.ts](file://app/api/web/payments/archive/route.ts)
 - [route.ts](file://app/api/web/payments/meta/route.ts)
+- [route.ts](file://app/api/web/salaries/bootstrap/route.ts)
+- [route.ts](file://app/api/web/salaries/pay/route.ts)
+- [route.ts](file://app/api/web/salaries/report/route.ts)
+- [route.ts](file://app/api/web/salaries/lectures/route.ts)
+- [route.ts](file://app/api/web/salaries/deductions/route.ts)
+- [route.ts](file://app/api/web/salaries/archive/route.ts)
 
 ## Performance Considerations
-**Updated** Performance improvements from the comprehensive modular redesign:
+**Updated** Performance improvements from the comprehensive modular redesign with dual-module support:
 
-- **Enhanced Component Lazy Loading**: Comprehensive component library enables better code splitting and lazy loading with improved bundle optimization
-- **Significant Bundle Size Reduction**: Main page reduced from 1841 lines to 200 lines significantly improving initial load time and memory usage
-- **Advanced State Management**: Enhanced hooks reduce prop drilling and improve re-render optimization with improved caching strategies
+- **Enhanced Component Lazy Loading**: Comprehensive component library enables better code splitting and lazy loading with improved bundle optimization across both payments and salary modules
+- **Significant Bundle Size Reduction**: Main payments page reduced from 1841 lines to 200 lines significantly improving initial load time and memory usage
+- **Comprehensive Bundle Size Reduction**: Main salaries page reduced from 1800+ lines to 706 lines through modular architecture and component extraction
+- **Advanced State Management**: Enhanced hooks reduce prop drilling and improve re-render optimization with improved caching strategies across both modules
 - **Intelligent Debounced Search**: 300ms debounce on student searches with enhanced caching reduces API calls and improves responsiveness
 - **Comprehensive Caching Strategy**: Multiple caching layers including metadata caching, student page caching, and enhanced performance optimization
-- **Improved Pagination**: Default page size of 25 students per page with enhanced virtualization support for efficient data loading
-- **Modular Architecture Benefits**: Independent component development enables parallel optimization and improved maintainability
-- **Enhanced Export Optimization**: Excel generation handled client-side with improved performance and reduced server load
-- **Progressive Enhancement**: Components load progressively based on user interaction with enhanced user experience
-- **Memory Management**: Enhanced cleanup and resource management with improved component lifecycle handling
+- **Enhanced Salary Data Caching**: Comprehensive caching strategies for teacher data, salary calculations, and report generation
+- **Modular Architecture Benefits**: Independent component development enables parallel optimization and improved maintainability across both payment and salary modules
+- **Enhanced Export Optimization**: Excel generation handled client-side with improved performance and reduced server load for both modules
+- **Progressive Enhancement**: Components load progressively based on user interaction with enhanced user experience across both modules
+- **Memory Management**: Enhanced cleanup and resource management with improved component lifecycle handling for comprehensive financial operations
 
 ## Troubleshooting Guide
-**Updated** Common issues and resolutions for the comprehensive modular architecture:
+**Updated** Common issues and resolutions for the comprehensive modular architecture with dual-module support:
 
 - **Component Import Failures**:
   - Symptom: Components not rendering or throwing import errors
-  - Resolution: Verify all components are properly exported from _components/index.ts with enhanced export structure
+  - Resolution: Verify all components are properly exported from _components directory with enhanced export structure
 
 - **Enhanced Hook State Issues**:
   - Symptom: State not updating across components or unexpected behavior
-  - Resolution: Check enhanced usePaymentsPage hook initialization and prop passing between components with improved state management
+  - Resolution: Check enhanced hooks initialization and prop passing between components with improved state management
 
 - **Advanced Student Search Issues**:
   - Symptom: Payment modal student search returns no results or slow responses
   - Resolution: Verify API endpoint `/api/web/payments/student-search` is accessible and student data exists with enhanced error handling
 
+- **Enhanced Salary Data Loading Issues**:
+  - Symptom: Salary module not loading teacher data or showing empty states
+  - Resolution: Verify API endpoint `/api/web/salaries/bootstrap` is accessible and salary data exists with enhanced error handling
+
 - **Enhanced Permission Denied Errors**:
-  - Symptom: 403 errors when trying to add or delete payments
-  - Resolution: Ensure user has appropriate roles (add_payments, delete_payments) assigned with enhanced permission checking
+  - Symptom: 403 errors when trying to add or delete payments/salaries
+  - Resolution: Ensure user has appropriate roles (add_payments, delete_payments, manage_salaries) assigned with enhanced permission checking
 
 - **Modal State Management Issues**:
   - Symptom: Payment modal stays open after successful submission or state inconsistencies
   - Resolution: Check enhanced onClose handler implementation and state management in usePaymentOperations hook
 
+- **Enhanced Salary Modal Issues**:
+  - Symptom: Salary payment modal not calculating lecture totals or showing incorrect amounts
+  - Resolution: Verify useSalariesData hook is properly calculating lecture salary totals with enhanced error handling
+
 - **Enhanced Export Functionality Issues**:
   - Symptom: Excel export fails or downloads empty files
-  - Resolution: Verify XLSX library loading and API response contains student data with enhanced error handling
+  - Resolution: Verify XLSX library loading and API response contains student/salary data with enhanced error handling
 
 - **Enhanced School Scope Validation**:
-  - Symptom: Payments page shows empty state before school selection
+  - Symptom: Payments or salaries page shows empty state before school selection
   - Resolution: Ensure school scope is properly resolved and schoolId is available with enhanced validation
 
-- **Archive Management Issues**:
+- **Enhanced Archive Management Issues**:
   - Symptom: Archive creation fails or export issues
   - Resolution: Check archive permissions, data validation, and export functionality with enhanced error handling
 
@@ -583,18 +929,28 @@ HOOKS --> API_META["payments/meta/route.ts"]
   - Symptom: Outdated data or stale information display
   - Resolution: Clear enhanced caches and verify cache invalidation strategies with improved cache management
 
+- **Enhanced Salary Module Issues**:
+  - Symptom: Salary module not responding to section changes or not loading reference data
+  - Resolution: Verify useSalariesData hook is properly managing section-based data loading with enhanced error handling
+
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
+- [page.tsx](file://app/[locale]/salaries/page.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
+- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
 - [PaymentModal.tsx](file://app/[locale]/payments/_components/PaymentModal.tsx)
-- [PaymentsTable.tsx](file://app/[locale]/payments/_components/PaymentsTable.tsx)
-- [StudentDetailPanel.tsx](file://app/[locale]/payments/_components/StudentDetailPanel.tsx)
-- [PaymentsArchive.tsx](file://app/[locale]/payments/_components/PaymentsArchive.tsx)
+- [TeachersTable.tsx](file://app/[locale]/salaries/_components/TeachersTable.tsx)
+- [SalariesSidebar.tsx](file://app/[locale]/salaries/_components/SalariesSidebar.tsx)
+- [StatsCards.tsx](file://app/[locale]/salaries/_components/StatsCards.tsx)
+- [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
+- [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
 - [usePaymentOperations.ts](file://app/[locale]/payments/_hooks/usePaymentOperations.ts)
+- [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
 - [route.ts](file://app/api/web/payments/records/route.ts)
+- [route.ts](file://app/api/web/salaries/pay/route.ts)
 
 ## Conclusion
-The financial operations system provides a comprehensive foundation for payment processing, reconciliation, and reporting. The extensive redesign has transformed the payments interface from a monolithic 1841-line component to a modular, maintainable architecture with 200 lines of orchestration code and 1600+ lines of comprehensive component library. This comprehensive approach enhances developer experience, improves code maintainability, and enables better performance through component-specific optimizations. The system emphasizes school-scoped access, enhanced permission-driven actions, scalable reporting via RPCs with graceful fallbacks, and comprehensive integration with student management and export capabilities that support accounting workflows and compliance needs. The enhanced architecture includes advanced state management, comprehensive error handling, caching strategies, and improved user experience through modal-based interactions.
+The financial operations system provides a comprehensive foundation for payment processing, reconciliation, reporting, and salary management. The extensive redesign has transformed the payments interface from a monolithic 1841-line component to a modular, maintainable architecture with 200 lines of orchestration code and 1600+ lines of comprehensive component library. The system has been significantly expanded to include a sophisticated salary management module with modular component architecture containing over 20 React components, comprehensive teacher management, monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities. This comprehensive approach enhances developer experience, improves code maintainability, and enables better performance through component-specific optimizations. The system emphasizes school-scoped access, enhanced permission-driven actions, scalable reporting via RPCs with graceful fallbacks, comprehensive integration with student management and export capabilities that support accounting workflows and compliance needs, and seamless integration between payment and salary operations. The enhanced architecture includes advanced state management, comprehensive error handling, caching strategies, and improved user experience through modal-based interactions across both payment and salary management modules.
 
 ## Appendices
 
@@ -616,6 +972,28 @@ The financial operations system provides a comprehensive foundation for payment 
 ### Invoice Systems
 - **Not implemented** in the referenced routes; invoice generation would require invoice templates, numbering, and PDF export.
 
+### Salary Management Features
+- **Teacher Management**:
+  - Comprehensive teacher creation, editing, and management with salary type configuration (fixed, hourly, mixed)
+  - Class assignment management with grade and section selection
+  - Status management (active/inactive) with enhanced filtering
+- **Salary Processing**:
+  - Monthly salary calculation with enhanced lecture-based payment logic
+  - Deduction tracking with detailed recording and management
+  - Salary payment processing with enhanced validation and audit trails
+- **Lecture Management**:
+  - Daily lecture logging with teacher, class, and timing selection
+  - Weekly schedule management with grid-based editing
+  - Lesson time configuration with morning/afternoon session types
+- **Reporting and Analytics**:
+  - Comprehensive salary reporting with summary and detailed views
+  - Teacher-specific statement generation with enhanced printing capabilities
+  - Monthly archive generation with historical data preservation
+- **Export and Integration**:
+  - Multi-format export supporting teachers, subjects, classes, fixed salaries, and lectures
+  - Enhanced Excel generation with comprehensive data organization
+  - Branded print templates for salary slips and reports
+
 ### Practical Workflows
 
 - **Enhanced Payment Collection Workflow**
@@ -624,25 +1002,45 @@ The financial operations system provides a comprehensive foundation for payment 
   - Step 3: System persists the payment with enhanced receipt number generation and branch resolution, then recalculates student paid fee with improved accuracy.
   - Step 4: Return updated student totals and payment details with enhanced error handling and user feedback.
 
-- **Expense Recording Workflow**
-  - Step 1: Authenticate and authorize user within the target school.
-  - Step 2: Submit expense with amount, date, recipient, receipt number, and category.
-  - Step 3: Persist the expense and update financial summaries.
+- **Enhanced Salary Payment Workflow**
+  - Step 1: Authenticate and authorize user within the target school with enhanced permission checking.
+  - Step 2: Use enhanced PaySalaryModal to select teacher, configure salary type (fixed/hourly/mixed), and calculate lecture-based payments if applicable.
+  - Step 3: System validates salary calculation, applies deductions, and processes payment with enhanced error handling.
+  - Step 4: Return updated salary records and teacher status with enhanced success feedback and audit trail.
 
-- **Enhanced Financial Reporting Generation**
+- **Enhanced Teacher Management Workflow**
+  - Step 1: Authenticate and authorize user with appropriate salary management permissions.
+  - Step 2: Use enhanced TeacherModal to create or edit teacher profiles with comprehensive form validation.
+  - Step 3: System validates teacher data, manages class assignments, and updates reference data with enhanced error handling.
+  - Step 4: Return updated teacher records with enhanced success feedback and data synchronization.
+
+- **Enhanced Lecture Scheduling Workflow**
+  - Step 1: Authenticate and authorize user with appropriate salary management permissions.
+  - Step 2: Use enhanced ScheduleSection to select grade and section, then edit weekly schedule grid.
+  - Step 3: System validates schedule entries, manages teacher assignments, and saves schedule with enhanced error handling.
+  - Step 4: Return updated schedule data with enhanced success feedback and calendar synchronization.
+
+- **Enhanced Monthly Archive Workflow**
+  - Step 1: Authenticate and authorize user with appropriate salary management permissions.
+  - Step 2: Use enhanced ArchiveSection to confirm monthly archive creation with archive confirmation dialog.
+  - Step 3: System validates archive data, creates archive snapshot, resets lecture counters, and updates historical records.
+  - Step 4: Return archive confirmation with enhanced success feedback and data preservation.
+
+- **Enhanced Financial Reporting Workflow**
   - Step 1: Authenticate and authorize admin-level user within the target school.
   - Step 2: Request enhanced overview metrics with caching and performance optimization; system uses RPC if available, otherwise falls back to client-side aggregation.
-  - Step 3: Optionally export enhanced datasets for students, payments, expenses, and salaries with improved formatting.
+  - Step 3: Optionally export enhanced datasets for students, payments, expenses, salaries, and lecture data with improved formatting.
 
 - **Enhanced Export for Accounting**
   - Step 1: Authenticate and authorize within the target school.
-  - Step 2: Use enhanced PaymentsFilters to apply filters (search, class, section, quick filter) with improved validation.
+  - Step 2: Use enhanced PaymentsFilters or ExportModal to apply filters (search, class, section, quick filter) with improved validation.
   - Step 3: Click export button to generate enhanced Excel file with filtered student payment data and improved formatting.
 
 - **Enhanced Reconciliation Procedures**
   - Step 1: Compare payments with student balances after each payment entry with enhanced accuracy.
   - Step 2: Investigate warnings for partial synchronization and retry as needed with enhanced error handling.
   - Step 3: Use annual archive exports for period-end reconciliation with enhanced data integrity.
+  - Step 4: Verify salary payments match lecture records and teacher status with enhanced reconciliation procedures.
 
 - **Enhanced Common Scenarios**
   - **Enhanced Payment Failure**: Validate inputs with comprehensive error handling, check permissions with enhanced validation, and inspect returned error messages with improved user feedback.
@@ -652,3 +1050,6 @@ The financial operations system provides a comprehensive foundation for payment 
   - **Component Rendering Problems**: Check component imports and prop passing between parent and child components with enhanced debugging capabilities.
   - **Enhanced Archive Issues**: Verify archive permissions, data validation, and export functionality with comprehensive error handling.
   - **Enhanced Cache Problems**: Clear enhanced caches and verify cache invalidation strategies with improved cache management.
+  - **Enhanced Salary Calculation Issues**: Verify lecture data, teacher salary types, and calculation logic with enhanced debugging capabilities.
+  - **Enhanced Teacher Management Issues**: Verify teacher data validation, class assignments, and reference data synchronization with comprehensive error handling.
+  - **Enhanced Schedule Management Issues**: Verify schedule validation, teacher assignments, and calendar synchronization with enhanced error handling.

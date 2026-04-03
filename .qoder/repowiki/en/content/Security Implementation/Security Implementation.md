@@ -17,15 +17,15 @@
 - [migrations/20260322_mobile_attachments_storage.sql](file://migrations/20260322_mobile_attachments_storage.sql)
 - [lib/admin-infrastructure.ts](file://lib/admin-infrastructure.ts)
 - [types/roles.ts](file://types/roles.ts)
+- [lib/supabase-query-helpers.ts](file://lib/supabase-query-helpers.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced Content Security Policy (CSP) implementation with robust nonce-based approach in proxy.ts middleware
-- Strengthened RBAC session management with mandatory dedicated secrets in production environments
-- Implemented comprehensive security headers including Strict-Transport-Security and X-Content-Type-Options
-- Updated security header configuration to use dynamic per-request approach through proxy middleware
-- Improved RBAC cookie secret requirements with explicit production enforcement
+- Enhanced security with new buildSafeOrFilter() helper function for safe Supabase .or() queries, preventing potential injection attacks
+- Improved overall query safety across the application through standardized filter escaping mechanisms
+- Added comprehensive filter value escaping for PostgREST operators including ilike, like, and comparison operators
+- Strengthened protection against filter injection attacks in dynamic search functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,7 +40,7 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the multi-layered security implementation for the school management platform. It covers authentication and session management, authorization enforcement, data protection via Supabase Row-Level Security (RLS), audit logging, rate limiting, input validation, and protections against common vulnerabilities. The platform now features comprehensive security hardening including a nonce-based Content Security Policy, enhanced RBAC cookie security, and dynamic security headers implemented through Next.js proxy middleware.
+This document explains the multi-layered security implementation for the school management platform. It covers authentication and session management, authorization enforcement, data protection via Supabase Row-Level Security (RLS), audit logging, rate limiting, input validation, and protections against common vulnerabilities. The platform now features comprehensive security hardening including a nonce-based Content Security Policy, enhanced RBAC cookie security, dynamic security headers implemented through Next.js proxy middleware, and robust query safety mechanisms including the new buildSafeOrFilter() helper function designed to prevent filter injection attacks in Supabase .or() queries.
 
 ## Project Structure
 Security-related capabilities are distributed across:
@@ -51,6 +51,7 @@ Security-related capabilities are distributed across:
 - Audit logging utilities
 - Rate limiting middleware
 - Admin infrastructure probing and compatibility
+- Query safety helpers for preventing injection attacks
 
 ```mermaid
 graph TB
@@ -70,8 +71,9 @@ H["lib/supabase-server.ts<br/>Server client + service client"]
 I["migrations/*_managed_mobile_rls.sql<br/>RLS functions/policies"]
 J["migrations/*_mobile_attachments_storage.sql<br/>Storage RLS"]
 K["lib/admin-infrastructure.ts<br/>Feature probing"]
+L["lib/supabase-query-helpers.ts<br/>Safe filter builders"]
 end
-L["lib/audit.ts<br/>Audit logging"]
+M["lib/audit.ts<br/>Audit logging"]
 A --> B
 B --> E
 C --> E
@@ -99,6 +101,7 @@ D --> E
 - [migrations/20260322_mobile_attachments_storage.sql:1-221](file://migrations/20260322_mobile_attachments_storage.sql#L1-L221)
 - [lib/admin-infrastructure.ts:1-209](file://lib/admin-infrastructure.ts#L1-L209)
 - [lib/audit.ts:1-63](file://lib/audit.ts#L1-L63)
+- [lib/supabase-query-helpers.ts:1-34](file://lib/supabase-query-helpers.ts#L1-L34)
 
 **Section sources**
 - [SECURITY.md:1-36](file://SECURITY.md#L1-L36)
@@ -113,6 +116,7 @@ D --> E
 - [migrations/20260322_mobile_attachments_storage.sql:1-221](file://migrations/20260322_mobile_attachments_storage.sql#L1-L221)
 - [lib/admin-infrastructure.ts:1-209](file://lib/admin-infrastructure.ts#L1-L209)
 - [lib/audit.ts:1-63](file://lib/audit.ts#L1-L63)
+- [lib/supabase-query-helpers.ts:1-34](file://lib/supabase-query-helpers.ts#L1-L34)
 
 ## Core Components
 - RBAC session cookie: Signed, short-lived cookie containing role, permissions, and school/subscription context. Enforced by dedicated API endpoint and validated on subsequent requests.
@@ -124,6 +128,9 @@ D --> E
 - Audit logging: Structured audit logs capture actions with actor metadata and optional metadata.
 - Rate limiting: Per-window counters per identifier with cleanup and standardized headers.
 - Admin infrastructure probing: Detects presence of advanced admin features and warns if tables/columns are missing.
+- Safe query builders: New helper functions provide secure filter construction for Supabase queries, preventing injection attacks in .or() operations.
+
+**Updated** Added safe query builder components for preventing filter injection attacks
 
 **Section sources**
 - [lib/rbac-session.ts:1-153](file://lib/rbac-session.ts#L1-L153)
@@ -136,9 +143,10 @@ D --> E
 - [lib/audit.ts:1-63](file://lib/audit.ts#L1-L63)
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [lib/admin-infrastructure.ts:1-209](file://lib/admin-infrastructure.ts#L1-L209)
+- [lib/supabase-query-helpers.ts:1-34](file://lib/supabase-query-helpers.ts#L1-L34)
 
 ## Architecture Overview
-The security architecture combines client-side RBAC session signing, server-side session initialization, robust CSP with nonce generation, and comprehensive security headers. Requests flow through rate-limited endpoints, validated against Supabase Auth and RBAC session state, enforced by database policies.
+The security architecture combines client-side RBAC session signing, server-side session initialization, robust CSP with nonce generation, and comprehensive security headers. Requests flow through rate-limited endpoints, validated against Supabase Auth and RBAC session state, enforced by database policies. The new query safety layer provides additional protection against injection attacks in database operations.
 
 ```mermaid
 sequenceDiagram
@@ -146,6 +154,7 @@ participant Client as "Browser"
 participant Proxy as "proxy.ts Middleware"
 participant API as "RBAC Session API"
 participant Supabase as "Supabase Auth"
+participant QueryHelpers as "Query Safety Helpers"
 participant DB as "PostgreSQL (RLS)"
 participant Storage as "Storage (RLS)"
 Client->>Proxy : "HTTP Request"
@@ -163,6 +172,11 @@ API->>DB : "Enforce RLS policies"
 API->>Storage : "Storage RLS checks"
 Storage-->>API : "Allow/Deny"
 DB-->>API : "Row-filtered results"
+Client->>API : "Search request with .or() filter"
+API->>QueryHelpers : "Build safe filter string"
+QueryHelpers-->>API : "Escaped filter string"
+API->>DB : "Execute safe query"
+DB-->>API : "Filtered results"
 API-->>Client : "Response"
 ```
 
@@ -170,6 +184,7 @@ API-->>Client : "Response"
 - [proxy.ts:91-123](file://proxy.ts#L91-L123)
 - [app/api/rbac/session/route.ts:14-133](file://app/api/rbac/session/route.ts#L14-L133)
 - [lib/supabase-server.ts:60-74](file://lib/supabase-server.ts#L60-L74)
+- [lib/supabase-query-helpers.ts:10-33](file://lib/supabase-query-helpers.ts#L10-L33)
 - [migrations/20260322_managed_mobile_rls.sql:315-577](file://migrations/20260322_managed_mobile_rls.sql#L315-L577)
 - [migrations/20260322_mobile_attachments_storage.sql:176-218](file://migrations/20260322_mobile_attachments_storage.sql#L176-L218)
 
@@ -425,12 +440,40 @@ Check --> |No| Block["429 with headers"]
 - [lib/rate-limit.ts:1-102](file://lib/rate-limit.ts#L1-L102)
 - [app/api/rbac/session/route.ts:1-155](file://app/api/rbac/session/route.ts#L1-L155)
 
+### Safe Query Builders and Filter Injection Prevention
+- Purpose: Provide secure methods for constructing Supabase PostgREST queries to prevent injection attacks, particularly in .or() operations.
+- Filter Value Escaping: The escapeFilterValue() function escapes special characters including backslashes, percent signs, underscores, commas, parentheses, and periods to prevent filter manipulation.
+- Safe OR Filters: The buildSafeOrFilter() function creates properly escaped .or() filter strings for multiple columns, ensuring user input is safely incorporated into ilike queries.
+- PostgREST Security: Protects against filter injection where malicious input could manipulate query logic by exploiting delimiter characters (commas, parentheses) and wildcard characters (%, _).
+- Usage Pattern: Encourages developers to use these helper functions instead of raw string concatenation when building dynamic search queries.
+
+**Updated** Added comprehensive safe query builder components for preventing filter injection attacks
+
+```mermaid
+flowchart TD
+Input["User Search Input"] --> Trim["Trim Whitespace"]
+Trim --> Escape["Escape Special Characters"]
+Escape --> BuildFilter["Build .or() Filter String"]
+BuildFilter --> ColumnsMap["Map to Multiple Columns"]
+ColumnsMap --> Join["Join with Commas"]
+Join --> SafeOutput["Safe Filter String"]
+SafeOutput --> SupabaseQuery["Execute Supabase Query"]
+```
+
+**Diagram sources**
+- [lib/supabase-query-helpers.ts:10-33](file://lib/supabase-query-helpers.ts#L10-L33)
+
+**Section sources**
+- [lib/supabase-query-helpers.ts:1-34](file://lib/supabase-query-helpers.ts#L1-L34)
+
 ### Input Validation and Protection Against Common Vulnerabilities
 - Input validation: Use server-side validation and sanitization for all user-provided inputs. Validate types, lengths, and formats before processing.
 - XSS protection: Escape HTML and sanitize user-generated content rendered in templates. Use framework-safe rendering and avoid innerHTML. CSP with nonce eliminates most script injection vectors.
 - CSRF protection: Enforce SameSite cookies and consider CSRF tokens for state-changing forms. Ensure all state-changing requests originate from trusted origins.
-- Injection prevention: Use parameterized queries and avoid dynamic SQL construction. Validate and whitelist inputs for database operations.
+- Injection prevention: Use parameterized queries and avoid dynamic SQL construction. Validate and whitelist inputs for database operations. Implement the new safe query builders for dynamic filter construction.
 - Secure headers: Dynamic security headers at the edge layer mitigate common web vulnerabilities.
+
+**Updated** Enhanced injection prevention with new safe query builder functions
 
 ### Practical Secure Coding Practices
 - Secrets management: Store secrets in environment variables; never commit secrets to source control. Rotate keys regularly and revoke compromised ones immediately. RBAC_COOKIE_SECRET is now mandatory in production.
@@ -438,30 +481,38 @@ Check --> |No| Block["429 with headers"]
 - Error handling: Log errors securely without exposing sensitive data. Use generic messages to clients while preserving details in logs.
 - Feature detection: Use admin infrastructure probing to gracefully handle missing features and warn administrators.
 - CSP compliance: Use nonce-based CSP instead of unsafe-inline scripts. Store CSP nonce in x-csp-nonce header for server components.
+- Query safety: Always use the buildSafeOrFilter() helper function for dynamic search queries involving .or() operations. Never concatenate user input directly into filter strings.
+
+**Updated** Added query safety practices using new helper functions
 
 **Section sources**
 - [SECURITY.md:30-36](file://SECURITY.md#L30-L36)
 - [lib/supabase-server.ts:39-50](file://lib/supabase-server.ts#L39-L50)
 - [lib/admin-infrastructure.ts:112-209](file://lib/admin-infrastructure.ts#L112-L209)
 - [lib/rbac-session.ts:23-30](file://lib/rbac-session.ts#L23-L30)
+- [lib/supabase-query-helpers.ts:10-33](file://lib/supabase-query-helpers.ts#L10-L33)
 
 ### Vulnerability Assessment and Incident Response
-- Assessment: Conduct regular dependency audits, static analysis, and dynamic scanning. Review Supabase configuration and RLS policies periodically. Test CSP nonce generation and RBAC secret requirements.
+- Assessment: Conduct regular dependency audits, static analysis, and dynamic scanning. Review Supabase configuration and RLS policies periodically. Test CSP nonce generation, RBAC secret requirements, and query safety mechanisms.
 - Reporting: Follow private reporting guidelines for security issues. Treat credential exposure, privilege escalation, and isolation failures as critical.
 - Response: Rotate affected secrets, apply patches, and communicate remediation steps. Monitor audit logs and alerts for suspicious activity.
+
+**Updated** Enhanced assessment to include query safety mechanisms
 
 **Section sources**
 - [SECURITY.md:17-36](file://SECURITY.md#L17-L36)
 
 ### Security Monitoring, Threat Detection, and Compliance
-- Monitoring: Integrate audit logs with SIEM or analytics platforms. Alert on unusual spikes in 429 responses, repeated failures, or unauthorized access attempts.
-- Compliance: Maintain audit trails, enforce retention policies, and ensure data minimization. Regularly review RLS coverage and storage access controls.
+- Monitoring: Integrate audit logs with SIEM or analytics platforms. Alert on unusual spikes in 429 responses, repeated failures, or unauthorized access attempts. Monitor for potential filter injection attempts in search functionality.
+- Compliance: Maintain audit trails, enforce retention policies, and ensure data minimization. Regularly review RLS coverage, storage access controls, and query safety implementations.
 - CSP monitoring: Verify nonce generation and header injection in production. Monitor for CSP violations in browser developer tools.
 
 ### Common Security Scenarios, Penetration Testing, and Maintenance
-- Scenarios: Test cross-role access, tenant isolation, storage access bypass attempts, CSP nonce bypass attempts, and RBAC secret validation.
-- Pen testing: Perform authorized penetration tests focusing on RBAC session integrity, RLS bypass vectors, storage exposure, and CSP nonce effectiveness.
-- Maintenance: Apply database migrations before deploying dependent features. Re-run linters, type checks, builds, and load tests before production releases.
+- Scenarios: Test cross-role access, tenant isolation, storage access bypass attempts, CSP nonce bypass attempts, RBAC secret validation, and filter injection attack vectors.
+- Pen testing: Perform authorized penetration tests focusing on RBAC session integrity, RLS bypass vectors, storage exposure, CSP nonce effectiveness, and query safety mechanisms.
+- Maintenance: Apply database migrations before deploying dependent features. Re-run linters, type checks, builds, and load tests before production releases. Regularly review and update query safety practices.
+
+**Updated** Enhanced pen testing to include query safety and filter injection scenarios
 
 ## Dependency Analysis
 - RBAC session signing depends on a dedicated secret; absence triggers warnings or errors depending on environment.
@@ -469,6 +520,9 @@ Check --> |No| Block["429 with headers"]
 - RBAC session endpoint depends on Supabase Auth for user resolution, Supabase server client for profile/school/subscription queries, and rate limiting.
 - Database RLS depends on managed user functions and policies; storage RLS depends on bucket configuration and policy functions.
 - Audit logging depends on Supabase client and admin infrastructure probing to handle missing tables gracefully.
+- Safe query builders depend on the new supabase-query-helpers module for filter escaping and construction.
+
+**Updated** Added dependency on new query safety helpers
 
 ```mermaid
 graph LR
@@ -483,6 +537,7 @@ AuthLib --> RLS["migrations/*_managed_mobile_rls.sql"]
 StorageRLS["migrations/*_mobile_attachments_storage.sql"] --> StoragePolicy["storage.objects policies"]
 Audit["lib/audit.ts"] --> SupaBrowser
 AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
+QueryHelpers["lib/supabase-query-helpers.ts"] --> SupaBrowser
 ```
 
 **Diagram sources**
@@ -498,6 +553,7 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 - [migrations/20260322_mobile_attachments_storage.sql:176-218](file://migrations/20260322_mobile_attachments_storage.sql#L176-L218)
 - [lib/audit.ts:40-62](file://lib/audit.ts#L40-L62)
 - [lib/admin-infrastructure.ts:131-209](file://lib/admin-infrastructure.ts#L131-L209)
+- [lib/supabase-query-helpers.ts:1-34](file://lib/supabase-query-helpers.ts#L1-L34)
 
 **Section sources**
 - [lib/rbac-session.ts:1-153](file://lib/rbac-session.ts#L1-L153)
@@ -511,6 +567,7 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 - [migrations/20260322_mobile_attachments_storage.sql:1-221](file://migrations/20260322_mobile_attachments_storage.sql#L1-L221)
 - [lib/audit.ts:1-63](file://lib/audit.ts#L1-L63)
 - [lib/admin-infrastructure.ts:1-209](file://lib/admin-infrastructure.ts#L1-L209)
+- [lib/supabase-query-helpers.ts:1-34](file://lib/supabase-query-helpers.ts#L1-L34)
 
 ## Performance Considerations
 - RBAC session signing uses HMAC-SHA256; keep payloads minimal to reduce overhead.
@@ -518,6 +575,9 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 - Rate limiter uses in-memory Map with periodic cleanup; monitor memory growth under high concurrency.
 - RLS evaluation occurs server-side; ensure appropriate indexes on filtered columns (e.g., student_id, school_id).
 - Storage RLS checks traverse related tables; maintain indexes on lookup columns.
+- Safe query builders add minimal overhead through string escaping operations; benefits far outweigh performance costs.
+
+**Updated** Added performance considerations for new query safety helpers
 
 ## Troubleshooting Guide
 - Missing Supabase environment variables: Browser client creation throws if URL or keys are missing.
@@ -528,6 +588,9 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 - Unauthorized access: RBAC session endpoint returns 401 if user is not authenticated.
 - Audit table missing: Audit logging ignores missing table errors and logs a warning.
 - Rate limit exceeded: RBAC endpoints return 429 with standardized headers; adjust window/max hits as needed.
+- Query safety failures: If .or() filters are not working correctly, ensure buildSafeOrFilter() is being used instead of manual string concatenation.
+
+**Updated** Added troubleshooting guidance for new query safety components
 
 **Section sources**
 - [lib/supabase.ts:8-19](file://lib/supabase.ts#L8-L19)
@@ -537,17 +600,25 @@ AdminInfra["lib/admin-infrastructure.ts"] --> AuthLib
 - [app/api/rbac/session/route.ts:28-30](file://app/api/rbac/session/route.ts#L28-L30)
 - [lib/audit.ts:56-62](file://lib/audit.ts#L56-L62)
 - [lib/rate-limit.ts:86-101](file://lib/rate-limit.ts#L86-L101)
+- [lib/supabase-query-helpers.ts:10-33](file://lib/supabase-query-helpers.ts#L10-L33)
 
 ## Conclusion
-The platform implements a robust, layered security model combining Supabase Auth, signed RBAC session cookies, dynamic CSP with nonce-based approach, comprehensive security headers, database RLS, storage policies, audit logging, and rate limiting. The recent security hardening includes mandatory dedicated RBAC cookie secrets in production, comprehensive CSP implementation with per-request nonces, and dynamic security headers through proxy middleware. Administrators should ensure proper secret management, apply migrations before feature deployment, continuously monitor and test for vulnerabilities, and verify CSP nonce generation and header injection in production environments.
+The platform implements a robust, layered security model combining Supabase Auth, signed RBAC session cookies, dynamic CSP with nonce-based approach, comprehensive security headers, database RLS, storage policies, audit logging, and rate limiting. The recent security hardening includes mandatory dedicated RBAC cookie secrets in production, comprehensive CSP implementation with per-request nonces, dynamic security headers through proxy middleware, and most importantly, the new buildSafeOrFilter() helper function that prevents filter injection attacks in Supabase .or() queries. The enhanced query safety layer provides additional protection against injection vulnerabilities in dynamic search functionality. Administrators should ensure proper secret management, apply migrations before feature deployment, continuously monitor and test for vulnerabilities, verify CSP nonce generation and header injection in production environments, and adopt the new safe query builder patterns throughout the application.
+
+**Updated** Enhanced conclusion to highlight new query safety capabilities
 
 ## Appendices
 - Security policy scope and operational expectations are documented centrally.
 - Admin infrastructure probing helps identify missing features and compatibility warnings.
 - RBAC_COOKIE_SECRET is now mandatory in production for enhanced security posture.
+- Safe query builder functions provide standardized protection against filter injection attacks.
+- The buildSafeOrFilter() helper should be used universally for dynamic search queries involving .or() operations.
+
+**Updated** Added information about new query safety components
 
 **Section sources**
 - [SECURITY.md:1-36](file://SECURITY.md#L1-L36)
 - [lib/admin-infrastructure.ts:112-209](file://lib/admin-infrastructure.ts#L112-L209)
 - [lib/rbac-session.ts:23-30](file://lib/rbac-session.ts#L23-L30)
 - [proxy.ts:38-43](file://proxy.ts#L38-L43)
+- [lib/supabase-query-helpers.ts:1-34](file://lib/supabase-query-helpers.ts#L1-L34)
