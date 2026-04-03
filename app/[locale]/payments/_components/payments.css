@@ -273,6 +273,14 @@
   box-shadow: 0 2px 8px rgba(108, 74, 182, 0.06);
 }
 
+.payments-page .tbl-mobile-cards {
+  display: none;
+}
+
+.payments-page .tbl-mobile-card {
+  display: none;
+}
+
 .payments-page table {
   width: 100%;
   border-collapse: collapse;
@@ -708,7 +716,7 @@
 }
 
 .payments-page .fl {
-  font-size: 0.76rem;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -1136,7 +1144,7 @@
 }
 
 .payments-page .archive-section-sub {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--gray);
 }
 
@@ -1231,5 +1239,109 @@
   .payments-page .archive-detail-actions .btn-add {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-width: 767px) {
+  .payments-page .tbl-wrap {
+    overflow: visible;
+    padding: 1rem;
+  }
+
+  .payments-page .tbl-wrap table {
+    display: none;
+  }
+
+  .payments-page .tbl-mobile-cards {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .payments-page .tbl-mobile-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    border: 1px solid rgba(108, 74, 182, 0.08);
+    border-radius: 16px;
+    background: #ffffff;
+    padding: 1rem;
+    box-shadow: 0 10px 24px rgba(108, 74, 182, 0.08);
+  }
+
+  .payments-page .tbl-mobile-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .payments-page .tbl-mobile-card__title {
+    padding: 0;
+    border: none;
+    background: none;
+    text-align: right;
+    font-size: 0.95rem;
+  }
+
+  .payments-page .tbl-mobile-card__subtitle {
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--gray);
+    line-height: 1.6;
+  }
+
+  .payments-page .tbl-mobile-card__amount {
+    color: #ef4444;
+    font-size: 0.92rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .payments-page .tbl-mobile-card__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .payments-page .tbl-mobile-card__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: #f8f6ff;
+  }
+
+  .payments-page .tbl-mobile-card__item span {
+    font-size: 0.8rem;
+    color: var(--gray);
+  }
+
+  .payments-page .tbl-mobile-card__item strong {
+    font-size: 0.88rem;
+    color: var(--dark);
+    line-height: 1.5;
+  }
+
+  .payments-page .tbl-mobile-card__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .payments-page .tbl-mobile-card__action {
+    min-height: 42px;
+    border: 1px solid rgba(108, 74, 182, 0.14);
+    border-radius: 12px;
+    background: #ede8fa;
+    color: var(--p2);
+    font-size: 0.84rem;
+    font-weight: 800;
+  }
+
+  .payments-page .tbl-mobile-card__action--primary {
+    background: linear-gradient(135deg, var(--p3), var(--p2));
+    border-color: transparent;
+    color: #ffffff;
   }
 }

@@ -69,6 +69,66 @@ export function StudentsTable({
 
   return (
     <div className="tbl-wrap">
+      <div className="tbl-mobile-cards">
+        {pagedStudents.map((s, i) => {
+          const st = STATUS_MAP[s.status] || STATUS_MAP.active;
+          const actions = getActions(s);
+          return (
+            <article key={s.id} className="tbl-mobile-card">
+              <div className="tbl-mobile-card__header">
+                <div>
+                  <button
+                    type="button"
+                    className="tbl-mobile-card__title"
+                    onClick={(e) => openMenu(e, s)}
+                  >
+                    {s.full_name}
+                  </button>
+                  <div className="tbl-mobile-card__subtitle">
+                    #{(page - 1) * pageSize + i + 1} • {s.class_name} • {s.section || "بدون شعبة"}
+                  </div>
+                </div>
+                <span className="badge" style={{ background: st.bg, color: st.color }}>
+                  {st.label}
+                </span>
+              </div>
+
+              <div className="tbl-mobile-card__grid">
+                <div className="tbl-mobile-card__item">
+                  <span>الهاتف</span>
+                  <strong>{s.phone || "—"}</strong>
+                </div>
+                <div className="tbl-mobile-card__item">
+                  <span>المدفوع</span>
+                  <strong style={{ color: "#10B981" }}>د.ع {formatNumber(s.paid_fee)}</strong>
+                </div>
+                <div className="tbl-mobile-card__item">
+                  <span>المتبقي</span>
+                  <strong style={{ color: s.remaining_fee > 0 ? "#EF4444" : "#10B981" }}>
+                    د.ع {formatNumber(s.remaining_fee)}
+                  </strong>
+                </div>
+                <div className="tbl-mobile-card__item">
+                  <span>العنوان</span>
+                  <strong>{s.address || "—"}</strong>
+                </div>
+              </div>
+
+              {actions.length > 0 ? (
+                <button
+                  type="button"
+                  className="btn-action tbl-mobile-card__action"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => openMenu(e, s)}
+                >
+                  خيارات الطالب ▾
+                </button>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+
       <table>
         <thead>
           <tr>

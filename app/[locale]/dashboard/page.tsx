@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { Database } from "@/lib/icons";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { getLocaleFromPath } from "@/lib/locale-routing";
@@ -30,6 +32,7 @@ import {
 export default function DashboardPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
+  const t = useTranslations();
   const { profile, canAny } = useRole();
   const schoolScope = useSchoolScope(profile);
   const canManageClasses = canAny(["add_students", "edit_students", "delete_students"]);
@@ -70,6 +73,11 @@ export default function DashboardPage() {
 
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
   const canCustomizeBranding = profile?.role === "super_admin";
+  const hasOperationalData =
+    dashboardData.dashboardTotals.studentsCount > 0 ||
+    dashboardData.classFees.length > 0 ||
+    dashboardData.recentPayments.length > 0 ||
+    dashboardData.overdueStudents.length > 0;
   const dashboardSummary = schoolScope.shouldBlockContent
     ? "اختر مدرسة أولاً حتى تصبح بيانات الهيدر والإحصائيات مرتبطة بسياق واضح."
     : schoolScope.isSuperAdminScope
@@ -129,26 +137,54 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  <ClassFeesTable
-                    classFees={dashboardData.classFees}
-                    showFeesTable={showFeesTable}
-                    canManageClasses={canManageClasses}
-                    deleteConfirm={feeManagement.deleteConfirm}
-                    getClassStats={feeManagement.getClassStats}
-                    onOpenNewFee={feeManagement.openNewFee}
-                    onEditFee={feeManagement.openEditFee}
-                    onDeleteFee={(id) => feeManagement.setDeleteConfirm(id)}
-                    onCancelDelete={() => feeManagement.setDeleteConfirm(null)}
-                    onConfirmDelete={feeManagement.handleDeleteFee}
-                  />
+                  {hasOperationalData ? (
+                    <>
+                      <ClassFeesTable
+                        classFees={dashboardData.classFees}
+                        showFeesTable={showFeesTable}
+                        canManageClasses={canManageClasses}
+                        deleteConfirm={feeManagement.deleteConfirm}
+                        getClassStats={feeManagement.getClassStats}
+                        onOpenNewFee={feeManagement.openNewFee}
+                        onEditFee={feeManagement.openEditFee}
+                        onDeleteFee={(id) => feeManagement.setDeleteConfirm(id)}
+                        onCancelDelete={() => feeManagement.setDeleteConfirm(null)}
+                        onConfirmDelete={feeManagement.handleDeleteFee}
+                      />
 
-                  <StatisticsCards dashboardTotals={dashboardData.dashboardTotals} />
-                  <FinancialAnalysisPanel dashboardTotals={dashboardData.dashboardTotals} />
+                      <StatisticsCards dashboardTotals={dashboardData.dashboardTotals} />
+                      <FinancialAnalysisPanel dashboardTotals={dashboardData.dashboardTotals} />
 
-                  <div className="bottom-grid">
-                    <RecentPaymentsPanel recentPayments={dashboardData.recentPayments} paymentsPageHref={paymentsPageHref} />
-                    <OverdueStudentsPanel overdueStudents={dashboardData.overdueStudents} paymentsPageHref={paymentsPageHref} />
-                  </div>
+                      <div className="bottom-grid">
+                        <RecentPaymentsPanel recentPayments={dashboardData.recentPayments} paymentsPageHref={paymentsPageHref} />
+                        <OverdueStudentsPanel overdueStudents={dashboardData.overdueStudents} paymentsPageHref={paymentsPageHref} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="card" style={{ textAlign: "center", padding: "2rem 1.5rem" }}>
+                      <div
+                        style={{
+                          width: 64,
+                          height: 64,
+                          margin: "0 auto 1rem",
+                          borderRadius: 20,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(79,140,255,0.12)",
+                          color: "var(--primary)",
+                        }}
+                      >
+                        <Database size={28} />
+                      </div>
+                      <h3 style={{ marginBottom: ".45rem", fontSize: "1rem", color: "var(--text-primary)" }}>
+                        {t("dashboard.emptyTitle")}
+                      </h3>
+                      <p className="muted" style={{ maxWidth: 460, margin: "0 auto", lineHeight: 1.9 }}>
+                        {t("dashboard.emptyDescription")}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -1,0 +1,64 @@
+import "server-only";
+
+import { z } from "zod";
+
+import { getPublicEnv } from "@/lib/env/public";
+
+const serverEnvSchema = z.object({
+  SUPABASE_SERVICE_ROLE_KEY: z.string().trim().min(1).optional(),
+  RBAC_COOKIE_SECRET: z.string().trim().min(32).optional(),
+  SESSION_COOKIE_SECURE: z.enum(["true", "false"]).optional(),
+});
+
+export type ServerEnv = ReturnType<typeof getServerEnv>;
+
+let cachedServerEnv: {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  serviceRoleKey: string | null;
+  rbacCookieSecret: string | null;
+  sessionCookieSecureOverride: boolean | null;
+} | null = null;
+
+export function getServerEnv() {
+  if (cachedServerEnv) {
+    return cachedServerEnv;
+  }
+
+  const publicEnv = getPublicEnv();
+  const parsed = serverEnvSchema.safeParse({
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    RBAC_COOKIE_SECRET: process.env.RBAC_COOKIE_SECRET,
+    SESSION_COOKIE_SECURE: process.env.SESSION_COOKIE_SECURE,
+  });
+
+  if (!parsed.success) {
+    const formatted = parsed.error.issues.map((issue) => issue.message).join(" ");
+    throw new Error(`Invalid server environment configuration. ${formatted}`.trim());
+  }
+
+  cachedServerEnv = {
+    supabaseUrl: publicEnv.supabaseUrl,
+    supabaseAnonKey: publicEnv.supabaseAnonKey,
+    serviceRoleKey: parsed.data.SUPABASE_SERVICE_ROLE_KEY?.trim() || null,
+    rbacCookieSecret: parsed.data.RBAC_COOKIE_SECRET?.trim() || null,
+    sessionCookieSecureOverride:
+      parsed.data.SESSION_COOKIE_SECURE === "true"
+        ? true
+        : parsed.data.SESSION_COOKIE_SECURE === "false"
+          ? false
+          : null,
+  };
+
+  return cachedServerEnv;
+}
+
+export function shouldUseSecureCookies() {
+  const env = getServerEnv();
+  if (typeof env.sessionCookieSecureOverride === "boolean") {
+    return env.sessionCookieSecureOverride;
+  }
+
+  return process.env.NODE_ENV === "production";
+}
+

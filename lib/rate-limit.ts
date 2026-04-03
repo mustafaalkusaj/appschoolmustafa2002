@@ -31,6 +31,10 @@ function getClientIp(request: NextRequest) {
   return "unknown";
 }
 
+export function getRateLimitClientIp(request: NextRequest) {
+  return getClientIp(request);
+}
+
 function cleanupExpiredRecords(now: number) {
   if (now - lastCleanupAt < STORE_CLEANUP_INTERVAL_MS) {
     return;

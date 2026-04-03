@@ -1,30 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { salaryPaymentSchema } from "@/lib/api-schemas";
 import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
-
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ error: { message } }, { status });
-}
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-  const schoolId = typeof body?.school_id === "string" ? body.school_id.trim() : "";
-  const teacherId = typeof body?.teacher_id === "string" ? body.teacher_id.trim() : "";
-  const requestedBranchId = typeof body?.branch_id === "string" && body.branch_id.trim() ? body.branch_id.trim() : null;
-  const month = typeof body?.month === "string" ? body.month.trim() : "";
-  const grossSalary = Number(body?.gross_salary ?? 0);
-  const deductions = Number(body?.deductions ?? 0);
-  const notes = typeof body?.notes === "string" && body.notes.trim() ? body.notes.trim() : null;
-
-  if (!schoolId || !teacherId || !month) {
-    return jsonError("بيانات صرف الراتب غير مكتملة.", 400);
+  const body = await req.json().catch(() => null);
+  const parsed = salaryPaymentSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonValidationError(parsed.error);
   }
 
-  if (!Number.isFinite(grossSalary) || grossSalary < 0 || !Number.isFinite(deductions) || deductions < 0) {
-    return jsonError("قيم الراتب أو الخصومات غير صالحة.", 400);
-  }
+  const {
+    school_id: schoolId,
+    teacher_id: teacherId,
+    branch_id: requestedBranchId,
+    month,
+    gross_salary: grossSalary,
+    deductions,
+    notes,
+  } = parsed.data;
 
   const context = await resolveSchoolScopedActorContext(
     schoolId,
@@ -99,32 +97,20 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (insertError || !insertedSalary) {
-    return jsonError(insertError?.message || "تعذر صرف الراتب.", 500);
-  }
-
-  const { data: duplicateRows } = await actorSupabase
-    .from("salaries")
-    .select("id")
-    .eq("school_id", targetSchoolId)
-    .eq("teacher_id", teacherId)
-    .eq("month", month)
-    .order("created_at", { ascending: true });
-
-  let warning = "";
-  if (duplicateRows && duplicateRows.length > 1) {
-    const keeperId = duplicateRows[0]?.id;
-    const duplicateIds = duplicateRows.slice(1).map((row) => row.id).filter(Boolean);
-
-    if (duplicateIds.length > 0) {
-      await actorSupabase.from("salaries").delete().eq("school_id", targetSchoolId).in("id", duplicateIds);
+    if (insertError?.code === "23505") {
+      return jsonError("تم دفع راتب هذا الشهر مسبقاً.", 409);
     }
 
-    if (keeperId !== insertedSalary.id) {
-      return jsonError("تم اكتشاف عملية متزامنة لهذا الشهر. احتُفظ بأول سجل فقط.", 409);
-    }
-
-    warning = "تمت إزالة تكرارات متزامنة لراتب هذا الشهر تلقائياً.";
+    logRouteError("salaries-pay", insertError ?? new Error("Salary insert failed"), {
+      actorUserId,
+      schoolId: targetSchoolId,
+      teacherId,
+      month,
+    });
+    return jsonError("تعذر صرف الراتب حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
+
+  invalidateSchoolCacheDomains(targetSchoolId, ["reports-overview"]);
 
   return NextResponse.json({
     ok: true,
@@ -134,6 +120,5 @@ export async function POST(req: NextRequest) {
         ? insertedSalary.teachers[0] ?? null
         : insertedSalary.teachers ?? null,
     },
-    warning,
   });
 }

@@ -1,18 +1,11 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { getPublicEnv } from "@/lib/env/public";
+import { getServerEnv } from "@/lib/env/server";
 
 export async function createRouteSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).",
-    );
-  }
+  const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
 
   const cookieStore = await cookies();
 
@@ -37,11 +30,11 @@ export async function createRouteSupabaseClient() {
 }
 
 export function createServiceSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { supabaseUrl } = getPublicEnv();
+  const { serviceRoleKey } = getServerEnv();
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).");
+  if (!serviceRoleKey) {
+    throw new Error("Missing Supabase env vars (SUPABASE_SERVICE_ROLE_KEY).");
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {

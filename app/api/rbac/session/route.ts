@@ -4,6 +4,7 @@ import { normalizePermissions, resolveKnownUserRole } from "@/types/roles";
 import {
   RBAC_COOKIE_NAME,
   buildRBACSessionPayload,
+  getExpiredRBACCookieOptions,
   getRBACCookieOptions,
   hasRBACSecret,
   signRBACSession,
@@ -61,13 +62,7 @@ export async function POST(req: NextRequest) {
       { ok: false, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." },
       { status: 403 },
     );
-    response.cookies.set(RBAC_COOKIE_NAME, "", {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 0,
-    });
+    response.cookies.set(RBAC_COOKIE_NAME, "", getExpiredRBACCookieOptions());
     return response;
   }
   const profileWithOptionalPermissions = profile as typeof profile & {
@@ -143,12 +138,6 @@ export async function DELETE(req: NextRequest) {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(RBAC_COOKIE_NAME, "", {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 0,
-  });
+  response.cookies.set(RBAC_COOKIE_NAME, "", getExpiredRBACCookieOptions());
   return response;
 }

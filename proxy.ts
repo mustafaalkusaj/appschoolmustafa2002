@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getPublicEnv } from "@/lib/env/public";
 
 /**
  * Generates a cryptographically random nonce for CSP.
@@ -29,7 +30,7 @@ function resolveOptionalOrigin(value: string | undefined): string | null {
 }
 
 // Pre-compute static CSP values
-const supabaseOrigin = resolveOptionalOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
+const supabaseOrigin = resolveOptionalOrigin(getPublicEnv().supabaseUrl);
 const supabaseHost = supabaseOrigin ? new URL(supabaseOrigin).hostname : undefined;
 
 /**
@@ -88,26 +89,46 @@ function buildCSP(nonce: string): string {
  * Next.js 16 proxy function (formerly middleware).
  * Handles CSP header injection with per-request nonces.
  */
-export async function proxy(_request: NextRequest): Promise<NextResponse> {
+function resolveRequestId(request: NextRequest) {
+  const incoming = request.headers.get("x-request-id")?.trim();
+  if (incoming && incoming.length <= 128) {
+    return incoming;
+  }
+  return crypto.randomUUID();
+}
+
+export async function proxy(request: NextRequest): Promise<NextResponse> {
+  const requestId = resolveRequestId(request);
   const nonce = generateNonce();
   const csp = buildCSP(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
+  requestHeaders.set("x-csp-nonce", nonce);
 
-  // Continue to the requested route
-  const response = NextResponse.next();
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+  const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
 
-  // Set Content-Security-Policy with nonce
-  response.headers.set("Content-Security-Policy", csp);
-  
-  // Set other security headers (these were previously in next.config.ts)
+  if (!isApiRequest) {
+    response.headers.set("Content-Security-Policy", csp);
+  }
+
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  response.headers.set("Origin-Agent-Cluster", "?1");
+  response.headers.set("X-DNS-Prefetch-Control", "off");
   response.headers.set(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(), browsing-topics=()"
   );
+  response.headers.set("x-request-id", requestId);
   
-  // HSTS only in production
   if (process.env.NODE_ENV === "production") {
     response.headers.set(
       "Strict-Transport-Security",
@@ -115,24 +136,13 @@ export async function proxy(_request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Store nonce in a custom header for use by server components if needed
-  // This can be read by components that need to inject scripts with nonces
   response.headers.set("x-csp-nonce", nonce);
 
   return response;
 }
 
 export const config = {
-  // Match all paths except static files, api routes, and Next.js internals
   matcher: [
-    /*
-     * Match all request paths except:
-     * - api routes (handled separately)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files with extensions (images, etc.)
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 };

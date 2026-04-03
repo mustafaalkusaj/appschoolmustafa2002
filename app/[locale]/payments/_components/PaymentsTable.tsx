@@ -45,6 +45,79 @@ export function PaymentsTable({
 
   return (
     <div className="tbl-wrap">
+      <div className="tbl-mobile-cards">
+        {students.map((s, i) => {
+          const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
+          return (
+            <article key={s.id} className="tbl-mobile-card">
+              <div className="tbl-mobile-card__header">
+                <div>
+                  <button
+                    type="button"
+                    className="student-link tbl-mobile-card__title"
+                    onClick={() => onStudentClick(s)}
+                  >
+                    {s.full_name}
+                  </button>
+                  <div className="tbl-mobile-card__subtitle">
+                    #{(page - 1) * PAGE_SIZE + i + 1} • {s.class_name || "بدون صف"} •{" "}
+                    {formatNumber(paymentCountsByStudent[s.id] ?? 0)} دفعة
+                  </div>
+                </div>
+                <div className="tbl-mobile-card__amount">
+                  د.ع {formatNumber(s.remaining_fee)}
+                </div>
+              </div>
+
+              <div className="tbl-mobile-card__grid">
+                <div className="tbl-mobile-card__item">
+                  <span>المدفوع</span>
+                  <strong style={{ color: "#10B981" }}>د.ع {formatNumber(s.paid_fee)}</strong>
+                </div>
+                <div className="tbl-mobile-card__item">
+                  <span>الإجمالي</span>
+                  <strong>د.ع {formatNumber(s.total_fee)}</strong>
+                </div>
+                <div className="tbl-mobile-card__item">
+                  <span>الخصم</span>
+                  <strong>
+                    {s.discount_value && s.discount_value > 0 ? `د.ع ${formatNumber(s.discount_value)}` : "—"}
+                  </strong>
+                </div>
+                <div className="tbl-mobile-card__item">
+                  <span>الهاتف</span>
+                  <strong>{s.phone || "—"}</strong>
+                </div>
+              </div>
+
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#6C4AB6" }}
+                />
+              </div>
+
+              <div className="tbl-mobile-card__actions">
+                <button
+                  type="button"
+                  className="tbl-mobile-card__action tbl-mobile-card__action--primary"
+                  onClick={() => onAddPayment(s)}
+                >
+                  إضافة دفعة
+                </button>
+                <button
+                  type="button"
+                  className="tbl-mobile-card__action"
+                  onClick={() => onStudentClick(s)}
+                >
+                  عرض التفاصيل
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
       <table>
         <thead>
           <tr>

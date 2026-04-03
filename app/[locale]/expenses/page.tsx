@@ -1,6 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useCallback, useDeferredValue, useEffect, useState } from "react";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -12,29 +12,120 @@ import { useRole } from "@/hooks/useRole";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 
+const DEFAULT_EXPENSE_DATE = new Date().toISOString().split("T")[0];
+const EXPENSES_PAGE_SIZE = 20;
+const EXPENSE_EXPORT_PAGE_SIZE = 100;
+
+type ExpenseRow = {
+  id: string;
+  school_id: string;
+  expense_type_id: string | null;
+  amount: number;
+  expense_date: string;
+  recipient: string | null;
+  receipt_number: string | null;
+  notes: string | null;
+  created_at: string | null;
+  expense_types: { name: string | null } | null;
+};
+
+type ExpenseTypeRow = {
+  id: string;
+  school_id: string;
+  name: string;
+  notes: string | null;
+  usage_count: number;
+  usage_total: number;
+};
+
+type ExpenseSummary = {
+  schoolTotalCount: number;
+  schoolTotalAmount: number;
+  schoolTodayAmount: number;
+  filteredTotalCount: number;
+  filteredTotalAmount: number;
+};
+
+type ExpensesListResponse = {
+  ok?: boolean;
+  rows?: ExpenseRow[];
+  summary?: ExpenseSummary;
+  totalCount?: number;
+  totalPages?: number;
+  page?: number;
+  error?: { message?: string };
+};
+
+type ExpenseTypesResponse = {
+  ok?: boolean;
+  rows?: ExpenseTypeRow[];
+  error?: { message?: string };
+};
+
+type ExpenseMutationResponse = {
+  ok?: boolean;
+  expense?: ExpenseRow;
+  expenseType?: ExpenseTypeRow;
+  deletedExpenseId?: string;
+  deletedTypeId?: string;
+  error?: { message?: string };
+};
+
+const EMPTY_EXPENSE_SUMMARY: ExpenseSummary = {
+  schoolTotalCount: 0,
+  schoolTotalAmount: 0,
+  schoolTodayAmount: 0,
+  filteredTotalCount: 0,
+  filteredTotalAmount: 0,
+};
+
+function getApiErrorMessage(payload: { error?: { message?: string } } | null | undefined, fallback: string) {
+  return typeof payload?.error?.message === "string" && payload.error.message.trim()
+    ? payload.error.message
+    : fallback;
+}
+
+function buildExpensesUrl(path: string, params: Record<string, string | number | null | undefined>) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") {
+      return;
+    }
+    searchParams.set(key, String(value));
+  });
+  return `${path}?${searchParams.toString()}`;
+}
+
 export default function ExpensesPage() {
   const { profile } = useRole();
   const schoolScope = useSchoolScope(profile);
   const [activeTab, setActiveTab] = useState<"invoices"|"types">("invoices");
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [expenseTypes, setExpenseTypes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+  const [expenseTypes, setExpenseTypes] = useState<ExpenseTypeRow[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+  const [typesLoading, setTypesLoading] = useState(true);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
   // Filters
+  const [expenseTypeFilter, setExpenseTypeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const [expensePage, setExpensePage] = useState(1);
+  const [expenseTotalCount, setExpenseTotalCount] = useState(0);
+  const [expenseTotalPages, setExpenseTotalPages] = useState(1);
+  const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary>(EMPTY_EXPENSE_SUMMARY);
 
   // Expense form
   const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [editExpense, setEditExpense] = useState<any>(null);
+  const [editExpense, setEditExpense] = useState<ExpenseRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     expense_type_id: "",
     amount: "",
-    expense_date: new Date().toISOString().split("T")[0],
+    expense_date: DEFAULT_EXPENSE_DATE,
     recipient: "",
     receipt_number: "",
     notes: "",
@@ -42,7 +133,7 @@ export default function ExpensesPage() {
 
   // Type form
   const [showTypeForm, setShowTypeForm] = useState(false);
-  const [editType, setEditType] = useState<any>(null);
+  const [editType, setEditType] = useState<ExpenseTypeRow | null>(null);
   const [savingType, setSavingType] = useState(false);
   const [typeForm, setTypeForm] = useState({ name: "", notes: "" });
   const [pendingDelete, setPendingDelete] = useState<{ type: "expense" | "type"; id: string } | null>(null);
@@ -50,71 +141,179 @@ export default function ExpensesPage() {
   // Search for types
   const [typeSearch, setTypeSearch] = useState("");
 
+  const resolveScopedSchoolId = useCallback(async () => {
+    return resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+  }, [profile, schoolScope.selectedSchoolId]);
+
+  const fetchExpenseTypes = useCallback(
+    async (explicitSchoolId?: string | null) => {
+      const scopedSchoolId = explicitSchoolId ?? (await resolveScopedSchoolId());
+      if (!scopedSchoolId) {
+        setExpenseTypes([]);
+        setTypesLoading(false);
+        return;
+      }
+
+      setTypesLoading(true);
+      try {
+        const { response, payload } = await fetchJsonWithAuthorizedSession<ExpenseTypesResponse>(
+          buildExpensesUrl("/api/web/expenses/types", {
+            schoolId: scopedSchoolId,
+          }),
+        );
+
+        if (!response.ok) {
+          throw new Error(getApiErrorMessage(payload, "تعذر تحميل أنواع المصروفات."));
+        }
+
+        setExpenseTypes(payload?.rows ?? []);
+      } catch (fetchError) {
+        setExpenseTypes([]);
+        setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل أنواع المصروفات.");
+      } finally {
+        setTypesLoading(false);
+      }
+    },
+    [resolveScopedSchoolId],
+  );
+
+  const fetchExpenses = useCallback(
+    async (explicitSchoolId?: string | null) => {
+      const scopedSchoolId = explicitSchoolId ?? (await resolveScopedSchoolId());
+      if (!scopedSchoolId) {
+        setExpenses([]);
+        setExpenseSummary(EMPTY_EXPENSE_SUMMARY);
+        setExpenseTotalCount(0);
+        setExpenseTotalPages(1);
+        setExpensesLoading(false);
+        return;
+      }
+
+      setExpensesLoading(true);
+      try {
+        const { response, payload } = await fetchJsonWithAuthorizedSession<ExpensesListResponse>(
+          buildExpensesUrl("/api/web/expenses", {
+            schoolId: scopedSchoolId,
+            page: expensePage,
+            pageSize: EXPENSES_PAGE_SIZE,
+            search: deferredSearch,
+            expenseTypeId: expenseTypeFilter || null,
+            fromDate: filterFrom || null,
+            toDate: filterTo || null,
+          }),
+        );
+
+        if (!response.ok) {
+          throw new Error(getApiErrorMessage(payload, "تعذر تحميل المصروفات."));
+        }
+
+        const nextTotalPages = payload?.totalPages ?? 1;
+        if (expensePage > nextTotalPages && nextTotalPages >= 1) {
+          setExpensePage(nextTotalPages);
+          return;
+        }
+
+        setExpenses(payload?.rows ?? []);
+        setExpenseSummary(payload?.summary ?? EMPTY_EXPENSE_SUMMARY);
+        setExpenseTotalCount(payload?.totalCount ?? 0);
+        setExpenseTotalPages(nextTotalPages);
+      } catch (fetchError) {
+        setExpenses([]);
+        setExpenseSummary(EMPTY_EXPENSE_SUMMARY);
+        setExpenseTotalCount(0);
+        setExpenseTotalPages(1);
+        setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل المصروفات.");
+      } finally {
+        setExpensesLoading(false);
+      }
+    },
+    [deferredSearch, expensePage, expenseTypeFilter, filterFrom, filterTo, resolveScopedSchoolId],
+  );
+
   const fetchAll = useCallback(async () => {
     if (!profile) return;
-    setLoading(true);
-    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    setError("");
+    const scopedSchoolId = await resolveScopedSchoolId();
     if (!scopedSchoolId) {
       setExpenses([]);
       setExpenseTypes([]);
-      setLoading(false);
+      setExpenseSummary(EMPTY_EXPENSE_SUMMARY);
+      setExpenseTotalCount(0);
+      setExpenseTotalPages(1);
+      setExpensesLoading(false);
+      setTypesLoading(false);
       return;
     }
-    let expensesQuery = supabase.from("expenses").select("*, expense_types(name)").order("created_at", { ascending: false });
-    let typesQuery = supabase.from("expense_types").select("*").order("name");
-    expensesQuery = expensesQuery.eq("school_id", scopedSchoolId);
-    typesQuery = typesQuery.eq("school_id", scopedSchoolId);
 
-    const [{ data: exp }, { data: types }] = await Promise.all([
-      expensesQuery,
-      typesQuery,
-    ]);
-    if (exp) setExpenses(exp);
-    if (types) setExpenseTypes(types);
-    setLoading(false);
-  }, [profile, schoolScope.selectedSchoolId]);
+    await Promise.all([fetchExpenseTypes(scopedSchoolId), fetchExpenses(scopedSchoolId)]);
+  }, [fetchExpenseTypes, fetchExpenses, profile, resolveScopedSchoolId]);
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
-    void fetchAll();
-  }, [profile, schoolScope.scopeLoading, fetchAll]);
+    void fetchExpenseTypes();
+  }, [fetchExpenseTypes, profile, schoolScope.scopeLoading]);
+
+  useEffect(() => {
+    setExpensePage(1);
+  }, [deferredSearch, expenseTypeFilter, filterFrom, filterTo, schoolScope.selectedSchoolId]);
+
+  useEffect(() => {
+    if (!profile || schoolScope.scopeLoading) return;
+    void fetchExpenses();
+  }, [fetchExpenses, expensePage, profile, schoolScope.scopeLoading]);
 
   async function handleSaveExpense(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
-    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const scopedSchoolId = await resolveScopedSchoolId();
     const targetSchoolId = editExpense?.school_id || scopedSchoolId;
     if (!targetSchoolId) {
       setError("لا يمكن تحديد المدرسة لهذا السجل");
       setSaving(false);
       return;
     }
-    const { data: branches } = await supabase.from("branches").select("id").eq("school_id", targetSchoolId).limit(1);
+
     const payload = {
       school_id: targetSchoolId,
-      branch_id: branches?.[0]?.id,
-      expense_type_id: form.expense_type_id || null,
-      amount: parseInt(form.amount) || 0,
+      expense_type_id: form.expense_type_id,
+      amount: Number(form.amount),
       expense_date: form.expense_date,
       recipient: form.recipient || null,
       receipt_number: form.receipt_number || null,
       notes: form.notes || null,
     };
-    const { error } = editExpense
-      ? await supabase.from("expenses").update(payload).eq("id", editExpense.id)
-      : await supabase.from("expenses").insert(payload);
-    if (error) setError("خطأ: " + error.message);
-    else {
+
+    const requestUrl = editExpense ? `/api/web/expenses/${editExpense.id}` : "/api/web/expenses";
+    const requestMethod = editExpense ? "PATCH" : "POST";
+    const { response, payload: responsePayload } = await fetchJsonWithAuthorizedSession<ExpenseMutationResponse>(
+      requestUrl,
+      {
+        method: requestMethod,
+        headers: withJsonHeaders(),
+        body: JSON.stringify(payload),
+      },
+    );
+
+    if (!response.ok) {
+      setError(getApiErrorMessage(responsePayload, "تعذر حفظ المصروف."));
+    } else {
       setSuccess(editExpense ? "تم تحديث المصروف ✓" : "تمت إضافة المصروف ✓");
       setShowExpenseForm(false); setEditExpense(null);
-      setForm({ expense_type_id: "", amount: "", expense_date: new Date().toISOString().split("T")[0], recipient: "", receipt_number: "", notes: "" });
-      fetchAll(); setTimeout(() => setSuccess(""), 3000);
+      setForm({ expense_type_id: "", amount: "", expense_date: DEFAULT_EXPENSE_DATE, recipient: "", receipt_number: "", notes: "" });
+      const shouldResetPage = !editExpense && expensePage !== 1;
+      if (shouldResetPage) {
+        setExpensePage(1);
+      } else {
+        await fetchExpenses(targetSchoolId);
+      }
+      await fetchExpenseTypes(targetSchoolId);
+      setTimeout(() => setSuccess(""), 3000);
     }
     setSaving(false);
   }
 
   async function handleSaveType(e: React.FormEvent) {
     e.preventDefault(); setSavingType(true); setError("");
-    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    const scopedSchoolId = await resolveScopedSchoolId();
     const targetSchoolId = editType?.school_id || scopedSchoolId;
     if (!targetSchoolId) {
       setError("لا يمكن تحديد المدرسة لهذا النوع");
@@ -122,38 +321,79 @@ export default function ExpensesPage() {
       return;
     }
     const payload = { school_id: targetSchoolId, name: typeForm.name, notes: typeForm.notes || null };
-    const { error } = editType
-      ? await supabase.from("expense_types").update(payload).eq("id", editType.id)
-      : await supabase.from("expense_types").insert(payload);
-    if (error) setError("خطأ: " + error.message);
-    else {
+    const requestUrl = editType ? `/api/web/expenses/types/${editType.id}` : "/api/web/expenses/types";
+    const requestMethod = editType ? "PATCH" : "POST";
+    const { response, payload: responsePayload } = await fetchJsonWithAuthorizedSession<ExpenseMutationResponse>(
+      requestUrl,
+      {
+        method: requestMethod,
+        headers: withJsonHeaders(),
+        body: JSON.stringify(payload),
+      },
+    );
+
+    if (!response.ok) {
+      setError(getApiErrorMessage(responsePayload, "تعذر حفظ نوع المصروف."));
+    } else {
       setSuccess(editType ? "تم تحديث النوع ✓" : "تمت إضافة النوع ✓");
       setShowTypeForm(false); setEditType(null);
       setTypeForm({ name: "", notes: "" });
-      fetchAll(); setTimeout(() => setSuccess(""), 3000);
+      await fetchExpenseTypes(targetSchoolId);
+      setTimeout(() => setSuccess(""), 3000);
     }
     setSavingType(false);
   }
 
   async function deleteExpense(id: string) {
-    const { error: deleteError } = await supabase.from("expenses").delete().eq("id", id);
-    if (deleteError) {
-      setError("خطأ: " + deleteError.message);
+    const scopedSchoolId = await resolveScopedSchoolId();
+    if (!scopedSchoolId) {
+      setError("لا يمكن تحديد المدرسة لهذا السجل");
       return;
     }
+
+    const { response, payload } = await fetchJsonWithAuthorizedSession<ExpenseMutationResponse>(
+      `/api/web/expenses/${id}`,
+      {
+        method: "DELETE",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({ school_id: scopedSchoolId }),
+      },
+    );
+
+    if (!response.ok) {
+      setError(getApiErrorMessage(payload, "تعذر حذف المصروف."));
+      return;
+    }
+
     setSuccess("تم حذف المصروف ✓");
-    fetchAll();
+    await fetchExpenses(scopedSchoolId);
+    await fetchExpenseTypes(scopedSchoolId);
     setTimeout(() => setSuccess(""), 3000);
   }
 
   async function deleteType(id: string) {
-    const { error: deleteError } = await supabase.from("expense_types").delete().eq("id", id);
-    if (deleteError) {
-      setError("خطأ: " + deleteError.message);
+    const scopedSchoolId = await resolveScopedSchoolId();
+    if (!scopedSchoolId) {
+      setError("لا يمكن تحديد المدرسة لهذا السجل");
       return;
     }
+
+    const { response, payload } = await fetchJsonWithAuthorizedSession<ExpenseMutationResponse>(
+      `/api/web/expenses/types/${id}`,
+      {
+        method: "DELETE",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({ school_id: scopedSchoolId }),
+      },
+    );
+
+    if (!response.ok) {
+      setError(getApiErrorMessage(payload, "تعذر حذف نوع المصروف."));
+      return;
+    }
+
     setSuccess("تم حذف النوع ✓");
-    fetchAll();
+    await fetchExpenseTypes(scopedSchoolId);
     setTimeout(() => setSuccess(""), 3000);
   }
 
@@ -168,12 +408,12 @@ export default function ExpensesPage() {
     await deleteType(target.id);
   }
 
-  function openEditExpense(exp: any) {
+  function openEditExpense(exp: ExpenseRow) {
     setEditExpense(exp);
     setForm({
       expense_type_id: exp.expense_type_id || "",
       amount: exp.amount?.toString() || "",
-      expense_date: exp.expense_date || new Date().toISOString().split("T")[0],
+      expense_date: exp.expense_date || DEFAULT_EXPENSE_DATE,
       recipient: exp.recipient || "",
       receipt_number: exp.receipt_number || "",
       notes: exp.notes || "",
@@ -181,22 +421,55 @@ export default function ExpensesPage() {
     setShowExpenseForm(true);
   }
 
-  function openEditType(t: any) {
+  function openEditType(t: ExpenseTypeRow) {
     setEditType(t);
     setTypeForm({ name: t.name, notes: t.notes || "" });
     setShowTypeForm(true);
   }
 
   async function exportExcel() {
+    const scopedSchoolId = await resolveScopedSchoolId();
+    if (!scopedSchoolId) {
+      setError("لا يمكن تحديد المدرسة قبل التصدير");
+      return;
+    }
+
     const XLSX = await loadXLSX();
-    const rows = filteredExpenses.map((e, i) => ({
-      "#": i + 1,
-      "نوع المصروف": e.expense_types?.name || "—",
-      "المبلغ": e.amount,
-      "التاريخ": e.expense_date,
-      "مستلم الفاتورة": e.recipient || "—",
-      "رقم الإيصال": e.receipt_number || "—",
-      "ملاحظة": e.notes || "",
+    const exportRows: ExpenseRow[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<ExpensesListResponse>(
+        buildExpensesUrl("/api/web/expenses", {
+          schoolId: scopedSchoolId,
+          page,
+          pageSize: EXPENSE_EXPORT_PAGE_SIZE,
+          search: deferredSearch,
+          expenseTypeId: expenseTypeFilter || null,
+          fromDate: filterFrom || null,
+          toDate: filterTo || null,
+        }),
+      );
+
+      if (!response.ok) {
+        setError(getApiErrorMessage(payload, "تعذر تصدير المصروفات."));
+        return;
+      }
+
+      exportRows.push(...(payload?.rows ?? []));
+      totalPages = payload?.totalPages ?? 1;
+      page += 1;
+    } while (page <= totalPages);
+
+    const rows = exportRows.map((item, index) => ({
+      "#": index + 1,
+      "نوع المصروف": item.expense_types?.name || "—",
+      "المبلغ": item.amount,
+      "التاريخ": item.expense_date,
+      "مستلم الفاتورة": item.recipient || "—",
+      "رقم الإيصال": item.receipt_number || "—",
+      "ملاحظة": item.notes || "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -206,24 +479,23 @@ export default function ExpensesPage() {
 
   async function exportTypesExcel() {
     const XLSX = await loadXLSX();
-    const rows = expenseTypes.map((t, i) => ({ "#": i + 1, "الاسم": t.name, "ملاحظات": t.notes || "" }));
+    const rows = expenseTypes.map((t, i) => ({
+      "#": i + 1,
+      "الاسم": t.name,
+      "ملاحظات": t.notes || "",
+      "عدد الاستخدامات": t.usage_count,
+      "إجمالي الاستخدام": t.usage_total,
+    }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "أنواع المصروفات");
     await XLSX.writeFile(wb, `أنواع_المصاريف.xlsx`);
   }
 
-  const filteredExpenses = expenses.filter(e => {
-    const matchSearch = !search || e.expense_types?.name?.includes(search) || e.notes?.includes(search) || e.recipient?.includes(search) || e.receipt_number?.includes(search);
-    const matchFrom = !filterFrom || e.expense_date >= filterFrom;
-    const matchTo = !filterTo || e.expense_date <= filterTo;
-    return matchSearch && matchFrom && matchTo;
-  });
+  const filteredTypes = expenseTypes.filter((t) => !typeSearch || t.name.includes(typeSearch));
 
-  const filteredTypes = expenseTypes.filter(t => !typeSearch || t.name.includes(typeSearch));
-
-  const totalFiltered = filteredExpenses.reduce((a, e) => a + (e.amount || 0), 0);
-  const totalAll = expenses.reduce((a, e) => a + (e.amount || 0), 0);
+  const totalFiltered = expenseSummary.filteredTotalAmount;
+  const totalAll = expenseSummary.schoolTotalAmount;
 
   return (
   <ProtectedRoute roles={["super_admin", "admin"]}>
@@ -305,6 +577,11 @@ export default function ExpensesPage() {
       .total-bar{background:linear-gradient(135deg,var(--p3),var(--p2));border-radius:0 0 13px 13px;padding:.7rem 1.2rem;display:flex;align-items:center;justify-content:space-between;color:white}
       .total-label{font-size:.8rem;font-weight:600;opacity:.85}
       .total-val{font-size:.95rem;font-weight:900}
+      .pager{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1.2rem;background:white;border-top:1px solid rgba(108,74,182,0.08)}
+      .pager-meta{font-size:.78rem;color:var(--gray)}
+      .pager-actions{display:flex;gap:.5rem}
+      .pager-btn{padding:.5rem .85rem;border:none;border-radius:10px;background:#F3F4F6;color:var(--dark);font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.78rem;font-weight:700;cursor:pointer}
+      .pager-btn:disabled{opacity:.55;cursor:not-allowed}
 
       /* MODALS */
       .ok{background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
@@ -344,10 +621,10 @@ export default function ExpensesPage() {
               <div className="stats">
                 {([
                   ["💰","إجمالي المصروفات",`د.ع ${formatNumber(totalAll)}`,"#EDE8FA"],
-                  ["📋","عدد السجلات",formatNumber(expenses.length),"#DBEAFE"],
+                  ["📋","عدد السجلات",formatNumber(expenseSummary.schoolTotalCount),"#DBEAFE"],
                   ["🏷️","أنواع المصروفات",formatNumber(expenseTypes.length),"#D1FAE5"],
-                  ["📅","مصاريف اليوم",`د.ع ${formatNumber(expenses.filter(e=>e.expense_date===new Date().toISOString().split("T")[0]).reduce((a,e)=>a+e.amount,0))}`,"#FEF3C7"],
-                ] as any[]).map(([ico,l,v,bg]:any,i:number)=>(
+                  ["📅","مصاريف اليوم",`د.ع ${formatNumber(expenseSummary.schoolTodayAmount)}`,"#FEF3C7"],
+                ] as Array<[string, string, string, string]>).map(([ico,l,v,bg],i)=>(
                   <div className="sc" key={i}>
                     <div className="sc-ico" style={{background:bg}}><AppIcon token={ico} size={18} /></div>
                     <div><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
@@ -391,9 +668,9 @@ export default function ExpensesPage() {
                   </div>
                   <div className="fg-item">
                     <label className="fg-label">نوع المصروف</label>
-                    <select className="fi" value={search} onChange={e=>setSearch(e.target.value)}>
+                    <select className="fi" value={expenseTypeFilter} onChange={e=>setExpenseTypeFilter(e.target.value)}>
                       <option value="">الكل</option>
-                      {expenseTypes.map(t=><option key={t.id} value={t.name}>{t.name}</option>)}
+                      {expenseTypes.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -406,7 +683,7 @@ export default function ExpensesPage() {
             <button className={`page-tab${activeTab==="invoices"?" active":""}`} onClick={()=>setActiveTab("invoices")}>
               <AppIcon token="📋" size={14} />
               المصروفات
-              <span style={{background:"rgba(255,255,255,0.25)",padding:".1rem .5rem",borderRadius:10,fontSize:".72rem"}}>{expenses.length}</span>
+              <span style={{background:"rgba(255,255,255,0.25)",padding:".1rem .5rem",borderRadius:10,fontSize:".72rem"}}>{expenseSummary.schoolTotalCount}</span>
             </button>
             <button className={`page-tab${activeTab==="types"?" active":""}`} onClick={()=>setActiveTab("types")}>
               <AppIcon token="🏷️" size={14} />
@@ -420,7 +697,7 @@ export default function ExpensesPage() {
             <div className="tbl-wrap">
               <div className="tbl-header">
                 <div style={{display:"flex",alignItems:"center",gap:".6rem"}}>
-                  <span className="tbl-count">{filteredExpenses.length} السجلات</span>
+                  <span className="tbl-count">{expenseTotalCount} السجلات</span>
                   <span className="tbl-title">المصروفات</span>
                 </div>
                 <button className="btn-refresh" onClick={fetchAll}>↺</button>
@@ -429,7 +706,7 @@ export default function ExpensesPage() {
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{color:"var(--gray)",flexShrink:0}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input placeholder="بحث..." value={search} onChange={e=>setSearch(e.target.value)}/>
               </div>
-              {loading?<div className="spin"/>:filteredExpenses.length===0?(
+              {expensesLoading?<div className="spin"/>:expenses.length===0?(
                 <div className="empty">لا توجد مصروفات حالياً، اضغط على إضافة مصروف</div>
               ):(
                 <>
@@ -447,9 +724,9 @@ export default function ExpensesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredExpenses.map((e, i) => (
+                      {expenses.map((e, i) => (
                         <tr key={e.id}>
-                          <td><span className="num-badge">{filteredExpenses.length - i}</span></td>
+                          <td><span className="num-badge">{Math.max(1, expenseTotalCount - ((expensePage - 1) * EXPENSES_PAGE_SIZE + i))}</span></td>
                           <td>
                             <span className="badge" style={{background:"#EDE8FA",color:"var(--p3)"}}>
                               {e.expense_types?.name||"—"}
@@ -471,8 +748,19 @@ export default function ExpensesPage() {
                     </tbody>
                   </table>
                   <div className="total-bar">
-                    <span className="total-label">إجمالي النتائج المعروضة ({formatNumber(filteredExpenses.length)} سجل)</span>
+                    <span className="total-label">إجمالي النتائج المطابقة ({formatNumber(expenseTotalCount)} سجل)</span>
                     <span className="total-val">د.ع {formatNumber(totalFiltered)}</span>
+                  </div>
+                  <div className="pager">
+                    <span className="pager-meta">صفحة {formatNumber(expensePage)} من {formatNumber(expenseTotalPages)}</span>
+                    <div className="pager-actions">
+                      <button className="pager-btn" onClick={() => setExpensePage((current) => Math.max(1, current - 1))} disabled={expensePage <= 1}>
+                        السابق
+                      </button>
+                      <button className="pager-btn" onClick={() => setExpensePage((current) => Math.min(expenseTotalPages, current + 1))} disabled={expensePage >= expenseTotalPages}>
+                        التالي
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -493,7 +781,7 @@ export default function ExpensesPage() {
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{color:"var(--gray)",flexShrink:0}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input placeholder="بحث..." value={typeSearch} onChange={e=>setTypeSearch(e.target.value)}/>
               </div>
-              {loading?<div className="spin"/>:filteredTypes.length===0?(
+              {typesLoading?<div className="spin"/>:filteredTypes.length===0?(
                 <div className="empty">لا توجد أنواع حالياً، اضغط على إضافة نوع</div>
               ):(
                 <table>
@@ -506,10 +794,8 @@ export default function ExpensesPage() {
                       <th>الإجراءات</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {filteredTypes.map((t, i) => {
-                      const usageCount = expenses.filter(e => e.expense_type_id === t.id).length;
-                      const usageTotal = expenses.filter(e => e.expense_type_id === t.id).reduce((a,e)=>a+e.amount,0);
+                    <tbody>
+                      {filteredTypes.map((t, i) => {
                       return (
                         <tr key={t.id}>
                           <td><span className="num-badge">{i+1}</span></td>
@@ -517,8 +803,8 @@ export default function ExpensesPage() {
                           <td style={{color:"var(--gray)",fontSize:".75rem"}}>{t.notes||"—"}</td>
                           <td>
                             <div style={{fontSize:".78rem"}}>
-                              <span className="badge" style={{background:"#DBEAFE",color:"#1E40AF",marginLeft:".3rem"}}>{formatNumber(usageCount)} مرة</span>
-                              {usageCount>0&&<span style={{color:"var(--gray)"}}>· د.ع {formatNumber(usageTotal)}</span>}
+                              <span className="badge" style={{background:"#DBEAFE",color:"#1E40AF",marginLeft:".3rem"}}>{formatNumber(t.usage_count)} مرة</span>
+                              {t.usage_count>0&&<span style={{color:"var(--gray)"}}>· د.ع {formatNumber(t.usage_total)}</span>}
                             </div>
                           </td>
                           <td>

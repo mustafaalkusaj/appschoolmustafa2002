@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { deletePaymentSchema } from "@/lib/api-schemas";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
-import { recomputeStudentPaidFee } from "@/lib/payments-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
-
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ error: { message } }, { status });
-}
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ paymentId: string }> },
 ) {
   const { paymentId } = await params;
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-  const schoolId = typeof body?.school_id === "string" ? body.school_id.trim() : "";
-
-  if (!schoolId) {
-    return jsonError("يجب تحديد المدرسة قبل حذف الدفعة.", 400);
+  const body = await req.json().catch(() => null);
+  const parsed = deletePaymentSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonValidationError(parsed.error);
   }
+  const { school_id: schoolId } = parsed.data;
 
   const context = await resolveSchoolScopedActorContext(
     schoolId,
@@ -37,6 +36,16 @@ export async function DELETE(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const rateLimited = enforceRateLimit(req, {
+    namespace: "payments-records-delete",
+    windowMs: 60_000,
+    maxHits: 40,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const canDeletePayments = await routeUserHasPermission(actorSupabase, actorUserId, "delete_payments");
   if (!canDeletePayments) {
     return jsonError("ليس لديك صلاحية حذف الدفعات.", 403);
@@ -59,43 +68,53 @@ export async function DELETE(
     .eq("school_id", targetSchoolId);
 
   if (deleteError) {
-    return jsonError(deleteError.message || "تعذر حذف الدفعة.", 500);
+    logRouteError("payments-records-delete", deleteError, {
+      actorUserId,
+      schoolId: targetSchoolId,
+      paymentId,
+    });
+    return jsonError("تعذر حذف الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
 
-  try {
-    const nextPaidFee = await recomputeStudentPaidFee(actorSupabase, targetSchoolId, payment.student_id);
-    const { data: student } = await actorSupabase
-      .from("students")
-      .select("id, total_fee, discount_value")
-      .eq("id", payment.student_id)
-      .eq("school_id", targetSchoolId)
-      .maybeSingle();
+  const { data: refreshedStudent, error: refreshedStudentError } = await actorSupabase
+    .from("students")
+    .select("id, paid_fee, remaining_fee")
+    .eq("id", payment.student_id)
+    .eq("school_id", targetSchoolId)
+    .maybeSingle();
 
-    return NextResponse.json({
-      ok: true,
-      deletedPaymentId: paymentId,
-      studentUpdate: student
-        ? {
-            id: payment.student_id,
-            paid_fee: nextPaidFee,
-            remaining_fee: Math.max(
-              0,
-              Number(student.total_fee ?? 0) - nextPaidFee - Number(student.discount_value ?? 0),
-            ),
-          }
-        : null,
+  if (refreshedStudentError) {
+    logRouteError("payments-records-delete-refresh-student", refreshedStudentError, {
+      actorUserId,
+      schoolId: targetSchoolId,
+      studentId: payment.student_id,
+      paymentId,
     });
-  } catch (syncError) {
     return NextResponse.json(
       {
         ok: true,
         deletedPaymentId: paymentId,
-        warning:
-          syncError instanceof Error
-            ? syncError.message
-            : "تم حذف الدفعة لكن تعذر مزامنة رصيد الطالب.",
+        warning: "تم حذف الدفعة لكن تعذر تحميل الرصيد المحدث للطالب.",
       },
       { status: 202 },
     );
   }
+
+  invalidateSchoolCacheDomains(targetSchoolId, [
+    "dashboard-overview",
+    "payments-meta",
+    "reports-overview",
+  ]);
+
+  return NextResponse.json({
+    ok: true,
+    deletedPaymentId: paymentId,
+    studentUpdate: refreshedStudent
+      ? {
+          id: refreshedStudent.id,
+          paid_fee: Number(refreshedStudent.paid_fee ?? 0),
+          remaining_fee: Number(refreshedStudent.remaining_fee ?? 0),
+        }
+      : null,
+  });
 }

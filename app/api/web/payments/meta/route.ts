@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolvePaymentsMeta } from "@/lib/payments/overview";
+import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -38,7 +39,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const payload = await resolvePaymentsMeta(actorSupabase, targetSchoolId);
+    const payload = await rememberWithTtl(
+      `payments-meta:${targetSchoolId}`,
+      30_000,
+      () => resolvePaymentsMeta(actorSupabase, targetSchoolId),
+      {
+        tags: [buildSchoolCacheTag(targetSchoolId, "payments-meta")],
+      },
+    );
     return NextResponse.json(
       { ok: true, ...payload },
       {

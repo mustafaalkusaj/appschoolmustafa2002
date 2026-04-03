@@ -1,7 +1,6 @@
 "use client";
 
 import { AppSidebar } from "@/components/AppSidebar";
-import { SCHOOL_MODULE_CSS } from "@/components/school/schoolModuleStyles";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/school/Breadcrumb";
 
 export function SchoolModuleLayout({
@@ -20,24 +19,25 @@ export function SchoolModuleLayout({
   topbarExtra?: React.ReactNode;
 }) {
   return (
-    <>
-      <style>{SCHOOL_MODULE_CSS}</style>
-      <div className="layout">
-        <AppSidebar currentPath={currentPath} />
-        <div className="main">
-          <div className="topbar">
-            <div>
-              {breadcrumbs && breadcrumbs.length > 0 && (
-                <Breadcrumb items={breadcrumbs} />
-              )}
-              <div className="topbar-title">{title}</div>
-              {subtitle ? <div className="topbar-sub">{subtitle}</div> : null}
-            </div>
-            {topbarExtra}
+    <div className="app-module-layout">
+      <AppSidebar currentPath={currentPath} />
+      <div className="app-module-main">
+        <div className="app-module-topbar">
+          <div className="app-module-topbar__left">
+            {breadcrumbs && breadcrumbs.length > 0 && (
+              <Breadcrumb items={breadcrumbs} />
+            )}
+            <h1 className="app-module-topbar__title">{title}</h1>
+            {subtitle ? (
+              <p className="app-module-topbar__subtitle">{subtitle}</p>
+            ) : null}
           </div>
-          <div className="content">{children}</div>
+          {topbarExtra ? (
+            <div className="app-module-topbar__actions">{topbarExtra}</div>
+          ) : null}
         </div>
+        <div className="app-module-content">{children}</div>
       </div>
-    </>
+    </div>
   );
 }

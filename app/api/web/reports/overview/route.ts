@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 
 type ReportsMetrics = {
   studentsCount: number;
@@ -204,44 +205,50 @@ export async function GET(req: NextRequest) {
   const todayKey = new Date().toDateString();
 
   try {
-    const metrics = await loadSummaryMetrics(actorSupabase, targetSchoolId, currentMonth, todayDate);
-    if (metrics) {
-      return NextResponse.json(
-        {
-          ok: true,
-          metrics,
-          warnings: [],
-        },
-        {
-          headers: {
-            "Cache-Control": "private, no-store, max-age=0",
-          },
-        },
-      );
-    }
-  } catch (error) {
-    if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
-      return jsonError(
-        error instanceof Error ? error.message : "تعذر تحميل ملخص التقارير.",
-        500,
-      );
-    }
-  }
+    const payload = await rememberWithTtl(
+      `reports-overview:${targetSchoolId}`,
+      30_000,
+      async () => {
+        try {
+          const metrics = await loadSummaryMetrics(actorSupabase, targetSchoolId, currentMonth, todayDate);
+          if (metrics) {
+            return {
+              metrics,
+              warnings: [],
+            };
+          }
+        } catch (error) {
+          if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
+            throw error;
+          }
+        }
 
-  const fallback = await loadFallbackMetrics(actorSupabase, targetSchoolId, currentMonth, todayKey);
-  return NextResponse.json(
-    {
-      ok: true,
-      metrics: fallback.metrics,
-      warnings: [
-        "ملخص التقارير يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدالة school_reports_summary لتحسين الأداء.",
-        ...fallback.warnings,
-      ],
-    },
-    {
-      headers: {
-        "Cache-Control": "private, no-store, max-age=0",
+        const fallback = await loadFallbackMetrics(actorSupabase, targetSchoolId, currentMonth, todayKey);
+        return {
+          metrics: fallback.metrics,
+          warnings: [
+            "ملخص التقارير يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدالة school_reports_summary لتحسين الأداء.",
+            ...fallback.warnings,
+          ],
+        };
       },
-    },
-  );
+      {
+        tags: [buildSchoolCacheTag(targetSchoolId, "reports-overview")],
+      },
+    );
+
+    return NextResponse.json(
+      {
+        ok: true,
+        ...payload,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      },
+    );
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر تحميل ملخص التقارير.", 500);
+  }
 }

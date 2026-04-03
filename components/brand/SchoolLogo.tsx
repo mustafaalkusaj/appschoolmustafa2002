@@ -5,9 +5,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 
-function getInitial(value: string | null | undefined) {
+function getInitials(value: string | null | undefined) {
   const normalized = (value || "").trim();
-  return normalized.charAt(0).toUpperCase() || "S";
+  if (!normalized) return "SC";
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    return Array.from(words[0]).slice(0, 2).join("").toUpperCase() || "SC";
+  }
+
+  const first = Array.from(words[0])[0] ?? "";
+  const last = Array.from(words[words.length - 1])[0] ?? "";
+  return `${first}${last}`.toUpperCase() || "SC";
 }
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -33,7 +42,7 @@ export function SchoolLogo({
 }) {
   const [broken, setBroken] = useState(false);
   const resolvedSrc = sanitizeImageUrl(src);
-  const fallbackLabel = useMemo(() => getInitial(label || alt), [alt, label]);
+  const fallbackLabel = useMemo(() => getInitials(label || alt), [alt, label]);
 
   useEffect(() => {
     setBroken(false);

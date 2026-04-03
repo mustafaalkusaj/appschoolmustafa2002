@@ -143,28 +143,33 @@ export function AppSidebar({
         </div>
 
         <div className="app-sidebar__body">
-          {navItems.map((item) => (
-            <Link
-              key={item.id}
-              href={
-                role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
-                  ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
-                  : localizeAppPath(item.href, locale)
-              }
-              className={[
-                "app-sidebar__link",
-                isPathMatch(currentPath, item.href) ? "is-active" : "",
-                navClassName || "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <span className="app-sidebar__icon" aria-hidden="true">
-                <AppIcon token={item.iconToken} size={16} />
-              </span>
-              {localizedLabels?.[item.id as keyof typeof localizedLabels] ?? item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const label = localizedLabels?.[item.id as keyof typeof localizedLabels] ?? item.label;
+
+            return (
+              <Link
+                key={item.id}
+                href={
+                  role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
+                    ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
+                    : localizeAppPath(item.href, locale)
+                }
+                className={[
+                  "app-sidebar__link",
+                  isPathMatch(currentPath, item.href) ? "is-active" : "",
+                  navClassName || "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                title={label}
+              >
+                <span className="app-sidebar__icon" aria-hidden="true">
+                  <AppIcon token={item.iconToken} size={16} />
+                </span>
+                <span className="app-sidebar__label">{label}</span>
+              </Link>
+            );
+          })}
         </div>
 
         <div className={["app-sidebar__footer", separatorClassName || ""].filter(Boolean).join(" ")}>

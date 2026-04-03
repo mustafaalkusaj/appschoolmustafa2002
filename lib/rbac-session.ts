@@ -1,7 +1,9 @@
+import { getServerEnv, shouldUseSecureCookies } from "@/lib/env/server";
 import type { Permission, UserRole } from "@/types/roles";
 
 export const RBAC_COOKIE_NAME = "school_rbac";
 export const RBAC_SESSION_MAX_AGE = 60 * 60 * 8;
+let devFallbackSecret = "";
 
 export interface RBACSessionPayload {
   role: UserRole;
@@ -17,12 +19,9 @@ export interface RBACSessionPayload {
 }
 
 function getSecretKeyMaterial(): string {
-  const dedicated = process.env.RBAC_COOKIE_SECRET;
+  const dedicated = getServerEnv().rbacCookieSecret;
   if (dedicated) return dedicated;
 
-  // In production, RBAC_COOKIE_SECRET is mandatory.
-  // Falling back to SUPABASE_JWT_SECRET in production is a security risk
-  // because a JWT secret compromise would also compromise RBAC cookie integrity.
   if (process.env.NODE_ENV === "production") {
     throw new Error(
       "[rbac-session] RBAC_COOKIE_SECRET must be configured for production deployments. " +
@@ -30,23 +29,23 @@ function getSecretKeyMaterial(): string {
     );
   }
 
-  // Development mode: allow fallback to SUPABASE_JWT_SECRET with a warning
-  const fallback = process.env.SUPABASE_JWT_SECRET;
-  if (fallback) {
+  if (!devFallbackSecret) {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+
+    devFallbackSecret = btoa(binary);
     console.warn(
-      "[rbac-session] RBAC_COOKIE_SECRET is not set — falling back to " +
-        "SUPABASE_JWT_SECRET. Set a dedicated RBAC_COOKIE_SECRET in production " +
-        "(generate with: openssl rand -base64 48).",
+      "[rbac-session] RBAC_COOKIE_SECRET is not set. Using an ephemeral development-only secret for this process. " +
+        "Configure RBAC_COOKIE_SECRET explicitly for persistent sessions.",
     );
-    return fallback;
   }
 
-  // No secret available in development - return empty string
-  console.warn(
-    "[rbac-session] No secret configured. RBAC session signing disabled. " +
-      "Set RBAC_COOKIE_SECRET or SUPABASE_JWT_SECRET for full functionality.",
-  );
-  return "";
+  return devFallbackSecret;
 }
 
 export function hasRBACSecret() {
@@ -145,8 +144,15 @@ export function getRBACCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: RBAC_SESSION_MAX_AGE,
+  };
+}
+
+export function getExpiredRBACCookieOptions() {
+  return {
+    ...getRBACCookieOptions(),
+    maxAge: 0,
   };
 }
