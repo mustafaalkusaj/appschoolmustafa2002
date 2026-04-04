@@ -622,15 +622,6 @@ export default function ReportsPage() {
     <ProtectedRoute roles={["super_admin", "admin"]}>
       <>
         <style>{`
-          *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-          :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
-          body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
-          .layout{display:flex;height:100vh}
-          .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-          .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
-          .topbar-title{font-size:.95rem;font-weight:800}
-          .topbar-sub{font-size:.7rem;color:var(--gray)}
-          .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
           .summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem}
           .strip-card{background:white;border-radius:11px;padding:.8rem .9rem;box-shadow:0 2px 8px rgba(108,74,182,0.07);text-align:center}
           .strip-label{font-size:.68rem;color:var(--gray);font-weight:600}

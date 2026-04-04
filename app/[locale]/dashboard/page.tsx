@@ -112,7 +112,7 @@ export default function DashboardPage() {
                   />
 
                   {(canCustomizeBranding || profile?.role === "admin" || profile?.role === "super_admin") && (
-                    <div style={{ display: "grid", gap: ".8rem", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", marginBottom: "1rem" }}>
+                    <div className="grid gap-6 md:grid-cols-2 mb-8">
                       {canCustomizeBranding && (
                         <SchoolBrandingPanel
                           brandingForm={branding.brandingForm}
@@ -155,32 +155,32 @@ export default function DashboardPage() {
                       <StatisticsCards dashboardTotals={dashboardData.dashboardTotals} />
                       <FinancialAnalysisPanel dashboardTotals={dashboardData.dashboardTotals} />
 
-                      <div className="bottom-grid">
+                      <div className="grid gap-6 md:grid-cols-2 mb-8">
                         <RecentPaymentsPanel recentPayments={dashboardData.recentPayments} paymentsPageHref={paymentsPageHref} />
                         <OverdueStudentsPanel overdueStudents={dashboardData.overdueStudents} paymentsPageHref={paymentsPageHref} />
                       </div>
                     </>
                   ) : (
-                    <div className="card" style={{ textAlign: "center", padding: "2rem 1.5rem" }}>
+                    <div className="card" style={{ textAlign: "center", padding: "4rem 2rem", background: "var(--surface-soft)", borderStyle: "dashed" }}>
                       <div
                         style={{
-                          width: 64,
-                          height: 64,
-                          margin: "0 auto 1rem",
-                          borderRadius: 20,
+                          width: 80,
+                          height: 80,
+                          margin: "0 auto 1.5rem",
+                          borderRadius: 24,
                           display: "inline-flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          background: "rgba(79,140,255,0.12)",
+                          background: "var(--primary-soft)",
                           color: "var(--primary)",
                         }}
                       >
-                        <Database size={28} />
+                        <Database size={32} />
                       </div>
-                      <h3 style={{ marginBottom: ".45rem", fontSize: "1rem", color: "var(--text-primary)" }}>
+                      <h3 style={{ marginBottom: "0.75rem", fontSize: "1.125rem", fontWeight: 800, color: "var(--text-primary)" }}>
                         {t("dashboard.emptyTitle")}
                       </h3>
-                      <p className="muted" style={{ maxWidth: 460, margin: "0 auto", lineHeight: 1.9 }}>
+                      <p className="muted" style={{ maxWidth: 480, margin: "0 auto", lineHeight: 1.8, fontSize: "0.875rem" }}>
                         {t("dashboard.emptyDescription")}
                       </p>
                     </div>

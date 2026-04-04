@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { Menu } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 
@@ -63,10 +65,41 @@ export function AppShellTopbar({
         ? locale === "en"
           ? "Selection required"
           : "الاختيار مطلوب"
-        : null;
+      : null;
+  const topbarRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!fixed) {
+      return;
+    }
+
+    const element = topbarRef.current;
+    if (!element) {
+      return;
+    }
+
+    const root = document.documentElement;
+
+    const updateTopbarFootprint = () => {
+      const rect = element.getBoundingClientRect();
+      root.style.setProperty("--app-shell-topbar-footprint", `${Math.ceil(rect.top + rect.height)}px`);
+    };
+
+    updateTopbarFootprint();
+
+    const resizeObserver = new ResizeObserver(updateTopbarFootprint);
+    resizeObserver.observe(element);
+    window.addEventListener("resize", updateTopbarFootprint);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateTopbarFootprint);
+      root.style.removeProperty("--app-shell-topbar-footprint");
+    };
+  }, [fixed]);
 
   return (
-    <header className={cx("app-shell-topbar ui-glass", fixed && "app-shell-topbar--fixed", className)}>
+    <header ref={topbarRef} className={cx("app-shell-topbar ui-glass", fixed && "app-shell-topbar--fixed", className)}>
       <div className="app-shell-topbar__row">
         <div className="app-shell-topbar__primary">
           <button

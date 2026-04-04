@@ -12,6 +12,9 @@
 - [migrations/20260326_020000_account_archives_table.sql](file://migrations/20260326_020000_account_archives_table.sql)
 - [migrations/20260329_000000_teacher_activity_monitoring.sql](file://migrations/20260329_000000_teacher_activity_monitoring.sql)
 - [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
+- [migrations/20260401_000000_remove_plaintext_passwords.sql](file://migrations/20260401_000000_remove_plaintext_passwords.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 - [00990090/school-accounting-system/database/schema.sql](file://00990090/school-accounting-system/database/schema.sql)
 - [00990090/school-accounting-system/database/sample_data.sql](file://00990090/school-accounting-system/database/sample_data.sql)
 - [00990090/school-accounting-system/backend/src/models/User.js](file://00990090/school-accounting-system/backend/src/models/User.js)
@@ -22,10 +25,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated Performance Considerations section to document new indexing strategy
-- Added documentation for newly added indexes: students.school_id, expenses.school_id, and payments.student_id
-- Updated Foreign Key Constraint section to reflect standardization of attendance_records.school_id
+- Updated Performance Considerations section to document new database-level constraints and stored procedures
+- Added documentation for new migrations: payment consistency functions and salary uniqueness constraints
 - Enhanced Indexing Strategy documentation with complete coverage of all performance optimizations
+- Added documentation for specialized stored procedures for expense reporting and overview functionality
+- Updated Migration Timeline to include the new April 2026 migrations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -48,6 +52,8 @@ The database schema is primarily defined in SQL bootstrap and migration files. T
 - Administrative infrastructure (audit logs, notifications, feature flags, soft deletes)
 - Academic records and teacher assignment schema
 - Performance indexes and additional indexes
+- Database-level constraints for payment consistency and salary uniqueness
+- Specialized stored procedures for expense reporting and overview functionality
 - Legacy accounting system schema and sample data for reference
 
 ```mermaid
@@ -64,10 +70,13 @@ F["20260324_010000_academic_records_scope_model.sql"]
 G["20260326_020000_account_archives_table.sql"]
 H["20260329_000000_teacher_activity_monitoring.sql"]
 I["20260330_000000_add_missing_indexes.sql"]
+J["20260401_000000_remove_plaintext_passwords.sql"]
+K["20260403_000000_payment_consistency_and_salary_uniqueness.sql"]
+L["20260403_010000_expenses_performance_and_overview.sql"]
 end
 subgraph "Legacy Accounting"
-J["00990090/school-accounting-system/database/schema.sql"]
-K["00990090/school-accounting-system/database/sample_data.sql"]
+M["00990090/school-accounting-system/database/schema.sql"]
+N["00990090/school-accounting-system/database/sample_data.sql"]
 end
 A --> C
 A --> D
@@ -76,8 +85,11 @@ A --> F
 A --> G
 A --> H
 A --> I
+A --> J
+A --> K
+A --> L
 B --> A
-J --> K
+M --> N
 ```
 
 **Diagram sources**
@@ -90,6 +102,9 @@ J --> K
 - [migrations/20260326_020000_account_archives_table.sql](file://migrations/20260326_020000_account_archives_table.sql)
 - [migrations/20260329_000000_teacher_activity_monitoring.sql](file://migrations/20260329_000000_teacher_activity_monitoring.sql)
 - [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
+- [migrations/20260401_000000_remove_plaintext_passwords.sql](file://migrations/20260401_000000_remove_plaintext_passwords.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 - [00990090/school-accounting-system/database/schema.sql](file://00990090/school-accounting-system/database/schema.sql)
 - [00990090/school-accounting-system/database/sample_data.sql](file://00990090/school-accounting-system/database/sample_data.sql)
 
@@ -117,6 +132,8 @@ This section outlines the principal database components and their roles in the s
 
 - Payments and Expenses
   - Payments and expenses are tracked with method, references, and approvals.
+  - Database-level constraints ensure payment consistency and salary uniqueness.
+  - Specialized stored procedures provide efficient expense reporting and overview functionality.
   - Legacy accounting schema and sample data illustrate historical modeling.
 
 - Administrative Infrastructure
@@ -129,6 +146,8 @@ This section outlines the principal database components and their roles in the s
 - [admin_infrastructure.sql](file://admin_infrastructure.sql)
 - [migrations/20260322_000000_mobile_core_tables.sql](file://migrations/20260322_000000_mobile_core_tables.sql)
 - [migrations/20260324_010000_academic_records_scope_model.sql](file://migrations/20260324_010000_academic_records_scope_model.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 - [00990090/school-accounting-system/database/schema.sql](file://00990090/school-accounting-system/database/schema.sql)
 
 ## Architecture Overview
@@ -153,6 +172,19 @@ BR["branches"]
 CL["classes"]
 SE["sections"]
 AT["attendance_records"]
+SL["salaries"]
+DE["deductions"]
+LP["lecture_prices"]
+LT["lesson_times"]
+ET["expense_types"]
+end
+subgraph "Database-Level Constraints"
+PC["Payment Consistency Functions"]
+SU["Salary Uniqueness Constraints"]
+end
+subgraph "Stored Procedures"
+SES["school_expenses_summary()"]
+SEO["school_expense_types_overview()"]
 end
 U --> UP
 UP --> S
@@ -167,10 +199,23 @@ S --- BR
 S --- CL
 S --- SE
 S --- AT
+S --- SL
+S --- DE
+S --- LP
+S --- LT
+S --- ET
+PC --- PY
+PC --- ST
+SU --- SL
+SES --- EX
+SES --- ET
+SEO --- ET
 ```
 
 **Diagram sources**
 - [database_setup.sql](file://database_setup.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 
 ## Detailed Component Analysis
 
@@ -188,6 +233,11 @@ schools ||--o{ classes : "hosts"
 schools ||--o{ sections : "hosts"
 schools ||--o{ attendance_records : "hosts"
 schools ||--o{ account_archives : "hosts"
+schools ||--o{ salaries : "hosts"
+schools ||--o{ deductions : "hosts"
+schools ||--o{ lecture_prices : "hosts"
+schools ||--o{ lesson_times : "hosts"
+schools ||--o{ expense_types : "hosts"
 classes ||--o{ sections : "contains"
 students }o--|| classes : "belongs_to"
 students }o--|| sections : "belongs_to"
@@ -195,6 +245,10 @@ students ||--o{ payments : "pays"
 students ||--o{ attendance_records : "recorded_for"
 payments }o--|| students : "linked_to"
 expenses ||--o{ payments : "reconciled_by"
+expenses }o--o{ expense_types : "categorized_by"
+salaries ||--o{ deductions : "subject_of"
+salaries ||--o{ lecture_prices : "uses_for"
+salaries ||--o{ lesson_times : "uses_for"
 user_profiles }o--|| schools : "belongs_to"
 user_profiles }o--|| auth.users : "maps_to"
 ```
@@ -222,15 +276,17 @@ user_profiles }o--|| auth.users : "maps_to"
 ### Students and Payments
 - Purpose: Track student enrollment, class/section assignment, and payment history.
 - Key fields:
-  - students: admission_number, personal info, class_id, section_id, auth_user_id, is_active, created_at, updated_at.
+  - students: admission_number, personal info, class_id, section_id, auth_user_id, is_active, created_at, updated_at, paid_fee, remaining_fee, total_fee, discount_value.
   - payments: student_id, student_fee_id, amount, payment_method, reference_number, payment_date, receipt_number, notes, created_by, created_at, updated_at.
 - Constraints and indexes:
   - Unique indexes on admission_number and receipt_number.
   - Indexes on student_id, payment_date, and receipt_number.
   - Foreign keys to students and users.
+  - **Updated**: Database-level triggers and functions ensure payment totals are automatically synchronized between students and payments tables.
 
 **Section sources**
 - [database_setup.sql](file://database_setup.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
 - [00990090/school-accounting-system/database/schema.sql](file://00990090/school-accounting-system/database/schema.sql)
 - [00990090/school-accounting-system/database/sample_data.sql](file://00990090/school-accounting-system/database/sample_data.sql)
 
@@ -267,6 +323,38 @@ user_profiles }o--|| auth.users : "maps_to"
 - [database_setup.sql](file://database_setup.sql)
 - [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
 
+### Salaries and Deductions
+- Purpose: Manage teacher compensation, hourly rates, and deduction tracking.
+- Key fields:
+  - salaries: school_id, teacher_id, month, amount, type, notes, created_at, updated_at.
+  - deductions: school_id, teacher_id, deduction_date, amount, reason, notes, created_at, updated_at.
+  - lecture_prices: school_id, grade, price, notes, created_at, updated_at.
+  - lesson_times: school_id, session_type, period, duration, notes, created_at, updated_at.
+- Constraints and indexes:
+  - **Updated**: Database-level unique constraint prevents duplicate salary entries for the same teacher in the same month per school.
+  - Indexes on school_id, teacher_id, month for efficient salary queries.
+  - Indexes on deduction_date and teacher_id for deduction tracking.
+  - **Updated**: Database-level triggers and functions ensure salary uniqueness constraints are enforced at the database level.
+
+**Section sources**
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260324_000000_reliability_performance_indexes.sql](file://migrations/20260324_000000_reliability_performance_indexes.sql)
+
+### Expenses and Expense Types
+- Purpose: Track school expenses with categorization and reporting capabilities.
+- Key fields:
+  - expenses: school_id, expense_type_id, expense_date, amount, recipient, receipt_number, notes, created_by, created_at, updated_at.
+  - expense_types: school_id, name, notes, created_at, updated_at.
+- Constraints and indexes:
+  - **Updated**: Performance-optimized indexes for expense queries by school, date, and type.
+  - Indexes on school_id, expense_date, and created_at for efficient expense reporting.
+  - Indexes on expense_type_id and name for category management.
+  - **Updated**: Specialized stored procedures provide comprehensive expense reporting and overview functionality.
+
+**Section sources**
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
+- [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
+
 ### Administrative Infrastructure
 - Audit Logs
   - Fields: id, actor_id, actor_name, actor_email, action_type, entity_type, entity_id, summary, metadata, ip_address, user_agent, created_at.
@@ -291,6 +379,7 @@ user_profiles }o--|| auth.users : "maps_to"
   - Keep existing migration filenames stable to preserve history.
   - Use comments and documentation to clarify intent.
   - Apply migrations in chronological order; later migrations may depend on earlier ones.
+- **Updated**: Recent migrations include database-level constraints and stored procedures for enhanced data integrity and reporting capabilities.
 
 **Section sources**
 - [migrations/README.md](file://migrations/README.md)
@@ -322,8 +411,15 @@ user_profiles }o--|| auth.users : "maps_to"
     - assignments: school_id, student_id, teacher_id, due_at; composite scopes
     - grades: school_id, student_id, teacher_id, assignment_id; scopes
     - payments: school_id, student_id, created_at
-    - attendance_records: attendance_date, student_id
-    - **Newly Added**: students.school_id, expenses.school_id, payments.student_id
+    - **Newly Added**: payments.school_id, students.school_id, expenses.school_id, salaries.school_id, deductions.school_id, lecture_prices.school_id, lesson_times.school_id
+    - **Enhanced**: payments.student_id with composite index (school_id, student_id, created_at)
+  - **Performance-Optimized Indexes**: 
+    - **New**: expenses.school_id, expense_date, created_at; expenses.school_id, expense_type_id, expense_date
+    - **New**: expense_types.school_id, name; expense_types.school_id, lower(name)
+    - **New**: salaries.school_id, teacher_id, month with unique constraint
+    - **New**: deductions.school_id, deduction_date, teacher_id
+    - **New**: lecture_prices.school_id, grade
+    - **New**: lesson_times.school_id, session_type, period
   - **Additional Indexes**: Reliability/performance indexes including payments, salaries, deductions, lecture_prices, lesson_times
   - **Missing Indexes**: Added in dedicated migration to complete coverage
   - **Standardization**: Foreign key constraints now consistently use ON DELETE CASCADE for tenant-scoped tables
@@ -331,7 +427,21 @@ user_profiles }o--|| auth.users : "maps_to"
 **Section sources**
 - [migrations/20260324_000000_reliability_performance_indexes.sql](file://migrations/20260324_000000_reliability_performance_indexes.sql)
 - [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 - [database_setup.sql](file://database_setup.sql)
+
+### Stored Procedures and Database-Level Constraints
+- **Updated**: Database-Level Constraints
+  - Payment Consistency Functions: Triggers automatically synchronize payment totals between students and payments tables, ensuring data consistency.
+  - Salary Uniqueness Constraints: Database-level unique constraint prevents duplicate salary entries for the same teacher in the same month per school.
+- **Updated**: Specialized Stored Procedures
+  - school_expenses_summary(): Comprehensive expense reporting function providing school-wide totals, filtered totals, and today's expenses.
+  - school_expense_types_overview(): Expense type analysis function with usage counts and totals for each category.
+  - Both functions are granted execute permissions to authenticated and service_role users.
+
+**Section sources**
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 
 ### Backup and Recovery Procedures
 - Recommended Approach
@@ -351,10 +461,14 @@ user_profiles }o--|| auth.users : "maps_to"
   - Soft delete support and centralized deletion controls.
 - Access Controls
   - Least privilege via helper functions and policies.
+- **Updated**: Database-Level Constraints
+  - Payment consistency functions prevent data inconsistencies at the database level.
+  - Salary uniqueness constraints ensure regulatory compliance for payroll processing.
 
 **Section sources**
 - [admin_infrastructure.sql](file://admin_infrastructure.sql)
 - [database_setup.sql](file://database_setup.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
 
 ### Sample Data and Common Query Patterns
 - Sample Data
@@ -368,6 +482,9 @@ user_profiles }o--|| auth.users : "maps_to"
     - List with filters (student, date range), get by ID, create, update, delete, summary by date range, student payments.
   - Expense
     - List with filters (category, approval, date range), get by ID, create, update, approve, delete, summary by date range, categories.
+  - **Updated**: Expense Reporting
+    - Expense summary with school-wide and filtered totals using school_expenses_summary() function.
+    - Expense type overview with usage counts and totals using school_expense_types_overview() function.
 
 **Section sources**
 - [00990090/school-accounting-system/database/sample_data.sql](file://00990090/school-accounting-system/database/sample_data.sql)
@@ -375,6 +492,7 @@ user_profiles }o--|| auth.users : "maps_to"
 - [00990090/school-accounting-system/backend/src/models/Student.js](file://00990090/school-accounting-system/backend/src/models/Student.js)
 - [00990090/school-accounting-system/backend/src/models/Payment.js](file://00990090/school-accounting-system/backend/src/models/Payment.js)
 - [00990090/school-accounting-system/backend/src/models/Expense.js](file://00990090/school-accounting-system/backend/src/models/Expense.js)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 
 ## Dependency Analysis
 The following diagram shows dependencies among key schema components and policies.
@@ -398,10 +516,23 @@ P2 --> TBL12["subjects"]
 P2 --> TBL13["teacher_assignments"]
 P2 --> TBL14["assignments"]
 P2 --> TBL15["grades"]
+P2 --> TBL16["salaries"]
+P2 --> TBL17["deductions"]
+P2 --> TBL18["lecture_prices"]
+P2 --> TBL19["lesson_times"]
+P2 --> TBL20["expense_types"]
+SP1["school_expenses_summary()"] --> TBL5
+SP1 --> TBL20
+SP2["school_expense_types_overview()"] --> TBL20
+PCF["Payment Consistency Functions"] --> TBL3
+PCF --> TBL4
+SUC["Salary Uniqueness Constraints"] --> TBL16
 ```
 
 **Diagram sources**
 - [database_setup.sql](file://database_setup.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 
 **Section sources**
 - [database_setup.sql](file://database_setup.sql)
@@ -412,17 +543,25 @@ P2 --> TBL15["grades"]
     - **students.school_id**: Optimizes school-level student queries and filtering
     - **expenses.school_id**: Improves expense reporting and aggregation by school
     - **payments.student_id**: Enhances student payment history queries and financial reporting
+    - **salaries.school_id, teacher_id, month**: Prevents duplicate salary entries and optimizes payroll queries
+    - **deductions.school_id, deduction_date, teacher_id**: Efficient deduction tracking and reporting
+    - **lecture_prices.school_id, grade**: Optimizes pricing queries by grade level
+    - **lesson_times.school_id, session_type, period**: Efficient lesson scheduling queries
   - **Secondary Indexes**: Support for date-range queries, status filtering, and composite lookups
   - **Foreign Key Consistency**: Standardized ON DELETE CASCADE behavior across tenant-scoped tables
+  - **Database-Level Constraints**: Payment consistency functions and salary uniqueness constraints ensure data integrity
+  - **Stored Procedures**: Specialized functions provide optimized expense reporting with minimal database overhead
   - **Query Performance**: Significantly improved performance for:
     - School administration dashboards
     - Financial reporting and analytics
     - Student payment history views
     - Expense categorization and approval workflows
+    - Payroll processing and salary management
+    - Expense reporting and overview functionality
 - Triggers and Timestamps
   - Updated-at triggers reduce application logic and keep audit trails accurate.
 - Partitioning
-  - Consider partitioning large tables (e.g., payments, attendance_records) by date ranges for improved maintenance and query performance.
+  - Consider partitioning large tables (e.g., payments, attendance_records, expenses) by date ranges for improved maintenance and query performance.
 - Statistics and Vacuum
   - Regularly update statistics and vacuum/analyze to maintain query planner effectiveness.
 
@@ -434,8 +573,15 @@ P2 --> TBL15["grades"]
   - Remove outdated generic policies before applying tenant policies.
 - Index Issues
   - **Updated**: All previously missing indexes have been added in migrations/20260330_000000_add_missing_indexes.sql
-  - Verify indexes exist: students.school_id, expenses.school_id, payments.student_id
+  - Verify indexes exist: students.school_id, expenses.school_id, payments.student_id, salaries.school_id, deductions.school_id, lecture_prices.school_id, lesson_times.school_id
   - Check foreign key constraints: attendance_records.school_id uses ON DELETE CASCADE
+  - **Updated**: Verify new indexes exist: expenses.school_id, expense_date, created_at; expenses.school_id, expense_type_id, expense_date
+- **Updated**: Database-Level Constraint Issues
+  - Payment consistency functions: Ensure recompute_student_payment_totals and sync_student_payment_totals_from_payments triggers are functioning correctly
+  - Salary uniqueness constraints: Verify unique index on (school_id, teacher_id, month) exists and prevents duplicate entries
+- **Updated**: Stored Procedure Issues
+  - Expense reporting functions: Verify school_expenses_summary and school_expense_types_overview functions exist and are executable by authenticated users
+  - Grant permissions: Ensure EXECUTE permissions are granted to authenticated and service_role users
 - Audit Logs
   - Check audit_logs for failed operations and actor metadata to diagnose access problems.
 
@@ -443,9 +589,11 @@ P2 --> TBL15["grades"]
 - [admin_infrastructure.sql](file://admin_infrastructure.sql)
 - [database_setup.sql](file://database_setup.sql)
 - [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 
 ## Conclusion
-The school management system employs a robust multi-tenant schema with strong RLS enforcement, centralized administrative infrastructure, and a well-defined migration strategy. The recent indexing improvements have significantly enhanced query performance across all major functional areas. The combination of helper functions, tenant-scoped policies, and comprehensive indexes ensures secure, scalable, and performant operations across schools, students, payments, academic records, and administrative functions.
+The school management system employs a robust multi-tenant schema with strong RLS enforcement, centralized administrative infrastructure, and a well-defined migration strategy. The recent indexing improvements and database-level constraints have significantly enhanced query performance and data integrity across all major functional areas. The addition of specialized stored procedures for expense reporting and database-level constraints for payment consistency and salary uniqueness ensures reliable, scalable, and secure operations across schools, students, payments, academic records, expenses, salaries, and administrative functions.
 
 ## Appendices
 
@@ -458,7 +606,11 @@ The school management system employs a robust multi-tenant schema with strong RL
   - 20260324_010000_academic_records_scope_model.sql evolves academic schema with subjects and teacher assignments.
 - Reliability and Performance
   - 20260324_000000_reliability_performance_indexes.sql adds critical indexes.
-  - **20260330_000000_add_missing_indexes.sql**: **New** - Completes indexing strategy with students.school_id, expenses.school_id, and payments.student_id indexes. Standardizes foreign key constraints to ON DELETE CASCADE.
+  - **20260330_000000_add_missing_indexes.sql**: Completes indexing strategy with students.school_id, expenses.school_id, and payments.student_id indexes. Standardizes foreign key constraints to ON DELETE CASCADE.
+  - **20260401_000000_remove_plaintext_passwords.sql**: Removes plaintext passwords and enhances security.
+- **Updated**: Database-Level Constraints and Stored Procedures
+  - **20260403_000000_payment_consistency_and_salary_uniqueness.sql**: Introduces database-level constraints for payment consistency and salary uniqueness. Adds triggers and functions to maintain data integrity.
+  - **20260403_010000_expenses_performance_and_overview.sql**: Adds performance optimizations for expenses and specialized stored procedures for expense reporting and overview functionality.
 - Specialized Tables
   - 20260326_020000_account_archives_table.sql adds account_archives with RLS.
   - 20260329_000000_teacher_activity_monitoring.sql extends monitoring capabilities.
@@ -471,5 +623,8 @@ The school management system employs a robust multi-tenant schema with strong RL
 - [migrations/20260324_010000_academic_records_scope_model.sql](file://migrations/20260324_010000_academic_records_scope_model.sql)
 - [migrations/20260324_000000_reliability_performance_indexes.sql](file://migrations/20260324_000000_reliability_performance_indexes.sql)
 - [migrations/20260330_000000_add_missing_indexes.sql](file://migrations/20260330_000000_add_missing_indexes.sql)
+- [migrations/20260401_000000_remove_plaintext_passwords.sql](file://migrations/20260401_000000_remove_plaintext_passwords.sql)
+- [migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [migrations/20260403_010000_expenses_performance_and_overview.sql](file://migrations/20260403_010000_expenses_performance_and_overview.sql)
 - [migrations/20260326_020000_account_archives_table.sql](file://migrations/20260326_020000_account_archives_table.sql)
 - [migrations/20260329_000000_teacher_activity_monitoring.sql](file://migrations/20260329_000000_teacher_activity_monitoring.sql)

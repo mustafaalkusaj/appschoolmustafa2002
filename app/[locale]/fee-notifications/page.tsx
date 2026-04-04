@@ -381,11 +381,11 @@ export default function FeeNotificationsPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]} permissions={["view_fee_notifications", "send_fee_notifications"]}>
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe_0%,#f8fafc_35%,#f8fafc_100%)]">
-        <div className="mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 xl:grid-cols-[270px_minmax(0,1fr)]">
-          <AppSidebar currentPath="/fee-notifications" showFloatingToggle />
-
-          <main className="min-w-0 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="layout">
+        <AppSidebar currentPath="/fee-notifications" />
+        <div className="main">
+          <AppShellTopbar title="تنبيهات الأقساط" scope={schoolScope} fixed />
+          <div className="content app-shell-content app-shell-content--with-fixed-topbar">
             <SchoolScopeBanner scope={schoolScope} />
 
             {schoolScope.shouldBlockContent ? (
@@ -639,11 +639,11 @@ export default function FeeNotificationsPage() {
                 </div>
               </div>
             )}
-          </main>
+          </div>
         </div>
-      </div>
 
-      {selectedDetail ? <HistoryModal item={selectedDetail} onClose={() => setSelectedDetail(null)} /> : null}
+        {selectedDetail ? <HistoryModal item={selectedDetail} onClose={() => setSelectedDetail(null)} /> : null}
+      </div>
     </ProtectedRoute>
   );
 }

@@ -108,16 +108,23 @@ function applyStudentFilters(query: any, filters: StudentsListFilters, options: 
   return nextQuery;
 }
 
+import { calculateStudentRemainingFee } from "@/lib/students/financials";
+
 function normalizeStudentRows(rows: any[]): StudentListRow[] {
   return (rows ?? []).map((row) => {
     const totalFee = normalizeNumber(row.total_fee);
     const paidFee = normalizeNumber(row.paid_fee);
     const discountValue = normalizeNumber(row.discount_value);
-    const remainingFeeRaw = row.remaining_fee;
-    const remainingFee =
-      remainingFeeRaw === null || remainingFeeRaw === undefined
-        ? totalFee - paidFee - discountValue
-        : normalizeNumber(remainingFeeRaw);
+    
+    // Use stored value if exists, otherwise calculate using shared logic
+    const remainingFee = 
+      row.remaining_fee !== null && row.remaining_fee !== undefined
+        ? normalizeNumber(row.remaining_fee)
+        : calculateStudentRemainingFee({
+            total_fee: totalFee,
+            paid_fee: paidFee,
+            discount_value: discountValue,
+          });
 
     return {
       id: String(row.id),

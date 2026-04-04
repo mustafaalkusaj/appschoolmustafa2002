@@ -250,7 +250,7 @@ ON teachers(auth_user_id)
 WHERE auth_user_id IS NOT NULL;
 
 ALTER TABLE IF EXISTS teachers
-  ADD COLUMN IF NOT EXISTS classes_taught JSONB NOT NULL DEFAULT '[]'::jsonb;
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE TABLE IF NOT EXISTS managed_user_profiles (
   auth_user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,

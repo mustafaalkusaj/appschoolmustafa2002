@@ -1,6 +1,7 @@
 "use client";
 
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
@@ -15,9 +16,6 @@ import {
   ArchiveDetailModal,
   PaymentModal,
 } from "./_components";
-
-import { usePaymentsPage } from "./_hooks";
-import "./_components/payments.css";
 
 export default function PaymentsPage() {
   const {
@@ -55,80 +53,79 @@ export default function PaymentsPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-      <div className="payments-page">
-        <div className="layout">
-          <AppSidebar currentPath="/payments" showFloatingToggle />
-          <div className="main">
-            <div className="content app-shell-content">
-              {success && <div className="ok">{success}</div>}
-              {error && <div className="err">{error}</div>}
+      <div className="layout">
+        <AppSidebar currentPath="/payments" />
+        <div className="main">
+          <AppShellTopbar title="فواتير الطلاب" scope={schoolScope} fixed />
+          <div className="content app-shell-content app-shell-content--with-fixed-topbar">
+            {success && <div className="ok">{success}</div>}
+            {error && <div className="err">{error}</div>}
 
-              <SchoolScopeBanner scope={schoolScope} showSelector={false} />
+            <SchoolScopeBanner scope={schoolScope} showSelector={false} />
 
-              {schoolScope.shouldBlockContent ? (
-                <SchoolScopeEmptyState
-                  scope={schoolScope}
-                  title="فواتير الطلاب"
-                  description="لن يتم تحميل الطلاب أو الدفعات أو الأرشيف قبل اختيار مدرسة واضحة لهذا القسم."
+            {schoolScope.shouldBlockContent ? (
+              <SchoolScopeEmptyState
+                scope={schoolScope}
+                title="فواتير الطلاب"
+                description="لن يتم تحميل الطلاب أو الدفعات أو الأرشيف قبل اختيار مدرسة واضحة لهذا القسم."
+              />
+            ) : (
+              <>
+                <PaymentsStats summary={metaHook.summary} loading={metaHook.metaLoading} />
+
+                <PaymentsFilters
+                  quickFilter={quickFilter}
+                  setQuickFilter={setQuickFilter}
+                  filterClass={filterClass}
+                  setFilterClass={setFilterClass}
+                  filterSort={filterSort}
+                  setFilterSort={setFilterSort}
+                  filterDir={filterDir}
+                  setFilterDir={setFilterDir}
+                  classes={metaHook.classes}
+                  onExport={handleExportExcel}
+                  onAddPayment={() => paymentOpsHook.openPaymentModal()}
+                  exporting={exporting}
+                  resolvedSchoolId={metaHook.summary.totalStudents > 0 || metaHook.classes.length > 0 ? "resolved" : null}
+                  canAddPayments={canAddPayments}
                 />
-              ) : (
-                <>
-                  <PaymentsStats summary={metaHook.summary} loading={metaHook.metaLoading} />
 
-                  <PaymentsFilters
-                    quickFilter={quickFilter}
-                    setQuickFilter={setQuickFilter}
-                    filterClass={filterClass}
-                    setFilterClass={setFilterClass}
-                    filterSort={filterSort}
-                    setFilterSort={setFilterSort}
-                    filterDir={filterDir}
-                    setFilterDir={setFilterDir}
-                    classes={metaHook.classes}
-                    onExport={handleExportExcel}
-                    onAddPayment={() => paymentOpsHook.openPaymentModal()}
-                    exporting={exporting}
-                    resolvedSchoolId={metaHook.summary.totalStudents > 0 || metaHook.classes.length > 0 ? "resolved" : null}
-                    canAddPayments={canAddPayments}
-                  />
+                <PaymentsToolbar
+                  searchInput={searchInput}
+                  setSearchInput={setSearchInput}
+                  totalCount={studentsHook.totalCount}
+                  loading={studentsHook.loading}
+                />
 
-                  <PaymentsToolbar
-                    searchInput={searchInput}
-                    setSearchInput={setSearchInput}
-                    totalCount={studentsHook.totalCount}
-                    loading={studentsHook.loading}
-                  />
+                <PaymentsTable
+                  students={studentsHook.students}
+                  paymentCountsByStudent={studentsHook.paymentCountsByStudent}
+                  loading={studentsHook.loading}
+                  page={studentsHook.page}
+                  totalPages={studentsHook.totalPages}
+                  totalCount={studentsHook.totalCount}
+                  onPageChange={studentsHook.setPage}
+                  onStudentClick={openStudentDetail}
+                  onAddPayment={paymentOpsHook.openPaymentModal}
+                />
 
-                  <PaymentsTable
-                    students={studentsHook.students}
-                    paymentCountsByStudent={studentsHook.paymentCountsByStudent}
-                    loading={studentsHook.loading}
-                    page={studentsHook.page}
-                    totalPages={studentsHook.totalPages}
-                    totalCount={studentsHook.totalCount}
-                    onPageChange={studentsHook.setPage}
-                    onStudentClick={openStudentDetail}
-                    onAddPayment={paymentOpsHook.openPaymentModal}
-                  />
-
-                  <PaymentsArchive
-                    archives={metaHook.archives}
-                    archiveNotice={metaHook.archiveNotice}
-                    archiveYear={archiveOpsHook.archiveYear}
-                    setArchiveYear={archiveOpsHook.setArchiveYear}
-                    archiving={archiveOpsHook.archiving}
-                    paymentYears={metaHook.paymentYears}
-                    canDeletePayments={canDeletePayments}
-                    onArchive={() =>
-                      archiveOpsHook.archiveAccountsYear(metaHook.updateArchives, metaHook.refreshMeta)
-                    }
-                    onViewDetail={archiveOpsHook.openArchiveDetail}
-                    onExportArchive={handleArchiveExport}
-                    archiveExportingId={archiveOpsHook.archiveExportingId}
-                  />
-                </>
-              )}
-            </div>
+                <PaymentsArchive
+                  archives={metaHook.archives}
+                  archiveNotice={metaHook.archiveNotice}
+                  archiveYear={archiveOpsHook.archiveYear}
+                  setArchiveYear={archiveOpsHook.setArchiveYear}
+                  archiving={archiveOpsHook.archiving}
+                  paymentYears={metaHook.paymentYears}
+                  canDeletePayments={canDeletePayments}
+                  onArchive={() =>
+                    archiveOpsHook.archiveAccountsYear(metaHook.updateArchives, metaHook.refreshMeta)
+                  }
+                  onViewDetail={archiveOpsHook.openArchiveDetail}
+                  onExportArchive={handleArchiveExport}
+                  archiveExportingId={archiveOpsHook.archiveExportingId}
+                />
+              </>
+            )}
           </div>
         </div>
 

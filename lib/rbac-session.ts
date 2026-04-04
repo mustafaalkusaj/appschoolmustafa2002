@@ -22,26 +22,23 @@ function getSecretKeyMaterial(): string {
   const dedicated = getServerEnv().rbacCookieSecret;
   if (dedicated) return dedicated;
 
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") {
     throw new Error(
-      "[rbac-session] RBAC_COOKIE_SECRET must be configured for production deployments. " +
-        "Generate a secure secret with: openssl rand -base64 48",
+      "FATAL SECURITY ERROR: RBAC_COOKIE_SECRET is not configured. " +
+      "Refusing to start in production without a secure key. " +
+      "Generate one with: openssl rand -base64 48"
     );
   }
 
   if (!devFallbackSecret) {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
-
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 1) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-
-    devFallbackSecret = btoa(binary);
+    devFallbackSecret = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
+    devFallbackSecret = btoa(devFallbackSecret);
+    
     console.warn(
-      "[rbac-session] RBAC_COOKIE_SECRET is not set. Using an ephemeral development-only secret for this process. " +
-        "Configure RBAC_COOKIE_SECRET explicitly for persistent sessions.",
+      "[rbac-session] WARNING: Using ephemeral development secret. " +
+      "Persistent sessions will not work across restarts."
     );
   }
 

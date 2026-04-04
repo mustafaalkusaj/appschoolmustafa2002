@@ -1,7 +1,16 @@
 "use client";
 
 import { formatNumber } from "@/lib/formatting";
+import { 
+  Users, 
+  ArrowLeftRight, 
+  Banknote, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Wallet
+} from "@/lib/icons";
 import { DashboardTotals } from "./types";
+import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
 
 interface StatisticsCardsProps {
   dashboardTotals: DashboardTotals;
@@ -13,49 +22,52 @@ export function StatisticsCards({ dashboardTotals }: StatisticsCardsProps) {
   const totalRemaining = dashboardTotals.totalRemaining;
 
   return (
-    <>
-      {/* Row 1 - Primary stats */}
-      <div className="row1">
-        {([
-          ["إجمالي الطلاب", formatNumber(dashboardTotals.studentsCount), "#EDE8FA", "#6C4AB6"],
-          ["الطلاب المنقولون", formatNumber(dashboardTotals.transferredCount), "#DBEAFE", "#3B82F6"],
-          ["إجمالي الرسوم", `د.ع ${formatNumber(totalFees)}`, "#FEF3C7", "#F59E0B"],
-          ["المبلغ المدفوع", `د.ع ${formatNumber(totalPaid)}`, "#D1FAE5", "#10B981"],
-        ] as [string, string, string, string][]).map(([label, value, bg, color], i) => (
-          <div className="sc" key={i}>
-            <div className="sc-ico" style={{ background: bg }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="10" />
-              </svg>
-            </div>
-            <div>
-              <div className="sc-label">{label}</div>
-              <div className="sc-val">{value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-6 mb-8">
+      {/* Primary KPIs */}
+      <KPIGrid>
+        <StatsCard 
+          label="إجمالي الطلاب" 
+          value={formatNumber(dashboardTotals.studentsCount)} 
+          icon={Users} 
+          variant="primary" 
+        />
+        <StatsCard 
+          label="الطلاب المنقولون" 
+          value={formatNumber(dashboardTotals.transferredCount)} 
+          icon={ArrowLeftRight} 
+          variant="info" 
+        />
+        <StatsCard 
+          label="إجمالي الرسوم" 
+          value={`د.ع ${formatNumber(totalFees)}`} 
+          icon={Banknote} 
+          variant="warning" 
+        />
+        <StatsCard 
+          label="المبلغ المدفوع" 
+          value={`د.ع ${formatNumber(totalPaid)}`} 
+          icon={CheckCircle2} 
+          variant="success" 
+        />
+      </KPIGrid>
 
-      {/* Row 2 - Secondary stats */}
-      <div className="row2">
-        {([
-          ["الرصيد المتبقي", `د.ع ${formatNumber(totalRemaining)}`, "#FEE2E2", "#EF4444"],
-          ["رواتب هذا الشهر", "د.ع 0", "#EDE9FE", "#8B5CF6"],
-        ] as [string, string, string, string][]).map(([label, value, bg, color], i) => (
-          <div className="sc" key={i}>
-            <div className="sc-ico" style={{ background: bg }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
-                <line x1="12" y1="1" x2="12" y2="23" />
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
-            </div>
-            <div>
-              <div className="sc-label">{label}</div>
-              <div className="sc-val">{value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
+      {/* Secondary Financial Oversight */}
+      <KPIGrid>
+        <StatsCard 
+          label="الرصيد المتبقي" 
+          value={`د.ع ${formatNumber(totalRemaining)}`} 
+          icon={AlertTriangle} 
+          variant="danger" 
+          className="lg:col-span-2"
+        />
+        <StatsCard 
+          label="رواتب هذا الشهر" 
+          value="د.ع 0" 
+          icon={Wallet} 
+          variant="neutral" 
+          className="lg:col-span-2"
+        />
+      </KPIGrid>
+    </div>
   );
 }

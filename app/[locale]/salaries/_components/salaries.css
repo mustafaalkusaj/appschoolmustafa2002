@@ -1,43 +1,5 @@
 /* Salaries page styles */
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-:root {
-  --p2: #255EA8;
-  --p3: #4F8CFF;
-  --p4: #79D7FF;
-  --bg: #EEF4FB;
-  --dark: #16324F;
-  --gray: #6B7280;
-}
-
-body {
-  font-family: var(--font-manrope), Segoe UI, sans-serif;
-  direction: rtl;
-  background: var(--bg);
-  color: var(--dark);
-}
-
-.layout {
-  display: flex;
-  height: 100vh;
-}
-
-/* MAIN SIDEBAR */
-.main-sidebar {
-  width: 190px;
-  background: linear-gradient(180deg, #EDF6FF, #DDEAFB);
-  display: flex;
-  flex-direction: column;
-  padding: 1rem 0.8rem;
-  border-right: 1px solid rgba(79, 140, 255, 0.1);
-  flex-shrink: 0;
-}
-
 .logo {
   display: flex;
   align-items: center;
@@ -160,13 +122,6 @@ body {
   letter-spacing: 0.05em;
 }
 
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 .topbar {
   background: white;
   padding: 0.7rem 1.4rem;
@@ -175,22 +130,6 @@ body {
   justify-content: space-between;
   border-bottom: 1px solid rgba(79, 140, 255, 0.08);
   flex-shrink: 0;
-}
-
-.topbar-title {
-  font-size: 0.95rem;
-  font-weight: 800;
-}
-
-.topbar-sub {
-  font-size: 0.7rem;
-  color: var(--gray);
-}
-
-.content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.2rem 1.4rem;
 }
 
 .stats {

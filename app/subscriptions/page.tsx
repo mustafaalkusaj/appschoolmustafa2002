@@ -107,21 +107,6 @@ export default function SubscriptionsPage() {
 
   return (
     <ProtectedRoute roles={["super_admin"]}>
-      <style>{`
-        .layout{display:flex;height:100vh;background:#F5F3FF;color:#1F1547;font-family:Manrope,sans-serif;direction:rtl}
-        .sidebar{width:220px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-left:1px solid rgba(108,74,182,0.12);flex-shrink:0}
-        .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
-        .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#6C4AB6,#9B7EDC);display:flex;align-items:center;justify-content:center}
-        .logo-ico svg{width:18px;height:18px;fill:white}
-        .logo span{font-size:.88rem;font-weight:800;color:#4C2F9E}
-        .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:#4C2F9E;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none;border:none;background:none;font-family:Cairo,sans-serif}
-        .nav:hover{background:rgba(108,74,182,.1)}
-        .nav.active{background:linear-gradient(135deg,#6C4AB6,#4C2F9E);color:white}
-        .nav.danger{color:#EF4444}
-        .nav.danger:hover{background:#FEE2E2}
-        .sep{height:1px;background:rgba(108,74,182,.12);margin:.4rem 0}
-      `}</style>
-
       <div className="layout">
         <AppSidebar currentPath="/subscriptions" />
 

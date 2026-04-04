@@ -250,6 +250,8 @@ async function queryHasColumn(table: string, column: string) {
   return probe;
 }
 
+import { calculateStudentRemainingFee } from "@/lib/students/financials";
+
 async function fetchStudentPaymentSummary(user: ManagedUserRecord) {
   const totalFee = user.student?.total_fee ?? 0;
   const paidFee = user.student?.paid_fee ?? 0;
@@ -258,7 +260,11 @@ async function fetchStudentPaymentSummary(user: ManagedUserRecord) {
     total_fee: totalFee,
     paid_fee: paidFee,
     discount_value: discountValue,
-    remaining_fee: Math.max(totalFee - paidFee - discountValue, 0),
+    remaining_fee: calculateStudentRemainingFee({
+      total_fee: totalFee,
+      paid_fee: paidFee,
+      discount_value: discountValue,
+    }),
     payment_count: 0,
     recorded_payments_total: paidFee,
     last_payment_at: null,

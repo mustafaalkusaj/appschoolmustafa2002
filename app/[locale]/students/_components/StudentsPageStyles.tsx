@@ -3,24 +3,6 @@
 export function StudentsPageStyles() {
   return (
     <style>{`
-      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;--field-bg:#F9FBFF;--field-text:#0F172A;--field-border:rgba(15,23,42,0.1);--field-border-strong:rgba(79,140,255,0.42);--field-ring:rgba(79,140,255,0.14);--field-shadow:inset 0 1px 0 rgba(255,255,255,0.82);}
-      body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
-      .layout{display:flex;height:100vh}
-      .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
-      .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
-      .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p3),var(--p4));display:flex;align-items:center;justify-content:center}
-      .logo-ico svg{width:18px;height:18px;fill:white}
-      .logo span{font-size:.88rem;font-weight:800;color:var(--p2)}
-      .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:var(--p2);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-      .nav:hover{background:rgba(108,74,182,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
-      .nav.danger{color:#EF4444}.nav.danger:hover{background:#FEE2E2}
-      .sep{height:1px;background:rgba(108,74,182,0.12);margin:.4rem 0}
-      .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-      .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
-      .topbar-title{font-size:.95rem;font-weight:800}.topbar-sub{font-size:.7rem;color:var(--gray)}
-      .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
-
       /* TABS */
       .tabs{display:flex;gap:.4rem;margin-bottom:1rem;background:white;border-radius:13px;padding:.5rem;box-shadow:0 2px 8px rgba(108,74,182,0.07)}
       .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem .8rem;border-radius:9px;cursor:pointer;font-size:.8rem;font-weight:700;color:var(--gray);transition:all .2s;border:none;background:none;font-family:var(--font-manrope),Segoe UI,sans-serif}

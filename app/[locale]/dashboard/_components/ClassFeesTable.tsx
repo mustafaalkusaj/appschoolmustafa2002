@@ -1,6 +1,6 @@
 "use client";
 
-import { AppIcon } from "@/components/AppIcon";
+import { Banknote, School, Pencil, Trash2, Plus, Check, X } from "@/lib/icons";
 import { formatNumber } from "@/lib/formatting";
 import { ClassFee } from "./types";
 
@@ -38,88 +38,139 @@ export function ClassFeesTable({
   if (!canManageClasses || !showFeesTable) return null;
 
   return (
-    <div className="fees-section">
-      <div className="section-header">
-        <div className="section-title" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-          <AppIcon token="💰" size={16} />
-          Tuition rates by class
+    <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1rem", fontWeight: 800 }}>
+          <Banknote size={20} className="text-primary" />
+          <span>أسعار الرسوم الدراسية حسب الصفوف</span>
         </div>
-        <button className="fee-btn" onClick={onOpenNewFee} style={{ fontSize: ".75rem", padding: ".4rem .9rem" }}>
-          + إضافة صف جديد
+        <button 
+          className="ui-button ui-button--primary" 
+          onClick={onOpenNewFee} 
+          style={{ minHeight: "36px", padding: "0 0.875rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.35rem" }}
+        >
+          <Plus size={14} />
+          إضافة صف جديد
         </button>
       </div>
 
       {classFees.length === 0 ? (
-        <div style={{ textAlign: "center", color: "var(--gray)", padding: "2rem", fontSize: ".85rem" }}>
-          لا توجد أقساط مضافة حتى الآن. اضغط على "إضافة قسط دراسي" للبدء.
+        <div style={{ 
+          textAlign: "center", 
+          color: "var(--text-tertiary)", 
+          padding: "3rem 1.5rem", 
+          fontSize: "0.875rem",
+          background: "var(--surface-soft)",
+          borderRadius: "16px",
+          border: "1px dashed var(--border)"
+        }}>
+          لا توجد أقساط مضافة حتى الآن. اضغط على "إضافة صف جديد" للبدء.
         </div>
       ) : (
-        <>
-          {/* Quick cards */}
-          <div className="fee-cards-row">
-            {classFees.map((cf) => {
-              const stats = getClassStats(cf);
-              return (
-                <div className="fee-card" key={cf.id} onClick={() => onEditFee(cf)}>
-                  <div className="fc-class" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-                    <AppIcon token="🏫" size={14} />
-                    {cf.class_name}
-                  </div>
-                  <div className="fc-amount">د.ع {formatNumber(cf.total_fee)}</div>
-                  <div className="fc-sub">إجمالي الموسم</div>
-                  <div className="fc-inst">
-                    <span className="fc-inst-lbl">لكل قسط:</span>
-                    <span className="fc-inst-val">د.ع {formatNumber(cf.installment_amount)}</span>
-                    <span className="inst-badge">×{cf.installments}</span>
-                  </div>
-                  <div style={{ marginTop: ".5rem", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: ".67rem", color: "var(--gray)" }}>
-                    <span>{stats.count} طالب</span>
-                    <span style={{ color: "#10B981", fontWeight: 700 }}>{stats.paidPct}% مدفوع</span>
-                  </div>
-                  <div className="prog-mini">
-                    <div className="prog-mini-fill" style={{ width: `${stats.paidPct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Detailed table */}
-          <table className="fees-table">
+        <div style={{ overflowX: "auto", margin: "0 -1.5rem" }}>
+          <table className="ui-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr>
-                <th>الصف الدراسي</th>
-                <th>المبلغ الكلي</th>
-                <th>عدد الأقساط</th>
-                <th>قيمة القسط الواحد</th>
-                <th>عدد الطلاب</th>
-                <th>المدفوع</th>
-                <th>المتبقي</th>
-                <th>الإجراءات</th>
+              <tr style={{ background: "var(--surface-soft)" }}>
+                <th style={{ padding: "1rem 1.5rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>الصف الدراسي</th>
+                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>المبلغ الكلي</th>
+                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>عدد الأقساط</th>
+                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>قيمة القسط الواحد</th>
+                <th style={{ padding: "1rem 1rem", textAlign: "center", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>عدد الطلاب</th>
+                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>المدفوع</th>
+                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>المتبقي</th>
+                <th style={{ padding: "1rem 1.5rem", textAlign: "center", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>الإجراءات</th>
               </tr>
             </thead>
             <tbody>
               {classFees.map((cf) => {
                 const stats = getClassStats(cf);
                 return (
-                  <tr key={cf.id}>
-                    <td><span className="class-chip">{cf.class_name}</span></td>
-                    <td style={{ fontWeight: 800, color: "var(--p2)" }}>د.ع {formatNumber(cf.total_fee)}</td>
-                    <td><span className="inst-badge">× {cf.installments} قسط</span></td>
-                    <td style={{ fontWeight: 700, color: "#10B981" }}>د.ع {formatNumber(cf.installment_amount)}</td>
-                    <td style={{ textAlign: "center", fontWeight: 700 }}>{stats.count}</td>
-                    <td style={{ color: "#10B981", fontWeight: 700 }}>د.ع {formatNumber(stats.totalPaid)}</td>
-                    <td style={{ color: "#EF4444", fontWeight: 700 }}>د.ع {formatNumber(stats.totalRemaining)}</td>
-                    <td>
-                      <div style={{ display: "flex", gap: ".4rem" }}>
-                        <button className="action-btn edit-btn" onClick={() => onEditFee(cf)}>تعديل</button>
+                  <tr key={cf.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "1rem 1.5rem" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <School size={14} className="text-tertiary" />
+                        <span style={{ fontWeight: 700, fontSize: "0.875rem" }}>{cf.class_name}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "1rem 1rem", fontWeight: 800, color: "var(--primary)", fontSize: "0.875rem" }}>
+                      د.ع {formatNumber(cf.total_fee)}
+                    </td>
+                    <td style={{ padding: "1rem 1rem" }}>
+                      <span style={{ 
+                        padding: "0.25rem 0.625rem", 
+                        background: "var(--surface-soft)", 
+                        borderRadius: "999px", 
+                        fontSize: "0.6875rem", 
+                        fontWeight: 700,
+                        color: "var(--text-secondary)",
+                        border: "1px solid var(--border)"
+                      }}>
+                        × {cf.installments} أقساط
+                      </span>
+                    </td>
+                    <td style={{ padding: "1rem 1rem", fontWeight: 700, color: "#10b981", fontSize: "0.8125rem" }}>
+                      د.ع {formatNumber(cf.installment_amount)}
+                    </td>
+                    <td style={{ padding: "1rem 1rem", textAlign: "center", fontWeight: 700, fontSize: "0.875rem" }}>
+                      {stats.count}
+                    </td>
+                    <td style={{ padding: "1rem 1rem", color: "#10b981", fontWeight: 800, fontSize: "0.8125rem" }}>
+                      د.ع {formatNumber(stats.totalPaid)}
+                    </td>
+                    <td style={{ padding: "1rem 1rem", color: "var(--danger)", fontWeight: 800, fontSize: "0.8125rem" }}>
+                      د.ع {formatNumber(stats.totalRemaining)}
+                    </td>
+                    <td style={{ padding: "1rem 1.5rem", textAlign: "center" }}>
+                      <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem" }}>
+                        <button 
+                          className="ui-button" 
+                          style={{ 
+                            minHeight: "32px", 
+                            minWidth: "32px", 
+                            padding: 0, 
+                            borderRadius: "8px",
+                            background: "var(--surface-soft)",
+                            border: "1px solid var(--border)",
+                            color: "var(--text-secondary)"
+                          }} 
+                          onClick={() => onEditFee(cf)}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        
                         {deleteConfirm === cf.id ? (
-                          <div style={{ display: "flex", gap: ".3rem" }}>
-                            <button className="action-btn del-btn" onClick={() => onConfirmDelete(cf.id)}>تأكيد</button>
-                            <button className="action-btn" style={{ background: "#F3F4F6", color: "var(--dark)" }} onClick={onCancelDelete}>إلغاء</button>
+                          <div style={{ display: "flex", gap: "0.25rem" }}>
+                            <button 
+                              className="ui-button ui-button--danger" 
+                              style={{ minHeight: "32px", padding: "0 0.75rem", fontSize: "0.6875rem", borderRadius: "8px" }} 
+                              onClick={() => onConfirmDelete(cf.id)}
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button 
+                              className="ui-button ui-button--secondary" 
+                              style={{ minHeight: "32px", padding: "0 0.75rem", fontSize: "0.6875rem", borderRadius: "8px" }} 
+                              onClick={onCancelDelete}
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
                         ) : (
-                          <button className="action-btn del-btn" onClick={() => onDeleteFee(cf.id)}>حذف</button>
+                          <button 
+                            className="ui-button ui-button--danger" 
+                            style={{ 
+                              minHeight: "32px", 
+                              minWidth: "32px", 
+                              padding: 0, 
+                              borderRadius: "8px",
+                              background: "rgba(239, 68, 68, 0.08)",
+                              border: "1px solid rgba(239, 68, 68, 0.16)",
+                              color: "var(--danger)"
+                            }} 
+                            onClick={() => onDeleteFee(cf.id)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -128,7 +179,7 @@ export function ClassFeesTable({
               })}
             </tbody>
           </table>
-        </>
+        </div>
       )}
     </div>
   );
