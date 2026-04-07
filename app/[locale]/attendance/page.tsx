@@ -58,11 +58,11 @@ type HistorySummary = {
   rate: number;
 };
 
-const STATUS_META: Record<AttendanceStatus, { label: string; bg: string; color: string }> = {
-  present: { label: "حاضر", bg: "#D1FAE5", color: "#065F46" },
-  absent: { label: "غائب", bg: "#FEE2E2", color: "#991B1B" },
-  late: { label: "متأخر", bg: "#FEF3C7", color: "#92400E" },
-  excused: { label: "بعذر", bg: "#DBEAFE", color: "#1E40AF" },
+const STATUS_META: Record<AttendanceStatus, { label: string; badgeClass: string; color: string }> = {
+  present: { label: "حاضر", badgeClass: "badge badge--success", color: "var(--success)" },
+  absent: { label: "غائب", badgeClass: "badge badge--danger", color: "var(--danger)" },
+  late: { label: "متأخر", badgeClass: "badge badge--warning", color: "var(--warning)" },
+  excused: { label: "بعذر", badgeClass: "badge badge--info", color: "var(--primary)" },
 };
 
 function getLocalIsoDate(date: Date) {
@@ -391,70 +391,6 @@ export default function AttendancePage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-    <>
-      <style>{`
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280}
-        body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
-        .layout{display:flex;height:100vh}
-        .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,.1);flex-shrink:0}
-        .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
-        .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p3),var(--p4));display:flex;align-items:center;justify-content:center}
-        .logo-ico svg{width:18px;height:18px;fill:white}
-        .logo span{font-size:.88rem;font-weight:800;color:var(--p2)}
-        .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:var(--p2);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-        .nav:hover{background:rgba(108,74,182,.1)}
-        .nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
-        .nav.danger{color:#EF4444}
-        .nav.danger:hover{background:#FEE2E2}
-        .sep{height:1px;background:rgba(108,74,182,.12);margin:.4rem 0}
-        .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-        .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,.08);flex-shrink:0}
-        .topbar-title{font-size:.95rem;font-weight:800}
-        .topbar-sub{font-size:.72rem;color:var(--gray)}
-        .content{flex:1;overflow:auto;padding:1.2rem 1.4rem}
-        .ok{background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
-        .err{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
-        .toolbar{background:white;border-radius:13px;padding:.9rem;border:1px solid rgba(108,74,182,.08);display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;margin-bottom:.9rem}
-        .date-wrap{display:flex;align-items:center;gap:.35rem}
-        .input,.select{padding:.55rem .7rem;border:1px solid rgba(108,74,182,.16);border-radius:9px;background:white;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;outline:none;min-height:38px}
-        .input:focus,.select:focus{border-color:var(--p3)}
-        .date-wrap .input{min-width:170px;cursor:pointer}
-        .date-btn{padding:.54rem .65rem;border:1px solid rgba(108,74,182,.16);border-radius:9px;background:white;color:var(--p2);font-size:.95rem;cursor:pointer;line-height:1}
-        .date-btn:hover{background:#F8F6FF}
-        .search{flex:1;min-width:210px}
-        .btn{padding:.55rem .9rem;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap}
-        .btn-main{background:linear-gradient(135deg,var(--p3),var(--p2));color:white}
-        .btn-light{background:#EDE8FA;color:var(--p2)}
-        .btn-danger{background:#FEE2E2;color:#991B1B}
-        .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:.7rem;margin-bottom:1rem}
-        .card{background:white;border-radius:12px;padding:.7rem .8rem;border:1px solid rgba(108,74,182,.06)}
-        .c-label{font-size:.7rem;color:var(--gray)}
-        .c-val{font-size:1rem;font-weight:800;margin-top:.1rem}
-        .tbl-wrap{background:white;border-radius:13px;border:1px solid rgba(108,74,182,.08);overflow:hidden}
-        table{width:100%;border-collapse:collapse}
-        thead{background:#F8F6FF}
-        th{padding:.58rem .75rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(108,74,182,.08)}
-        td{padding:.58rem .75rem;font-size:.76rem;border-bottom:1px solid rgba(108,74,182,.05);vertical-align:middle}
-        tr:hover td{background:#FAFAFE}
-        .status-group{display:flex;gap:.3rem;flex-wrap:wrap}
-        .status-btn{padding:.25rem .5rem;border:none;border-radius:999px;font-size:.66rem;font-weight:700;cursor:pointer;background:#F3F4F6;color:#374151}
-        .status-btn.active{box-shadow:0 0 0 2px rgba(108,74,182,.22)}
-        .badge{display:inline-flex;align-items:center;padding:.18rem .5rem;border-radius:999px;font-size:.65rem;font-weight:700}
-        .muted{color:var(--gray)}
-        .history{margin-top:1rem;background:white;border-radius:13px;border:1px solid rgba(108,74,182,.08);overflow:hidden}
-        .h-head{display:flex;align-items:center;justify-content:space-between;padding:.75rem .9rem;border-bottom:1px solid rgba(108,74,182,.08)}
-        .h-title{font-size:.8rem;font-weight:800}
-        .empty{padding:2rem;text-align:center;color:var(--gray)}
-        @media (max-width:1200px){.stats{grid-template-columns:repeat(3,1fr)}}
-        @media (max-width:880px){
-          .sidebar{display:none}
-          .content{padding:1rem}
-          .stats{grid-template-columns:repeat(2,1fr)}
-          th,td{padding:.55rem .5rem}
-        }
-      `}</style>
-
       <div className="app-layout">
         <AppSidebar currentPath="/attendance" />
 
@@ -466,8 +402,8 @@ export default function AttendancePage() {
           />
 
           <div className="content app-shell-content">
-            {success && <div className="ok">{success}</div>}
-            {error && <div className="err">{error}</div>}
+            {success && <div className="msg-success">{success}</div>}
+            {error && <div className="msg-error">{error}</div>}
             <SchoolScopeBanner scope={schoolScope} showSelector={false} />
             {schoolScope.shouldBlockContent ? (
               <SchoolScopeEmptyState
@@ -481,7 +417,7 @@ export default function AttendancePage() {
                   <div className="date-wrap">
                     <input
                       ref={dateInputRef}
-                      className="input"
+                      className="form-input"
                       type="date"
                       value={selectedDate}
                       onChange={(e) => setSelectedDate(e.target.value)}
@@ -490,15 +426,15 @@ export default function AttendancePage() {
                       <AppIcon token="📅" size={16} />
                     </button>
                   </div>
-                  <select className="select" value={filterClass} onChange={(e) => { setFilterClass(e.target.value); setFilterSection(""); }}>
+                  <select className="form-select" value={filterClass} onChange={(e) => { setFilterClass(e.target.value); setFilterSection(""); }}>
                     <option value="">كل الصفوف</option>
                     {classes.map((className) => <option key={className} value={className}>{className}</option>)}
                   </select>
-                  <select className="select" value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
+                  <select className="form-select" value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
                     <option value="">كل الشعب</option>
                     {sections.map((section) => <option key={section} value={section}>{section}</option>)}
                   </select>
-                  <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as AttendanceStatusFilter)}>
+                  <select className="form-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as AttendanceStatusFilter)}>
                     <option value="all">كل الحالات</option>
                     <option value="present">حاضر</option>
                     <option value="absent">غائب</option>
@@ -507,17 +443,17 @@ export default function AttendancePage() {
                     <option value="unrecorded">غير مسجل</option>
                   </select>
                   <input
-                    className="input search"
+                    className="form-input search"
                     placeholder="ابحث بالاسم أو الصف أو الشعبة..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
-                  <button className="btn btn-light" onClick={() => applyStatusToFiltered("present")}>تعيين الكل حاضر</button>
-                  <button className="btn btn-light" onClick={() => applyStatusToFiltered("absent")}>تعيين الكل غائب</button>
-                  <button className="btn btn-light" onClick={() => applyStatusToFiltered("late")}>تعيين الكل متأخر</button>
-                  <button className="btn btn-light" onClick={() => applyStatusToFiltered("excused")}>تعيين الكل بعذر</button>
-                  <button className="btn btn-danger" onClick={resetUnsavedChanges}>إلغاء التغييرات غير المحفوظة</button>
-                  <button className="btn btn-main" onClick={saveAttendance} disabled={saving || loadingAttendance}>
+                  <button className="ui-button ui-button--ghost" onClick={() => applyStatusToFiltered("present")}>تعيين الكل حاضر</button>
+                  <button className="ui-button ui-button--ghost" onClick={() => applyStatusToFiltered("absent")}>تعيين الكل غائب</button>
+                  <button className="ui-button ui-button--ghost" onClick={() => applyStatusToFiltered("late")}>تعيين الكل متأخر</button>
+                  <button className="ui-button ui-button--ghost" onClick={() => applyStatusToFiltered("excused")}>تعيين الكل بعذر</button>
+                  <button className="ui-button ui-button--danger" onClick={resetUnsavedChanges}>إلغاء التغييرات غير المحفوظة</button>
+                  <button className="ui-button ui-button--primary" onClick={saveAttendance} disabled={saving || loadingAttendance}>
                     {saving ? "جارٍ الحفظ..." : `حفظ التغييرات (${formatNumber(changedCount)})`}
                   </button>
                 </div>
@@ -557,15 +493,12 @@ export default function AttendancePage() {
                       return (
                         <tr key={student.id}>
                           <td className="muted">{index + 1}</td>
-                          <td style={{ fontWeight: 700, color: "var(--p2)" }}>{student.full_name}</td>
+                          <td style={{ fontWeight: 700, color: "var(--primary)" }}>{student.full_name}</td>
                           <td>{student.class_name || "—"}</td>
                           <td>{student.section || "—"}</td>
                           <td>
                             {status ? (
-                              <span
-                                className="badge"
-                                style={{ background: STATUS_META[status].bg, color: STATUS_META[status].color }}
-                              >
+                              <span className={STATUS_META[status].badgeClass}>
                                 {STATUS_META[status].label}
                               </span>
                             ) : (
@@ -580,7 +513,7 @@ export default function AttendancePage() {
                                   <button
                                     key={statusOption}
                                     className={`status-btn${status === statusOption ? " active" : ""}`}
-                                    style={status === statusOption ? { background: meta.bg, color: meta.color } : {}}
+                                    style={status === statusOption ? { color: meta.color } : {}}
                                     onClick={() => setRowStatus(student.id, statusOption)}
                                   >
                                     {meta.label}
@@ -591,7 +524,7 @@ export default function AttendancePage() {
                           </td>
                           <td>
                             <input
-                              className="input"
+                              className="form-input"
                               style={{ width: "100%", minWidth: 150 }}
                               placeholder="ملاحظة (اختياري)"
                               value={draft.note}
@@ -650,7 +583,6 @@ export default function AttendancePage() {
           </div>
         </div>
       </div>
-    </>
     </ProtectedRoute>
   );
 }

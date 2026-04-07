@@ -602,192 +602,6 @@ export default function PaymentsPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-      <>
-        <style>{`
-          *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-          :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
-          body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
-          .layout{display:flex;height:100vh}
-          .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
-          .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
-          .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p3),var(--p4));display:flex;align-items:center;justify-content:center}
-          .logo-ico svg{width:18px;height:18px;fill:white}
-          .logo span{font-size:.88rem;font-weight:800;color:var(--p2)}
-          .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:var(--p2);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-          .nav:hover{background:rgba(108,74,182,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
-          .nav.danger{color:#EF4444}.nav.danger:hover{background:#FEE2E2}
-          .sep{height:1px;background:rgba(108,74,182,0.12);margin:.4rem 0}
-          .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-          .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
-          .topbar-title{font-size:.95rem;font-weight:800}.topbar-sub{font-size:.7rem;color:var(--gray)}
-          .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
-
-          /* STATS */
-          .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1rem}
-          .sc{background:white;border-radius:12px;padding:.8rem 1rem;border:1px solid rgba(108,74,182,0.06);box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-          .sc-label{font-size:.7rem;color:var(--gray);font-weight:500}.sc-val{font-size:.95rem;font-weight:800;margin-top:.1rem}
-
-          /* OPERATIONS */
-          .ops-section{background:white;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-          .ops-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem}
-          .ops-title{font-size:.88rem;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:.4rem}
-          .ops-actions{display:flex;gap:.6rem}
-          .quick-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
-          .qf-btn{padding:.35rem .8rem;border-radius:20px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;border:1.5px solid rgba(108,74,182,0.2);background:white;color:var(--p2);transition:all .2s}
-          .qf-btn:hover{background:#EDE8FA}
-          .qf-btn.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border-color:transparent;box-shadow:0 3px 10px rgba(108,74,182,0.3)}
-
-          /* ADVANCED FILTERS */
-          .adv-filters{background:#F8F6FF;border-radius:11px;padding:.9rem 1rem}
-          .adv-title{font-size:.78rem;font-weight:700;color:var(--p2);margin-bottom:.7rem;display:flex;align-items:center;gap:.3rem}
-          .adv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:.6rem}
-          .adv-grid2{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.7rem}
-          .af-item{display:flex;flex-direction:column;gap:.25rem}
-          .af-label{font-size:.7rem;font-weight:600;color:var(--gray)}
-          .af-input{padding:.5rem .7rem;background:white;border:1.5px solid rgba(108,74,182,0.12);border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.78rem;direction:rtl;outline:none;color:var(--dark)}
-          .af-input:focus{border-color:var(--p3)}
-
-          /* TOOLBAR */
-          .toolbar{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
-          .srch{position:relative;flex:1}
-          .srch svg{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--gray)}
-          .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
-          .srch input:focus{border-color:var(--p3)}
-          .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
-          .btn-export{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
-
-          /* TABLE */
-          .tbl-wrap{background:white;border-radius:13px;border:1px solid rgba(108,74,182,0.06);overflow:hidden;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-          table{width:100%;border-collapse:collapse}
-          thead{background:#F8F6FF}
-          th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(108,74,182,0.08)}
-          td{padding:.6rem .9rem;font-size:.78rem;border-bottom:1px solid rgba(108,74,182,0.04)}
-          tr:last-child td{border-bottom:none}
-          tr:hover td{background:#FAFAFE}
-          .student-link{font-weight:700;color:var(--p2);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-          .student-link:hover{color:var(--p3)}
-          .badge{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.66rem;font-weight:700}
-          .btn-pay{width:30px;height:30px;background:linear-gradient(135deg,#10B981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;font-weight:700;transition:transform .15s}
-          .btn-pay:hover{transform:scale(1.1)}
-          .btn-print-sm{width:28px;height:28px;background:#EDE8FA;color:var(--p3);border:none;border-radius:7px;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center}
-          .empty{text-align:center;padding:3rem;color:var(--gray);font-size:.85rem}
-          .spin{width:22px;height:22px;border:3px solid rgba(108,74,182,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
-          @keyframes sp{to{transform:rotate(360deg)}}
-          .progress-bar{background:#E5E7EB;border-radius:20px;height:6px;overflow:hidden;margin-top:.3rem}
-          .progress-fill{height:100%;border-radius:20px}
-          .ok{background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
-          .err{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:9px;padding:.6rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:.8rem}
-          .results-count{font-size:.78rem;color:var(--gray);font-weight:500}
-
-          /* DETAIL */
-          .detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;display:flex;align-items:flex-start;justify-content:flex-start;backdrop-filter:blur(4px)}
-          .detail-panel{background:white;width:680px;max-width:95vw;height:100vh;overflow-y:auto;box-shadow:-8px 0 40px rgba(0,0,0,0.2);padding:1.8rem;margin-right:auto}
-          .detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem}
-          .detail-title{font-size:1.1rem;font-weight:900}
-          .detail-close{width:34px;height:34px;border-radius:9px;background:#F3F4F6;border:none;cursor:pointer;font-size:1.1rem}
-          .detail-cards{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem}
-          .detail-card{background:#F8F6FF;border-radius:12px;padding:1rem}
-          .detail-card-title{font-size:.78rem;font-weight:700;color:var(--p2);margin-bottom:.6rem}
-          .detail-row{display:flex;justify-content:space-between;font-size:.8rem;margin:.25rem 0}
-          .detail-label{color:var(--gray)}.detail-val{font-weight:700}
-          .pay-row{background:#F8F6FF;border-radius:12px;padding:.9rem 1rem;margin-bottom:.6rem;border:1.5px solid rgba(108,74,182,0.07);transition:border-color .2s}
-          .pay-row:hover{border-color:rgba(108,74,182,0.2)}
-          .pay-row:last-child{margin-bottom:0}
-          .pay-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem}
-          .pay-num{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--p3),var(--p4));color:white;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;flex-shrink:0}
-          .pay-amount{font-size:1rem;font-weight:900;color:#10B981}
-          .pay-meta{font-size:.7rem;color:var(--gray)}
-          .pay-fields{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem}
-          .pay-field{display:flex;flex-direction:column;gap:.1rem}
-          .pay-field-label{font-size:.65rem;color:var(--gray);font-weight:600}
-          .pay-field-val{font-size:.76rem;font-weight:700;color:var(--dark)}
-          .pay-field-val.receipt-e{color:var(--p3);font-family:monospace;font-size:.72rem}
-          .pay-method-badge{display:inline-flex;align-items:center;gap:.25rem;background:#EDE8FA;color:var(--p3);border-radius:6px;padding:.15rem .5rem;font-size:.65rem;font-weight:700}
-          .pay-actions{display:flex;gap:.4rem;align-items:center}
-          .btn-del-sm{padding:.28rem .6rem;background:#FEE2E2;color:#991B1B;border:none;border-radius:6px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.68rem;font-weight:600;cursor:pointer}
-
-          /* MODAL */
-          .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-          .modal{background:white;border-radius:18px;padding:1.6rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
-          .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem}
-          .mt{font-size:1rem;font-weight:800}
-          .mc{width:30px;height:30px;border-radius:7px;background:#F3F4F6;border:none;cursor:pointer;font-size:1rem}
-          .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
-          .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
-          .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-          .fis{padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
-          .fis:focus{border-color:var(--p3);background:white}
-          .receipt-auto{background:#EDE8FA;border-radius:10px;padding:.65rem 1rem;font-size:.85rem;font-weight:800;color:var(--p2);text-align:center}
-          .student-info-box{background:#F0EEFF;border-radius:10px;padding:.8rem 1rem}
-          .si-row{display:flex;justify-content:space-between;font-size:.8rem;margin:.2rem 0}
-          .si-label{color:var(--gray)}.si-val{font-weight:700}
-          .fa{display:flex;gap:.7rem;margin-top:1.1rem}
-          .bs{flex:1;padding:.75rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:700;cursor:pointer}
-          .bs:disabled{opacity:.65;cursor:not-allowed}
-          .bc{padding:.75rem 1.2rem;background:#F3F4F6;color:var(--gray);border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:600;cursor:pointer}
-          .search-wrap{position:relative}
-          .search-input{width:100%;padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none}
-          .search-input:focus{border-color:var(--p3);background:white}
-          .search-input.selected{border-color:#10B981;background:#F0FDF4}
-          .dropdown{position:absolute;top:calc(100% + 4px);right:0;left:0;background:white;border:1px solid rgba(108,74,182,0.15);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);z-index:300;max-height:220px;overflow-y:auto}
-          .dropdown-item{padding:.62rem 1rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid rgba(108,74,182,0.05)}
-          .dropdown-item:hover{background:#F0EEFF}
-          .d-name{font-weight:700}.d-meta{display:flex;justify-content:space-between;margin-top:.1rem}
-          .d-cls{color:var(--gray);font-size:.73rem}.d-rem{color:#EF4444;font-size:.73rem;font-weight:600}
-          .archive-box{background:white;border-radius:14px;padding:1.1rem 1.3rem;margin-top:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-          .archive-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.9rem}
-          .archive-ttl{font-size:.88rem;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:.4rem}
-          .archive-note{font-size:.75rem;color:var(--gray);margin-bottom:.8rem}
-          .archive-controls{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
-          .archive-select{padding:.55rem .8rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--dark);min-width:140px}
-          .archive-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.7rem}
-          .arch-card{background:#F8F6FF;border:1px solid rgba(108,74,182,0.08);border-radius:12px;padding:.9rem 1rem}
-          .arch-year{font-size:.9rem;font-weight:800;color:var(--p2);margin-bottom:.25rem}
-          .arch-info{font-size:.73rem;color:var(--gray);line-height:1.7}
-          .arch-amount{font-size:.95rem;font-weight:900;color:#10B981;margin-top:.45rem}
-          .archive-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin-bottom:.9rem}
-          .archive-stat{background:#F8F6FF;border:1px solid rgba(108,74,182,0.08);border-radius:12px;padding:.85rem 1rem}
-          .archive-stat-label{font-size:.72rem;color:var(--gray);margin-bottom:.25rem}
-          .archive-stat-value{font-size:.95rem;font-weight:900;color:var(--dark)}
-          .arch-actions{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.75rem}
-          .arch-btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;padding:.45rem .75rem;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.74rem;font-weight:700;cursor:pointer}
-          .arch-btn.primary{background:linear-gradient(135deg,var(--p3),var(--p2));color:white}
-          .arch-btn.soft{background:white;color:var(--p2);border:1px solid rgba(108,74,182,0.16)}
-          .archive-detail-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:220;padding:1rem;backdrop-filter:blur(4px)}
-          .archive-detail-modal{width:min(1120px,100%);max-height:92vh;overflow:auto;background:white;border-radius:22px;box-shadow:0 28px 70px rgba(15,23,42,.28)}
-          .archive-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.25rem 1.35rem;border-bottom:1px solid rgba(108,74,182,0.08)}
-          .archive-detail-title{font-size:1.05rem;font-weight:900;color:var(--dark)}
-          .archive-detail-sub{font-size:.76rem;color:var(--gray);margin-top:.3rem}
-          .archive-detail-actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}
-          .archive-detail-body{padding:1.15rem 1.35rem 1.35rem}
-          .archive-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
-          .archive-kpi{background:#F8F6FF;border:1px solid rgba(108,74,182,0.08);border-radius:14px;padding:.95rem 1rem}
-          .archive-kpi-label{font-size:.72rem;color:var(--gray);margin-bottom:.2rem}
-          .archive-kpi-value{font-size:.98rem;font-weight:900;color:var(--dark)}
-          .archive-section{background:#FCFBFF;border:1px solid rgba(108,74,182,0.08);border-radius:16px;padding:1rem 1rem 1.1rem;margin-bottom:.9rem}
-          .archive-section-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
-          .archive-section-title{font-size:.85rem;font-weight:800;color:var(--dark);display:inline-flex;align-items:center;gap:.35rem}
-          .archive-section-sub{font-size:.72rem;color:var(--gray)}
-          .archive-table-wrap{border:1px solid rgba(108,74,182,0.08);border-radius:12px;overflow:hidden;background:white}
-          .archive-empty{padding:1.6rem;text-align:center;color:var(--gray);font-size:.8rem}
-          @media (max-width:1100px){
-            .stats,.adv-grid,.adv-grid2{grid-template-columns:repeat(2,1fr)}
-          }
-          @media (max-width:1100px){.archive-kpis,.archive-stats{grid-template-columns:repeat(2,1fr)}}
-          @media (max-width:780px){
-            .stats,.adv-grid,.adv-grid2,.detail-cards,.pay-fields{grid-template-columns:1fr}
-            .ops-header,.ops-actions,.toolbar,.fa,.fg,.detail-header,.pay-row-top,.archive-controls,.archive-top,.archive-detail-head,.archive-section-top{flex-direction:column;align-items:stretch}
-            .srch,.btn-add,.btn-export,.bc,.bs{width:100%}
-            .tbl-wrap,.archive-table-wrap{overflow:auto}
-            th,td{white-space:nowrap}
-            .detail-panel{width:100%;max-width:100%;padding:1.2rem}
-            .archive-controls,.archive-top,.archive-detail-head,.archive-section-top{flex-direction:column;align-items:stretch}
-            .archive-kpis,.archive-stats{grid-template-columns:1fr}
-            .archive-detail-actions{justify-content:stretch}
-            .arch-btn,.archive-detail-actions .btn-export,.archive-detail-actions .btn-add{width:100%;justify-content:center}
-          }
-        `}</style>
-
         <div className="app-layout">
           <AppSidebar currentPath="/payments" />
 
@@ -798,7 +612,7 @@ export default function PaymentsPage() {
               scope={schoolScope}
             />
             <div className="content app-shell-content">
-              {success && <div className="ok">{success}</div>}
+              {success && <div className="msg-success">{success}</div>}
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />
               {schoolScope.shouldBlockContent ? (
                 <SchoolScopeEmptyState
@@ -835,12 +649,12 @@ export default function PaymentsPage() {
                         <AppIcon token="⚙️" size={14} /> العمليات
                       </div>
                       <div className="ops-actions">
-                        <button className="btn-export" onClick={exportExcel}>
+                        <button className="ui-button ui-button--success h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={exportExcel}>
                           <AppIcon token="⬇️" size={14} /> تصدير إكسل
                         </button>
                         {canAddPayments && (
                           <button
-                            className="btn-add"
+                            className="ui-button ui-button--primary h-9 px-4 text-sm inline-flex items-center gap-1.5"
                             onClick={() => {
                               setPayStudent(null);
                               setStudentSearch("");
@@ -946,10 +760,11 @@ export default function PaymentsPage() {
                         const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
                         return (
                           <tr key={s.id}>
-                            <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>{i + 1}</td>
+                            <td style={{ color: "var(--text-tertiary)", fontSize: ".7rem" }}>{i + 1}</td>
                             <td>
                               <span
                                 className="student-link"
+                                style={{ color: "var(--primary)", fontWeight: 700, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}
                                 onClick={() => {
                                   void openStudentDetail(s);
                                 }}
@@ -957,19 +772,19 @@ export default function PaymentsPage() {
                                 {s.full_name}
                               </span>
                             </td>
-                            <td style={{ color: "var(--gray)" }}>{s.class_name}</td>
-                            <td style={{ color: "var(--gray)", fontSize: ".75rem" }}>{s.phone || "—"}</td>
+                            <td style={{ color: "var(--text-tertiary)" }}>{s.class_name}</td>
+                            <td style={{ color: "var(--text-tertiary)", fontSize: ".75rem" }}>{s.phone || "—"}</td>
                             <td style={{ fontWeight: 700 }}>د.ع {formatNumber(s.total_fee)}</td>
-                            <td style={{ color: "#10B981", fontWeight: 700 }}>د.ع {formatNumber(s.paid_fee)}</td>
-                            <td style={{ color: "var(--gray)" }}>{s.discount_value > 0 ? `د.ع ${formatNumber(s.discount_value)}` : "—"}</td>
+                            <td style={{ color: "var(--success)", fontWeight: 700 }}>د.ع {formatNumber(s.paid_fee)}</td>
+                            <td style={{ color: "var(--text-tertiary)" }}>{s.discount_value > 0 ? `د.ع ${formatNumber(s.discount_value)}` : "—"}</td>
                             <td>
-                              <div style={{ color: s.remaining_fee > 0 ? "#EF4444" : "#10B981", fontWeight: 700 }}>
+                              <div style={{ color: s.remaining_fee > 0 ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>
                                 د.ع {formatNumber(s.remaining_fee)}
                               </div>
                               <div className="progress-bar">
                                 <div
                                   className="progress-fill"
-                                  style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#6C4AB6" }}
+                                  style={{ width: `${pct}%`, background: pct >= 100 ? "var(--success)" : "var(--primary)" }}
                                 />
                               </div>
                             </td>
@@ -1014,7 +829,7 @@ export default function PaymentsPage() {
                 <div className="archive-note">
                   يتم حفظ نسخة سنوية من دفعات المدرسة الحالية داخل Supabase بدون حذف السجلات الأصلية.
                 </div>
-                {archiveNotice && <div className="err" style={{ marginBottom: ".8rem" }}>{archiveNotice}</div>}
+                {archiveNotice && <div className="msg-error" style={{ marginBottom: ".8rem" }}>{archiveNotice}</div>}
                 <div className="archive-stats">
                   <div className="archive-stat">
                     <div className="archive-stat-label">السنوات المؤرشفة</div>
@@ -1038,7 +853,7 @@ export default function PaymentsPage() {
                     ))}
                   </select>
                   {canDeletePayments && (
-                    <button className="btn-add" onClick={archiveAccountsYear} disabled={archiving}>
+                    <button className="ui-button ui-button--primary h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={archiveAccountsYear} disabled={archiving}>
                       <AppIcon token="🗃️" size={14} /> {archiving ? "جارٍ الأرشفة..." : "أرشفة السنة المحددة"}
                     </button>
                   )}
@@ -1128,7 +943,7 @@ export default function PaymentsPage() {
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">المدفوع:</span>
-                    <span className="detail-val" style={{ color: "#10B981" }}>
+                    <span className="detail-val" style={{ color: "var(--success)" }}>
                       د.ع {formatNumber(selectedStudent.paid_fee)}
                     </span>
                   </div>
@@ -1138,7 +953,7 @@ export default function PaymentsPage() {
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">المتبقي:</span>
-                    <span className="detail-val" style={{ color: "#EF4444" }}>
+                    <span className="detail-val" style={{ color: "var(--danger)" }}>
                       د.ع {formatNumber(selectedStudent.remaining_fee)}
                     </span>
                   </div>
@@ -1146,10 +961,10 @@ export default function PaymentsPage() {
               </div>
 
               {/* شريط التقدم */}
-              <div style={{ background: "#F8F6FF", borderRadius: 12, padding: "1rem", marginBottom: "1.2rem" }}>
+              <div style={{ background: "var(--primary-subtle)", borderRadius: 12, padding: "1rem", marginBottom: "1.2rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: ".5rem", fontSize: ".8rem" }}>
                   <span style={{ fontWeight: 700 }}>نسبة الإنجاز</span>
-                  <span style={{ color: "var(--p3)", fontWeight: 800 }}>
+                  <span style={{ color: "var(--primary)", fontWeight: 800 }}>
                     {selectedStudent.total_fee > 0 ? Math.min(100, Math.round((selectedStudent.paid_fee / selectedStudent.total_fee) * 100)) : 0}%
                   </span>
                 </div>
@@ -1158,7 +973,7 @@ export default function PaymentsPage() {
                     className="progress-fill"
                     style={{
                       width: `${selectedStudent.total_fee > 0 ? Math.min(100, Math.round((selectedStudent.paid_fee / selectedStudent.total_fee) * 100)) : 0}%`,
-                      background: "linear-gradient(90deg,#6C4AB6,#10B981)",
+                      background: "linear-gradient(90deg,var(--primary),var(--success))",
                     }}
                   />
                 </div>
@@ -1172,7 +987,7 @@ export default function PaymentsPage() {
                   </span>
                   {canAddPayments && (
                     <button
-                      className="btn-add"
+                      className="ui-button ui-button--primary"
                       style={{ padding: ".4rem .8rem", fontSize: ".75rem" }}
                       onClick={() => {
                         setPayStudent(selectedStudent);
@@ -1185,11 +1000,11 @@ export default function PaymentsPage() {
                   )}
                 </div>
                 {paymentsLoadingStudentId === selectedStudent.id ? (
-                  <div style={{ textAlign: "center", padding: "2rem", color: "var(--gray)", fontSize: ".85rem" }}>
+                  <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-tertiary)", fontSize: ".85rem" }}>
                     جارٍ تحميل دفعات الطالب...
                   </div>
                 ) : studentPaymentsList(selectedStudent.id).length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "2rem", color: "var(--gray)", fontSize: ".85rem" }}>
+                  <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-tertiary)", fontSize: ".85rem" }}>
                     لا توجد دفعات مسجلة حتى الآن
                   </div>
                 ) : (
@@ -1222,7 +1037,7 @@ export default function PaymentsPage() {
                             <AppIcon token="🖨️" size={13} />
                           </button>
                           {canDeletePayments && (
-                            <button className="btn-del-sm" onClick={() => deletePayment(p.id)}>
+                            <button className="ui-button ui-button--danger" style={{padding:".28rem .6rem",fontSize:".68rem"}} onClick={() => deletePayment(p.id)}>
                               حذف
                             </button>
                           )}
@@ -1282,13 +1097,13 @@ export default function PaymentsPage() {
                 </div>
                 <div className="archive-detail-actions">
                   <button
-                    className="btn-export"
+                    className="ui-button ui-button--success h-9 px-4 text-sm inline-flex items-center gap-1.5"
                     onClick={() => exportArchiveExcel(selectedArchive)}
                     disabled={archiveExportingId === selectedArchive.id}
                   >
                     <AppIcon token="⬇️" size={14} /> {archiveExportingId === selectedArchive.id ? "جارٍ التصدير..." : "تصدير ملف الأرشيف"}
                   </button>
-                  <button className="btn-add" onClick={() => setShowArchiveDetail(false)}>
+                  <button className="ui-button ui-button--primary h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={() => setShowArchiveDetail(false)}>
                     <AppIcon token="✕" size={14} /> إغلاق
                   </button>
                 </div>
@@ -1345,8 +1160,8 @@ export default function PaymentsPage() {
                               <td>{student.class_name || "—"}</td>
                               <td>{student.status || "—"}</td>
                               <td>د.ع {formatNumber(student.total_fee || 0)}</td>
-                              <td style={{ color: "#10B981", fontWeight: 700 }}>د.ع {formatNumber(student.paid_fee || 0)}</td>
-                              <td style={{ color: (student.remaining_fee || 0) > 0 ? "#EF4444" : "#10B981", fontWeight: 700 }}>
+                              <td style={{ color: "var(--success)", fontWeight: 700 }}>د.ع {formatNumber(student.paid_fee || 0)}</td>
+                              <td style={{ color: (student.remaining_fee || 0) > 0 ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>
                                 د.ع {formatNumber(student.remaining_fee || 0)}
                               </td>
                             </tr>
@@ -1386,7 +1201,7 @@ export default function PaymentsPage() {
                               <td>{index + 1}</td>
                               <td style={{ fontWeight: 700 }}>{archiveStudentsById[payment.student_id]?.full_name || "—"}</td>
                               <td>{archiveStudentsById[payment.student_id]?.class_name || "—"}</td>
-                              <td style={{ color: "#10B981", fontWeight: 700 }}>د.ع {formatNumber(payment.amount || 0)}</td>
+                              <td style={{ color: "var(--success)", fontWeight: 700 }}>د.ع {formatNumber(payment.amount || 0)}</td>
                               <td>{getPaymentMethodLabel(payment.payment_method)}</td>
                               <td>{formatDate(payment.created_at)}</td>
                               <td>{payment.manual_receipt_number || payment.receipt_number || "—"}</td>
@@ -1404,20 +1219,20 @@ export default function PaymentsPage() {
 
         {/* MODAL دفعة */}
         {showPayModal && (
-          <div className="overlay" onClick={(e) => {
+          <div className="modal-overlay" onClick={(e) => {
             if (e.target === e.currentTarget) setShowPayModal(false);
           }}>
-            <div className="modal">
-              <div className="mh">
-                <div className="mt">تسجيل دفعة جديدة</div>
-                <button className="mc" onClick={() => setShowPayModal(false)}>
+            <div className="modal-box">
+              <div className="modal-header">
+                <div style={{fontWeight:800,fontSize:"1rem"}}>تسجيل دفعة جديدة</div>
+                <button className="ui-button ui-button--ghost" style={{width:30,height:30,borderRadius:7}} onClick={() => setShowPayModal(false)}>
                   <AppIcon token="✕" size={14} />
                 </button>
               </div>
-              {error && <div className="err">{error}</div>}
+              {error && <div className="msg-error">{error}</div>}
               <form onSubmit={handlePayment}>
-                <div className="fg">
-                  <div className="ff full">
+                <div className="form-grid">
+                  <div className="form-group full">
                     <label className="fl">اسم الطالب *</label>
                     <div className="search-wrap" ref={searchRef}>
                       <input
@@ -1439,7 +1254,7 @@ export default function PaymentsPage() {
                             left: 10,
                             top: "50%",
                             transform: "translateY(-50%)",
-                            color: "#10B981",
+                            color: "var(--success)",
                             display: "inline-flex",
                           }}
                         >
@@ -1449,7 +1264,7 @@ export default function PaymentsPage() {
                       {showDropdown && !payStudent && studentSearch && (
                         <div className="dropdown">
                           {searchResults.length === 0 ? (
-                            <div style={{ padding: "1rem", textAlign: "center", color: "var(--gray)", fontSize: ".8rem" }}>لا توجد نتائج</div>
+                            <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-tertiary)", fontSize: ".8rem" }}>لا توجد نتائج</div>
                           ) : (
                             searchResults.map((s) => (
                               <div
@@ -1461,10 +1276,10 @@ export default function PaymentsPage() {
                                   setShowDropdown(false);
                                 }}
                               >
-                                <div className="d-name">{s.full_name}</div>
-                                <div className="d-meta">
-                                  <span className="d-cls">{s.class_name}</span>
-                                  <span className="d-rem">متبقي: د.ع {formatNumber(s.remaining_fee)}</span>
+                                <div style={{fontWeight:700}}>{s.full_name}</div>
+                                <div style={{display:"flex",justifyContent:"space-between",marginTop:".1rem"}}>
+                                  <span style={{color:"var(--text-tertiary)",fontSize:".73rem"}}>{s.class_name}</span>
+                                  <span style={{color:"var(--danger)",fontSize:".73rem",fontWeight:600}}>متبقي: د.ع {formatNumber(s.remaining_fee)}</span>
                                 </div>
                               </div>
                             ))
@@ -1474,41 +1289,41 @@ export default function PaymentsPage() {
                     </div>
                   </div>
                   {payStudent && (
-                    <div className="ff full">
-                      <div className="student-info-box">
-                        <div className="si-row">
-                          <span className="si-label">الكلي:</span>
-                          <span className="si-val">د.ع {formatNumber(payStudent.total_fee)}</span>
+                    <div className="form-group full">
+                      <div style={{background:"var(--primary-subtle)",borderRadius:10,padding:".8rem 1rem"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",margin:".2rem 0"}}>
+                          <span style={{color:"var(--text-tertiary)"}}>الكلي:</span>
+                          <span style={{fontWeight:700}}>د.ع {formatNumber(payStudent.total_fee)}</span>
                         </div>
-                        <div className="si-row">
-                          <span className="si-label">المدفوع:</span>
-                          <span className="si-val" style={{ color: "#10B981" }}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",margin:".2rem 0"}}>
+                          <span style={{color:"var(--text-tertiary)"}}>المدفوع:</span>
+                          <span style={{ color: "var(--success)", fontWeight:700 }}>
                             د.ع {formatNumber(payStudent.paid_fee)}
                           </span>
                         </div>
-                        <div className="si-row">
-                          <span className="si-label">المتبقي:</span>
-                          <span className="si-val" style={{ color: "#EF4444" }}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",margin:".2rem 0"}}>
+                          <span style={{color:"var(--text-tertiary)"}}>المتبقي:</span>
+                          <span style={{ color: "var(--danger)", fontWeight:700 }}>
                             د.ع {formatNumber(payStudent.remaining_fee)}
                           </span>
                         </div>
                       </div>
                     </div>
                   )}
-                  <div className="ff">
-                    <label className="fl">تاريخ الإيصال *</label>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ الإيصال *</label>
                     <input
-                      className="fis"
+                      className="form-input"
                       type="date"
                       required
                       value={payForm.receipt_date}
                       onChange={(e) => setPayForm({ ...payForm, receipt_date: e.target.value })}
                     />
                   </div>
-                  <div className="ff">
-                    <label className="fl">المبلغ (د.ع) *</label>
+                  <div className="form-group">
+                    <label className="form-label">المبلغ (د.ع) *</label>
                     <input
-                      className="fis"
+                      className="form-input"
                       type="number"
                       required
                       placeholder="500000"
@@ -1516,46 +1331,46 @@ export default function PaymentsPage() {
                       onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
                     />
                   </div>
-                  <div className="ff">
-                    <label className="fl">
-                      رقم الإيصال الورقي <span className="opt">(اختياري)</span>
+                  <div className="form-group">
+                    <label className="form-label">
+                      رقم الإيصال الورقي <span style={{fontSize:".68rem",color:"var(--text-tertiary)",fontWeight:400}}>(اختياري)</span>
                     </label>
                     <input
-                      className="fis"
+                      className="form-input"
                       placeholder="مثال: 1042"
                       value={payForm.manual_receipt_number}
                       onChange={(e) => setPayForm({ ...payForm, manual_receipt_number: e.target.value })}
                     />
                   </div>
-                  <div className="ff">
-                    <label className="fl">رقم الإيصال الإلكتروني</label>
-                    <div className="receipt-auto">{nextReceiptNum}</div>
+                  <div className="form-group">
+                    <label className="form-label">رقم الإيصال الإلكتروني</label>
+                    <div style={{background:"var(--primary-subtle)",borderRadius:10,padding:".65rem 1rem",fontSize:".85rem",fontWeight:800,color:"var(--primary)",textAlign:"center"}}>{nextReceiptNum}</div>
                   </div>
-                  <div className="ff">
-                    <label className="fl">طريقة الدفع</label>
-                    <select className="fis" value={payForm.payment_method} onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}>
+                  <div className="form-group">
+                    <label className="form-label">طريقة الدفع</label>
+                    <select className="form-select" value={payForm.payment_method} onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}>
                       <option value="cash">نقداً</option>
                       <option value="bank_transfer">تحويل بنكي</option>
                       <option value="check">شيك</option>
                     </select>
                   </div>
-                  <div className="ff">
-                    <label className="fl">
-                      ملاحظات <span className="opt">(اختياري)</span>
+                  <div className="form-group">
+                    <label className="form-label">
+                      ملاحظات <span style={{fontSize:".68rem",color:"var(--text-tertiary)",fontWeight:400}}>(اختياري)</span>
                     </label>
                     <input
-                      className="fis"
+                      className="form-input"
                       placeholder="أي ملاحظات..."
                       value={payForm.notes}
                       onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
                     />
                   </div>
                 </div>
-                <div className="fa">
-                  <button type="submit" className="bs" disabled={saving || !payStudent}>
+                <div className="modal-actions">
+                  <button type="submit" className="ui-button ui-button--primary" style={{flex:1}} disabled={saving || !payStudent}>
                     {saving ? "جارٍ الحفظ..." : "تسجيل الدفعة"}
                   </button>
-                  <button type="button" className="bc" onClick={() => setShowPayModal(false)}>
+                  <button type="button" className="ui-button ui-button--secondary" onClick={() => setShowPayModal(false)}>
                     إلغاء
                   </button>
                 </div>
@@ -1563,7 +1378,6 @@ export default function PaymentsPage() {
             </div>
           </div>
         )}
-      </>
     </ProtectedRoute>
   );
 }

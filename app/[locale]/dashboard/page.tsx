@@ -733,7 +733,7 @@ export default function DashboardPage() {
   const remainingPct = dashboardTotals.remainingPct;
 
   const barData = [
-    { name: "إجمالي الرسوم", value: totalFees, fill: "#6C4AB6" },
+    { name: "إجمالي الرسوم", value: totalFees, fill: "#3b82f6" },
     { name: "الواردات بعد الخصم", value: afterDiscount, fill: "#3B82F6" },
     { name: "المدفوع", value: totalPaid, fill: "#10B981" },
     { name: "الخصم", value: totalDiscount, fill: "#F59E0B" },

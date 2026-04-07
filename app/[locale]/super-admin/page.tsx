@@ -2268,10 +2268,10 @@ export default function SuperAdminPage() {
 
             {schoolFormNotice ? (
               <div className={cx(
-                "rounded-[18px] border px-4 py-3 text-sm font-bold",
+                "rounded-[var(--radius-md)] border px-4 py-3 text-sm font-bold",
                 schoolFormNotice.includes("تعذر")
-                  ? "border-rose-200 bg-rose-50 text-rose-700"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700",
+                  ? "msg-error"
+                  : "msg-success",
               )}>
                 {schoolFormNotice}
               </div>
