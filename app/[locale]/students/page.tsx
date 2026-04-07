@@ -1133,10 +1133,10 @@ function handlePrint(s: StudentWithFees){
       }
     `}</style>
 
-    <div className="layout">
+    <div className="app-layout">
       <AppSidebar currentPath="/students" />
 
-      <div className="main">
+      <div className="app-main">
         <AppShellTopbar
           title="إدارة الطلاب"
           subtitle={`${totalCount} طالب إجمالي | صفحة ${page} من ${totalPages}`}

@@ -1,7 +1,7 @@
 import * as React from "react";
 
-type ButtonVariant = "default" | "outline";
-type ButtonSize = "default" | "sm";
+type ButtonVariant = "default" | "outline" | "ghost" | "danger" | "success";
+type ButtonSize = "default" | "sm" | "lg" | "icon";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -12,6 +12,21 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+const variantClasses: Record<ButtonVariant, string> = {
+  default: "ui-button ui-button--primary",
+  outline: "ui-button ui-button--secondary",
+  ghost: "ui-button ui-button--ghost",
+  danger: "ui-button ui-button--danger",
+  success: "ui-button ui-button--success",
+};
+
+const sizeClasses: Record<ButtonSize, string> = {
+  default: "h-10 px-4 text-sm",
+  sm: "h-8 px-3 text-xs",
+  lg: "h-12 px-6 text-base",
+  icon: "h-10 w-10 p-0",
+};
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", size = "default", type = "button", ...props }, ref) => {
     return (
@@ -19,13 +34,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={type}
         className={cn(
-          "inline-flex items-center justify-center rounded-md font-medium transition-colors",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2",
-          "disabled:pointer-events-none disabled:opacity-50",
-          variant === "default" && "bg-[#4C2F9E] text-white hover:bg-[#3E2482]",
-          variant === "outline" && "border border-[#2B1D57] bg-transparent hover:bg-[#2B1D57]/10",
-          size === "default" && "h-10 px-4 py-2",
-          size === "sm" && "h-9 px-3 text-sm",
+          variantClasses[variant],
+          sizeClasses[size],
+          "inline-flex items-center justify-center gap-2",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring-solid)] focus-visible:ring-offset-2",
           className
         )}
         {...props}
@@ -33,5 +45,4 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     );
   }
 );
-
 Button.displayName = "Button";

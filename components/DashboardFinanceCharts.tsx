@@ -50,16 +50,17 @@ function CustomTooltip({
   return (
     <div
       style={{
-        background: "white",
-        border: "1px solid rgba(108,74,182,0.15)",
+        background: "var(--surface-strong)",
+        border: "1px solid var(--border-strong)",
         borderRadius: 8,
         padding: ".6rem .9rem",
         fontSize: ".78rem",
         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        color: "var(--text-primary)",
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: ".2rem" }}>{label}</div>
-      <div style={{ color: "var(--p3)" }}>د.ع {formatNumber(payload[0]?.value ?? 0)}</div>
+      <div style={{ color: "var(--primary)" }}>د.ع {formatNumber(payload[0]?.value ?? 0)}</div>
     </div>
   );
 }
@@ -70,12 +71,12 @@ export function DashboardFinanceCharts({
   paidPct,
 }: DashboardFinanceChartsProps) {
   return (
-    <div className="charts-grid">
-      <div className="chart-box">
-        <div className="chart-title">تفصيل المبالغ المالية</div>
+    <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="content-card p-4">
+        <div className="content-card__title mb-3">تفصيل المبالغ المالية</div>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={barData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,74,182,0.1)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo" }} angle={-20} textAnchor="end" height={40} />
             <YAxis tick={{ fontSize: 10, fontFamily: "Cairo" }} tickFormatter={(value: number) => `${(value / 1000000).toFixed(1)}M`} />
             <Tooltip content={<CustomTooltip />} />
@@ -88,8 +89,8 @@ export function DashboardFinanceCharts({
         </ResponsiveContainer>
       </div>
 
-      <div className="chart-box">
-        <div className="chart-title">حالة الدفع</div>
+      <div className="content-card p-4">
+        <div className="content-card__title mb-3 text-sm font-bold text-[var(--text-primary)]">حالة الدفع</div>
         <div style={{ textAlign: "center", marginBottom: ".4rem" }}>
           <span className="paid-badge">{paidPct}% مدفوع</span>
         </div>

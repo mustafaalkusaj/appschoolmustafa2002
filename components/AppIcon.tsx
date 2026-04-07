@@ -2,16 +2,20 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   AlertTriangle,
   Archive,
   ArrowDown,
   ArrowLeftRight,
   ArrowUp,
   Banknote,
+  BarChart2,
   BarChart3,
   Ban,
+  Bell,
   BookOpen,
   Briefcase,
+  Building2,
   CalendarDays,
   CalendarRange,
   Check,
@@ -30,6 +34,7 @@ import {
   HandCoins,
   Home,
   Info,
+  LayoutDashboard,
   Link2,
   LogOut,
   Landmark,
@@ -42,6 +47,7 @@ import {
   Plus,
   Power,
   Printer,
+  Receipt,
   RefreshCw,
   ReceiptText,
   RotateCcw,
@@ -49,6 +55,7 @@ import {
   Scissors,
   Search,
   Settings,
+  Shield,
   Sun,
   Sunrise,
   Tag,
@@ -66,6 +73,24 @@ import {
   XCircle,
   Phone,
 } from "lucide-react";
+
+// Lucide key names (used in SIDEBAR_ITEMS iconToken)
+const LUCIDE_KEY_MAP: Record<string, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  students: Users,
+  payments: CreditCard,
+  teachers: GraduationCap,
+  salaries: Briefcase,
+  expenses: Receipt,
+  attendance: ClipboardList,
+  reports: BarChart2,
+  "super-admin": Shield,
+  "fee-notifications": Bell,
+  schools: Building2,
+  subscriptions: CreditCard,
+  monitoring: Activity,
+  users: Users,
+};
 
 const iconMap: Record<string, LucideIcon> = {
   "📊": BarChart3,
@@ -152,8 +177,17 @@ export function AppIcon({
   strokeWidth?: number;
   className?: string;
 }) {
-  const Icon = iconMap[token] || CircleFallback;
-  return <Icon size={size} strokeWidth={strokeWidth} className={className} aria-hidden="true" />;
+  // First try Lucide key names, then emoji map, then fallback
+  const Icon = LUCIDE_KEY_MAP[token] ?? iconMap[token];
+  if (Icon) {
+    return <Icon size={size} strokeWidth={strokeWidth} className={className} aria-hidden="true" />;
+  }
+  // Fallback: render as emoji/text
+  return (
+    <span style={{ fontSize: size * 0.85, lineHeight: 1 }} aria-hidden="true">
+      {token}
+    </span>
+  );
 }
 
 function CircleFallback({

@@ -537,9 +537,9 @@ export default function ReportsPage() {
     {
       id: "students",
       title: "تقرير الطلاب",
-      icon: "👥",
-      color: "#6C4AB6",
-      background: "#EDE8FA",
+      icon: "students",
+      color: "var(--primary)",
+      background: "var(--primary-subtle)",
       description: "بيانات الطلاب والرسوم وحالة التسجيل الحالية.",
       stats: [
         { label: "إجمالي الطلاب", value: formatNumber(metrics.studentsCount) },
@@ -553,9 +553,9 @@ export default function ReportsPage() {
     {
       id: "payments",
       title: "تقرير الحسابات",
-      icon: "💳",
-      color: "#059669",
-      background: "#D1FAE5",
+      icon: "payments",
+      color: "var(--success)",
+      background: "rgba(16,185,129,0.10)",
       description: "سجل الدفعات والتحصيلات المرتبطة بالطلاب.",
       stats: [
         { label: "عدد الدفعات", value: formatNumber(metrics.paymentsCount) },
@@ -568,9 +568,9 @@ export default function ReportsPage() {
     {
       id: "expenses",
       title: "تقرير المصروفات",
-      icon: "💸",
-      color: "#DC2626",
-      background: "#FEE2E2",
+      icon: "expenses",
+      color: "var(--danger)",
+      background: "rgba(239,68,68,0.10)",
       description: "المصروفات التشغيلية حسب النوع والتاريخ.",
       stats: [
         { label: "عدد السجلات", value: formatNumber(metrics.expensesCount) },
@@ -583,9 +583,9 @@ export default function ReportsPage() {
     {
       id: "salaries",
       title: "تقرير الرواتب",
-      icon: "💼",
-      color: "#1D4ED8",
-      background: "#DBEAFE",
+      icon: "salaries",
+      color: "var(--info)",
+      background: "rgba(6,182,212,0.10)",
       description: "رواتب الأساتذة الشهرية مع صافي الاستحقاق بعد الخصومات.",
       stats: [
         { label: "عدد السجلات", value: formatNumber(metrics.salariesCount) },
@@ -598,9 +598,9 @@ export default function ReportsPage() {
     {
       id: "summary",
       title: "الملخص المالي",
-      icon: "📊",
-      color: "#D97706",
-      background: "#FEF3C7",
+      icon: "reports",
+      color: "var(--warning)",
+      background: "rgba(245,158,11,0.10)",
       description: "ملخص الإيرادات والمصروفات وصافي الحركة المالية.",
       stats: [
         { label: "المدفوع", value: `د.ع ${formatNumber(metrics.totalPaid)}` },
@@ -615,166 +615,128 @@ export default function ReportsPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
-      <>
-        <style>{`
-          *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-          :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
-          body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
-          .layout{display:flex;height:100vh}
-          .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-          .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
-          .topbar-title{font-size:.95rem;font-weight:800}
-          .topbar-sub{font-size:.7rem;color:var(--gray)}
-          .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
-          .summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem}
-          .strip-card{background:white;border-radius:11px;padding:.8rem .9rem;box-shadow:0 2px 8px rgba(108,74,182,0.07);text-align:center}
-          .strip-label{font-size:.68rem;color:var(--gray);font-weight:600}
-          .strip-val{font-size:.9rem;font-weight:900;color:var(--dark);margin-top:.15rem}
-          .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;gap:.8rem;flex-wrap:wrap}
-          .section-ttl{font-size:.95rem;font-weight:900;color:var(--dark)}
-          .btn-main{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer}
-          .reports-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
-          .report-card{background:white;border-radius:16px;padding:1.2rem;box-shadow:0 3px 12px rgba(108,74,182,0.08);border:1px solid rgba(108,74,182,0.06)}
-          .rc-header{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
-          .rc-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-          .rc-title{font-size:.9rem;font-weight:800}
-          .rc-desc{font-size:.72rem;color:var(--gray);margin-top:.15rem;line-height:1.5}
-          .rc-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.45rem;margin-bottom:.9rem}
-          .rc-stat{background:#F8F6FF;border-radius:8px;padding:.45rem .6rem}
-          .rc-stat-label{font-size:.64rem;color:var(--gray);font-weight:600}
-          .rc-stat-val{font-size:.78rem;font-weight:800;color:var(--dark);margin-top:.1rem}
-          .rc-actions{display:flex;gap:.5rem}
-          .btn-excel,.btn-print{display:flex;align-items:center;gap:.3rem;padding:.45rem .8rem;border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;flex:1;justify-content:center;border:1.5px solid transparent}
-          .btn-excel{background:#D1FAE5;color:#065F46;border-color:#6EE7B7}
-          .btn-print{background:#FEE2E2;color:#991B1B;border-color:#FCA5A5}
-          .balance-card{border-radius:16px;padding:1.3rem 1.5rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 6px 20px rgba(108,74,182,0.3);margin-bottom:1rem}
-          .balance-title{font-size:.88rem;font-weight:700;opacity:.88;margin-bottom:.8rem}
-          .balance-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem}
-          .balance-item{text-align:center}
-          .balance-label{font-size:.72rem;opacity:.8;margin-bottom:.2rem}
-          .balance-val{font-size:.95rem;font-weight:900}
-          .spin{width:22px;height:22px;border:3px solid rgba(108,74,182,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:3rem auto}
-          @keyframes sp{to{transform:rotate(360deg)}}
-          @media (max-width: 960px){
-            .summary-strip,.balance-grid,.reports-grid{grid-template-columns:1fr 1fr}
-          }
-          @media (max-width: 640px){
-            .summary-strip,.balance-grid,.reports-grid,.rc-stats{grid-template-columns:1fr}
-          }
-        `}</style>
+      <div className="app-layout">
+        <AppSidebar currentPath="/reports" />
 
-        <div className="layout">
-          <AppSidebar currentPath="/reports" />
+        <div className="app-main">
+          <AppShellTopbar
+            title="التقارير الشاملة"
+            subtitle="تقارير الطلاب والحسابات والمصروفات والرواتب"
+            scope={schoolScope}
+          />
 
-          <div className="main">
-            <AppShellTopbar
-              title="التقارير الشاملة"
-              subtitle="تقارير الطلاب والحسابات والمصروفات والرواتب"
-              scope={schoolScope}
-            />
+          <div className="page-shell app-shell-content">
+            <SchoolScopeBanner scope={schoolScope} showSelector={false} />
+            {schoolScope.shouldBlockContent ? (
+              <SchoolScopeEmptyState
+                scope={schoolScope}
+                title="التقارير"
+                description="اختر مدرسة أولاً لعرض تقارير الطلاب والدفعات والمصروفات الخاصة بها."
+              />
+            ) : loading ? (
+              <div className="spin" />
+            ) : (
+              <>
+                {/* KPI strip */}
+                <div className="kpi-grid">
+                  {([
+                    ["students", "الطلاب", metrics.studentsCount, "rgba(59,130,246,0.10)", "var(--primary)"],
+                    ["payments", "الدفعات", metrics.paymentsCount, "rgba(16,185,129,0.10)", "var(--success)"],
+                    ["expenses", "المصروفات", metrics.expensesCount, "rgba(239,68,68,0.10)", "var(--danger)"],
+                    ["salaries", "الرواتب", metrics.salariesCount, "rgba(6,182,212,0.10)", "var(--info)"],
+                  ] as const).map(([icon, label, value, bg, color]) => (
+                    <div className="kpi-card" key={label}>
+                      <div className="kpi-card__icon" style={{background:bg,color}}><AppIcon token={icon} size={20} /></div>
+                      <div className="kpi-card__label">{label}</div>
+                      <div className="kpi-card__value">{formatNumber(Number(value))}</div>
+                    </div>
+                  ))}
+                </div>
 
-            <div className="content app-shell-content">
-              <SchoolScopeBanner scope={schoolScope} showSelector={false} />
-              {schoolScope.shouldBlockContent ? (
-                <SchoolScopeEmptyState
-                  scope={schoolScope}
-                  title="التقارير"
-                  description="اختر مدرسة أولاً لعرض تقارير الطلاب والدفعات والمصروفات الخاصة بها."
-                />
-              ) : loading ? (
-                <div className="spin" />
-              ) : (
-                <>
-                  <div className="summary-strip">
+                {/* Financial summary banner */}
+                <div className="content-card p-5" style={{background:"linear-gradient(135deg,var(--primary),var(--secondary))",color:"#fff"}}>
+                  <div className="text-sm font-bold opacity-90 mb-3">الملخص المالي الكلي</div>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                     {[
-                      ["👥", "الطلاب", metrics.studentsCount],
-                      ["💳", "الدفعات", metrics.paymentsCount],
-                      ["💸", "المصروفات", metrics.expensesCount],
-                      ["💼", "الرواتب", metrics.salariesCount],
-                    ].map(([icon, label, value]) => (
-                      <div className="strip-card" key={label}>
-                        <div><AppIcon token={String(icon)} size={18} /></div>
-                        <div className="strip-label">{label}</div>
-                        <div className="strip-val">{formatNumber(Number(value))}</div>
+                      ["إجمالي الرسوم", formatNumber(metrics.totalFees)],
+                      ["الحسابات المسجلة", formatNumber(metrics.paymentVolume)],
+                      ["المصروفات", formatNumber(metrics.expenseVolume)],
+                      ["صافي الرواتب", formatNumber(metrics.salaryVolume)],
+                    ].map(([label, val]) => (
+                      <div key={label} className="text-center">
+                        <div className="text-xs opacity-80 mb-0.5">{label}</div>
+                        <div className="text-base font-black">د.ع {val}</div>
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  <div className="balance-card">
-                    <div className="balance-title">الملخص المالي الكلي</div>
-                    <div className="balance-grid">
-                      <div className="balance-item">
-                        <div className="balance-label">إجمالي الرسوم</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.totalFees)}</div>
-                      </div>
-                      <div className="balance-item">
-                        <div className="balance-label">الحسابات المسجلة</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.paymentVolume)}</div>
-                      </div>
-                      <div className="balance-item">
-                        <div className="balance-label">المصروفات</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.expenseVolume)}</div>
-                      </div>
-                      <div className="balance-item">
-                        <div className="balance-label">صافي الرواتب</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.salaryVolume)}</div>
-                      </div>
-                    </div>
+                {/* Section header */}
+                <div className="page-header">
+                  <h2 className="page-header__title text-lg">التقارير التفصيلية</h2>
+                  <div className="toolbar">
+                    <button className="ui-button ui-button--primary h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={exportAllExcel} disabled={actionLoading !== null}>
+                      <AppIcon token="reports" size={14} />
+                      {actionLoading === "all" ? "جارٍ التحضير..." : "تصدير الكل إكسل"}
+                    </button>
+                    <button className="ui-button ui-button--danger h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={printSummary} disabled={actionLoading !== null}>
+                      <AppIcon token="reports" size={14} />
+                      طباعة الملخص
+                    </button>
                   </div>
+                </div>
 
-                  <div className="section-hdr">
-                    <div className="section-ttl">التقارير التفصيلية</div>
-                    <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
-                      <button className="btn-main" onClick={exportAllExcel} disabled={actionLoading !== null}>
-                        <AppIcon token="📥" size={14} />
-                        {actionLoading === "all" ? "جارٍ التحضير..." : "تصدير الكل إكسل"}
-                      </button>
-                      <button className="btn-main" style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }} onClick={printSummary} disabled={actionLoading !== null}>
-                        <AppIcon token="🖨️" size={14} />
-                        طباعة الملخص
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="reports-grid">
-                    {reportCards.map((card) => (
-                      <div className="report-card" key={card.id}>
-                        <div className="rc-header">
-                          <div className="rc-ico" style={{ background: card.background }}>
-                            <AppIcon token={card.icon} size={21} />
+                {/* Report cards grid */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {reportCards.map((card) => (
+                    <div className="content-card" key={card.id}>
+                      <div className="content-card__header">
+                        <div className="flex items-center gap-3">
+                          <div className="kpi-card__icon" style={{ background: card.background, color: card.color }}>
+                            <AppIcon token={card.icon} size={20} />
                           </div>
                           <div>
-                            <div className="rc-title" style={{ color: card.color }}>{card.title}</div>
-                            <div className="rc-desc">{card.description}</div>
+                            <div className="content-card__title" style={{ color: card.color }}>{card.title}</div>
+                            <div className="text-xs text-[var(--text-tertiary)] mt-0.5 leading-relaxed">{card.description}</div>
                           </div>
                         </div>
-                        <div className="rc-stats">
+                      </div>
+                      <div className="content-card__body">
+                        <div className="grid grid-cols-2 gap-2 mb-4">
                           {card.stats.map((stat) => (
-                            <div className="rc-stat" key={stat.label}>
-                              <div className="rc-stat-label">{stat.label}</div>
-                              <div className="rc-stat-val">{stat.value}</div>
+                            <div key={stat.label} className="rounded-[var(--radius-sm)] p-2.5" style={{background:"var(--primary-subtle)"}}>
+                              <div className="text-xs text-[var(--text-tertiary)] font-semibold">{stat.label}</div>
+                              <div className="text-sm font-black text-[var(--text-primary)] mt-0.5">{stat.value}</div>
                             </div>
                           ))}
                         </div>
-                        <div className="rc-actions">
-                          <button className="btn-excel" onClick={card.onExcel} disabled={actionLoading !== null}>
-                            <AppIcon token="📊" size={13} />
+                        <div className="flex gap-2">
+                          <button
+                            className="ui-button ui-button--success h-9 px-3 text-sm flex-1 inline-flex items-center justify-center gap-1.5"
+                            onClick={card.onExcel}
+                            disabled={actionLoading !== null}
+                          >
+                            <AppIcon token="reports" size={13} />
                             {actionLoading === card.id ? "جارٍ التحضير..." : "إكسل"}
                           </button>
-                          <button className="btn-print" onClick={card.onPrint} disabled={actionLoading !== null}>
-                            <AppIcon token="🖨️" size={13} />
+                          <button
+                            className="ui-button ui-button--danger h-9 px-3 text-sm flex-1 inline-flex items-center justify-center gap-1.5"
+                            onClick={card.onPrint}
+                            disabled={actionLoading !== null}
+                          >
+                            <AppIcon token="reports" size={13} />
                             طباعة
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </>
+      </div>
     </ProtectedRoute>
   );
 }

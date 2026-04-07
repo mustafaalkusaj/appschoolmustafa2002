@@ -187,7 +187,7 @@ export function StudentsPageSkeleton() {
         boxShadow: "0 2px 8px rgba(108,74,182,0.07)",
       }}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} style={{ flex: 1, borderRadius: "9px", padding: ".6rem .8rem", background: i === 0 ? "linear-gradient(135deg,#6C4AB6,#4C2F9E)" : "#F0EEFF" }}>
+          <div key={i} style={{ flex: 1, borderRadius: "9px", padding: ".6rem .8rem", background: i === 0 ? "var(--primary)" : "var(--primary-subtle)" }}>
             <SkBox w="70%" h="13px" style={{ margin: "auto", opacity: i === 0 ? 0.3 : 1 }} />
           </div>
         ))}

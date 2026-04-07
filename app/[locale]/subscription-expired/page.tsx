@@ -1,69 +1,62 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { Clock, LogOut, Phone } from "lucide-react";
 import { signOutClient } from "@/lib/auth";
-import { AppIcon } from "@/components/AppIcon";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { useTranslations } from "next-intl";
+import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 
 export default function SubscriptionExpiredPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const t = useTranslations();
+  const isRTL = locale === "ar";
+
+  async function handleSignOut() {
+    await signOutClient();
+    window.location.href = localizeAppPath("/login", locale);
+  }
 
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "var(--font-manrope), Segoe UI, sans-serif",
-        direction: "rtl",
-      }}
+      dir={isRTL ? "rtl" : "ltr"}
+      className="relative flex min-h-dvh items-center justify-center bg-[var(--background)] px-4"
     >
-      <div style={{ textAlign: "center", padding: "2rem", maxWidth: 520 }}>
-        <div style={{ fontSize: "5rem", marginBottom: "1rem", display: "flex", justifyContent: "center", color: "#f59e0b" }}>
-          <AppIcon token="⏰" size={78} />
+      <div className="absolute start-4 top-4">
+        <ThemeModeToggle variant="inline" showLabels={false} compact />
+      </div>
+
+      <div className="content-card w-full max-w-sm p-8 text-center">
+        <div
+          className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[20px]"
+          style={{ background: "rgba(245, 158, 11, 0.10)" }}
+        >
+          <Clock size={36} className="text-[var(--warning)]" />
         </div>
-        <h1 style={{ color: "#f59e0b", fontSize: "1.6rem", fontWeight: 900, marginBottom: ".5rem" }}>
+
+        <h1 className="mb-2 text-2xl font-black text-[var(--warning)]">
           {t("gates.subscriptionExpired")}
         </h1>
-        <p style={{ color: "#94a3b8", marginBottom: ".7rem", fontSize: ".95rem", lineHeight: 1.7 }}>
+        <p className="mb-5 text-sm leading-7 text-[var(--text-secondary)]">
           {t("gates.subscriptionExpiredDescription")}
         </p>
+
         <div
-          style={{
-            background: "rgba(245,158,11,0.08)",
-            border: "1px solid rgba(245,158,11,0.28)",
-            borderRadius: 12,
-            padding: "1rem",
-            marginBottom: "2rem",
-          }}
+          className="mb-6 rounded-[var(--radius-md)] border px-4 py-3 text-start flex items-center gap-2"
+          style={{ borderColor: "rgba(245, 158, 11, 0.24)", background: "rgba(245, 158, 11, 0.08)" }}
         >
-          <p style={{ color: "#fbbf24", fontSize: ".85rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem" }}>
-            <AppIcon token="📞" size={14} />
+          <Phone size={14} className="shrink-0 text-[var(--warning)]" />
+          <p className="text-xs font-semibold text-[var(--text-secondary)] leading-6">
             {t("gates.subscriptionRenewalHint")}
           </p>
         </div>
+
         <button
-          onClick={async () => {
-            await signOutClient();
-            window.location.href = localizeAppPath("/login", locale);
-          }}
-          style={{
-            padding: ".7rem 1.5rem",
-            background: "linear-gradient(135deg,#f59e0b,#d97706)",
-            color: "#111827",
-            border: "none",
-            borderRadius: 12,
-            fontFamily: "var(--font-manrope), Segoe UI, sans-serif",
-            fontSize: ".92rem",
-            fontWeight: 800,
-            cursor: "pointer",
-          }}
+          onClick={handleSignOut}
+          className="ui-button ui-button--danger h-10 px-6 text-sm w-full inline-flex items-center justify-center gap-2"
         >
+          <LogOut size={15} />
           {t("gates.signOut")}
         </button>
       </div>

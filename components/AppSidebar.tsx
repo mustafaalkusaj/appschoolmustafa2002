@@ -53,6 +53,31 @@ export function AppSidebar({
         }
       : null;
 
+  // Group items
+  const ITEM_GROUPS: Record<string, string[]> = {
+    main: ["dashboard"],
+    admin: ["super-admin", "schools", "subscriptions"],
+    school: ["teachers", "students", "payments", "expenses", "salaries", "attendance", "reports"],
+  };
+
+  const GROUP_LABELS: Record<string, Record<string, string>> = {
+    main: { ar: "الرئيسية", en: "Main" },
+    admin: { ar: "الإدارة العليا", en: "Administration" },
+    school: { ar: "إدارة المدرسة", en: "School" },
+  };
+
+  const groupOrder = ["main", "admin", "school"];
+
+  const groupedItems = useMemo(() => {
+    const result: Record<string, typeof navItems> = {};
+    for (const groupKey of groupOrder) {
+      const ids = ITEM_GROUPS[groupKey] ?? [];
+      result[groupKey] = navItems.filter((item) => ids.includes(item.id));
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navItems]);
+
   useEffect(() => {
     const syncScopedSchool = () => {
       const nextSchoolId = readSchoolScopeFromWindow();
@@ -129,28 +154,39 @@ export function AppSidebar({
         </div>
 
         <div className="app-sidebar__body">
-          {navItems.map((item) => (
-            <Link
-              key={item.id}
-              href={
-                role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
-                  ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
-                  : localizeAppPath(item.href, locale)
-              }
-              className={[
-                "app-sidebar__link",
-                isPathMatch(currentPath, item.href) ? "is-active" : "",
-                navClassName || "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <span className="app-sidebar__icon" aria-hidden="true">
-                <AppIcon token={item.iconToken} size={16} />
-              </span>
-              {localizedLabels?.[item.id as keyof typeof localizedLabels] ?? item.label}
-            </Link>
-          ))}
+          {groupOrder.map((groupKey) => {
+            const items = groupedItems[groupKey];
+            if (!items || items.length === 0) return null;
+            return (
+              <div key={groupKey} className="app-sidebar__group">
+                <div className="app-sidebar__group-label">
+                  {GROUP_LABELS[groupKey]?.[locale] ?? groupKey}
+                </div>
+                {items.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={
+                      role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
+                        ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
+                        : localizeAppPath(item.href, locale)
+                    }
+                    className={[
+                      "app-sidebar__link",
+                      isPathMatch(currentPath, item.href) ? "is-active" : "",
+                      navClassName || "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    <span className="app-sidebar__icon" aria-hidden="true">
+                      <AppIcon token={item.iconToken} size={16} />
+                    </span>
+                    {localizedLabels?.[item.id as keyof typeof localizedLabels] ?? item.label}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
         </div>
 
         <div className={["app-sidebar__footer", separatorClassName || ""].filter(Boolean).join(" ")}>

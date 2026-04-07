@@ -1076,10 +1076,10 @@ export default function TeachersManagementPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
-      <div className="layout">
+      <div className="app-layout">
         <AppSidebar currentPath="/teachers" />
 
-        <div className="main">
+        <div className="app-main">
           <AppShellTopbar
             title="إدارة المدرسين"
             subtitle="إدارة بيانات وحسابات دخول المدرسين وربطهم بالمادة والصف والشعبة"

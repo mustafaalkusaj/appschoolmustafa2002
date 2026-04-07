@@ -788,10 +788,10 @@ export default function PaymentsPage() {
           }
         `}</style>
 
-        <div className="layout">
+        <div className="app-layout">
           <AppSidebar currentPath="/payments" />
 
-          <div className="main">
+          <div className="app-main">
             <AppShellTopbar
               title="فواتير الطلاب"
               subtitle={`${students.filter((s) => s.status !== "deleted").length} طالباً مسجلاً`}

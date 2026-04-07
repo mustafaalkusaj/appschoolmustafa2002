@@ -971,7 +971,7 @@ export default function SalariesPage() {
       }
     `}</style>
 
-    <div className="layout">
+    <div className="app-layout">
       {/* MAIN SIDEBAR */}
       <AppSidebar currentPath="/salaries" containerClassName="main-sidebar" />
 
@@ -985,7 +985,7 @@ export default function SalariesPage() {
         ))}
       </div>
 
-      <div className="main">
+      <div className="app-main">
         <AppShellTopbar
           title={activeSection==="main"?"إدارة الرواتب":activeSection==="teachers"?"قائمة المدرسين":activeSection==="schedule_tab"?"الجدول الأسبوعي":activeSection==="deductions"?"السحوبات":activeSection==="reports"?"التقارير الشاملة":activeSection==="calendar"?"التقويم الشهري":activeSection==="archive"?"أرشيف الرواتب":"الإعدادات"}
           subtitle={`${activeTeachers} مدرس نشط`}

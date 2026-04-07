@@ -302,10 +302,10 @@ export default function ExpensesPage() {
       .bc{padding:.75rem 1.2rem;background:#F3F4F6;color:var(--gray);border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:600;cursor:pointer}
     `}</style>
 
-    <div className="layout">
+    <div className="app-layout">
       <AppSidebar currentPath="/expenses" />
 
-      <div className="main">
+      <div className="app-main">
         <AppShellTopbar
           title="إدارة المصروفات"
           subtitle={`${expenses.length} سجل مصروف`}

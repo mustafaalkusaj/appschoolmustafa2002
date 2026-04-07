@@ -757,10 +757,10 @@ export default function DashboardPage() {
   return (
   <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
   <>
-    <div className="layout">
+    <div className="app-layout">
       <AppSidebar currentPath="/dashboard" />
 
-      <div className="main">
+      <div className="app-main">
         <AppShellTopbar title="لوحة التحكم" subtitle={dashboardSummary} scope={schoolScope} />
 
         <div className="content app-shell-content">
@@ -775,27 +775,27 @@ export default function DashboardPage() {
 
           {/* ─── أزرار الإجراءات ─── */}
           {canManageClasses && (
-            <div style={{display:"flex",alignItems:"center",gap:".7rem",marginBottom:"1rem",flexWrap:"wrap"}}>
-              <button className="fee-btn" onClick={openNewFee}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                + إضافة قسط دراسي
+            <div className="toolbar mb-4">
+              <button className="ui-button ui-button--primary h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={openNewFee}>
+                <AppIcon token="payments" size={14} />
+                إضافة قسط دراسي
               </button>
-              <button className="fee-btn-outline" onClick={() => setShowFeesTable(v=>!v)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="3"/></svg>
+              <button className="ui-button ui-button--secondary h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={() => setShowFeesTable(v=>!v)}>
+                <AppIcon token="reports" size={14} />
                 {showFeesTable ? "إخفاء الجدول" : "عرض جدول الأقساط"}
               </button>
-              <button className="fee-btn-outline" onClick={() => setShowClassesModal(true)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
+              <button className="ui-button ui-button--secondary h-9 px-4 text-sm inline-flex items-center gap-1.5" onClick={() => setShowClassesModal(true)}>
+                <AppIcon token="schools" size={14} />
                 إدارة الصفوف والشعب
               </button>
             </div>
           )}
 
           {(canCustomizeBranding || (profile?.role === "admin" || profile?.role === "super_admin")) && (
-            <div style={{ display: "grid", gap: ".8rem", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", marginBottom: "1rem" }}>
+            <div className="grid gap-3 mb-4" style={{gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>
               {canCustomizeBranding ? (
-                <div style={{ background: "white", borderRadius: "14px", padding: "1rem", border: "1px solid rgba(108,74,182,0.12)" }}>
-                  <div style={{ fontWeight: 900, color: "var(--p2)", marginBottom: ".75rem" }}>هوية المدرسة (سوبر أدمن)</div>
+                <div className="content-card p-4">
+                  <div className="content-card__title mb-3">هوية المدرسة (سوبر أدمن)</div>
                   <div style={{ display: "grid", gap: ".6rem", gridTemplateColumns: "1fr 1fr" }}>
                     <input
                       className="form-input"
@@ -811,7 +811,7 @@ export default function DashboardPage() {
                       value={brandingForm.logo_url}
                       onChange={(e) => setBrandingForm((prev) => ({ ...prev, logo_url: e.target.value }))}
                     />
-                    <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--gray)" }}>
+                    <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-secondary)" }}>
                       اللون الأساسي
                       <input
                         type="color"
@@ -821,7 +821,7 @@ export default function DashboardPage() {
                         onChange={(e) => setBrandingForm((prev) => ({ ...prev, primary_color: e.target.value }))}
                       />
                     </label>
-                    <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--gray)" }}>
+                    <label style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-secondary)" }}>
                       اللون الثانوي
                       <input
                         type="color"
@@ -835,10 +835,10 @@ export default function DashboardPage() {
                   <div
                     style={{
                       marginTop: ".7rem",
-                      borderRadius: "16px",
+                      borderRadius: "var(--radius-md)",
                       padding: ".85rem",
                       background: `linear-gradient(135deg, ${brandingForm.primary_color || "#4f8cff"}14, ${brandingForm.secondary_color || "#79d7ff"}18)`,
-                      border: "1px solid rgba(108,74,182,0.12)",
+                      border: "1px solid var(--border)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
@@ -846,71 +846,67 @@ export default function DashboardPage() {
                         <img
                           src={brandingForm.logo_url}
                           alt={brandingForm.name || "School logo"}
-                          style={{ width: "50px", height: "50px", borderRadius: "14px", objectFit: "cover", border: "1px solid rgba(15,23,42,0.08)", background: "#fff" }}
+                          style={{ width: "50px", height: "50px", borderRadius: "12px", objectFit: "cover", border: "1px solid var(--border)" }}
                         />
                       ) : (
                         <div
                           style={{
-                            width: "50px",
-                            height: "50px",
-                            borderRadius: "14px",
-                            display: "grid",
-                            placeItems: "center",
+                            width: "50px", height: "50px", borderRadius: "12px",
+                            display: "grid", placeItems: "center",
                             background: `linear-gradient(135deg, ${brandingForm.primary_color || "#4f8cff"}, ${brandingForm.secondary_color || "#79d7ff"})`,
-                            color: "#fff",
-                            fontWeight: 900,
+                            color: "#fff", fontWeight: 900,
                           }}
                         >
                           {(brandingForm.name || "S").trim().charAt(0) || "S"}
                         </div>
                       )}
                       <div>
-                        <div style={{ fontWeight: 900, color: "var(--p2)" }}>{brandingForm.name || "اسم المدرسة"}</div>
-                        <div style={{ fontSize: ".72rem", color: "var(--gray)" }}>
+                        <div style={{ fontWeight: 900, color: "var(--text-primary)" }}>{brandingForm.name || "اسم المدرسة"}</div>
+                        <div style={{ fontSize: ".72rem", color: "var(--text-tertiary)" }}>
                           هذه الألوان ستنعكس على الأزرار والخلفيات والطباعة بالكامل.
                         </div>
                       </div>
                     </div>
                   </div>
                   {brandingNotice ? (
-                    <div style={{ marginTop: ".55rem", fontSize: ".75rem", color: brandingNotice.includes("تعذر") ? "#DC2626" : "#15803D", fontWeight: 700 }}>
+                    <div style={{ marginTop: ".55rem", fontSize: ".75rem", color: brandingNotice.includes("تعذر") ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>
                       {brandingNotice}
                     </div>
                   ) : null}
-                  <div style={{ marginTop: ".7rem", display: "flex", justifyContent: "space-between", gap: ".6rem", flexWrap: "wrap" }}>
+                  <div className="flex justify-between gap-2 flex-wrap mt-3">
                     <button
-                      className="fee-btn-outline"
+                      className="ui-button ui-button--secondary h-9 px-3 text-sm"
                       onClick={() => void deriveDashboardBrandingFromLogo()}
                       disabled={brandingDeriving}
                     >
                       {brandingDeriving ? "جارٍ تحليل الشعار..." : "استخراج الألوان من الشعار"}
                     </button>
-                    <button className="fee-btn" onClick={() => void saveBrandingFromDashboard()} disabled={brandingSaving}>
+                    <button className="ui-button ui-button--primary h-9 px-4 text-sm" onClick={() => void saveBrandingFromDashboard()} disabled={brandingSaving}>
                       {brandingSaving ? "جارٍ الحفظ..." : "حفظ الهوية"}
                     </button>
                   </div>
                 </div>
               ) : null}
 
-              <div style={{ background: "white", borderRadius: "14px", padding: "1rem", border: "1px solid rgba(108,74,182,0.12)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".65rem" }}>
-                  <div style={{ fontWeight: 900, color: "var(--p2)" }}>
+              <div className="content-card p-4">
+                <div className="content-card__header" style={{padding:0,border:0,marginBottom:".65rem"}}>
+                  <div className="content-card__title">
                     الإشعارات {notificationsEnabled ? `(${unreadNotifications} غير مقروءة)` : ""}
                   </div>
                   {notificationsEnabled ? (
-                    <button className="fee-btn-outline" style={{ fontSize: ".72rem", padding: ".35rem .65rem" }} onClick={() => void fetchDashboardNotifications()}>
+                    <button className="ui-button ui-button--secondary h-7 px-2.5 text-xs" onClick={() => void fetchDashboardNotifications()}>
                       تحديث
                     </button>
                   ) : null}
                 </div>
                 {!notificationsEnabled ? (
-                  <div style={{ fontSize: ".75rem", color: "var(--gray)" }}>
+                  <div style={{ fontSize: ".75rem", color: "var(--text-tertiary)" }}>
                     جدول الإشعارات غير مفعّل في قاعدة البيانات الحالية.
                   </div>
                 ) : notificationsLoading ? (
-                  <div style={{ fontSize: ".75rem", color: "var(--gray)" }}>جارٍ تحميل الإشعارات...</div>
+                  <div style={{ fontSize: ".75rem", color: "var(--text-tertiary)" }}>جارٍ تحميل الإشعارات...</div>
                 ) : notifications.length === 0 ? (
-                  <div style={{ fontSize: ".75rem", color: "var(--gray)" }}>لا توجد إشعارات جديدة حالياً.</div>
+                  <div style={{ fontSize: ".75rem", color: "var(--text-tertiary)" }}>لا توجد إشعارات جديدة حالياً.</div>
                 ) : (
                   <div style={{ display: "grid", gap: ".45rem" }}>
                     {notifications.map((item) => (
@@ -919,17 +915,17 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => void markNotificationAsRead(item.id)}
                         style={{
-                          textAlign: "right",
-                          border: "1px solid rgba(108,74,182,0.1)",
-                          background: item.is_read ? "#F8FAFC" : "#EEF6FF",
-                          borderRadius: "10px",
+                          textAlign: "start",
+                          border: "1px solid var(--border)",
+                          background: item.is_read ? "var(--background)" : "var(--primary-subtle)",
+                          borderRadius: "var(--radius-sm)",
                           padding: ".55rem .65rem",
                           cursor: "pointer",
                         }}
                       >
-                        <div style={{ fontSize: ".78rem", fontWeight: 800, color: "var(--dark)" }}>{item.title || "تنبيه جديد"}</div>
-                        <div style={{ fontSize: ".72rem", color: "var(--gray)", marginTop: ".2rem" }}>{item.message || "بدون تفاصيل إضافية"}</div>
-                        <div style={{ fontSize: ".66rem", color: "var(--gray)", marginTop: ".25rem" }}>
+                        <div style={{ fontSize: ".78rem", fontWeight: 800, color: "var(--text-primary)" }}>{item.title || "تنبيه جديد"}</div>
+                        <div style={{ fontSize: ".72rem", color: "var(--text-secondary)", marginTop: ".2rem" }}>{item.message || "بدون تفاصيل إضافية"}</div>
+                        <div style={{ fontSize: ".66rem", color: "var(--text-tertiary)", marginTop: ".25rem" }}>
                           {item.created_at ? formatDate(item.created_at) : "—"}
                         </div>
                       </button>
@@ -942,210 +938,234 @@ export default function DashboardPage() {
 
             {/* ── جدول / بطاقات الأقساط (عند الطلب) ── */}
             {canManageClasses && showFeesTable && (
-              <div className="fees-section">
-                <div className="section-header">
-                  <div className="section-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-                    <AppIcon token="💰" size={16} />
-                    Tuition rates by class
+              <div className="content-card mb-4">
+                <div className="content-card__header">
+                  <div className="content-card__title flex items-center gap-1.5">
+                    <AppIcon token="payments" size={15} />
+                    الرسوم الدراسية حسب الصف
                   </div>
-                  <button className="fee-btn" onClick={openNewFee} style={{fontSize:".75rem",padding:".4rem .9rem"}}>
-                    + إضافة صف جديد
+                  <button className="ui-button ui-button--primary h-8 px-3 text-xs" onClick={openNewFee}>
+                    + إضافة قسط
                   </button>
                 </div>
 
                 {classFees.length === 0 ? (
-                  <div style={{textAlign:"center",color:"var(--gray)",padding:"2rem",fontSize:".85rem"}}>
+                  <div className="p-8 text-center text-sm text-[var(--text-tertiary)]">
                     لا توجد أقساط مضافة حتى الآن. اضغط على "إضافة قسط دراسي" للبدء.
                   </div>
                 ) : (<>
                   {/* بطاقات سريعة */}
-                  <div className="fee-cards-row">
+                  <div className="flex gap-3 flex-wrap p-4 pb-0">
                     {classFees.map(cf => {
                       const stats = getClassStats(cf);
                       return (
-                        <div className="fee-card" key={cf.id} onClick={() => openEditFee(cf)}>
-                          <div className="fc-class" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-                            <AppIcon token="🏫" size={14} />
+                        <button
+                          key={cf.id}
+                          onClick={() => openEditFee(cf)}
+                          className="text-start border border-[var(--border)] rounded-[var(--radius-md)] p-3 min-w-[180px] flex-1 hover:border-[var(--primary)] transition-colors"
+                          style={{background:"var(--background)"}}
+                        >
+                          <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1 mb-1">
+                            <AppIcon token="schools" size={12} />
                             {cf.class_name}
                           </div>
-                          <div className="fc-amount">د.ع {formatNumber(cf.total_fee)}</div>
-                          <div className="fc-sub">إجمالي الموسم</div>
-                          <div className="fc-inst">
-                            <span className="fc-inst-lbl">لكل قسط:</span>
-                            <span className="fc-inst-val">د.ع {formatNumber(cf.installment_amount)}</span>
-                            <span className="inst-badge">×{cf.installments}</span>
+                          <div className="text-base font-black text-[var(--text-primary)]">د.ع {formatNumber(cf.total_fee)}</div>
+                          <div className="text-xs text-[var(--text-tertiary)] mb-1">إجمالي الموسم</div>
+                          <div className="text-xs text-[var(--text-secondary)]">
+                            لكل قسط: <span className="font-bold text-[var(--primary)]">د.ع {formatNumber(cf.installment_amount)}</span>
+                            <span className="ms-1 badge badge--info">×{cf.installments}</span>
                           </div>
-                          <div style={{marginTop:".5rem",display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:".67rem",color:"var(--gray)"}}>
-                            <span>{stats.count} طالب</span>
-                            <span style={{color:"#10B981",fontWeight:700}}>{stats.paidPct}% مدفوع</span>
+                          <div className="flex items-center justify-between text-xs mt-2">
+                            <span className="text-[var(--text-tertiary)]">{stats.count} طالب</span>
+                            <span className="font-bold text-[var(--success)]">{stats.paidPct}% مدفوع</span>
                           </div>
-                          <div className="prog-mini">
-                            <div className="prog-mini-fill" style={{width:`${stats.paidPct}%`}}/>
+                          <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden mt-1">
+                            <div className="h-full rounded-full bg-[var(--success)]" style={{width:`${stats.paidPct}%`}}/>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
 
                   {/* جدول تفصيلي */}
-                  <table className="fees-table">
-                    <thead>
-                      <tr>
-                        <th>الصف الدراسي</th>
-                        <th>المبلغ الكلي</th>
-                        <th>عدد الأقساط</th>
-                        <th>قيمة القسط الواحد</th>
-                        <th>عدد الطلاب</th>
-                        <th>المدفوع</th>
-                        <th>المتبقي</th>
-                        <th>الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {classFees.map(cf => {
-                        const stats = getClassStats(cf);
-                        return (
-                          <tr key={cf.id}>
-                            <td><span className="class-chip">{cf.class_name}</span></td>
-                            <td style={{fontWeight:800,color:"var(--p2)"}}>د.ع {formatNumber(cf.total_fee)}</td>
-                            <td><span className="inst-badge">× {cf.installments} قسط</span></td>
-                            <td style={{fontWeight:700,color:"#10B981"}}>د.ع {formatNumber(cf.installment_amount)}</td>
-                            <td style={{textAlign:"center",fontWeight:700}}>{stats.count}</td>
-                            <td style={{color:"#10B981",fontWeight:700}}>د.ع {formatNumber(stats.totalPaid)}</td>
-                            <td style={{color:"#EF4444",fontWeight:700}}>د.ع {formatNumber(stats.totalRemaining)}</td>
-                            <td>
-                              <div style={{display:"flex",gap:".4rem"}}>
-                                <button className="action-btn edit-btn" onClick={() => openEditFee(cf)}>تعديل</button>
-                                {deleteConfirm === cf.id ? (
-                                  <div style={{display:"flex",gap:".3rem"}}>
-                                    <button className="action-btn del-btn" onClick={() => handleDeleteFee(cf.id)}>تأكيد</button>
-                                    <button className="action-btn" style={{background:"#F3F4F6",color:"var(--dark)"}} onClick={() => setDeleteConfirm(null)}>إلغاء</button>
-                                  </div>
-                                ) : (
-                                  <button className="action-btn del-btn" onClick={() => setDeleteConfirm(cf.id)}>حذف</button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <div className="content-card__body--flush overflow-x-auto mt-4">
+                    <table className="ui-table">
+                      <thead>
+                        <tr>
+                          <th>الصف الدراسي</th>
+                          <th>المبلغ الكلي</th>
+                          <th>عدد الأقساط</th>
+                          <th>قيمة القسط الواحد</th>
+                          <th>عدد الطلاب</th>
+                          <th>المدفوع</th>
+                          <th>المتبقي</th>
+                          <th>الإجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {classFees.map(cf => {
+                          const stats = getClassStats(cf);
+                          return (
+                            <tr key={cf.id}>
+                              <td><span className="badge badge--info">{cf.class_name}</span></td>
+                              <td style={{fontWeight:800,color:"var(--primary)"}}>د.ع {formatNumber(cf.total_fee)}</td>
+                              <td><span className="badge badge--neutral">× {cf.installments} قسط</span></td>
+                              <td style={{fontWeight:700,color:"var(--success)"}}>د.ع {formatNumber(cf.installment_amount)}</td>
+                              <td style={{textAlign:"center",fontWeight:700}}>{stats.count}</td>
+                              <td style={{color:"var(--success)",fontWeight:700}}>د.ع {formatNumber(stats.totalPaid)}</td>
+                              <td style={{color:"var(--danger)",fontWeight:700}}>د.ع {formatNumber(stats.totalRemaining)}</td>
+                              <td>
+                                <div style={{display:"flex",gap:".4rem"}}>
+                                  <button className="ui-button ui-button--secondary" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem"}} onClick={() => openEditFee(cf)}>تعديل</button>
+                                  {deleteConfirm === cf.id ? (
+                                    <div style={{display:"flex",gap:".3rem"}}>
+                                      <button className="ui-button ui-button--danger" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem"}} onClick={() => handleDeleteFee(cf.id)}>تأكيد</button>
+                                      <button className="ui-button ui-button--secondary" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem"}} onClick={() => setDeleteConfirm(null)}>إلغاء</button>
+                                    </div>
+                                  ) : (
+                                    <button className="ui-button ui-button--danger" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem"}} onClick={() => setDeleteConfirm(cf.id)}>حذف</button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </>)}
               </div>
             )}
 
             {/* إحصائيات سريعة */}
-            <div className="row1">
+            <div className="kpi-grid">
               {([
-                ["إجمالي الطلاب", formatNumber(dashboardTotals.studentsCount), "#EDE8FA","#6C4AB6"],
-                ["الطلاب المنقولون", formatNumber(dashboardTotals.transferredCount), "#DBEAFE","#3B82F6"],
-                ["إجمالي الرسوم", `د.ع ${formatNumber(totalFees)}`, "#FEF3C7","#F59E0B"],
-                ["المبلغ المدفوع", `د.ع ${formatNumber(totalPaid)}`, "#D1FAE5","#10B981"],
+                ["إجمالي الطلاب", formatNumber(dashboardTotals.studentsCount), "rgba(59,130,246,0.10)","var(--primary)"],
+                ["الطلاب المنقولون", formatNumber(dashboardTotals.transferredCount), "rgba(59,130,246,0.10)","var(--info)"],
+                ["إجمالي الرسوم", `د.ع ${formatNumber(totalFees)}`, "rgba(245,158,11,0.10)","var(--warning)"],
+                ["المبلغ المدفوع", `د.ع ${formatNumber(totalPaid)}`, "rgba(16,185,129,0.10)","var(--success)"],
               ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
-                <div className="sc" key={i}>
-                  <div className="sc-ico" style={{background:bg}}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/></svg>
+                <div className="kpi-card" key={i}>
+                  <div className="kpi-card__icon" style={{background:bg,color:c}}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><circle cx="12" cy="12" r="10"/></svg>
                   </div>
-                  <div><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
+                  <div>
+                    <div className="kpi-card__label">{l}</div>
+                    <div className="kpi-card__value">{v}</div>
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="row2">
+            <div className="kpi-grid" style={{gridTemplateColumns:"repeat(2,1fr)"}}>
               {([
-                ["الرصيد المتبقي", `د.ع ${formatNumber(totalRemaining)}`, "#FEE2E2","#EF4444"],
-                ["رواتب هذا الشهر", "د.ع 0", "#EDE9FE","#8B5CF6"],
+                ["الرصيد المتبقي", `د.ع ${formatNumber(totalRemaining)}`, "rgba(239,68,68,0.10)","var(--danger)"],
+                ["رواتب هذا الشهر", "د.ع 0", "rgba(100,116,139,0.10)","var(--text-secondary)"],
               ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
-                <div className="sc" key={i}>
-                  <div className="sc-ico" style={{background:bg}}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <div className="kpi-card" key={i}>
+                  <div className="kpi-card__icon" style={{background:bg,color:c}}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                   </div>
-                  <div><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
+                  <div>
+                    <div className="kpi-card__label">{l}</div>
+                    <div className="kpi-card__value">{v}</div>
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* لوحة التحليل المالي */}
-            <div className="analysis-section">
-              <div className="section-header">
-                <div className="section-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-                  <AppIcon token="📊" size={16} />
-                  لوحة التحليل المالي الكلي
-                </div>
+            <div className="content-card">
+              <div className="content-card__header">
+                <h2 className="content-card__title">لوحة التحليل المالي الكلي</h2>
               </div>
-              <div className="fin-stats">
-                {([
-                  ["إجمالي المبلغ المطلوب", totalFees, "#EDE8FA","#4C2F9E"],
-                  ["التخفيض", totalDiscount, "#FEF3C7","#F59E0B"],
-                  ["الواردات بعد التخفيض", afterDiscount, "#DBEAFE","#3B82F6"],
-                  ["المبالغ المستحصلة", totalPaid, "#D1FAE5","#10B981"],
-                  ["المبلغ المتبقي", totalRemaining, "#FEE2E2","#EF4444"],
-                ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
-                  <div className="fin-card" key={i} style={{background:bg}}>
-                    <div className="fin-label" style={{color:c}}>{l}</div>
-                    <div className="fin-val" style={{color:c}}>د.ع {formatNumber(v)}</div>
+              <div className="content-card__body">
+                <div className="kpi-grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",marginBottom:"1rem"}}>
+                  {([
+                    ["إجمالي المبلغ المطلوب", totalFees, "rgba(59,130,246,0.10)","var(--primary)"],
+                    ["التخفيض", totalDiscount, "rgba(245,158,11,0.10)","var(--warning)"],
+                    ["بعد التخفيض", afterDiscount, "rgba(59,130,246,0.10)","var(--info)"],
+                    ["المبالغ المستحصلة", totalPaid, "rgba(16,185,129,0.10)","var(--success)"],
+                    ["المبلغ المتبقي", totalRemaining, "rgba(239,68,68,0.10)","var(--danger)"],
+                  ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
+                    <div key={i} className="rounded-[var(--radius-md)] p-3 text-center" style={{background:bg}}>
+                      <div className="kpi-card__label mb-1">{l}</div>
+                      <div className="text-sm font-black" style={{color:c}}>د.ع {formatNumber(v)}</div>
+                    </div>
+                  ))}
+                </div>
+                <DashboardFinanceCharts barData={barData} pieData={pieData} paidPct={paidPct} />
+                <div className="mt-4 space-y-3">
+                  <div className="text-xs font-bold text-[var(--text-secondary)] mb-2">تقدم الدفع</div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[var(--text-secondary)] min-w-[100px]">المبلغ المدفوع</span>
+                    <div className="flex-1 h-2 rounded-full bg-[var(--border)] overflow-hidden">
+                      <div className="h-full rounded-full bg-[var(--success)] transition-all" style={{width:`${paidPct}%`}}/>
+                    </div>
+                    <span className="text-xs font-bold text-[var(--success)]">د.ع {formatNumber(totalPaid)}</span>
                   </div>
-                ))}
-              </div>
-              <DashboardFinanceCharts barData={barData} pieData={pieData} paidPct={paidPct} />
-              <div className="progress-section">
-                <div className="progress-title">تقدم الدفع</div>
-                <div className="prog-row">
-                  <span className="prog-label">المبلغ المدفوع</span>
-                  <div className="prog-bar"><div className="prog-fill" style={{width:`${paidPct}%`,background:"#10B981"}}/></div>
-                  <span className="prog-val" style={{color:"#10B981"}}>د.ع {formatNumber(totalPaid)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[var(--text-secondary)] min-w-[100px]">المبلغ المتبقي</span>
+                    <div className="flex-1 h-2 rounded-full bg-[var(--border)] overflow-hidden">
+                      <div className="h-full rounded-full bg-[var(--warning)] transition-all" style={{width:`${remainingPct}%`}}/>
+                    </div>
+                    <span className="text-xs font-bold text-[var(--warning)]">د.ع {formatNumber(totalRemaining)}</span>
+                  </div>
+                  <div className="text-center text-sm font-black text-[var(--text-primary)] pt-1">
+                    إجمالي المبلغ المطلوب: د.ع {formatNumber(totalFees)}
+                  </div>
                 </div>
-                <div className="prog-row">
-                  <span className="prog-label">المبلغ المتبقي</span>
-                  <div className="prog-bar"><div className="prog-fill" style={{width:`${remainingPct}%`,background:"#F59E0B"}}/></div>
-                  <span className="prog-val" style={{color:"#F59E0B"}}>د.ع {formatNumber(totalRemaining)}</span>
-                </div>
-                <div className="prog-total">إجمالي المبلغ المطلوب: د.ع {formatNumber(totalFees)}</div>
               </div>
             </div>
 
-            <div className="bottom-grid">
-              <div className="panel">
-                <div className="ph">
-                  <span className="pt" style={{display:"inline-flex",alignItems:"center",gap:".3rem"}}>
-                    <AppIcon token="💳" size={14} />
-                    آخر الحسابات
-                  </span>
-                  <Link href={paymentsPageHref} style={{fontSize:".72rem",color:"var(--p3)",fontWeight:600,textDecoration:"none"}}>عرض الكل</Link>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="content-card">
+                <div className="content-card__header">
+                  <h2 className="content-card__title">آخر الحسابات</h2>
+                  <Link href={paymentsPageHref} className="text-xs font-semibold text-[var(--primary)]">عرض الكل</Link>
                 </div>
-                {recentPayments.length===0?(
-                  <div style={{textAlign:"center",color:"var(--gray)",fontSize:".82rem",padding:"1rem"}}>لا توجد دفعات حتى الآن</div>
-                ):recentPayments.map((p:any)=>{
-                  return <div className="pay-item" key={p.id}>
-                    <div className="pay-av">{(p.student_name||"؟")[0]}</div>
-                    <div style={{flex:1}}>
-                      <div className="pay-name">{p.student_name||"—"}</div>
-                      <div className="pay-meta">{p.class_name || "—"} • {formatDate(p.created_at)}</div>
+                <div className="content-card__body--flush">
+                  {recentPayments.length===0?(
+                    <div className="p-4 text-center text-sm text-[var(--text-tertiary)]">لا توجد دفعات حتى الآن</div>
+                  ):(
+                    <div>
+                      {recentPayments.map((p:any)=>(
+                        <div key={p.id} className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] last:border-0">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-xs font-bold text-[var(--primary)]">
+                            {(p.student_name||"؟")[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{p.student_name||"—"}</div>
+                            <div className="text-xs text-[var(--text-tertiary)]">{p.class_name || "—"} • {formatDate(p.created_at)}</div>
+                          </div>
+                          <div className="text-sm font-black text-[var(--success)]">د.ع {formatNumber(p.amount)}</div>
+                        </div>
+                      ))}
                     </div>
-                    <div style={{fontWeight:800,color:"#10B981",fontSize:".8rem"}}>د.ع {formatNumber(p.amount)}</div>
-                  </div>;
-                })}
-              </div>
-              <div className="panel">
-                <div className="ph">
-                  <span className="pt" style={{color:"#EF4444",display:"inline-flex",alignItems:"center",gap:".3rem"}}>
-                    <AppIcon token="⚠️" size={14} />
-                    Overdue students
-                  </span>
-                  <Link href={paymentsPageHref} style={{fontSize:".72rem",color:"var(--p3)",fontWeight:600,textDecoration:"none"}}>عرض الكل</Link>
+                  )}
                 </div>
-                {overdueStudents.length===0?(
-                  <div style={{textAlign:"center",color:"#10B981",fontSize:".82rem",padding:"1rem",display:"flex",alignItems:"center",justifyContent:"center",gap:".3rem"}}>
-                    <AppIcon token="✓" size={14} />
-                    No overdue students
-                  </div>
-                ):overdueStudents.map(s=>(
-                  <div className="ov-card" key={s.id}>
-                    <div className="ov-name">{s.full_name}</div>
-                    <div className="ov-class">{s.class_name}</div>
-                    <div className="ov-amt">د.ع {formatNumber(s.remaining_fee)}</div>
-                  </div>
-                ))}
+              </div>
+              <div className="content-card">
+                <div className="content-card__header">
+                  <h2 className="content-card__title text-[var(--danger)]">طلاب متأخرون</h2>
+                  <Link href={paymentsPageHref} className="text-xs font-semibold text-[var(--primary)]">عرض الكل</Link>
+                </div>
+                <div className="content-card__body--flush">
+                  {overdueStudents.length===0?(
+                    <div className="p-4 text-center text-sm text-[var(--success)] flex items-center justify-center gap-2">
+                      <span>✓</span> لا يوجد طلاب متأخرون
+                    </div>
+                  ):(
+                    <div>
+                      {overdueStudents.map(s=>(
+                        <div key={s.id} className="px-4 py-3 border-b border-[var(--border)] last:border-0" style={{background:"rgba(239,68,68,0.03)"}}>
+                          <div className="text-sm font-bold text-[var(--text-primary)]">{s.full_name}</div>
+                          <div className="text-xs text-[var(--text-tertiary)]">{s.class_name}</div>
+                          <div className="text-sm font-black text-[var(--danger)] mt-0.5">د.ع {formatNumber(s.remaining_fee)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1160,43 +1180,43 @@ export default function DashboardPage() {
     {showClassesModal && (
       <div className="modal-overlay" onClick={e => { if(e.target===e.currentTarget){setShowClassesModal(false);setEditingClass(null);setClassForm({name:"",sections:[""]});} }}>
         <div className="modal-box" style={{width:"600px"}}>
-          <div className="modal-title">
-            <AppIcon token="🏫" size={18} />
+          <div className="modal-header">
+            <AppIcon token="schools" size={18} />
             إدارة الصفوف والشعب الدراسية
           </div>
 
           <div style={{marginBottom:"1rem"}}>
-            <div style={{display:"flex",gap:".5rem",marginBottom:".8rem"}}>
-              <button className="fee-btn" onClick={() => {setEditingClass(null);setClassForm({name:"",sections:[""]});setShowClassForm(true);setShowSectionForm(false);}} style={{fontSize:".75rem",padding:".4rem .8rem"}}>+ إضافة صف جديد</button>
-              <button className="fee-btn" onClick={() => {setEditingSection(null);setSectionForm({class_id:"",name:""});setShowSectionForm(true);setShowClassForm(false);}} style={{fontSize:".75rem",padding:".4rem .8rem"}}>+ إضافة شعبة جديدة</button>
-                <button className="fee-btn-outline" onClick={() => setShowSectionsTable(v=>!v)} style={{fontSize:".75rem"}}>{showSectionsTable ? "إخفاء الشعب" : "عرض الشعب"}</button>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button className="ui-button ui-button--primary" style={{fontSize:".75rem",height:"2rem",padding:"0 .75rem"}} onClick={() => {setEditingClass(null);setClassForm({name:"",sections:[""]});setShowClassForm(true);setShowSectionForm(false);}}>+ إضافة صف جديد</button>
+              <button className="ui-button ui-button--primary" style={{fontSize:".75rem",height:"2rem",padding:"0 .75rem"}} onClick={() => {setEditingSection(null);setSectionForm({class_id:"",name:""});setShowSectionForm(true);setShowClassForm(false);}}>+ إضافة شعبة جديدة</button>
+              <button className="ui-button ui-button--secondary" style={{fontSize:".75rem",height:"2rem",padding:"0 .75rem"}} onClick={() => setShowSectionsTable(v=>!v)}>{showSectionsTable ? "إخفاء الشعب" : "عرض الشعب"}</button>
             </div>
 
             {/* نموذج إضافة/تعديل صف */}
             {(showClassForm || editingClass) && (
-              <div style={{background:"#F8F6FF",borderRadius:"12px",padding:"1rem",marginBottom:"1rem"}}>
-                <div style={{fontSize:".85rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>{editingClass ? "تعديل الصف" : "إضافة صف جديد"}</div>
+              <div style={{background:"var(--primary-subtle)",borderRadius:"var(--radius-md)",padding:"1rem",marginBottom:"1rem",border:"1px solid rgba(59,130,246,0.15)"}}>
+                <div style={{fontSize:".85rem",fontWeight:700,color:"var(--primary)",marginBottom:".6rem"}}>{editingClass ? "تعديل الصف" : "إضافة صف جديد"}</div>
                 <div className="form-grid">
                   <div className="form-group full">
                     <label className="form-label">اسم الصف <span>*</span></label>
                     <input className="form-input" value={classForm.name} onChange={e=>setClassForm({...classForm,name:e.target.value})} placeholder="مثال: الصف الخامس"/>
                   </div>
                   <div className="form-group full">
-                    <label className="form-label">الشعب <span style={{fontWeight:400,color:"var(--gray)",fontSize:".7rem"}}>(كل شعبة في سطر — مثال: أ، ب، ج)</span></label>
+                    <label className="form-label">الشعب <span style={{fontWeight:400,color:"var(--text-tertiary)",fontSize:".7rem"}}>(كل شعبة في سطر — مثال: أ، ب، ج)</span></label>
                     <textarea className="form-input" rows={3} value={classForm.sections.join('\n')} onChange={e=>setClassForm({...classForm,sections:e.target.value.split('\n')})} placeholder={"أ\nب\nج"} style={{resize:"none"}}/>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:".5rem",justifyContent:"flex-end",marginTop:".8rem"}}>
-                  <button className="btn-cancel" onClick={()=>{setEditingClass(null);setClassForm({name:"",sections:[""]});setShowClassForm(false);}}>إلغاء</button>
-                  <button className="btn-save" onClick={handleSaveClass}>{editingClass ? "حفظ التعديلات" : "إضافة صف"}</button>
+                <div className="flex gap-2 justify-end mt-3">
+                  <button className="ui-button ui-button--secondary" style={{fontSize:".8rem",height:"2.1rem",padding:"0 .875rem"}} onClick={()=>{setEditingClass(null);setClassForm({name:"",sections:[""]});setShowClassForm(false);}}>إلغاء</button>
+                  <button className="ui-button ui-button--primary" style={{fontSize:".8rem",height:"2.1rem",padding:"0 .875rem"}} onClick={handleSaveClass}>{editingClass ? "حفظ التعديلات" : "إضافة صف"}</button>
                 </div>
               </div>
             )}
 
             {/* نموذج إضافة/تعديل شعبة */}
             {(showSectionForm || editingSection) && (
-              <div style={{background:"#F0FDF4",borderRadius:"12px",padding:"1rem",marginBottom:"1rem",border:"1px solid #BBF7D0"}}>
-                <div style={{fontSize:".85rem",fontWeight:700,color:"#166534",marginBottom:".6rem"}}>{editingSection ? "تعديل الشعبة" : "إضافة شعبة جديدة"}</div>
+              <div style={{background:"rgba(16,185,129,0.07)",borderRadius:"var(--radius-md)",padding:"1rem",marginBottom:"1rem",border:"1px solid rgba(16,185,129,0.20)"}}>
+                <div style={{fontSize:".85rem",fontWeight:700,color:"var(--success)",marginBottom:".6rem"}}>{editingSection ? "تعديل الشعبة" : "إضافة شعبة جديدة"}</div>
                 <div className="form-grid">
                   <div className="form-group">
                     <label className="form-label">الصف <span>*</span></label>
@@ -1210,20 +1230,20 @@ export default function DashboardPage() {
                     <input className="form-input" value={sectionForm.name} onChange={e=>setSectionForm({...sectionForm,name:e.target.value})} placeholder="مثال: أ"/>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:".5rem",justifyContent:"flex-end",marginTop:".8rem"}}>
-                  <button className="btn-cancel" onClick={()=>{setEditingSection(null);setSectionForm({class_id:"",name:""});setShowSectionForm(false);}}>إلغاء</button>
-                  <button className="btn-save" onClick={handleSaveSection}>{editingSection ? "حفظ التعديلات" : "إضافة شعبة"}</button>
+                <div className="flex gap-2 justify-end mt-3">
+                  <button className="ui-button ui-button--secondary" style={{fontSize:".8rem",height:"2.1rem",padding:"0 .875rem"}} onClick={()=>{setEditingSection(null);setSectionForm({class_id:"",name:""});setShowSectionForm(false);}}>إلغاء</button>
+                  <button className="ui-button ui-button--primary" style={{fontSize:".8rem",height:"2.1rem",padding:"0 .875rem"}} onClick={handleSaveSection}>{editingSection ? "حفظ التعديلات" : "إضافة شعبة"}</button>
                 </div>
               </div>
             )}
-            <div style={{background:"white",borderRadius:"12px",padding:"1rem",border:"1px solid rgba(108,74,182,0.1)"}}>
-              <div style={{fontSize:".85rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الصفوف الدراسية</div>
+            <div style={{background:"var(--surface-strong)",borderRadius:"var(--radius-md)",padding:"1rem",border:"1px solid var(--border)"}}>
+              <div style={{fontSize:".85rem",fontWeight:700,color:"var(--text-primary)",marginBottom:".6rem"}}>الصفوف الدراسية</div>
               {classes.length === 0 ? (
-                <div style={{textAlign:"center",color:"var(--gray)",padding:"2rem",fontSize:".8rem"}}>لا توجد صفوف مضافة</div>
+                <div style={{textAlign:"center",color:"var(--text-tertiary)",padding:"2rem",fontSize:".8rem"}}>لا توجد صفوف مضافة</div>
               ) : (
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:".78rem"}}>
                   <thead>
-                    <tr style={{background:"#EDE8FA",color:"var(--p2)"}}>
+                    <tr style={{background:"var(--primary-subtle)",color:"var(--primary)"}}>
                       <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>الصف</th>
                       <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>عدد الشعب</th>
                       <th style={{padding:".5rem",textAlign:"center",fontWeight:800}}>الإجراءات</th>
@@ -1233,12 +1253,12 @@ export default function DashboardPage() {
                     {classes.map(cls => {
                       const clsSections = sections.filter(s => s.class_id === cls.id);
                       return (
-                        <tr key={cls.id} style={{borderBottom:"1px solid rgba(108,74,182,0.05)"}}>
+                        <tr key={cls.id} style={{borderBottom:"1px solid var(--border)"}}>
                           <td style={{padding:".5rem",fontWeight:600}}>{cls.name}</td>
                           <td style={{padding:".5rem"}}>{clsSections.length} شعبة</td>
                           <td style={{padding:".5rem",textAlign:"center"}}>
-                            <button className="action-btn edit-btn" onClick={()=>{setEditingClass(cls);setClassForm({name:cls.name,sections:clsSections.map(s=>s.name)});setShowClassForm(true);setShowSectionForm(false);}}>تعديل</button>
-                            <button className="action-btn del-btn" onClick={()=>handleDeleteClass(cls.id)} style={{marginLeft:".3rem"}}>حذف</button>
+                            <button className="ui-button ui-button--secondary" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem",marginInlineEnd:".25rem"}} onClick={()=>{setEditingClass(cls);setClassForm({name:cls.name,sections:clsSections.map(s=>s.name)});setShowClassForm(true);setShowSectionForm(false);}}>تعديل</button>
+                            <button className="ui-button ui-button--danger" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem"}} onClick={()=>handleDeleteClass(cls.id)}>حذف</button>
                           </td>
                         </tr>
                       );
@@ -1250,14 +1270,14 @@ export default function DashboardPage() {
 
             {/* جدول الشعب */}
             {showSectionsTable && (
-              <div style={{background:"white",borderRadius:"12px",padding:"1rem",marginTop:"1rem",border:"1px solid rgba(108,74,182,0.1)"}}>
-                <div style={{fontSize:".85rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الشعب الدراسية</div>
+              <div style={{background:"var(--surface-strong)",borderRadius:"var(--radius-md)",padding:"1rem",marginTop:"1rem",border:"1px solid var(--border)"}}>
+                <div style={{fontSize:".85rem",fontWeight:700,color:"var(--text-primary)",marginBottom:".6rem"}}>الشعب الدراسية</div>
                 {sections.length === 0 ? (
-                  <div style={{textAlign:"center",color:"var(--gray)",padding:"2rem",fontSize:".8rem"}}>لا توجد شعب مضافة</div>
+                  <div style={{textAlign:"center",color:"var(--text-tertiary)",padding:"2rem",fontSize:".8rem"}}>لا توجد شعب مضافة</div>
                 ) : (
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:".78rem"}}>
                     <thead>
-                      <tr style={{background:"#EDE8FA",color:"var(--p2)"}}>
+                      <tr style={{background:"var(--primary-subtle)",color:"var(--primary)"}}>
                         <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>الشعبة</th>
                         <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>الصف</th>
                         <th style={{padding:".5rem",textAlign:"center",fontWeight:800}}>الإجراءات</th>
@@ -1267,12 +1287,12 @@ export default function DashboardPage() {
                       {sections.map(sec => {
                         const cls = classes.find(c => c.id === sec.class_id);
                         return (
-                          <tr key={sec.id} style={{borderBottom:"1px solid rgba(108,74,182,0.05)"}}>
+                          <tr key={sec.id} style={{borderBottom:"1px solid var(--border)"}}>
                             <td style={{padding:".5rem",fontWeight:600}}>{sec.name}</td>
                             <td style={{padding:".5rem"}}>{cls?.name || "—"}</td>
                             <td style={{padding:".5rem",textAlign:"center"}}>
-                              <button className="action-btn edit-btn" onClick={()=>{setEditingSection(sec);setSectionForm({class_id:sec.class_id,name:sec.name});setShowSectionForm(true);setShowClassForm(false);}}>تعديل</button>
-                              <button className="action-btn del-btn" onClick={()=>handleDeleteSection(sec.id)} style={{marginLeft:".3rem"}}>حذف</button>
+                              <button className="ui-button ui-button--secondary" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem",marginInlineEnd:".25rem"}} onClick={()=>{setEditingSection(sec);setSectionForm({class_id:sec.class_id,name:sec.name});setShowSectionForm(true);setShowClassForm(false);}}>تعديل</button>
+                              <button className="ui-button ui-button--danger" style={{fontSize:".72rem",height:"1.75rem",padding:"0 .6rem"}} onClick={()=>handleDeleteSection(sec.id)}>حذف</button>
                             </td>
                           </tr>
                         );
@@ -1285,7 +1305,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="modal-actions">
-            <button className="btn-cancel" onClick={() => { setShowClassesModal(false); setEditingClass(null); setClassForm({name:"",sections:[""]}); setShowClassForm(false); setShowSectionForm(false); setEditingSection(null); setSectionForm({class_id:"",name:""}); }}>
+            <button className="ui-button ui-button--secondary" onClick={() => { setShowClassesModal(false); setEditingClass(null); setClassForm({name:"",sections:[""]}); setShowClassForm(false); setShowSectionForm(false); setEditingSection(null); setSectionForm({class_id:"",name:""}); }}>
               إغلاق
             </button>
           </div>
@@ -1299,8 +1319,8 @@ export default function DashboardPage() {
     {showFeeModal && (
       <div className="modal-overlay" onClick={e => { if(e.target===e.currentTarget){setShowFeeModal(false);setEditingFee(null);} }}>
         <div className="modal-box">
-          <div className="modal-title">
-            <AppIcon token={editingFee ? "✏️" : "💰"} size={18} />
+          <div className="modal-header">
+            <AppIcon token={editingFee ? "reports" : "payments"} size={18} />
             {editingFee ? `تعديل قسط: ${editingFee.class_name}` : "إضافة قسط دراسي"}
           </div>
 
@@ -1315,7 +1335,7 @@ export default function DashboardPage() {
                 onChange={e => setFeeForm(f=>({...f,class_name:e.target.value}))}
                 disabled={!!editingFee}
               />
-              {editingFee && <span style={{fontSize:".67rem",color:"var(--gray)"}}>لا يمكن تغيير اسم الصف عند التعديل</span>}
+              {editingFee && <span style={{fontSize:".67rem",color:"var(--text-tertiary)"}}>لا يمكن تغيير اسم الصف عند التعديل</span>}
             </div>
 
             {/* المبلغ الكلي */}
@@ -1363,7 +1383,7 @@ export default function DashboardPage() {
                 <div className="ip-label">قيمة القسط الواحد</div>
                 <div className="ip-sub">المبلغ الكلي ÷ {feeForm.installments} أقساط</div>
               </div>
-              <div style={{textAlign:"left"}}>
+              <div style={{textAlign:"end"}}>
                 <div className="ip-val">د.ع {formatNumber(Math.round(Number(feeForm.total_fee) / parseInt(feeForm.installments)))}</div>
                 <div className="ip-sub">لكل قسط</div>
               </div>
@@ -1375,9 +1395,9 @@ export default function DashboardPage() {
             const linked = studentCountByClass[feeForm.class_name.trim()] ?? 0;
             if (linked === 0) return null;
             return (
-              <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:9,padding:".6rem .9rem",marginBottom:".8rem",fontSize:".75rem",color:"#166534"}}>
+              <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.20)",borderRadius:"var(--radius-md)",padding:".6rem .9rem",marginBottom:".8rem",fontSize:".75rem",color:"var(--success)"}}>
                 <strong style={{display:"inline-flex",alignItems:"center",gap:".3rem"}}>
-                  <AppIcon token="🔗" size={13} />
+                  <AppIcon token="students" size={13} />
                   مرتبط بـ {linked} طالب
                 </strong>{" "}
                 في هذا الصف
@@ -1385,14 +1405,14 @@ export default function DashboardPage() {
             );
           })()}
 
-          {feeError && <div className="msg-error" style={{display:"flex",alignItems:"center",gap:".35rem"}}><AppIcon token="⚠️" size={14} /> {feeError}</div>}
+          {feeError && <div className="msg-error"><AppIcon token="reports" size={14} /> {feeError}</div>}
           {feeSuccess && <div className="msg-success">{feeSuccess}</div>}
 
           <div className="modal-actions">
-            <button className="btn-cancel" onClick={() => { setShowFeeModal(false); setEditingFee(null); setFeeError(""); setFeeSuccess(""); }}>
+            <button className="ui-button ui-button--secondary" onClick={() => { setShowFeeModal(false); setEditingFee(null); setFeeError(""); setFeeSuccess(""); }}>
               إلغاء
             </button>
-            <button className="btn-save" onClick={handleSaveFee} disabled={feeLoading}>
+            <button className="ui-button ui-button--primary" onClick={handleSaveFee} disabled={feeLoading}>
               {feeLoading ? "جارٍ الحفظ..." : editingFee ? "حفظ التعديلات" : "إضافة القسط"}
             </button>
           </div>

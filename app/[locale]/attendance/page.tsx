@@ -455,10 +455,10 @@ export default function AttendancePage() {
         }
       `}</style>
 
-      <div className="layout">
+      <div className="app-layout">
         <AppSidebar currentPath="/attendance" />
 
-        <div className="main">
+        <div className="app-main">
           <AppShellTopbar
             title="الحضور اليومي"
             subtitle="سجّل الحضور وحدّثه حسب التاريخ والصف والشعبة"
