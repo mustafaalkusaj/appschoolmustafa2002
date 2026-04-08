@@ -11,6 +11,7 @@ import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import shellStyles from "../dashboard/dashboard-redesign.module.css";
 
 export default function PaymentsPage() {
   const { profile } = useRole();
@@ -376,7 +377,7 @@ export default function PaymentsPage() {
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(
-      `<html dir="rtl"><head><title>إيصال</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem;max-width:420px;margin:auto}h2{color:#4C2F9E;text-align:center}hr{border:1px dashed #ddd;margin:1rem 0}.row{display:flex;justify-content:space-between;margin:.5rem 0;font-size:.9rem}.label{color:#666}.val{font-weight:700}.amount{text-align:center;font-size:1.6rem;font-weight:900;color:#4C2F9E;margin:1rem 0;padding:1rem;background:#F0EEFF;border-radius:12px}.footer{text-align:center;color:#999;font-size:.75rem;margin-top:1.5rem}</style></head><body><h2>نظام إدارة المدرسة</h2><p style="text-align:center;color:#888;font-size:.8rem">رقم الإيصال: <strong>${p.receipt_number || "—"}</strong></p><hr/><div class="row"><span class="label">اسم الطالب:</span><span class="val">${student?.full_name || "—"}</span></div><div class="row"><span class="label">الصف:</span><span class="val">${student?.class_name || "—"}</span></div><div class="row"><span class="label">طريقة الدفع:</span><span class="val">${{ cash: "نقداً", bank_transfer: "تحويل بنكي", check: "شيك" }[p.payment_method as string] || p.payment_method}</span></div><div class="row"><span class="label">التاريخ:</span><span class="val">${formatDate(p.created_at)}</span></div><hr/><div class="amount">د.ع ${formatNumber(p.amount)}</div><hr/>${p.notes ? `<div class="row"><span class="label">ملاحظات:</span><span class="val">${p.notes}</span></div>` : ""}<div class="footer">شكراً لكم</div><script>window.print();window.close();</script></body></html>`,
+      `<html dir="rtl"><head><title>إيصال</title><style>body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:2rem;max-width:420px;margin:auto}h2{color:#0F5D91;text-align:center}hr{border:1px dashed #ddd;margin:1rem 0}.row{display:flex;justify-content:space-between;margin:.5rem 0;font-size:.9rem}.label{color:#666}.val{font-weight:700}.amount{text-align:center;font-size:1.6rem;font-weight:900;color:#0F5D91;margin:1rem 0;padding:1rem;background:#EEF8FF;border-radius:12px}.footer{text-align:center;color:#999;font-size:.75rem;margin-top:1.5rem}</style></head><body><h2>نظام إدارة المدرسة</h2><p style="text-align:center;color:#888;font-size:.8rem">رقم الإيصال: <strong>${p.receipt_number || "—"}</strong></p><hr/><div class="row"><span class="label">اسم الطالب:</span><span class="val">${student?.full_name || "—"}</span></div><div class="row"><span class="label">الصف:</span><span class="val">${student?.class_name || "—"}</span></div><div class="row"><span class="label">طريقة الدفع:</span><span class="val">${{ cash: "نقداً", bank_transfer: "تحويل بنكي", check: "شيك" }[p.payment_method as string] || p.payment_method}</span></div><div class="row"><span class="label">التاريخ:</span><span class="val">${formatDate(p.created_at)}</span></div><hr/><div class="amount">د.ع ${formatNumber(p.amount)}</div><hr/>${p.notes ? `<div class="row"><span class="label">ملاحظات:</span><span class="val">${p.notes}</span></div>` : ""}<div class="footer">شكراً لكم</div><script>window.print();window.close();</script></body></html>`,
     );
   }
 
@@ -455,79 +456,84 @@ export default function PaymentsPage() {
     { id: "suspended", label: "فواتير الموقوفين" },
     { id: "deleted", label: "الفواتير المحذوفة" },
   ];
+  const currentSchoolName = schoolScope.selectedSchool?.name || profile?.school?.name || "المدرسة الحالية";
+  const activeStudentsCount = students.filter((student) => student.status !== "deleted").length;
+  const totalFeesAmount = students.filter((student) => student.status !== "deleted").reduce((sum, student) => sum + student.total_fee, 0);
+  const totalPaidAmount = students.filter((student) => student.status !== "deleted").reduce((sum, student) => sum + student.paid_fee, 0);
+  const totalRemainingAmount = students.filter((student) => student.status !== "deleted").reduce((sum, student) => sum + student.remaining_fee, 0);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
       <>
         <style>{`
           *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-          :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
-          body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
+          :root{--p2:#0F5D91;--p3:#1689C9;--p4:#69D5FF;--bg:#F5FBFF;--dark:#0F2740;--gray:#64748B;}
+          body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:linear-gradient(180deg,#FFFFFF 0%,#F5FBFF 100%);color:var(--dark)}
           .layout{display:flex;height:100vh}
-          .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
+          .sidebar{width:200px;background:linear-gradient(180deg,#FFFFFF,#F8FAFC);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(15,23,42,0.08);flex-shrink:0}
           .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
           .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p3),var(--p4));display:flex;align-items:center;justify-content:center}
           .logo-ico svg{width:18px;height:18px;fill:white}
           .logo span{font-size:.88rem;font-weight:800;color:var(--p2)}
           .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:var(--p2);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-          .nav:hover{background:rgba(108,74,182,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
+          .nav:hover{background:rgba(22,137,201,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
           .nav.danger{color:#EF4444}.nav.danger:hover{background:#FEE2E2}
-          .sep{height:1px;background:rgba(108,74,182,0.12);margin:.4rem 0}
+          .sep{height:1px;background:rgba(22,137,201,0.12);margin:.4rem 0}
           .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-          .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
+          .topbar{background:rgba(255,255,255,.9);padding:.9rem 1.2rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(15,23,42,0.08);flex-shrink:0}
           .topbar-title{font-size:.95rem;font-weight:800}.topbar-sub{font-size:.7rem;color:var(--gray)}
-          .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
+          .content{flex:1;overflow-y:auto;padding:1.25rem}
 
           /* STATS */
-          .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1rem}
-          .sc{background:white;border-radius:12px;padding:.8rem 1rem;border:1px solid rgba(108,74,182,0.06);box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-          .sc-label{font-size:.7rem;color:var(--gray);font-weight:500}.sc-val{font-size:.95rem;font-weight:800;margin-top:.1rem}
+          .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
+          .sc{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.96));border-radius:28px;padding:1.05rem 1.1rem;border:1px solid rgba(15,23,42,0.08);box-shadow:0 18px 38px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,.72);min-height:116px}
+          .sc-label{font-size:.73rem;color:var(--gray);font-weight:800}.sc-val{font-size:1.18rem;font-weight:900;margin-top:.45rem;line-height:1.35}
 
           /* OPERATIONS */
-          .ops-section{background:white;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-          .ops-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem}
-          .ops-title{font-size:.88rem;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:.4rem}
+          .ops-section{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.94));border-radius:30px;padding:1.15rem 1.2rem;margin-bottom:1rem;box-shadow:0 18px 38px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,.72);border:1px solid rgba(15,23,42,0.08)}
+          .ops-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+          .ops-title{font-size:.98rem;font-weight:900;color:var(--dark);display:flex;align-items:center;gap:.45rem}
           .ops-actions{display:flex;gap:.6rem}
-          .quick-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
-          .qf-btn{padding:.35rem .8rem;border-radius:20px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;border:1.5px solid rgba(108,74,182,0.2);background:white;color:var(--p2);transition:all .2s}
-          .qf-btn:hover{background:#EDE8FA}
-          .qf-btn.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border-color:transparent;box-shadow:0 3px 10px rgba(108,74,182,0.3)}
+          .quick-filters{display:flex;flex-wrap:wrap;gap:.55rem;margin-bottom:1rem}
+          .qf-btn{display:inline-flex;align-items:center;gap:.35rem;min-height:40px;padding:.42rem .9rem;border-radius:999px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:800;cursor:pointer;border:1px solid rgba(15,23,42,0.08);background:rgba(255,255,255,.92);color:var(--p2);transition:all .2s;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+          .qf-btn:hover{transform:translateY(-1px);border-color:rgba(22,137,201,.18);background:rgba(22,137,201,.06)}
+          .qf-btn.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white;border-color:transparent;box-shadow:0 14px 28px rgba(22,137,201,.24)}
 
           /* ADVANCED FILTERS */
-          .adv-filters{background:#F8F6FF;border-radius:11px;padding:.9rem 1rem}
-          .adv-title{font-size:.78rem;font-weight:700;color:var(--p2);margin-bottom:.7rem;display:flex;align-items:center;gap:.3rem}
-          .adv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:.6rem}
+          .adv-filters{background:rgba(248,250,252,.96);border:1px solid rgba(15,23,42,0.06);border-radius:24px;padding:1rem 1.05rem}
+          .adv-title{font-size:.8rem;font-weight:800;color:var(--p2);margin-bottom:.8rem;display:flex;align-items:center;gap:.35rem}
+          .adv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:.7rem}
           .adv-grid2{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.7rem}
           .af-item{display:flex;flex-direction:column;gap:.25rem}
           .af-label{font-size:.7rem;font-weight:600;color:var(--gray)}
-          .af-input{padding:.5rem .7rem;background:white;border:1.5px solid rgba(108,74,182,0.12);border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.78rem;direction:rtl;outline:none;color:var(--dark)}
-          .af-input:focus{border-color:var(--p3)}
+          .af-input{padding:.72rem .82rem;background:white;border:1px solid rgba(15,23,42,0.08);border-radius:16px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.78rem;direction:rtl;outline:none;color:var(--dark);box-shadow:inset 0 1px 0 rgba(255,255,255,.66)}
+          .af-input:focus{border-color:rgba(22,137,201,.34);box-shadow:0 0 0 4px rgba(22,137,201,.10), inset 0 1px 0 rgba(255,255,255,.66)}
 
           /* TOOLBAR */
-          .toolbar{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
+          .toolbar{display:flex;align-items:center;justify-content:space-between;gap:.9rem;margin-bottom:1rem;padding:1rem 1.05rem;border:1px solid rgba(15,23,42,0.08);border-radius:26px;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.94));box-shadow:0 16px 34px rgba(15,23,42,.06), inset 0 1px 0 rgba(255,255,255,.72);flex-wrap:wrap}
           .srch{position:relative;flex:1}
           .srch svg{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--gray)}
-          .srch input{width:100%;padding:.55rem 2.1rem .55rem .8rem;background:white;border:1px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
-          .srch input:focus{border-color:var(--p3)}
-          .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
-          .btn-export{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
+          .srch input{width:100%;padding:.78rem 2.5rem .78rem .95rem;background:white;border:1px solid rgba(15,23,42,0.08);border-radius:18px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.66)}
+          .srch input:focus{border-color:rgba(22,137,201,.34);box-shadow:0 0 0 4px rgba(22,137,201,.10), inset 0 1px 0 rgba(255,255,255,.66)}
+          .btn-add{display:flex;align-items:center;gap:.45rem;padding:.72rem 1.05rem;background:linear-gradient(135deg,var(--p3),var(--p4));color:white;border:none;border-radius:16px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 14px 26px rgba(22,137,201,.24)}
+          .btn-export{display:flex;align-items:center;gap:.45rem;padding:.72rem 1rem;background:#F6FBF8;color:#0F7A4D;border:1px solid rgba(15,122,77,.14);border-radius:16px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;white-space:nowrap}
 
           /* TABLE */
-          .tbl-wrap{background:white;border-radius:13px;border:1px solid rgba(108,74,182,0.06);overflow:hidden;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+          .tbl-wrap{background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(248,250,252,.95));border-radius:30px;border:1px solid rgba(15,23,42,0.08);overflow:hidden;box-shadow:0 18px 38px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.72)}
           table{width:100%;border-collapse:collapse}
-          thead{background:#F8F6FF}
-          th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(108,74,182,0.08)}
-          td{padding:.6rem .9rem;font-size:.78rem;border-bottom:1px solid rgba(108,74,182,0.04)}
+          thead{background:#F8FAFC}
+          th{padding:.88rem 1rem;font-size:.72rem;font-weight:800;color:#64748B;text-align:right;border-bottom:1px solid rgba(15,23,42,0.08)}
+          td{padding:.92rem 1rem;font-size:.8rem;border-bottom:1px solid rgba(15,23,42,0.05)}
           tr:last-child td{border-bottom:none}
-          tr:hover td{background:#FAFAFE}
-          .student-link{font-weight:700;color:var(--p2);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+          tr:hover td{background:#FAFCFF}
+          .student-link{font-weight:800;color:var(--p3);cursor:pointer;text-decoration:none;border-bottom:1px solid rgba(22,137,201,.24)}
           .student-link:hover{color:var(--p3)}
           .badge{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.66rem;font-weight:700}
-          .btn-pay{width:30px;height:30px;background:linear-gradient(135deg,#10B981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;font-weight:700;transition:transform .15s}
+          .btn-pay{width:34px;height:34px;background:linear-gradient(135deg,#10B981,#059669);color:white;border:none;border-radius:12px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;font-weight:700;transition:transform .15s;box-shadow:0 10px 20px rgba(5,150,105,.2)}
           .btn-pay:hover{transform:scale(1.1)}
-          .btn-print-sm{width:28px;height:28px;background:#EDE8FA;color:var(--p3);border:none;border-radius:7px;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+          .btn-print-sm{width:32px;height:32px;background:#F8FAFC;color:var(--p3);border:1px solid rgba(15,23,42,.08);border-radius:12px;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center}
           .empty{text-align:center;padding:3rem;color:var(--gray);font-size:.85rem}
-          .spin{width:22px;height:22px;border:3px solid rgba(108,74,182,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
+          .spin{width:22px;height:22px;border:3px solid rgba(22,137,201,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
           @keyframes sp{to{transform:rotate(360deg)}}
           .progress-bar{background:#E5E7EB;border-radius:20px;height:6px;overflow:hidden;margin-top:.3rem}
           .progress-fill{height:100%;border-radius:20px}
@@ -542,12 +548,12 @@ export default function PaymentsPage() {
           .detail-title{font-size:1.1rem;font-weight:900}
           .detail-close{width:34px;height:34px;border-radius:9px;background:#F3F4F6;border:none;cursor:pointer;font-size:1.1rem}
           .detail-cards{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem}
-          .detail-card{background:#F8F6FF;border-radius:12px;padding:1rem}
+          .detail-card{background:#F6FBFF;border-radius:12px;padding:1rem}
           .detail-card-title{font-size:.78rem;font-weight:700;color:var(--p2);margin-bottom:.6rem}
           .detail-row{display:flex;justify-content:space-between;font-size:.8rem;margin:.25rem 0}
           .detail-label{color:var(--gray)}.detail-val{font-weight:700}
-          .pay-row{background:#F8F6FF;border-radius:12px;padding:.9rem 1rem;margin-bottom:.6rem;border:1.5px solid rgba(108,74,182,0.07);transition:border-color .2s}
-          .pay-row:hover{border-color:rgba(108,74,182,0.2)}
+          .pay-row{background:#F6FBFF;border-radius:12px;padding:.9rem 1rem;margin-bottom:.6rem;border:1.5px solid rgba(22,137,201,0.07);transition:border-color .2s}
+          .pay-row:hover{border-color:rgba(22,137,201,0.2)}
           .pay-row:last-child{margin-bottom:0}
           .pay-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem}
           .pay-num{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--p3),var(--p4));color:white;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;flex-shrink:0}
@@ -558,7 +564,7 @@ export default function PaymentsPage() {
           .pay-field-label{font-size:.65rem;color:var(--gray);font-weight:600}
           .pay-field-val{font-size:.76rem;font-weight:700;color:var(--dark)}
           .pay-field-val.receipt-e{color:var(--p3);font-family:monospace;font-size:.72rem}
-          .pay-method-badge{display:inline-flex;align-items:center;gap:.25rem;background:#EDE8FA;color:var(--p3);border-radius:6px;padding:.15rem .5rem;font-size:.65rem;font-weight:700}
+          .pay-method-badge{display:inline-flex;align-items:center;gap:.25rem;background:#E6F6FF;color:var(--p3);border-radius:6px;padding:.15rem .5rem;font-size:.65rem;font-weight:700}
           .pay-actions{display:flex;gap:.4rem;align-items:center}
           .btn-del-sm{padding:.28rem .6rem;background:#FEE2E2;color:#991B1B;border:none;border-radius:6px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.68rem;font-weight:600;cursor:pointer}
 
@@ -571,10 +577,10 @@ export default function PaymentsPage() {
           .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
           .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
           .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-          .fis{padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
+          .fis{padding:.65rem .85rem;background:#F6FBFF;border:1.5px solid rgba(22,137,201,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
           .fis:focus{border-color:var(--p3);background:white}
-          .receipt-auto{background:#EDE8FA;border-radius:10px;padding:.65rem 1rem;font-size:.85rem;font-weight:800;color:var(--p2);text-align:center}
-          .student-info-box{background:#F0EEFF;border-radius:10px;padding:.8rem 1rem}
+          .receipt-auto{background:#E6F6FF;border-radius:10px;padding:.65rem 1rem;font-size:.85rem;font-weight:800;color:var(--p2);text-align:center}
+          .student-info-box{background:#EEF8FF;border-radius:10px;padding:.8rem 1rem}
           .si-row{display:flex;justify-content:space-between;font-size:.8rem;margin:.2rem 0}
           .si-label{color:var(--gray)}.si-val{font-weight:700}
           .fa{display:flex;gap:.7rem;margin-top:1.1rem}
@@ -582,49 +588,49 @@ export default function PaymentsPage() {
           .bs:disabled{opacity:.65;cursor:not-allowed}
           .bc{padding:.75rem 1.2rem;background:#F3F4F6;color:var(--gray);border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:600;cursor:pointer}
           .search-wrap{position:relative}
-          .search-input{width:100%;padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none}
+          .search-input{width:100%;padding:.65rem .85rem;background:#F6FBFF;border:1.5px solid rgba(22,137,201,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none}
           .search-input:focus{border-color:var(--p3);background:white}
           .search-input.selected{border-color:#10B981;background:#F0FDF4}
-          .dropdown{position:absolute;top:calc(100% + 4px);right:0;left:0;background:white;border:1px solid rgba(108,74,182,0.15);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);z-index:300;max-height:220px;overflow-y:auto}
-          .dropdown-item{padding:.62rem 1rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid rgba(108,74,182,0.05)}
-          .dropdown-item:hover{background:#F0EEFF}
+          .dropdown{position:absolute;top:calc(100% + 4px);right:0;left:0;background:white;border:1px solid rgba(22,137,201,0.15);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);z-index:300;max-height:220px;overflow-y:auto}
+          .dropdown-item{padding:.62rem 1rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid rgba(22,137,201,0.05)}
+          .dropdown-item:hover{background:#EEF8FF}
           .d-name{font-weight:700}.d-meta{display:flex;justify-content:space-between;margin-top:.1rem}
           .d-cls{color:var(--gray);font-size:.73rem}.d-rem{color:#EF4444;font-size:.73rem;font-weight:600}
-          .archive-box{background:white;border-radius:14px;padding:1.1rem 1.3rem;margin-top:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+          .archive-box{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.94));border-radius:30px;padding:1.15rem 1.2rem;margin-top:1rem;box-shadow:0 18px 38px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.72);border:1px solid rgba(15,23,42,.08)}
           .archive-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.9rem}
           .archive-ttl{font-size:.88rem;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:.4rem}
           .archive-note{font-size:.75rem;color:var(--gray);margin-bottom:.8rem}
           .archive-controls{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
-          .archive-select{padding:.55rem .8rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--dark);min-width:140px}
+          .archive-select{padding:.55rem .8rem;background:#F6FBFF;border:1.5px solid rgba(22,137,201,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--dark);min-width:140px}
           .archive-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.7rem}
-          .arch-card{background:#F8F6FF;border:1px solid rgba(108,74,182,0.08);border-radius:12px;padding:.9rem 1rem}
+          .arch-card{background:#F6FBFF;border:1px solid rgba(22,137,201,0.08);border-radius:12px;padding:.9rem 1rem}
           .arch-year{font-size:.9rem;font-weight:800;color:var(--p2);margin-bottom:.25rem}
           .arch-info{font-size:.73rem;color:var(--gray);line-height:1.7}
           .arch-amount{font-size:.95rem;font-weight:900;color:#10B981;margin-top:.45rem}
           .archive-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin-bottom:.9rem}
-          .archive-stat{background:#F8F6FF;border:1px solid rgba(108,74,182,0.08);border-radius:12px;padding:.85rem 1rem}
+          .archive-stat{background:#F6FBFF;border:1px solid rgba(22,137,201,0.08);border-radius:12px;padding:.85rem 1rem}
           .archive-stat-label{font-size:.72rem;color:var(--gray);margin-bottom:.25rem}
           .archive-stat-value{font-size:.95rem;font-weight:900;color:var(--dark)}
           .arch-actions{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.75rem}
           .arch-btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;padding:.45rem .75rem;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.74rem;font-weight:700;cursor:pointer}
           .arch-btn.primary{background:linear-gradient(135deg,var(--p3),var(--p2));color:white}
-          .arch-btn.soft{background:white;color:var(--p2);border:1px solid rgba(108,74,182,0.16)}
+          .arch-btn.soft{background:white;color:var(--p2);border:1px solid rgba(22,137,201,0.16)}
           .archive-detail-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:220;padding:1rem;backdrop-filter:blur(4px)}
           .archive-detail-modal{width:min(1120px,100%);max-height:92vh;overflow:auto;background:white;border-radius:22px;box-shadow:0 28px 70px rgba(15,23,42,.28)}
-          .archive-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.25rem 1.35rem;border-bottom:1px solid rgba(108,74,182,0.08)}
+          .archive-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.25rem 1.35rem;border-bottom:1px solid rgba(22,137,201,0.08)}
           .archive-detail-title{font-size:1.05rem;font-weight:900;color:var(--dark)}
           .archive-detail-sub{font-size:.76rem;color:var(--gray);margin-top:.3rem}
           .archive-detail-actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}
           .archive-detail-body{padding:1.15rem 1.35rem 1.35rem}
           .archive-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
-          .archive-kpi{background:#F8F6FF;border:1px solid rgba(108,74,182,0.08);border-radius:14px;padding:.95rem 1rem}
+          .archive-kpi{background:#F6FBFF;border:1px solid rgba(22,137,201,0.08);border-radius:14px;padding:.95rem 1rem}
           .archive-kpi-label{font-size:.72rem;color:var(--gray);margin-bottom:.2rem}
           .archive-kpi-value{font-size:.98rem;font-weight:900;color:var(--dark)}
-          .archive-section{background:#FCFBFF;border:1px solid rgba(108,74,182,0.08);border-radius:16px;padding:1rem 1rem 1.1rem;margin-bottom:.9rem}
+          .archive-section{background:#FCFBFF;border:1px solid rgba(22,137,201,0.08);border-radius:16px;padding:1rem 1rem 1.1rem;margin-bottom:.9rem}
           .archive-section-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
           .archive-section-title{font-size:.85rem;font-weight:800;color:var(--dark);display:inline-flex;align-items:center;gap:.35rem}
           .archive-section-sub{font-size:.72rem;color:var(--gray)}
-          .archive-table-wrap{border:1px solid rgba(108,74,182,0.08);border-radius:12px;overflow:hidden;background:white}
+          .archive-table-wrap{border:1px solid rgba(22,137,201,0.08);border-radius:12px;overflow:hidden;background:white}
           .archive-empty{padding:1.6rem;text-align:center;color:var(--gray);font-size:.8rem}
           @media (max-width:1100px){.archive-kpis,.archive-stats{grid-template-columns:repeat(2,1fr)}}
           @media (max-width:780px){
@@ -635,17 +641,30 @@ export default function PaymentsPage() {
           }
         `}</style>
 
-        <div className="layout">
-          <AppSidebar currentPath="/payments" />
+        <div className={`layout ${shellStyles.dashboardLayout}`}>
+          <AppSidebar
+            currentPath="/payments"
+            containerClassName={`sidebar ${shellStyles.dashboardSidebar}`}
+            navClassName={`nav ${shellStyles.dashboardNav}`}
+            separatorClassName={`sep ${shellStyles.dashboardSeparator}`}
+          />
 
-          <div className="main">
-            <div className="topbar">
+          <div className={`main ${shellStyles.dashboardMain}`}>
+            <div className={`topbar ${shellStyles.dashboardTopbar}`}>
               <div>
-                <div className="topbar-title">فواتير الطلاب</div>
-                <div className="topbar-sub">{students.filter((s) => s.status !== "deleted").length} طالباً مسجلاً</div>
+                <div className={shellStyles.sectionEyebrow}>تحصيل الرسوم</div>
+                <div className="topbar-title">الحسابات والدفعات</div>
+                <div className="topbar-sub">
+                  راقب الرسوم والأرصدة المنتهية، وادِر تحصيل الدفعات اليومية من مساحة واحدة أكثر سرعة للفريق المالي.
+                </div>
+              </div>
+              <div className={shellStyles.topbarMeta}>
+                <div className={`ui-pill ${shellStyles.topbarChip}`}>{currentSchoolName}</div>
+                <div className={`ui-pill ${shellStyles.topbarChip}`}>{formatNumber(activeStudentsCount)} طالب</div>
+                <div className={`ui-pill ${shellStyles.topbarChip}`}>د.ع {formatNumber(totalRemainingAmount)} متبقٍ</div>
               </div>
             </div>
-            <div className="content">
+            <div className={`content ${shellStyles.dashboardContent}`}>
               {success && <div className="ok">{success}</div>}
               <SchoolScopeBanner scope={schoolScope} />
               {schoolScope.shouldBlockContent ? (
@@ -660,12 +679,12 @@ export default function PaymentsPage() {
                   <div className="stats">
                     {(
                       [
-                        ["إجمالي الرسوم", `د.ع ${formatNumber(students.filter((s) => s.status !== "deleted").reduce((a, s) => a + s.total_fee, 0))}`],
-                        ["إجمالي المدفوع", `د.ع ${formatNumber(students.filter((s) => s.status !== "deleted").reduce((a, s) => a + s.paid_fee, 0))}`],
-                        ["إجمالي المتبقي", `د.ع ${formatNumber(students.filter((s) => s.status !== "deleted").reduce((a, s) => a + s.remaining_fee, 0))}`],
+                        ["إجمالي الرسوم", `د.ع ${formatNumber(totalFeesAmount)}`],
+                        ["إجمالي المدفوع", `د.ع ${formatNumber(totalPaidAmount)}`],
+                        ["إجمالي المتبقي", `د.ع ${formatNumber(totalRemainingAmount)}`],
                         [
                           "المسددة بالكامل",
-                          `${formatNumber(students.filter((s) => s.remaining_fee <= 0 && s.total_fee > 0).length)} / ${formatNumber(students.filter((s) => s.status !== "deleted").length)}`,
+                          `${formatNumber(students.filter((s) => s.remaining_fee <= 0 && s.total_fee > 0).length)} / ${formatNumber(activeStudentsCount)}`,
                         ],
                       ] as any[]
                     ).map(([l, v]: any, i: number) => (
@@ -816,7 +835,7 @@ export default function PaymentsPage() {
                               <div className="progress-bar">
                                 <div
                                   className="progress-fill"
-                                  style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#6C4AB6" }}
+                                  style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#1689C9" }}
                                 />
                               </div>
                             </td>
@@ -992,7 +1011,7 @@ export default function PaymentsPage() {
               </div>
 
               {/* شريط التقدم */}
-              <div style={{ background: "#F8F6FF", borderRadius: 12, padding: "1rem", marginBottom: "1.2rem" }}>
+              <div style={{ background: "#F6FBFF", borderRadius: 12, padding: "1rem", marginBottom: "1.2rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: ".5rem", fontSize: ".8rem" }}>
                   <span style={{ fontWeight: 700 }}>نسبة الإنجاز</span>
                   <span style={{ color: "var(--p3)", fontWeight: 800 }}>
@@ -1004,7 +1023,7 @@ export default function PaymentsPage() {
                     className="progress-fill"
                     style={{
                       width: `${selectedStudent.total_fee > 0 ? Math.min(100, Math.round((selectedStudent.paid_fee / selectedStudent.total_fee) * 100)) : 0}%`,
-                      background: "linear-gradient(90deg,#6C4AB6,#10B981)",
+                      background: "linear-gradient(90deg,#1689C9,#10B981)",
                     }}
                   />
                 </div>

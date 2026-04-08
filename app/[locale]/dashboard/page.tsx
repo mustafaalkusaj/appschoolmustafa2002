@@ -9,13 +9,14 @@ import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
-import { UltrathinkLogo } from "@/components/UltrathinkLogo";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { ROLE_LABELS } from "@/lib/auth";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { KpiMetricCard } from "@/components/dashboard/KpiMetricCard";
+import styles from "./dashboard-redesign.module.css";
 
 const DashboardFinanceCharts = dynamic(
   () => import("@/components/DashboardFinanceCharts").then((module) => module.DashboardFinanceCharts),
@@ -356,7 +357,7 @@ export default function DashboardPage() {
   const remainingPct = 100 - paidPct;
 
   const barData = [
-    { name: "إجمالي الرسوم", value: totalFees, fill: "#6C4AB6" },
+    { name: "إجمالي الرسوم", value: totalFees, fill: "#1689C9" },
     { name: "الواردات بعد الخصم", value: afterDiscount, fill: "#3B82F6" },
     { name: "المدفوع", value: totalPaid, fill: "#10B981" },
     { name: "الخصم", value: totalDiscount, fill: "#F59E0B" },
@@ -376,6 +377,9 @@ export default function DashboardPage() {
   const currentSchoolCity = schoolScope.selectedSchool?.city || null;
   const academicYearLabel = getAcademicYearLabel();
   const roleLabel = profile ? ROLE_LABELS[profile.role] : "المستخدم الحالي";
+  const activeStudentsCount = students.filter((student) => student.status !== "deleted").length;
+  const transferredStudentsCount = students.filter((student) => student.status === "transferred").length;
+  const graduatedStudentsCount = students.filter((student) => student.status === "graduated").length;
   const dashboardSummary = schoolScope.shouldBlockContent
     ? "اختر مدرسة أولاً حتى تصبح بيانات الهيدر والإحصائيات مرتبطة بسياق واضح."
     : schoolScope.isSuperAdminScope
@@ -385,45 +389,33 @@ export default function DashboardPage() {
   return (
   <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
   <>
-    <div className="layout">
-      <AppSidebar currentPath="/dashboard" />
+    <div className={styles.dashboardLayout}>
+      <AppSidebar
+        currentPath="/dashboard"
+        containerClassName={`sidebar ${styles.dashboardSidebar}`}
+        navClassName={`nav ${styles.dashboardNav}`}
+        separatorClassName={`sep ${styles.dashboardSeparator}`}
+      />
 
-      <div className="main">
-        <div className="topbar !items-start !gap-4 !py-5">
-          <div className="flex w-full flex-col gap-4">
-            <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-center">
-              <div className="ui-surface rounded-[28px] px-4 py-3">
-                <UltrathinkLogo
-                  size={52}
-                  title={currentSchoolName}
-                  subtitle={currentSchoolCity || "الواجهة الموحدة للمدرسة"}
-                />
-              </div>
-
-              <div className="min-w-0 space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-xs font-black text-[var(--text-secondary)]">
-                  لوحة التحكم
-                </div>
-                <div className="space-y-2">
-                  <div className="topbar-title !text-[1.15rem]">ملخص المدرسة الحالي</div>
-                  <div className="text-sm leading-7 text-[var(--text-secondary)]">{dashboardSummary}</div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-black text-[var(--text-primary)]">
-                    <span className="text-[var(--text-secondary)]">العام الدراسي</span>
-                    <span>{academicYearLabel}</span>
-                  </div>
-                  <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-black text-[var(--text-secondary)]">
-                    {roleLabel}
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className={`main ${styles.dashboardMain}`}>
+        <div className={`topbar ${styles.dashboardTopbar}`}>
+          <div>
+            <div className={styles.sectionEyebrow}>نظرة عامة</div>
+            <div className="topbar-title">لوحة التحكم</div>
+            <div className="topbar-sub">{dashboardSummary}</div>
+          </div>
+          <div className={styles.topbarMeta}>
+            <div className={`ui-pill ${styles.topbarChip}`}>{currentSchoolName}</div>
+            <div className={`ui-pill ${styles.topbarChip}`}>العام الدراسي: {academicYearLabel}</div>
+            <div className={`ui-pill ${styles.topbarChip}`}>{roleLabel}</div>
+            {currentSchoolCity ? <div className={`ui-pill ${styles.topbarChip}`}>{currentSchoolCity}</div> : null}
           </div>
         </div>
 
-        <div className="content">
-          <SchoolScopeBanner scope={schoolScope} />
+        <div className={`content ${styles.dashboardContent}`}>
+          <div className={styles.scopeSpacing}>
+            <SchoolScopeBanner scope={schoolScope} />
+          </div>
           {schoolScope.shouldBlockContent ? (
             <SchoolScopeEmptyState
               scope={schoolScope}
@@ -432,23 +424,96 @@ export default function DashboardPage() {
             />
           ) : loading ? <div className="spin"/> : <>
 
-          {/* ─── أزرار الإجراءات ─── */}
           {canManageClasses && (
-            <div style={{display:"flex",alignItems:"center",gap:".7rem",marginBottom:"1rem",flexWrap:"wrap"}}>
-              <button className="fee-btn" onClick={openNewFee}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                + إضافة قسط دراسي
-              </button>
-              <button className="fee-btn-outline" onClick={() => setShowFeesTable(v=>!v)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="3"/></svg>
-                {showFeesTable ? "إخفاء الجدول" : "عرض جدول الأقساط"}
-              </button>
-              <button className="fee-btn-outline" onClick={() => setShowClassesModal(true)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
-                إدارة الصفوف والشعب
-              </button>
-            </div>
+            <section className={styles.actionsBar}>
+              <div className={styles.actionsCopy}>
+                <div className={styles.sectionEyebrow}>إجراءات سريعة</div>
+                <div className={styles.sectionTitle}>تشغيل الأقساط والصفوف بسرعة</div>
+                <div className={styles.sectionDescription}>
+                  نفس الإجراءات القديمة ما زالت موجودة، لكن داخل شريط عمليات أخف وأكثر اتزاناً على الشاشات الكثيفة.
+                </div>
+              </div>
+              <div className={styles.actionsRow}>
+                <button className="ui-button ui-button--primary" onClick={openNewFee}>
+                  + إضافة قسط دراسي
+                </button>
+                <button className="ui-button ui-button--secondary" onClick={() => setShowFeesTable((value) => !value)}>
+                  {showFeesTable ? "إخفاء جدول الأقساط" : "عرض جدول الأقساط"}
+                </button>
+                <button className="ui-button ui-button--secondary" onClick={() => setShowClassesModal(true)}>
+                  إدارة الصفوف والشعب
+                </button>
+              </div>
+            </section>
           )}
+
+          <div className={styles.kpiPrimaryGrid}>
+            <KpiMetricCard
+              eyebrow="الطلاب"
+              title="إجمالي الطلاب"
+              value={formatNumber(activeStudentsCount)}
+              helper="عدد الطلاب النشطين ضمن المدرسة الحالية."
+              delta={`${formatNumber(transferredStudentsCount)} منقول`}
+              iconToken="🎓"
+              tone="neutral"
+              series={[activeStudentsCount, Math.max(activeStudentsCount - transferredStudentsCount, 0), activeStudentsCount, activeStudentsCount]}
+            />
+            <KpiMetricCard
+              eyebrow="الرسوم"
+              title="إجمالي الرسوم"
+              value={`د.ع ${formatNumber(totalFees)}`}
+              helper="الرسوم الكلية قبل الخصومات."
+              delta={`د.ع ${formatNumber(afterDiscount)}`}
+              iconToken="🧾"
+              tone="warning"
+              series={[totalFees, afterDiscount, totalFees - totalDiscount, totalFees]}
+            />
+            <KpiMetricCard
+              eyebrow="التحصيل"
+              title="المبلغ المدفوع"
+              value={`د.ع ${formatNumber(totalPaid)}`}
+              helper="مجموع ما تم تحصيله حتى الآن."
+              delta={`${paidPct}% تحصيل`}
+              iconToken="💳"
+              tone="positive"
+              series={recentPayments.map((payment) => payment.amount || 0).reverse()}
+            />
+            <KpiMetricCard
+              eyebrow="الرصيد المفتوح"
+              title="الرصيد المتبقي"
+              value={`د.ع ${formatNumber(totalRemaining)}`}
+              helper="الذمم المفتوحة التي تحتاج متابعة."
+              delta={`${formatNumber(overdueStudents.length)} حالات متأخرة`}
+              iconToken="⚠️"
+              tone="danger"
+              series={overdueStudents.map((student) => student.remaining_fee || 0).reverse()}
+            />
+          </div>
+
+          <div className={styles.kpiSecondaryGrid}>
+            <KpiMetricCard
+              compact
+              eyebrow="التخفيضات"
+              title="إجمالي التخفيض"
+              value={`د.ع ${formatNumber(totalDiscount)}`}
+              helper="إجمالي التخفيضات الممنوحة للطلاب."
+              delta={`${formatNumber(graduatedStudentsCount)} متخرج`}
+              iconToken="🏷️"
+              tone="warning"
+              series={[totalDiscount, totalDiscount / 2, totalDiscount, Math.max(totalDiscount - 1, 0)]}
+            />
+            <KpiMetricCard
+              compact
+              eyebrow="النشاط الأخير"
+              title="آخر الدفعات"
+              value={formatNumber(recentPayments.length)}
+              helper="عدد الدفعات الحديثة المعروضة في اللوحة."
+              delta={recentPayments[0] ? formatDate(recentPayments[0].created_at) : "لا توجد دفعات"}
+              iconToken="🕘"
+              tone="neutral"
+              series={recentPayments.map((payment) => payment.amount || 0)}
+            />
+          </div>
 
             {/* ── جدول / بطاقات الأقساط (عند الطلب) ── */}
             {canManageClasses && showFeesTable && (
@@ -456,7 +521,7 @@ export default function DashboardPage() {
                 <div className="section-header">
                   <div className="section-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
                     <AppIcon token="💰" size={16} />
-                    Tuition rates by class
+                    الأقساط حسب الصف
                   </div>
                   <button className="fee-btn" onClick={openNewFee} style={{fontSize:".75rem",padding:".4rem .9rem"}}>
                     + إضافة صف جديد
@@ -545,119 +610,120 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* إحصائيات سريعة */}
-            <div className="row1">
-              {([
-                ["إجمالي الطلاب", formatNumber(students.length), "#EDE8FA","#6C4AB6"],
-                ["الطلاب المنقولون", formatNumber(students.filter(s=>s.status==="transferred").length), "#DBEAFE","#3B82F6"],
-                ["إجمالي الرسوم", `د.ع ${formatNumber(totalFees)}`, "#FEF3C7","#F59E0B"],
-                ["المبلغ المدفوع", `د.ع ${formatNumber(totalPaid)}`, "#D1FAE5","#10B981"],
-              ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
-                <div className="sc" key={i}>
-                  <div className="sc-ico" style={{background:bg}}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/></svg>
-                  </div>
-                  <div><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
-                </div>
-              ))}
-            </div>
-            <div className="row2">
-              {([
-                ["الرصيد المتبقي", `د.ع ${formatNumber(totalRemaining)}`, "#FEE2E2","#EF4444"],
-                ["رواتب هذا الشهر", "د.ع 0", "#EDE9FE","#8B5CF6"],
-              ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
-                <div className="sc" key={i}>
-                  <div className="sc-ico" style={{background:bg}}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                  </div>
-                  <div><div className="sc-label">{l}</div><div className="sc-val">{v}</div></div>
-                </div>
-              ))}
-            </div>
-
             {/* لوحة التحليل المالي */}
-            <div className="analysis-section">
-              <div className="section-header">
-                <div className="section-title" style={{display:"flex",alignItems:"center",gap:".35rem"}}>
-                  <AppIcon token="📊" size={16} />
-                  لوحة التحليل المالي الكلي
+            <section className={styles.financeSurface}>
+              <div className={styles.surfaceHeader}>
+                <div>
+                  <div className={styles.sectionEyebrow}>نظرة مالية</div>
+                  <div className={styles.sectionTitle}>لوحة التحليل المالي</div>
+                  <div className={styles.sectionDescription}>
+                    قراءة موحدة للرسوم، الخصومات، التحصيل، والذمم المفتوحة ضمن المدرسة الحالية.
+                  </div>
                 </div>
+                <div className={styles.surfaceMeta}>تحديث مباشر من البيانات الحالية</div>
               </div>
-              <div className="fin-stats">
-                {([
-                  ["إجمالي المبلغ المطلوب", totalFees, "#EDE8FA","#4C2F9E"],
-                  ["التخفيض", totalDiscount, "#FEF3C7","#F59E0B"],
-                  ["الواردات بعد التخفيض", afterDiscount, "#DBEAFE","#3B82F6"],
-                  ["المبالغ المستحصلة", totalPaid, "#D1FAE5","#10B981"],
-                  ["المبلغ المتبقي", totalRemaining, "#FEE2E2","#EF4444"],
-                ] as any[]).map(([l,v,bg,c]:any,i:number)=>(
-                  <div className="fin-card" key={i} style={{background:bg}}>
-                    <div className="fin-label" style={{color:c}}>{l}</div>
-                    <div className="fin-val" style={{color:c}}>د.ع {formatNumber(v)}</div>
+              <div className={styles.miniSummaryGrid}>
+                {[
+                  ["إجمالي المبلغ المطلوب", `د.ع ${formatNumber(totalFees)}`, "قبل الخصومات"],
+                  ["الواردات بعد الخصم", `د.ع ${formatNumber(afterDiscount)}`, "بعد احتساب الخصومات"],
+                  ["المبالغ المستحصلة", `د.ع ${formatNumber(totalPaid)}`, `${paidPct}% من الإجمالي`],
+                  ["المبلغ المتبقي", `د.ع ${formatNumber(totalRemaining)}`, `${remainingPct}% لم يُحصّل بعد`],
+                ].map(([label, value, meta]) => (
+                  <div key={label} className={styles.miniSummaryCard}>
+                    <div className={styles.miniSummaryLabel}>{label}</div>
+                    <div className={styles.miniSummaryValue}>{value}</div>
+                    <div className={styles.miniSummaryMeta}>{meta}</div>
                   </div>
                 ))}
               </div>
               <DashboardFinanceCharts barData={barData} pieData={pieData} paidPct={paidPct} />
-              <div className="progress-section">
-                <div className="progress-title">تقدم الدفع</div>
-                <div className="prog-row">
-                  <span className="prog-label">المبلغ المدفوع</span>
-                  <div className="prog-bar"><div className="prog-fill" style={{width:`${paidPct}%`,background:"#10B981"}}/></div>
-                  <span className="prog-val" style={{color:"#10B981"}}>د.ع {formatNumber(totalPaid)}</span>
+              <div className={styles.progressGrid}>
+                <div className={styles.progressItem}>
+                  <div className={styles.progressTop}>
+                    <span className={styles.progressLabel}>نسبة التحصيل</span>
+                    <span className={styles.progressValue}>{paidPct}%</span>
+                  </div>
+                  <div className={styles.progressTrack}>
+                    <div className={styles.progressFill} style={{ width: `${paidPct}%`, background: "rgb(var(--dashboard-success-rgb))" }} />
+                  </div>
                 </div>
-                <div className="prog-row">
-                  <span className="prog-label">المبلغ المتبقي</span>
-                  <div className="prog-bar"><div className="prog-fill" style={{width:`${remainingPct}%`,background:"#F59E0B"}}/></div>
-                  <span className="prog-val" style={{color:"#F59E0B"}}>د.ع {formatNumber(totalRemaining)}</span>
+                <div className={styles.progressItem}>
+                  <div className={styles.progressTop}>
+                    <span className={styles.progressLabel}>المبلغ المتبقي</span>
+                    <span className={styles.progressValue}>د.ع {formatNumber(totalRemaining)}</span>
+                  </div>
+                  <div className={styles.progressTrack}>
+                    <div className={styles.progressFill} style={{ width: `${remainingPct}%`, background: "rgb(var(--dashboard-warning-rgb))" }} />
+                  </div>
                 </div>
-                <div className="prog-total">إجمالي المبلغ المطلوب: د.ع {formatNumber(totalFees)}</div>
+                <div className={styles.progressItem}>
+                  <div className={styles.progressTop}>
+                    <span className={styles.progressLabel}>التخفيضات</span>
+                    <span className={styles.progressValue}>د.ع {formatNumber(totalDiscount)}</span>
+                  </div>
+                  <div className={styles.progressTrack}>
+                    <div
+                      className={styles.progressFill}
+                      style={{ width: `${totalFees > 0 ? Math.min(100, Math.round((totalDiscount / totalFees) * 100)) : 0}%`, background: "rgb(var(--dashboard-secondary-rgb))" }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div className="bottom-grid">
-              <div className="panel">
-                <div className="ph">
-                  <span className="pt" style={{display:"inline-flex",alignItems:"center",gap:".3rem"}}>
-                    <AppIcon token="💳" size={14} />
-                    آخر الحسابات
-                  </span>
-                  <Link href={paymentsPageHref} style={{fontSize:".72rem",color:"var(--p3)",fontWeight:600,textDecoration:"none"}}>عرض الكل</Link>
+            <div className={styles.lowerGrid}>
+              <section className={styles.listCard}>
+                <div className={styles.listHeader}>
+                  <div className={styles.listHeading}>
+                    <div className={styles.listTitle}>آخر الحسابات</div>
+                    <div className={styles.listSubtitle}>آخر الحركات المالية على مستوى الطلاب.</div>
+                  </div>
+                  <Link href={paymentsPageHref} className={styles.listLink}>عرض الكل</Link>
                 </div>
-                {recentPayments.length===0?(
-                  <div style={{textAlign:"center",color:"var(--gray)",fontSize:".82rem",padding:"1rem"}}>لا توجد دفعات حتى الآن</div>
-                ):recentPayments.map((p:any)=>{
-                  const s = students.find(st=>st.id===p.student_id);
-                  return <div className="pay-item" key={p.id}>
-                    <div className="pay-av">{(s?.full_name||"؟")[0]}</div>
-                    <div style={{flex:1}}>
-                      <div className="pay-name">{s?.full_name||"—"}</div>
-                      <div className="pay-meta">{s?.class_name} • {formatDate(p.created_at)}</div>
+                <div className={styles.listBody}>
+                  {recentPayments.length === 0 ? (
+                    <div className={styles.emptyState}>لا توجد دفعات حديثة حتى الآن.</div>
+                  ) : recentPayments.map((payment: any) => {
+                    const student = students.find((item) => item.id === payment.student_id);
+                    return (
+                      <div key={payment.id} className={styles.activityRow}>
+                        <div className={styles.activityAvatar}>{(student?.full_name || "؟").slice(0, 1)}</div>
+                        <div className={styles.activityCopy}>
+                          <div className={styles.activityName}>{student?.full_name || "طالب غير معروف"}</div>
+                          <div className={styles.activityMeta}>
+                            {(student?.class_name || "بدون صف")} • {formatDate(payment.created_at)}
+                          </div>
+                        </div>
+                        <div className={styles.activityAmount}>د.ع {formatNumber(payment.amount)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className={styles.listCard}>
+                <div className={styles.listHeader}>
+                  <div className={styles.listHeading}>
+                    <div className={styles.listTitle}>الطلاب المتأخرون</div>
+                    <div className={styles.listSubtitle}>أعلى الذمم التي تحتاج متابعة مباشرة.</div>
+                  </div>
+                  <Link href={paymentsPageHref} className={styles.listLink}>فتح الحسابات</Link>
+                </div>
+                <div className={styles.listBody}>
+                  {overdueStudents.length === 0 ? (
+                    <div className={styles.emptyState}>لا توجد ذمم متأخرة حالياً.</div>
+                  ) : overdueStudents.map((student) => (
+                    <div key={student.id} className={styles.statusRow}>
+                      <div className={styles.statusTone}>!</div>
+                      <div className={styles.statusCopy}>
+                        <div className={styles.statusName}>{student.full_name}</div>
+                        <div className={styles.statusMeta}>{student.class_name || "بدون صف"}</div>
+                      </div>
+                      <div className={styles.statusAmount}>د.ع {formatNumber(student.remaining_fee)}</div>
                     </div>
-                    <div style={{fontWeight:800,color:"#10B981",fontSize:".8rem"}}>د.ع {formatNumber(p.amount)}</div>
-                  </div>;
-                })}
-              </div>
-              <div className="panel">
-                <div className="ph">
-                  <span className="pt" style={{color:"#EF4444",display:"inline-flex",alignItems:"center",gap:".3rem"}}>
-                    <AppIcon token="⚠️" size={14} />
-                    Overdue students
-                  </span>
-                  <Link href={paymentsPageHref} style={{fontSize:".72rem",color:"var(--p3)",fontWeight:600,textDecoration:"none"}}>عرض الكل</Link>
+                  ))}
                 </div>
-                {overdueStudents.length===0?(
-                  <div style={{textAlign:"center",color:"#10B981",fontSize:".82rem",padding:"1rem",display:"flex",alignItems:"center",justifyContent:"center",gap:".3rem"}}>
-                    <AppIcon token="✓" size={14} />
-                    No overdue students
-                  </div>
-                ):overdueStudents.map(s=>(
-                  <div className="ov-card" key={s.id}>
-                    <div className="ov-name">{s.full_name}</div>
-                    <div className="ov-class">{s.class_name}</div>
-                    <div className="ov-amt">د.ع {formatNumber(s.remaining_fee)}</div>
-                  </div>
-                ))}
-              </div>
+              </section>
             </div>
 
           </>}
@@ -685,7 +751,7 @@ export default function DashboardPage() {
 
             {/* نموذج إضافة/تعديل صف */}
             {(showClassForm || editingClass) && (
-              <div style={{background:"#F8F6FF",borderRadius:"12px",padding:"1rem",marginBottom:"1rem"}}>
+              <div style={{background:"#F6FBFF",borderRadius:"12px",padding:"1rem",marginBottom:"1rem"}}>
                 <div style={{fontSize:".85rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>{editingClass ? "تعديل الصف" : "إضافة صف جديد"}</div>
                 <div className="form-grid">
                   <div className="form-group full">
@@ -727,14 +793,14 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-            <div style={{background:"white",borderRadius:"12px",padding:"1rem",border:"1px solid rgba(108,74,182,0.1)"}}>
+            <div style={{background:"white",borderRadius:"12px",padding:"1rem",border:"1px solid rgba(22,137,201,0.1)"}}>
               <div style={{fontSize:".85rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الصفوف الدراسية</div>
               {classes.length === 0 ? (
                 <div style={{textAlign:"center",color:"var(--gray)",padding:"2rem",fontSize:".8rem"}}>لا توجد صفوف مضافة</div>
               ) : (
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:".78rem"}}>
                   <thead>
-                    <tr style={{background:"#EDE8FA",color:"var(--p2)"}}>
+                    <tr style={{background:"#E6F6FF",color:"var(--p2)"}}>
                       <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>الصف</th>
                       <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>عدد الشعب</th>
                       <th style={{padding:".5rem",textAlign:"center",fontWeight:800}}>الإجراءات</th>
@@ -744,7 +810,7 @@ export default function DashboardPage() {
                     {classes.map(cls => {
                       const clsSections = sections.filter(s => s.class_id === cls.id);
                       return (
-                        <tr key={cls.id} style={{borderBottom:"1px solid rgba(108,74,182,0.05)"}}>
+                        <tr key={cls.id} style={{borderBottom:"1px solid rgba(22,137,201,0.05)"}}>
                           <td style={{padding:".5rem",fontWeight:600}}>{cls.name}</td>
                           <td style={{padding:".5rem"}}>{clsSections.length} شعبة</td>
                           <td style={{padding:".5rem",textAlign:"center"}}>
@@ -761,14 +827,14 @@ export default function DashboardPage() {
 
             {/* جدول الشعب */}
             {showSectionsTable && (
-              <div style={{background:"white",borderRadius:"12px",padding:"1rem",marginTop:"1rem",border:"1px solid rgba(108,74,182,0.1)"}}>
+              <div style={{background:"white",borderRadius:"12px",padding:"1rem",marginTop:"1rem",border:"1px solid rgba(22,137,201,0.1)"}}>
                 <div style={{fontSize:".85rem",fontWeight:700,color:"var(--p2)",marginBottom:".6rem"}}>الشعب الدراسية</div>
                 {sections.length === 0 ? (
                   <div style={{textAlign:"center",color:"var(--gray)",padding:"2rem",fontSize:".8rem"}}>لا توجد شعب مضافة</div>
                 ) : (
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:".78rem"}}>
                     <thead>
-                      <tr style={{background:"#EDE8FA",color:"var(--p2)"}}>
+                      <tr style={{background:"#E6F6FF",color:"var(--p2)"}}>
                         <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>الشعبة</th>
                         <th style={{padding:".5rem",textAlign:"right",fontWeight:800}}>الصف</th>
                         <th style={{padding:".5rem",textAlign:"center",fontWeight:800}}>الإجراءات</th>
@@ -778,7 +844,7 @@ export default function DashboardPage() {
                       {sections.map(sec => {
                         const cls = classes.find(c => c.id === sec.class_id);
                         return (
-                          <tr key={sec.id} style={{borderBottom:"1px solid rgba(108,74,182,0.05)"}}>
+                          <tr key={sec.id} style={{borderBottom:"1px solid rgba(22,137,201,0.05)"}}>
                             <td style={{padding:".5rem",fontWeight:600}}>{sec.name}</td>
                             <td style={{padding:".5rem"}}>{cls?.name || "—"}</td>
                             <td style={{padding:".5rem",textAlign:"center"}}>

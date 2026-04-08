@@ -207,68 +207,68 @@ export default function ExpensesPage() {
   <>
     <style>{`
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
+      :root{--p2:#0F5D91;--p3:#1689C9;--p4:#69D5FF;--bg:#EEF8FF;--dark:#0F2740;--gray:#64748B;}
       body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
       .layout{display:flex;height:100vh}
-      .sidebar{width:200px;background:linear-gradient(180deg,#EDE8FA,#E0D8F8);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(108,74,182,0.1);flex-shrink:0}
+      .sidebar{width:200px;background:linear-gradient(180deg,#E6F6FF,#D4F1FF);display:flex;flex-direction:column;padding:1rem .8rem;border-right:1px solid rgba(22,137,201,0.1);flex-shrink:0}
       .logo{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.4rem}
       .logo-ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p3),var(--p4));display:flex;align-items:center;justify-content:center}
       .logo-ico svg{width:18px;height:18px;fill:white}
       .logo span{font-size:.88rem;font-weight:800;color:var(--p2)}
       .nav{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border-radius:9px;color:var(--p2);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-      .nav:hover{background:rgba(108,74,182,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
+      .nav:hover{background:rgba(22,137,201,0.1)}.nav.active{background:linear-gradient(135deg,var(--p3),var(--p4));color:white}
       .nav.danger{color:#EF4444}.nav.danger:hover{background:#FEE2E2}
-      .sep{height:1px;background:rgba(108,74,182,0.12);margin:.4rem 0}
+      .sep{height:1px;background:rgba(22,137,201,0.12);margin:.4rem 0}
       .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-      .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
+      .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(22,137,201,0.08);flex-shrink:0}
       .topbar-title{font-size:.95rem;font-weight:800}.topbar-sub{font-size:.7rem;color:var(--gray)}
       .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
 
       /* STATS */
       .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1rem}
-      .sc{background:white;border-radius:12px;padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 2px 8px rgba(108,74,182,0.07)}
+      .sc{background:white;border-radius:12px;padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 2px 8px rgba(22,137,201,0.07)}
       .sc-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem}
       .sc-label{font-size:.7rem;color:var(--gray)}.sc-val{font-size:.9rem;font-weight:800}
 
       /* ACTIONS SECTION */
-      .actions-section{background:white;border-radius:14px;padding:1rem 1.2rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+      .actions-section{background:white;border-radius:14px;padding:1rem 1.2rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(22,137,201,0.06)}
       .actions-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
       .actions-title{font-size:.85rem;font-weight:800;color:var(--dark)}
       .actions-btns{display:flex;gap:.6rem}
 
       /* FILTER SECTION */
-      .filter-section{background:white;border-radius:14px;padding:1rem 1.2rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
+      .filter-section{background:white;border-radius:14px;padding:1rem 1.2rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(22,137,201,0.06)}
       .filter-title{font-size:.82rem;font-weight:700;color:var(--p2);margin-bottom:.7rem;display:flex;align-items:center;gap:.3rem}
       .filter-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.7rem}
       .fg-item{display:flex;flex-direction:column;gap:.25rem}
       .fg-label{font-size:.72rem;font-weight:600;color:var(--gray)}
-      .fi{padding:.5rem .8rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--dark)}
+      .fi{padding:.5rem .8rem;background:#F6FBFF;border:1.5px solid rgba(22,137,201,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none;color:var(--dark)}
       .fi:focus{border-color:var(--p3)}
 
       /* TABS */
       .page-tabs{display:flex;gap:.5rem;margin-bottom:1rem}
       .page-tab{display:flex;align-items:center;gap:.4rem;padding:.55rem 1.2rem;border-radius:20px;cursor:pointer;font-size:.82rem;font-weight:700;border:none;font-family:var(--font-manrope),Segoe UI,sans-serif;transition:all .2s}
-      .page-tab.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 3px 10px rgba(108,74,182,0.3)}
-      .page-tab:not(.active){background:white;color:var(--gray);box-shadow:0 2px 6px rgba(108,74,182,0.06)}
-      .page-tab:not(.active):hover{background:#F0EEFF;color:var(--p3)}
+      .page-tab.active{background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 3px 10px rgba(22,137,201,0.3)}
+      .page-tab:not(.active){background:white;color:var(--gray);box-shadow:0 2px 6px rgba(22,137,201,0.06)}
+      .page-tab:not(.active):hover{background:#EEF8FF;color:var(--p3)}
 
       /* TABLE */
-      .tbl-header{display:flex;align-items:center;justify-content:space-between;background:white;border-radius:13px 13px 0 0;padding:.8rem 1.2rem;border-bottom:1px solid rgba(108,74,182,0.06)}
+      .tbl-header{display:flex;align-items:center;justify-content:space-between;background:white;border-radius:13px 13px 0 0;padding:.8rem 1.2rem;border-bottom:1px solid rgba(22,137,201,0.06)}
       .tbl-count{display:inline-flex;align-items:center;background:var(--p3);color:white;border-radius:20px;padding:.15rem .65rem;font-size:.75rem;font-weight:700}
       .tbl-title{font-size:.88rem;font-weight:800}
-      .tbl-wrap{background:white;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(108,74,182,0.06)}
-      .tbl-srch{display:flex;align-items:center;gap:.5rem;padding:.7rem 1.2rem;border-bottom:1px solid rgba(108,74,182,0.05)}
-      .tbl-srch input{flex:1;padding:.5rem .8rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.1);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
+      .tbl-wrap{background:white;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(22,137,201,0.06)}
+      .tbl-srch{display:flex;align-items:center;gap:.5rem;padding:.7rem 1.2rem;border-bottom:1px solid rgba(22,137,201,0.05)}
+      .tbl-srch input{flex:1;padding:.5rem .8rem;background:#F6FBFF;border:1.5px solid rgba(22,137,201,0.1);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;direction:rtl;outline:none}
       .tbl-srch input:focus{border-color:var(--p3)}
       table{width:100%;border-collapse:collapse}
-      thead{background:#F8F6FF}
-      th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(108,74,182,0.08)}
-      td{padding:.6rem .9rem;font-size:.78rem;border-bottom:1px solid rgba(108,74,182,0.04)}
+      thead{background:#F6FBFF}
+      th{padding:.6rem .9rem;font-size:.72rem;font-weight:700;color:var(--p2);text-align:left;border-bottom:1px solid rgba(22,137,201,0.08)}
+      td{padding:.6rem .9rem;font-size:.78rem;border-bottom:1px solid rgba(22,137,201,0.04)}
       tr:last-child td{border-bottom:none}tr:hover td{background:#FAFAFE}
       .badge{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.66rem;font-weight:700}
       .num-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--p3);color:white;font-size:.75rem;font-weight:800}
       .empty{text-align:center;padding:3rem;color:var(--gray);font-size:.85rem}
-      .spin{width:22px;height:22px;border:3px solid rgba(108,74,182,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
+      .spin{width:22px;height:22px;border:3px solid rgba(22,137,201,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:2rem auto}
       @keyframes sp{to{transform:rotate(360deg)}}
       .btn-edit-row{width:28px;height:28px;background:#DBEAFE;color:#1E40AF;border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.82rem}
       .btn-del-row{width:28px;height:28px;background:#FEE2E2;color:#EF4444;border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.82rem}
@@ -276,7 +276,7 @@ export default function ExpensesPage() {
       /* BUTTONS */
       .btn-add{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
       .btn-excel{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
-      .btn-refresh{width:34px;height:34px;background:#F0EEFF;color:var(--p3);border:none;border-radius:9px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
+      .btn-refresh{width:34px;height:34px;background:#EEF8FF;color:var(--p3);border:none;border-radius:9px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
 
       /* TOTAL BAR */
       .total-bar{background:linear-gradient(135deg,var(--p3),var(--p2));border-radius:0 0 13px 13px;padding:.7rem 1.2rem;display:flex;align-items:center;justify-content:space-between;color:white}
@@ -293,7 +293,7 @@ export default function ExpensesPage() {
       .fg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
       .ff{display:flex;flex-direction:column;gap:.32rem}.ff.full{grid-column:1/-1}
       .fl{font-size:.76rem;font-weight:600}.opt{font-size:.68rem;color:var(--gray);font-weight:400}
-      .fis{padding:.65rem .85rem;background:#F8F6FF;border:1.5px solid rgba(108,74,182,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
+      .fis{padding:.65rem .85rem;background:#F6FBFF;border:1.5px solid rgba(22,137,201,0.12);border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.82rem;direction:rtl;outline:none;width:100%}
       .fis:focus{border-color:var(--p3);background:white}
       .fa{display:flex;gap:.7rem;margin-top:1.1rem}
       .bs{flex:1;padding:.75rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:11px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.88rem;font-weight:700;cursor:pointer}
@@ -323,7 +323,7 @@ export default function ExpensesPage() {
               {/* إحصائيات */}
               <div className="stats">
                 {([
-                  ["💰","إجمالي المصروفات",`د.ع ${formatNumber(totalAll)}`,"#EDE8FA"],
+                  ["💰","إجمالي المصروفات",`د.ع ${formatNumber(totalAll)}`,"#E6F6FF"],
                   ["📋","عدد السجلات",formatNumber(expenses.length),"#DBEAFE"],
                   ["🏷️","أنواع المصروفات",formatNumber(expenseTypes.length),"#D1FAE5"],
                   ["📅","مصاريف اليوم",`د.ع ${formatNumber(expenses.filter(e=>e.expense_date===new Date().toISOString().split("T")[0]).reduce((a,e)=>a+e.amount,0))}`,"#FEF3C7"],
@@ -431,7 +431,7 @@ export default function ExpensesPage() {
                         <tr key={e.id}>
                           <td><span className="num-badge">{filteredExpenses.length - i}</span></td>
                           <td>
-                            <span className="badge" style={{background:"#EDE8FA",color:"var(--p3)"}}>
+                            <span className="badge" style={{background:"#E6F6FF",color:"var(--p3)"}}>
                               {e.expense_types?.name||"—"}
                             </span>
                           </td>

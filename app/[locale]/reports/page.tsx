@@ -44,6 +44,10 @@ type ExpenseRow = {
   expense_types?: { name: string | null } | null;
 };
 
+function formatNullableDate(value: string | null | undefined) {
+  return value ? formatDate(value) : "—";
+}
+
 function paymentMethodLabel(method: string | null | undefined) {
   return (
     {
@@ -111,11 +115,15 @@ export default function ReportsPage() {
         .order("created_at", { ascending: false }),
     ]);
 
-    const normalizedPayments = (paymentsResult.data || []).map((item) => ({
+    const normalizedPayments = ((paymentsResult.data || []) as Array<
+      PaymentRow & { students?: PaymentRow["students"] | PaymentRow["students"][] }
+    >).map((item) => ({
       ...item,
       students: Array.isArray(item.students) ? item.students[0] ?? null : item.students ?? null,
     }));
-    const normalizedExpenses = (expensesResult.data || []).map((item) => ({
+    const normalizedExpenses = ((expensesResult.data || []) as Array<
+      ExpenseRow & { expense_types?: ExpenseRow["expense_types"] | ExpenseRow["expense_types"][] }
+    >).map((item) => ({
       ...item,
       expense_types: Array.isArray(item.expense_types) ? item.expense_types[0] ?? null : item.expense_types ?? null,
     }));
@@ -182,7 +190,7 @@ export default function ReportsPage() {
         الصف: item.students?.class_name || "—",
         المبلغ: item.amount || 0,
         "طريقة الدفع": paymentMethodLabel(item.payment_method),
-        التاريخ: formatDate(item.created_at),
+        التاريخ: formatNullableDate(item.created_at),
         "رقم الإيصال": item.receipt_number || "—",
         ملاحظات: item.notes || "",
       })),
@@ -196,7 +204,7 @@ export default function ReportsPage() {
       expenses.map((item) => ({
         النوع: item.expense_types?.name || "—",
         المبلغ: item.amount || 0,
-        التاريخ: formatDate(item.expense_date),
+        التاريخ: formatNullableDate(item.expense_date),
         المستلم: item.recipient || "—",
         "رقم الإيصال": item.receipt_number || "—",
         ملاحظات: item.notes || "",
@@ -226,7 +234,7 @@ export default function ReportsPage() {
         rows: payments.map((item) => ({
           الطالب: item.students?.full_name || "—",
           المبلغ: item.amount || 0,
-          التاريخ: formatDate(item.created_at),
+          التاريخ: formatNullableDate(item.created_at),
         })),
       },
       {
@@ -234,7 +242,7 @@ export default function ReportsPage() {
         rows: expenses.map((item) => ({
           النوع: item.expense_types?.name || "—",
           المبلغ: item.amount || 0,
-          التاريخ: formatDate(item.expense_date),
+          التاريخ: formatNullableDate(item.expense_date),
         })),
       },
     ];
@@ -257,17 +265,17 @@ export default function ReportsPage() {
         <head>
           <title>${title}</title>
           <style>
-            body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:1.5rem;color:#1F1547}
-            h1{color:#4C2F9E;text-align:center;margin-bottom:.3rem;font-size:1.3rem}
+            body{font-family:var(--font-manrope),Segoe UI,sans-serif;padding:1.5rem;color:#0F2740}
+            h1{color:#0F5D91;text-align:center;margin-bottom:.3rem;font-size:1.3rem}
             .sub{text-align:center;color:#666;font-size:.8rem;margin-bottom:1.2rem}
             table{width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:.82rem}
-            th{background:#4C2F9E;color:white;padding:.5rem .7rem;text-align:left}
+            th{background:#0F5D91;color:white;padding:.5rem .7rem;text-align:left}
             td{padding:.45rem .7rem;border-bottom:1px solid #eee}
-            tr:nth-child(even){background:#F8F6FF}
-            .totals{background:#F0EEFF;border-radius:8px;padding:.8rem 1rem;display:flex;gap:1rem;flex-wrap:wrap}
+            tr:nth-child(even){background:#F6FBFF}
+            .totals{background:#EEF8FF;border-radius:8px;padding:.8rem 1rem;display:flex;gap:1rem;flex-wrap:wrap}
             .total-item{font-size:.85rem}
             .total-label{color:#666}
-            .total-val{font-weight:900;color:#4C2F9E}
+            .total-val{font-weight:900;color:#0F5D91}
           </style>
         </head>
         <body>${content}<script>window.print();window.close();</script></body>
@@ -305,7 +313,7 @@ export default function ReportsPage() {
           <tbody>${payments
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${item.students?.full_name || "—"}</td><td>${item.students?.class_name || "—"}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${paymentMethodLabel(item.payment_method)}</td><td>${formatDate(item.created_at)}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${item.students?.full_name || "—"}</td><td>${item.students?.class_name || "—"}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${paymentMethodLabel(item.payment_method)}</td><td>${formatNullableDate(item.created_at)}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -324,7 +332,7 @@ export default function ReportsPage() {
           <tbody>${expenses
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${item.expense_types?.name || "—"}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.expense_date)}</td><td>${item.recipient || "—"}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${item.expense_types?.name || "—"}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${formatNullableDate(item.expense_date)}</td><td>${item.recipient || "—"}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -355,8 +363,8 @@ export default function ReportsPage() {
       id: "students",
       title: "تقرير الطلاب",
       icon: "👥",
-      color: "#6C4AB6",
-      background: "#EDE8FA",
+      color: "#1689C9",
+      background: "#E6F6FF",
       description: "بيانات الطلاب والرسوم وحالة التسجيل الحالية.",
       stats: [
         { label: "إجمالي الطلاب", value: formatNumber(students.length) },
@@ -427,42 +435,42 @@ export default function ReportsPage() {
       <>
         <style>{`
           *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-          :root{--p2:#4C2F9E;--p3:#6C4AB6;--p4:#9B7EDC;--bg:#F0EEFF;--dark:#1F1547;--gray:#6B7280;}
+          :root{--p2:#0F5D91;--p3:#1689C9;--p4:#69D5FF;--bg:#EEF8FF;--dark:#0F2740;--gray:#64748B;}
           body{font-family:var(--font-manrope),Segoe UI,sans-serif;direction:rtl;background:var(--bg);color:var(--dark)}
           .layout{display:flex;height:100vh}
           .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-          .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(108,74,182,0.08);flex-shrink:0}
+          .topbar{background:white;padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(22,137,201,0.08);flex-shrink:0}
           .topbar-title{font-size:.95rem;font-weight:800}
           .topbar-sub{font-size:.7rem;color:var(--gray)}
           .content{flex:1;overflow-y:auto;padding:1.2rem 1.4rem}
           .summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem}
-          .strip-card{background:white;border-radius:11px;padding:.8rem .9rem;box-shadow:0 2px 8px rgba(108,74,182,0.07);text-align:center}
+          .strip-card{background:white;border-radius:11px;padding:.8rem .9rem;box-shadow:0 2px 8px rgba(22,137,201,0.07);text-align:center}
           .strip-label{font-size:.68rem;color:var(--gray);font-weight:600}
           .strip-val{font-size:.9rem;font-weight:900;color:var(--dark);margin-top:.15rem}
           .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;gap:.8rem;flex-wrap:wrap}
           .section-ttl{font-size:.95rem;font-weight:900;color:var(--dark)}
           .btn-main{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer}
           .reports-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
-          .report-card{background:white;border-radius:16px;padding:1.2rem;box-shadow:0 3px 12px rgba(108,74,182,0.08);border:1px solid rgba(108,74,182,0.06)}
+          .report-card{background:white;border-radius:16px;padding:1.2rem;box-shadow:0 3px 12px rgba(22,137,201,0.08);border:1px solid rgba(22,137,201,0.06)}
           .rc-header{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
           .rc-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
           .rc-title{font-size:.9rem;font-weight:800}
           .rc-desc{font-size:.72rem;color:var(--gray);margin-top:.15rem;line-height:1.5}
           .rc-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.45rem;margin-bottom:.9rem}
-          .rc-stat{background:#F8F6FF;border-radius:8px;padding:.45rem .6rem}
+          .rc-stat{background:#F6FBFF;border-radius:8px;padding:.45rem .6rem}
           .rc-stat-label{font-size:.64rem;color:var(--gray);font-weight:600}
           .rc-stat-val{font-size:.78rem;font-weight:800;color:var(--dark);margin-top:.1rem}
           .rc-actions{display:flex;gap:.5rem}
           .btn-excel,.btn-print{display:flex;align-items:center;gap:.3rem;padding:.45rem .8rem;border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;flex:1;justify-content:center;border:1.5px solid transparent}
           .btn-excel{background:#D1FAE5;color:#065F46;border-color:#6EE7B7}
           .btn-print{background:#FEE2E2;color:#991B1B;border-color:#FCA5A5}
-          .balance-card{border-radius:16px;padding:1.3rem 1.5rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 6px 20px rgba(108,74,182,0.3);margin-bottom:1rem}
+          .balance-card{border-radius:16px;padding:1.3rem 1.5rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 6px 20px rgba(22,137,201,0.3);margin-bottom:1rem}
           .balance-title{font-size:.88rem;font-weight:700;opacity:.88;margin-bottom:.8rem}
           .balance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
           .balance-item{text-align:center}
           .balance-label{font-size:.72rem;opacity:.8;margin-bottom:.2rem}
           .balance-val{font-size:.95rem;font-weight:900}
-          .spin{width:22px;height:22px;border:3px solid rgba(108,74,182,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:3rem auto}
+          .spin{width:22px;height:22px;border:3px solid rgba(22,137,201,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:3rem auto}
           @keyframes sp{to{transform:rotate(360deg)}}
           @media (max-width: 960px){
             .summary-strip,.balance-grid,.reports-grid{grid-template-columns:1fr 1fr}

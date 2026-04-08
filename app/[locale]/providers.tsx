@@ -1,16 +1,29 @@
 "use client";
 import { ThemeProvider } from "next-themes";
 import { RoleProvider } from "@/hooks/useRole";
+import { PlatformBrandingProvider } from "@/components/PlatformBrandingProvider";
+import { SchoolBrandingProvider } from "@/components/SchoolBrandingProvider";
+import type { PlatformBranding } from "@/lib/platform-branding";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialPlatformBranding,
+}: {
+  children: React.ReactNode;
+  initialPlatformBranding: PlatformBranding;
+}) {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
+      defaultTheme="light"
       enableSystem
       disableTransitionOnChange
     >
-      <RoleProvider>{children}</RoleProvider>
+      <PlatformBrandingProvider initialBranding={initialPlatformBranding}>
+        <RoleProvider>
+          <SchoolBrandingProvider>{children}</SchoolBrandingProvider>
+        </RoleProvider>
+      </PlatformBrandingProvider>
     </ThemeProvider>
   );
 }

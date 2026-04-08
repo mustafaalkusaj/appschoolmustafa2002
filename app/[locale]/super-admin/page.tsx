@@ -56,9 +56,13 @@ import {
   isInfrastructureCompatError,
   isMissingRelationError,
 } from "@/lib/admin-infrastructure";
-import { SCHOOL_BRAND } from "@/lib/branding";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { PERMISSION_GROUPS } from "@/types/roles";
+import { usePlatformBranding } from "@/components/PlatformBrandingProvider";
+import {
+  getPlatformBrandName,
+  getPlatformBrandSubtitle,
+} from "@/lib/platform-branding";
 
 // New Components
 import { AuditLogTab } from "./components/AuditLogTab";
@@ -69,6 +73,7 @@ import { MonitoringTab } from "./components/MonitoringTab";
 import { BranchesTab } from "./components/BranchesTab";
 import { logAction } from "@/lib/audit";
 import { exportToCSV } from "@/lib/export";
+import { getSuperAdminSectionLabel } from "@/lib/app-navigation";
 
 const chartSkeleton = () => <div className="sk h-full w-full rounded-[24px]" />;
 
@@ -102,7 +107,7 @@ type ActiveTab =
 type SchoolPlan = "basic" | "premium" | "enterprise";
 type SubscriptionStatus = "active" | "suspended" | "inactive" | "expired";
 
-type SchoolRelation = { name: string | null } | Array<{ name: string | null }> | null;
+type SchoolRelation = { name: string | null } | Array<{ name: string | null }> | null | undefined;
 
 interface SchoolRecord {
   id: string;
@@ -397,6 +402,9 @@ export default function SuperAdminPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const toast = useToast();
+  const { branding: platformBranding } = usePlatformBranding();
+  const brandName = getPlatformBrandName(platformBranding, locale);
+  const brandSubtitle = getPlatformBrandSubtitle(platformBranding, locale);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
@@ -1022,8 +1030,9 @@ export default function SuperAdminPage() {
             <UltrathinkLogo
               size={sidebarCollapsed ? 48 : 54}
               showText={!sidebarCollapsed}
-              title={SCHOOL_BRAND.nameAr}
-              subtitle="لوحة المدير العام"
+              title={brandName}
+              subtitle={locale === "en" ? "Super admin control center" : "لوحة المدير العام"}
+              logoSrc={platformBranding.logoUrl}
             />
             <button
               type="button"
@@ -1035,7 +1044,7 @@ export default function SuperAdminPage() {
             </button>
           </div>
 
-          <div className="space-y-1">
+          <nav className="space-y-1" aria-label={locale === "en" ? "Super admin sections" : "أقسام المدير العام"}>
             {availableTabs.map((item) => {
               const Icon = item.icon;
               const isActive = item.id === activeTab;
@@ -1044,6 +1053,7 @@ export default function SuperAdminPage() {
                 <button
                   key={item.id}
                   type="button"
+                  data-testid={`super-admin-nav-${item.id}`}
                   className={cx(
                     "group flex w-full items-center gap-3 rounded-[22px] px-3 py-3 text-right transition",
                     isActive
@@ -1055,7 +1065,7 @@ export default function SuperAdminPage() {
                     setActiveTab(item.id);
                     setSidebarOpen(false);
                   }}
-                  title={item.label}
+                  title={getSuperAdminSectionLabel(item.id, locale)}
                 >
                   <span
                     className={cx(
@@ -1078,18 +1088,19 @@ export default function SuperAdminPage() {
                 </button>
               );
             })}
-          </div>
+          </nav>
 
           <div className="my-5 h-px bg-[var(--border)]" />
 
           <div className="space-y-2">
             <Link
               href={localizeAppPath("/dashboard", locale)}
+              data-testid="super-admin-nav-dashboard"
               className={cx(
                 "flex items-center gap-3 rounded-[22px] px-3 py-3 text-[var(--text-secondary)] transition hover:bg-[rgba(79,140,255,0.08)] hover:text-[var(--text-primary)]",
                 sidebarCollapsed && "justify-center px-2",
               )}
-              title="لوحة المدرسة"
+              title={getSuperAdminSectionLabel("dashboard", locale)}
             >
               <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[var(--surface-muted)] text-[var(--text-tertiary)]">
                 <House size={18} />
@@ -1285,33 +1296,35 @@ export default function SuperAdminPage() {
               </div>
             ) : null}
 
-            <section className="ui-soft-surface relative overflow-hidden rounded-[34px] p-6 sm:p-7">
+            <section className="ui-soft-surface relative overflow-hidden rounded-[34px] p-5 sm:p-6">
               <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/2 bg-[radial-gradient(circle_at_center,rgba(121,215,255,0.16),transparent_72%)] lg:block" />
-              <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-[760px] space-y-4">
+              <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div className="max-w-[680px] space-y-3">
                   <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-xs font-extrabold text-[var(--text-secondary)]">
                     <Sparkles size={14} className="text-[var(--primary)]" />
-                    تجربة مشرف عربية أولاً بطبقات هادئة وقرارات أسرع
+                    مركز تشغيل المدير العام
                   </div>
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-black leading-tight text-[var(--text-primary)] sm:text-[3rem]">
-                      مرحباً بك في مركز التحكم الخاص بـ {SCHOOL_BRAND.nameAr}
+                  <div className="space-y-2.5">
+                    <h2 className="text-2xl font-black leading-tight text-[var(--text-primary)] sm:text-[2.65rem]">
+                      {locale === "en"
+                        ? `Welcome to the ${brandName} control center`
+                        : `مرحباً بك في مركز التحكم الخاص بـ ${brandName}`}
                     </h2>
-                    <p className="max-w-[58rem] text-sm leading-8 text-[var(--text-secondary)] sm:text-base">
+                    <p className="max-w-[44rem] text-sm leading-7 text-[var(--text-secondary)] sm:text-base">
                       لوحة موحدة لمتابعة حالة المدارس والمستخدمين والاشتراكات، مع تسلسل بصري أوضح وقرارات
                       تشغيلية أسرع دون المساس بمنطق البيانات الحالي.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 xl:justify-end">
                   <button
                     type="button"
                     className="ui-button ui-button--primary inline-flex items-center gap-2"
                     onClick={openCreateSchool}
                   >
                     <Plus size={16} />
-                    إضافة مدرسة
+                    مدرسة جديدة
                   </button>
                   <button
                     type="button"
@@ -1319,7 +1332,7 @@ export default function SuperAdminPage() {
                     onClick={openCreateUser}
                   >
                     <UserRoundPlus size={16} />
-                    إضافة مستخدم
+                    مستخدم جديد
                   </button>
                   <button
                     type="button"
@@ -1327,7 +1340,7 @@ export default function SuperAdminPage() {
                     onClick={() => setActiveTab("subscriptions")}
                   >
                     <RefreshCw size={16} />
-                    متابعة الاشتراكات
+                    الاشتراكات
                   </button>
                 </div>
               </div>
