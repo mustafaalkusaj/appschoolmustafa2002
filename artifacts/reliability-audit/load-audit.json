@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-03-31T20:46:25.248Z",
-  "baseUrl": "http://127.0.0.1:3015",
+  "generatedAt": "2026-04-10T01:33:57.696Z",
+  "baseUrl": "http://127.0.0.1:3000",
   "adminSchoolId": "00000000-0000-0000-0000-000000000001",
   "storageStateAvailable": {
     "admin": true,
@@ -15,11 +15,11 @@
       "succeeded": 4,
       "failed": 0,
       "latency": {
-        "minMs": 685.0734170000005,
-        "avgMs": 882.4733125000002,
-        "p95Ms": 1078.337458,
-        "p99Ms": 1078.337458,
-        "maxMs": 1078.337458
+        "minMs": 60.664458000001105,
+        "avgMs": 2322.71502075,
+        "p95Ms": 8122.054208,
+        "p99Ms": 8122.054208,
+        "maxMs": 8122.054208
       },
       "sampleFailures": []
     },
@@ -28,16 +28,20 @@
       "concurrency": 1,
       "iterationsPerWorker": 3,
       "completed": 3,
-      "succeeded": 3,
-      "failed": 0,
+      "succeeded": 0,
+      "failed": 3,
       "latency": {
-        "minMs": 487.14270899999974,
-        "avgMs": 769.8498059999998,
-        "p95Ms": 1107.9617090000002,
-        "p99Ms": 1107.9617090000002,
-        "maxMs": 1107.9617090000002
+        "minMs": 0.7369999999991705,
+        "avgMs": 140.04443033333277,
+        "p95Ms": 418.48262500000055,
+        "p99Ms": 418.48262500000055,
+        "maxMs": 418.48262500000055
       },
-      "sampleFailures": []
+      "sampleFailures": [
+        "fetch failed",
+        "fetch failed",
+        "fetch failed"
+      ]
     },
     {
       "name": "low-teachers-api",
@@ -47,17 +51,17 @@
       "succeeded": 0,
       "failed": 4,
       "latency": {
-        "minMs": 333.9875409999995,
-        "avgMs": 376.1223849999999,
-        "p95Ms": 469.9589999999989,
-        "p99Ms": 469.9589999999989,
-        "maxMs": 469.9589999999989
+        "minMs": 0.345499999999447,
+        "avgMs": 0.6000207500001125,
+        "p95Ms": 0.8267500000001746,
+        "p99Ms": 0.8267500000001746,
+        "maxMs": 0.8267500000001746
       },
       "sampleFailures": [
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401"
+        "fetch failed",
+        "fetch failed",
+        "fetch failed",
+        "fetch failed"
       ]
     },
     {
@@ -68,11 +72,11 @@
       "succeeded": 4,
       "failed": 0,
       "latency": {
-        "minMs": 631.5374169999996,
-        "avgMs": 729.4855627499996,
-        "p95Ms": 851.3704999999991,
-        "p99Ms": 851.3704999999991,
-        "maxMs": 851.3704999999991
+        "minMs": 759.8597919999993,
+        "avgMs": 1000.04030225,
+        "p95Ms": 1259.7963750000017,
+        "p99Ms": 1259.7963750000017,
+        "maxMs": 1259.7963750000017
       },
       "sampleFailures": []
     },
@@ -84,11 +88,11 @@
       "succeeded": 4,
       "failed": 0,
       "latency": {
-        "minMs": 359.69687499999964,
-        "avgMs": 762.59727075,
-        "p95Ms": 1024.5691669999997,
-        "p99Ms": 1024.5691669999997,
-        "maxMs": 1024.5691669999997
+        "minMs": 394.39916599999924,
+        "avgMs": 819.9482184999997,
+        "p95Ms": 1179.185708000001,
+        "p99Ms": 1179.185708000001,
+        "maxMs": 1179.185708000001
       },
       "sampleFailures": []
     },
@@ -100,11 +104,11 @@
       "succeeded": 20,
       "failed": 0,
       "latency": {
-        "minMs": 673.8110420000012,
-        "avgMs": 925.1197103999999,
-        "p95Ms": 1821.211874999999,
-        "p99Ms": 1892.3658749999977,
-        "maxMs": 1892.3658749999977
+        "minMs": 63.541541999999026,
+        "avgMs": 1751.6239501000005,
+        "p95Ms": 4438.09,
+        "p99Ms": 4439.3168339999975,
+        "maxMs": 4439.3168339999975
       },
       "sampleFailures": []
     },
@@ -113,22 +117,16 @@
       "concurrency": 4,
       "iterationsPerWorker": 5,
       "completed": 20,
-      "succeeded": 0,
-      "failed": 20,
+      "succeeded": 20,
+      "failed": 0,
       "latency": {
-        "minMs": 328.1107499999998,
-        "avgMs": 374.4016583499997,
-        "p95Ms": 469.9408340000009,
-        "p99Ms": 475.64500000000044,
-        "maxMs": 475.64500000000044
+        "minMs": 2196.413916999998,
+        "avgMs": 3165.1915624499998,
+        "p95Ms": 5158.035707999999,
+        "p99Ms": 5159.365209,
+        "maxMs": 5159.365209
       },
-      "sampleFailures": [
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401"
-      ]
+      "sampleFailures": []
     },
     {
       "name": "moderate-dashboard-queries",
@@ -138,11 +136,11 @@
       "succeeded": 20,
       "failed": 0,
       "latency": {
-        "minMs": 611.6725839999999,
-        "avgMs": 866.8730562000001,
-        "p95Ms": 1686.4221670000006,
-        "p99Ms": 1723.0240000000013,
-        "maxMs": 1723.0240000000013
+        "minMs": 644.6497500000041,
+        "avgMs": 1330.303602050001,
+        "p95Ms": 2225.217625000005,
+        "p99Ms": 2294.764667000003,
+        "maxMs": 2294.764667000003
       },
       "sampleFailures": []
     },
@@ -154,11 +152,11 @@
       "succeeded": 12,
       "failed": 0,
       "latency": {
-        "minMs": 906.7270410000019,
-        "avgMs": 1163.1792153333329,
-        "p95Ms": 1836.247625,
-        "p99Ms": 1836.247625,
-        "maxMs": 1836.247625
+        "minMs": 689.6791249999951,
+        "avgMs": 1233.0670139999995,
+        "p95Ms": 2173.327000000005,
+        "p99Ms": 2173.327000000005,
+        "maxMs": 2173.327000000005
       },
       "sampleFailures": []
     },
@@ -170,11 +168,11 @@
       "succeeded": 32,
       "failed": 0,
       "latency": {
-        "minMs": 355.528416000001,
-        "avgMs": 426.41519921874954,
-        "p95Ms": 542.4815830000007,
-        "p99Ms": 553.2680839999994,
-        "maxMs": 553.2680839999994
+        "minMs": 425.9907089999979,
+        "avgMs": 665.5260026250003,
+        "p95Ms": 1076.550374999999,
+        "p99Ms": 1077.4042499999996,
+        "maxMs": 1077.4042499999996
       },
       "sampleFailures": []
     },
@@ -186,11 +184,11 @@
       "succeeded": 18,
       "failed": 0,
       "latency": {
-        "minMs": 347.2985839999965,
-        "avgMs": 586.8276734999997,
-        "p95Ms": 1157.2684160000026,
-        "p99Ms": 1157.2684160000026,
-        "maxMs": 1157.2684160000026
+        "minMs": 365.8377079999991,
+        "avgMs": 1123.9797546111113,
+        "p95Ms": 4476.330916999999,
+        "p99Ms": 4476.330916999999,
+        "maxMs": 4476.330916999999
       },
       "sampleFailures": []
     },
@@ -199,22 +197,16 @@
       "concurrency": 16,
       "iterationsPerWorker": 2,
       "completed": 32,
-      "succeeded": 0,
-      "failed": 32,
+      "succeeded": 32,
+      "failed": 0,
       "latency": {
-        "minMs": 339.24533400000655,
-        "avgMs": 491.33290628124973,
-        "p95Ms": 683.1600420000032,
-        "p99Ms": 683.2870000000039,
-        "maxMs": 683.2870000000039
+        "minMs": 1767.5409580000123,
+        "avgMs": 2847.1631692499996,
+        "p95Ms": 4099.137583999996,
+        "p99Ms": 4107.986041999997,
+        "maxMs": 4107.986041999997
       },
-      "sampleFailures": [
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401",
-        "teachers API returned 401"
-      ]
+      "sampleFailures": []
     },
     {
       "name": "login-cycle",
@@ -224,11 +216,11 @@
       "succeeded": 6,
       "failed": 0,
       "latency": {
-        "minMs": 785.0432500000024,
-        "avgMs": 1235.721749833335,
-        "p95Ms": 1646.8054160000029,
-        "p99Ms": 1646.8054160000029,
-        "maxMs": 1646.8054160000029
+        "minMs": 799.6570840000059,
+        "avgMs": 1162.2208543333302,
+        "p95Ms": 1743.2271249999903,
+        "p99Ms": 1743.2271249999903,
+        "maxMs": 1743.2271249999903
       },
       "sampleFailures": []
     }

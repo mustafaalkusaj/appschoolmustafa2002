@@ -1,6 +1,12 @@
 "use client";
 
-import { AppIcon } from "@/components/AppIcon";
+import { useTranslations } from "next-intl";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { formatNumber } from "@/lib/formatting";
 import type { StudentFormData, ClassFee, StudentWithFees } from "../_types";
 
 interface EditStudentModalProps {
@@ -28,32 +34,30 @@ export function EditStudentModal({
   onClose,
   onSubmit,
 }: EditStudentModalProps) {
-  if (isReadOnlyView || !show || !selectedStudent) return null;
+  const t = useTranslations("students.modals");
+  const commonT = useTranslations("common");
+
+  if (isReadOnlyView || !selectedStudent) return null;
 
   return (
-    <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="mh">
-          <div className="mt">تعديل بيانات الطالب</div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={13} />
-          </button>
-        </div>
-        <form onSubmit={onSubmit}>
-          <div className="fg">
-            <div className="ff full">
-              <label className="fl">اسم الطالب *</label>
-              <input
-                className="fi"
+    <Modal open={show} onClose={onClose} size="lg">
+      <ModalHeader title={t("editTitle")} onClose={onClose} />
+
+      <form onSubmit={onSubmit}>
+        <ModalBody>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label={t("form.fullName")} htmlFor="edit_full_name" required className="sm:col-span-2">
+              <Input
+                id="edit_full_name"
                 required
                 value={editForm.full_name}
                 onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">الصف الدراسي *</label>
-              <select
-                className="fs"
+            </FormField>
+
+            <FormField label={t("form.className")} htmlFor="edit_class_name" required>
+              <Select
+                id="edit_class_name"
                 required
                 value={editForm.class_name}
                 onChange={(e) => {
@@ -62,19 +66,18 @@ export function EditStudentModal({
                   setEditForm({ ...editForm, class_name: cls, total_fee: cf ? String(cf.total_fee ?? "") : editForm.total_fee });
                 }}
               >
-                <option value="">— اختر الصف —</option>
+                <option value="">{t("form.selectClass")}</option>
                 {classFees.map((cf) => (
                   <option key={cf.id} value={cf.class_name}>
                     {cf.class_name}
                   </option>
                 ))}
-                <option value="__manual__">أدخل يدوياً...</option>
-              </select>
+                <option value="__manual__">{t("form.manualEntry")}</option>
+              </Select>
               {editForm.class_name === "__manual__" && (
-                <input
-                  className="fi"
-                  style={{ marginTop: ".4rem" }}
-                  placeholder="اكتب اسم الصف"
+                <Input
+                  placeholder={t("form.manualPlaceholder")}
+                  className="mt-2"
                   onChange={(e) => setEditForm({ ...editForm, class_name: e.target.value })}
                 />
               )}
@@ -82,131 +85,106 @@ export function EditStudentModal({
                 const cf = classFees.find((x) => x.class_name === editForm.class_name);
                 if (!cf) return null;
                 return (
-                  <div
-                    style={{
-                      background: "linear-gradient(135deg,#EDE8FA,#E0D8F8)",
-                      borderRadius: 8,
-                      padding: ".45rem .7rem",
-                      marginTop: ".4rem",
-                      fontSize: ".72rem",
-                      color: "var(--p2)",
-                      fontWeight: 700,
-                    }}
-                  >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                      <AppIcon token="💰" size={12} /> قسط واحد: د.ع {cf.installment_amount?.toLocaleString()} ×{" "}
-                      {cf.installments} أقساط
-                    </span>
+                  <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-xs font-semibold text-[var(--primary)]">
+                    {t("form.installmentInfo", {
+                      amount: `${commonT("currency")} ${formatNumber(cf.installment_amount ?? 0)}`,
+                      count: cf.installments ?? 0
+                    })}
                   </div>
                 );
               })()}
-            </div>
-            <div className="ff">
-              <label className="fl">
-                الشعبة <span className="opt">(اختياري)</span>
-              </label>
-              <input
-                className="fi"
-                placeholder="مثال: أ، ب، ج"
+            </FormField>
+
+            <FormField label={t("form.section")} htmlFor="edit_section" helpText={t("form.optional")}>
+              <Input
+                id="edit_section"
+                placeholder={t("form.sectionPlaceholder")}
                 value={editForm.section}
                 onChange={(e) => setEditForm({ ...editForm, section: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">العنوان</label>
-              <input
-                className="fi"
+            </FormField>
+
+            <FormField label={t("form.address")} htmlFor="edit_address">
+              <Input
+                id="edit_address"
                 value={editForm.address}
                 onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">الهاتف</label>
-              <input
-                className="fi"
+            </FormField>
+
+            <FormField label={t("form.phone")} htmlFor="edit_phone">
+              <Input
+                id="edit_phone"
                 value={editForm.phone}
                 onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">
-                إجمالي الرسوم (د.ع)
-                {editForm.class_name && classFees.find((x) => x.class_name === editForm.class_name) && (
-                  <span className="opt"> — تلقائي من الصف</span>
-                )}
-              </label>
-              <input
-                className="fi"
+            </FormField>
+
+            <FormField
+              label={t("form.totalFee", { currency: commonT("currency") })}
+              htmlFor="edit_total_fee"
+              helpText={editForm.class_name && classFees.find((x) => x.class_name === editForm.class_name) ? t("form.autoFromClass") : undefined}
+            >
+              <Input
+                id="edit_total_fee"
                 type="number"
                 value={editForm.total_fee}
                 onChange={(e) => setEditForm({ ...editForm, total_fee: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">المدفوع (د.ع)</label>
-              <input
-                className="fi"
+            </FormField>
+
+            <FormField label={t("form.paidFee")} htmlFor="edit_paid_fee">
+              <Input
+                id="edit_paid_fee"
                 type="number"
                 value={editForm.paid_fee}
                 onChange={(e) => setEditForm({ ...editForm, paid_fee: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">
-                التخفيض (د.ع) <span className="opt">(اختياري)</span>
-              </label>
-              <input
-                className="fi"
+            </FormField>
+
+            <FormField label={t("form.discount", { currency: commonT("currency") })} htmlFor="edit_discount" helpText={t("form.optional")}>
+              <Input
+                id="edit_discount"
                 type="number"
                 placeholder="0"
                 value={editForm.discount_value}
                 onChange={(e) => setEditForm({ ...editForm, discount_value: e.target.value })}
               />
               {editForm.discount_value && parseInt(editForm.discount_value) > 0 && editForm.total_fee && parseInt(editForm.total_fee) > 0 && (
-                <div
-                  style={{
-                    background: "#FEF3C7",
-                    borderRadius: 7,
-                    padding: ".35rem .6rem",
-                    marginTop: ".35rem",
-                    fontSize: ".7rem",
-                    color: "#92400E",
-                    fontWeight: 700,
-                  }}
-                >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                    <AppIcon token="✂️" size={12} /> بعد الخصم: د.ع{" "}
-                    {(parseInt(editForm.total_fee) - parseInt(editForm.discount_value)).toLocaleString()}
-                  </span>
+                <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-xs font-semibold text-[var(--warning)]">
+                  {t("form.afterDiscount", {
+                    amount: `${commonT("currency")} ${formatNumber(parseInt(editForm.total_fee) - parseInt(editForm.discount_value))}`
+                  })}
                 </div>
               )}
-            </div>
-            <div className="ff">
-              <label className="fl">الحالة</label>
-              <select
-                className="fs"
+            </FormField>
+
+            <FormField label={t("form.status")} htmlFor="edit_status">
+              <Select
+                id="edit_status"
                 value={editForm.status}
                 onChange={(e) => setEditForm({ ...editForm, status: e.target.value as StudentFormData["status"] })}
               >
-                <option value="active">نشط</option>
-                <option value="transferred">منقول</option>
-                <option value="graduated">متخرج</option>
-                <option value="withdrawn">منسحب</option>
-                <option value="archived">مؤرشف</option>
-                <option value="suspended">موقوف</option>
-              </select>
-            </div>
+                <option value="active">{commonT("studentStatus.active")}</option>
+                <option value="transferred">{commonT("studentStatus.transferred")}</option>
+                <option value="graduated">{commonT("studentStatus.graduated")}</option>
+                <option value="withdrawn">{commonT("studentStatus.withdrawn")}</option>
+                <option value="archived">{commonT("studentStatus.archived")}</option>
+                <option value="suspended">{commonT("studentStatus.suspended")}</option>
+              </Select>
+            </FormField>
           </div>
-          <div className="fa">
-            <button type="submit" className="bs" disabled={saving}>
-              {saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}
-            </button>
-            <button type="button" className="bc" onClick={onClose}>
-              إلغاء
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </ModalBody>
+
+        <ModalFooter>
+          <Button type="submit" loading={saving}>
+            {saving ? t("form.saving") : t("form.saveChanges")}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            {commonT("cancel")}
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

@@ -1,5 +1,21 @@
 # Prototype Flows
 
+## تحديث QA الحي 2026-04-09
+
+تم استخدام flow مصادقة حي في Playwright بدل الاكتفاء بالتصفح غير المحمي:
+
+1. `Login`
+2. تسجيل دخول بحساب `admin@schoolapp.com`
+3. فتح route محمي
+4. التبديل بين العربية والإنجليزية داخل الهيدر
+5. التحقق من استمرار الوصول والاتجاه الصحيح
+
+الملفات المرتبطة:
+
+- `tests/e2e/login.smoke.spec.ts`
+- `tests/e2e/authenticated-locale-switch.smoke.spec.ts`
+- `tests/e2e/redesign-visual-capture.spec.ts`
+
 ## Flow 1: Authentication
 
 1. `Login`

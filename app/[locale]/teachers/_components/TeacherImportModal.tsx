@@ -103,7 +103,7 @@ export function TeacherImportModal({
           {importErrors.length ? (
             <div className="space-y-2 rounded-[20px] border border-[rgba(240,90,90,0.22)] bg-[rgba(240,90,90,0.08)] p-4">
               <p className="text-sm font-black text-[var(--danger)]">أخطاء التحقق</p>
-              <ul className="max-h-44 space-y-1 overflow-y-auto pr-5 text-sm leading-7 text-[var(--danger)]">
+              <ul className="max-h-44 space-y-1 overflow-y-auto pe-5 text-sm leading-7 text-[var(--danger)]">
                 {importErrors.map((issue) => (
                   <li key={issue}>{issue}</li>
                 ))}

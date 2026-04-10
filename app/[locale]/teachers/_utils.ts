@@ -182,7 +182,7 @@ export function formatDateLabel(value: string | null | undefined) {
 }
 
 // Print template
-export function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint = true) {
+export function buildPrintableCardHtml(card: ManagedUserAccountCard, _autoPrint = true) {
   const instructions = card.instructions.map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join("");
   const classLine = [card.class_name, card.section ? `الشعبة ${card.section}` : null].filter(Boolean).join(" • ");
   const roleLabel = card.role === "student" ? "الطالب" : "المدرس";
@@ -194,7 +194,7 @@ export function buildPrintableCardHtml(card: ManagedUserAccountCard, autoPrint =
       logoUrl: card.school_logo_url,
       locale: "ar",
     },
-    autoPrint,
+    autoPrint: false,
     extraStyles: `
       .teacher-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px}
       .teacher-card-note{margin-top:16px;font-size:12px;color:var(--print-muted)}

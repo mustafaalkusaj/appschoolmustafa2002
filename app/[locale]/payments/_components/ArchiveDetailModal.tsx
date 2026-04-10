@@ -2,8 +2,14 @@
 
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentArchive } from "../_types";
 import { getPaymentMethodLabel, getArchiveStudents, getArchivePayments } from "../_hooks/useArchiveOperations";
+import { Download, X, Users, CreditCard, Calendar, DollarSign } from "lucide-react";
 
 interface ArchiveDetailModalProps {
   archive: PaymentArchive | null;
@@ -20,7 +26,7 @@ export function ArchiveDetailModal({
   archiveExportingId,
   onExport,
 }: ArchiveDetailModalProps) {
-  if (!show || !archive) return null;
+  if (!archive) return null;
 
   const archiveDetailStudents = getArchiveStudents(archive);
   const archiveDetailPayments = [...getArchivePayments(archive)].sort(
@@ -29,159 +35,220 @@ export function ArchiveDetailModal({
   const archiveStudentsById = Object.fromEntries(archiveDetailStudents.map((s) => [s.id, s]));
 
   return (
-    <div
-      className="archive-detail-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="archive-detail-modal">
-        <div className="archive-detail-head">
-          <div>
-            <div className="archive-detail-title">أرشيف الحسابات لسنة {archive.archive_year}</div>
-            <div className="archive-detail-sub">
-              نسخة مؤرشفة خاصة بهذه المدرسة بتاريخ {formatDate(archive.archive_date)}
+    <Modal open={show} onClose={onClose} size="full">
+      <ModalHeader
+        title={`أرشيف الحسابات لسنة ${archive.archive_year}`}
+        description={`نسخة مؤرشفة خاصة بهذه المدرسة بتاريخ ${formatDate(archive.archive_date)}`}
+        onClose={onClose}
+      />
+
+      <ModalBody className="space-y-6">
+        {/* KPI Grid */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,transparent)]">
+                <DollarSign className="h-5 w-5 text-[var(--success)]" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">إجمالي المبالغ</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  د.ع {formatNumber(archive.total_amount || 0)}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="archive-detail-actions">
-            <button
-              className="btn-export"
-              onClick={() => onExport(archive)}
-              disabled={archiveExportingId === archive.id}
-            >
-              <AppIcon token="⬇️" size={14} />{" "}
-              {archiveExportingId === archive.id ? "جارٍ التصدير..." : "تصدير ملف الأرشيف"}
-            </button>
-            <button className="btn-add" onClick={onClose}>
-              <AppIcon token="✕" size={14} /> إغلاق
-            </button>
-          </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]">
+                <CreditCard className="h-5 w-5 text-[var(--primary)]" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">عدد الدفعات</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  {formatNumber(archive.total_payments || archiveDetailPayments.length)}
+                </p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--info)_10%,transparent)]">
+                <Users className="h-5 w-5 text-[var(--info)]" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">عدد الطلاب</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  {formatNumber(archive.total_students || archiveDetailStudents.length)}
+                </p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)]">
+                <Calendar className="h-5 w-5 text-[var(--warning)]" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">تاريخ الأرشفة</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  {formatDate(archive.archive_date)}
+                </p>
+              </div>
+            </div>
+          </Card>
         </div>
 
-        <div className="archive-detail-body">
-          <div className="archive-kpis">
-            <div className="archive-kpi">
-              <div className="archive-kpi-label">إجمالي المبالغ</div>
-              <div className="archive-kpi-value">د.ع {formatNumber(archive.total_amount || 0)}</div>
+        {/* Students Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-[var(--primary)]" />
+              <h3 className="text-base font-bold text-[var(--text-primary)]">الطلاب ضمن الأرشيف</h3>
             </div>
-            <div className="archive-kpi">
-              <div className="archive-kpi-label">عدد الدفعات</div>
-              <div className="archive-kpi-value">
-                {formatNumber(archive.total_payments || archiveDetailPayments.length)}
-              </div>
-            </div>
-            <div className="archive-kpi">
-              <div className="archive-kpi-label">عدد الطلاب</div>
-              <div className="archive-kpi-value">
-                {formatNumber(archive.total_students || archiveDetailStudents.length)}
-              </div>
-            </div>
-            <div className="archive-kpi">
-              <div className="archive-kpi-label">تاريخ الأرشفة</div>
-              <div className="archive-kpi-value">{formatDate(archive.archive_date)}</div>
-            </div>
+            <span className="text-sm text-[var(--text-muted)]">
+              {archiveDetailStudents.length} طالب محفوظ داخل اللقطة السنوية
+            </span>
           </div>
 
-          <div className="archive-section">
-            <div className="archive-section-top">
-              <div className="archive-section-title">
-                <AppIcon token="👥" size={14} /> الطلاب ضمن الأرشيف
-              </div>
-              <div className="archive-section-sub">
-                {archiveDetailStudents.length} طالب محفوظ داخل اللقطة السنوية
-              </div>
-            </div>
-            <div className="archive-table-wrap">
-              {archiveDetailStudents.length === 0 ? (
-                <div className="archive-empty">لا يوجد طلاب محفوظون داخل هذا الأرشيف.</div>
-              ) : (
-                <table>
+          <Card className="overflow-hidden">
+            {archiveDetailStudents.length === 0 ? (
+              <EmptyState
+                title="لا يوجد طلاب محفوظون"
+                description="لا يوجد طلاب محفوظون داخل هذا الأرشيف"
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
                   <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>اسم الطالب</th>
-                      <th>الصف</th>
-                      <th>الحالة</th>
-                      <th>إجمالي الرسوم</th>
-                      <th>المدفوع</th>
-                      <th>المتبقي</th>
+                    <tr className="bg-[var(--surface-soft)]">
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">#</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">اسم الطالب</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">الصف</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">الحالة</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">إجمالي الرسوم</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">المدفوع</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">المتبقي</th>
                     </tr>
                   </thead>
                   <tbody>
                     {archiveDetailStudents.map((student, index) => (
-                      <tr key={student.id || `${student.full_name}-${index}`}>
-                        <td>{index + 1}</td>
-                        <td style={{ fontWeight: 700 }}>{student.full_name || "—"}</td>
-                        <td>{student.class_name || "—"}</td>
-                        <td>{student.status || "—"}</td>
-                        <td>د.ع {formatNumber(student.total_fee || 0)}</td>
-                        <td style={{ color: "#10B981", fontWeight: 700 }}>
+                      <tr key={student.id || `${student.full_name}-${index}`} className="hover:bg-[var(--surface-soft)]">
+                        <td className="p-3 text-sm border-b border-[var(--border)]">{index + 1}</td>
+                        <td className="p-3 font-semibold border-b border-[var(--border)]">{student.full_name || "—"}</td>
+                        <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)]">
+                          {student.class_name || "—"}
+                        </td>
+                        <td className="p-3 border-b border-[var(--border)]">
+                          <Badge variant="neutral" size="sm">
+                            {student.status || "—"}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-sm border-b border-[var(--border)]">
+                          د.ع {formatNumber(student.total_fee || 0)}
+                        </td>
+                        <td className="p-3 text-sm font-semibold text-[var(--success)] border-b border-[var(--border)]">
                           د.ع {formatNumber(student.paid_fee || 0)}
                         </td>
-                        <td
-                          style={{
-                            color: (student.remaining_fee || 0) > 0 ? "#EF4444" : "#10B981",
-                            fontWeight: 700,
-                          }}
-                        >
-                          د.ع {formatNumber(student.remaining_fee || 0)}
+                        <td className="p-3 border-b border-[var(--border)]">
+                          <span
+                            className={`text-sm font-semibold ${
+                              (student.remaining_fee || 0) > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
+                            }`}
+                          >
+                            د.ع {formatNumber(student.remaining_fee || 0)}
+                          </span>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Payments Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-[var(--primary)]" />
+              <h3 className="text-base font-bold text-[var(--text-primary)]">الدفعات المؤرشفة</h3>
             </div>
+            <span className="text-sm text-[var(--text-muted)]">
+              {archiveDetailPayments.length} دفعة محفوظة ضمن هذه السنة
+            </span>
           </div>
 
-          <div className="archive-section" style={{ marginBottom: 0 }}>
-            <div className="archive-section-top">
-              <div className="archive-section-title">
-                <AppIcon token="💳" size={14} /> الدفعات المؤرشفة
-              </div>
-              <div className="archive-section-sub">
-                {archiveDetailPayments.length} دفعة محفوظة ضمن هذه السنة
-              </div>
-            </div>
-            <div className="archive-table-wrap">
-              {archiveDetailPayments.length === 0 ? (
-                <div className="archive-empty">لا توجد دفعات محفوظة داخل هذا الأرشيف.</div>
-              ) : (
-                <table>
+          <Card className="overflow-hidden">
+            {archiveDetailPayments.length === 0 ? (
+              <EmptyState
+                title="لا توجد دفعات محفوظة"
+                description="لا توجد دفعات محفوظة داخل هذا الأرشيف"
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
                   <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>اسم الطالب</th>
-                      <th>الصف</th>
-                      <th>المبلغ</th>
-                      <th>طريقة الدفع</th>
-                      <th>التاريخ</th>
-                      <th>الإيصال</th>
+                    <tr className="bg-[var(--surface-soft)]">
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">#</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">اسم الطالب</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">الصف</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">المبلغ</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">طريقة الدفع</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">التاريخ</th>
+                      <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">الإيصال</th>
                     </tr>
                   </thead>
                   <tbody>
                     {archiveDetailPayments.map((payment, index) => (
-                      <tr key={payment.id || `${payment.student_id}-${payment.created_at}-${index}`}>
-                        <td>{index + 1}</td>
-                        <td style={{ fontWeight: 700 }}>
+                      <tr key={payment.id || `${payment.student_id}-${payment.created_at}-${index}`} className="hover:bg-[var(--surface-soft)]">
+                        <td className="p-3 text-sm border-b border-[var(--border)]">{index + 1}</td>
+                        <td className="p-3 font-semibold border-b border-[var(--border)]">
                           {archiveStudentsById[payment.student_id]?.full_name || "—"}
                         </td>
-                        <td>{archiveStudentsById[payment.student_id]?.class_name || "—"}</td>
-                        <td style={{ color: "#10B981", fontWeight: 700 }}>
+                        <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)]">
+                          {archiveStudentsById[payment.student_id]?.class_name || "—"}
+                        </td>
+                        <td className="p-3 text-sm font-semibold text-[var(--success)] border-b border-[var(--border)]">
                           د.ع {formatNumber(payment.amount || 0)}
                         </td>
-                        <td>{getPaymentMethodLabel(payment.payment_method)}</td>
-                        <td>{formatDate(payment.created_at)}</td>
-                        <td>{payment.manual_receipt_number || payment.receipt_number || "—"}</td>
+                        <td className="p-3 border-b border-[var(--border)]">
+                          <Badge variant="neutral" size="sm">
+                            {getPaymentMethodLabel(payment.payment_method)}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)]">
+                          {formatDate(payment.created_at)}
+                        </td>
+                        <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)] break-all">
+                          {payment.manual_receipt_number || payment.receipt_number || "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
-            </div>
-          </div>
+              </div>
+            )}
+          </Card>
         </div>
-      </div>
-    </div>
+      </ModalBody>
+
+      <ModalFooter>
+        <Button
+          variant="outline"
+          onClick={() => onExport(archive)}
+          disabled={archiveExportingId === archive.id}
+          loading={archiveExportingId === archive.id}
+        >
+          <Download className="h-4 w-4" />
+          تصدير ملف الأرشيف
+        </Button>
+        <Button variant="secondary" onClick={onClose}>
+          <X className="h-4 w-4" />
+          إغلاق
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 }

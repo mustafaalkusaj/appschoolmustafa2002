@@ -1,0 +1,11 @@
+
+> school-app@0.1.0 dev
+> next dev --webpack -H 0.0.0.0
+
+▲ Next.js 16.1.7 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+- Environments: .env.local, .env
+
+✓ Starting...
+✓ Ready in 1013ms

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 
 import { useRole } from "@/hooks/useRole";
 import { sanitizeImageUrl } from "@/lib/brand/asset-url";
@@ -53,12 +54,13 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   textColor: null,
 });
 
-function applyBrandingToCssVars(branding: RuntimeBrandingState) {
+function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean) {
   const root = document.documentElement;
   const appearance = resolveBrandAppearance({
     primaryColor: sanitizeColor(branding.primaryColor) || DEFAULT_PRIMARY,
     secondaryColor: sanitizeColor(branding.secondaryColor) || DEFAULT_SECONDARY,
     themePreset: branding.themePreset,
+    isDark,
   });
   const sidebarColor = sanitizeColor(branding.sidebarColor) || appearance.sidebarColor;
   const accentColor = sanitizeColor(branding.accentColor) || appearance.accentColor;
@@ -70,7 +72,7 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState) {
   root.style.setProperty("--primary-strong", appearance.primaryStrong);
   root.style.setProperty("--secondary", appearance.secondaryColor);
   root.style.setProperty("--button-accent", accentColor);
-  root.style.setProperty("--button-accent-strong", shiftColor(accentColor, -0.12));
+  root.style.setProperty("--button-accent-strong", shiftColor(accentColor, isDark ? 0.12 : -0.12));
   root.style.setProperty("--brand-text-strong", textColor);
   root.style.setProperty("--focus-ring", toRgba(appearance.primaryColor, 0.24));
   root.style.setProperty("--p2", appearance.primaryDeep);
@@ -79,10 +81,19 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState) {
   root.style.setProperty("--bg", softenedCanvas);
   root.style.setProperty("--sidebar-a", softenedSidebar);
   root.style.setProperty("--sidebar-b", appearance.surfaceMutedColor);
+
+  if (isDark) {
+    root.style.setProperty("--sidebar-bg", softenedSidebar);
+    root.style.setProperty("--topbar-bg", toRgba(softenedSidebar, 0.88));
+  } else {
+    root.style.removeProperty("--sidebar-bg");
+    root.style.removeProperty("--topbar-bg");
+  }
 }
 
 export function RuntimeBrandingProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useRole();
+  const { resolvedTheme } = useTheme();
   const schoolScope = useSchoolScope(profile);
   const [branding, setBranding] = useState<RuntimeBrandingState>({
     schoolName: null,
@@ -233,8 +244,8 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
   }, [scopedSchoolId]);
 
   useEffect(() => {
-    applyBrandingToCssVars(branding);
-  }, [branding]);
+    applyBrandingToCssVars(branding, resolvedTheme === "dark");
+  }, [branding, resolvedTheme]);
 
   const value = useMemo(() => {
     const schoolName = branding.schoolName?.trim() || null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Plus, Table, Layers } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 
@@ -18,35 +19,38 @@ export function DashboardActions({
   onOpenNewFee,
   onOpenClassesModal,
 }: DashboardActionsProps) {
+  const t = useTranslations("dashboard.actions");
+  
   if (!canManageClasses) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-8">
+    <div className="flex flex-wrap items-center gap-3">
       <Button 
         onClick={onOpenNewFee}
-        className="gap-2 font-bold h-11 px-6 rounded-xl shadow-lg shadow-primary/20"
+        className="gap-2"
       >
-        <Plus size={20} strokeWidth={3} />
-        إضافة قسط دراسي
+        <Plus size={18} strokeWidth={3} />
+        {t("addFee")}
       </Button>
 
-      <Button 
+      <Button
         variant="secondary"
         onClick={onToggleFeesTable}
-        className="gap-2 font-bold h-11 px-5 rounded-xl border-none bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="gap-2"
       >
-        <Table size={18} className="text-muted-foreground" />
-        {showFeesTable ? "إخفاء الجدول" : "عرض جدول الأقساط"}
+        <Table size={16} />
+        {showFeesTable ? t("hideTable") : t("showTable")}
       </Button>
 
-      <Button 
+      <Button
         variant="secondary"
         onClick={onOpenClassesModal}
-        className="gap-2 font-bold h-11 px-5 rounded-xl border-none bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="gap-2"
       >
-        <Layers size={18} className="text-muted-foreground" />
-        إدارة الصفوف والشعب
+        <Layers size={16} />
+        {t("manageClasses")}
       </Button>
     </div>
   );
 }
+

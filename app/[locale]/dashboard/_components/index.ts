@@ -7,6 +7,7 @@ export { StatisticsCards } from "./StatisticsCards";
 export { FinancialAnalysisPanel } from "./FinancialAnalysisPanel";
 export { RecentPaymentsPanel } from "./RecentPaymentsPanel";
 export { OverdueStudentsPanel } from "./OverdueStudentsPanel";
+export { RecentActivityPanel } from "./RecentActivityPanel";
 export { ClassesModal } from "./ClassesModal";
 export { FeeModal } from "./FeeModal";
 

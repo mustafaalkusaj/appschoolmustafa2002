@@ -1,6 +1,9 @@
 "use client";
 
-import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import { formatNumber } from "@/lib/formatting";
 import type { Teacher, SalaryFormData } from "../_types";
 
@@ -32,54 +35,36 @@ export function PaySalaryModal({
   const net = grossSalary - deductions;
 
   return (
-    <div className="overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="modal" style={{ maxWidth: 440 }}>
-        <div className="mh">
-          <div className="mt" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token="💰" size={16} />
-            دفع راتب — {teacher.full_name}
-          </div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
-
-        <form onSubmit={onSubmit}>
-          <div className="fg">
-            <div className="ff">
-              <label className="fl">الشهر *</label>
-              <input
-                className="fis"
+    <Modal open={show} onClose={onClose} size="md">
+      <ModalHeader
+        title={`دفع راتب — ${teacher.full_name}`}
+        onClose={onClose}
+      />
+      <form onSubmit={onSubmit}>
+        <ModalBody className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="الشهر" required>
+              <Input
                 type="month"
                 required
                 value={form.month}
                 onChange={(e) => onUpdateForm({ month: e.target.value })}
               />
-            </div>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">الراتب الإجمالي *</label>
-              <input
-                className="fis"
+            <FormField label="الراتب الإجمالي" required>
+              <Input
                 type="number"
                 required
                 value={form.gross_salary}
                 onChange={(e) => onUpdateForm({ gross_salary: e.target.value })}
                 readOnly={teacher.salary_type !== "fixed"}
               />
-            </div>
+            </FormField>
+          </div>
 
-            <div
-              style={{
-                fontSize: ".74rem",
-                color: "var(--gray)",
-                marginTop: "-0.5rem",
-                marginBottom: "0.5rem",
-                gridColumn: "1 / -1",
-              }}
-            >
+          {(teacher.salary_type === "hourly" || teacher.salary_type === "mixed") && (
+            <div className="p-3 rounded-lg bg-[var(--surface-muted)] text-sm text-[var(--text-secondary)]">
               {teacher.salary_type === "hourly" && (
                 <>
                   محسوب آلياً: {lectureSalaryCalc.count} ×{" "}
@@ -95,62 +80,52 @@ export function PaySalaryModal({
                 </>
               )}
             </div>
+          )}
 
-            <div className="ff">
-              <label className="fl">الخصومات</label>
-              <input
-                className="fis"
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="الخصومات">
+              <Input
                 type="number"
                 value={form.deductions}
                 onChange={(e) => onUpdateForm({ deductions: e.target.value })}
               />
-            </div>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">ملاحظات</label>
-              <input
-                className="fis"
+            <FormField label="ملاحظات">
+              <Input
                 value={form.notes}
                 onChange={(e) => onUpdateForm({ notes: e.target.value })}
               />
-            </div>
+            </FormField>
           </div>
 
-          <div className="sal-preview">
-            <div className="sp-row">
-              <span className="sp-label">الإجمالي:</span>
-              <span className="sp-val">د.ع {formatNumber(grossSalary)}</span>
+          {/* Salary Preview */}
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-[var(--text-muted)]">الإجمالي:</span>
+              <span className="font-semibold">د.ع {formatNumber(grossSalary)}</span>
             </div>
-            <div className="sp-row">
-              <span className="sp-label">الخصومات:</span>
-              <span className="sp-val" style={{ color: "#EF4444" }}>
-                - د.ع {formatNumber(deductions)}
-              </span>
+            <div className="flex justify-between text-sm">
+              <span className="text-[var(--text-muted)]">الخصومات:</span>
+              <span className="font-semibold text-[var(--danger)]">- د.ع {formatNumber(deductions)}</span>
             </div>
-            <div
-              style={{
-                borderTop: "1px dashed rgba(79,140,255,0.2)",
-                marginTop: ".4rem",
-                paddingTop: ".4rem",
-              }}
-            >
-              <div className="sp-row">
-                <span className="sp-label">الصافي:</span>
-                <span className="sp-net">د.ع {formatNumber(net)}</span>
+            <div className="border-t border-[var(--border)] pt-2 mt-2">
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)] font-medium">الصافي:</span>
+                <span className="text-lg font-bold text-[var(--primary)]">د.ع {formatNumber(net)}</span>
               </div>
             </div>
           </div>
-
-          <div className="fa">
-            <button type="submit" className="bs" disabled={saving}>
-              {saving ? "جارٍ الدفع..." : "تأكيد دفع الراتب"}
-            </button>
-            <button type="button" className="bc" onClick={onClose}>
-              إلغاء
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button type="submit" loading={saving}>
+            {saving ? "جارٍ الدفع..." : "تأكيد دفع الراتب"}
+          </Button>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            إلغاء
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

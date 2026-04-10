@@ -279,6 +279,7 @@ export interface SidebarItem {
   href: string;
   iconToken: string;
   roles: UserRole[];
+  group: "general" | "academic" | "finance" | "system" | "admin";
 }
 
 export const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -288,34 +289,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/dashboard",
     iconToken: "📊",
     roles: ["super_admin", "admin", "employee"],
-  },
-  {
-    id: "super-admin",
-    label: "المدير العام",
-    href: "/super-admin",
-    iconToken: "👑",
-    roles: ["super_admin"],
-  },
-  {
-    id: "schools",
-    label: "المدارس",
-    href: "/schools",
-    iconToken: "🏫",
-    roles: ["super_admin"],
-  },
-  {
-    id: "teachers",
-    label: "الأساتذة",
-    href: "/teachers",
-    iconToken: "👨‍🏫",
-    roles: ["super_admin", "admin"],
-  },
-  {
-    id: "monitoring",
-    label: "مراقبة الأساتذة",
-    href: "/monitoring",
-    iconToken: "🛰️",
-    roles: ["super_admin", "admin"],
+    group: "general",
   },
   {
     id: "students",
@@ -323,27 +297,15 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/students",
     iconToken: "👥",
     roles: ["super_admin", "admin", "employee"],
+    group: "academic",
   },
   {
-    id: "payments",
-    label: "الحسابات",
-    href: "/payments",
-    iconToken: "💳",
-    roles: ["super_admin", "admin", "employee"],
-  },
-  {
-    id: "expenses",
-    label: "المصروفات",
-    href: "/expenses",
-    iconToken: "💸",
+    id: "teachers",
+    label: "الأساتذة",
+    href: "/teachers",
+    iconToken: "👨‍🏫",
     roles: ["super_admin", "admin"],
-  },
-  {
-    id: "salaries",
-    label: "الرواتب",
-    href: "/salaries",
-    iconToken: "💼",
-    roles: ["super_admin", "admin"],
+    group: "academic",
   },
   {
     id: "attendance",
@@ -351,6 +313,47 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/attendance",
     iconToken: "📋",
     roles: ["super_admin", "admin", "employee"],
+    group: "academic",
+  },
+  {
+    id: "payments",
+    label: "الحسابات",
+    href: "/payments",
+    iconToken: "💳",
+    roles: ["super_admin", "admin", "employee"],
+    group: "finance",
+  },
+  {
+    id: "expenses",
+    label: "المصروفات",
+    href: "/expenses",
+    iconToken: "💸",
+    roles: ["super_admin", "admin"],
+    group: "finance",
+  },
+  {
+    id: "salaries",
+    label: "الرواتب",
+    href: "/salaries",
+    iconToken: "💼",
+    roles: ["super_admin", "admin"],
+    group: "finance",
+  },
+  {
+    id: "monitoring",
+    label: "مراقبة الأساتذة",
+    href: "/monitoring",
+    iconToken: "🛰️",
+    roles: ["super_admin", "admin"],
+    group: "system",
+  },
+  {
+    id: "fee-notifications",
+    label: "تنبيهات الأقساق",
+    href: "/fee-notifications",
+    iconToken: "🔔",
+    roles: ["super_admin", "admin"],
+    group: "system",
   },
   {
     id: "reports",
@@ -358,13 +361,23 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/reports",
     iconToken: "📄",
     roles: ["super_admin", "admin"],
+    group: "system",
   },
   {
-    id: "fee-notifications",
-    label: "تنبيهات الأقساط",
-    href: "/fee-notifications",
-    iconToken: "🔔",
-    roles: ["super_admin", "admin"],
+    id: "super-admin",
+    label: "الإدارة العامة",
+    href: "/super-admin",
+    iconToken: "👑",
+    roles: ["super_admin"],
+    group: "admin",
+  },
+  {
+    id: "schools",
+    label: "المدارس",
+    href: "/schools",
+    iconToken: "🏫",
+    roles: ["super_admin"],
+    group: "admin",
   },
   {
     id: "subscriptions",
@@ -372,6 +385,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/subscriptions",
     iconToken: "🧾",
     roles: ["super_admin"],
+    group: "admin",
   },
 ];
 

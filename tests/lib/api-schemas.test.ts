@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createPaymentSchema,
+  dashboardOverviewQuerySchema,
   expenseMutationSchema,
   expensesListQuerySchema,
   expenseTypeMutationSchema,
@@ -68,6 +69,14 @@ describe("api schemas", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts seeded school ids in dashboard queries", () => {
+    const result = dashboardOverviewQuerySchema.safeParse({
+      schoolId: "00000000-0000-0000-0000-000000000001",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("requires non-empty expense type names", () => {
     const result = expenseTypeMutationSchema.safeParse({
       school_id: "11111111-1111-4111-8111-111111111111",
@@ -77,4 +86,3 @@ describe("api schemas", () => {
     expect(result.success).toBe(false);
   });
 });
-

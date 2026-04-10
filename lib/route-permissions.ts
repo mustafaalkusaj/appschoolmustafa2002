@@ -15,7 +15,7 @@ export async function routeUserHasPermission(
 ) {
   const { data: actorProfile, error } = await actorSupabase
     .from("user_profiles")
-    .select("role, custom_permissions, permissions")
+    .select("role, custom_permissions")
     .eq("id", actorUserId)
     .maybeSingle();
 
@@ -30,12 +30,10 @@ export async function routeUserHasPermission(
 
   const profileWithPermissions = actorProfile as {
     custom_permissions?: unknown;
-    permissions?: unknown;
   };
-  const rawPermissions =
-    Array.isArray(profileWithPermissions.custom_permissions) && profileWithPermissions.custom_permissions.length > 0
-      ? profileWithPermissions.custom_permissions
-      : profileWithPermissions.permissions;
+  const rawPermissions = Array.isArray(profileWithPermissions.custom_permissions)
+    ? profileWithPermissions.custom_permissions
+    : undefined;
 
   return hasPermissionInList(normalizePermissions(rawPermissions, role), permission);
 }

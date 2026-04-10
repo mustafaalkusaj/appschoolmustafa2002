@@ -2,6 +2,26 @@
 
 import { supabase } from "@/lib/supabase";
 
+async function resolveAccessToken(timeoutMs = 1_000) {
+  type SessionResult = Awaited<ReturnType<typeof supabase.auth.getSession>>;
+  let timeoutId: number | null = null;
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timeoutId = window.setTimeout(() => resolve(null), timeoutMs);
+  });
+  const sessionTokenPromise: Promise<string | null> = supabase.auth
+    .getSession()
+    .then((result: SessionResult) => result.data.session?.access_token ?? null)
+    .catch(() => null);
+
+  try {
+    return await Promise.race([sessionTokenPromise, timeoutPromise]);
+  } finally {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
 function mergeHeaders(baseHeaders: HeadersInit | undefined, extraHeaders: HeadersInit) {
   const headers = new Headers(baseHeaders);
   const incoming = new Headers(extraHeaders);
@@ -13,12 +33,10 @@ function mergeHeaders(baseHeaders: HeadersInit | undefined, extraHeaders: Header
 
 export async function buildAuthorizedHeaders(headers?: HeadersInit) {
   const mergedHeaders = new Headers(headers);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const accessToken = await resolveAccessToken();
 
-  if (session?.access_token) {
-    mergedHeaders.set("Authorization", `Bearer ${session.access_token}`);
+  if (accessToken) {
+    mergedHeaders.set("Authorization", `Bearer ${accessToken}`);
   }
 
   return mergedHeaders;

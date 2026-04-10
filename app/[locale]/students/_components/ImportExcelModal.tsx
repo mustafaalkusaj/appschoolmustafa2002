@@ -1,6 +1,10 @@
 "use client";
 
-import { AppIcon } from "@/components/AppIcon";
+import { useTranslations } from "next-intl";
+import { Upload, Download, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/brand/brand-utils";
 
 interface ImportExcelModalProps {
   show: boolean;
@@ -29,108 +33,132 @@ export function ImportExcelModal({
   onDownloadTemplate,
   onClose,
 }: ImportExcelModalProps) {
-  if (isReadOnlyView || !canManageStudentAccounts || !show) return null;
+  const t = useTranslations("students.modals.import");
+
+  if (isReadOnlyView || !canManageStudentAccounts) return null;
+
+  const requiredColumns = [
+    { name: t("columns.name"), required: true },
+    { name: t("columns.class"), required: true },
+    { name: t("columns.address"), required: false },
+    { name: t("columns.phone"), required: false },
+    { name: t("columns.parentPhone"), required: false },
+    { name: t("columns.totalFee"), required: false },
+    { name: t("columns.paidFee"), required: false },
+  ];
 
   return (
-    <div
-      className="overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="modal modal-lg">
-        <div className="mh">
-          <div className="mt">استيراد طلاب من إكسل</div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={13} />
-          </button>
-        </div>
-        <div className="cols-info">
-          <div className="cols-title">أعمدة الملف:</div>
-          <div className="cols-grid">
-            <div className="col-item">
-              <span style={{ color: "#EF4444" }}>*</span> اسم الطالب (إلزامي)
-            </div>
-            <div className="col-item">
-              <span style={{ color: "#EF4444" }}>*</span> الصف (إلزامي)
-            </div>
-            <div className="col-item">
-              <span style={{ color: "var(--gray)" }}>○</span> العنوان
-            </div>
-            <div className="col-item">
-              <span style={{ color: "var(--gray)" }}>○</span> الهاتف
-            </div>
-            <div className="col-item">
-              <span style={{ color: "var(--gray)" }}>○</span> هاتف ولي الأمر
-            </div>
-            <div className="col-item">
-              <span style={{ color: "var(--gray)" }}>○</span> إجمالي الرسوم
-            </div>
-            <div className="col-item">
-              <span style={{ color: "var(--gray)" }}>○</span> المدفوع
-            </div>
+    <Modal open={show} onClose={onClose} size="xl">
+      <ModalHeader title={t("title")} onClose={onClose} />
+
+      <ModalBody>
+        {/* Required Columns Info */}
+        <div className="mb-4 p-4 rounded-[var(--radius-lg)] bg-[var(--surface-soft)]">
+          <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">
+            {t("columnsTitle")}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {requiredColumns.map((col) => (
+              <div key={col.name} className="flex items-center gap-1.5 text-xs">
+                <span className={col.required ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}>
+                  {col.required ? "*" : "○"}
+                </span>
+                <span className="text-[var(--text-secondary)]">{col.name}</span>
+                {col.required && (
+                  <span className="text-[var(--text-muted)]">({t("required")})</span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-        <button className="template-btn" onClick={onDownloadTemplate}>
-          <AppIcon token="⬇️" size={15} />
-          تحميل نموذج إكسل جاهز
-        </button>
-        <div className="upload-area" onClick={() => fileRef.current?.click()}>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="12" y1="18" x2="12" y2="12" />
-            <polyline points="9 15 12 12 15 15" />
-          </svg>
-          <div style={{ fontWeight: 700, marginBottom: ".2rem" }}>اضغط لرفع ملف إكسل</div>
-          <div style={{ fontSize: ".75rem", color: "var(--gray)" }}>xlsx فقط</div>
-          <input ref={fileRef} type="file" accept=".xlsx" style={{ display: "none" }} onChange={onFileChange} />
+
+        {/* Download Template Button */}
+        <Button variant="outline" size="sm" onClick={onDownloadTemplate} className="mb-4">
+          <Download className="h-4 w-4" />
+          {t("downloadTemplate")}
+        </Button>
+
+        {/* Upload Area */}
+        <div
+          className={cn(
+            "border-2 border-dashed border-[var(--border)] rounded-[var(--radius-lg)] p-8",
+            "flex flex-col items-center justify-center cursor-pointer",
+            "hover:border-[var(--primary)] hover:bg-[var(--surface-hover)]",
+            "transition-colors"
+          )}
+          onClick={() => fileRef.current?.click()}
+        >
+          <FileSpreadsheet className="h-12 w-12 text-[var(--text-muted)] mb-3" />
+          <p className="font-semibold text-[var(--text-primary)]">{t("uploadPrompt")}</p>
+          <p className="text-sm text-[var(--text-muted)]">{t("uploadHint")}</p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={onFileChange}
+          />
         </div>
-        {importError && <div className="err">{importError}</div>}
+
+        {/* Error */}
+        {importError && (
+          <div className="mt-4 p-3 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] text-sm font-semibold flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {importError}
+          </div>
+        )}
+
+        {/* Preview Table */}
         {importPreview.length > 0 && (
-          <>
-            <div style={{ fontSize: ".8rem", fontWeight: 700, marginBottom: ".5rem" }}>
-              معاينة أول {importPreview.length} صفوف:
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table className="preview-table">
+          <div className="mt-4">
+            <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">
+              {t("previewTitle", { count: importPreview.length })}
+            </p>
+            <div className="overflow-x-auto rounded-[var(--radius-md)] border border-[var(--border)]">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr>
+                  <tr className="bg-[var(--surface-soft)]">
                     {Object.keys(importPreview[0]).map((k, i) => (
-                      <th key={i}>{k}</th>
+                      <th
+                        key={i}
+                        className="px-3 py-2 text-start font-semibold text-[var(--text-muted)]"
+                      >
+                        {k}
+                      </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[var(--border)]">
                   {importPreview.map((row, i) => (
-                    <tr key={i}>
-                      {Object.values(row).map((v: any, j) => (
-                        <td key={j}>{v}</td>
+                    <tr key={i} className="hover:bg-[var(--surface-hover)]">
+                      {Object.values(row).map((v: unknown, j) => (
+                        <td key={j} className="px-3 py-2 text-[var(--text-secondary)]">
+                          {String(v)}
+                        </td>
                       ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </>
+          </div>
         )}
-        <div className="fa">
-          <button className="bs" disabled={importing || importPreview.length === 0} onClick={onImport}>
-            {importing ? "جارٍ الاستيراد..." : "استيراد الطلاب"}
-          </button>
-          <button className="bc" onClick={onClose}>
-            إلغاء
-          </button>
-        </div>
-      </div>
-    </div>
+      </ModalBody>
+
+      <ModalFooter>
+        <Button
+          variant="primary"
+          onClick={onImport}
+          disabled={importing || importPreview.length === 0}
+          loading={importing}
+        >
+          <Upload className="h-4 w-4" />
+          {importing ? t("importing") : t("importButton")}
+        </Button>
+        <Button variant="ghost" onClick={onClose}>
+          {t("cancel")}
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 }

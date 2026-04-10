@@ -1,6 +1,14 @@
 "use client";
 
-import { AppIcon } from "@/components/AppIcon";
+import { useTranslations } from "next-intl";
+import { Check } from "lucide-react";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/brand/brand-utils";
+import { formatNumber } from "@/lib/formatting";
 import type { StudentFormData, ClassFee } from "../_types";
 
 interface AddStudentModalProps {
@@ -32,103 +40,95 @@ export function AddStudentModal({
   onClose,
   onSubmit,
 }: AddStudentModalProps) {
-  if (isReadOnlyView || !canManageStudentAccounts || !show) return null;
+  const t = useTranslations("students.modals");
+  const commonT = useTranslations("common");
+  const paginationT = useTranslations("students.pagination");
+
+  if (isReadOnlyView || !canManageStudentAccounts) return null;
+
+  const STEPS = [
+    { n: 1, label: t("steps.info") },
+    { n: 2, label: t("steps.contact") },
+    { n: 3, label: t("steps.fees") },
+  ] as const;
 
   return (
-    <div
-      className="overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="modal">
-        <div className="mh">
-          <div className="mt">إضافة طالب جديد</div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={13} />
-          </button>
-        </div>
+    <Modal open={show} onClose={onClose} size="lg">
+      <ModalHeader title={t("addTitle")} onClose={onClose} />
 
-        {/* Step indicator */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 0, marginBottom: "1.2rem" }}>
-          {([{ n: 1, label: "المعلومات" }, { n: 2, label: "التواصل" }, { n: 3, label: "الرسوم" }] as const).map(
-            ({ n, label }, i) => (
-              <div key={n} style={{ display: "flex", alignItems: "center", flex: n < 3 ? 1 : undefined }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: ".25rem" }}>
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 700,
-                      fontSize: ".76rem",
-                      transition: "all .2s",
-                      background:
-                        addStep > n
-                          ? "#22C55E"
-                          : addStep === n
-                          ? "linear-gradient(135deg,var(--p3),var(--p2))"
-                          : "rgba(108,74,182,0.1)",
-                      color: addStep >= n ? "white" : "var(--p2)",
-                      border: addStep === n ? "none" : "1px solid rgba(108,74,182,0.2)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {addStep > n ? "✓" : n}
-                  </div>
-                  <span style={{ fontSize: ".62rem", color: "var(--gray)", whiteSpace: "nowrap" }}>{label}</span>
+      {/* Step Indicator */}
+      <div className="px-[var(--modal-padding)] pt-2">
+        <div className="flex items-center justify-between">
+          {STEPS.map(({ n, label }, i) => (
+            <div key={n} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                    addStep > n
+                      ? "bg-[var(--success)] text-white"
+                      : addStep === n
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[var(--surface-muted)] text-[var(--text-muted)] border border-[var(--border)]"
+                  )}
+                >
+                  {addStep > n ? <Check className="h-4 w-4" /> : n}
                 </div>
-                {i < 2 && (
-                  <div
-                    style={{
-                      flex: 1,
-                      height: 2,
-                      background: addStep > n ? "#22C55E" : "rgba(108,74,182,0.15)",
-                      margin: "0 .35rem",
-                      marginBottom: "1.1rem",
-                    }}
-                  />
-                )}
+                <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{label}</span>
               </div>
-            ),
-          )}
+              {i < 2 && (
+                <div
+                  className={cn(
+                    "flex-1 h-0.5 mx-2 mb-5 transition-colors",
+                    addStep > n ? "bg-[var(--success)]" : "bg-[var(--border)]"
+                  )}
+                />
+              )}
+            </div>
+          ))}
         </div>
+      </div>
 
-        {error && <div className="err">{error}</div>}
-        <form
-          onSubmit={(e) => {
-            if (addStep < 3) {
-              e.preventDefault();
-              setAddStep(addStep + 1);
-            } else {
-              onSubmit(e);
-            }
-          }}
-        >
-          <div className="fg">
+      <form
+        onSubmit={(e) => {
+          if (addStep < 3) {
+            e.preventDefault();
+            setAddStep(addStep + 1);
+          } else {
+            onSubmit(e);
+          }
+        }}
+      >
+        <ModalBody>
+          {error && (
+            <div className="mb-4 p-3 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] text-sm font-semibold">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Step 1: Basic Info */}
             {addStep === 1 && (
               <>
-                <div className="ff full">
-                  <label className="fl">اسم الطالب *</label>
-                  <input
-                    className="fi"
+                <FormField
+                  label={t("form.fullName")}
+                  htmlFor="full_name"
+                  required
+                  className="sm:col-span-2"
+                >
+                  <Input
+                    id="full_name"
                     required
                     autoFocus
-                    placeholder="أحمد محمد علي"
+                    placeholder={t("form.fullNamePlaceholder")}
                     value={form.full_name}
                     onChange={(e) => setForm({ ...form, full_name: e.target.value })}
                   />
-                </div>
-                <div className="ff">
-                  <label className="fl">الصف الدراسي *</label>
-                  <select
-                    className="fs"
+                </FormField>
+
+                <FormField label={t("form.className")} htmlFor="class_name" required>
+                  <Select
+                    id="class_name"
                     required
                     value={form.class_name}
                     onChange={(e) => {
@@ -137,19 +137,18 @@ export function AddStudentModal({
                       setForm({ ...form, class_name: cls, total_fee: cf ? String(cf.total_fee ?? "") : form.total_fee });
                     }}
                   >
-                    <option value="">— اختر الصف —</option>
+                    <option value="">{t("form.selectClass")}</option>
                     {classFees.map((cf) => (
                       <option key={cf.id} value={cf.class_name}>
                         {cf.class_name}
                       </option>
                     ))}
-                    <option value="__manual__">أدخل يدوياً...</option>
-                  </select>
+                    <option value="__manual__">{t("form.manualEntry")}</option>
+                  </Select>
                   {form.class_name === "__manual__" && (
-                    <input
-                      className="fi"
-                      style={{ marginTop: ".4rem" }}
-                      placeholder="اكتب اسم الصف"
+                    <Input
+                      placeholder={t("form.manualPlaceholder")}
+                      className="mt-2"
                       onChange={(e) => setForm({ ...form, class_name: e.target.value })}
                     />
                   )}
@@ -157,79 +156,63 @@ export function AddStudentModal({
                     const cf = classFees.find((x) => x.class_name === form.class_name);
                     if (!cf) return null;
                     return (
-                      <div
-                        style={{
-                          background: "linear-gradient(135deg,#EDE8FA,#E0D8F8)",
-                          borderRadius: 8,
-                          padding: ".45rem .7rem",
-                          marginTop: ".4rem",
-                          fontSize: ".72rem",
-                          color: "var(--p2)",
-                          fontWeight: 700,
-                        }}
-                      >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                          <AppIcon token="💰" size={12} /> قسط واحد: د.ع {cf.installment_amount?.toLocaleString()} ×{" "}
-                          {cf.installments} أقساط
-                        </span>
+                      <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-xs font-semibold text-[var(--primary)]">
+                        {t("form.installmentInfo", {
+                          amount: `${commonT("currency")} ${formatNumber(cf.installment_amount ?? 0)}`,
+                          count: cf.installments ?? 0
+                        })}
                       </div>
                     );
                   })()}
-                </div>
-                <div className="ff">
-                  <label className="fl">
-                    الشعبة <span className="opt">(اختياري)</span>
-                  </label>
-                  <input
-                    className="fi"
-                    placeholder="مثال: أ، ب، ج"
+                </FormField>
+
+                <FormField label={t("form.section")} htmlFor="section" helpText={t("form.optional")}>
+                  <Input
+                    id="section"
+                    placeholder={t("form.sectionPlaceholder")}
                     value={form.section}
                     onChange={(e) => setForm({ ...form, section: e.target.value })}
                   />
-                </div>
+                </FormField>
               </>
             )}
 
             {/* Step 2: Contact */}
             {addStep === 2 && (
               <>
-                <div className="ff full">
-                  <label className="fl">العنوان *</label>
-                  <input
-                    className="fi"
+                <FormField label={t("form.address")} htmlFor="address" required className="sm:col-span-2">
+                  <Input
+                    id="address"
                     required
                     autoFocus
-                    placeholder="بغداد - الكرخ"
+                    placeholder={t("form.addressPlaceholder")}
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
                   />
-                </div>
-                <div className="ff full">
-                  <label className="fl">
-                    الهاتف <span className="opt">(اختياري)</span>
-                  </label>
-                  <input
-                    className="fi"
-                    placeholder="07XXXXXXXXX"
+                </FormField>
+
+                <FormField label={t("form.phone")} htmlFor="phone" helpText={t("form.optional")} className="sm:col-span-2">
+                  <Input
+                    id="phone"
+                    placeholder={t("form.phonePlaceholder")}
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   />
-                </div>
+                </FormField>
               </>
             )}
 
             {/* Step 3: Fees */}
             {addStep === 3 && (
               <>
-                <div className="ff">
-                  <label className="fl">
-                    إجمالي الرسوم (د.ع) *
-                    {form.class_name && classFees.find((x) => x.class_name === form.class_name) && (
-                      <span className="opt"> — تلقائي من الصف</span>
-                    )}
-                  </label>
-                  <input
-                    className="fi"
+                <FormField
+                  label={t("form.totalFee", { currency: commonT("currency") })}
+                  htmlFor="total_fee"
+                  required
+                  helpText={form.class_name && classFees.find((x) => x.class_name === form.class_name) ? t("form.autoFromClass") : undefined}
+                >
+                  <Input
+                    id="total_fee"
                     type="number"
                     required
                     autoFocus
@@ -237,75 +220,66 @@ export function AddStudentModal({
                     value={form.total_fee}
                     onChange={(e) => setForm({ ...form, total_fee: e.target.value })}
                   />
-                </div>
-                <div className="ff">
-                  <label className="fl">
-                    المدفوع مسبقاً <span className="opt">(اختياري)</span>
-                  </label>
-                  <input
-                    className="fi"
+                </FormField>
+
+                <FormField label={t("form.paidFee")} htmlFor="paid_fee" helpText={t("form.optional")}>
+                  <Input
+                    id="paid_fee"
                     type="number"
                     placeholder="0"
                     value={form.paid_fee}
                     onChange={(e) => setForm({ ...form, paid_fee: e.target.value })}
                   />
-                </div>
-                <div className="ff full">
-                  <label className="fl">
-                    التخفيض (د.ع) <span className="opt">(اختياري)</span>
-                  </label>
-                  <input
-                    className="fi"
+                </FormField>
+
+                <FormField
+                  label={t("form.discount", { currency: commonT("currency") })}
+                  htmlFor="discount_value"
+                  helpText={t("form.optional")}
+                  className="sm:col-span-2"
+                >
+                  <Input
+                    id="discount_value"
                     type="number"
                     placeholder="0"
                     value={form.discount_value}
                     onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
                   />
                   {form.discount_value && parseInt(form.discount_value) > 0 && form.total_fee && parseInt(form.total_fee) > 0 && (
-                    <div
-                      style={{
-                        background: "#FEF3C7",
-                        borderRadius: 7,
-                        padding: ".35rem .6rem",
-                        marginTop: ".35rem",
-                        fontSize: ".7rem",
-                        color: "#92400E",
-                        fontWeight: 700,
-                      }}
-                    >
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                        <AppIcon token="✂️" size={12} /> بعد الخصم: د.ع{" "}
-                        {(parseInt(form.total_fee) - parseInt(form.discount_value)).toLocaleString()}
-                      </span>
+                    <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-xs font-semibold text-[var(--warning)]">
+                      {t("form.afterDiscount", {
+                        amount: `${commonT("currency")} ${formatNumber(parseInt(form.total_fee) - parseInt(form.discount_value))}`
+                      })}
                     </div>
                   )}
-                </div>
+                </FormField>
               </>
             )}
           </div>
-          <div className="fa">
-            {addStep > 1 && (
-              <button type="button" className="bc" onClick={() => setAddStep(addStep - 1)}>
-                → السابق
-              </button>
-            )}
-            {addStep < 3 ? (
-              <button type="submit" className="bs">
-                ← التالي
-              </button>
-            ) : (
-              <button type="submit" className="bs" disabled={saving}>
-                {saving ? "جارٍ الحفظ..." : "✓ حفظ الطالب"}
-              </button>
-            )}
-            {addStep === 1 && (
-              <button type="button" className="bc" onClick={onClose}>
-                إلغاء
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
+        </ModalBody>
+
+        <ModalFooter>
+          {addStep > 1 && (
+            <Button type="button" variant="outline" onClick={() => setAddStep(addStep - 1)}>
+              {paginationT("previous")}
+            </Button>
+          )}
+          {addStep < 3 ? (
+            <Button type="submit">
+              {paginationT("next")}
+            </Button>
+          ) : (
+            <Button type="submit" loading={saving}>
+              {saving ? t("form.saving") : t("form.saveStudent")}
+            </Button>
+          )}
+          {addStep === 1 && (
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {commonT("cancel")}
+            </Button>
+          )}
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

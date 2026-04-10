@@ -1,8 +1,12 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { formatNumber } from "@/lib/formatting";
-import { AppIcon } from "@/components/AppIcon";
+import { Badge } from "@/components/ui/badge";
+import { Button, IconButton } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Student, PAGE_SIZE } from "../_types";
+import { CreditCard, Eye } from "lucide-react";
 
 interface PaymentsTableProps {
   students: Student[];
@@ -27,184 +31,290 @@ export function PaymentsTable({
   onStudentClick,
   onAddPayment,
 }: PaymentsTableProps) {
+  const t = useTranslations();
+  const getPaymentStatus = (
+    remaining: number,
+    total: number
+  ): { variant: "success" | "warning" | "danger" | "info"; label: string } => {
+    if (remaining <= 0) {
+      return { variant: "success", label: t("payments.table.paymentStatus.settled") };
+    }
+    const pct = total > 0 ? (remaining / total) * 100 : 100;
+    if (pct > 75) {
+      return { variant: "danger", label: t("payments.table.paymentStatus.largeRemaining") };
+    }
+    if (pct > 25) {
+      return { variant: "warning", label: t("payments.table.paymentStatus.partialRemaining") };
+    }
+    return { variant: "info", label: t("payments.table.paymentStatus.nearlySettled") };
+  };
+
   if (loading) {
     return (
-      <div className="tbl-wrap">
-        <div className="spin" />
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--primary)] border-t-transparent" />
       </div>
     );
   }
 
   if (students.length === 0) {
     return (
-      <div className="tbl-wrap">
-        <div className="empty">لا توجد نتائج</div>
-      </div>
+      <EmptyState
+        title={t("payments.table.emptyTitle")}
+        description={t("payments.table.emptyDescription")}
+      />
     );
   }
 
   return (
-    <div className="tbl-wrap">
-      <div className="tbl-mobile-cards">
+    <div className="space-y-6">
+      {/* Mobile Cards */}
+      <div className="grid gap-4 lg:hidden">
         {students.map((s, i) => {
           const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
+          const status = getPaymentStatus(s.remaining_fee, s.total_fee);
+
           return (
-            <article key={s.id} className="tbl-mobile-card">
-              <div className="tbl-mobile-card__header">
+            <div
+              key={s.id}
+              className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[var(--card-shadow)] space-y-4"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4">
                 <div>
                   <button
                     type="button"
-                    className="student-link tbl-mobile-card__title"
+                    className="text-base font-bold text-[var(--primary)] hover:underline"
                     onClick={() => onStudentClick(s)}
                   >
                     {s.full_name}
                   </button>
-                  <div className="tbl-mobile-card__subtitle">
-                    #{(page - 1) * PAGE_SIZE + i + 1} • {s.class_name || "بدون صف"} •{" "}
-                    {formatNumber(paymentCountsByStudent[s.id] ?? 0)} دفعة
-                  </div>
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
+                    #{(page - 1) * PAGE_SIZE + i + 1} • {s.class_name || t("payments.table.noClass")} •{" "}
+                    {t("payments.table.paymentCount", { count: formatNumber(paymentCountsByStudent[s.id] ?? 0) })}
+                  </p>
                 </div>
-                <div className="tbl-mobile-card__amount">
-                  د.ع {formatNumber(s.remaining_fee)}
-                </div>
-              </div>
-
-              <div className="tbl-mobile-card__grid">
-                <div className="tbl-mobile-card__item">
-                  <span>المدفوع</span>
-                  <strong style={{ color: "#10B981" }}>د.ع {formatNumber(s.paid_fee)}</strong>
-                </div>
-                <div className="tbl-mobile-card__item">
-                  <span>الإجمالي</span>
-                  <strong>د.ع {formatNumber(s.total_fee)}</strong>
-                </div>
-                <div className="tbl-mobile-card__item">
-                  <span>الخصم</span>
-                  <strong>
-                    {s.discount_value && s.discount_value > 0 ? `د.ع ${formatNumber(s.discount_value)}` : "—"}
-                  </strong>
-                </div>
-                <div className="tbl-mobile-card__item">
-                  <span>الهاتف</span>
-                  <strong>{s.phone || "—"}</strong>
+                <div className="text-lg font-bold text-[var(--danger)]">
+                  {t("common.currency")} {formatNumber(s.remaining_fee)}
                 </div>
               </div>
 
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#6C4AB6" }}
-                />
+              {/* Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                  <span className="text-xs text-[var(--text-muted)]">{t("payments.table.paidAmount")}</span>
+                  <p className="text-sm font-bold text-[var(--success)] mt-1">
+                    {t("common.currency")} {formatNumber(s.paid_fee)}
+                  </p>
+                </div>
+                <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                  <span className="text-xs text-[var(--text-muted)]">{t("payments.table.totalAmount")}</span>
+                  <p className="text-sm font-bold text-[var(--text-primary)] mt-1">
+                    {t("common.currency")} {formatNumber(s.total_fee)}
+                  </p>
+                </div>
+                <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                  <span className="text-xs text-[var(--text-muted)]">{t("payments.table.discount")}</span>
+                  <p className="text-sm font-bold text-[var(--text-primary)] mt-1">
+                    {s.discount_value && s.discount_value > 0
+                      ? `${t("common.currency")} ${formatNumber(s.discount_value)}`
+                      : "—"}
+                  </p>
+                </div>
+                <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                  <span className="text-xs text-[var(--text-muted)]">{t("payments.table.phone")}</span>
+                  <p className="text-sm font-bold text-[var(--text-primary)] mt-1">
+                    {s.phone || "—"}
+                  </p>
+                </div>
               </div>
 
-              <div className="tbl-mobile-card__actions">
-                <button
-                  type="button"
-                  className="tbl-mobile-card__action tbl-mobile-card__action--primary"
-                  onClick={() => onAddPayment(s)}
-                >
-                  إضافة دفعة
-                </button>
-                <button
-                  type="button"
-                  className="tbl-mobile-card__action"
-                  onClick={() => onStudentClick(s)}
-                >
-                  عرض التفاصيل
-                </button>
+              {/* Progress */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[var(--text-secondary)]">{t("payments.table.progress")}</span>
+                  <Badge variant={status.variant} size="sm">
+                    {pct}%
+                  </Badge>
+                </div>
+                <div className="h-2 bg-[var(--surface-muted)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${pct}%`,
+                      background: pct >= 100 ? "var(--success)" : "var(--primary)",
+                    }}
+                  />
+                </div>
               </div>
-            </article>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="primary" size="sm" onClick={() => onAddPayment(s)}>
+                  {t("payments.table.addPayment")}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => onStudentClick(s)}>
+                  {t("payments.table.viewDetails")}
+                </Button>
+              </div>
+            </div>
           );
         })}
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>اسم الطالب</th>
-            <th>الصف والشعبة</th>
-            <th>رقم الهاتف</th>
-            <th>المبلغ الكلي</th>
-            <th>المبلغ المدفوع</th>
-            <th>الخصم</th>
-            <th>المبلغ المتبقي</th>
-            <th>العمليات</th>
-          </tr>
-        </thead>
-        <tbody>
-          {students.map((s, i) => {
-            const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
-            return (
-              <tr key={s.id}>
-                <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>{(page - 1) * PAGE_SIZE + i + 1}</td>
-                <td>
-                  <span
-                    className="student-link"
-                    onClick={() => onStudentClick(s)}
-                  >
-                    {s.full_name}
-                  </span>
-                  <div style={{ color: "var(--gray)", fontSize: ".7rem", marginTop: ".18rem" }}>
-                    {formatNumber(paymentCountsByStudent[s.id] ?? 0)} دفعة مسجلة
-                  </div>
-                </td>
-                <td style={{ color: "var(--gray)" }}>{s.class_name}</td>
-                <td style={{ color: "var(--gray)", fontSize: ".75rem" }}>{s.phone || "—"}</td>
-                <td style={{ fontWeight: 700 }}>د.ع {formatNumber(s.total_fee)}</td>
-                <td style={{ color: "#10B981", fontWeight: 700 }}>د.ع {formatNumber(s.paid_fee)}</td>
-                <td style={{ color: "var(--gray)" }}>
-                  {s.discount_value && s.discount_value > 0 ? `د.ع ${formatNumber(s.discount_value)}` : "—"}
-                </td>
-                <td>
-                  <div style={{ color: s.remaining_fee > 0 ? "#EF4444" : "#10B981", fontWeight: 700 }}>
-                    د.ع {formatNumber(s.remaining_fee)}
-                  </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${pct}%`, background: pct >= 100 ? "#10B981" : "#6C4AB6" }}
-                    />
-                  </div>
-                </td>
-                <td>
-                  <div style={{ display: "flex", gap: ".3rem", alignItems: "center" }}>
+      {/* Desktop Table */}
+      <div className="hidden lg:block overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-[var(--surface-soft)]">
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                #
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.studentName")}
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.classAndSection")}
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.phone")}
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.totalAmount")}
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.paidAmount")}
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.discount")}
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.remainingAmount")}
+              </th>
+              <th className="text-start text-xs font-bold text-[var(--text-muted)] p-3 border-b border-[var(--border)]">
+                {t("payments.table.columns.actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {students.map((s, i) => {
+              const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
+              const status = getPaymentStatus(s.remaining_fee, s.total_fee);
+
+              return (
+                <tr
+                  key={s.id}
+                  className="hover:bg-[var(--surface-soft)] transition-colors"
+                >
+                  <td className="p-3 text-xs text-[var(--text-tertiary)] border-b border-[var(--border)]">
+                    {(page - 1) * PAGE_SIZE + i + 1}
+                  </td>
+                  <td className="p-3 border-b border-[var(--border)]">
                     <button
-                      className="btn-pay"
-                      title="إضافة دفعة"
-                      onClick={() => onAddPayment(s)}
-                    >
-                      <AppIcon token="$" size={14} className="text-white" />
-                    </button>
-                    <button
-                      className="btn-print-sm"
-                      title="تفاصيل"
+                      className="font-bold text-[var(--primary)] hover:underline text-start"
                       onClick={() => onStudentClick(s)}
                     >
-                      <AppIcon token="📋" size={13} />
+                      {s.full_name}
                     </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                      {t("payments.table.registeredPayments", {
+                        count: formatNumber(paymentCountsByStudent[s.id] ?? 0),
+                      })}
+                    </p>
+                  </td>
+                  <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)]">
+                    {s.class_name}
+                  </td>
+                  <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)]">
+                    {s.phone || "—"}
+                  </td>
+                  <td className="p-3 text-sm font-bold text-[var(--text-primary)] border-b border-[var(--border)]">
+                    {t("common.currency")} {formatNumber(s.total_fee)}
+                  </td>
+                  <td className="p-3 text-sm font-bold text-[var(--success)] border-b border-[var(--border)]">
+                    {t("common.currency")} {formatNumber(s.paid_fee)}
+                  </td>
+                  <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)]">
+                    {s.discount_value && s.discount_value > 0
+                      ? `${t("common.currency")} ${formatNumber(s.discount_value)}`
+                      : "—"}
+                  </td>
+                  <td className="p-3 border-b border-[var(--border)]">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-sm font-bold ${
+                          s.remaining_fee > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
+                        }`}
+                      >
+                        {t("common.currency")} {formatNumber(s.remaining_fee)}
+                      </span>
+                      <Badge variant={status.variant} size="sm">
+                        {status.label}
+                      </Badge>
+                    </div>
+                    <div className="h-1.5 bg-[var(--surface-muted)] rounded-full overflow-hidden mt-2">
+                      <div
+                        className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${pct}%`,
+                          background: pct >= 100 ? "var(--success)" : "var(--primary)",
+                        }}
+                      />
+                    </div>
+                  </td>
+                  <td className="p-3 border-b border-[var(--border)]">
+                    <div className="flex items-center gap-2">
+                      <IconButton
+                        variant="primary"
+                        size="sm"
+                        aria-label={t("payments.table.addPayment")}
+                        onClick={() => onAddPayment(s)}
+                      >
+                        <CreditCard className="h-4 w-4" />
+                      </IconButton>
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        aria-label={t("payments.table.viewDetails")}
+                        onClick={() => onStudentClick(s)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </IconButton>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="pagination">
-          <button className="btn-nav" disabled={page === 1} onClick={() => onPageChange(Math.max(1, page - 1))}>
-            السابق
-          </button>
-          <span className="results-count">
-            صفحة {formatNumber(page)} من {formatNumber(totalPages)} | {formatNumber(totalCount)} طالب
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[var(--border)]">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={page === 1}
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+          >
+            {t("payments.pagination.previous")}
+          </Button>
+          <span className="text-sm text-[var(--text-muted)]">
+            {t("payments.pagination.pageInfo", {
+              page: formatNumber(page),
+              total: formatNumber(totalPages),
+              count: formatNumber(totalCount),
+            })}
           </span>
-          <button
-            className="btn-nav"
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={page >= totalPages}
             onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           >
-            التالي
-          </button>
+            {t("payments.pagination.next")}
+          </Button>
         </div>
       )}
     </div>

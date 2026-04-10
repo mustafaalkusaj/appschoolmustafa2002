@@ -134,7 +134,6 @@ export function OverviewTab({
   return (
     <div className="space-y-4">
       <section className="ui-soft-surface relative overflow-hidden rounded-[34px] p-6 sm:p-7">
-        <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/2 bg-[radial-gradient(circle_at_center,rgba(121,215,255,0.16),transparent_72%)] lg:block" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-[760px] space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-xs font-extrabold text-[var(--text-secondary)]">

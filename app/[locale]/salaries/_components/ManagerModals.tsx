@@ -1,6 +1,12 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/brand/brand-utils";
 import type { Subject, JobTitle, ClassItem } from "../_types";
 
 interface ManagerModalsProps {
@@ -67,272 +73,171 @@ export function ManagerModals({
 
   return (
     <>
-      {/* Subjects Manager */}
+      {/* Subjects Manager Modal */}
       {showSubjectsMgr && (
-        <div className="overlay" onClick={(e) => {
-          if (e.target === e.currentTarget) onCloseSubjects();
-        }}>
-          <div className="modal modal-sm">
-            <div className="mh">
-              <div className="mt">المواد الدراسية</div>
-              <button className="mc" onClick={onCloseSubjects}>
-                <AppIcon token="✕" size={12} />
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: ".6rem", marginBottom: "1rem" }}>
-              <input
-                className="fis"
+        <Modal open={showSubjectsMgr} onClose={onCloseSubjects} size="sm">
+          <ModalHeader title="المواد الدراسية" onClose={onCloseSubjects} />
+          <ModalBody className="space-y-4">
+            <div className="flex gap-3">
+              <Input
                 placeholder="اسم المادة"
                 value={newSubject}
                 onChange={(e) => onNewSubjectChange(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && onAddSubject()}
-                style={{ flex: 1 }}
+                className="flex-1"
               />
-              <button
-                className="bs"
-                style={{ padding: ".6rem 1rem", flex: "none", width: "auto" }}
-                onClick={onAddSubject}
-              >
-                + إضافة
-              </button>
+              <Button onClick={onAddSubject}>+ إضافة</Button>
             </div>
-            <div
-              style={{
-                background: "#F7FBFF",
-                borderRadius: 12,
-                padding: "1rem",
-                maxHeight: 320,
-                overflowY: "auto",
-              }}
-            >
+            <div className="rounded-xl bg-[var(--surface-soft)] border border-[var(--border)] p-4 max-h-80 overflow-y-auto space-y-2">
               {subjectsList.map((s) => (
-                <div key={s.id} className="mgr-item">
-                  <span style={{ fontSize: ".85rem", fontWeight: 600 }}>{s.name}</span>
-                  <button onClick={() => onDeleteSubject(s.id)} className="btn-del-item">
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
+                >
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">{s.name}</span>
+                  <button
+                    onClick={() => onDeleteSubject(s.id)}
+                    className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center",
+                      "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]",
+                      "text-[var(--danger)]",
+                      "hover:bg-[color-mix(in_srgb,var(--danger)_20%,transparent)]",
+                      "transition-colors"
+                    )}
+                  >
                     <AppIcon token="🗑️" size={12} />
                   </button>
                 </div>
               ))}
             </div>
-            <div className="fa">
-              <button className="bc" onClick={onCloseSubjects}>إغلاق</button>
-            </div>
-          </div>
-        </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="secondary" onClick={onCloseSubjects}>إغلاق</Button>
+          </ModalFooter>
+        </Modal>
       )}
 
-      {/* Job Titles Manager */}
+      {/* Job Titles Manager Modal */}
       {showJobTitlesMgr && (
-        <div className="overlay" onClick={(e) => {
-          if (e.target === e.currentTarget) onCloseJobTitles();
-        }}>
-          <div className="modal modal-sm">
-            <div className="mh">
-              <div className="mt">المسميات الوظيفية</div>
-              <button className="mc" onClick={onCloseJobTitles}>
-                <AppIcon token="✕" size={12} />
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: ".6rem", marginBottom: "1rem" }}>
-              <input
-                className="fis"
+        <Modal open={showJobTitlesMgr} onClose={onCloseJobTitles} size="sm">
+          <ModalHeader title="المسميات الوظيفية" onClose={onCloseJobTitles} />
+          <ModalBody className="space-y-4">
+            <div className="flex gap-3">
+              <Input
                 placeholder="اسم المسمى"
                 value={newJobTitle}
                 onChange={(e) => onNewJobTitleChange(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && onAddJobTitle()}
-                style={{ flex: 1 }}
+                className="flex-1"
               />
-              <button
-                className="bs"
-                style={{ padding: ".6rem 1rem", flex: "none", width: "auto" }}
-                onClick={onAddJobTitle}
-              >
-                + إضافة
-              </button>
+              <Button onClick={onAddJobTitle}>+ إضافة</Button>
             </div>
-            <div
-              style={{
-                background: "#F7FBFF",
-                borderRadius: 12,
-                padding: "1rem",
-                maxHeight: 320,
-                overflowY: "auto",
-              }}
-            >
+            <div className="rounded-xl bg-[var(--surface-soft)] border border-[var(--border)] p-4 max-h-80 overflow-y-auto space-y-2">
               {jobTitlesList.map((j) => (
-                <div key={j.id} className="mgr-item">
-                  <span style={{ fontSize: ".85rem", fontWeight: 600 }}>{j.name}</span>
-                  <button onClick={() => onDeleteJobTitle(j.id)} className="btn-del-item">
+                <div
+                  key={j.id}
+                  className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
+                >
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">{j.name}</span>
+                  <button
+                    onClick={() => onDeleteJobTitle(j.id)}
+                    className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center",
+                      "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]",
+                      "text-[var(--danger)]",
+                      "hover:bg-[color-mix(in_srgb,var(--danger)_20%,transparent)]",
+                      "transition-colors"
+                    )}
+                  >
                     <AppIcon token="🗑️" size={12} />
                   </button>
                 </div>
               ))}
             </div>
-            <div className="fa">
-              <button className="bc" onClick={onCloseJobTitles}>إغلاق</button>
-            </div>
-          </div>
-        </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="secondary" onClick={onCloseJobTitles}>إغلاق</Button>
+          </ModalFooter>
+        </Modal>
       )}
 
-      {/* Classes Manager */}
+      {/* Classes Manager Modal */}
       {showClassesMgr && (
-        <div className="overlay" onClick={(e) => {
-          if (e.target === e.currentTarget) onCloseClasses();
-        }}>
-          <div className="modal modal-lg">
-            <div className="mh">
-              <div className="mt">إدارة الصفوف والشعب</div>
-              <button className="mc" onClick={onCloseClasses}>
-                <AppIcon token="✕" size={12} />
-              </button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-              <div style={{ background: "#F7FBFF", borderRadius: 12, padding: "1rem" }}>
-                <div
-                  style={{
-                    fontSize: ".82rem",
-                    fontWeight: 800,
-                    color: "var(--p2)",
-                    marginBottom: ".7rem",
-                  }}
-                >
-                  إضافة صف جديد
-                </div>
-                <input
-                  className="fis"
+        <Modal open={showClassesMgr} onClose={onCloseClasses} size="lg">
+          <ModalHeader title="إدارة الصفوف والشعب" onClose={onCloseClasses} />
+          <ModalBody className="space-y-6">
+            {/* Add Grade / Section Forms */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Add Grade Card */}
+              <div className="rounded-xl bg-[var(--surface-soft)] border border-[var(--border)] p-4 space-y-4">
+                <div className="text-sm font-bold text-[var(--primary)]">إضافة صف جديد</div>
+                <Input
                   placeholder="اسم الصف"
                   value={newGrade}
                   onChange={(e) => onNewGradeChange(e.target.value)}
-                  style={{ marginBottom: ".5rem" }}
                 />
-                <button className="bs" style={{ padding: ".6rem", width: "100%" }} onClick={onAddClass}>
-                  إضافة صف
-                </button>
+                <Button className="w-full" onClick={onAddClass}>إضافة صف</Button>
               </div>
-              <div
-                style={{
-                  background: "#F0FDF4",
-                  borderRadius: 12,
-                  padding: "1rem",
-                  border: "1px solid #D1FAE5",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: ".82rem",
-                    fontWeight: 800,
-                    color: "#065F46",
-                    marginBottom: ".7rem",
-                  }}
-                >
-                  إضافة شعبة
-                </div>
-                <select
-                  className="fis"
+
+              {/* Add Section Card */}
+              <div className="rounded-xl bg-[color-mix(in_srgb,var(--success)_10%,transparent)] border border-[color-mix(in_srgb,var(--success)_30%,transparent)] p-4 space-y-4">
+                <div className="text-sm font-bold text-[var(--success)]">إضافة شعبة</div>
+                <Select
                   value={newSectionGrade}
                   onChange={(e) => onNewSectionGradeChange(e.target.value)}
-                  style={{ marginBottom: ".5rem" }}
                 >
                   <option value="">اختر الصف...</option>
                   {gradeOptions.map((g) => (
                     <option key={g} value={g}>{g}</option>
                   ))}
-                </select>
-                <input
-                  className="fis"
+                </Select>
+                <Input
                   placeholder="اسم الشعبة"
                   value={newSection}
                   onChange={(e) => onNewSectionChange(e.target.value)}
-                  style={{ marginBottom: ".5rem" }}
                 />
-                <button
-                  onClick={onAddSection}
-                  style={{
-                    width: "100%",
-                    padding: ".6rem",
-                    background: "linear-gradient(135deg,#10B981,#059669)",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 9,
-                    fontFamily: "var(--font-manrope),Segoe UI,sans-serif",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
+                <Button variant="primary" className="w-full" onClick={onAddSection}>
                   إضافة شعبة
-                </button>
+                </Button>
               </div>
             </div>
-            <div
-              style={{
-                background: "#F7FBFF",
-                borderRadius: 12,
-                padding: "1rem",
-                maxHeight: 300,
-                overflowY: "auto",
-              }}
-            >
+
+            {/* Classes List */}
+            <div className="rounded-xl bg-[var(--surface-soft)] border border-[var(--border)] p-4 max-h-72 overflow-y-auto space-y-4">
               {gradeOptions.map((grade) => (
-                <div
-                  key={grade}
-                  style={{
-                    marginBottom: ".6rem",
-                    borderBottom: "1px solid rgba(79,140,255,0.08)",
-                    paddingBottom: ".6rem",
-                  }}
-                >
-                  <div style={{ fontWeight: 800, fontSize: ".85rem", marginBottom: ".4rem" }}>
-                    {grade}
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: ".3rem" }}>
+                <div key={grade} className="pb-4 border-b border-[var(--border)] last:border-0 last:pb-0">
+                  <div className="text-sm font-bold text-[var(--text-primary)] mb-2">{grade}</div>
+                  <div className="flex flex-wrap gap-2">
                     {classes
                       .filter((c) => c.grade === grade)
                       .map((c) => (
-                        <span
+                        <Badge
                           key={c.id}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: ".3rem",
-                            background: "#EDF6FF",
-                            color: "var(--p3)",
-                            padding: ".2rem .6rem",
-                            borderRadius: 20,
-                            fontSize: ".75rem",
-                            fontWeight: 700,
-                          }}
+                          variant="primary"
+                          className="gap-1.5"
                         >
                           {c.section}
                           <button
                             onClick={() => onDeleteClass(c.id)}
-                            style={{
-                              background: "#EF4444",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "50%",
-                              width: 14,
-                              height: 14,
-                              cursor: "pointer",
-                              fontSize: ".6rem",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
+                            className={cn(
+                              "w-4 h-4 rounded-full flex items-center justify-center",
+                              "bg-[var(--danger)] text-white",
+                              "hover:opacity-80 transition-opacity"
+                            )}
                           >
-                            <AppIcon token="✕" size={12} />
+                            <AppIcon token="✕" size={10} />
                           </button>
-                        </span>
+                        </Badge>
                       ))}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="fa">
-              <button className="bc" onClick={onCloseClasses}>إغلاق</button>
-            </div>
-          </div>
-        </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="secondary" onClick={onCloseClasses}>إغلاق</Button>
+          </ModalFooter>
+        </Modal>
       )}
     </>
   );

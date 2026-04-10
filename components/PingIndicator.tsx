@@ -18,9 +18,9 @@ export function PingIndicator() {
   };
 
   const getSpeedColor = (speed: PingResult["speed"]) => {
-    if (speed === 'fast') return 'bg-green-500 text-white';
-    if (speed === 'medium') return 'bg-yellow-500 text-black';
-    return 'bg-red-500 text-white';
+    if (speed === 'fast') return 'bg-[var(--success)] text-white';
+    if (speed === 'medium') return 'bg-[var(--warning)] text-white';
+    return 'bg-[var(--danger)] text-white';
   };
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export function PingIndicator() {
   if (loading) {
     return (
       <div className="ping-indicator">
-        <div className="animate-pulse bg-gray-200 dark:bg-gray-700 w-16 h-4 rounded"></div>
+        <div className="animate-pulse bg-[var(--surface-muted)] dark:bg-[var(--surface-inset)] w-16 h-4 rounded"></div>
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function PingIndicator() {
   const formattedMs = `~${ping.ms}ms`;
 
   return (
-    <div className="ping-indicator flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+    <div className="ping-indicator flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)]">
       <span className="whitespace-nowrap">{label}</span>
       <span className="font-mono text-sm">{formattedMs}</span>
       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getSpeedColor(ping.speed)}`}>

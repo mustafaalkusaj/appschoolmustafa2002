@@ -12,37 +12,19 @@ export default function SubscriptionExpiredPage() {
   const t = useTranslations();
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "var(--font-manrope), Segoe UI, sans-serif",
-        direction: "rtl",
-      }}
-    >
-      <div style={{ textAlign: "center", padding: "2rem", maxWidth: 520 }}>
-        <div style={{ fontSize: "5rem", marginBottom: "1rem", display: "flex", justifyContent: "center", color: "#f59e0b" }}>
+    <div className="min-h-screen bg-[var(--surface-muted)] flex items-center justify-center" style={{ direction: "rtl" }}>
+      <div className="text-center p-8 max-w-[520px]">
+        <div className="text-[5rem] mb-4 flex justify-center text-[var(--warning)]">
           <AppIcon token="⏰" size={78} />
         </div>
-        <h1 style={{ color: "#f59e0b", fontSize: "1.6rem", fontWeight: 900, marginBottom: ".5rem" }}>
+        <h1 className="text-[var(--warning)] text-[1.6rem] font-black mb-2">
           {t("gates.subscriptionExpired")}
         </h1>
-        <p style={{ color: "#94a3b8", marginBottom: ".7rem", fontSize: ".95rem", lineHeight: 1.7 }}>
+        <p className="text-[var(--text-muted)] mb-3 text-[0.95rem] leading-relaxed">
           {t("gates.subscriptionExpiredDescription")}
         </p>
-        <div
-          style={{
-            background: "rgba(245,158,11,0.08)",
-            border: "1px solid rgba(245,158,11,0.28)",
-            borderRadius: 12,
-            padding: "1rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <p style={{ color: "#fbbf24", fontSize: ".85rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem" }}>
+        <div className="bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded-xl p-4 mb-8">
+          <p className="text-[var(--warning)] text-[0.85rem] font-semibold flex items-center justify-center gap-1">
             <AppIcon token="📞" size={14} />
             {t("gates.subscriptionRenewalHint")}
           </p>
@@ -52,17 +34,7 @@ export default function SubscriptionExpiredPage() {
             await signOutClient();
             window.location.href = localizeAppPath("/login", locale);
           }}
-          style={{
-            padding: ".7rem 1.5rem",
-            background: "linear-gradient(135deg,#f59e0b,#d97706)",
-            color: "#111827",
-            border: "none",
-            borderRadius: 12,
-            fontFamily: "var(--font-manrope), Segoe UI, sans-serif",
-            fontSize: ".92rem",
-            fontWeight: 800,
-            cursor: "pointer",
-          }}
+          className="px-6 py-3 rounded-xl bg-[var(--warning)] text-[var(--text-primary)] font-extrabold text-[0.92rem] transition-all hover:brightness-110"
         >
           {t("gates.signOut")}
         </button>

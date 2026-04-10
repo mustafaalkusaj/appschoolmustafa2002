@@ -1,6 +1,10 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/brand/brand-utils";
 import { DAYS, PERIODS, type Teacher, type ClassItem } from "../_types";
 
 interface ScheduleSectionProps {
@@ -37,23 +41,24 @@ export function ScheduleSection({
   const activeTeachers = teachers.filter((t) => t.status === "active");
 
   return (
-    <>
-      <div style={{ display: "flex", gap: ".7rem", marginBottom: "1rem" }}>
-        <select
-          className="month-pick"
+    <div className="space-y-6">
+      {/* Grade and Section Selectors */}
+      <div className="flex flex-wrap items-center gap-4">
+        <Select
           value={scheduleGrade}
           onChange={(e) => {
             onGradeChange(e.target.value);
             onSectionChange("");
           }}
+          className="min-w-[160px]"
         >
           <option value="">اختر الصف...</option>
           {gradeOptions.map((g) => (
             <option key={g} value={g}>{g}</option>
           ))}
-        </select>
-        <select
-          className="month-pick"
+        </Select>
+
+        <Select
           value={scheduleSection}
           onChange={(e) => {
             onSectionChange(e.target.value);
@@ -61,60 +66,54 @@ export function ScheduleSection({
               onFetchSchedule(scheduleGrade, e.target.value);
             }
           }}
+          className="min-w-[160px]"
         >
           <option value="">اختر الشعبة...</option>
           {sectionOptions(scheduleGrade).map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
-        </select>
+        </Select>
+
         {scheduleGrade && scheduleSection && (
-          <button className="btn-add" disabled={saving} onClick={onSave}>
-            {saving ? "جارٍ الحفظ..." : (
-              <>
-                <AppIcon token="💾" size={14} /> حفظ الجدول
-              </>
-            )}
-          </button>
+          <Button onClick={onSave} loading={saving} disabled={saving}>
+            <AppIcon token="💾" size={14} />
+            حفظ الجدول
+          </Button>
         )}
       </div>
 
+      {/* Schedule Grid */}
       {scheduleGrade && scheduleSection ? (
         ["morning", "afternoon"].map((sessionType) => (
-          <div key={sessionType} style={{ marginBottom: "1rem" }}>
-            <div
-              className="session-title"
-              style={{ display: "flex", alignItems: "center", gap: ".35rem" }}
-            >
+          <div key={sessionType} className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] px-4 py-2 rounded-lg">
               <AppIcon token={sessionType === "morning" ? "🌅" : "🌞"} size={14} />
               {sessionType === "morning" ? "الدوام الصباحي" : "الدوام الظهري"}
             </div>
-            <div className="tbl-wrap">
-              <table className="sch-grid">
+
+            <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr>
-                    <th>اليوم / الدرس</th>
+                  <tr className="bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]">
+                    <th className="px-3 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--border)]">
+                      اليوم / الدرس
+                    </th>
                     {PERIODS.map((p) => (
-                      <th key={p}>{p}</th>
+                      <th key={p} className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--border)]">
+                        {p}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {DAYS.map((day) => (
                     <tr key={day}>
-                      <td
-                        style={{
-                          fontWeight: 700,
-                          textAlign: "center",
-                          background: "#F7FBFF",
-                          padding: ".4rem",
-                        }}
-                      >
+                      <td className="px-3 py-2 text-sm font-bold text-center bg-[var(--surface-soft)] border border-[var(--border)]">
                         {day}
                       </td>
                       {PERIODS.map((p) => (
-                        <td key={p}>
+                        <td key={p} className="border border-[var(--border)]">
                           <select
-                            className="sch-sel"
                             value={scheduleGrid[`${day}-${p}-${sessionType}`] || ""}
                             onChange={(e) =>
                               onGridChange({
@@ -122,6 +121,13 @@ export function ScheduleSection({
                                 [`${day}-${p}-${sessionType}`]: e.target.value,
                               })
                             }
+                            className={cn(
+                              "w-full px-2 py-2 text-sm",
+                              "bg-[var(--card-bg)]",
+                              "border-0",
+                              "focus:ring-2 focus:ring-[var(--primary)]/30",
+                              "outline-none"
+                            )}
                           >
                             <option value="">(فراغ)</option>
                             {activeTeachers.map((t) => (
@@ -140,8 +146,11 @@ export function ScheduleSection({
           </div>
         ))
       ) : (
-        <div className="empty">اختر الصف والشعبة لعرض الجدول</div>
+        <EmptyState
+          title="اختر الصف والشعبة"
+          description="اختر الصف والشعبة لعرض الجدول الأسبوعي"
+        />
       )}
-    </>
+    </div>
   );
 }

@@ -1,5 +1,20 @@
 # Screen Inventory
 
+## تحديث التحقق الحي 2026-04-09
+
+تم التحقق بصريًا من الشاشات التالية في المتصفح الحي:
+
+- `/ar/login` و`/en/login`
+- `/ar/dashboard` و`/en/dashboard`
+- `/ar/students` و`/en/students`
+- `/ar/payments` و`/en/payments`
+- `/ar/salaries` و`/en/salaries`
+
+ملاحظة:
+
+- `payments` و`salaries` تحسنتا بشكل واضح في shell والجدول والعناصر المرئية الأساسية
+- المودالات والأجزاء الداخلية الأعمق ما زال بعضها يحتاج migration كامل للترجمة والتوحيد
+- `fee-notifications` و`monitoring` ما زالتا من أعلى الشاشات احتياجًا لإعادة البناء
 هذا الملف يجرد كل الشاشات الحالية ويحولها إلى مواصفات قابلة للبناء في Figma.
 
 ## Auth & Gates

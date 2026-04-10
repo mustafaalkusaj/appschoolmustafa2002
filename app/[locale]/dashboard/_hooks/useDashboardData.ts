@@ -34,16 +34,19 @@ export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: Us
   const [studentCountByClass, setStudentCountByClass] = useState<Record<string, number>>({});
   const [classFees, setClassFees] = useState<ClassFee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
     setLoading(true);
+    setError(null);
     if (!schoolId) {
       setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
       setRecentPayments([]);
       setOverdueStudents([]);
       setStudentCountByClass({});
       setClassFees([]);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -62,12 +65,14 @@ export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: Us
       setOverdueStudents(payload?.overdueStudents ?? []);
       setStudentCountByClass(payload?.studentCountByClass ?? {});
       setClassFees(payload?.classFees ?? []);
-    } catch {
+      setError(null);
+    } catch (caughtError) {
       setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
       setRecentPayments([]);
       setOverdueStudents([]);
       setStudentCountByClass({});
       setClassFees([]);
+      setError(caughtError instanceof Error ? caughtError.message : "dashboard_overview_failed");
     } finally {
       setLoading(false);
     }
@@ -85,6 +90,7 @@ export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: Us
     studentCountByClass,
     classFees,
     loading,
+    error,
     refetch: fetchAll,
     setClassFees,
   };

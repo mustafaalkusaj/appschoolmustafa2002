@@ -45,10 +45,6 @@ export function StatCard({
 }) {
   return (
     <div className="ui-surface relative overflow-hidden rounded-[28px] p-5">
-      <div
-        className="pointer-events-none absolute inset-x-6 top-0 h-20 rounded-full blur-3xl"
-        style={{ background: createTintSurface(tint, 20) }}
-      />
       <div className="relative flex items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="text-sm font-bold text-[var(--text-secondary)]">{label}</p>

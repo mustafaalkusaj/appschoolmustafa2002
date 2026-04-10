@@ -479,7 +479,12 @@ export async function listTeacherMessages(request: NextRequest, filters: Teacher
   const from = (filters.page - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;
   const { data, count, error } = await query.range(from, to);
-  if (error) return { ok: false as const, status: 500, message: error.message || "تعذر تحميل رسائل الأساتذة." };
+  if (error) {
+    if (isMissingTableError(error, "dashboard_teacher_message_groups")) {
+      return { ok: true as const, value: { items: [], totalCount: 0 } };
+    }
+    return { ok: false as const, status: 500, message: error.message || "تعذر تحميل رسائل الأساتذة." };
+  }
 
   return {
     ok: true as const,
@@ -715,7 +720,12 @@ export async function listHomework(request: NextRequest, filters: HomeworkFilter
   const from = (filters.page - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;
   const { data, count, error } = await query.range(from, to);
-  if (error) return { ok: false as const, status: 500, message: error.message || "تعذر تحميل الواجبات." };
+  if (error) {
+    if (isMissingTableError(error, "dashboard_homework_monitoring")) {
+      return { ok: true as const, value: { items: [], totalCount: 0 } };
+    }
+    return { ok: false as const, status: 500, message: error.message || "تعذر تحميل الواجبات." };
+  }
 
   return { ok: true as const, value: { items: ((data ?? []) as JsonRecord[]).map(mapHomeworkRow), totalCount: count ?? 0 } };
 }
@@ -951,7 +961,12 @@ export async function listFeeNotifications(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   const { data, count, error } = await query.order("created_at", { ascending: false }).range(from, to);
-  if (error) return { ok: false as const, status: 500, message: error.message };
+  if (error) {
+    if (isMissingTableError(error, "fee_notifications")) {
+      return { ok: true as const, value: { items: [], totalCount: 0 } };
+    }
+    return { ok: false as const, status: 500, message: error.message };
+  }
 
   const rows = (data ?? []) as JsonRecord[];
   const creatorIds = Array.from(new Set(rows.map((row) => asNullableString(row.created_by)).filter((value): value is string => Boolean(value))));

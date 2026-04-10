@@ -268,15 +268,18 @@ export function clearStoredSchoolBranding(schoolId: string) {
 export function resolveBrandPalette(input: {
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  isDark?: boolean;
 }) {
   const primaryColor = sanitizeColor(input.primaryColor) || DEFAULT_PRIMARY;
   const secondaryColor = sanitizeColor(input.secondaryColor) || DEFAULT_SECONDARY;
+  const mixTarget = input.isDark ? "#0f172a" : "#ffffff";
+
   return {
     primaryColor,
     secondaryColor,
-    primaryStrong: shiftColor(primaryColor, -0.12),
-    primaryDeep: shiftColor(primaryColor, -0.28),
-    accentSoft: mixColors(primaryColor, "#ffffff", 0.82),
+    primaryStrong: shiftColor(primaryColor, input.isDark ? 0.12 : -0.12),
+    primaryDeep: shiftColor(primaryColor, input.isDark ? 0.28 : -0.28),
+    accentSoft: mixColors(primaryColor, mixTarget, 0.82),
   };
 }
 
@@ -284,12 +287,17 @@ export function resolveBrandAppearance(input: {
   primaryColor?: string | null;
   secondaryColor?: string | null;
   themePreset?: string | null;
+  isDark?: boolean;
 }) {
   const preset = getBrandThemePreset(input.themePreset);
   const palette = resolveBrandPalette({
     primaryColor: sanitizeColor(input.primaryColor) || preset?.primaryColor || DEFAULT_PRIMARY,
     secondaryColor: sanitizeColor(input.secondaryColor) || preset?.secondaryColor || DEFAULT_SECONDARY,
+    isDark: input.isDark,
   });
+
+  const mixTarget = input.isDark ? "#080e1a" : "#ffffff";
+  const mixTargetSubtle = input.isDark ? "#111827" : "#f4f7fc";
 
   return {
     ...palette,
@@ -297,15 +305,15 @@ export function resolveBrandAppearance(input: {
     accentColor: preset ? mixColors(preset.accentColor, palette.primaryColor, 0.22) : palette.primaryColor,
     sidebarColor: preset
       ? mixColors(preset.sidebarColor, palette.primaryColor, 0.16)
-      : mixColors(palette.primaryColor, "#ffffff", 0.78),
-    textColor: preset ? preset.textColor : palette.primaryDeep,
+      : mixColors(palette.primaryColor, mixTarget, 0.78),
+    textColor: preset ? preset.textColor : (input.isDark ? shiftColor(palette.primaryColor, 0.42) : palette.primaryDeep),
     backgroundColor: preset
       ? mixColors(preset.backgroundColor, palette.accentSoft, 0.16)
-      : mixColors(palette.accentSoft, "#eef4fb", 0.84),
-    surfaceColor: preset?.surfaceColor || "#ffffff",
+      : mixColors(palette.accentSoft, mixTargetSubtle, 0.84),
+    surfaceColor: preset?.surfaceColor || (input.isDark ? "#111827" : "#ffffff"),
     surfaceMutedColor: preset
       ? mixColors(preset.surfaceMutedColor, palette.secondaryColor, 0.08)
-      : mixColors(palette.secondaryColor, "#ffffff", 0.8),
+      : mixColors(palette.secondaryColor, mixTarget, 0.8),
   };
 }
 

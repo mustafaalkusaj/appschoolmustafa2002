@@ -9,6 +9,7 @@ import { BRAND_THEME_FAMILIES, type BrandThemeFamilyId, type BrandThemePresetId,
 import { derivePaletteFromLogo, mixColors, shiftColor, setStoredSchoolBranding, getStoredSchoolBranding } from "@/lib/brand/palette";
 import type { AppSchemaCompat } from "@/lib/schema-compat";
 import { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { getErrorMessage } from "./utils";
 
 interface SchoolFormData {
@@ -68,6 +69,10 @@ interface SchoolFormProps {
 }
 
 export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }: SchoolFormProps) {
+  const t = useTranslations("superAdmin.schoolForm");
+  const themesT = useTranslations("dashboard.branding");
+  const commonT = useTranslations("common");
+
   const [formData, setFormData] = useState<SchoolFormData>(createInitialFormState());
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
@@ -150,14 +155,14 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
 
   return (
     <ModalFrame
-      title={editSchool ? "تعديل المدرسة" : "إضافة مدرسة جديدة"}
-      subtitle="النموذج يتكيّف تلقائياً مع بنية Supabase الحالية، ويحفظ الألوان محلياً إذا كانت أعمدة الألوان غير متاحة بعد."
+      title={editSchool ? t("titleEdit") : t("titleCreate")}
+      subtitle={t("subtitle")}
       onClose={onClose}
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">اسم المدرسة *</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("schoolName")}</label>
             <input
               className="ui-input"
               required
@@ -166,27 +171,27 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">المدينة</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("city")}</label>
             <input className="ui-input" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الهاتف</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("phone")}</label>
             <input className="ui-input" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">بريد المدير</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("ownerEmail")}</label>
             <input type="email" className="ui-input" value={formData.owner_email} onChange={(e) => setFormData({ ...formData, owner_email: e.target.value })} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">العنوان</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("address")}</label>
             <input className="ui-input" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">رابط الشعار (Logo URL)</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("logoUrl")}</label>
             <input className="ui-input" placeholder="https://example.com/logo.png" value={formData.logo_url} onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">عائلة الثيم</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("themeFamily")}</label>
             <select
               className="ui-input mb-3"
               value={formData.familyId || ""}
@@ -201,15 +206,15 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
                 }));
               }}
             >
-              <option value="">اختر عائلة...</option>
+              <option value="">{t("selectFamily")}</option>
               {BRAND_THEME_FAMILIES.map((family) => (
                 <option key={family.id} value={family.id}>
-                  {family.label}
+                  {themesT(`families.${family.id}.label`)}
                 </option>
               ))}
             </select>
 
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الثيم المحدد</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("selectedTheme")}</label>
             <select
               className="ui-input"
               value={formData.themePresetId || ""}
@@ -229,7 +234,7 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
                 }
               }}
             >
-              <option value="">اختر ثيم...</option>
+              <option value="">{t("selectTheme")}</option>
               {formData.familyId &&
                 BRAND_THEME_FAMILIES.find((f) => f.id === formData.familyId)?.presets.map((preset) => (
                   <option key={preset.id} value={preset.id}>
@@ -239,7 +244,7 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">اللون الأساسي</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("primaryColor")}</label>
             <input
               type="color"
               className="ui-input"
@@ -248,7 +253,7 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">اللون الثانوي</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("secondaryColor")}</label>
             <input
               type="color"
               className="ui-input"
@@ -257,7 +262,7 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">لون الشريط الجانبي</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("sidebarColor")}</label>
             <input
               type="color"
               className="ui-input"
@@ -266,7 +271,7 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">لون الأزرار والتمييز</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("accentColor")}</label>
             <input
               type="color"
               className="ui-input"
@@ -275,7 +280,7 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
             />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">لون النص البارز</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("textColor")}</label>
             <input
               type="color"
               className="ui-input"
@@ -285,17 +290,17 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
           </div>
           <div className="md:col-span-2 rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
             <div className="flex flex-wrap items-center gap-4">
-              <SchoolLogo src={formData.logo_url} alt={formData.name || "School logo"} label={formData.name || "School"} size={64} className="rounded-[18px] border border-[var(--border)] bg-white" />
+              <SchoolLogo src={formData.logo_url} alt={formData.name || "School logo"} label={formData.name || "School"} size={64} className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-strong)]" />
               <div className="min-w-0 flex-1">
-                <div className="text-base font-black text-[var(--text-primary)]">{formData.name || "معاينة هوية المدرسة"}</div>
-                <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">ستؤثر هذه الهوية على الأزرار والخلفيات والنصوص والطباعة في جميع الواجهات.</p>
+                <div className="text-base font-black text-[var(--text-primary)]">{formData.name || t("previewTitle")}</div>
+                <p className="mt-1 text-sm leading-7 text-[var(--text-secondary)]">{t("previewHint")}</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <div
                     className="rounded-[18px] border border-[var(--border)] px-3 py-3"
                     style={{ background: formData.sidebar_color || DEFAULT_SCHOOL_BRANDING.sidebar_color }}
                   >
                     <div className="text-xs font-black" style={{ color: formData.text_color || DEFAULT_SCHOOL_BRANDING.text_color }}>
-                      الشريط الجانبي
+                      {t("sidebarLabel")}
                     </div>
                     <div className="mt-2 text-[11px] font-bold" style={{ color: formData.text_color || DEFAULT_SCHOOL_BRANDING.text_color }}>
                       {formData.sidebar_color || DEFAULT_SCHOOL_BRANDING.sidebar_color}
@@ -307,26 +312,26 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
                       background: `linear-gradient(135deg, ${formData.primary_color || DEFAULT_SCHOOL_BRANDING.primary_color}, ${formData.secondary_color || DEFAULT_SCHOOL_BRANDING.secondary_color})`,
                     }}
                   >
-                    <div className="text-xs font-black">الهوية العامة</div>
+                    <div className="text-xs font-black">{t("generalIdentity")}</div>
                     <div className="mt-2 text-[11px] font-bold opacity-90">{formData.primary_color || DEFAULT_SCHOOL_BRANDING.primary_color}</div>
                   </div>
                   <div className="rounded-[18px] px-3 py-3 text-white" style={{ background: formData.accent_color || DEFAULT_SCHOOL_BRANDING.accent_color }}>
-                    <div className="text-xs font-black">الأزرار والتمييز</div>
+                    <div className="text-xs font-black">{t("buttonsAccent")}</div>
                     <div className="mt-2 text-[11px] font-bold opacity-90">{formData.accent_color || DEFAULT_SCHOOL_BRANDING.accent_color}</div>
                   </div>
                 </div>
                 {!schemaCompat?.schoolColors ? (
-                  <p className="mt-1 text-xs font-bold text-amber-700">أعمدة الألوان غير موجودة حالياً في قاعدة البيانات، لذا سيتم حفظ الهوية الموسعة محلياً أيضاً لضمان عمل الواجهة والطباعة.</p>
+                  <p className="mt-1 text-xs font-bold text-amber-700">{t("missingColumns")}</p>
                 ) : null}
               </div>
             </div>
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الباقة</label>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">{t("plan")}</label>
             <select className="ui-input" value={formData.plan} onChange={(e) => setFormData({ ...formData, plan: e.target.value as SchoolPlan })}>
-              <option value="basic">أساسية</option>
-              <option value="premium">مميزة</option>
-              <option value="enterprise">مؤسسية</option>
+              <option value="basic">{t("plans.basic")}</option>
+              <option value="premium">{t("plans.premium")}</option>
+              <option value="enterprise">{t("plans.enterprise")}</option>
             </select>
           </div>
         </div>
@@ -344,14 +349,14 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
 
         <div className="flex flex-wrap justify-between gap-2">
           <button type="button" className="ui-button ui-button--secondary" onClick={handleDerivePalette} disabled={paletteBusy}>
-            {paletteBusy ? "جارٍ تحليل الشعار..." : "استخراج الألوان من الشعار"}
+            {paletteBusy ? t("extracting") : t("extractColors")}
           </button>
           <div className="flex flex-wrap justify-end gap-2">
             <button type="button" className="ui-button ui-button--secondary" onClick={onClose}>
-              إلغاء
+              {commonT("cancel")}
             </button>
             <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
-              {saving ? "جارٍ الحفظ..." : editSchool ? "حفظ التعديلات" : "إضافة المدرسة"}
+              {saving ? t("saving") : editSchool ? t("save") : t("add")}
             </button>
           </div>
         </div>

@@ -1,17 +1,16 @@
-import { notFound } from 'next/navigation';
 import { getRequestConfig } from 'next-intl/server';
+import { hasLocale } from 'next-intl';
+import { routing } from './i18n/routing';
 
-const SUPPORTED_LOCALES = new Set(['ar', 'en']);
-
-export default getRequestConfig(async ({ locale }) => {
-  const normalizedLocale = locale ?? 'ar';
-
-  if (!SUPPORTED_LOCALES.has(normalizedLocale)) {
-    notFound();
-  }
+export default getRequestConfig(async ({ requestLocale }) => {
+  // Typically corresponds to the `[locale]` segment from the URL
+  const requested = await requestLocale;
+  const locale = hasLocale(routing.locales, requested)
+    ? requested
+    : routing.defaultLocale;
 
   return {
-    locale: normalizedLocale,
-    messages: (await import(`./messages/${normalizedLocale}.json`)).default,
+    locale,
+    messages: (await import(`./messages/${locale}.json`)).default,
   };
 });

@@ -1,46 +1,41 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { LucideIcon } from "@/lib/icons";
 import {
   AlertTriangle,
   Bell,
-  ChevronLeft,
   CreditCard,
   LayoutDashboard,
-  Menu,
   RefreshCw,
   School,
   Search,
   ShieldCheck,
   Trash2,
   Users,
-  PanelRightClose,
-  PanelRightOpen,
-  House,
   BadgeCheck,
   History,
   Activity,
   GitBranch,
   Flag,
+  Plus,
+  X,
+  Loader2,
 } from "@/lib/icons";
 import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useToast } from "@/components/toast";
-import { getUserProfile, ROLE_LABELS, type Permission, type UserProfile } from "@/lib/auth";
-import { UltrathinkLogo } from "@/components/brand";
-import { ProfileMenu } from "@/components/ProfileMenu";
+import { ROLE_LABELS, type Permission } from "@/lib/auth";
+import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { requestRuntimeBrandingRefresh } from "@/hooks/brand";
 import { setStoredSchoolBranding, getStoredSchoolBranding } from "@/lib/brand/palette";
 import { type AdminInfrastructure, DEFAULT_ADMIN_INFRASTRUCTURE } from "@/lib/admin-infrastructure";
-import { SCHOOL_BRAND } from "@/lib/brand";
-import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { type AppSchemaCompat } from "@/lib/schema-compat";
-import { logAction } from "@/lib/audit";
+import { cn } from "@/lib/brand/brand-utils";
 
-// Existing tab components (from components/ directory)
+// Components
 import { AuditLogTab } from "./components/AuditLogTab";
 import { RolesTab } from "./components/RolesTab";
 import { TrashTab } from "./components/TrashTab";
@@ -48,7 +43,6 @@ import { NotificationsTab } from "./components/NotificationsTab";
 import { MonitoringTab } from "./components/MonitoringTab";
 import { BranchesTab } from "./components/BranchesTab";
 
-// New extracted components (from _components/ directory)
 import {
   OverviewTab,
   SchoolsTab,
@@ -64,63 +58,28 @@ import {
   type ActiveTab,
   type SpotlightFilter,
   type OverviewDiagnostics,
-  cx,
-  formatDateTime,
   getErrorMessage,
-  isSubscriptionExpired,
-  calculateDaysLeft,
   spotlightFilterLabel,
   datasetStatusMeta,
   PLAN_LABELS,
 } from "./_components";
 import type { SchoolFormData, UserFormData } from "./_components";
 
-const TAB_ITEMS: Array<{
-  id: ActiveTab;
-  label: string;
-  hint: string;
-  icon: LucideIcon;
-}> = [
-  { id: "overview", label: "نظرة عامة", hint: "ملخص الأداء", icon: LayoutDashboard },
-  { id: "schools", label: "المدارس", hint: "إدارة المدارس", icon: School },
-  { id: "users", label: "المستخدمون", hint: "الصلاحيات والأدوار", icon: Users },
-  { id: "subscriptions", label: "الاشتراكات", hint: "المتابعة والتجديد", icon: CreditCard },
-  { id: "audit", label: "سجل العمليات", hint: "مراقبة الإجراءات", icon: History },
-  { id: "roles", label: "الأدوار", hint: "إدارة الصلاحيات", icon: ShieldCheck },
-  { id: "trash", label: "سلة المهملات", hint: "استعادة البيانات", icon: Trash2 },
-  { id: "notifications", label: "التنبيهات", hint: "إشعارات النظام", icon: Bell },
-  { id: "monitoring", label: "مراقبة النظام", hint: "الصحة والتشغيل", icon: Activity },
-  { id: "branches", label: "الفروع", hint: "إدارة فروع المدارس", icon: GitBranch },
-];
-
 function isTabAvailable(tab: ActiveTab, infrastructure: AdminInfrastructure) {
   switch (tab) {
-    case "audit":
-      return infrastructure.auditLogs;
-    case "roles":
-      return infrastructure.customRoles;
-    case "trash":
-      return (
-        infrastructure.softDeleteSchools ||
-        infrastructure.softDeleteUsers ||
-        (infrastructure.branches && infrastructure.softDeleteBranches)
-      );
-    case "notifications":
-      return infrastructure.notifications;
-    case "branches":
-      return infrastructure.branches;
-    default:
-      return true;
+    case "audit": return infrastructure.auditLogs;
+    case "roles": return infrastructure.customRoles;
+    case "trash": return infrastructure.softDeleteSchools || infrastructure.softDeleteUsers || (infrastructure.branches && infrastructure.softDeleteBranches);
+    case "notifications": return infrastructure.notifications;
+    case "branches": return infrastructure.branches;
+    default: return true;
   }
 }
 
 export default function SuperAdminPage() {
-  const pathname = usePathname();
-  const locale = getLocaleFromPath(pathname);
+  const t = useTranslations("superAdmin");
   const toast = useToast();
 
-  // Data state
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
@@ -132,16 +91,12 @@ export default function SuperAdminPage() {
   const [infrastructureNotice, setInfrastructureNotice] = useState("");
   const hasLoadedOnceRef = useRef(false);
 
-  // UI state
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [query, setQuery] = useState("");
   const [spotlightFilter, setSpotlightFilter] = useState<SpotlightFilter | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  // Modal state
   const [showSchoolForm, setShowSchoolForm] = useState(false);
   const [editSchool, setEditSchool] = useState<SchoolRecord | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
@@ -149,919 +104,304 @@ export default function SuperAdminPage() {
   const [deleteSchoolTarget, setDeleteSchoolTarget] = useState<SchoolRecord | null>(null);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserRecord | null>(null);
 
-  const flashSuccess = useCallback(
-    (message: string) => {
-      setSuccess(message);
-      toast.success(message);
-      window.setTimeout(() => setSuccess(""), 2600);
-    },
-    [toast]
-  );
+  const TAB_ITEMS: Array<{ id: ActiveTab; label: string; hint: string; icon: LucideIcon }> = useMemo(() => [
+    { id: "overview", label: t("tabs.overview.label"), hint: t("tabs.overview.hint"), icon: LayoutDashboard },
+    { id: "schools", label: t("tabs.schools.label"), hint: t("tabs.schools.hint"), icon: School },
+    { id: "users", label: t("tabs.users.label"), hint: t("tabs.users.hint"), icon: Users },
+    { id: "subscriptions", label: t("tabs.subscriptions.label"), hint: t("tabs.subscriptions.hint"), icon: CreditCard },
+    { id: "audit", label: t("tabs.audit.label"), hint: t("tabs.audit.hint"), icon: History },
+    { id: "roles", label: t("tabs.roles.label"), hint: t("tabs.roles.hint"), icon: ShieldCheck },
+    { id: "trash", label: t("tabs.trash.label"), hint: t("tabs.trash.hint"), icon: Trash2 },
+    { id: "notifications", label: t("tabs.notifications.label"), hint: t("tabs.notifications.hint"), icon: Bell },
+    { id: "monitoring", label: t("tabs.monitoring.label"), hint: t("tabs.monitoring.hint"), icon: Activity },
+    { id: "branches", label: t("tabs.branches.label"), hint: t("tabs.branches.hint"), icon: GitBranch },
+  ], [t]);
 
-  const flashError = useCallback(
-    (message: string) => {
-      setError(message);
-      toast.error(message);
-      window.setTimeout(() => setError(""), 3200);
-    },
-    [toast]
-  );
-
-  const checkAuth = useCallback(async () => {
-    const nextProfile = await getUserProfile();
-    if (!nextProfile || nextProfile.role !== "super_admin") {
-      window.location.href = localizeAppPath("/access-denied", locale);
-      return null;
-    }
-    setProfile(nextProfile);
-    return nextProfile;
-  }, [locale]);
+  const flashSuccess = useCallback((m: string) => { setSuccess(m); toast.success(m); window.setTimeout(() => setSuccess(""), 2600); }, [toast]);
+  const flashError = useCallback((m: string) => { setError(m); toast.error(m); window.setTimeout(() => setError(""), 3200); }, [toast]);
 
   const refreshDashboard = useCallback(async () => {
-    const initialLoad = !hasLoadedOnceRef.current;
-    if (initialLoad) {
-      setLoading(true);
-    } else {
-      setRefreshing(true);
-    }
-
+    if (!hasLoadedOnceRef.current) setLoading(true); else setRefreshing(true);
     try {
-      const nextProfile = await checkAuth();
-      if (!nextProfile) return;
-
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        infrastructure?: AdminInfrastructure;
-        schemaCompat?: AppSchemaCompat;
-        infrastructureNotice?: string;
-        diagnostics?: OverviewDiagnostics;
-        schools?: SchoolRecord[];
-        users?: UserRecord[];
-        subscriptions?: SubscriptionRecord[];
-        error?: { message?: string };
-      }>("/api/web/super-admin/overview");
-
-      if (!response.ok) {
-        throw new Error(payload?.error?.message || "تعذر تحميل بيانات المدير العام.");
-      }
-
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ infrastructure?: AdminInfrastructure; schemaCompat?: AppSchemaCompat; infrastructureNotice?: string; diagnostics?: OverviewDiagnostics; schools?: SchoolRecord[]; users?: UserRecord[]; subscriptions?: SubscriptionRecord[]; error?: { message?: string }; }>("/api/web/super-admin/overview");
+      if (!response.ok) throw new Error(payload?.error?.message || "تعذر تحميل البيانات.");
       setInfrastructure(payload?.infrastructure ?? DEFAULT_ADMIN_INFRASTRUCTURE);
       setSchemaCompat(payload?.schemaCompat ?? null);
       setInfrastructureNotice(payload?.infrastructureNotice ?? "");
       setOverviewDiagnostics(payload?.diagnostics ?? null);
-      setSchools(
-        (payload?.schools ?? []).map((school) => {
-          const storedBranding = getStoredSchoolBranding(school.id);
-          return {
-            ...school,
-            primary_color: school.primary_color ?? storedBranding?.primaryColor ?? null,
-            secondary_color: school.secondary_color ?? storedBranding?.secondaryColor ?? null,
-          };
-        })
-      );
-      setUsers(
-        (payload?.users ?? []).map((user) => ({
-          ...user,
-          custom_permissions: Array.isArray(user.custom_permissions)
-            ? (user.custom_permissions as Permission[])
-            : null,
-        }))
-      );
+      setSchools((payload?.schools ?? []).map((s) => { const b = getStoredSchoolBranding(s.id); return { ...s, primary_color: s.primary_color ?? b?.primaryColor ?? null, secondary_color: s.secondary_color ?? b?.secondaryColor ?? null }; }));
+      setUsers((payload?.users ?? []).map((u) => ({ ...u, custom_permissions: Array.isArray(u.custom_permissions) ? (u.custom_permissions as Permission[]) : null })));
       setSubscriptions(payload?.subscriptions ?? []);
       hasLoadedOnceRef.current = true;
-    } catch (fetchError) {
-      flashError(getErrorMessage(fetchError, "تعذر تحميل بيانات المدير العام."));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [checkAuth, flashError]);
+    } catch (e) { flashError(getErrorMessage(e, "تعذر تحميل البيانات.")); } finally { setLoading(false); setRefreshing(false); }
+  }, [flashError]);
 
-  useEffect(() => {
-    void refreshDashboard();
-  }, [refreshDashboard]);
+  useEffect(() => { void refreshDashboard(); }, [refreshDashboard]);
 
   // Actions
-  const openCreateSchool = useCallback(() => {
-    setEditSchool(null);
-    setShowSchoolForm(true);
+  const openCreateSchool = useCallback(() => { setEditSchool(null); setShowSchoolForm(true); }, []);
+  const openEditSchool = useCallback((s: SchoolRecord) => { setEditSchool(s); setShowSchoolForm(true); }, []);
+  const openCreateUser = useCallback(() => { setEditUser(null); setShowUserForm(true); }, []);
+  const openEditUser = useCallback((u: UserRecord) => { setEditUser(u); setShowUserForm(true); }, []);
+  const focusSpotlight = useCallback((filter: SpotlightFilter, tab: ActiveTab) => {
+    setSpotlightFilter(filter);
+    setActiveTab(tab);
   }, []);
 
-  const openEditSchool = useCallback((school: SchoolRecord) => {
-    setEditSchool(school);
-    setShowSchoolForm(true);
-  }, []);
+  const handleSaveSchool = useCallback(async (f: SchoolFormData, editing: SchoolRecord | null) => {
+    try {
+      const url = editing ? `/api/web/super-admin/schools/${editing.id}` : "/api/web/super-admin/schools";
+      const method = editing ? "PATCH" : "POST";
+      const body = { name: f.name, address: f.address || null, phone: f.phone || null, owner_email: f.owner_email || null, city: f.city || null, logo_url: f.logo_url || null, primary_color: f.primary_color || null, secondary_color: f.secondary_color || null, plan: f.plan, mode: editing ? "update" : undefined };
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ school?: SchoolRecord; error?: { message?: string } }>(url, { method, headers: withJsonHeaders(), body: JSON.stringify(body) });
+      if (!response.ok) throw new Error(payload?.error?.message || "تعذر الحفظ.");
+      const schoolId = editing?.id ?? payload?.school?.id;
+      if (!schoolId) {
+        throw new Error("تعذر تحديد المدرسة بعد الحفظ.");
+      }
+      setStoredSchoolBranding(schoolId, { primaryColor: f.primary_color || null, secondaryColor: f.secondary_color || null, themePreset: f.themePresetId || null, sidebarColor: f.sidebar_color || null, accentColor: f.accent_color || null, textColor: f.text_color || null, source: "manual" });
+      flashSuccess("تم الحفظ بنجاح ✓");
+      setShowSchoolForm(false);
+      await refreshDashboard();
+      requestRuntimeBrandingRefresh();
+    } catch (e) { flashError(getErrorMessage(e, "تعذر الحفظ.")); }
+  }, [flashError, flashSuccess, refreshDashboard]);
 
-  const openCreateUser = useCallback(() => {
-    setEditUser(null);
-    setShowUserForm(true);
-  }, []);
+  const handleSaveUser = useCallback(async (f: UserFormData, editing: UserRecord | null) => {
+    try {
+      const payload = { full_name: f.full_name, email: f.email, role: f.role, school_id: f.school_id || null, phone: f.phone || null, is_active: f.is_active, custom_permissions: f.permissions.length ? f.permissions : null };
+      if (editing) {
+        const { response, payload: res } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(`/api/web/super-admin/users/${editing.id}`, { method: "PATCH", headers: withJsonHeaders(), body: JSON.stringify(payload) });
+        if (!response.ok) throw new Error(res?.error?.message || "تعذر التحديث.");
+      } else {
+        const res = await fetchWithAuthorizedSession("/api/users", { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ ...payload, password: f.password }) });
+        if (!res.ok) throw new Error("فشل إنشاء المستخدم.");
+      }
+      flashSuccess("تم حفظ المستخدم بنجاح ✓");
+      setShowUserForm(false);
+      await refreshDashboard();
+    } catch (e) { flashError(getErrorMessage(e, "تعذر الحفظ.")); }
+  }, [flashError, flashSuccess, refreshDashboard]);
 
-  const openEditUser = useCallback((user: UserRecord) => {
-    setEditUser(user);
-    setShowUserForm(true);
-  }, []);
-
-  const toggleSchool = useCallback(
-    async (id: string, current: boolean) => {
-      try {
-        const { response, payload } = await fetchJsonWithAuthorizedSession<{
-          school?: SchoolRecord;
-          error?: { message?: string };
-        }>(`/api/web/super-admin/schools/${encodeURIComponent(id)}`, {
+  const handleToggleSchool = useCallback(async (schoolId: string, current: boolean) => {
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ school?: SchoolRecord; error?: { message?: string } }>(
+        `/api/web/super-admin/schools/${schoolId}`,
+        {
           method: "PATCH",
           headers: withJsonHeaders(),
           body: JSON.stringify({ mode: "toggle", is_active: !current }),
-        });
-
-        if (!response.ok) {
-          throw new Error(payload?.error?.message || "تعذر تحديث حالة المدرسة.");
-        }
-
-        await logAction({
-          action_type: "update",
-          entity_type: "school",
-          entity_id: id,
-          summary: `${!current ? "تفعيل" : "إيقاف"} المدرسة وتعديل حالة الاشتراك`,
-        });
-
-        flashSuccess(!current ? "تم تفعيل المدرسة بنجاح." : "تم إيقاف المدرسة بنجاح.");
-        await refreshDashboard();
-      } catch (toggleError) {
-        flashError(getErrorMessage(toggleError, "تعذر تحديث حالة المدرسة."));
+        },
+      );
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحديث حالة المدرسة.");
       }
-    },
-    [flashError, flashSuccess, refreshDashboard]
-  );
+      flashSuccess(current ? "تم إيقاف المدرسة بنجاح ✓" : "تم تفعيل المدرسة بنجاح ✓");
+      await refreshDashboard();
+    } catch (toggleError) {
+      flashError(getErrorMessage(toggleError, "تعذر تحديث حالة المدرسة."));
+    }
+  }, [flashError, flashSuccess, refreshDashboard]);
 
-  const handleSaveSchool = useCallback(
-    async (formData: SchoolFormData, editingSchool: SchoolRecord | null) => {
-      try {
-        if (editingSchool) {
-          const { response, payload } = await fetchJsonWithAuthorizedSession<{
-            school?: SchoolRecord;
-            schemaCompat?: AppSchemaCompat;
-            error?: { message?: string };
-          }>(`/api/web/super-admin/schools/${encodeURIComponent(editingSchool.id)}`, {
-            method: "PATCH",
-            headers: withJsonHeaders(),
-            body: JSON.stringify({
-              mode: "update",
-              name: formData.name,
-              address: formData.address || null,
-              phone: formData.phone || null,
-              owner_email: formData.owner_email || null,
-              city: formData.city || null,
-              logo_url: formData.logo_url || null,
-              primary_color: formData.primary_color || null,
-              secondary_color: formData.secondary_color || null,
-              plan: formData.plan,
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(payload?.error?.message || "تعذر حفظ بيانات المدرسة.");
-          }
-
-          const compat = payload?.schemaCompat ?? schemaCompat;
-          if (compat) setSchemaCompat(compat);
-
-          setStoredSchoolBranding(editingSchool.id, {
-            primaryColor: formData.primary_color || null,
-            secondaryColor: formData.secondary_color || null,
-            themePreset: formData.themePresetId || null,
-            sidebarColor: formData.sidebar_color || null,
-            accentColor: formData.accent_color || null,
-            textColor: formData.text_color || null,
-            source: "manual",
-          });
-
-          await logAction({
-            action_type: "update",
-            entity_type: "school",
-            entity_id: editingSchool.id,
-            summary: `تعديل بيانات المدرسة: ${formData.name}`,
-          });
-
-          flashSuccess(compat?.schoolColors ? "تم تحديث بيانات المدرسة." : "تم تحديث بيانات المدرسة، وحُفظت الألوان محلياً.");
-        } else {
-          const { response, payload } = await fetchJsonWithAuthorizedSession<{
-            school?: SchoolRecord;
-            schemaCompat?: AppSchemaCompat;
-            branchSkipped?: boolean;
-            error?: { message?: string };
-          }>("/api/web/super-admin/schools", {
-            method: "POST",
-            headers: withJsonHeaders(),
-            body: JSON.stringify({
-              name: formData.name,
-              address: formData.address || null,
-              phone: formData.phone || null,
-              owner_email: formData.owner_email || null,
-              city: formData.city || null,
-              logo_url: formData.logo_url || null,
-              primary_color: formData.primary_color || null,
-              secondary_color: formData.secondary_color || null,
-              plan: formData.plan,
-            }),
-          });
-
-          if (!response.ok || !payload?.school) {
-            throw new Error(payload?.error?.message || "تعذر حفظ بيانات المدرسة.");
-          }
-
-          const compat = payload?.schemaCompat ?? schemaCompat;
-          if (compat) setSchemaCompat(compat);
-
-          setStoredSchoolBranding(payload.school.id, {
-            primaryColor: formData.primary_color || null,
-            secondaryColor: formData.secondary_color || null,
-            themePreset: formData.themePresetId || null,
-            sidebarColor: formData.sidebar_color || null,
-            accentColor: formData.accent_color || null,
-            textColor: formData.text_color || null,
-            source: "manual",
-          });
-
-          await logAction({
-            action_type: "create",
-            entity_type: "school",
-            entity_id: payload.school.id,
-            summary: `إنشاء مدرسة جديدة: ${formData.name}`,
-          });
-
-          flashSuccess(payload?.branchSkipped ? "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي." : "تمت إضافة المدرسة وإنشاء اشتراكها الافتراضي.");
-        }
-
-        setShowSchoolForm(false);
-        await refreshDashboard();
-        requestRuntimeBrandingRefresh();
-      } catch (saveError) {
-        flashError(getErrorMessage(saveError, "تعذر حفظ بيانات المدرسة."));
-        throw saveError;
+  const handleExtendSubscription = useCallback(async (schoolId: string) => {
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        created?: boolean;
+        subscription?: SubscriptionRecord;
+        error?: { message?: string };
+      }>(`/api/web/super-admin/subscriptions/${schoolId}`, {
+        method: "POST",
+        headers: withJsonHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تجديد الاشتراك.");
       }
-    },
-    [flashError, flashSuccess, refreshDashboard, schemaCompat]
-  );
-
-  const handleSaveUser = useCallback(
-    async (formData: UserFormData, editingUser: UserRecord | null) => {
-      try {
-        const payload = {
-          full_name: formData.full_name,
-          email: formData.email,
-          role: formData.role,
-          school_id: formData.school_id || null,
-          phone: formData.phone || null,
-          is_active: formData.is_active,
-          ...(infrastructure.customPermissions
-            ? { custom_permissions: formData.permissions.length > 0 ? formData.permissions : null }
-            : {}),
-        };
-
-        if (editingUser) {
-          const { response, payload: responsePayload } = await fetchJsonWithAuthorizedSession<{
-            user?: UserRecord;
-            error?: { message?: string };
-          }>(`/api/web/super-admin/users/${encodeURIComponent(editingUser.id)}`, {
-            method: "PATCH",
-            headers: withJsonHeaders(),
-            body: JSON.stringify(payload),
-          });
-
-          if (!response.ok) {
-            throw new Error(responsePayload?.error?.message || "تعذر حفظ المستخدم.");
-          }
-
-          await logAction({
-            action_type: "update",
-            entity_type: "user",
-            entity_id: editingUser.id,
-            summary: `تعديل بيانات المستخدم: ${payload.full_name || payload.email}`,
-          });
-
-          flashSuccess("تم تحديث بيانات المستخدم.");
-        } else {
-          if (!formData.password) {
-            throw new Error("يرجى إدخال كلمة مرور للمستخدم الجديد.");
-          }
-
-          const response = await fetchWithAuthorizedSession("/api/users", {
-            method: "POST",
-            headers: withJsonHeaders(),
-            body: JSON.stringify({ ...payload, password: formData.password }),
-          });
-
-          if (!response.ok) {
-            const body = await response.json().catch(() => ({}));
-            throw new Error(body?.error?.message || body?.message || `فشل إنشاء المستخدم (${response.status}).`);
-          }
-
-          await logAction({
-            action_type: "create",
-            entity_type: "user",
-            summary: `إنشاء مستخدم جديد: ${payload.full_name || payload.email}`,
-          });
-
-          flashSuccess("تمت إضافة المستخدم بنجاح.");
-        }
-
-        setShowUserForm(false);
-        await refreshDashboard();
-      } catch (saveError) {
-        flashError(getErrorMessage(saveError, "تعذر حفظ المستخدم."));
-        throw saveError;
-      }
-    },
-    [flashError, flashSuccess, infrastructure.customPermissions, refreshDashboard]
-  );
-
-  const extendSubscription = useCallback(
-    async (schoolId: string) => {
-      try {
-        const { response, payload } = await fetchJsonWithAuthorizedSession<{
-          subscription?: SubscriptionRecord;
-          error?: { message?: string };
-        }>(`/api/web/super-admin/subscriptions/${encodeURIComponent(schoolId)}`, {
-          method: "POST",
-          headers: withJsonHeaders(),
-        });
-
-        if (!response.ok) {
-          throw new Error(payload?.error?.message || "تعذر تجديد الاشتراك.");
-        }
-
-        await logAction({
-          action_type: "subscription_renew",
-          entity_type: "subscription",
-          entity_id: schoolId,
-          summary: `تجديد اشتراك مدرسة (سنة واحدة)`,
-        });
-
-        flashSuccess("تم تجديد الاشتراك لمدة سنة كاملة.");
-        await refreshDashboard();
-      } catch (extendError) {
-        flashError(getErrorMessage(extendError, "تعذر تجديد الاشتراك."));
-      }
-    },
-    [flashError, flashSuccess, refreshDashboard]
-  );
+      flashSuccess(payload?.created ? "تم إنشاء الاشتراك وتفعيله ✓" : "تم تجديد الاشتراك بنجاح ✓");
+      await refreshDashboard();
+    } catch (renewError) {
+      flashError(getErrorMessage(renewError, "تعذر تجديد الاشتراك."));
+    }
+  }, [flashError, flashSuccess, refreshDashboard]);
 
   const handleDeleteSchool = useCallback(async () => {
     if (!deleteSchoolTarget) return;
-
-    if (!infrastructure.softDeleteSchools) {
-      flashError("أرشفة المدارس تتطلب تشغيل admin_infrastructure.sql لإضافة deleted_at و deleted_by إلى جدول schools.");
-      return;
-    }
-
     try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        school?: Pick<SchoolRecord, "id" | "name">;
-        error?: { message?: string };
-      }>(`/api/web/super-admin/schools/${encodeURIComponent(deleteSchoolTarget.id)}`, {
-        method: "DELETE",
-        headers: withJsonHeaders(),
-      });
-
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(
+        `/api/web/super-admin/schools/${deleteSchoolTarget.id}`,
+        {
+          method: "DELETE",
+          headers: withJsonHeaders(),
+        },
+      );
       if (!response.ok) {
-        throw new Error(payload?.error?.message || "تعذر حذف المدرسة.");
+        throw new Error(payload?.error?.message || "تعذر أرشفة المدرسة.");
       }
-
-      await logAction({
-        action_type: "delete",
-        entity_type: "school",
-        entity_id: deleteSchoolTarget.id,
-        summary: `أرشفة مدرسة (نقل للسلة): ${deleteSchoolTarget.name}`,
-      });
-
-      flashSuccess("تم نقل المدرسة إلى سلة المهملات.");
+      flashSuccess(`تمت أرشفة المدرسة ${deleteSchoolTarget.name} ✓`);
       setDeleteSchoolTarget(null);
       await refreshDashboard();
     } catch (deleteError) {
-      flashError(getErrorMessage(deleteError, "تعذر حذف المدرسة."));
+      flashError(getErrorMessage(deleteError, "تعذر أرشفة المدرسة."));
     }
-  }, [deleteSchoolTarget, flashError, flashSuccess, infrastructure.softDeleteSchools, refreshDashboard]);
+  }, [deleteSchoolTarget, flashError, flashSuccess, refreshDashboard]);
 
   const handleDeleteUser = useCallback(async () => {
     if (!deleteUserTarget) return;
-
-    if (!infrastructure.softDeleteUsers) {
-      flashError("أرشفة المستخدمين تتطلب تشغيل admin_infrastructure.sql لإضافة deleted_at و deleted_by إلى جدول user_profiles.");
-      return;
-    }
-
-    if (deleteUserTarget.id === profile?.id) {
-      flashError("لا يمكن أرشفة حساب المدير العام الحالي أثناء استخدامه.");
-      return;
-    }
-
     try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        user?: Pick<UserRecord, "id" | "full_name" | "email">;
-        error?: { message?: string };
-      }>(`/api/web/super-admin/users/${encodeURIComponent(deleteUserTarget.id)}`, {
-        method: "DELETE",
-        headers: withJsonHeaders(),
-      });
-
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(
+        `/api/web/super-admin/users/${deleteUserTarget.id}`,
+        {
+          method: "DELETE",
+          headers: withJsonHeaders(),
+        },
+      );
       if (!response.ok) {
         throw new Error(payload?.error?.message || "تعذر أرشفة المستخدم.");
       }
-
-      await logAction({
-        action_type: "delete",
-        entity_type: "user",
-        entity_id: deleteUserTarget.id,
-        summary: `أرشفة مستخدم: ${deleteUserTarget.full_name || deleteUserTarget.email || deleteUserTarget.id}`,
-      });
-
-      flashSuccess("تم نقل المستخدم إلى سلة المهملات.");
+      flashSuccess(`تمت أرشفة المستخدم ${deleteUserTarget.full_name || deleteUserTarget.email || ""} ✓`);
       setDeleteUserTarget(null);
       await refreshDashboard();
     } catch (deleteError) {
       flashError(getErrorMessage(deleteError, "تعذر أرشفة المستخدم."));
     }
-  }, [deleteUserTarget, flashError, flashSuccess, infrastructure.softDeleteUsers, profile?.id, refreshDashboard]);
+  }, [deleteUserTarget, flashError, flashSuccess, refreshDashboard]);
 
-  // Spotlight and filtering
-  const focusSpotlight = useCallback((filter: SpotlightFilter, tab: ActiveTab) => {
-    setQuery("");
-    setSpotlightFilter(filter);
-    setActiveTab(tab);
-  }, []);
+  const clearSpotlightFilter = useCallback(() => setSpotlightFilter(null), []);
+  const availableTabs = useMemo(() => TAB_ITEMS.filter((i) => isTabAvailable(i.id, infrastructure)), [infrastructure, TAB_ITEMS]);
 
-  const clearSpotlightFilter = useCallback(() => {
-    setSpotlightFilter(null);
-  }, []);
+  const filteredSchools = useMemo(() => schools.filter(s => {
+    if (spotlightFilter === "inactive_schools" && s.is_active) return false;
+    if (spotlightFilter === "missing_branding" && s.primary_color) return false;
+    return !query || s.name.toLowerCase().includes(query.toLowerCase());
+  }), [schools, spotlightFilter, query]);
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const filteredUsers = useMemo(() => users.filter(u => !query || (u.email ?? "").toLowerCase().includes(query.toLowerCase()) || u.full_name?.toLowerCase().includes(query.toLowerCase())), [users, query]);
+  const filteredSubscriptions = useMemo(() => subscriptions.filter(s => !query || (Array.isArray(s.schools) ? s.schools[0]?.name : s.schools?.name)?.toLowerCase().includes(query.toLowerCase())), [subscriptions, query]);
 
-  const filteredSchools = useMemo(() => {
-    return schools.filter((school) => {
-      if (spotlightFilter === "inactive_schools" && school.is_active) return false;
-      if (spotlightFilter === "missing_branding" && school.primary_color && school.secondary_color) return false;
-      if (!normalizedQuery) return true;
-      return [school.name, school.city, school.phone, school.owner_email]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(normalizedQuery));
-    });
-  }, [schools, spotlightFilter, normalizedQuery]);
-
-  const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
-      if (spotlightFilter === "orphan_users" && (user.role === "super_admin" || user.school_id)) return false;
-      if (!normalizedQuery) return true;
-      return [user.full_name, user.email]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(normalizedQuery));
-    });
-  }, [users, spotlightFilter, normalizedQuery]);
-
-  const filteredSubscriptions = useMemo(() => {
-    return subscriptions.filter((subscription) => {
-      if (spotlightFilter === "expiring_subscriptions") {
-        const days = calculateDaysLeft(subscription.end_date);
-        if (isSubscriptionExpired(subscription) || days === null || days > 30) return false;
-      }
-      if (!normalizedQuery) return true;
-      const schoolName = Array.isArray(subscription.schools) 
-        ? subscription.schools[0]?.name 
-        : subscription.schools?.name;
-      return [schoolName, PLAN_LABELS[subscription.plan]]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(normalizedQuery));
-    });
-  }, [subscriptions, spotlightFilter, normalizedQuery]);
-
-  const availableTabs = useMemo(
-    () => TAB_ITEMS.filter((item) => isTabAvailable(item.id, infrastructure)),
-    [infrastructure]
-  );
-
-  useEffect(() => {
-    if (availableTabs.length === 0) return;
-    if (!availableTabs.some((item) => item.id === activeTab)) {
-      setActiveTab(availableTabs[0].id);
-    }
-  }, [activeTab, availableTabs]);
-
-  const tabMeta = availableTabs.find((item) => item.id === activeTab) ?? availableTabs[0] ?? TAB_ITEMS[0];
-
-  const expiringSoon = useMemo(
-    () =>
-      subscriptions.filter((subscription) => {
-        const days = calculateDaysLeft(subscription.end_date);
-        return !isSubscriptionExpired(subscription) && days !== null && days <= 30;
-      }),
-    [subscriptions]
-  );
-
-  const dataHealthItems = useMemo(
-    () => [
-      {
-        key: "schools",
-        datasetLabel: "المدارس",
-        status: datasetStatusMeta(overviewDiagnostics?.schoolsStatus ?? "loaded"),
-        hint: "قراءة أساسية للوحة",
-      },
-      {
-        key: "users",
-        datasetLabel: "المستخدمون",
-        status: datasetStatusMeta(overviewDiagnostics?.usersStatus ?? "loaded"),
-        hint: "الصلاحيات وربط المدارس",
-      },
-      {
-        key: "subscriptions",
-        datasetLabel: "الاشتراكات",
-        status: datasetStatusMeta(overviewDiagnostics?.subscriptionsStatus ?? "loaded"),
-        hint: "التجديدات والحالة الحالية",
-      },
-    ],
-    [overviewDiagnostics]
-  );
-
-  const hasLoadWarning =
-    (overviewDiagnostics?.warnings.length ?? 0) > 0 ||
-    dataHealthItems.some((item) => item.status.tone !== "ui-pill ui-pill--success");
+  const dataHealthItems = useMemo(() => [
+    { key: "schools", label: "المدارس", status: datasetStatusMeta(overviewDiagnostics?.schoolsStatus ?? "loaded") },
+    { key: "users", label: "المستخدمون", status: datasetStatusMeta(overviewDiagnostics?.usersStatus ?? "loaded") },
+    { key: "subscriptions", label: "الاشتراكات", status: datasetStatusMeta(overviewDiagnostics?.subscriptionsStatus ?? "loaded") }
+  ], [overviewDiagnostics]);
 
   return (
     <ProtectedRoute roles={["super_admin"]}>
-      <div className="relative min-h-dvh overflow-hidden">
-        <div className="ui-grid-lines pointer-events-none absolute inset-0 opacity-35" />
-        <div className="pointer-events-none absolute inset-x-0 top-[-18rem] h-[34rem] rounded-full bg-[radial-gradient(circle,rgba(121,215,255,0.16),transparent_60%)] blur-3xl" />
-        <div className="pointer-events-none absolute bottom-[-12rem] left-[-10rem] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(79,140,255,0.18),transparent_60%)] blur-3xl" />
+      <div className="flex min-h-screen bg-[var(--surface-muted)]">
+        <AppSidebar currentPath="/super-admin" />
 
-        {sidebarOpen ? (
-          <div className="ui-backdrop z-40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
-        ) : null}
+        <div className="flex-1 flex flex-col min-w-0">
+          <AppShellTopbar 
+            title={t("title")} 
+            subtitle="مركز التحكم الرئيسي لإدارة المنصة والمدارس والاشتراكات" 
+            fixed 
+          />
 
-        <div className="relative flex min-h-dvh flex-row-reverse">
-          {/* Sidebar */}
-          <aside
-            className={cx(
-              "ui-glass fixed inset-y-0 right-0 z-50 flex w-[300px] flex-col border-l border-r-0 px-3 py-4 transition-transform duration-200 lg:static lg:translate-x-0",
-              sidebarCollapsed ? "lg:w-[108px]" : "lg:w-[300px]",
-              sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-            )}
-          >
-            <div className="mb-5 flex items-center justify-between gap-3 px-2">
-              <UltrathinkLogo
-                size={sidebarCollapsed ? 48 : 54}
-                showText={!sidebarCollapsed}
-                title={SCHOOL_BRAND.nameAr}
-                subtitle="لوحة المدير العام"
-              />
-              <button
-                type="button"
-                className="hidden h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] lg:inline-flex"
-                onClick={() => setSidebarCollapsed((current) => !current)}
-                aria-label={sidebarCollapsed ? "توسيع الشريط الجانبي" : "طي الشريط الجانبي"}
-              >
-                {sidebarCollapsed ? <PanelRightOpen size={18} /> : <PanelRightClose size={18} />}
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              {availableTabs.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.id === activeTab;
-
-                return (
+          <main className="flex-1 pt-16 flex flex-row overflow-hidden">
+            {/* Super Admin Vertical Tabs Sidebar */}
+            <div className="w-80 shrink-0 border-e border-[var(--border)] bg-[var(--surface-muted)] hidden xl:flex flex-col p-4">
+              <div className="space-y-1">
+                {availableTabs.map((tab) => (
                   <button
-                    key={item.id}
-                    type="button"
-                    className={cx(
-                      "group flex w-full items-center gap-3 rounded-[22px] px-3 py-3 text-right transition",
-                      isActive
-                        ? "bg-[linear-gradient(135deg,rgba(79,140,255,0.18),rgba(121,215,255,0.08))] text-[var(--text-primary)] shadow-[var(--shadow-xs)]"
-                        : "text-[var(--text-secondary)] hover:bg-[rgba(79,140,255,0.08)] hover:text-[var(--text-primary)]",
-                      sidebarCollapsed && "justify-center px-2"
+                    key={tab.id}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 group text-start",
+                      activeTab === tab.id 
+                        ? "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20 font-bold scale-[1.02]" 
+                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                     )}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setSidebarOpen(false);
-                    }}
-                    title={item.label}
+                    onClick={() => setActiveTab(tab.id)}
                   >
-                    <span
-                      className={cx(
-                        "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] transition",
-                        isActive
-                          ? "bg-[rgba(79,140,255,0.14)] text-[var(--primary)]"
-                          : "bg-[var(--surface-muted)] text-[var(--text-tertiary)] group-hover:text-[var(--primary)]"
-                      )}
-                    >
-                      <Icon size={18} />
-                    </span>
-                    {!sidebarCollapsed ? (
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-black">{item.label}</span>
-                        <span className="block truncate text-xs font-semibold text-[var(--text-tertiary)]">{item.hint}</span>
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="my-5 h-px bg-[var(--border)]" />
-
-            <div className="space-y-2">
-              <Link
-                href={localizeAppPath("/dashboard", locale)}
-                className={cx(
-                  "flex items-center gap-3 rounded-[22px] px-3 py-3 text-[var(--text-secondary)] transition hover:bg-[rgba(79,140,255,0.08)] hover:text-[var(--text-primary)]",
-                  sidebarCollapsed && "justify-center px-2"
-                )}
-                title="لوحة المدرسة"
-              >
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[var(--surface-muted)] text-[var(--text-tertiary)]">
-                  <House size={18} />
-                </span>
-                {!sidebarCollapsed ? <span className="text-sm font-black">لوحة المدرسة</span> : null}
-              </Link>
-            </div>
-
-            <div className="mt-auto space-y-3">
-              <div className={cx("rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3", sidebarCollapsed && "p-2")}>
-                {!sidebarCollapsed ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-black text-[var(--text-tertiary)]">الحساب الحالي</p>
-                    <p className="text-sm font-black text-[var(--text-primary)]">{profile?.full_name || profile?.email || "المدير العام"}</p>
-                    <div className="ui-pill ui-pill--success text-xs">صلاحية كاملة مفعلة</div>
-                  </div>
-                ) : (
-                  <div className="flex justify-center">
-                    <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(53,197,138,0.14)] text-[var(--success)]">
-                      <ShieldCheck size={18} />
+                    <tab.icon size={18} className={cn(activeTab === tab.id ? "text-white" : "text-[var(--text-muted)] group-hover:text-[var(--primary)]")} />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm truncate">{tab.label}</span>
+                      <span className={cn("text-[10px] truncate opacity-70", activeTab === tab.id ? "text-white" : "text-[var(--text-muted)]")}>{tab.hint}</span>
                     </div>
-                  </div>
-                )}
+                  </button>
+                ))}
               </div>
 
-              {!sidebarCollapsed ? (
-                <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3">
-                  <p className="text-xs font-black text-[var(--text-tertiary)]">إدارة الهوية والإعدادات</p>
-                  <p className="mt-2 text-sm font-bold leading-7 text-[var(--text-secondary)]">
-                    ستجد اللغة والمظهر وتسجيل الخروج ضمن قائمة الحساب في الهيدر لتبقى اللوحة أخف وأكثر وضوحاً.
-                  </p>
+              <div className="mt-auto p-4 rounded-2xl bg-[var(--surface-muted)] border border-[var(--border)]">
+                <div className="flex items-center gap-2 text-xs font-black text-[var(--text-muted)] mb-2">
+                  <Activity size={14} /> الحالة التشغيلية
                 </div>
-              ) : null}
+                <div className="space-y-2">
+                  {dataHealthItems.map(item => (
+                    <div key={item.key} className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[var(--text-secondary)]">{item.label}</span>
+                      <div className={cn("h-2 w-2 rounded-full", item.status.tone.includes("success") ? "bg-[var(--success)]" : "bg-[var(--warning)]")} />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </aside>
 
-          {/* Main content */}
-          <main className="min-w-0 flex-1 px-3 pb-4 pt-3 sm:px-4 lg:px-5 lg:pb-6">
-            {/* Header */}
-            <header className="ui-glass sticky top-3 z-30 rounded-[30px] px-4 py-4 sm:px-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex items-start gap-3">
-                  <button
-                    type="button"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] lg:hidden"
-                    onClick={() => setSidebarOpen(true)}
-                    aria-label="فتح القائمة"
-                  >
-                    <Menu size={18} />
-                  </button>
-
-                  <div className="space-y-2">
-                    <div className="inline-flex items-center gap-2 text-xs font-extrabold text-[var(--text-tertiary)]">
-                      <span>المدير العام</span>
-                      <ChevronLeft size={12} className="opacity-60" />
-                      <span className="text-[var(--text-secondary)]">{tabMeta.label}</span>
-                    </div>
-                    <div>
-                      <h1 className="text-2xl font-black text-[var(--text-primary)] sm:text-[2.1rem]">{tabMeta.label}</h1>
-                      <p className="text-sm leading-7 text-[var(--text-secondary)]">{tabMeta.hint}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 xl:items-end">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative min-w-[240px] max-w-[420px] flex-1 xl:w-[360px]">
-                      <Search
-                        size={18}
-                        className="pointer-events-none absolute top-1/2 text-[var(--text-tertiary)]"
-                        style={{ insetInlineStart: "1rem", transform: "translateY(-50%)" }}
-                      />
-                      <input
-                        type="search"
-                        className="ui-input"
-                        style={{ paddingInlineStart: "3rem" }}
-                        placeholder={
-                          activeTab === "schools"
-                            ? "ابحث عن مدرسة أو مدينة أو بريد..."
-                            : activeTab === "users"
-                            ? "ابحث عن مستخدم أو بريد..."
-                            : activeTab === "subscriptions"
-                            ? "ابحث عن مدرسة أو حالة اشتراك..."
-                            : "ابحث في لوحة المدير العام..."
-                        }
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+                
+                {/* Global Search & Action Bar */}
+                <section className="rounded-[32px] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
+                  <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div className="relative flex-1 w-full max-w-2xl">
+                      <Search size={18} className="absolute start-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                      <input 
+                        className="w-full h-12 ps-12 pe-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] text-sm font-bold text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--primary)]/10 transition-all"
+                        placeholder={t(`header.searchPlaceholder.${activeTab === "schools" ? "schools" : activeTab === "users" ? "users" : activeTab === "subscriptions" ? "subscriptions" : "default"}`)}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                       />
                     </div>
-
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={() => void refreshDashboard()}
-                      disabled={refreshing}
-                      title="تحديث البيانات"
-                    >
-                      <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
-                      <span className="hidden sm:inline">{refreshing ? "جاري التحديث" : "تحديث"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={() => setActiveTab("notifications")}
-                      title={infrastructure.notifications ? "التنبيهات" : "التنبيهات غير متاحة"}
-                      disabled={!infrastructure.notifications}
-                    >
-                      <Bell size={18} />
-                      <span className="hidden sm:inline">
-                        {infrastructure.notifications ? "التنبيهات" : "التنبيهات غير متاحة"}
-                      </span>
-                      {infrastructure.notifications && expiringSoon.length > 0 ? (
-                        <span className="ui-pill ui-pill--warning min-h-0 px-2 py-1 text-[11px]">{expiringSoon.length}</span>
-                      ) : null}
-                    </button>
-
-                    <ProfileMenu />
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[var(--text-tertiary)]">
-                    <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1.5">
-                      {overviewDiagnostics?.generatedAt
-                        ? `آخر مزامنة: ${formatDateTime(overviewDiagnostics.generatedAt)}`
-                        : "لم تكتمل أول مزامنة بعد"}
-                    </span>
-                    {spotlightFilter ? (
-                      <button
-                        type="button"
-                        className="rounded-full border border-[rgba(79,140,255,0.18)] bg-[rgba(79,140,255,0.08)] px-3 py-1.5 text-[var(--primary)] transition hover:bg-[rgba(79,140,255,0.14)]"
-                        onClick={clearSpotlightFilter}
-                      >
-                        الفلتر الذكي: {spotlightFilterLabel(spotlightFilter)} · إلغاء
+                    <div className="flex items-center gap-3">
+                      <button className="h-12 w-12 flex items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--text-secondary)] transition-all hover:bg-[var(--border)]" onClick={() => refreshDashboard()}>
+                        <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
                       </button>
-                    ) : null}
+                      <button className="h-12 px-6 flex items-center gap-2 rounded-2xl bg-[var(--primary)] text-white font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95" onClick={() => activeTab === "users" ? openCreateUser() : openCreateSchool()}>
+                        <Plus size={20} />
+                        {activeTab === "users" ? "إضافة مستخدم" : "إضافة مدرسة"}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                  {spotlightFilter && (
+                    <div className="mt-4 flex items-center gap-2 p-2 rounded-xl bg-[var(--primary)]/5 border border-[var(--primary)]/10 w-fit">
+                      <span className="text-[11px] font-black text-[var(--primary)] px-2">فلتر نشط: {spotlightFilterLabel(spotlightFilter)}</span>
+                      <button onClick={clearSpotlightFilter} className="h-6 w-6 flex items-center justify-center rounded-lg bg-[var(--surface-strong)] text-[var(--primary)] shadow-sm"><X size={12} /></button>
+                    </div>
+                  )}
+                </section>
+
+                {/* Alerts */}
+                {success && <div className="p-4 rounded-2xl bg-[var(--success)]/10 border border-[var(--success)]/20 text-[var(--success)] font-bold flex items-center gap-3"><BadgeCheck size={18} /> {success}</div>}
+                {error && <div className="p-4 rounded-2xl bg-[var(--danger)]/10 border border-[var(--danger)]/20 text-[var(--danger)] font-bold flex items-center gap-3"><AlertTriangle size={18} /> {error}</div>}
+                {infrastructureNotice && <div className="p-4 rounded-2xl bg-[var(--warning)]/10 border border-[var(--warning)]/20 text-[var(--warning)] font-bold flex items-center gap-3"><Flag size={18} /> {infrastructureNotice}</div>}
+
+                {/* Main Tab Content */}
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-32 gap-4">
+                    <Loader2 size={40} className="animate-spin text-[var(--primary)] opacity-20" />
+                    <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">تحميل لوحة التحكم...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {activeTab === "overview" && <OverviewTab schools={schools} users={users} subscriptions={subscriptions} loading={loading} overviewDiagnostics={overviewDiagnostics} spotlightFilter={spotlightFilter} onClearSpotlightFilter={clearSpotlightFilter} onFocusSpotlight={focusSpotlight} onOpenCreateSchool={openCreateSchool} onOpenCreateUser={openCreateUser} onSetActiveTab={setActiveTab} ROLE_LABELS={ROLE_LABELS} PLAN_LABELS={PLAN_LABELS} />}
+                    {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onRefresh={refreshDashboard} />}
+                    {activeTab === "users" && <UsersTab users={users} schools={schools} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} />}
+                    {activeTab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} filteredSubscriptions={filteredSubscriptions} onExtendSubscription={handleExtendSubscription} />}
+                    {activeTab === "audit" && <AuditLogTab infrastructure={infrastructure} />}
+                    {activeTab === "roles" && <RolesTab infrastructure={infrastructure} schools={schools.map(s => ({ id: s.id, name: s.name }))} />}
+                    {activeTab === "trash" && <TrashTab infrastructure={infrastructure} />}
+                    {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
+                    {activeTab === "monitoring" && <MonitoringTab infrastructure={infrastructure} />}
+                    {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} />}
+                  </div>
+                )}
               </div>
-            </header>
-
-            {/* Content */}
-            <div className="mt-4 space-y-4">
-              {/* Alerts */}
-              {success ? (
-                <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(47,182,122,0.18)] bg-[rgba(47,182,122,0.10)] px-4 py-3 text-[var(--success)]">
-                  <BadgeCheck size={18} className="mt-1 shrink-0" />
-                  <p className="text-sm font-bold leading-7">{success}</p>
-                </div>
-              ) : null}
-
-              {error ? (
-                <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(240,90,90,0.18)] bg-[rgba(240,90,90,0.10)] px-4 py-3 text-[var(--danger)]">
-                  <AlertTriangle size={18} className="mt-1 shrink-0" />
-                  <p className="text-sm font-bold leading-7">{error}</p>
-                </div>
-              ) : null}
-
-              {infrastructureNotice ? (
-                <div className="ui-surface flex items-start gap-3 rounded-[24px] border-[rgba(242,169,59,0.22)] bg-[rgba(242,169,59,0.10)] px-4 py-3 text-[var(--warning)]">
-                  <Flag size={18} className="mt-1 shrink-0" />
-                  <p className="text-sm font-bold leading-7">{infrastructureNotice}</p>
-                </div>
-              ) : null}
-
-              {hasLoadWarning ? (
-                <div className="ui-surface rounded-[28px] border-[rgba(242,169,59,0.22)] bg-[linear-gradient(135deg,rgba(242,169,59,0.10),rgba(79,140,255,0.08))] p-4 sm:p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-[var(--warning)]">
-                        <AlertTriangle size={18} />
-                        <span className="text-sm font-black">تحذير تحميل البيانات</span>
-                      </div>
-                      <p className="max-w-[64rem] text-sm leading-7 text-[var(--text-secondary)]">
-                        المشكلة الأساسية كانت أن الصفحة تعامل كل تحديث وكأنه تحميل أولي، ومع أي fallback في علاقات
-                        قاعدة البيانات يظهر تنبيه عام بدون توضيح. الآن صار عندك تشخيص أوضح لكل مجموعة بيانات
-                        وتحديث خلفي بدون تفريغ الشاشة.
-                      </p>
-                      {overviewDiagnostics?.warnings.length ? (
-                        <div className="space-y-2">
-                          {overviewDiagnostics.warnings.slice(0, 3).map((warning) => (
-                            <div
-                              key={warning}
-                              className="rounded-[20px] border border-[rgba(242,169,59,0.18)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-sm font-bold leading-7 text-[var(--text-secondary)]"
-                            >
-                              {warning}
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="grid min-w-[280px] gap-2 sm:grid-cols-3 lg:w-[360px] lg:grid-cols-1">
-                      {dataHealthItems.map((item) => (
-                        <div key={item.key} className="rounded-[22px] border border-[var(--border)] bg-[rgba(255,255,255,0.78)] px-4 py-3">
-                          <div className="mb-2 text-xs font-black text-[var(--text-tertiary)]">{item.datasetLabel}</div>
-                          <span className={item.status.tone}>{item.status.label}</span>
-                          <div className="mt-2 text-sm font-black text-[var(--text-primary)]">{item.datasetLabel}</div>
-                          <div className="mt-1 text-xs font-bold text-[var(--text-secondary)]">{item.hint}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Tab Content */}
-              {activeTab === "overview" && (
-                <OverviewTab
-                  schools={schools}
-                  users={users}
-                  subscriptions={subscriptions}
-                  loading={loading}
-                  overviewDiagnostics={overviewDiagnostics}
-                  spotlightFilter={spotlightFilter}
-                  onClearSpotlightFilter={clearSpotlightFilter}
-                  onFocusSpotlight={focusSpotlight}
-                  onOpenCreateSchool={openCreateSchool}
-                  onOpenCreateUser={openCreateUser}
-                  onSetActiveTab={setActiveTab}
-                  ROLE_LABELS={ROLE_LABELS}
-                  PLAN_LABELS={PLAN_LABELS}
-                />
-              )}
-
-              {activeTab === "schools" && (
-                <SchoolsTab
-                  schools={schools}
-                  subscriptions={subscriptions}
-                  filteredSchools={filteredSchools}
-                  onOpenCreateSchool={openCreateSchool}
-                  onOpenEditSchool={openEditSchool}
-                  onToggleSchool={toggleSchool}
-                  onExtendSubscription={extendSubscription}
-                  onDeleteSchool={setDeleteSchoolTarget}
-                  onRefresh={refreshDashboard}
-                />
-              )}
-
-              {activeTab === "users" && (
-                <UsersTab
-                  users={users}
-                  schools={schools}
-                  filteredUsers={filteredUsers}
-                  onOpenCreateUser={openCreateUser}
-                  onOpenEditUser={openEditUser}
-                  onDeleteUser={setDeleteUserTarget}
-                />
-              )}
-
-              {activeTab === "subscriptions" && (
-                <SubscriptionsTab
-                  subscriptions={subscriptions}
-                  filteredSubscriptions={filteredSubscriptions}
-                  onExtendSubscription={extendSubscription}
-                />
-              )}
-
-              {activeTab === "audit" && <AuditLogTab infrastructure={infrastructure} />}
-              {activeTab === "roles" && <RolesTab infrastructure={infrastructure} schools={schools.map((s) => ({ id: s.id, name: s.name }))} />}
-              {activeTab === "trash" && <TrashTab infrastructure={infrastructure} />}
-              {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
-              {activeTab === "monitoring" && <MonitoringTab infrastructure={infrastructure} />}
-              {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} />}
             </div>
           </main>
         </div>
 
-        {/* Modals */}
-        <SchoolForm
-          isOpen={showSchoolForm}
-          editSchool={editSchool}
-          schemaCompat={schemaCompat}
-          onClose={() => setShowSchoolForm(false)}
-          onSave={handleSaveSchool}
-        />
-
-        <UserForm
-          isOpen={showUserForm}
-          editUser={editUser}
-          schools={schools.map((s) => ({ id: s.id, name: s.name }))}
-          infrastructure={infrastructure}
-          onClose={() => setShowUserForm(false)}
-          onSave={handleSaveUser}
-        />
-
-        <DeleteSchoolDialog school={deleteSchoolTarget} onClose={() => setDeleteSchoolTarget(null)} onConfirm={handleDeleteSchool} />
-
-        <DeleteUserDialog user={deleteUserTarget} onClose={() => setDeleteUserTarget(null)} onConfirm={handleDeleteUser} />
+        <SchoolForm isOpen={showSchoolForm} editSchool={editSchool} schemaCompat={schemaCompat} onClose={() => setShowSchoolForm(false)} onSave={handleSaveSchool} />
+        <UserForm isOpen={showUserForm} editUser={editUser} schools={schools.map(s => ({ id: s.id, name: s.name }))} infrastructure={infrastructure} onClose={() => setShowUserForm(false)} onSave={handleSaveUser} />
+        <DeleteSchoolDialog school={deleteSchoolTarget} onClose={() => setDeleteSchoolTarget(null)} onConfirm={() => void handleDeleteSchool()} />
+        <DeleteUserDialog user={deleteUserTarget} onClose={() => setDeleteUserTarget(null)} onConfirm={() => void handleDeleteUser()} />
       </div>
     </ProtectedRoute>
   );

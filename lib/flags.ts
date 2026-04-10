@@ -23,7 +23,8 @@ export async function getFeatureFlags(): Promise<Record<string, boolean>> {
       .select("key, is_enabled");
 
     if (error || !data) return {};
-    return data.reduce((acc, curr) => ({
+    const rows = data as Array<{ key: string; is_enabled: boolean }>;
+    return rows.reduce((acc: Record<string, boolean>, curr) => ({
       ...acc,
       [curr.key]: curr.is_enabled
     }), {});

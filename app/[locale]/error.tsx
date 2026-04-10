@@ -34,14 +34,14 @@ export default function LocaleError({
       </div>
 
       <div className="max-w-sm">
-        <h1 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h1 className="mb-2 text-xl font-semibold text-[var(--text-primary)]">
           حدث خطأ غير متوقع
         </h1>
-        <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
           نعتذر عن هذا الخطأ. يمكنك المحاولة مجدداً أو العودة للصفحة الرئيسية.
         </p>
         {error.digest && (
-          <p className="mt-2 font-mono text-xs text-gray-400">
+          <p className="mt-2 font-mono text-xs text-[var(--text-muted)]">
             رمز الخطأ: {error.digest}
           </p>
         )}
@@ -57,7 +57,7 @@ export default function LocaleError({
         </button>
         <Link
           href={`/${(useParams() as { locale?: string }).locale ?? "ar"}/dashboard`}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2"
         >
           الصفحة الرئيسية
         </Link>

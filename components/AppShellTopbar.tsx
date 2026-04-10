@@ -1,92 +1,51 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
-import { Menu } from "@/lib/icons";
+import { CalendarDays, Menu } from "@/lib/icons";
 import { usePathname } from "next/navigation";
-
-import { SchoolLogo } from "@/components/brand";
 import { ProfileMenu } from "@/components/ProfileMenu";
-import type { SchoolScopeState } from "@/hooks/useSchoolScope";
-import { useRuntimeBranding } from "@/hooks/brand";
-import { useRole } from "@/hooks/useRole";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { getAcademicYearLabel } from "@/lib/academic-year";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { PingIndicator } from "@/components/PingIndicator";
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
+import { cn } from "@/lib/brand/brand-utils";
 
 export function AppShellTopbar({
   title,
   subtitle,
-  scope,
   className,
   fixed = false,
   showAcademicYear = true,
   actions,
+  scope: _scope,
 }: {
   title: string;
   subtitle?: string;
-  scope?: SchoolScopeState;
   className?: string;
   fixed?: boolean;
   showAcademicYear?: boolean;
   actions?: React.ReactNode;
+  scope?: unknown;
 }) {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
-  const { profile } = useRole();
-  const runtimeBranding = useRuntimeBranding();
-  const currentSchoolName =
-    scope?.selectedSchool?.name ||
-    profile?.school?.name ||
-    runtimeBranding.schoolName ||
-    (locale === "en" ? "School context" : "سياق المدرسة");
-  const currentSchoolMeta =
-    [scope?.selectedSchool?.city, subtitle].filter(Boolean).join(" • ") ||
-    (locale === "en" ? "Current school context" : "السياق الحالي للمدرسة");
-  const selectorLabel = locale === "en" ? "School" : "المدرسة";
   const academicYearLabel = getAcademicYearLabel(new Date(), locale);
-  const selectionState = scope?.scopeLoading
-    ? locale === "en"
-      ? "Loading"
-      : "تحميل"
-    : scope?.selectedSchool
-      ? scope.selectedSchool.is_active
-        ? locale === "en"
-          ? "Active school"
-          : "مدرسة نشطة"
-        : locale === "en"
-          ? "Paused school"
-          : "مدرسة موقوفة"
-      : scope?.isSuperAdminScope
-        ? locale === "en"
-          ? "Selection required"
-          : "الاختيار مطلوب"
-      : null;
+
+  
   const topbarRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!fixed) {
-      return;
-    }
-
+    if (!fixed) return;
     const element = topbarRef.current;
-    if (!element) {
-      return;
-    }
+    if (!element) return;
 
     const root = document.documentElement;
-
     const updateTopbarFootprint = () => {
       const rect = element.getBoundingClientRect();
       root.style.setProperty("--app-shell-topbar-footprint", `${Math.ceil(rect.top + rect.height)}px`);
     };
 
     updateTopbarFootprint();
-
     const resizeObserver = new ResizeObserver(updateTopbarFootprint);
     resizeObserver.observe(element);
     window.addEventListener("resize", updateTopbarFootprint);
@@ -99,66 +58,68 @@ export function AppShellTopbar({
   }, [fixed]);
 
   return (
-    <header ref={topbarRef} className={cx("app-shell-topbar ui-glass", fixed && "app-shell-topbar--fixed", className)}>
-      <div className="app-shell-topbar__row">
-        <div className="app-shell-topbar__primary">
+    <header 
+      ref={topbarRef} 
+      className={cn(
+        "h-[var(--topbar-height)] px-4 sm:px-6 flex items-center bg-[var(--topbar-bg)] border-b border-[var(--border)] z-[var(--z-topbar)] transition-all duration-300",
+        fixed && "fixed top-0 inset-x-0 lg:start-[var(--sidebar-width)]",
+        className
+      )}
+    >
+      <div className="flex-1 flex items-center justify-between gap-4 w-full">
+        {/* Left Section: Menu & Title */}
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
             type="button"
-            className="app-shell-topbar__menu"
+            className="flex h-10 w-10 items-center justify-center rounded-[var(--button-radius)] bg-[var(--surface-muted)] text-[var(--text-secondary)] lg:hidden transition-all hover:bg-[var(--surface-hover)] active:scale-95"
             onClick={() => window.dispatchEvent(new Event("app-sidebar-toggle"))}
             aria-label={locale === "en" ? "Open navigation" : "فتح التنقل"}
           >
-            <Menu size={18} aria-hidden="true" />
+            <Menu size={20} />
           </button>
 
-          <div className="app-shell-topbar__school">
-            <SchoolLogo
-              src={runtimeBranding.logoUrl}
-              alt={currentSchoolName}
-              label={currentSchoolName}
-              size={46}
-              className="app-shell-topbar__school-logo"
-            />
-            <div className="app-shell-topbar__copy">
-              <div className="app-shell-topbar__eyebrow">{title}</div>
-              <div className="app-shell-topbar__school-name">{currentSchoolName}</div>
-              <div className="app-shell-topbar__school-meta">{currentSchoolMeta}</div>
-            </div>
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)] leading-tight truncate">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-xs text-[var(--text-muted)] font-medium truncate max-w-[200px] sm:max-w-[400px]">
+                {subtitle}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="app-shell-topbar__actions">
-          {scope?.isSuperAdminScope ? (
-            <label className="app-shell-topbar__select">
-              <span>{selectorLabel}</span>
-              <select
-                value={scope.selectedSchoolId ?? ""}
-                onChange={(event) => scope.setSelectedSchoolId(event.target.value || null)}
-                disabled={scope.scopeLoading}
-                aria-label={selectorLabel}
-              >
-                <option value="">{locale === "en" ? "Choose a school" : "اختر مدرسة"}</option>
-                {scope.schools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-
-          {selectionState ? <div className="app-shell-topbar__pill">{selectionState}</div> : null}
-          {showAcademicYear ? (
-            <div className="app-shell-topbar__pill">
-              <span>{locale === "en" ? "Academic year" : "العام الدراسي"}</span>
-              <strong>{academicYearLabel}</strong>
-            </div>
-          ) : null}
-          {actions}
-          <div className="app-shell-topbar__ping">
-            <PingIndicator />
+        {/* Right Section: Actions & Context */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Custom Actions */}
+          <div className="flex items-center gap-2">
+            {actions}
           </div>
-          <ProfileMenu />
+
+          {actions && <div className="h-6 w-[1px] bg-[var(--border)] mx-1 hidden sm:block" />}
+
+          {/* Academic Year Pill (Compact on Mobile) */}
+          {showAcademicYear && (
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[var(--button-radius)] bg-[var(--warning)]/10 border border-[var(--warning)]/20 text-[var(--warning)]">
+              <CalendarDays size={14} />
+              <span className="text-xs font-semibold uppercase tracking-wider">{academicYearLabel}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <LanguageToggle className="shell-utility-button hidden md:inline-flex" />
+            <ThemeModeToggle
+              variant="inline"
+              className="app-shell-topbar__theme-switch hidden lg:inline-flex"
+              compact
+            />
+          </div>
+
+          {/* Profile & Menu */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            <ProfileMenu className="app-shell-topbar__profile-menu" />
+          </div>
         </div>
       </div>
     </header>

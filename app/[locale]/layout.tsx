@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { NextIntlClientProvider } from "next-intl";
+import { NextIntlClientProvider, hasLocale } from "next-intl";
+import { notFound } from "next/navigation";
+import { setRequestLocale } from "next-intl/server";
 import "./globals.css";
-import { APP_LOCALE, LEGACY_LOCALE, normalizeLocale } from "@/lib/locale-routing";
+import { routing } from "@/i18n/routing";
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { LocaleHtmlAttributes } from "@/components/LocaleHtmlAttributes";
 
@@ -17,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 }
 
 export function generateStaticParams() {
-  return [{ locale: APP_LOCALE }, { locale: LEGACY_LOCALE }];
+  return routing.locales.map((locale) => ({ locale }));
 }
 
 export default async function LocaleLayout({
@@ -27,15 +29,25 @@ export default async function LocaleLayout({
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const { locale: requestedLocale } = await params;
-  const locale = normalizeLocale(requestedLocale);
+  const { locale } = await params;
+  
+  // Ensure that the incoming `locale` is valid
+  if (!hasLocale(routing.locales, locale)) {
+    notFound();
+  }
+  
+  // Enable static rendering
+  setRequestLocale(locale);
+  
   const messages = (await import(`@/messages/${locale}.json`)).default;
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <LocaleHtmlAttributes />
-      <div className="antialiased" lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
-        {children}
+      <div className="antialiased selection:bg-primary/10 selection:text-primary relative min-h-screen overflow-hidden bg-[var(--background)]" lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
+        <div className="relative z-10">
+          {children}
+        </div>
       </div>
     </NextIntlClientProvider>
   );

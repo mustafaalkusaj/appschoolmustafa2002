@@ -1,10 +1,14 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { formatNumber } from "@/lib/formatting";
+import { Card } from "@/components/ui/card";
+import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
 
 import {
   PaymentsStats,
@@ -16,8 +20,12 @@ import {
   ArchiveDetailModal,
   PaymentModal,
 } from "./_components";
+import { usePaymentsPage } from "./_hooks";
+import "./_components/payments.css";
+import { Users, Wallet, DollarSign, Archive } from "lucide-react";
 
 export default function PaymentsPage() {
+  const t = useTranslations();
   const {
     canAddPayments,
     canDeletePayments,
@@ -51,84 +59,175 @@ export default function PaymentsPage() {
     openPaymentForStudent,
   } = usePaymentsPage();
 
+  const heroCards = [
+    {
+      label: t("payments.hero.students"),
+      value: metaHook.metaLoading ? "..." : formatNumber(metaHook.summary.totalStudents),
+      icon: Users,
+      variant: "primary" as const,
+    },
+    {
+      label: t("payments.hero.totalFees"),
+      value: metaHook.metaLoading ? "..." : `${t("common.currency")} ${formatNumber(metaHook.summary.totalFee)}`,
+      icon: Wallet,
+      variant: "info" as const,
+    },
+    {
+      label: t("payments.hero.totalRemaining"),
+      value:
+        metaHook.metaLoading ? "..." : `${t("common.currency")} ${formatNumber(metaHook.summary.totalRemaining)}`,
+      icon: DollarSign,
+      variant: "danger" as const,
+    },
+    {
+      label: t("payments.hero.archives"),
+      value: metaHook.metaLoading ? "..." : formatNumber(metaHook.archives.length),
+      icon: Archive,
+      variant: "neutral" as const,
+    },
+  ];
+
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-      <div className="layout">
+      <div className="flex min-h-screen bg-[var(--bg-base)]">
         <AppSidebar currentPath="/payments" />
-        <div className="main">
-          <AppShellTopbar title="فواتير الطلاب" scope={schoolScope} fixed />
-          <div className="content app-shell-content app-shell-content--with-fixed-topbar">
-            {success && <div className="ok">{success}</div>}
-            {error && <div className="err">{error}</div>}
 
-            <SchoolScopeBanner scope={schoolScope} showSelector={false} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <AppShellTopbar
+            title={t("payments.title")}
+            subtitle={t("payments.subtitle")}
+            scope={schoolScope}
+            fixed
+          />
 
-            {schoolScope.shouldBlockContent ? (
-              <SchoolScopeEmptyState
-                scope={schoolScope}
-                title="فواتير الطلاب"
-                description="لن يتم تحميل الطلاب أو الدفعات أو الأرشيف قبل اختيار مدرسة واضحة لهذا القسم."
-              />
-            ) : (
-              <>
-                <PaymentsStats summary={metaHook.summary} loading={metaHook.metaLoading} />
+          <main className="flex-1 pt-16 overflow-y-auto custom-scrollbar">
+            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+              {/* Hero KPI Cards */}
+              <KPIGrid>
+                {heroCards.map((card) => (
+                  <StatsCard
+                    key={card.label}
+                    label={card.label}
+                    value={card.value}
+                    icon={card.icon}
+                    variant={card.variant}
+                  />
+                ))}
+              </KPIGrid>
 
-                <PaymentsFilters
-                  quickFilter={quickFilter}
-                  setQuickFilter={setQuickFilter}
-                  filterClass={filterClass}
-                  setFilterClass={setFilterClass}
-                  filterSort={filterSort}
-                  setFilterSort={setFilterSort}
-                  filterDir={filterDir}
-                  setFilterDir={setFilterDir}
-                  classes={metaHook.classes}
-                  onExport={handleExportExcel}
-                  onAddPayment={() => paymentOpsHook.openPaymentModal()}
-                  exporting={exporting}
-                  resolvedSchoolId={metaHook.summary.totalStudents > 0 || metaHook.classes.length > 0 ? "resolved" : null}
-                  canAddPayments={canAddPayments}
-                />
+              {/* Success/Error Messages */}
+              {success && (
+                <div className="bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success)] rounded-[var(--radius-lg)] p-4 font-semibold border border-[color-mix(in_srgb,var(--success)_20%,transparent)]">
+                  {success}
+                </div>
+              )}
+              {error && (
+                <div className="bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] rounded-[var(--radius-lg)] p-4 font-semibold border border-[color-mix(in_srgb,var(--danger)_20%,transparent)]">
+                  {error}
+                </div>
+              )}
 
-                <PaymentsToolbar
-                  searchInput={searchInput}
-                  setSearchInput={setSearchInput}
-                  totalCount={studentsHook.totalCount}
-                  loading={studentsHook.loading}
-                />
+              <SchoolScopeBanner scope={schoolScope} showSelector={false} />
 
-                <PaymentsTable
-                  students={studentsHook.students}
-                  paymentCountsByStudent={studentsHook.paymentCountsByStudent}
-                  loading={studentsHook.loading}
-                  page={studentsHook.page}
-                  totalPages={studentsHook.totalPages}
-                  totalCount={studentsHook.totalCount}
-                  onPageChange={studentsHook.setPage}
-                  onStudentClick={openStudentDetail}
-                  onAddPayment={paymentOpsHook.openPaymentModal}
-                />
+              {schoolScope.shouldBlockContent ? (
+                <Card className="p-6">
+                  <SchoolScopeEmptyState
+                    scope={schoolScope}
+                    title={t("payments.emptyState.title")}
+                    description={t("payments.emptyState.description")}
+                  />
+                </Card>
+              ) : (
+                <div className="space-y-6">
+                  {/* Stats Section */}
+                  <PaymentsStats summary={metaHook.summary} loading={metaHook.metaLoading} />
 
-                <PaymentsArchive
-                  archives={metaHook.archives}
-                  archiveNotice={metaHook.archiveNotice}
-                  archiveYear={archiveOpsHook.archiveYear}
-                  setArchiveYear={archiveOpsHook.setArchiveYear}
-                  archiving={archiveOpsHook.archiving}
-                  paymentYears={metaHook.paymentYears}
-                  canDeletePayments={canDeletePayments}
-                  onArchive={() =>
-                    archiveOpsHook.archiveAccountsYear(metaHook.updateArchives, metaHook.refreshMeta)
-                  }
-                  onViewDetail={archiveOpsHook.openArchiveDetail}
-                  onExportArchive={handleArchiveExport}
-                  archiveExportingId={archiveOpsHook.archiveExportingId}
-                />
-              </>
-            )}
-          </div>
+                  {/* Filters Section */}
+                  <Card className="p-6">
+                    <PaymentsFilters
+                      quickFilter={quickFilter}
+                      setQuickFilter={setQuickFilter}
+                      filterClass={filterClass}
+                      setFilterClass={setFilterClass}
+                      filterSort={filterSort}
+                      setFilterSort={setFilterSort}
+                      filterDir={filterDir}
+                      setFilterDir={setFilterDir}
+                      classes={metaHook.classes}
+                      onExport={handleExportExcel}
+                      onAddPayment={() => paymentOpsHook.openPaymentModal()}
+                      exporting={exporting}
+                      resolvedSchoolId={metaHook.summary.totalStudents > 0 || metaHook.classes.length > 0 ? "resolved" : null}
+                      canAddPayments={canAddPayments}
+                    />
+                  </Card>
+
+                  {/* Table Section */}
+                  <Card className="p-6">
+                    <div className="space-y-6">
+                      {/* Section Header */}
+                      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between border-b border-[var(--border)] pb-4">
+                        <div>
+                          <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                            {t("payments.sections.currentLedgerTitle")}
+                          </h2>
+                          <p className="text-sm text-[var(--text-muted)] mt-1">
+                            {t("payments.sections.currentLedgerDescription")}
+                          </p>
+                        </div>
+                        <div className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                          {schoolScope.selectedSchool?.name || t("payments.sections.activeRecords")}
+                        </div>
+                      </div>
+
+                      {/* Toolbar */}
+                      <PaymentsToolbar
+                        searchInput={searchInput}
+                        setSearchInput={setSearchInput}
+                        totalCount={studentsHook.totalCount}
+                        loading={studentsHook.loading}
+                      />
+
+                      {/* Table */}
+                      <PaymentsTable
+                        students={studentsHook.students}
+                        paymentCountsByStudent={studentsHook.paymentCountsByStudent}
+                        loading={studentsHook.loading}
+                        page={studentsHook.page}
+                        totalPages={studentsHook.totalPages}
+                        totalCount={studentsHook.totalCount}
+                        onPageChange={studentsHook.setPage}
+                        onStudentClick={openStudentDetail}
+                        onAddPayment={paymentOpsHook.openPaymentModal}
+                      />
+                    </div>
+                  </Card>
+
+                  {/* Archive Section */}
+                  <Card className="p-6">
+                    <PaymentsArchive
+                      archives={metaHook.archives}
+                      archiveNotice={metaHook.archiveNotice}
+                      archiveYear={archiveOpsHook.archiveYear}
+                      setArchiveYear={archiveOpsHook.setArchiveYear}
+                      archiving={archiveOpsHook.archiving}
+                      paymentYears={metaHook.paymentYears}
+                      canDeletePayments={canDeletePayments}
+                      onArchive={() =>
+                        archiveOpsHook.archiveAccountsYear(metaHook.updateArchives, metaHook.refreshMeta)
+                      }
+                      onViewDetail={archiveOpsHook.openArchiveDetail}
+                      onExportArchive={handleArchiveExport}
+                      archiveExportingId={archiveOpsHook.archiveExportingId}
+                    />
+                  </Card>
+                </div>
+              )}
+            </div>
+          </main>
         </div>
 
+        {/* Student Detail Panel (Drawer) */}
         <StudentDetailPanel
           student={selectedStudent}
           payments={selectedStudent ? paymentOpsHook.paymentsByStudent[selectedStudent.id] ?? [] : []}
@@ -143,6 +242,7 @@ export default function PaymentsPage() {
           canDeletePayments={canDeletePayments}
         />
 
+        {/* Archive Detail Modal */}
         <ArchiveDetailModal
           archive={archiveOpsHook.selectedArchive}
           show={archiveOpsHook.showArchiveDetail}
@@ -151,6 +251,7 @@ export default function PaymentsPage() {
           onExport={handleArchiveExport}
         />
 
+        {/* Payment Modal */}
         <PaymentModal
           show={paymentOpsHook.showPayModal}
           payStudent={paymentOpsHook.payStudent}
@@ -171,16 +272,19 @@ export default function PaymentsPage() {
           onSelectStudent={paymentOpsHook.selectStudentForPayment}
         />
 
+        {/* Delete Confirmation Dialog */}
         <ConfirmDialog
           open={Boolean(paymentOpsHook.pendingDeletePaymentId)}
-          title="حذف الدفعة"
+          title={t("payments.dialogs.deletePaymentTitle")}
           description={
             selectedStudent
-              ? `سيتم حذف دفعة الطالب ${selectedStudent.full_name} وإعادة احتساب الرصيد المتبقي.`
-              : "سيتم حذف الدفعة المحددة وإعادة احتساب الرصيد المتبقي."
+              ? t("payments.dialogs.deletePaymentDescriptionWithStudent", {
+                  student: selectedStudent.full_name,
+                })
+              : t("payments.dialogs.deletePaymentDescription")
           }
-          confirmLabel="نعم، احذف الدفعة"
-          cancelLabel="إلغاء"
+          confirmLabel={t("payments.dialogs.deletePaymentConfirm")}
+          cancelLabel={t("common.cancel")}
           tone="danger"
           onClose={() => paymentOpsHook.setPendingDeletePaymentId(null)}
           onConfirm={async () => {

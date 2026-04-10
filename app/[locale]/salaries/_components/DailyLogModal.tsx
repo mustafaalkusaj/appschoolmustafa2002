@@ -1,6 +1,11 @@
 "use client";
 
-import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/brand/brand-utils";
 import { PERIODS, type Teacher, type ClassItem, type LecturePrice } from "../_types";
 
 interface DailyLogModalProps {
@@ -50,24 +55,12 @@ export function DailyLogModal({
     arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
 
   return (
-    <div className="overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="modal">
-        <div className="mh">
-          <div className="mt" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token="📋" size={16} />
-            السجل اليومي
-          </div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
-        <div className="fg">
-          <div className="ff">
-            <label className="fl">الأستاذ</label>
-            <select
-              className="fis"
+    <Modal open={show} onClose={onClose} size="lg">
+      <ModalHeader title="السجل اليومي" onClose={onClose} />
+      <ModalBody className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="الأستاذ">
+            <Select
               value={dailyTeacher}
               onChange={(e) => onTeacherChange(e.target.value)}
             >
@@ -75,131 +68,110 @@ export function DailyLogModal({
               {activeTeachers.map((t) => (
                 <option key={t.id} value={t.id}>{t.full_name}</option>
               ))}
-            </select>
-          </div>
-          <div className="ff">
-            <label className="fl">التاريخ</label>
-            <input
+            </Select>
+          </FormField>
+
+          <FormField label="التاريخ">
+            <Input
               type="date"
-              className="fis"
               value={dailyDate}
               onChange={(e) => onDateChange(e.target.value)}
             />
-          </div>
-          <div className="ff full">
-            <label className="fl">الصفوف (يمكن اختيار أكثر من صف)</label>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: ".4rem",
-                background: "#F7FBFF",
-                padding: ".6rem",
-                borderRadius: 9,
-                border: "1.5px solid rgba(79,140,255,0.12)",
-              }}
-            >
-              {gradeOptions.map((g) =>
-                sectionOptions(g).map((sec) => (
-                  <span
-                    key={`${g}||${sec}`}
-                    onClick={() => onGradesChange(toggleArr(dailyGrades, `${g}||${sec}`))}
-                    style={{
-                      padding: ".25rem .65rem",
-                      borderRadius: 20,
-                      fontSize: ".75rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      background: dailyGrades.includes(`${g}||${sec}`) ? "var(--p3)" : "white",
-                      color: dailyGrades.includes(`${g}||${sec}`) ? "white" : "var(--dark)",
-                      border: "1px solid rgba(79,140,255,0.2)",
-                    }}
-                  >
-                    {g} ({sec})
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-          <div className="ff full">
-            <label className="fl">الحصص</label>
-            <div>
-              <div style={{ fontSize: ".75rem", fontWeight: 700, color: "#10B981", marginBottom: ".3rem" }}>
-                الصباحي
-              </div>
-              <div className="periods-grid" style={{ marginBottom: ".5rem" }}>
-                {PERIODS.map((p) => (
-                  <div
-                    key={`${p}-morning`}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: ".2rem",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => onPeriodsChange(toggleArr(dailyPeriods, `${p}-morning`))}
-                  >
-                    <div className={`period-box${dailyPeriods.includes(`${p}-morning`) ? " sel" : ""}`}>
-                      {p}
-                    </div>
-                    <span style={{ fontSize: ".65rem", color: "var(--gray)" }}>درس {p}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontSize: ".75rem", fontWeight: 700, color: "#F59E0B", marginBottom: ".3rem" }}>
-                الظهري
-              </div>
-              <div className="periods-grid">
-                {PERIODS.map((p) => (
-                  <div
-                    key={`${p}-afternoon`}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: ".2rem",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => onPeriodsChange(toggleArr(dailyPeriods, `${p}-afternoon`))}
-                  >
-                    <div className={`period-box${dailyPeriods.includes(`${p}-afternoon`) ? " sel" : ""}`}>
-                      {p}<span style={{ fontSize: ".6rem" }}>(ظ)</span>
-                    </div>
-                    <span style={{ fontSize: ".65rem", color: "var(--gray)" }}>درس {p}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          </FormField>
         </div>
+
+        <FormField label="الصفوف (يمكن اختيار أكثر من صف)">
+          <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)]">
+            {gradeOptions.map((g) =>
+              sectionOptions(g).map((sec) => (
+                <button
+                  key={`${g}||${sec}`}
+                  type="button"
+                  onClick={() => onGradesChange(toggleArr(dailyGrades, `${g}||${sec}`))}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-sm font-semibold transition-colors",
+                    dailyGrades.includes(`${g}||${sec}`)
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[var(--card-bg)] text-[var(--text-primary)] border border-[var(--border)]"
+                  )}
+                >
+                  {g} ({sec})
+                </button>
+              ))
+            )}
+          </div>
+        </FormField>
+
+        <FormField label="الحصص">
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm font-bold text-[var(--success)] mb-2">الصباحي</div>
+              <div className="grid grid-cols-6 gap-2">
+                {PERIODS.map((p) => (
+                  <button
+                    key={`${p}-morning`}
+                    type="button"
+                    onClick={() => onPeriodsChange(toggleArr(dailyPeriods, `${p}-morning`))}
+                    className={cn(
+                      "w-full aspect-square rounded-lg text-sm font-bold transition-colors",
+                      "flex flex-col items-center justify-center gap-0.5",
+                      dailyPeriods.includes(`${p}-morning`)
+                        ? "bg-[var(--primary)] text-white"
+                        : "bg-[var(--surface-soft)] text-[var(--text-primary)] border border-[var(--border)]"
+                    )}
+                  >
+                    {p}
+                    <span className="text-[10px] opacity-70">درس</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm font-bold text-[var(--warning)] mb-2">الظهري</div>
+              <div className="grid grid-cols-6 gap-2">
+                {PERIODS.map((p) => (
+                  <button
+                    key={`${p}-afternoon`}
+                    type="button"
+                    onClick={() => onPeriodsChange(toggleArr(dailyPeriods, `${p}-afternoon`))}
+                    className={cn(
+                      "w-full aspect-square rounded-lg text-sm font-bold transition-colors",
+                      "flex flex-col items-center justify-center gap-0.5",
+                      dailyPeriods.includes(`${p}-afternoon`)
+                        ? "bg-[var(--primary)] text-white"
+                        : "bg-[var(--surface-soft)] text-[var(--text-primary)] border border-[var(--border)]"
+                    )}
+                  >
+                    {p}
+                    <span className="text-[10px] opacity-70">(ظ)</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </FormField>
+
         {dailyTeacher && dailyGrades.length > 0 && dailyPeriods.length > 0 && (
-          <div
-            style={{
-              background: "#EEF6FF",
-              borderRadius: 10,
-              padding: ".7rem",
-              marginTop: ".5rem",
-              fontSize: ".8rem",
-              fontWeight: 600,
-              color: "var(--p2)",
-            }}
-          >
+          <div className="p-3 rounded-lg bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-sm font-semibold text-[var(--primary)]">
             سيتم تسجيل: {dailyGrades.length} صف × {dailyPeriods.length} حصة ={" "}
             <strong>{dailyGrades.length * dailyPeriods.length} محاضرة</strong>
           </div>
         )}
-        <div className="fa">
-          <button
-            className="bs"
-            disabled={saving || !dailyTeacher || dailyGrades.length === 0 || dailyPeriods.length === 0}
-            onClick={onSave}
-          >
-            {saving ? "جارٍ الحفظ..." : "تسجيل المحاضرات"}
-          </button>
-          <button className="bc" onClick={onClose}>إلغاء</button>
-        </div>
-      </div>
-    </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button
+          type="button"
+          loading={saving}
+          disabled={!dailyTeacher || dailyGrades.length === 0 || dailyPeriods.length === 0}
+          onClick={onSave}
+        >
+          {saving ? "جارٍ الحفظ..." : "تسجيل المحاضرات"}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onClose}>
+          إلغاء
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 }

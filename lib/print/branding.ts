@@ -59,9 +59,11 @@ export function wrapPrintDocument(input: {
             background:#eef4fb;
             color:var(--print-text);
             font-family:Segoe UI,Tahoma,Arial,sans-serif;
+            -webkit-print-color-adjust:exact;
+            print-color-adjust:exact;
           }
           .print-shell{
-            max-width:1024px;
+            width:min(100%,1024px);
             margin:0 auto;
             background:#fff;
             border:1px solid rgba(16,35,58,.08);
@@ -176,9 +178,26 @@ export function wrapPrintDocument(input: {
             padding-inline-start:20px;
             line-height:1.85;
           }
+          .print-note{
+            margin-top:16px;
+            padding:14px 16px;
+            border-radius:16px;
+            background:#f8fbff;
+            color:var(--print-muted);
+            font-size:13px;
+            border:1px solid rgba(16,35,58,.08);
+          }
           @media print{
+            @page{margin:1.1cm}
             body{background:#fff;padding:0}
-            .print-shell{max-width:none;border:none;border-radius:0;box-shadow:none}
+            .print-shell{width:100%;max-width:none;border:none;border-radius:0;box-shadow:none}
+            .print-content{padding:18px 20px 24px}
+            .print-head{break-inside:avoid}
+            .print-panel{break-inside:avoid}
+            table{table-layout:auto}
+            thead{display:table-header-group}
+            tr{break-inside:avoid;page-break-inside:avoid}
+            th,td{padding:10px 12px;font-size:12px}
           }
           ${input.extraStyles || ""}
         </style>
@@ -210,10 +229,108 @@ export function wrapPrintDocument(input: {
             ${input.bodyHtml}
           </main>
         </div>
-        ${input.autoPrint === false ? "" : "<script>window.print();</script>"}
+        ${
+          input.autoPrint === false
+            ? ""
+            : "<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},120);},{once:true});</script>"
+        }
       </body>
     </html>
   `;
+}
+
+function waitForIframeAssets(frame: HTMLIFrameElement) {
+  const doc = frame.contentDocument;
+  if (!doc) return Promise.resolve();
+
+  const fontReady = doc.fonts?.ready ?? Promise.resolve();
+  const imageReady = Promise.all(
+    Array.from(doc.images ?? []).map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        const done = () => resolve();
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+      });
+    }),
+  );
+
+  return Promise.race([
+    Promise.all([fontReady, imageReady]),
+    new Promise((resolve) => setTimeout(resolve, 1200)),
+  ]);
+}
+
+export function printHtmlDocument(html: string) {
+  if (typeof document === "undefined") return;
+
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.setAttribute("title", "print-preview");
+  frame.style.position = "fixed";
+  frame.style.right = "0";
+  frame.style.bottom = "0";
+  frame.style.width = "0";
+  frame.style.height = "0";
+  frame.style.border = "0";
+  frame.style.opacity = "0";
+  frame.style.pointerEvents = "none";
+  frame.style.visibility = "hidden";
+
+  const cleanup = () => {
+    try {
+      frame.contentWindow?.close();
+    } catch {
+      // ignore cleanup errors
+    }
+    if (frame.parentNode) {
+      frame.parentNode.removeChild(frame);
+    }
+  };
+
+  frame.addEventListener(
+    "load",
+    () => {
+      void (async () => {
+        const win = frame.contentWindow;
+        if (!win) {
+          cleanup();
+          return;
+        }
+
+        try {
+          await waitForIframeAssets(frame);
+        } catch {
+          // continue to print even if assets fail to resolve
+        }
+
+        const afterPrint = () => cleanup();
+        win.addEventListener("afterprint", afterPrint, { once: true });
+
+        try {
+          win.focus();
+          win.print();
+        } catch {
+          cleanup();
+        }
+
+        window.setTimeout(() => {
+          if (frame.isConnected) cleanup();
+        }, 5000);
+      })();
+    },
+    { once: true },
+  );
+
+  document.body.appendChild(frame);
+  const frameDoc = frame.contentDocument;
+  if (!frameDoc) {
+    cleanup();
+    return;
+  }
+  frameDoc.open();
+  frameDoc.write(html);
+  frameDoc.close();
 }
 
 export { escapeHtml };

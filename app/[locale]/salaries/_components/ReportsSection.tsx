@@ -1,7 +1,12 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatNumber } from "@/lib/formatting";
+import { cn } from "@/lib/brand/brand-utils";
 import type { Teacher, DailyLecture, ReportSummary, ReportTotals } from "../_types";
 
 interface ReportsSectionProps {
@@ -30,161 +35,156 @@ export function ReportsSection({
   onPrintReport,
 }: ReportsSectionProps) {
   return (
-    <>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "1rem",
-        }}
-      >
-        <div className="report-tabs">
+    <div className="space-y-6">
+      {/* Header with tabs and print button */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex p-1 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)]">
           <button
-            className="report-tab"
-            style={{
-              background:
-                reportView === "summary"
-                  ? "linear-gradient(135deg,var(--p3),var(--p2))"
-                  : "#EEF6FF",
-              color: reportView === "summary" ? "white" : "var(--p3)",
-            }}
             onClick={() => onViewChange("summary")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-semibold transition-all",
+              reportView === "summary"
+                ? "bg-[var(--primary)] text-white shadow-sm"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            )}
           >
             ملخص
           </button>
           <button
-            className="report-tab"
-            style={{
-              background:
-                reportView === "details"
-                  ? "linear-gradient(135deg,var(--p3),var(--p2))"
-                  : "#EEF6FF",
-              color: reportView === "details" ? "white" : "var(--p3)",
-            }}
             onClick={() => onViewChange("details")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-semibold transition-all",
+              reportView === "details"
+                ? "bg-[var(--primary)] text-white shadow-sm"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            )}
           >
             تفاصيل السجلات
           </button>
         </div>
-        <button className="btn-add" onClick={onPrintReport}>
-          <AppIcon token="🖨️" size={14} /> طباعة التقرير
-        </button>
+        <Button onClick={onPrintReport}>
+          <AppIcon token="🖨️" size={14} />
+          طباعة التقرير
+        </Button>
       </div>
 
+      {/* Summary View */}
       {reportView === "summary" && (
-        <>
+        <div className="space-y-4">
           {reportLoading ? (
-            <div className="spin" />
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <div className="h-10 w-10 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
+              <span className="text-sm font-medium text-[var(--text-muted)]">جارٍ التحميل...</span>
+            </div>
           ) : reportSummary.length === 0 ? (
-            <div className="empty">لا توجد محاضرات مسجلة</div>
+            <EmptyState
+              title="لا توجد محاضرات مسجلة"
+              description="لم يتم تسجيل أي محاضرات بعد"
+            />
           ) : (
-            reportSummary.map((t) => (
-              <div className="report-card" key={t.teacher_id}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div className="report-name">{t.full_name}</div>
-                    <div className="report-sub">
-                      {t.subject || "—"} • {teachers.find((teacher) => teacher.id === t.teacher_id)?.job_title || ""}
+            <>
+              {reportSummary.map((t) => (
+                <div
+                  key={t.teacher_id}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-sm"
+                >
+                  <div className="flex flex-wrap justify-between gap-4">
+                    <div>
+                      <div className="text-base font-bold text-[var(--text-primary)]">
+                        {t.full_name}
+                      </div>
+                      <div className="text-sm text-[var(--text-muted)]">
+                        {t.subject || "—"} • {teachers.find((teacher) => teacher.id === t.teacher_id)?.job_title || ""}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {Object.entries(t.byGrade).map(([grade, count]) => (
+                          <Badge key={grade} variant="primary" size="sm">
+                            {grade}: {count as number}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ marginTop: ".4rem" }}>
-                      {Object.entries(t.byGrade).map(([grade, count]: [string, any]) => (
-                        <span key={grade} className="grade-badge">
-                          {grade}: {count}
-                        </span>
-                      ))}
+                    <div className="text-start">
+                      <div className="text-xs text-[var(--text-muted)] mb-1">
+                        عدد المحاضرات: <strong className="text-[var(--text-primary)]">{t.lectureCount}</strong>
+                      </div>
+                      <div className="text-lg font-bold text-[var(--success)]">
+                        د.ع {formatNumber(t.lectureTotal)}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ textAlign: "left" }}>
-                    <div style={{ fontSize: ".75rem", color: "var(--gray)", marginBottom: ".2rem" }}>
-                      عدد المحاضرات: <strong>{t.lectureCount}</strong>
-                    </div>
-                    <div className="report-amount">د.ع {formatNumber(t.lectureTotal)}</div>
                   </div>
                 </div>
+              ))}
+
+              {/* Totals Card */}
+              <div className="rounded-xl bg-[var(--primary)] p-5 text-white flex flex-wrap justify-between items-center gap-4">
+                <span className="font-semibold">
+                  إجمالي جميع المحاضرات: {reportTotals.lectureCount}
+                </span>
+                <span className="text-xl font-bold">
+                  د.ع {formatNumber(reportTotals.total)}
+                </span>
               </div>
-            ))
+            </>
           )}
-          {reportSummary.length > 0 && (
-            <div
-              style={{
-                background: "linear-gradient(135deg,var(--p3),var(--p2))",
-                borderRadius: 13,
-                padding: "1rem 1.4rem",
-                color: "white",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: ".5rem",
-              }}
-            >
-              <span style={{ fontWeight: 700 }}>
-                إجمالي جميع المحاضرات: {reportTotals.lectureCount}
-              </span>
-              <span style={{ fontSize: "1.1rem", fontWeight: 900 }}>
-                د.ع {formatNumber(reportTotals.total)}
-              </span>
-            </div>
-          )}
-        </>
+        </div>
       )}
 
+      {/* Details View */}
       {reportView === "details" && (
-        <>
-          <div style={{ marginBottom: ".8rem" }}>
-            <select
-              className="month-pick"
-              value={reportTeacher}
-              onChange={(e) => onTeacherChange(e.target.value)}
-            >
-              <option value="">كل الأساتذة</option>
-              {teachers.map((t) => (
-                <option key={t.id} value={t.id}>{t.full_name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="tbl-wrap">
+        <div className="space-y-4">
+          <Select
+            value={reportTeacher}
+            onChange={(e) => onTeacherChange(e.target.value)}
+            className="max-w-xs"
+          >
+            <option value="">كل الأساتذة</option>
+            {teachers.map((t) => (
+              <option key={t.id} value={t.id}>{t.full_name}</option>
+            ))}
+          </Select>
+
+          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
             {reportLoading ? (
-              <div className="spin" />
+              <div className="flex flex-col items-center justify-center py-12 gap-4">
+                <div className="h-10 w-10 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
+              </div>
             ) : (() => {
               const filtered = reportTeacher
                 ? dailyLectures.filter((l) => l.teacher_id === reportTeacher)
                 : dailyLectures;
               return filtered.length === 0 ? (
-                <div className="empty">لا توجد سجلات</div>
+                <EmptyState
+                  title="لا توجد سجلات"
+                  description="لا توجد محاضرات مسجلة للفترة المحددة"
+                />
               ) : (
-                <table>
+                <table className="w-full">
                   <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>التاريخ</th>
-                      <th>الصف</th>
-                      <th>الشعبة</th>
-                      <th>الدرس</th>
-                      <th>النوع</th>
-                      <th>السعر</th>
+                    <tr className="bg-[var(--surface-muted)] border-b border-[var(--border)]">
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">#</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">التاريخ</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الصف</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الشعبة</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الدرس</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">النوع</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">السعر</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-[var(--border)]">
                     {filtered.map((l, i) => (
-                      <tr key={l.id}>
-                        <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>{i + 1}</td>
-                        <td>{l.lecture_date}</td>
-                        <td style={{ fontWeight: 600 }}>{l.grade}</td>
-                        <td>({l.section})</td>
-                        <td>الدرس {l.period}</td>
-                        <td>
-                          <span
-                            className="badge"
-                            style={{
-                              background: l.session_type === "morning" ? "#DBEAFE" : "#FEF3C7",
-                              color: l.session_type === "morning" ? "#1E40AF" : "#92400E",
-                            }}
-                          >
+                      <tr key={l.id} className="hover:bg-[var(--surface-muted)]/50 transition-colors">
+                        <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{i + 1}</td>
+                        <td className="px-4 py-3 text-sm">{l.lecture_date}</td>
+                        <td className="px-4 py-3 text-sm font-semibold">{l.grade}</td>
+                        <td className="px-4 py-3 text-sm">({l.section})</td>
+                        <td className="px-4 py-3 text-sm">الدرس {l.period}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant={l.session_type === "morning" ? "info" : "warning"} size="sm">
                             {l.session_type === "morning" ? "صباحي" : "ظهري"}
-                          </span>
+                          </Badge>
                         </td>
-                        <td style={{ fontWeight: 700, color: "var(--p3)" }}>
+                        <td className="px-4 py-3 text-sm font-bold text-[var(--primary)]">
                           د.ع {formatNumber(l.price)}
                         </td>
                       </tr>
@@ -194,8 +194,8 @@ export function ReportsSection({
               );
             })()}
           </div>
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }

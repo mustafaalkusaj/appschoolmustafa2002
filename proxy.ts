@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import createIntlMiddleware from 'next-intl/middleware';
 import { getPublicEnv } from "@/lib/env/public";
+import { routing } from "./i18n/routing";
 
 /**
  * Generates a cryptographically random nonce for CSP.
@@ -29,9 +31,8 @@ function resolveOptionalOrigin(value: string | undefined): string | null {
   }
 }
 
-// Pre-compute static CSP values
-const supabaseOrigin = resolveOptionalOrigin(getPublicEnv().supabaseUrl);
-const supabaseHost = supabaseOrigin ? new URL(supabaseOrigin).hostname : undefined;
+// Create the next-intl middleware
+const intlMiddleware = createIntlMiddleware(routing);
 
 /**
  * Builds the Content-Security-Policy header value with a nonce.
@@ -43,6 +44,10 @@ const supabaseHost = supabaseOrigin ? new URL(supabaseOrigin).hostname : undefin
  *   (see: https://tailwindcss.com/docs/content-security-policy)
  */
 function buildCSP(nonce: string): string {
+  const publicEnv = getPublicEnv();
+  const supabaseOrigin = resolveOptionalOrigin(publicEnv.supabaseUrl);
+  const supabaseHost = supabaseOrigin ? new URL(supabaseOrigin).hostname : undefined;
+  
   const connectSrc = ["'self'"];
   const imageSrc = ["'self'", "data:", "blob:", "https:"];
   
@@ -65,6 +70,7 @@ function buildCSP(nonce: string): string {
   // Add 'unsafe-eval' in development for source maps and HMR
   if (process.env.NODE_ENV !== "production") {
     scriptSrc.push("'unsafe-eval'");
+    scriptSrc.push("'unsafe-inline'");
   }
 
   const cspParts = [
@@ -87,7 +93,7 @@ function buildCSP(nonce: string): string {
 
 /**
  * Next.js 16 proxy function (formerly middleware).
- * Handles CSP header injection with per-request nonces.
+ * Handles locale routing and CSP header injection with per-request nonces.
  */
 function resolveRequestId(request: NextRequest) {
   const incoming = request.headers.get("x-request-id")?.trim();
@@ -101,15 +107,29 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const requestId = resolveRequestId(request);
   const nonce = generateNonce();
   const csp = buildCSP(nonce);
+
+  // First, run the next-intl middleware to handle locale routing
+  const intlResponse = intlMiddleware(request);
+  
+  // If intl middleware returns a redirect (e.g., adding locale prefix), return it
+  if (intlResponse.status === 307 || intlResponse.status === 308) {
+    return intlResponse;
+  }
+
+  // Apply headers to the response
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
   requestHeaders.set("x-csp-nonce", nonce);
 
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  // Use the intl response as the base if it's not a redirect
+  const response = intlResponse.status === 200 
+    ? intlResponse 
+    : NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
+
   const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
 
   if (!isApiRequest) {
@@ -143,6 +163,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
+    // Match all pathnames except for
+    // - … if they start with `/api`, `/_next`, `/_vercel`
+    // - … the ones containing a dot (e.g. `favicon.ico`)
+    "/((?!api|_next|_vercel|.*\\..*).*)",
   ],
 };

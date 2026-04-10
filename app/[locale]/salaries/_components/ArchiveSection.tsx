@@ -1,7 +1,10 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatNumber, formatDate } from "@/lib/formatting";
+import { cn } from "@/lib/brand/brand-utils";
 import type { SalaryArchive } from "../_types";
 
 interface ArchiveSectionProps {
@@ -16,78 +19,57 @@ export function ArchiveSection({
   onArchive,
 }: ArchiveSectionProps) {
   return (
-    <>
-      <div
-        style={{
-          background: "#FEF3C7",
-          border: "1px solid #FDE68A",
-          borderRadius: 13,
-          padding: "1rem 1.2rem",
-          marginBottom: "1rem",
-        }}
-      >
-        <div
-          style={{
-            fontSize: ".88rem",
-            fontWeight: 800,
-            color: "#92400E",
-            marginBottom: ".4rem",
-            display: "flex",
-            alignItems: "center",
-            gap: ".35rem",
-          }}
-        >
-          <AppIcon token="⚠️" size={14} />
+    <div className="space-y-6">
+      {/* Archive Action Card */}
+      <div className="rounded-xl bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] border border-[color-mix(in_srgb,var(--warning)_30%,transparent)] p-6">
+        <div className="flex items-center gap-2 text-sm font-bold text-[var(--warning)] mb-2">
+          <AppIcon token="⚠️" size={16} />
           إجراء نهاية الشهر
         </div>
-        <div style={{ fontSize: ".8rem", color: "#92400E", marginBottom: ".8rem" }}>
+        <p className="text-sm text-[var(--text-secondary)] mb-4">
           عند الضغط على "أرشفة الشهر الحالي"، سيتم حفظ نسخة من جميع البيانات الحالية وتفريغ العدادات لبدء شهر جديد.
-        </div>
-        <button
-          onClick={onArchive}
-          style={{
-            padding: ".7rem 1.5rem",
-            background: "linear-gradient(135deg,#F59E0B,#D97706)",
-            color: "white",
-            border: "none",
-            borderRadius: 10,
-            fontFamily: "var(--font-manrope),Segoe UI,sans-serif",
-            fontSize: ".88rem",
-            fontWeight: 800,
-            cursor: "pointer",
-          }}
-        >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token="🗄️" size={14} />
-            أرشفة الشهر الحالي وتصفير العدادات
-          </span>
-        </button>
+        </p>
+        <Button className="bg-[var(--warning)] text-white hover:brightness-110" onClick={onArchive}>
+          <AppIcon token="🗄️" size={14} />
+          أرشفة الشهر الحالي وتصفير العدادات
+        </Button>
       </div>
 
-      <div style={{ fontSize: ".88rem", fontWeight: 800, marginBottom: ".7rem", color: "var(--dark)" }}>
+      {/* Archive List */}
+      <div className="text-sm font-bold text-[var(--text-primary)]">
         الأرشيفات السابقة
       </div>
 
       {archives.length === 0 ? (
-        <div className="empty">لا يوجد أرشيف محفوظ</div>
+        <EmptyState
+          title="لا يوجد أرشيف محفوظ"
+          description="لم يتم أرشفة أي شهر بعد"
+        />
       ) : (
-        archives.map((a) => (
-          <div className="arch-card" key={a.id}>
-            <div>
-              <div className="arch-month" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-                <AppIcon token="📅" size={14} />
-                {a.month}
+        <div className="space-y-3">
+          {archives.map((a) => (
+            <div
+              key={a.id}
+              className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]"
+            >
+              <div>
+                <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
+                  <AppIcon token="📅" size={14} />
+                  {a.month}
+                </div>
+                <div className="text-xs text-[var(--text-muted)] mt-1">
+                  {a.total_teachers} أستاذ • تاريخ الأرشفة: {formatDate(a.archive_date)}
+                </div>
               </div>
-              <div className="arch-info">
-                {a.total_teachers} أستاذ • تاريخ الأرشفة: {formatDate(a.archive_date)}
+              <div className="text-start">
+                <div className="text-sm font-bold text-[var(--primary)]">
+                  د.ع {formatNumber(a.total_amount || 0)}
+                </div>
               </div>
             </div>
-            <div style={{ textAlign: "left" }}>
-              <div className="arch-amount">د.ع {formatNumber(a.total_amount || 0)}</div>
-            </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
-    </>
+    </div>
   );
 }

@@ -1,8 +1,15 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
+import { Drawer, DrawerHeader, DrawerBody, DrawerFooter } from "@/components/ui/drawer";
+import { Button, IconButton } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Student, Payment } from "../_types";
+import { User, Wallet, CreditCard, Printer, Trash2, Calendar, FileText, Hash, MessageSquare } from "lucide-react";
 
 interface StudentDetailPanelProps {
   student: Student | null;
@@ -31,129 +38,138 @@ export function StudentDetailPanel({
   canAddPayments,
   canDeletePayments,
 }: StudentDetailPanelProps) {
-  if (!show || !student) return null;
+  const t = useTranslations();
+  const currency = t("common.currency");
+
+  if (!student) return null;
 
   const progressPct = student.total_fee > 0 ? Math.min(100, Math.round((student.paid_fee / student.total_fee) * 100)) : 0;
 
   return (
-    <div
-      className="detail-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="detail-panel">
-        <div className="detail-header">
-          <div className="detail-title">تفاصيل الفاتورة — {student.full_name}</div>
-          <button className="detail-close" onClick={onClose}>
-            <AppIcon token="✕" size={16} />
-          </button>
-        </div>
-        <div className="detail-cards">
-          <div className="detail-card">
-            <div className="detail-card-title" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-              <AppIcon token="👤" size={14} /> معلومات الطالب
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">الاسم:</span>
-              <span className="detail-val">{student.full_name}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">الصف:</span>
-              <span className="detail-val">{student.class_name}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">الهاتف:</span>
-              <span className="detail-val">{student.phone || "—"}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">العنوان:</span>
-              <span className="detail-val">{student.address || "—"}</span>
-            </div>
-          </div>
-          <div className="detail-card">
-            <div className="detail-card-title" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-              <AppIcon token="📊" size={14} /> الملخص المالي
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">المبلغ الكلي:</span>
-              <span className="detail-val">د.ع {formatNumber(student.total_fee)}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">المدفوع:</span>
-              <span className="detail-val" style={{ color: "#10B981" }}>
-                د.ع {formatNumber(student.paid_fee)}
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">الخصم:</span>
-              <span className="detail-val">د.ع {formatNumber(student.discount_value || 0)}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">المتبقي:</span>
-              <span className="detail-val" style={{ color: "#EF4444" }}>
-                د.ع {formatNumber(student.remaining_fee)}
-              </span>
-            </div>
-          </div>
-        </div>
+    <Drawer open={show} onClose={onClose} side="end">
+      <DrawerHeader
+        title={t("payments.detailPanel.title", { student: student.full_name })}
+        onClose={onClose}
+      />
 
-        {/* Progress bar */}
-        <div style={{ background: "#F8F6FF", borderRadius: 12, padding: "1rem", marginBottom: "1.2rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: ".5rem", fontSize: ".8rem" }}>
-            <span style={{ fontWeight: 700 }}>نسبة الإنجاز</span>
-            <span style={{ color: "var(--p3)", fontWeight: 800 }}>{progressPct}%</span>
+      <DrawerBody className="space-y-6">
+        {/* Student Info Card */}
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-[var(--primary)]">
+            <User className="h-4 w-4" />
+            {t("payments.detailPanel.studentInfoTitle")}
           </div>
-          <div className="progress-bar" style={{ height: 12 }}>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.studentName")}:</span>
+              <p className="font-semibold text-[var(--text-primary)]">{student.full_name}</p>
+            </div>
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.className")}:</span>
+              <p className="font-semibold text-[var(--text-primary)]">{student.class_name}</p>
+            </div>
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.phone")}:</span>
+              <p className="font-semibold text-[var(--text-primary)]">{student.phone || "—"}</p>
+            </div>
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.address")}:</span>
+              <p className="font-semibold text-[var(--text-primary)]">{student.address || "—"}</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Financial Summary Card */}
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-[var(--primary)]">
+            <Wallet className="h-4 w-4" />
+            {t("payments.detailPanel.financialSummaryTitle")}
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.totalAmount")}:</span>
+              <p className="font-semibold text-[var(--text-primary)]">{currency} {formatNumber(student.total_fee)}</p>
+            </div>
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.paidAmount")}:</span>
+              <p className="font-semibold text-[var(--success)]">{currency} {formatNumber(student.paid_fee)}</p>
+            </div>
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.discountAmount")}:</span>
+              <p className="font-semibold text-[var(--text-primary)]">{currency} {formatNumber(student.discount_value || 0)}</p>
+            </div>
+            <div>
+              <span className="text-[var(--text-muted)]">{t("payments.detailPanel.remainingAmount")}:</span>
+              <p className="font-semibold text-[var(--danger)]">{currency} {formatNumber(student.remaining_fee)}</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Progress Bar */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-[var(--text-secondary)]">{t("payments.detailPanel.progressLabel")}</span>
+            <Badge variant={progressPct >= 100 ? "success" : "primary"}>
+              {progressPct}%
+            </Badge>
+          </div>
+          <div className="h-3 bg-[var(--surface-muted)] rounded-full overflow-hidden">
             <div
-              className="progress-fill"
+              className="h-full rounded-full transition-all duration-300"
               style={{
                 width: `${progressPct}%`,
-                background: "linear-gradient(90deg,#6C4AB6,#10B981)",
+                background: progressPct >= 100 ? "var(--success)" : "linear-gradient(90deg, var(--primary), var(--success))",
               }}
             />
           </div>
-        </div>
+        </Card>
 
         {/* Transactions */}
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".8rem" }}>
-            <span style={{ fontSize: ".88rem", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-              <AppIcon token="💳" size={14} /> معاملات الدفع ({paymentCount})
-            </span>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
+              <CreditCard className="h-4 w-4" />
+              {t("payments.detailPanel.transactionsTitle", { count: paymentCount })}
+            </div>
             {canAddPayments && (
-              <button
-                className="btn-add"
-                style={{ padding: ".4rem .8rem", fontSize: ".75rem" }}
-                onClick={() => onAddPayment(student)}
-              >
-                + إضافة دفعة
-              </button>
+              <Button variant="primary" size="sm" onClick={() => onAddPayment(student)}>
+                {t("payments.detailPanel.addPayment")}
+              </Button>
             )}
           </div>
+
           {paymentsLoading ? (
-            <div style={{ textAlign: "center", padding: "2rem", color: "var(--gray)", fontSize: ".85rem" }}>
-              جارٍ تحميل دفعات الطالب...
+            <div className="flex items-center justify-center py-8">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
             </div>
           ) : payments.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "2rem", color: "var(--gray)", fontSize: ".85rem" }}>
-              لا توجد دفعات مسجلة حتى الآن
-            </div>
+            <EmptyState
+              title={t("payments.detailPanel.emptyPaymentsTitle")}
+              description={t("payments.detailPanel.emptyPaymentsDescription")}
+            />
           ) : (
-            payments.map((p, i) => (
-              <PaymentRow
-                key={p.id}
-                payment={p}
-                index={i}
-                onPrint={() => onPrintReceipt(p, student)}
-                onDelete={() => onDeletePayment(p.id)}
-                canDelete={canDeletePayments}
-              />
-            ))
+            <div className="space-y-3">
+              {payments.map((p, i) => (
+                <PaymentRow
+                  key={p.id}
+                  payment={p}
+                  index={i}
+                  onPrint={() => onPrintReceipt(p, student)}
+                  onDelete={() => onDeletePayment(p.id)}
+                  canDelete={canDeletePayments}
+                />
+              ))}
+            </div>
           )}
         </div>
-      </div>
-    </div>
+      </DrawerBody>
+
+      <DrawerFooter>
+        <Button variant="secondary" onClick={onClose}>
+          {t("payments.detailPanel.close")}
+        </Button>
+      </DrawerFooter>
+    </Drawer>
   );
 }
 
@@ -166,70 +182,80 @@ interface PaymentRowProps {
 }
 
 function PaymentRow({ payment, index, onPrint, onDelete, canDelete }: PaymentRowProps) {
+  const t = useTranslations();
+  const currency = t("common.currency");
   const methodInfo = (
     {
-      cash: { icon: "💵", label: "نقداً" },
-      bank_transfer: { icon: "🏦", label: "تحويل" },
-      check: { icon: "📄", label: "شيك" },
-    } as Record<string, { icon: string; label: string }>
+      cash: { icon: "💵", label: t("common.paymentMethods.cash"), variant: "success" as const },
+      bank_transfer: { icon: "🏦", label: t("common.paymentMethods.bank_transfer"), variant: "info" as const },
+      check: { icon: "📄", label: t("common.paymentMethods.check"), variant: "warning" as const },
+    } as Record<string, { icon: string; label: string; variant: "success" | "info" | "warning" }>
   )[payment.payment_method];
 
   return (
-    <div className="pay-row">
-      <div className="pay-row-top">
-        <div style={{ display: "flex", alignItems: "center", gap: ".6rem" }}>
-          <div className="pay-num">{index + 1}</div>
-          <span className="pay-amount">د.ع {formatNumber(payment.amount)}</span>
-          <span className="pay-method-badge">
-            {methodInfo ? (
-              <>
-                <AppIcon token={methodInfo.icon} size={12} />
-                {methodInfo.label}
-              </>
-            ) : (
-              payment.payment_method
-            )}
-          </span>
+    <Card className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-[var(--radius-md)] bg-[var(--primary)] text-white flex items-center justify-center text-xs font-bold">
+            {index + 1}
+          </div>
+          <div>
+            <span className="text-lg font-bold text-[var(--success)]">{currency} {formatNumber(payment.amount)}</span>
+            <Badge variant={methodInfo?.variant || "neutral"} size="sm" className="ms-2">
+              <AppIcon token={methodInfo?.icon || "💰"} size={12} />
+              {methodInfo?.label || payment.payment_method}
+            </Badge>
+          </div>
         </div>
-        <div className="pay-actions">
-          <button className="btn-print-sm" title="طباعة" onClick={onPrint}>
-            <AppIcon token="🖨️" size={13} />
-          </button>
+        <div className="flex items-center gap-2">
+          <IconButton
+            variant="ghost"
+            size="sm"
+            aria-label={t("payments.detailPanel.printReceipt")}
+            onClick={onPrint}
+          >
+            <Printer className="h-4 w-4" />
+          </IconButton>
           {canDelete && (
-            <button className="btn-del-sm" onClick={onDelete}>
-              حذف
-            </button>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              aria-label={t("payments.detailPanel.deletePayment")}
+              onClick={onDelete}
+              className="text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]"
+            >
+              <Trash2 className="h-4 w-4" />
+            </IconButton>
           )}
         </div>
       </div>
-      <div className="pay-fields">
-        <div className="pay-field">
-          <span className="pay-field-label" style={{ display: "inline-flex", alignItems: "center", gap: ".25rem" }}>
-            <AppIcon token="📅" size={11} /> التاريخ
-          </span>
-          <span className="pay-field-val">{formatDate(payment.created_at)}</span>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+          <span className="text-[var(--text-muted)]">{t("payments.detailPanel.date")}:</span>
+          <span className="font-semibold">{formatDate(payment.created_at)}</span>
         </div>
-        <div className="pay-field">
-          <span className="pay-field-label" style={{ display: "inline-flex", alignItems: "center", gap: ".25rem" }}>
-            <AppIcon token="🧾" size={11} /> رقم الإيصال الورقي
-          </span>
-          <span className="pay-field-val">{payment.manual_receipt_number || "—"}</span>
+        <div className="flex items-center gap-2">
+          <FileText className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+          <span className="text-[var(--text-muted)]">{t("payments.detailPanel.paperReceipt")}:</span>
+          <span className="font-semibold break-all">{payment.manual_receipt_number || "—"}</span>
         </div>
-        <div className="pay-field">
-          <span className="pay-field-label" style={{ display: "inline-flex", alignItems: "center", gap: ".25rem" }}>
-            <AppIcon token="🔢" size={11} /> رقم الإيصال الإلكتروني
+        <div className="flex items-center gap-2">
+          <Hash className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+          <span className="text-[var(--text-muted)]">{t("payments.detailPanel.digitalReceipt")}:</span>
+          <span className="font-semibold text-[var(--primary)] font-mono text-xs break-all">
+            {payment.receipt_number || "—"}
           </span>
-          <span className="pay-field-val receipt-e">{payment.receipt_number || "—"}</span>
         </div>
         {payment.notes && (
-          <div className="pay-field">
-            <span className="pay-field-label" style={{ display: "inline-flex", alignItems: "center", gap: ".25rem" }}>
-              <AppIcon token="📝" size={11} /> ملاحظات
-            </span>
-            <span className="pay-field-val">{payment.notes}</span>
+          <div className="flex items-center gap-2 col-span-2">
+            <MessageSquare className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+            <span className="text-[var(--text-muted)]">{t("payments.detailPanel.notes")}:</span>
+            <span className="font-semibold">{payment.notes}</span>
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

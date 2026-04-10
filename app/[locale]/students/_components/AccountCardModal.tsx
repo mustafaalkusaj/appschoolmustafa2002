@@ -1,5 +1,9 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { Copy, Printer, X } from "lucide-react";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
 import type { ManagedUserAccountCard } from "../_types";
 
 interface AccountCardModalProps {
@@ -12,135 +16,92 @@ interface AccountCardModalProps {
 }
 
 export function AccountCardModal({ accountCard, revealedPassword, onPrint, onCopy, onClose }: AccountCardModalProps) {
+  const t = useTranslations("students.modals.accountCard");
+
   if (!accountCard) return null;
 
   const isPasswordRevealed = revealedPassword && revealedPassword !== "••••••••";
 
   return (
-    <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-lg">
-        <div className="mh">
-          <div className="mt">بطاقة حساب التطبيق جاهزة</div>
-          <button className="mc" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gap: "1rem",
-            gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-            marginBottom: "1rem",
-          }}
-        >
-          <div
-            style={{
-              background: "#F8FBFF",
-              border: "1px solid rgba(15,91,141,0.12)",
-              borderRadius: 18,
-              padding: "1rem",
-            }}
-          >
-            <div style={{ fontSize: ".75rem", fontWeight: 800, color: "var(--gray)" }}>الاسم الكامل</div>
-            <div style={{ marginTop: ".4rem", fontSize: "1.05rem", fontWeight: 900, color: "var(--p2)" }}>
+    <Modal open={!!accountCard} onClose={onClose} size="xl">
+      <ModalHeader title={t("title")} onClose={onClose} />
+
+      <ModalBody>
+        {/* Account Info Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div className="p-4 rounded-[var(--radius-lg)] bg-[var(--surface-soft)] border border-[var(--border)]">
+            <p className="text-xs font-bold uppercase text-[var(--text-muted)] mb-1">
+              {t("fullName")}
+            </p>
+            <p className="text-lg font-bold text-[var(--primary)]">
               {accountCard.full_name}
-            </div>
+            </p>
           </div>
-          <div
-            style={{
-              background: "#F8FBFF",
-              border: "1px solid rgba(15,91,141,0.12)",
-              borderRadius: 18,
-              padding: "1rem",
-            }}
-          >
-            <div style={{ fontSize: ".75rem", fontWeight: 800, color: "var(--gray)" }}>الصف والشعبة</div>
-            <div style={{ marginTop: ".4rem", fontSize: "1.05rem", fontWeight: 900, color: "var(--p2)" }}>
-              {[accountCard.class_name, accountCard.section ? `الشعبة ${accountCard.section}` : null]
+
+          <div className="p-4 rounded-[var(--radius-lg)] bg-[var(--surface-soft)] border border-[var(--border)]">
+            <p className="text-xs font-bold uppercase text-[var(--text-muted)] mb-1">
+              {t("classSection")}
+            </p>
+            <p className="text-lg font-bold text-[var(--primary)]">
+              {[accountCard.class_name, accountCard.section ? t("section", { name: accountCard.section }) : null]
                 .filter(Boolean)
                 .join(" • ") || "—"}
-            </div>
+            </p>
           </div>
-          <div
-            style={{
-              background: "#F8FBFF",
-              border: "1px solid rgba(15,91,141,0.12)",
-              borderRadius: 18,
-              padding: "1rem",
-            }}
-          >
-            <div style={{ fontSize: ".75rem", fontWeight: 800, color: "var(--gray)" }}>معرّف الدخول</div>
-            <div
-              style={{
-                marginTop: ".4rem",
-                fontSize: "1rem",
-                fontWeight: 900,
-                color: "var(--p2)",
-                direction: "ltr",
-                textAlign: "left",
-              }}
-            >
+
+          <div className="p-4 rounded-[var(--radius-lg)] bg-[var(--surface-soft)] border border-[var(--border)]">
+            <p className="text-xs font-bold uppercase text-[var(--text-muted)] mb-1">
+              {t("loginId")}
+            </p>
+            <p className="text-lg font-bold text-[var(--primary)] text-start ltr" dir="ltr">
               {accountCard.login_identifier}
-            </div>
+            </p>
           </div>
-          <div
-            style={{
-              background: "#F8FBFF",
-              border: "1px solid rgba(15,91,141,0.12)",
-              borderRadius: 18,
-              padding: "1rem",
-            }}
-          >
-            <div style={{ fontSize: ".75rem", fontWeight: 800, color: "var(--gray)" }}>كلمة المرور المؤقتة</div>
-            <div
-              style={{
-                marginTop: ".4rem",
-                fontSize: "1rem",
-                fontWeight: 900,
-                color: isPasswordRevealed ? "var(--p2)" : "#888",
-                direction: "ltr",
-                textAlign: "left",
-              }}
+
+          <div className="p-4 rounded-[var(--radius-lg)] bg-[var(--surface-soft)] border border-[var(--border)]">
+            <p className="text-xs font-bold uppercase text-[var(--text-muted)] mb-1">
+              {t("tempPassword")}
+            </p>
+            <p
+              className={`text-lg font-bold text-start ltr ${isPasswordRevealed ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
+              dir="ltr"
             >
               {isPasswordRevealed ? revealedPassword : "••••••••"}
-            </div>
+            </p>
             {!isPasswordRevealed && (
-              <div style={{ fontSize: ".7rem", color: "#888", marginTop: ".3rem" }}>
-                كلمة المرور تم تعيينها — لا يمكن استرجاعها. استخدم "إعادة ضبط المرور" لإنشاء كلمة مرور جديدة.
-              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                {t("passwordSet")}
+              </p>
             )}
           </div>
         </div>
-        <div
-          style={{
-            background: "#F8FBFF",
-            border: "1px solid rgba(15,91,141,0.12)",
-            borderRadius: 18,
-            padding: "1rem",
-            marginBottom: "1rem",
-          }}
-        >
-          <div style={{ fontSize: ".82rem", fontWeight: 900, color: "var(--p2)", marginBottom: ".5rem" }}>
-            تعليمات الدخول
-          </div>
-          <ol style={{ margin: 0, paddingRight: "1.2rem", fontSize: ".8rem", color: "var(--gray)", lineHeight: 1.9 }}>
+
+        {/* Instructions */}
+        <div className="p-4 rounded-[var(--radius-lg)] bg-[var(--surface-soft)] border border-[var(--border)]">
+          <p className="text-sm font-bold text-[var(--primary)] mb-3">
+            {t("instructions")}
+          </p>
+          <ol className="list-decimal list-inside space-y-1.5 text-sm text-[var(--text-secondary)]">
             {accountCard.instructions.map((instruction) => (
               <li key={instruction}>{instruction}</li>
             ))}
           </ol>
         </div>
-        <div className="fa">
-          <button className="bc" onClick={() => onCopy()}>
-            نسخ البيانات
-          </button>
-          <button className="bc" onClick={() => onPrint(accountCard, true)}>
-            طباعة
-          </button>
-          <button className="bs" onClick={onClose}>
-            إغلاق
-          </button>
-        </div>
-      </div>
-    </div>
+      </ModalBody>
+
+      <ModalFooter>
+        <Button variant="ghost" onClick={onCopy}>
+          <Copy className="h-4 w-4" />
+          {t("copy")}
+        </Button>
+        <Button variant="outline" onClick={() => onPrint(accountCard, true)}>
+          <Printer className="h-4 w-4" />
+          {t("print")}
+        </Button>
+        <Button variant="primary" onClick={onClose}>
+          {t("close")}
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 }

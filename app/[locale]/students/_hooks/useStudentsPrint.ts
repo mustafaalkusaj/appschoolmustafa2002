@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { StudentWithFees, ManagedUserAccountCard } from "../_types";
 import { buildPrintableCardHtml, buildSingleStudentPrintHtml, buildStudentPrintCardHtml } from "../_utils";
 import { formatNumber } from "@/lib/formatting";
-import { wrapPrintDocument } from "@/lib/print/branding";
+import { printHtmlDocument, wrapPrintDocument } from "@/lib/print/branding";
 
 export interface UseStudentsPrintOptions {
   locale: "ar" | "en";
@@ -20,20 +20,17 @@ export interface UseStudentsPrintOptions {
 export function useStudentsPrint(options: UseStudentsPrintOptions) {
   const { locale, runtimeBranding, setError } = options;
 
-  const printOptions = {
-    locale,
-    ...runtimeBranding,
-  };
+  const printOptions = useMemo(
+    () => ({
+      locale,
+      ...runtimeBranding,
+    }),
+    [locale, runtimeBranding],
+  );
 
   const handlePrint = useCallback((s: StudentWithFees) => {
     setError("");
-    const w = window.open("", "_blank");
-    if (!w) {
-      setError("يرجى السماح بالنوافذ المنبثقة للطباعة");
-      return;
-    }
-    w.document.write(buildSingleStudentPrintHtml(s, printOptions));
-    w.document.close();
+    printHtmlDocument(buildSingleStudentPrintHtml(s, printOptions));
   }, [printOptions, setError]);
 
   const printFilteredStudents = useCallback((students: StudentWithFees[]) => {
@@ -42,15 +39,10 @@ export function useStudentsPrint(options: UseStudentsPrintOptions) {
       return;
     }
     setError("");
-    const w = window.open("", "_blank");
-    if (!w) {
-      setError("يرجى السماح بالنوافذ المنبثقة للطباعة");
-      return;
-    }
     const cardsHtml = students
       .map((s) => buildStudentPrintCardHtml(s, printOptions))
       .join("");
-    w.document.write(
+    printHtmlDocument(
       wrapPrintDocument({
         title: locale === "en" ? "Students list" : "قائمة الطلاب",
         subtitle:
@@ -83,30 +75,23 @@ export function useStudentsPrint(options: UseStudentsPrintOptions) {
           </div>
           ${cardsHtml}
         `,
+        autoPrint: false,
         extraStyles: `
           @page { margin: 1.5cm; size: A4; }
           .student-card { page-break-inside: avoid; }
         `,
-      })
+      }),
     );
-    w.document.close();
   }, [locale, printOptions, runtimeBranding, setError]);
 
   const openAccountCardWindow = useCallback((card: ManagedUserAccountCard, autoPrint = true, revealedPassword?: string | null) => {
-    const w = window.open("", "_blank");
-    if (!w) {
-      setError("يرجى السماح بالنوافذ المنبثقة لعرض بطاقة الحساب");
-      return;
-    }
     // Use the revealed password if available, otherwise the card's password (which may be a placeholder)
     const passwordToShow = revealedPassword && revealedPassword !== "••••••••"
       ? revealedPassword
       : card.temporary_password;
     const cardWithPassword = { ...card, temporary_password: passwordToShow };
-    w.document.open();
-    w.document.write(buildPrintableCardHtml(cardWithPassword, printOptions, autoPrint));
-    w.document.close();
-  }, [printOptions, setError]);
+    printHtmlDocument(buildPrintableCardHtml(cardWithPassword, printOptions, autoPrint));
+  }, [printOptions]);
 
   const copyAccountCardCredentials = useCallback(
     async (card: ManagedUserAccountCard | null, setSuccess: (msg: string) => void, revealedPassword?: string | null) => {

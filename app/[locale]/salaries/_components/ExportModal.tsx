@@ -1,6 +1,9 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/brand/brand-utils";
 import type { ExportOptions } from "../_types";
 
 interface ExportModalProps {
@@ -18,8 +21,6 @@ export function ExportModal({
   onOptionsChange,
   onExport,
 }: ExportModalProps) {
-  if (!show) return null;
-
   const exportItems: [keyof ExportOptions, string, string][] = [
     ["teachers", "👨‍🏫", "بيانات الأساتذة"],
     ["subjects", "📚", "المواد الدراسية"],
@@ -31,37 +32,14 @@ export function ExportModal({
   ];
 
   return (
-    <div className="overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="modal modal-sm">
-        <div className="mh">
-          <div className="mt" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token="📤" size={16} />
-            خيارات التصدير
-          </div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
-        <button
-          style={{
-            width: "100%",
-            padding: ".7rem",
-            background: "linear-gradient(135deg,#F59E0B,#D97706)",
-            color: "white",
-            border: "none",
-            borderRadius: 10,
-            fontFamily: "var(--font-manrope),Segoe UI,sans-serif",
-            fontSize: ".85rem",
-            fontWeight: 800,
-            cursor: "pointer",
-            marginBottom: ".8rem",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: ".35rem",
-          }}
+    <Modal open={show} onClose={onClose} size="sm">
+      <ModalHeader
+        title="خيارات التصدير"
+        onClose={onClose}
+      />
+      <ModalBody className="space-y-4">
+        <Button
+          className="w-full bg-[var(--warning)] hover:brightness-110"
           onClick={() =>
             onOptionsChange({
               lesson_times: true,
@@ -76,31 +54,45 @@ export function ExportModal({
         >
           <AppIcon token="💾" size={14} />
           تصدير كامل النظام
-        </button>
-        {exportItems.map(([key, icon, label]) => (
-          <div
-            key={key}
-            className={`exp-item${exportOptions[key] ? " selected" : ""}`}
-            onClick={() => onOptionsChange({ ...exportOptions, [key]: !exportOptions[key] })}
-          >
-            <span
-              className="exp-name"
-              style={{ display: "inline-flex", alignItems: "center", gap: ".35rem" }}
+        </Button>
+
+        <div className="space-y-2">
+          {exportItems.map(([key, icon, label]) => (
+            <button
+              key={key}
+              onClick={() => onOptionsChange({ ...exportOptions, [key]: !exportOptions[key] })}
+              className={cn(
+                "w-full flex items-center justify-between px-4 py-3 rounded-lg",
+                "border border-[var(--border)]",
+                "hover:bg-[var(--surface-muted)] transition-colors",
+                exportOptions[key] && "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] border-[var(--primary)]"
+              )}
             >
-              <AppIcon token={icon} size={13} /> {label}
-            </span>
-            <div className={`exp-cb${exportOptions[key] ? " checked" : ""}`}>
-              {exportOptions[key] && "✓"}
-            </div>
-          </div>
-        ))}
-        <div className="fa">
-          <button className="bs" onClick={onExport}>
-            <AppIcon token="⬇️" size={14} /> تصدير الآن
-          </button>
-          <button className="bc" onClick={onClose}>إلغاء</button>
+              <span className="flex items-center gap-3 text-sm font-semibold">
+                <AppIcon token={icon} size={13} />
+                {label}
+              </span>
+              <div
+                className={cn(
+                  "w-5 h-5 rounded flex items-center justify-center text-xs font-bold",
+                  exportOptions[key]
+                    ? "bg-[var(--primary)] text-white"
+                    : "border-2 border-[var(--border)]"
+                )}
+              >
+                {exportOptions[key] && "✓"}
+              </div>
+            </button>
+          ))}
         </div>
-      </div>
-    </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button onClick={onExport}>
+          <AppIcon token="⬇️" size={14} />
+          تصدير الآن
+        </Button>
+        <Button variant="secondary" onClick={onClose}>إلغاء</Button>
+      </ModalFooter>
+    </Modal>
   );
 }

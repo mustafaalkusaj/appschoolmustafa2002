@@ -1,6 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AppIcon } from "@/components/AppIcon";
+import { cn } from "@/lib/brand/brand-utils";
 import { SIDEBAR_ITEMS } from "../_types";
 
 interface SalariesSidebarProps {
@@ -16,6 +18,8 @@ export function SalariesSidebar({
   onDeductionsLoad,
   onCalendarLoad,
 }: SalariesSidebarProps) {
+  const t = useTranslations();
+
   const handleClick = (id: string) => {
     onSectionChange(id);
     if (id === "deductions") onDeductionsLoad();
@@ -23,29 +27,26 @@ export function SalariesSidebar({
   };
 
   return (
-    <div className="sal-sidebar">
-      <div
-        style={{
-          fontSize: ".72rem",
-          fontWeight: 800,
-          color: "var(--p2)",
-          padding: ".4rem .7rem .6rem",
-          borderBottom: "1px solid rgba(79,140,255,0.08)",
-          marginBottom: ".4rem",
-        }}
-      >
-        الرواتب
+    <nav className="flex flex-col p-4 gap-1">
+      <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-3 py-2 border-b border-[var(--border)] mb-2">
+        {t("salaries.sidebar.sectionTitle")}
       </div>
       {SIDEBAR_ITEMS.map((item) => (
         <button
           key={item.id}
-          className={`sal-nav${activeSection === item.id ? " active" : ""}`}
+          className={cn(
+            "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all",
+            "w-full text-start",
+            activeSection === item.id
+              ? "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]"
+              : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+          )}
           onClick={() => handleClick(item.id)}
         >
-          <AppIcon token={item.icon} size={15} />
-          <span>{item.label}</span>
+          <AppIcon token={item.icon} size={16} />
+          <span>{t(`salaries.sidebar.items.${item.id}`)}</span>
         </button>
       ))}
-    </div>
+    </nav>
   );
 }

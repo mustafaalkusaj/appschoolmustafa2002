@@ -8,12 +8,16 @@ import { useStudentsOperations } from "./_hooks/useStudentsOperations";
 import { useStudentsPrint } from "./_hooks/useStudentsPrint";
 import { getStudentActions } from "./_utils/getStudentActions";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 
 // Components
@@ -32,7 +36,8 @@ import { AccountCardModal } from "./_components/AccountCardModal";
 export default function StudentsPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname) as "ar" | "en";
-  const { profile, can, isReadOnlyPath } = useRole();
+  const t = useTranslations("students");
+  const { profile, can } = useRole();
   const schoolScope = useSchoolScope(profile);
   const runtimeBranding = useRuntimeBranding();
 
@@ -41,7 +46,7 @@ export default function StudentsPage() {
   const canDeleteStudents = can("delete_students");
   const canManageStudents = canAddStudents || canEditStudents || canDeleteStudents;
   const canManageStudentAccounts = profile?.role === "super_admin" || profile?.role === "admin";
-  const isReadOnlyView = isReadOnlyPath("/students") || !canManageStudents;
+  const isReadOnlyView = !canManageStudents;
 
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
@@ -132,7 +137,6 @@ export default function StudentsPage() {
     setError: modals.setError,
   });
 
-  // Computed values
   const classes = Array.from(
     new Set(classFees.map((item) => item.class_name?.trim()).filter(Boolean))
   ) as string[];
@@ -144,7 +148,6 @@ export default function StudentsPage() {
     return matchSearch && matchClass && matchSection;
   });
 
-  // Get actions for dropdown menu
   const buildGetActions = useCallback(
     (s: StudentWithFees): StudentActionItem[] =>
       getStudentActions({
@@ -164,16 +167,7 @@ export default function StudentsPage() {
         },
         setActiveMenu: modals.setActiveMenu,
       }),
-    [
-      activeTab,
-      isReadOnlyView,
-      canEditStudents,
-      canDeleteStudents,
-      canManageStudentAccounts,
-      modals,
-      operations,
-      print,
-    ]
+    [activeTab, isReadOnlyView, canEditStudents, canDeleteStudents, canManageStudentAccounts, modals, operations, print]
   );
 
   const exportAllStudentsExcel = useCallback(async () => {
@@ -189,93 +183,134 @@ export default function StudentsPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-      <>
+      <div className="flex min-h-screen bg-[var(--surface-soft)]">
         <StudentsPageStyles />
-        <div className="layout">
-          <AppSidebar currentPath="/students" showFloatingToggle />
-          <div className="main">
-            <div className="content app-shell-content">
+        <AppSidebar currentPath="/students" />
+        
+        <div className="flex-1 flex flex-col min-w-0">
+          <AppShellTopbar 
+            title={t("title")} 
+            subtitle={locale === "en" ? "Manage and track student records" : "إدارة ومتابعة بيانات سجلات الطلاب"}
+            scope={schoolScope} 
+            fixed 
+          />
+          
+          <main className="flex-1 pt-16 overflow-y-auto custom-scrollbar">
+            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+              {/* Success Alert */}
               {modals.success && (
-                <div className="ok">
-                  <div>{modals.success}</div>
-                  {modals.accountCard && (
-                    <div style={{ marginTop: ".45rem", display: "flex", gap: ".45rem", flexWrap: "wrap" }}>
-                      <button
-                        className="bc"
-                        style={{ padding: ".45rem .8rem" }}
-                        onClick={() => print.openAccountCardWindow(modals.accountCard!, true)}
-                      >
-                        طباعة بيانات الدخول
-                      </button>
-                      <button
-                        className="bc"
-                        style={{ padding: ".45rem .8rem" }}
-                        onClick={() => print.copyAccountCardCredentials(modals.accountCard, modals.setSuccess)}
-                      >
-                        نسخ اسم المستخدم/المرور
-                      </button>
-                    </div>
+                <Card className="border-[var(--success)] bg-[color-mix(in_srgb,var(--success)_5%,transparent)]">
+                  <CardContent className="p-4">
+                    <div className="font-semibold text-[var(--success)]">{modals.success}</div>
+                    {modals.accountCard && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => print.openAccountCardWindow(modals.accountCard!, true)}
+                        >
+                          {t("modals.printCredentials")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => print.copyAccountCardCredentials(modals.accountCard, modals.setSuccess)}
+                        >
+                          {t("modals.copyCredentials")}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Error Alert */}
+              {modals.error && (
+                <Card className="border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_5%,transparent)]">
+                  <CardContent className="p-4">
+                    <div className="font-semibold text-[var(--danger)]">{modals.error}</div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <SchoolScopeBanner scope={schoolScope} showSelector={false} />
+              
+              {schoolScope.shouldBlockContent ? (
+                <Card>
+                  <CardContent className="p-8">
+                    <SchoolScopeEmptyState
+                      scope={schoolScope}
+                      title={t("title")}
+                      description={t("emptyState.description")}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-6">
+                  {/* Tabs Section */}
+                  <Card>
+                    <CardContent className="p-6">
+                      <StudentsTabs
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        studentsMeta={studentsMeta}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Stats Section - Only show for active tab */}
+                  {activeTab === "active" && (
+                    <StudentsStats studentsMeta={studentsMeta} />
                   )}
+
+                  {/* Main Content Section */}
+                  <Card>
+                    <CardContent className="p-6 space-y-6">
+                      <StudentsToolbar
+                        search={search}
+                        setSearch={setSearch}
+                        filterClass={filterClass}
+                        setFilterClass={setFilterClass}
+                        filterSection={filterSection}
+                        setFilterSection={setFilterSection}
+                        classes={classes}
+                        sectionsList={sectionsList}
+                        activeTab={activeTab}
+                        isReadOnlyView={isReadOnlyView}
+                        canManageStudentAccounts={canManageStudentAccounts}
+                        datasetLoading={datasetLoading}
+                        printingCards={modals.printingCards}
+                        filtered={filtered}
+                        onExportCurrentPage={() => operations.exportExcel(filtered)}
+                        onExportAll={exportAllStudentsExcel}
+                        onPrintFiltered={() => print.printFilteredStudents(filtered)}
+                        onPrintAllCards={() => {}}
+                        onAddStudent={() => modals.setShowModal(true)}
+                      />
+                      <StudentsTable
+                        pagedStudents={pagedStudents}
+                        pagedLoading={pagedLoading}
+                        pagedError={pagedError}
+                        totalCount={totalCount}
+                        page={page}
+                        pageSize={pageSize}
+                        totalPages={totalPages}
+                        activeTab={activeTab}
+                        error={modals.error}
+                        canManageStudentAccounts={canManageStudentAccounts}
+                        getActions={buildGetActions}
+                        openMenu={modals.openMenu}
+                        onPageChange={setPage}
+                      />
+                    </CardContent>
+                  </Card>
                 </div>
               )}
-              {modals.error && <div className="err">{modals.error}</div>}
-              <SchoolScopeBanner scope={schoolScope} showSelector={false} />
-              {schoolScope.shouldBlockContent ? (
-                <SchoolScopeEmptyState
-                  scope={schoolScope}
-                  title="بيانات الطلاب"
-                  description="لن يتم تحميل الطلاب أو الأقساط أو عمليات الإضافة قبل اختيار مدرسة صريحة لهذا القسم."
-                />
-              ) : (
-                <>
-                  <StudentsTabs
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
-                    studentsMeta={studentsMeta}
-                  />
-                  {activeTab === "active" && <StudentsStats studentsMeta={studentsMeta} />}
-                  <StudentsToolbar
-                    search={search}
-                    setSearch={setSearch}
-                    filterClass={filterClass}
-                    setFilterClass={setFilterClass}
-                    filterSection={filterSection}
-                    setFilterSection={setFilterSection}
-                    classes={classes}
-                    sectionsList={sectionsList}
-                    activeTab={activeTab}
-                    isReadOnlyView={isReadOnlyView}
-                    canManageStudentAccounts={canManageStudentAccounts}
-                    datasetLoading={datasetLoading}
-                    printingCards={modals.printingCards}
-                    filtered={filtered}
-                    onExportCurrentPage={() => operations.exportExcel(filtered)}
-                    onExportAll={exportAllStudentsExcel}
-                    onPrintFiltered={() => print.printFilteredStudents(filtered)}
-                    onPrintAllCards={() => {}}
-                    onAddStudent={() => modals.setShowModal(true)}
-                  />
-                  <StudentsTable
-                    pagedStudents={pagedStudents}
-                    pagedLoading={pagedLoading}
-                    pagedError={pagedError}
-                    totalCount={totalCount}
-                    page={page}
-                    pageSize={pageSize}
-                    totalPages={totalPages}
-                    activeTab={activeTab}
-                    error={modals.error}
-                    canManageStudentAccounts={canManageStudentAccounts}
-                    getActions={buildGetActions}
-                    openMenu={modals.openMenu}
-                    onPageChange={setPage}
-                  />
-                </>
-              )}
             </div>
-          </div>
+          </main>
         </div>
 
+        {/* Modals */}
         <StudentDropdownMenu
           activeMenu={modals.activeMenu}
           selectedStudent={modals.selectedStudent}
@@ -349,7 +384,7 @@ export default function StudentsPage() {
             modals.setRevealedPassword(null);
           }}
         />
-      </>
+      </div>
     </ProtectedRoute>
   );
 }

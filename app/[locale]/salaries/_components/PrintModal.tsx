@@ -1,6 +1,10 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import type { Teacher } from "../_types";
 
 interface PrintModalProps {
@@ -22,101 +26,65 @@ export function PrintModal({
   onPrintReport,
   onPrintAll,
 }: PrintModalProps) {
-  if (!show) return null;
+  const t = useTranslations();
 
   return (
-    <div className="overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="modal modal-sm">
-        <div className="mh">
-          <div className="mt" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token="🖨️" size={16} />
-            خيارات الطباعة
-          </div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
-        <div className="print-card">
-          <div
-            className="print-card-title"
-            style={{ display: "flex", alignItems: "center", gap: ".35rem" }}
-          >
+    <Modal open={show} onClose={onClose} size="sm">
+      <ModalHeader
+        title={t("salaries.printModal.title")}
+        onClose={onClose}
+      />
+      <ModalBody className="space-y-4">
+        {/* Individual Teacher Report */}
+        <div className="rounded-xl bg-[var(--surface-soft)] border border-[var(--border)] p-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-[var(--primary)]">
             <AppIcon token="👤" size={14} />
-            تقرير أستاذ مفصل
+            {t("salaries.printModal.individualTitle")}
           </div>
-          <div className="print-card-desc">
-            اختر الأستاذ لطباعة تقرير كامل بجميع محاضراته.
-          </div>
-          <select
-            className="fis"
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("salaries.printModal.individualDescription")}
+          </p>
+          <Select
             value={printTeacher}
             onChange={(e) => onTeacherChange(e.target.value)}
-            style={{ marginBottom: ".7rem" }}
           >
-            <option value="">اختر الأستاذ...</option>
+            <option value="">{t("salaries.printModal.selectTeacherPlaceholder")}</option>
             {teachers.map((t) => (
               <option key={t.id} value={t.id}>{t.full_name}</option>
             ))}
-          </select>
-          <button
-            style={{
-              padding: ".6rem 1rem",
-              background: "linear-gradient(135deg,#06B6D4,#0891B2)",
-              color: "white",
-              border: "none",
-              borderRadius: 9,
-              fontFamily: "var(--font-manrope),Segoe UI,sans-serif",
-              fontSize: ".82rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: ".35rem",
-            }}
+          </Select>
+          <Button
+            className="w-full bg-[var(--info)] hover:brightness-110"
+            disabled={!printTeacher}
             onClick={() => printTeacher && onPrintReport(printTeacher)}
           >
-            <AppIcon token="🖨️" size={13} className="text-white" />
-            طباعة
-          </button>
+            <AppIcon token="🖨️" size={13} />
+            {t("salaries.printModal.print")}
+          </Button>
         </div>
-        <div className="print-card">
-          <div
-            className="print-card-title"
-            style={{ display: "flex", alignItems: "center", gap: ".35rem" }}
-          >
+
+        {/* All Teachers Report */}
+        <div className="rounded-xl bg-[var(--surface-soft)] border border-[var(--border)] p-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
             <AppIcon token="👥" size={14} />
-            تقرير شامل
+            {t("salaries.printModal.summaryTitle")}
           </div>
-          <div className="print-card-desc">تقرير لجميع الأساتذة.</div>
-          <button
-            style={{
-              width: "100%",
-              padding: ".7rem",
-              background: "#1F2937",
-              color: "white",
-              border: "none",
-              borderRadius: 9,
-              fontFamily: "var(--font-manrope),Segoe UI,sans-serif",
-              fontSize: ".85rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: ".35rem",
-            }}
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("salaries.printModal.summaryDescription")}
+          </p>
+          <Button
+            variant="secondary"
+            className="w-full"
             onClick={onPrintAll}
           >
-            <AppIcon token="☰" size={13} className="text-white" />
-            طباعة التقرير الشامل
-          </button>
+            <AppIcon token="☰" size={13} />
+            {t("salaries.printModal.printAll")}
+          </Button>
         </div>
-        <div className="fa">
-          <button className="bc" onClick={onClose}>إغلاق</button>
-        </div>
-      </div>
-    </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="secondary" onClick={onClose}>{t("salaries.printModal.close")}</Button>
+      </ModalFooter>
+    </Modal>
   );
 }

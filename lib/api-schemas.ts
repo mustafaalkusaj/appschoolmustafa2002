@@ -2,6 +2,11 @@ import { z } from "zod";
 
 const uuidMessage = "المعرّف المرسل غير صالح.";
 const moneyMessage = "أدخل قيمة رقمية صحيحة أكبر من أو تساوي صفراً.";
+const canonicalEntityIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function entityIdSchema() {
+  return z.string().trim().regex(canonicalEntityIdPattern, uuidMessage);
+}
 
 function optionalTrimmedString(maxLength: number) {
   return z
@@ -105,30 +110,30 @@ export const loginRequestSchema = z.object({
 });
 
 export const createPaymentSchema = z.object({
-  school_id: z.string().trim().uuid(uuidMessage),
-  student_id: z.string().trim().uuid(uuidMessage),
+  school_id: entityIdSchema(),
+  student_id: entityIdSchema(),
   amount: positiveMoney("المبلغ"),
   payment_method: z.enum(["cash", "bank_transfer", "check"]).default("cash"),
   notes: optionalTrimmedString(1000),
   receipt_date: optionalIsoDateTime("تاريخ السند"),
   receipt_number: optionalTrimmedString(80),
   manual_receipt_number: optionalTrimmedString(80),
-  branch_id: z.string().trim().uuid(uuidMessage).optional().nullable(),
+  branch_id: entityIdSchema().optional().nullable(),
 });
 
 export const deletePaymentSchema = z.object({
-  school_id: z.string().trim().uuid(uuidMessage),
+  school_id: entityIdSchema(),
 });
 
 export const schoolScopedDeleteSchema = z.object({
-  school_id: z.string().trim().uuid(uuidMessage),
+  school_id: entityIdSchema(),
 });
 
 export const salaryPaymentSchema = z
   .object({
-    school_id: z.string().trim().uuid(uuidMessage),
-    teacher_id: z.string().trim().uuid(uuidMessage),
-    branch_id: z.string().trim().uuid(uuidMessage).optional().nullable(),
+    school_id: entityIdSchema(),
+    teacher_id: entityIdSchema(),
+    branch_id: entityIdSchema().optional().nullable(),
     month: z
       .string()
       .trim()
@@ -148,16 +153,16 @@ export const salaryPaymentSchema = z
   });
 
 export const dashboardOverviewQuerySchema = z.object({
-  schoolId: z.string().trim().uuid(uuidMessage),
+  schoolId: entityIdSchema(),
 });
 
 export const expensesListQuerySchema = z
   .object({
-    schoolId: z.string().trim().uuid(uuidMessage),
+    schoolId: entityIdSchema(),
     page: z.coerce.number().int().min(1).max(100_000).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
     search: z.string().trim().max(120).optional().default(""),
-    expenseTypeId: z.string().trim().uuid(uuidMessage).optional().nullable(),
+    expenseTypeId: entityIdSchema().optional().nullable(),
     fromDate: optionalDateOnly("من تاريخ"),
     toDate: optionalDateOnly("إلى تاريخ"),
   })
@@ -172,8 +177,8 @@ export const expensesListQuerySchema = z
   });
 
 export const expenseMutationSchema = z.object({
-  school_id: z.string().trim().uuid(uuidMessage),
-  expense_type_id: z.string().trim().uuid(uuidMessage),
+  school_id: entityIdSchema(),
+  expense_type_id: entityIdSchema(),
   amount: positiveMoney("المبلغ"),
   expense_date: z
     .string()
@@ -185,12 +190,12 @@ export const expenseMutationSchema = z.object({
 });
 
 export const expenseTypesListQuerySchema = z.object({
-  schoolId: z.string().trim().uuid(uuidMessage),
+  schoolId: entityIdSchema(),
   search: z.string().trim().max(120).optional().default(""),
 });
 
 export const expenseTypeMutationSchema = z.object({
-  school_id: z.string().trim().uuid(uuidMessage),
+  school_id: entityIdSchema(),
   name: z.string().trim().min(1, "اسم النوع مطلوب.").max(120, "اسم النوع طويل جداً."),
   notes: optionalTrimmedString(1000),
 });

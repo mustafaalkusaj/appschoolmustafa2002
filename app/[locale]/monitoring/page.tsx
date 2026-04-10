@@ -33,17 +33,17 @@ const EMPTY_META: MonitoringMetaResponse = {
 };
 
 function inputClass() {
-  return "min-h-11 rounded-[16px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
+  return "min-h-11 rounded-[16px] border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/10";
 }
 
 function areaClass() {
-  return "min-h-[110px] rounded-[18px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
+  return "min-h-[110px] rounded-[18px] border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/10";
 }
 
 function badgeTone(status: TeacherActivityStatus) {
-  if (status === "edited_by_admin") return "bg-amber-100 text-amber-700";
-  if (status === "deleted_by_admin") return "bg-rose-100 text-rose-700";
-  return "bg-emerald-100 text-emerald-700";
+  if (status === "edited_by_admin") return "bg-[var(--warning)]/10 text-[var(--warning)]";
+  if (status === "deleted_by_admin") return "bg-[var(--danger)]/10 text-[var(--danger)]";
+  return "bg-[var(--success)]/10 text-[var(--success)]";
 }
 
 function statusLabel(status: TeacherActivityStatus) {
@@ -103,14 +103,14 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[320] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
-      <div className="max-h-[88vh] w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-[0_32px_90px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+      <div className="max-h-[88vh] w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-[0_32px_90px_rgba(15,23,42,0.28)] dark:bg-slate-950 dark:shadow-[0_32px_90px_rgba(0,0,0,0.6)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 dark:border-slate-800">
           <div>
-            <div className="text-xs font-black tracking-[0.24em] text-slate-400">
+            <div className="text-xs font-black tracking-[0.24em] text-slate-400 dark:text-slate-500">
               {isMessage ? "Teacher Messages" : "Teacher Homework"}
             </div>
-            <h2 className="mt-2 text-2xl font-black text-slate-900">{item.title}</h2>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+            <h2 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{item.title}</h2>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span>{item.teacherName || "—"}</span>
               <span>•</span>
               <span>{item.schoolName || "—"}</span>
@@ -121,7 +121,7 @@ function DetailModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600"
+            className="rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-400"
           >
             إغلاق
           </button>
@@ -130,21 +130,21 @@ function DetailModal({
         <div className="grid max-h-[calc(88vh-92px)] grid-cols-1 gap-0 overflow-y-auto lg:grid-cols-[minmax(0,1.2fr)_360px]">
           <div className="space-y-5 px-6 py-5">
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3">
-                <div className="text-xs font-bold text-slate-400">الحالة</div>
+              <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-xs font-bold text-slate-400 dark:text-slate-500">الحالة</div>
                 <div className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${badgeTone(item.status)}`}>
                   {statusLabel(item.status)}
                 </div>
               </div>
-              <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3">
-                <div className="text-xs font-bold text-slate-400">آخر تحديث</div>
-                <div className="mt-2 text-sm font-semibold text-slate-700">{formatDateTime(item.updatedAt || item.createdAt)}</div>
+              <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-xs font-bold text-slate-400 dark:text-slate-500">آخر تحديث</div>
+                <div className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-300">{formatDateTime(item.updatedAt || item.createdAt)}</div>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500">العنوان</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">العنوان</span>
                 <input
                   className={inputClass()}
                   value={editValues.title ?? item.title}
@@ -153,7 +153,7 @@ function DetailModal({
                 />
               </label>
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500">{isMessage ? "الرابط" : "المادة"}</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isMessage ? "الرابط" : "المادة"}</span>
                 <input
                   className={inputClass()}
                   value={editValues[isMessage ? "link" : "subject"] ?? (isMessage ? (messageItem?.link || "") : (homeworkItem?.subject || ""))}
@@ -164,7 +164,7 @@ function DetailModal({
             </div>
 
             <label className="flex flex-col gap-2">
-              <span className="text-xs font-bold text-slate-500">{isMessage ? "المحتوى" : "الوصف"}</span>
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isMessage ? "المحتوى" : "الوصف"}</span>
               <textarea
                 className={areaClass()}
                 value={editValues[isMessage ? "message" : "description"] ?? (isMessage ? (messageItem?.message || "") : (homeworkItem?.description || ""))}
@@ -175,7 +175,7 @@ function DetailModal({
 
             <div className="grid gap-4 md:grid-cols-3">
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500">تاريخ الاستحقاق/التسليم</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">تاريخ الاستحقاق/التسليم</span>
                 <input
                   type="datetime-local"
                   className={inputClass()}
@@ -186,7 +186,7 @@ function DetailModal({
               </label>
               {!isMessage ? (
                 <label className="flex flex-col gap-2">
-                  <span className="text-xs font-bold text-slate-500">نوع المحتوى</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">نوع المحتوى</span>
                   <select
                     className={inputClass()}
                     value={editValues.content_kind ?? (homeworkItem?.contentKind || "homework")}
@@ -199,7 +199,7 @@ function DetailModal({
                 </label>
               ) : (
                 <label className="flex flex-col gap-2">
-                  <span className="text-xs font-bold text-slate-500">ملاحظة</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">ملاحظة</span>
                   <input
                     className={inputClass()}
                     value={editValues.note ?? (messageItem?.note || "")}
@@ -209,7 +209,7 @@ function DetailModal({
                 </label>
               )}
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500">سبب الإجراء</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">سبب الإجراء</span>
                 <input
                   className={inputClass()}
                   value={editValues.reason ?? ""}
@@ -219,22 +219,22 @@ function DetailModal({
               </label>
             </div>
 
-            <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4">
-              <div className="mb-3 text-sm font-black text-slate-800">الاستهداف</div>
+            <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="mb-3 text-sm font-black text-slate-800 dark:text-slate-200">الاستهداف</div>
               {isMessage ? (
                 <div className="flex flex-wrap gap-2">
                   {(item as TeacherMessageDetail).targets.length > 0 ? (
                     (item as TeacherMessageDetail).targets.map((target, index) => (
-                      <span key={`${target.student_id || target.user_id || index}`} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+                      <span key={`${target.student_id || target.user_id || index}`} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-300">
                         {target.student_name || "طالب"} {target.class_name ? `• ${target.class_name}` : ""} {target.section ? `• ${target.section}` : ""}
                       </span>
                     ))
                   ) : (
-                    <span className="text-sm text-slate-500">لا توجد بيانات استهداف مفصلة.</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">لا توجد بيانات استهداف مفصلة.</span>
                   )}
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2 text-sm text-slate-600">
+                <div className="flex flex-wrap gap-2 text-sm text-slate-600 dark:text-slate-400">
                   <span>{homeworkItem?.studentName || "لكل الصف"}</span>
                   <span>{homeworkItem?.className || "—"}</span>
                   <span>{homeworkItem?.section || "—"}</span>
@@ -243,9 +243,9 @@ function DetailModal({
             </div>
 
             {attachment ? (
-              <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4">
-                <div className="text-sm font-black text-slate-800">المرفق</div>
-                <div className="mt-2 text-sm text-slate-600">
+              <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-sm font-black text-slate-800 dark:text-slate-200">المرفق</div>
+                <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                   {attachment.name || attachment.path || "ملف مرفق"} {attachment.mimeType ? `• ${attachment.mimeType}` : ""}
                 </div>
               </div>
@@ -256,7 +256,7 @@ function DetailModal({
                 type="button"
                 onClick={editMode ? onSave : onEditToggle}
                 disabled={saving || !canModerate}
-                className="rounded-[16px] bg-sky-600 px-4 py-3 text-sm font-black text-white disabled:opacity-40"
+                className="rounded-[16px] bg-sky-600 px-4 py-3 text-sm font-black text-white disabled:opacity-40 dark:bg-sky-700"
               >
                 {saving ? "جارٍ الحفظ..." : !canModerate ? "للقراءة فقط" : editMode ? "حفظ التعديلات" : "تعديل"}
               </button>
@@ -264,28 +264,28 @@ function DetailModal({
                 type="button"
                 onClick={onDelete}
                 disabled={saving || !canModerate}
-                className="rounded-[16px] bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:opacity-40"
+                className="rounded-[16px] bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:opacity-40 dark:bg-rose-700"
               >
                 حذف
               </button>
             </div>
           </div>
 
-          <aside className="border-t border-slate-100 bg-slate-50 px-6 py-5 lg:border-r lg:border-t-0">
-            <div className="text-sm font-black text-slate-800">سجل التدقيق</div>
+          <aside className="border-t border-slate-100 bg-slate-50 px-6 py-5 dark:border-slate-800 dark:bg-slate-900/50 lg:border-r lg:border-t-0">
+            <div className="text-sm font-black text-slate-800 dark:text-slate-200">سجل التدقيق</div>
             <div className="mt-4 space-y-3">
               {item.auditTrail.length > 0 ? (
                 item.auditTrail.map((entry: TeacherActivityAuditEntry) => (
-                  <div key={entry.id} className="rounded-[18px] border border-white bg-white px-4 py-3 shadow-sm">
-                    <div className="text-sm font-black text-slate-800">{entry.summary}</div>
-                    <div className="mt-1 text-xs text-slate-500">
+                  <div key={entry.id} className="rounded-[18px] border border-white bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <div className="text-sm font-black text-slate-800 dark:text-slate-200">{entry.summary}</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {entry.actorName || entry.actorEmail || "إدارة"} • {formatDateTime(entry.createdAt)}
                     </div>
-                    {entry.reason ? <div className="mt-2 text-xs text-slate-600">السبب: {entry.reason}</div> : null}
+                    {entry.reason ? <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">السبب: {entry.reason}</div> : null}
                   </div>
                 ))
               ) : (
-                <div className="rounded-[18px] border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">
+                <div className="rounded-[18px] border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
                   لا يوجد سجل تدقيق بعد.
                 </div>
               )}
@@ -534,10 +534,10 @@ export default function MonitoringPage() {
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]} permissions={["view_teacher_activity"]}>
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe_0%,#f8fafc_35%,#f8fafc_100%)]">
-        <div className="mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 xl:grid-cols-[270px_minmax(0,1fr)]">
-          <AppSidebar currentPath="/monitoring" showFloatingToggle />
+      <div className="flex min-h-screen bg-[var(--surface-muted)]">
+        <AppSidebar currentPath="/monitoring" showFloatingToggle />
 
+        <div className="flex-1 min-w-0">
           <main className="min-w-0 px-4 py-4 sm:px-6 lg:px-8">
             <SchoolScopeBanner scope={schoolScope} />
 
@@ -545,28 +545,28 @@ export default function MonitoringPage() {
               <SchoolScopeEmptyState scope={schoolScope} title="مراقبة نشاط الأساتذة" />
             ) : (
               <div className="space-y-5">
-                <section className="rounded-[32px] border border-white/70 bg-white/80 p-6 shadow-[0_32px_80px_-36px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                <section className="rounded-[32px] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)] backdrop-blur-xl">
                   <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                     <div>
-                      <div className="text-xs font-black tracking-[0.28em] text-slate-400">Teacher Monitoring</div>
-                      <h1 className="mt-3 text-3xl font-black text-slate-900">صفحة مراقبة نشاط الأساتذة</h1>
-                      <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
+                      <div className="text-xs font-black tracking-[0.28em] text-[var(--text-muted)]">Teacher Monitoring</div>
+                      <h1 className="mt-3 text-3xl font-black text-[var(--text-primary)]">صفحة مراقبة نشاط الأساتذة</h1>
+                      <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--text-muted)]">
                         راقب رسائل الأساتذة وواجباتهم، عدّل المحتوى غير المناسب، واحفظ أثرًا تدقيقيًا لكل إجراء إداري.
                       </p>
                     </div>
 
                     <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-4">
                       {summaryCards.map((card) => (
-                        <div key={card.label} className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4">
-                          <div className="text-xs font-bold text-slate-400">{card.label}</div>
-                          <div className="mt-2 text-2xl font-black text-slate-900">{card.value}</div>
+                        <div key={card.label} className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-4">
+                          <div className="text-xs font-bold text-[var(--text-muted)]">{card.label}</div>
+                          <div className="mt-2 text-2xl font-black text-[var(--text-primary)]">{card.value}</div>
                         </div>
                       ))}
                     </div>
                   </div>
                 </section>
 
-                <section className="rounded-[32px] border border-white/70 bg-white/80 p-6 shadow-[0_32px_80px_-36px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                <section className="rounded-[32px] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)] backdrop-blur-xl">
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
@@ -574,7 +574,7 @@ export default function MonitoringPage() {
                         setTab("messages");
                         setPage(1);
                       }}
-                      className={`rounded-full px-4 py-2 text-sm font-black ${tab === "messages" ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                      className={`rounded-full px-4 py-2 text-sm font-black ${tab === "messages" ? "bg-[var(--primary)] text-white" : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"}`}
                     >
                       الرسائل والإشعارات
                     </button>
@@ -584,7 +584,7 @@ export default function MonitoringPage() {
                         setTab("homework");
                         setPage(1);
                       }}
-                      className={`rounded-full px-4 py-2 text-sm font-black ${tab === "homework" ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                      className={`rounded-full px-4 py-2 text-sm font-black ${tab === "homework" ? "bg-[var(--primary)] text-white" : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"}`}
                     >
                       الواجبات
                     </button>
@@ -629,11 +629,11 @@ export default function MonitoringPage() {
                     </select>
                   </div>
 
-                  <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-100">
+                  <div className="mt-6 overflow-hidden rounded-[24px] border border-[var(--border)]">
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-slate-100">
-                        <thead className="bg-slate-50">
-                          <tr className="text-right text-xs font-black text-slate-500">
+                      <table className="min-w-full divide-y divide-[var(--border)]">
+                        <thead className="bg-[var(--surface-muted)]">
+                          <tr className="text-right text-xs font-black text-[var(--text-muted)]">
                             <th className="px-4 py-3">العنوان</th>
                             <th className="px-4 py-3">الأستاذ</th>
                             <th className="px-4 py-3">الفرع</th>
@@ -643,21 +643,21 @@ export default function MonitoringPage() {
                             <th className="px-4 py-3" />
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody className="divide-y divide-[var(--border)] bg-[var(--card-bg)]">
                           {loading ? (
                             <tr>
-                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">جارٍ تحميل البيانات...</td>
+                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">جارٍ تحميل البيانات...</td>
                             </tr>
                           ) : currentItems.length === 0 ? (
                             <tr>
-                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">لا توجد بيانات مطابقة للفلاتر الحالية.</td>
+                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">لا توجد بيانات مطابقة للفلاتر الحالية.</td>
                             </tr>
                           ) : (
                             currentItems.map((item) => (
-                              <tr key={item.id} className="text-sm text-slate-700">
+                              <tr key={item.id} className="text-sm text-[var(--text-secondary)]">
                                 <td className="px-4 py-4">
-                                  <div className="font-black text-slate-900">{item.title}</div>
-                                  <div className="mt-1 line-clamp-2 max-w-[340px] text-xs text-slate-500">
+                                  <div className="font-black text-[var(--text-primary)]">{item.title}</div>
+                                  <div className="mt-1 line-clamp-2 max-w-[340px] text-xs text-[var(--text-muted)]">
                                     {"message" in item ? item.message : item.description || "—"}
                                   </div>
                                 </td>
@@ -676,7 +676,7 @@ export default function MonitoringPage() {
                                   <button
                                     type="button"
                                     onClick={() => void openDetail(item.id).catch((error) => toast.error(error instanceof Error ? error.message : "تعذر تحميل التفاصيل."))}
-                                    className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700"
+                                    className="rounded-full bg-[var(--surface-muted)] px-3 py-2 text-xs font-black text-[var(--text-secondary)]"
                                   >
                                     تفاصيل
                                   </button>
@@ -690,24 +690,24 @@ export default function MonitoringPage() {
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-3">
-                    <div className="text-sm text-slate-500">إجمالي السجلات: {totalCount}</div>
+                    <div className="text-sm text-[var(--text-muted)]">إجمالي السجلات: {totalCount}</div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         disabled={page <= 1}
                         onClick={() => setPage((current) => Math.max(1, current - 1))}
-                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 disabled:opacity-40"
+                        className="rounded-full bg-[var(--surface-muted)] px-4 py-2 text-sm font-black text-[var(--text-secondary)] disabled:opacity-40"
                       >
                         السابق
                       </button>
-                      <span className="text-sm font-bold text-slate-600">
+                      <span className="text-sm font-bold text-[var(--text-secondary)]">
                         صفحة {page} من {pageCount}
                       </span>
                       <button
                         type="button"
                         disabled={page >= pageCount}
                         onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 disabled:opacity-40"
+                        className="rounded-full bg-[var(--surface-muted)] px-4 py-2 text-sm font-black text-[var(--text-secondary)] disabled:opacity-40"
                       >
                         التالي
                       </button>

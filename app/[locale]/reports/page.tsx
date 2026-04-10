@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { formatDate, formatNumber } from "@/lib/formatting";
-import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useRuntimeBranding } from "@/hooks/brand";
@@ -12,9 +13,11 @@ import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
+import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { cn } from "@/lib/brand/brand-utils";
+import { Download, Printer, TrendingUp, Users, CreditCard, Wallet, Briefcase, LayoutGrid, Loader2 } from "@/lib/icons";
 
 type StudentRow = {
   id: string;
@@ -96,35 +99,32 @@ const EMPTY_REPORTS_METRICS: ReportsMetrics = {
   netBalance: 0,
 };
 
-function paymentMethodLabel(method: string | null | undefined) {
-  return (
-    {
-      cash: "نقداً",
-      bank_transfer: "تحويل بنكي",
-      check: "شيك",
-    } as Record<string, string>
-  )[method || ""] || method || "—";
-}
-
-function studentStatusLabel(status: string | null | undefined) {
-  return (
-    {
-      active: "نشط",
-      transferred: "منقول",
-      suspended: "موقوف",
-      graduated: "متخرج",
-      withdrawn: "منسحب",
-      archived: "مؤرشف",
-      deleted: "محذوف",
-    } as Record<string, string>
-  )[status || ""] || status || "—";
-}
-
 export default function ReportsPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
+  const t = useTranslations("reports");
+  const commonT = useTranslations("common");
+  const dashboardT = useTranslations("dashboard");
   const isEnglish = locale === "en";
   const { profile } = useRole();
+
+  function paymentMethodLabel(method: string | null | undefined) {
+    if (!method) return "—";
+    try {
+      return commonT(`paymentMethods.${method}`);
+    } catch {
+      return method;
+    }
+  }
+
+  function studentStatusLabel(status: string | null | undefined) {
+    if (!status) return "—";
+    try {
+      return commonT(`studentStatus.${status}`);
+    } catch {
+      return status;
+    }
+  }
   const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
   const datasetCacheRef = useRef<{
@@ -157,11 +157,7 @@ export default function ReportsPage() {
       );
 
       if (!response.ok) {
-        throw new Error(
-          payload && typeof payload === "object" && "error" in payload
-            ? ((payload as { error?: { message?: string } }).error?.message || "تعذر تحميل التقارير.")
-            : "تعذر تحميل التقارير.",
-        );
+        throw new Error("Failed to load reports");
       }
 
       datasetCacheRef.current = {};
@@ -211,7 +207,7 @@ export default function ReportsPage() {
         }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=${type}`);
 
         if (!response.ok) {
-          throw new Error(payload?.error?.message || "تعذر تجهيز بيانات التقرير.");
+          throw new Error(payload?.error?.message || "Failed to prepare dataset");
         }
 
         const nextRows =
@@ -249,12 +245,7 @@ export default function ReportsPage() {
 
     const schoolId = await getScopedSchoolId();
     if (!schoolId) {
-      return {
-        students: [] as StudentRow[],
-        payments: [] as PaymentRow[],
-        expenses: [] as ExpenseRow[],
-        salaries: [] as SalaryRow[],
-      };
+      return { students: [], payments: [], expenses: [], salaries: [] };
     }
 
     setActionLoading("all");
@@ -267,9 +258,7 @@ export default function ReportsPage() {
         error?: { message?: string };
       }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=all`);
 
-      if (!response.ok) {
-        throw new Error(payload?.error?.message || "تعذر تجهيز التقرير الشامل.");
-      }
+      if (!response.ok) throw new Error("Failed to load comprehensive report");
 
       datasetCacheRef.current = {
         students: payload?.students ?? [],
@@ -418,10 +407,7 @@ export default function ReportsPage() {
   }
 
   function printDocument(title: string, subtitle: string, bodyHtml: string) {
-    const win = window.open("", "_blank");
-    if (!win) return;
-
-    win.document.write(
+    printHtmlDocument(
       wrapPrintDocument({
         title,
         subtitle,
@@ -434,14 +420,16 @@ export default function ReportsPage() {
           locale: isEnglish ? "en" : "ar",
         },
         extraStyles: `
+          @page { size: A4 landscape; margin: 1cm; }
+          table { font-size: 11px; }
           .totals{background:#f5f9ff;border-radius:18px;padding:1rem 1.1rem;display:flex;gap:1rem;flex-wrap:wrap}
           .total-item{font-size:.9rem}
           .total-label{color:#5f7388}
           .total-val{font-weight:900;color:var(--print-primary-deep)}
         `,
+        autoPrint: false,
       }),
     );
-    win.document.close();
   }
 
   async function printStudents() {
@@ -541,30 +529,30 @@ export default function ReportsPage() {
   const reportCards = [
     {
       id: "students",
-      title: "تقرير الطلاب",
-      icon: "👥",
-      color: "#6C4AB6",
-      background: "#EDE8FA",
-      description: "بيانات الطلاب والرسوم وحالة التسجيل الحالية.",
+      title: t("cards.students.title"),
+      icon: Users,
+      color: "text-[var(--info)]",
+      bg: "bg-[var(--info)]/10",
+      description: t("cards.students.description"),
       stats: [
-        { label: "إجمالي الطلاب", value: formatNumber(metrics.studentsCount) },
-        { label: "الطلاب النشطون", value: formatNumber(metrics.activeStudents) },
-        { label: "إجمالي الرسوم", value: `د.ع ${formatNumber(metrics.totalFees)}` },
-        { label: "المتبقي", value: `د.ع ${formatNumber(metrics.totalRemaining)}` },
+        { label: dashboardT("stats.totalStudents"), value: formatNumber(metrics.studentsCount) },
+        { label: commonT("studentStatus.active"), value: formatNumber(metrics.activeStudents) },
+        { label: dashboardT("stats.totalFees"), value: `${commonT("currency")} ${formatNumber(metrics.totalFees)}` },
+        { label: dashboardT("stats.remainingBalance"), value: `${commonT("currency")} ${formatNumber(metrics.totalRemaining)}` },
       ],
       onExcel: exportStudentsExcel,
       onPrint: printStudents,
     },
     {
       id: "payments",
-      title: "تقرير الحسابات",
-      icon: "💳",
-      color: "#059669",
-      background: "#D1FAE5",
-      description: "سجل الدفعات والتحصيلات المرتبطة بالطلاب.",
+      title: t("cards.payments.title"),
+      icon: CreditCard,
+      color: "text-[var(--success)]",
+      bg: "bg-[var(--success)]/10",
+      description: t("cards.payments.description"),
       stats: [
-        { label: "عدد الدفعات", value: formatNumber(metrics.paymentsCount) },
-        { label: "إجمالي الحسابات", value: `د.ع ${formatNumber(metrics.paymentVolume)}` },
+        { label: dashboardT("finance.paid"), value: formatNumber(metrics.paymentsCount) },
+        { label: dashboardT("finance.collectedAmounts"), value: `${commonT("currency")} ${formatNumber(metrics.paymentVolume)}` },
         { label: "دفعات اليوم", value: formatNumber(metrics.todayPayments) },
       ],
       onExcel: exportPaymentsExcel,
@@ -572,14 +560,14 @@ export default function ReportsPage() {
     },
     {
       id: "expenses",
-      title: "تقرير المصروفات",
-      icon: "💸",
-      color: "#DC2626",
-      background: "#FEE2E2",
-      description: "المصروفات التشغيلية حسب النوع والتاريخ.",
+      title: t("cards.expenses.title"),
+      icon: Wallet,
+      color: "text-[var(--danger)]",
+      bg: "bg-[var(--danger)]/10",
+      description: t("cards.expenses.description"),
       stats: [
         { label: "عدد السجلات", value: formatNumber(metrics.expensesCount) },
-        { label: "إجمالي المصروفات", value: `د.ع ${formatNumber(metrics.expenseVolume)}` },
+        { label: "إجمالي المبلغ", value: `${commonT("currency")} ${formatNumber(metrics.expenseVolume)}` },
         { label: "أنواع المصروفات", value: formatNumber(metrics.expenseTypeCount) },
       ],
       onExcel: exportExpensesExcel,
@@ -587,184 +575,181 @@ export default function ReportsPage() {
     },
     {
       id: "salaries",
-      title: "تقرير الرواتب",
-      icon: "💼",
-      color: "#1D4ED8",
-      background: "#DBEAFE",
-      description: "رواتب الأساتذة الشهرية مع صافي الاستحقاق بعد الخصومات.",
+      title: t("cards.salaries.title"),
+      icon: Briefcase,
+      color: "text-[var(--primary)]",
+      bg: "bg-[var(--primary)]/10",
+      description: t("cards.salaries.description"),
       stats: [
-        { label: "عدد السجلات", value: formatNumber(metrics.salariesCount) },
-        { label: "إجمالي الصافي", value: `د.ع ${formatNumber(metrics.salaryVolume)}` },
+        { label: "سجلات الرواتب", value: formatNumber(metrics.salariesCount) },
+        { label: "إجمالي الصافي", value: `${commonT("currency")} ${formatNumber(metrics.salaryVolume)}` },
         { label: "مدفوعات الشهر", value: formatNumber(metrics.currentMonthSalaryCount) },
       ],
       onExcel: exportSalariesExcel,
       onPrint: printSalaries,
     },
-    {
-      id: "summary",
-      title: "الملخص المالي",
-      icon: "📊",
-      color: "#D97706",
-      background: "#FEF3C7",
-      description: "ملخص الإيرادات والمصروفات وصافي الحركة المالية.",
-      stats: [
-        { label: "المدفوع", value: `د.ع ${formatNumber(metrics.totalPaid)}` },
-        { label: "الحسابات المسجلة", value: `د.ع ${formatNumber(metrics.paymentVolume)}` },
-        { label: "صافي الرواتب", value: `د.ع ${formatNumber(metrics.salaryVolume)}` },
-        { label: "الصافي", value: `د.ع ${formatNumber(metrics.netBalance)}` },
-      ],
-      onExcel: exportAllExcel,
-      onPrint: printSummary,
-    },
   ];
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
-      <>
-        <style>{`
-          .summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem}
-          .strip-card{background:white;border-radius:11px;padding:.8rem .9rem;box-shadow:0 2px 8px rgba(108,74,182,0.07);text-align:center}
-          .strip-label{font-size:.68rem;color:var(--gray);font-weight:600}
-          .strip-val{font-size:.9rem;font-weight:900;color:var(--dark);margin-top:.15rem}
-          .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;gap:.8rem;flex-wrap:wrap}
-          .section-ttl{font-size:.95rem;font-weight:900;color:var(--dark)}
-          .btn-main{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;border:none;border-radius:9px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer}
-          .reports-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
-          .report-card{background:white;border-radius:16px;padding:1.2rem;box-shadow:0 3px 12px rgba(108,74,182,0.08);border:1px solid rgba(108,74,182,0.06)}
-          .rc-header{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem}
-          .rc-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-          .rc-title{font-size:.9rem;font-weight:800}
-          .rc-desc{font-size:.72rem;color:var(--gray);margin-top:.15rem;line-height:1.5}
-          .rc-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.45rem;margin-bottom:.9rem}
-          .rc-stat{background:#F8F6FF;border-radius:8px;padding:.45rem .6rem}
-          .rc-stat-label{font-size:.64rem;color:var(--gray);font-weight:600}
-          .rc-stat-val{font-size:.78rem;font-weight:800;color:var(--dark);margin-top:.1rem}
-          .rc-actions{display:flex;gap:.5rem}
-          .btn-excel,.btn-print{display:flex;align-items:center;gap:.3rem;padding:.45rem .8rem;border-radius:8px;font-family:var(--font-manrope),Segoe UI,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;flex:1;justify-content:center;border:1.5px solid transparent}
-          .btn-excel{background:#D1FAE5;color:#065F46;border-color:#6EE7B7}
-          .btn-print{background:#FEE2E2;color:#991B1B;border-color:#FCA5A5}
-          .balance-card{border-radius:16px;padding:1.3rem 1.5rem;background:linear-gradient(135deg,var(--p3),var(--p2));color:white;box-shadow:0 6px 20px rgba(108,74,182,0.3);margin-bottom:1rem}
-          .balance-title{font-size:.88rem;font-weight:700;opacity:.88;margin-bottom:.8rem}
-          .balance-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem}
-          .balance-item{text-align:center}
-          .balance-label{font-size:.72rem;opacity:.8;margin-bottom:.2rem}
-          .balance-val{font-size:.95rem;font-weight:900}
-          .spin{width:22px;height:22px;border:3px solid rgba(108,74,182,0.2);border-top-color:var(--p3);border-radius:50%;animation:sp .7s linear infinite;margin:3rem auto}
-          @keyframes sp{to{transform:rotate(360deg)}}
-          @media (max-width: 960px){
-            .summary-strip,.balance-grid,.reports-grid{grid-template-columns:1fr 1fr}
-          }
-          @media (max-width: 640px){
-            .summary-strip,.balance-grid,.reports-grid,.rc-stats{grid-template-columns:1fr}
-          }
-        `}</style>
+      <div className="flex min-h-screen bg-[var(--surface-muted)]">
+        <AppSidebar currentPath="/reports" />
 
-        <div className="layout">
-          <AppSidebar currentPath="/reports" showFloatingToggle />
+        <div className="flex-1 flex flex-col min-w-0">
+          <AppShellTopbar 
+            title={t("title")} 
+            subtitle="تحليل البيانات المالية والإحصائية الشاملة للمدرسة" 
+            scope={schoolScope} 
+            fixed 
+          />
 
-          <div className="main">
-            <div className="content app-shell-content">
+          <main className="flex-1 pt-16 overflow-y-auto custom-scrollbar">
+            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />
+
               {schoolScope.shouldBlockContent ? (
-                <SchoolScopeEmptyState
-                  scope={schoolScope}
-                  title="التقارير"
-                  description="اختر مدرسة أولاً لعرض تقارير الطلاب والدفعات والمصروفات الخاصة بها."
-                />
+                <div className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
+                  <SchoolScopeEmptyState
+                    scope={schoolScope}
+                    title={t("title")}
+                    description={t("emptyState.description")}
+                  />
+                </div>
               ) : loading ? (
-                <div className="spin" />
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="h-12 w-12 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
+                  <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">جارٍ تحليل البيانات...</span>
+                </div>
               ) : (
-                <>
-                  <div className="summary-strip">
+                <div className="space-y-8">
+                  {/* Financial Balance Card */}
+                  <section className="rounded-[40px] border border-[var(--border)] bg-[var(--primary)] p-8 shadow-[0_32px_80px_-24px_rgba(var(--primary-rgb),0.4)] relative overflow-hidden text-white">
+                    <div className="absolute top-0 end-0 p-8 opacity-10">
+                      <TrendingUp size={160} />
+                    </div>
+                    
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="h-8 w-8 rounded-lg bg-white/30 flex items-center justify-center">
+                          <LayoutGrid size={18} />
+                        </div>
+                        <h2 className="text-lg font-black uppercase tracking-widest opacity-90">{t("summary.title")}</h2>
+                      </div>
+
+                      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                        {[
+                          { label: t("summary.totalFees"), value: metrics.totalFees },
+                          { label: t("summary.recordedPayments"), value: metrics.paymentVolume },
+                          { label: t("summary.expenses"), value: metrics.expenseVolume },
+                          { label: t("summary.netSalaries"), value: metrics.salaryVolume },
+                        ].map((item, idx) => (
+                          <div key={idx} className="space-y-1">
+                            <div className="text-[10px] font-black uppercase tracking-widest opacity-70">{item.label}</div>
+                            <div className="text-2xl font-black">{commonT("currency")} {formatNumber(item.value)}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-10 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                          <div className="text-sm font-bold opacity-80">{t("summary.netBalance")}</div>
+                          <div className="text-3xl font-black bg-white/30 px-4 py-1 rounded-2xl">
+                            {commonT("currency")} {formatNumber(metrics.netBalance)}
+                          </div>
+                        </div>
+                        <div className="flex gap-3">
+                          <button 
+                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-white text-[var(--primary)] font-black shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                            onClick={exportAllExcel}
+                            disabled={actionLoading !== null}
+                          >
+                            {actionLoading === "all" ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                            {t("exportAll")}
+                          </button>
+                          <button 
+                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-black/30 text-white border border-white/20 font-black transition-all hover:bg-black/40"
+                            onClick={printSummary}
+                          >
+                            <Printer size={18} />
+                            {t("printSummary")}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Metrics Strip */}
+                  <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
                     {[
-                      ["👥", "الطلاب", metrics.studentsCount],
-                      ["💳", "الدفعات", metrics.paymentsCount],
-                      ["💸", "المصروفات", metrics.expensesCount],
-                      ["💼", "الرواتب", metrics.salariesCount],
-                    ].map(([icon, label, value]) => (
-                      <div className="strip-card" key={label}>
-                        <div><AppIcon token={String(icon)} size={18} /></div>
-                        <div className="strip-label">{label}</div>
-                        <div className="strip-val">{formatNumber(Number(value))}</div>
+                      { label: dashboardT("nav.students"), value: metrics.studentsCount, icon: Users, color: "text-[var(--info)]", bg: "bg-[var(--info)]/10" },
+                      { label: dashboardT("nav.payments"), value: metrics.paymentsCount, icon: CreditCard, color: "text-[var(--success)]", bg: "bg-[var(--success)]/10" },
+                      { label: "المصروفات", value: metrics.expensesCount, icon: Wallet, color: "text-[var(--danger)]", bg: "bg-[var(--danger)]/10" },
+                      { label: "الرواتب", value: metrics.salariesCount, icon: Briefcase, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
+                    ].map((card, i) => (
+                      <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] flex items-center gap-4">
+                        <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center", card.bg, card.color)}>
+                          <card.icon size={22} />
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{card.label}</div>
+                          <div className="text-base font-black text-[var(--text-primary)] mt-0.5">{formatNumber(card.value)} سجل</div>
+                        </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="balance-card">
-                    <div className="balance-title">الملخص المالي الكلي</div>
-                    <div className="balance-grid">
-                      <div className="balance-item">
-                        <div className="balance-label">إجمالي الرسوم</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.totalFees)}</div>
-                      </div>
-                      <div className="balance-item">
-                        <div className="balance-label">الحسابات المسجلة</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.paymentVolume)}</div>
-                      </div>
-                      <div className="balance-item">
-                        <div className="balance-label">المصروفات</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.expenseVolume)}</div>
-                      </div>
-                      <div className="balance-item">
-                        <div className="balance-label">صافي الرواتب</div>
-                        <div className="balance-val">د.ع {formatNumber(metrics.salaryVolume)}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="section-hdr">
-                    <div className="section-ttl">التقارير التفصيلية</div>
-                    <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
-                      <button className="btn-main" onClick={exportAllExcel} disabled={actionLoading !== null}>
-                        <AppIcon token="📥" size={14} />
-                        {actionLoading === "all" ? "جارٍ التحضير..." : "تصدير الكل إكسل"}
-                      </button>
-                      <button className="btn-main" style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }} onClick={printSummary} disabled={actionLoading !== null}>
-                        <AppIcon token="🖨️" size={14} />
-                        طباعة الملخص
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="reports-grid">
+                  {/* Detailed Reports Grid */}
+                  <div className="grid gap-8 md:grid-cols-2">
                     {reportCards.map((card) => (
-                      <div className="report-card" key={card.id}>
-                        <div className="rc-header">
-                          <div className="rc-ico" style={{ background: card.background }}>
-                            <AppIcon token={card.icon} size={21} />
-                          </div>
-                          <div>
-                            <div className="rc-title" style={{ color: card.color }}>{card.title}</div>
-                            <div className="rc-desc">{card.description}</div>
+                      <section key={card.id} className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)] group">
+                        <div className="flex items-start justify-between mb-6">
+                          <div className="flex items-center gap-4">
+                            <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", card.bg, card.color)}>
+                              <card.icon size={28} />
+                            </div>
+                            <div>
+                              <h3 className={cn("text-lg font-black", card.color)}>{card.title}</h3>
+                              <p className="text-xs text-[var(--text-muted)] font-bold">{card.description}</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="rc-stats">
-                          {card.stats.map((stat) => (
-                            <div className="rc-stat" key={stat.label}>
-                              <div className="rc-stat-label">{stat.label}</div>
-                              <div className="rc-stat-val">{stat.value}</div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 mb-6">
+                          {card.stats.map((stat, idx) => (
+                            <div key={idx} className="p-3 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)]">
+                              <div className="text-[10px] font-black uppercase text-[var(--text-muted)]">{stat.label}</div>
+                              <div className="text-sm font-black text-[var(--text-primary)] mt-0.5">{stat.value}</div>
                             </div>
                           ))}
                         </div>
-                        <div className="rc-actions">
-                          <button className="btn-excel" onClick={card.onExcel} disabled={actionLoading !== null}>
-                            <AppIcon token="📊" size={13} />
-                            {actionLoading === card.id ? "جارٍ التحضير..." : "إكسل"}
+
+                        <div className="flex gap-3 pt-4 border-t border-[var(--border)]">
+                          <button 
+                            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[var(--success)]/10 text-[var(--success)] text-xs font-black transition-all hover:bg-[var(--success)]/20"
+                            onClick={card.onExcel}
+                            disabled={actionLoading !== null}
+                          >
+                            {actionLoading === card.id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            {t("excel")}
                           </button>
-                          <button className="btn-print" onClick={card.onPrint} disabled={actionLoading !== null}>
-                            <AppIcon token="🖨️" size={13} />
-                            طباعة
+                          <button 
+                            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[var(--surface-muted)] text-[var(--text-secondary)] text-xs font-black transition-all hover:bg-[var(--border)]"
+                            onClick={card.onPrint}
+                            disabled={actionLoading !== null}
+                          >
+                            <Printer size={16} />
+                            {t("print")}
                           </button>
                         </div>
-                      </div>
+                      </section>
                     ))}
                   </div>
-                </>
-              )}
+                </div>
+              ) }
             </div>
-          </div>
+          </main>
         </div>
-      </>
+      </div>
     </ProtectedRoute>
   );
 }

@@ -14,40 +14,50 @@ export function useNotifications({ profile, scopeLoading }: UseNotificationsProp
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDashboardNotifications = useCallback(async () => {
     if (!profile || (profile.role !== "super_admin" && profile.role !== "admin")) {
       setNotifications([]);
+      setError(null);
       return;
     }
 
     setNotificationsLoading(true);
-    const { data: authData } = await supabase.auth.getUser();
-    const userId = authData.user?.id;
-    if (!userId) {
+    setError(null);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) {
+        setNotifications([]);
+        setError("notifications_user_missing");
+        return;
+      }
+
+      const { data, error: fetchError } = await supabase
+        .from("notifications")
+        .select("id, title, message, type, is_read, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      if (fetchError) {
+        const relationMissing = fetchError.message.includes('relation "notifications" does not exist');
+        setNotificationsEnabled(!relationMissing);
+        setNotifications([]);
+        setError(relationMissing ? null : fetchError.message);
+        return;
+      }
+
+      setNotificationsEnabled(true);
+      setNotifications((data || []) as DashboardNotification[]);
+      setError(null);
+    } catch (caughtError) {
       setNotifications([]);
+      setError(caughtError instanceof Error ? caughtError.message : "dashboard_notifications_failed");
+    } finally {
       setNotificationsLoading(false);
-      return;
     }
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id, title, message, type, is_read, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(8);
-
-    if (error) {
-      const relationMissing = error.message.includes('relation "notifications" does not exist');
-      setNotificationsEnabled(!relationMissing);
-      setNotifications([]);
-      setNotificationsLoading(false);
-      return;
-    }
-
-    setNotificationsEnabled(true);
-    setNotifications((data || []) as DashboardNotification[]);
-    setNotificationsLoading(false);
   }, [profile]);
 
   const markNotificationAsRead = useCallback(async (id: string) => {
@@ -69,6 +79,7 @@ export function useNotifications({ profile, scopeLoading }: UseNotificationsProp
     notifications,
     notificationsEnabled,
     notificationsLoading,
+    error,
     unreadNotifications,
     fetchDashboardNotifications,
     markNotificationAsRead,

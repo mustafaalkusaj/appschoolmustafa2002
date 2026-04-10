@@ -86,14 +86,21 @@ export function ClassesModal({
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
-      <div className="modal-box" style={{ width: "600px" }}>
-        <div className="modal-title">
-          <AppIcon token="🏫" size={18} />
-          إدارة الصفوف والشعب الدراسية
-        </div>
+      <div className="modal-box w-[min(96vw,980px)]">
+        <div className="p-6 sm:p-7 space-y-6">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
+            <div className="space-y-1">
+              <div className="modal-title">
+                <AppIcon token="🏫" size={18} />
+                إدارة الصفوف والشعب الدراسية
+              </div>
+              <p className="text-sm text-[var(--text-muted)]">
+                أضف الصفوف والشعب من مكان واحد، مع الحفاظ على تنسيق متناسق وسهل القراءة.
+              </p>
+            </div>
+          </div>
 
-        <div style={{ marginBottom: "1rem" }}>
-          <div style={{ display: "flex", gap: ".5rem", marginBottom: ".8rem" }}>
+          <div className="flex flex-wrap gap-3">
             <button
               className="fee-btn"
               onClick={() => {
@@ -102,7 +109,7 @@ export function ClassesModal({
                 setShowClassForm(true);
                 setShowSectionForm(false);
               }}
-              style={{ fontSize: ".75rem", padding: ".4rem .8rem" }}
+              style={{ fontSize: ".8rem", padding: ".55rem 1rem" }}
             >
               + إضافة صف جديد
             </button>
@@ -114,23 +121,22 @@ export function ClassesModal({
                 setShowSectionForm(true);
                 setShowClassForm(false);
               }}
-              style={{ fontSize: ".75rem", padding: ".4rem .8rem" }}
+              style={{ fontSize: ".8rem", padding: ".55rem 1rem" }}
             >
               + إضافة شعبة جديدة
             </button>
             <button
               className="fee-btn-outline"
               onClick={() => setShowSectionsTable(v => !v)}
-              style={{ fontSize: ".75rem" }}
+              style={{ fontSize: ".8rem", padding: ".55rem 1rem" }}
             >
               {showSectionsTable ? "إخفاء الشعب" : "عرض الشعب"}
             </button>
           </div>
 
-          {/* Class form */}
           {(showClassForm || editingClass) && (
-            <div style={{ background: "#F8F6FF", borderRadius: "12px", padding: "1rem", marginBottom: "1rem" }}>
-              <div style={{ fontSize: ".85rem", fontWeight: 700, color: "var(--p2)", marginBottom: ".6rem" }}>
+            <section className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] space-y-4">
+              <div className="text-sm font-extrabold text-[var(--primary)]">
                 {editingClass ? "تعديل الصف" : "إضافة صف جديد"}
               </div>
               <div className="form-grid">
@@ -145,7 +151,7 @@ export function ClassesModal({
                 </div>
                 <div className="form-group full">
                   <label className="form-label">
-                    الشعب <span style={{ fontWeight: 400, color: "var(--gray)", fontSize: ".7rem" }}>
+                    الشعب <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: ".7rem" }}>
                       (كل شعبة في سطر — مثال: أ، ب، ج)
                     </span>
                   </label>
@@ -159,19 +165,18 @@ export function ClassesModal({
                   />
                 </div>
               </div>
-              <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end", marginTop: ".8rem" }}>
+              <div className="modal-actions">
                 <button className="btn-cancel" onClick={resetClassForm}>إلغاء</button>
                 <button className="btn-save" onClick={() => void handleSaveClass()}>
                   {editingClass ? "حفظ التعديلات" : "إضافة صف"}
                 </button>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Section form */}
           {(showSectionForm || editingSection) && (
-            <div style={{ background: "#F0FDF4", borderRadius: "12px", padding: "1rem", marginBottom: "1rem", border: "1px solid #BBF7D0" }}>
-              <div style={{ fontSize: ".85rem", fontWeight: 700, color: "#166534", marginBottom: ".6rem" }}>
+            <section className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] space-y-4">
+              <div className="text-sm font-extrabold text-[var(--success)]">
                 {editingSection ? "تعديل الشعبة" : "إضافة شعبة جديدة"}
               </div>
               <div className="form-grid">
@@ -198,39 +203,38 @@ export function ClassesModal({
                   />
                 </div>
               </div>
-              <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end", marginTop: ".8rem" }}>
+              <div className="modal-actions">
                 <button className="btn-cancel" onClick={resetSectionForm}>إلغاء</button>
                 <button className="btn-save" onClick={() => void handleSaveSection()}>
                   {editingSection ? "حفظ التعديلات" : "إضافة شعبة"}
                 </button>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Classes table */}
-          <div style={{ background: "white", borderRadius: "12px", padding: "1rem", border: "1px solid rgba(108,74,182,0.1)" }}>
-            <div style={{ fontSize: ".85rem", fontWeight: 700, color: "var(--p2)", marginBottom: ".6rem" }}>الصفوف الدراسية</div>
+          <section className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] space-y-4">
+            <div className="text-sm font-extrabold text-[var(--primary)]">الصفوف الدراسية</div>
             {classes.length === 0 ? (
-              <div style={{ textAlign: "center", color: "var(--gray)", padding: "2rem", fontSize: ".8rem" }}>لا توجد صفوف مضافة</div>
+              <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem", fontSize: ".8rem" }}>لا توجد صفوف مضافة</div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".78rem" }}>
                 <thead>
-                  <tr style={{ background: "#EDE8FA", color: "var(--p2)" }}>
-                    <th style={{ padding: ".5rem", textAlign: "right", fontWeight: 800 }}>الصف</th>
-                    <th style={{ padding: ".5rem", textAlign: "right", fontWeight: 800 }}>عدد الشعب</th>
-                    <th style={{ padding: ".5rem", textAlign: "center", fontWeight: 800 }}>الإجراءات</th>
+                  <tr style={{ background: "var(--surface-soft)", color: "var(--text-muted)" }}>
+                    <th style={{ padding: ".65rem", textAlign: "right", fontWeight: 800 }}>الصف</th>
+                    <th style={{ padding: ".65rem", textAlign: "right", fontWeight: 800 }}>عدد الشعب</th>
+                    <th style={{ padding: ".65rem", textAlign: "center", fontWeight: 800 }}>الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {classes.map(cls => {
                     const clsSections = sections.filter(s => s.class_id === cls.id);
                     return (
-                      <tr key={cls.id} style={{ borderBottom: "1px solid rgba(108,74,182,0.05)" }}>
-                        <td style={{ padding: ".5rem", fontWeight: 600 }}>{cls.name}</td>
-                        <td style={{ padding: ".5rem" }}>{clsSections.length} شعبة</td>
-                        <td style={{ padding: ".5rem", textAlign: "center" }}>
+                      <tr key={cls.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={{ padding: ".65rem", fontWeight: 600 }}>{cls.name}</td>
+                        <td style={{ padding: ".65rem" }}>{clsSections.length} شعبة</td>
+                        <td style={{ padding: ".65rem", textAlign: "center" }}>
                           <button className="action-btn edit-btn" onClick={() => handleEditClass(cls)}>تعديل</button>
-                          <button className="action-btn del-btn" onClick={() => void onDeleteClass(cls.id)} style={{ marginLeft: ".3rem" }}>حذف</button>
+                          <button className="action-btn del-btn" onClick={() => void onDeleteClass(cls.id)} style={{ marginInlineStart: ".3rem" }}>حذف</button>
                         </td>
                       </tr>
                     );
@@ -238,21 +242,20 @@ export function ClassesModal({
                 </tbody>
               </table>
             )}
-          </div>
+          </section>
 
-          {/* Sections table */}
           {showSectionsTable && (
-            <div style={{ background: "white", borderRadius: "12px", padding: "1rem", marginTop: "1rem", border: "1px solid rgba(108,74,182,0.1)" }}>
-              <div style={{ fontSize: ".85rem", fontWeight: 700, color: "var(--p2)", marginBottom: ".6rem" }}>الشعب الدراسية</div>
+            <section className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] space-y-4">
+              <div className="text-sm font-extrabold text-[var(--success)]">الشعب الدراسية</div>
               {sections.length === 0 ? (
-                <div style={{ textAlign: "center", color: "var(--gray)", padding: "2rem", fontSize: ".8rem" }}>لا توجد شعب مضافة</div>
+                <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem", fontSize: ".8rem" }}>لا توجد شعب مضافة</div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".78rem" }}>
                   <thead>
-                    <tr style={{ background: "#EDE8FA", color: "var(--p2)" }}>
-                      <th style={{ padding: ".5rem", textAlign: "right", fontWeight: 800 }}>الشعبة</th>
-                      <th style={{ padding: ".5rem", textAlign: "right", fontWeight: 800 }}>الصف</th>
-                      <th style={{ padding: ".5rem", textAlign: "center", fontWeight: 800 }}>الإجراءات</th>
+                    <tr style={{ background: "var(--surface-soft)", color: "var(--text-muted)" }}>
+                      <th style={{ padding: ".65rem", textAlign: "right", fontWeight: 800 }}>الشعبة</th>
+                      <th style={{ padding: ".65rem", textAlign: "right", fontWeight: 800 }}>الصف</th>
+                      <th style={{ padding: ".65rem", textAlign: "center", fontWeight: 800 }}>الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -264,7 +267,7 @@ export function ClassesModal({
                           <td style={{ padding: ".5rem" }}>{cls?.name || "—"}</td>
                           <td style={{ padding: ".5rem", textAlign: "center" }}>
                             <button className="action-btn edit-btn" onClick={() => handleEditSection(sec)}>تعديل</button>
-                            <button className="action-btn del-btn" onClick={() => void onDeleteSection(sec.id)} style={{ marginLeft: ".3rem" }}>حذف</button>
+                            <button className="action-btn del-btn" onClick={() => void onDeleteSection(sec.id)} style={{ marginInlineStart: ".3rem" }}>حذف</button>
                           </td>
                         </tr>
                       );
@@ -272,7 +275,7 @@ export function ClassesModal({
                   </tbody>
                 </table>
               )}
-            </div>
+            </section>
           )}
         </div>
 

@@ -32,6 +32,9 @@ export default function () {
     http.get(`${BASE_URL}/ar/dashboard`, { headers: authHeaders, tags: { name: 'dashboard' } }),
     http.get(`${BASE_URL}/ar/students`, { headers: authHeaders, tags: { name: 'students' } }),
     http.get(`${BASE_URL}/ar/teachers`, { headers: authHeaders, tags: { name: 'teachers' } }),
+    http.get(`${BASE_URL}/ar/payments`, { headers: authHeaders, tags: { name: 'payments' } }),
+    http.get(`${BASE_URL}/ar/reports`, { headers: authHeaders, tags: { name: 'reports' } }),
+    http.get(`${BASE_URL}/api/web/reports/overview`, { headers: authHeaders, tags: { name: 'api-reports-overview' } }),
   ];
 
   responses.forEach((response) => {

@@ -28,7 +28,8 @@ export function usePaymentOperations(
   canAddPayments: boolean,
   canDeletePayments: boolean,
   onSuccess?: (message: string) => void,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
+  onPaymentCreated?: (payment: Payment, student: Student) => void
 ) {
   const [paymentsByStudent, setPaymentsByStudent] = useState<Record<string, Payment[]>>({});
   const [paymentsLoadingStudentId, setPaymentsLoadingStudentId] = useState<string | null>(null);
@@ -40,6 +41,8 @@ export function usePaymentOperations(
   const [studentSearchLoading, setStudentSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchCacheRef = useRef<Map<string, Student[]>>(new Map());
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   // Payment modal state
   const [showPayModal, setShowPayModal] = useState(false);
@@ -70,6 +73,18 @@ export function usePaymentOperations(
 
     let cancelled = false;
     const timeoutId = window.setTimeout(() => {
+      const query = studentSearch.trim().toLowerCase();
+      const cacheKey = `${resolvedSchoolId}::${query}`;
+      const cached = searchCacheRef.current.get(cacheKey);
+      if (cached) {
+        setStudentSearchResults(cached);
+        setStudentSearchLoading(false);
+        return;
+      }
+
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
       setStudentSearchLoading(true);
       void (async () => {
         try {
@@ -84,17 +99,21 @@ export function usePaymentOperations(
           }>(`/api/web/payments/student-search?${params.toString()}`);
 
           if (cancelled) return;
+          if (controller.signal.aborted) return;
           if (!response.ok) {
             throw new Error(payload?.error?.message || "تعذر تحميل نتائج البحث.");
           }
 
-          setStudentSearchResults(payload?.students ?? []);
+          const nextResults = payload?.students ?? [];
+          searchCacheRef.current.set(cacheKey, nextResults);
+          setStudentSearchResults(nextResults);
         } catch (searchError) {
           if (cancelled) return;
+          if (controller.signal.aborted) return;
           setStudentSearchResults([]);
           onError?.(searchError instanceof Error ? searchError.message : "تعذر تحميل نتائج البحث.");
         } finally {
-          if (!cancelled) {
+          if (!cancelled && !controller.signal.aborted) {
             setStudentSearchLoading(false);
           }
         }
@@ -104,6 +123,7 @@ export function usePaymentOperations(
     return () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
+      searchAbortRef.current?.abort();
     };
   }, [payStudent, resolvedSchoolId, showPayModal, studentSearch, onError]);
 
@@ -213,6 +233,7 @@ export function usePaymentOperations(
           if (typeof createdYear === "number" && Number.isFinite(createdYear)) {
             onAddYear(createdYear);
           }
+          onPaymentCreated?.(newPayment, student);
         }
 
         onSuccess?.(payload?.warning ? `تم تسجيل الدفعة مع ملاحظة: ${payload.warning}` : "تم تسجيل الدفعة بنجاح ✓");

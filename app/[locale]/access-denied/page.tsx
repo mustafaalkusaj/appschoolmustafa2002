@@ -11,41 +11,21 @@ export default function AccessDeniedPage() {
   const t = useTranslations();
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "var(--font-manrope), Segoe UI, sans-serif",
-        direction: "rtl",
-      }}
-    >
-      <div style={{ textAlign: "center", padding: "2rem" }}>
-        <div style={{ fontSize: "5rem", marginBottom: "1rem", display: "flex", justifyContent: "center", color: "#ef4444" }}>
+    <div className="min-h-screen bg-[var(--surface-muted)] flex items-center justify-center" style={{ direction: "rtl" }}>
+      <div className="text-center p-8">
+        <div className="text-[5rem] mb-4 flex justify-center text-[var(--danger)]">
           <AppIcon token="🚫" size={78} />
         </div>
-        <h1 style={{ color: "#ef4444", fontSize: "1.6rem", fontWeight: 900, marginBottom: ".5rem" }}>
+        <h1 className="text-[var(--danger)] text-[1.6rem] font-black mb-2">
           {t("gates.accessDenied")}
         </h1>
-        <p style={{ color: "#94a3b8", marginBottom: "2rem", fontSize: ".95rem" }}>
+        <p className="text-[var(--text-muted)] mb-8 text-[0.95rem]">
           {t("gates.accessDeniedDescription")}
         </p>
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+        <div className="flex gap-4 justify-center">
           <button
             onClick={() => window.history.back()}
-            style={{
-              padding: ".7rem 1.5rem",
-              background: "rgba(239,68,68,0.15)",
-              color: "#ef4444",
-              border: "1px solid rgba(239,68,68,0.35)",
-              borderRadius: 12,
-              fontFamily: "var(--font-manrope), Segoe UI, sans-serif",
-              fontSize: ".9rem",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+            className="px-6 py-3 rounded-xl bg-[var(--danger)]/10 text-[var(--danger)] border border-[var(--danger)]/30 font-bold text-sm transition-all hover:bg-[var(--danger)]/20"
           >
             {t("gates.goBack")}
           </button>
@@ -53,20 +33,7 @@ export default function AccessDeniedPage() {
             onClick={() => {
               window.location.href = localizeAppPath("/dashboard", locale);
             }}
-            style={{
-              padding: ".7rem 1.5rem",
-              background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
-              color: "white",
-              border: "none",
-              borderRadius: 12,
-              fontFamily: "var(--font-manrope), Segoe UI, sans-serif",
-              fontSize: ".9rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: ".4rem",
-            }}
+            className="px-6 py-3 rounded-xl bg-[var(--primary)] text-white font-bold text-sm transition-all hover:brightness-110 inline-flex items-center gap-1"
           >
             <AppIcon token="🏠" size={16} />
             {t("gates.dashboard")}

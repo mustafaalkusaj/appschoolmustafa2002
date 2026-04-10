@@ -55,10 +55,17 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       const shouldSyncRBAC =
         nextUserId !== lastSyncedUserRef.current || now - lastSyncedAtRef.current > RBAC_SYNC_COOLDOWN_MS;
 
-      if (shouldSyncRBAC) {
-        await refreshRBACSessionCookie(nextProfile);
+      if (nextUserId && shouldSyncRBAC) {
         lastSyncedUserRef.current = nextUserId;
         lastSyncedAtRef.current = now;
+        void refreshRBACSessionCookie(nextProfile).catch(() => {
+          if (lastSyncedUserRef.current === nextUserId) {
+            lastSyncedAtRef.current = 0;
+          }
+        });
+      } else if (!nextUserId) {
+        lastSyncedUserRef.current = null;
+        lastSyncedAtRef.current = 0;
       }
     } catch {
       setProfile(null);

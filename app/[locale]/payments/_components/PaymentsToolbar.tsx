@@ -1,6 +1,9 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { formatNumber } from "@/lib/formatting";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
 interface PaymentsToolbarProps {
   searchInput: string;
@@ -10,20 +13,27 @@ interface PaymentsToolbarProps {
 }
 
 export function PaymentsToolbar({ searchInput, setSearchInput, totalCount, loading }: PaymentsToolbarProps) {
+  const t = useTranslations();
+
   return (
-    <div className="toolbar">
-      <div className="srch">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input
-          placeholder="بحث باسم الطالب أو الصف..."
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Search input with icon */}
+      <div className="relative flex-1 max-w-md">
+        <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-tertiary)] pointer-events-none" />
+        <Input
+          placeholder={t("payments.toolbar.searchPlaceholder")}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
+          className="ps-10"
         />
       </div>
-      <span className="results-count">{loading ? "جارٍ التحميل..." : `${formatNumber(totalCount)} نتيجة`}</span>
+      
+      {/* Results count */}
+      <span className="text-sm text-[var(--text-muted)] font-medium">
+        {loading
+          ? t("payments.toolbar.loadingResults")
+          : t("payments.toolbar.resultsCount", { count: formatNumber(totalCount) })}
+      </span>
     </div>
   );
 }

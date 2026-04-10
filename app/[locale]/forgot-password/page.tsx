@@ -23,9 +23,6 @@ export default function ForgotPasswordPage() {
       dir={isRTL ? "rtl" : "ltr"}
       className="relative min-h-dvh overflow-hidden px-4 py-8 sm:px-6 lg:px-8"
     >
-      <div className="ui-grid-lines pointer-events-none absolute inset-0 opacity-40" />
-      <div className="pointer-events-none absolute inset-x-0 top-[-18%] h-[38rem] rounded-full bg-[radial-gradient(circle,rgba(121,215,255,0.18),transparent_62%)] blur-3xl" />
-
       <div className="relative mx-auto flex min-h-[calc(100dvh-4rem)] max-w-[680px] items-center justify-center">
         <div className="ui-glass w-full rounded-[32px] p-6 sm:p-8">
           <div className="flex flex-col gap-6">
@@ -48,31 +45,19 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            <div className="card" style={{ textAlign: "center", padding: "2rem 1.5rem" }}>
-              <div
-                style={{
-                  width: 68,
-                  height: 68,
-                  margin: "0 auto 1rem",
-                  borderRadius: 22,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(79,140,255,0.12)",
-                  color: "var(--primary)",
-                }}
-              >
+            <div className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-8 text-center">
+              <div className="w-[68px] h-[68px] mx-auto mb-4 rounded-[22px] inline-flex items-center justify-center bg-[var(--primary)]/10 text-[var(--primary)]">
                 <KeyRound size={28} />
               </div>
               <h1 className="mb-3 text-2xl font-black text-[var(--text-primary)]">{t("auth.forgotPasswordTitle")}</h1>
-              <p className="muted mx-auto max-w-[38rem]" style={{ lineHeight: 1.9 }}>
+              <p className="text-[var(--text-muted)] mx-auto max-w-[38rem] leading-relaxed">
                 {t("auth.forgotPasswordDescription")}
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
                 <Link
                   href={localizeAppPath("/login", locale)}
-                  className="ui-button ui-button--primary inline-flex items-center justify-center gap-2"
+                  className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-[var(--button-radius)] bg-[var(--primary)] text-white font-semibold transition-all hover:brightness-110"
                 >
                   <ShieldCheck size={18} />
                   {t("auth.backToLogin")}

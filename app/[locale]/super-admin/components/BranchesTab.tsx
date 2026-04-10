@@ -257,7 +257,7 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
                     }}
                     className="ui-button ui-button--secondary h-8 px-3 text-xs"
                   >
-                    <Pencil size={14} className="ml-1" />
+                    <Pencil size={14} className="me-1" />
                     تعديل
                   </button>
                   <button onClick={() => setBranchToDelete(branch)} className="ui-button ui-button--danger h-8 px-3 text-xs">

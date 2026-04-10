@@ -1,6 +1,12 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import type { Deduction, Teacher } from "../_types";
 
@@ -30,26 +36,16 @@ export function DeductionsSection({
   onSave,
 }: DeductionsSectionProps) {
   return (
-    <>
-      <div className="ded-form">
-        <div
-          style={{
-            fontSize: ".88rem",
-            fontWeight: 800,
-            marginBottom: "1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: ".35rem",
-          }}
-        >
-          <AppIcon token="💸" size={14} />
+    <div className="space-y-6">
+      {/* New Deduction Form */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-6">
+        <div className="flex items-center gap-2 mb-4 text-sm font-bold text-[var(--text-primary)]">
+          <AppIcon token="💸" size={16} />
           تسجيل سحب جديد
         </div>
-        <div className="fg">
-          <div className="ff full">
-            <label className="fl">اسم الأستاذ</label>
-            <select
-              className="fis"
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="اسم الأستاذ" className="col-span-2">
+            <Select
               value={deductionTeacher}
               onChange={(e) => onUpdateTeacher(e.target.value)}
             >
@@ -57,65 +53,66 @@ export function DeductionsSection({
               {teachers.map((t) => (
                 <option key={t.id} value={t.id}>{t.full_name}</option>
               ))}
-            </select>
-          </div>
-          <div className="ff">
-            <label className="fl">مبلغ السحب (د.ع)</label>
-            <input
+            </Select>
+          </FormField>
+
+          <FormField label="مبلغ السحب (د.ع)">
+            <Input
               type="number"
-              className="fis"
               value={deductionAmount}
               onChange={(e) => onUpdateAmount(e.target.value)}
             />
-          </div>
-          <div className="ff">
-            <label className="fl">
-              الملاحظات <span className="opt">(اختياري)</span>
-            </label>
-            <input
-              className="fis"
+          </FormField>
+
+          <FormField label="الملاحظات (اختياري)">
+            <Input
               value={deductionNotes}
               onChange={(e) => onUpdateNotes(e.target.value)}
               placeholder="أي ملاحظات..."
             />
-          </div>
+          </FormField>
         </div>
-        <button
-          className="bs"
-          style={{ marginTop: ".8rem", maxWidth: 200 }}
-          disabled={saving || !deductionTeacher}
-          onClick={onSave}
-        >
-          {saving ? "جارٍ الحفظ..." : "حفظ السحب"}
-        </button>
+        <div className="mt-4">
+          <Button
+            onClick={onSave}
+            loading={saving}
+            disabled={saving || !deductionTeacher}
+          >
+            {saving ? "جارٍ الحفظ..." : "حفظ السحب"}
+          </Button>
+        </div>
       </div>
 
-      <div className="tbl-wrap">
+      {/* Deductions Table */}
+      <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
         {deductionsList.length === 0 ? (
-          <div className="empty">لا توجد سحوبات مسجلة</div>
+          <EmptyState
+            title="لا توجد سحوبات مسجلة"
+            description="استخدم النموذج أعلاه لتسجيل سحب جديد"
+          />
         ) : (
-          <table>
+          <table className="w-full">
             <thead>
-              <tr>
-                <th>#</th>
-                <th>الأستاذ</th>
-                <th>المبلغ</th>
-                <th>التاريخ</th>
-                <th>ملاحظات</th>
+              <tr className="bg-[var(--surface-muted)] border-b border-[var(--border)]">
+                <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">#</th>
+                <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الأستاذ</th>
+                <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">المبلغ</th>
+                <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">التاريخ</th>
+                <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">ملاحظات</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[var(--border)]">
               {deductionsList.map((d, i) => (
-                <tr key={d.id}>
-                  <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>{i + 1}</td>
-                  <td style={{ fontWeight: 700 }}>{d.teachers?.full_name || "—"}</td>
-                  <td style={{ color: "#EF4444", fontWeight: 700 }}>
+                <tr key={d.id} className="hover:bg-[var(--surface-muted)]/50 transition-colors">
+                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">{i + 1}</td>
+                  <td className="px-4 py-3 font-semibold">{d.teachers?.full_name || "—"}</td>
+                  <td className="px-4 py-3 font-bold text-[var(--danger)]">
                     د.ع {formatNumber(d.amount)}
                   </td>
-                  <td style={{ color: "var(--gray)", fontSize: ".75rem" }}>
+                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
                     {formatDate(d.deduction_date)}
                   </td>
-                  <td style={{ color: "var(--gray)", fontSize: ".75rem" }}>
+                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
                     {d.notes || "—"}
                   </td>
                 </tr>
@@ -124,6 +121,6 @@ export function DeductionsSection({
           </table>
         )}
       </div>
-    </>
+    </div>
   );
 }

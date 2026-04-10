@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   Bar,
   BarChart,
@@ -43,6 +44,8 @@ function CustomTooltip({
   payload?: Array<{ value: number }>;
   label?: string;
 }) {
+  const t = useTranslations();
+  
   if (!active || !payload || payload.length === 0) {
     return null;
   }
@@ -60,7 +63,7 @@ function CustomTooltip({
       }}
     >
       <div style={{ fontWeight: 800, marginBottom: "0.25rem" }}>{label}</div>
-      <div style={{ fontWeight: 600, color: "var(--primary)" }}>د.ع {formatNumber(payload[0]?.value ?? 0)}</div>
+      <div style={{ fontWeight: 600, color: "var(--primary)" }}>{t("common.currency")} {formatNumber(payload[0]?.value ?? 0)}</div>
     </div>
   );
 }
@@ -70,6 +73,9 @@ export function DashboardFinanceCharts({
   pieData,
   paidPct,
 }: DashboardFinanceChartsProps) {
+  const t = useTranslations("dashboard.finance");
+  const commonT = useTranslations("common");
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem" }}>
       <div style={{ 
@@ -79,7 +85,7 @@ export function DashboardFinanceCharts({
         padding: "1.25rem" 
       }}>
         <div style={{ fontSize: "0.875rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "1.25rem" }}>
-          تحليل المبالغ المالية (دينار عراقي)
+          {t("analysisTitle")} ({commonT("currency")})
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={barData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -114,18 +120,18 @@ export function DashboardFinanceCharts({
         padding: "1.25rem" 
       }}>
         <div style={{ fontSize: "0.875rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "1.25rem" }}>
-          توزيع حالة السداد
+          {t("collectionProgress")}
         </div>
         <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
           <span style={{ 
             padding: "0.25rem 0.75rem", 
             borderRadius: "999px", 
-            background: "#10b98120", 
-            color: "#10b981", 
+            background: "var(--success-soft)", 
+            color: "var(--success)", 
             fontSize: "0.6875rem", 
             fontWeight: 800 
           }}>
-            {paidPct}% تم تحصيله
+            {t("collectedPct", { pct: paidPct })}
           </span>
         </div>
         <ResponsiveContainer width="100%" height={180}>
@@ -160,7 +166,7 @@ export function DashboardFinanceCharts({
             <Tooltip 
               contentStyle={{ borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--surface-strong)" }}
               itemStyle={{ fontSize: "0.75rem", fontWeight: 700 }}
-              formatter={(value) => `د.ع ${formatNumber(Number(value))}`} 
+              formatter={(value) => `${commonT("currency")} ${formatNumber(Number(value))}`} 
             />
           </PieChart>
         </ResponsiveContainer>
@@ -168,3 +174,4 @@ export function DashboardFinanceCharts({
     </div>
   );
 }
+

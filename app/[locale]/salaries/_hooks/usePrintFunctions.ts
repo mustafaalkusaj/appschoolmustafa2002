@@ -1,7 +1,7 @@
 "use client";
 
 import { formatNumber, formatDate } from "@/lib/formatting";
-import { wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
+import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import type { Teacher, Salary, DailyLecture } from "../_types";
 
 interface PrintFunctionsProps {
@@ -16,9 +16,7 @@ interface PrintFunctionsProps {
 
 export function usePrintFunctions({ isEnglish, runtimeBranding }: PrintFunctionsProps) {
   const openPrintWindow = (title: string, subtitle: string, bodyHtml: string) => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(
+    printHtmlDocument(
       wrapPrintDocument({
         title,
         subtitle,
@@ -30,9 +28,9 @@ export function usePrintFunctions({ isEnglish, runtimeBranding }: PrintFunctions
           secondaryColor: runtimeBranding.secondaryColor,
           locale: isEnglish ? "en" : "ar",
         },
+        autoPrint: false,
       })
     );
-    w.document.close();
   };
 
   const printSalarySlip = (salary: Salary) => {

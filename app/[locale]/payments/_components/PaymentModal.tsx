@@ -2,7 +2,14 @@
 
 import { formatNumber } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { FormField } from "@/components/ui/form-field";
+import { Card } from "@/components/ui/card";
 import { Student, PayFormState } from "../_types";
+import { Search, Check, X } from "lucide-react";
 
 interface PaymentModalProps {
   show: boolean;
@@ -44,172 +51,155 @@ export function PaymentModal({
   searchRef,
   onSelectStudent,
 }: PaymentModalProps) {
-  if (!show) return null;
-
   const nextReceiptNum = `REC-${(totalPaymentCount + 1001).toString()}`;
 
   return (
-    <div
-      className="overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="modal">
-        <div className="mh">
-          <div className="mt">تسجيل دفعة جديدة</div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
-        {error && <div className="err">{error}</div>}
-        <form onSubmit={onSubmit}>
-          <div className="fg">
-            <div className="ff full">
-              <label className="fl">اسم الطالب *</label>
-              <div className="search-wrap" ref={searchRef}>
-                <input
-                  className={`search-input${payStudent ? " selected" : ""}`}
-                  placeholder="ابحث باسم الطالب..."
-                  value={studentSearch}
-                  onChange={(e) => {
-                    setStudentSearch(e.target.value);
-                    setShowDropdown(true);
-                  }}
-                  onFocus={() => setShowDropdown(true)}
-                  autoComplete="off"
-                />
-                {payStudent && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#10B981",
-                      display: "inline-flex",
-                    }}
-                  >
-                    <AppIcon token="✓" size={14} />
-                  </span>
-                )}
-                {showDropdown && !payStudent && studentSearch && (
-                  <div className="dropdown">
-                    {studentSearchLoading ? (
-                      <div className="dropdown-status">جارٍ البحث...</div>
-                    ) : studentSearchResults.length === 0 ? (
-                      <div className="dropdown-status">لا توجد نتائج</div>
-                    ) : (
-                      studentSearchResults.map((s) => (
-                        <div
-                          key={s.id}
-                          className="dropdown-item"
-                          onMouseDown={() => onSelectStudent(s)}
-                        >
-                          <div className="d-name">{s.full_name}</div>
-                          <div className="d-meta">
-                            <span className="d-cls">{s.class_name}</span>
-                            <span className="d-rem">متبقي: د.ع {formatNumber(s.remaining_fee)}</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+    <Modal open={show} onClose={onClose} size="lg">
+      <ModalHeader title="تسجيل دفعة جديدة" onClose={onClose} />
+
+      <form onSubmit={onSubmit}>
+        <ModalBody className="space-y-6">
+          {/* Error message */}
+          {error && (
+            <div className="bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] rounded-[var(--radius-md)] p-3 text-sm font-semibold">
+              {error}
             </div>
-            {payStudent && (
-              <div className="ff full">
-                <div className="student-info-box">
-                  <div className="si-row">
-                    <span className="si-label">الكلي:</span>
-                    <span className="si-val">د.ع {formatNumber(payStudent.total_fee)}</span>
-                  </div>
-                  <div className="si-row">
-                    <span className="si-label">المدفوع:</span>
-                    <span className="si-val" style={{ color: "#10B981" }}>
-                      د.ع {formatNumber(payStudent.paid_fee)}
-                    </span>
-                  </div>
-                  <div className="si-row">
-                    <span className="si-label">المتبقي:</span>
-                    <span className="si-val" style={{ color: "#EF4444" }}>
-                      د.ع {formatNumber(payStudent.remaining_fee)}
-                    </span>
-                  </div>
+          )}
+
+          {/* Student Search */}
+          <FormField label="اسم الطالب" required>
+            <div className="relative" ref={searchRef}>
+              <Input
+                placeholder="ابحث باسم الطالب..."
+                value={studentSearch}
+                onChange={(e) => {
+                  setStudentSearch(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                autoComplete="off"
+                success={!!payStudent}
+                className={payStudent ? "pe-10" : ""}
+              />
+              {payStudent && (
+                <Check className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--success)]" />
+              )}
+
+              {/* Dropdown */}
+              {showDropdown && !payStudent && studentSearch && (
+                <div className="absolute top-full start-0 end-0 mt-1 bg-[var(--card-bg)] border border-[var(--border)] rounded-[var(--radius-md)] shadow-lg z-10 max-h-60 overflow-y-auto">
+                  {studentSearchLoading ? (
+                    <div className="p-4 text-center text-sm text-[var(--text-muted)]">جارٍ البحث...</div>
+                  ) : studentSearchResults.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-[var(--text-muted)]">لا توجد نتائج</div>
+                  ) : (
+                    studentSearchResults.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="w-full text-start p-3 hover:bg-[var(--surface-soft)] transition-colors border-b border-[var(--border)] last:border-b-0"
+                        onMouseDown={() => onSelectStudent(s)}
+                      >
+                        <div className="font-semibold text-[var(--text-primary)]">{s.full_name}</div>
+                        <div className="flex items-center justify-between mt-1 text-xs">
+                          <span className="text-[var(--text-muted)]">{s.class_name}</span>
+                          <span className="text-[var(--danger)] font-semibold">
+                            متبقي: د.ع {formatNumber(s.remaining_fee)}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </FormField>
+
+          {/* Student Info Box */}
+          {payStudent && (
+            <Card className="p-4">
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-[var(--text-muted)]">الكلي:</span>
+                  <p className="font-semibold text-[var(--text-primary)]">د.ع {formatNumber(payStudent.total_fee)}</p>
+                </div>
+                <div>
+                  <span className="text-[var(--text-muted)]">المدفوع:</span>
+                  <p className="font-semibold text-[var(--success)]">د.ع {formatNumber(payStudent.paid_fee)}</p>
+                </div>
+                <div>
+                  <span className="text-[var(--text-muted)]">المتبقي:</span>
+                  <p className="font-semibold text-[var(--danger)]">د.ع {formatNumber(payStudent.remaining_fee)}</p>
                 </div>
               </div>
-            )}
-            <div className="ff">
-              <label className="fl">تاريخ الإيصال *</label>
-              <input
-                className="fis"
+            </Card>
+          )}
+
+          {/* Form Fields Grid */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="تاريخ الإيصال" required>
+              <Input
                 type="date"
                 required
                 value={payForm.receipt_date}
                 onChange={(e) => setPayForm({ ...payForm, receipt_date: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">المبلغ (د.ع) *</label>
-              <input
-                className="fis"
+            </FormField>
+
+            <FormField label="المبلغ (د.ع)" required>
+              <Input
                 type="number"
                 required
                 placeholder="500000"
                 value={payForm.amount}
                 onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">
-                رقم الإيصال الورقي <span className="opt">(اختياري)</span>
-              </label>
-              <input
-                className="fis"
+            </FormField>
+
+            <FormField label="رقم الإيصال الورقي" helpText="اختياري">
+              <Input
                 placeholder="مثال: 1042"
                 value={payForm.manual_receipt_number}
                 onChange={(e) => setPayForm({ ...payForm, manual_receipt_number: e.target.value })}
               />
-            </div>
-            <div className="ff">
-              <label className="fl">رقم الإيصال الإلكتروني</label>
-              <div className="receipt-auto">{nextReceiptNum}</div>
-            </div>
-            <div className="ff">
-              <label className="fl">طريقة الدفع</label>
-              <select
-                className="fis"
+            </FormField>
+
+            <FormField label="رقم الإيصال الإلكتروني">
+              <div className="rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] p-3 text-center">
+                <span className="block break-all text-sm font-bold text-[var(--primary)]">{nextReceiptNum}</span>
+              </div>
+            </FormField>
+
+            <FormField label="طريقة الدفع">
+              <Select
                 value={payForm.payment_method}
                 onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}
               >
                 <option value="cash">نقداً</option>
                 <option value="bank_transfer">تحويل بنكي</option>
                 <option value="check">شيك</option>
-              </select>
-            </div>
-            <div className="ff">
-              <label className="fl">
-                ملاحظات <span className="opt">(اختياري)</span>
-              </label>
-              <input
-                className="fis"
+              </Select>
+            </FormField>
+
+            <FormField label="ملاحظات" helpText="اختياري">
+              <Input
                 placeholder="أي ملاحظات..."
                 value={payForm.notes}
                 onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
               />
-            </div>
+            </FormField>
           </div>
-          <div className="fa">
-            <button type="submit" className="bs" disabled={saving || !payStudent}>
-              {saving ? "جارٍ الحفظ..." : "تسجيل الدفعة"}
-            </button>
-            <button type="button" className="bc" onClick={onClose}>
-              إلغاء
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </ModalBody>
+
+        <ModalFooter>
+          <Button type="submit" variant="primary" disabled={saving || !payStudent} loading={saving}>
+            تسجيل الدفعة
+          </Button>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            إلغاء
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

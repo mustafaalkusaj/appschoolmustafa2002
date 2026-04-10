@@ -280,15 +280,31 @@ async function setRBACSession(
 
   let accessToken = options?.accessToken ?? null;
   if (!accessToken) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    accessToken = session?.access_token ?? null;
+    type SessionResult = Awaited<ReturnType<typeof supabase.auth.getSession>>;
+    let timeoutId: number | null = null;
+    const timeoutPromise = new Promise<null>((resolve) => {
+      timeoutId = window.setTimeout(() => resolve(null), 1_000);
+    });
+    const sessionTokenPromise: Promise<string | null> = supabase.auth
+      .getSession()
+      .then((result: SessionResult) => result.data.session?.access_token ?? null)
+      .catch(() => null);
+
+    try {
+      accessToken = await Promise.race([sessionTokenPromise, timeoutPromise]);
+    } finally {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    }
   }
 
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 5_000);
 
   try {
     const response = await fetch("/api/rbac/session", {
@@ -296,6 +312,7 @@ async function setRBACSession(
       credentials: "include",
       headers,
       cache: "no-store",
+      signal: controller.signal,
     });
 
     if (!response.ok && strict) {
@@ -307,12 +324,17 @@ async function setRBACSession(
       throw new Error(message);
     }
   } catch (error) {
+    if (strict && error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Timed out while initializing secure session.");
+    }
     if (strict) {
       if (error instanceof Error && error.message.trim().length > 0) {
         throw error;
       }
       throw new Error("Unable to initialize secure session.");
     }
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 

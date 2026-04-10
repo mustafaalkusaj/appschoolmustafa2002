@@ -1,6 +1,12 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/brand/brand-utils";
 import { SALARY_TYPES, CLASS_GRADES, SECTIONS_LIST, type Subject, type JobTitle, type TeacherFormData } from "../_types";
 
 interface TeacherModalProps {
@@ -39,49 +45,36 @@ export function TeacherModal({
   if (!show) return null;
 
   return (
-    <div className="overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="modal" style={{ maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }}>
-        <div className="mh">
-          <div className="mt" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token={editId ? "✏️" : "👨‍🏫"} size={16} />
-            {editId ? "تعديل بيانات الأستاذ" : "إضافة أستاذ"}
-          </div>
-          <button type="button" className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
+    <Modal open={show} onClose={onClose} size="lg">
+      <ModalHeader
+        title={editId ? "تعديل بيانات الأستاذ" : "إضافة أستاذ"}
+        onClose={onClose}
+      />
+      <form onSubmit={onSubmit}>
+        <ModalBody className="space-y-4">
+          {!canManage && (
+            <div className="p-3 rounded-lg bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)] text-sm font-medium">
+              ليس لديك صلاحية تعديل بيانات الأساتذة.
+            </div>
+          )}
+          {error && (
+            <div className="p-3 rounded-lg bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] text-sm font-medium">
+              {error}
+            </div>
+          )}
 
-        {!canManage && (
-          <div style={{ padding: ".5rem 0", fontSize: ".8rem", color: "#B45309" }}>
-            ليس لديك صلاحية تعديل بيانات الأساتذة.
-          </div>
-        )}
-
-        {error && (
-          <div style={{ padding: ".5rem 0", fontSize: ".8rem", color: "#B91C1C" }}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={onSubmit}>
-          <div className="fg">
-            <div className="ff full">
-              <label className="fl">الاسم الثلاثي *</label>
-              <input
-                className="fis"
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="الاسم الثلاثي" required className="col-span-2">
+              <Input
                 required
                 value={form.full_name}
                 onChange={(e) => onUpdateForm({ full_name: e.target.value })}
                 disabled={!canManage}
               />
-            </div>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">المسمى الوظيفي</label>
-              <select
-                className="fis"
+            <FormField label="المسمى الوظيفي">
+              <Select
                 value={form.job_title}
                 onChange={(e) => onUpdateForm({ job_title: e.target.value })}
                 disabled={!canManage}
@@ -90,13 +83,11 @@ export function TeacherModal({
                 {jobTitlesList.map((j) => (
                   <option key={j.id} value={j.name}>{j.name}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">المادة</label>
-              <select
-                className="fis"
+            <FormField label="المادة">
+              <Select
                 value={form.subject}
                 onChange={(e) => onUpdateForm({ subject: e.target.value })}
                 disabled={!canManage}
@@ -105,33 +96,27 @@ export function TeacherModal({
                 {subjectsList.map((s) => (
                   <option key={s.id} value={s.name}>{s.name}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">الهاتف</label>
-              <input
-                className="fis"
+            <FormField label="الهاتف">
+              <Input
                 value={form.phone}
                 onChange={(e) => onUpdateForm({ phone: e.target.value })}
                 disabled={!canManage}
               />
-            </div>
+            </FormField>
 
-            <div className="ff full">
-              <label className="fl">العنوان</label>
-              <input
-                className="fis"
+            <FormField label="العنوان">
+              <Input
                 value={form.address}
                 onChange={(e) => onUpdateForm({ address: e.target.value })}
                 disabled={!canManage}
               />
-            </div>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">نظام الراتب</label>
-              <select
-                className="fis"
+            <FormField label="نظام الراتب">
+              <Select
                 value={form.salary_type}
                 onChange={(e) => onUpdateForm({ salary_type: e.target.value as any })}
                 disabled={!canManage}
@@ -139,123 +124,118 @@ export function TeacherModal({
                 {SALARY_TYPES.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">الراتب الأساسي</label>
-              <input
-                className="fis"
+            <FormField label="الراتب الأساسي">
+              <Input
                 type="number"
                 value={form.base_salary}
                 onChange={(e) => onUpdateForm({ base_salary: e.target.value })}
                 disabled={!canManage}
               />
-            </div>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">سعر المحاضرة</label>
-              <input
-                className="fis"
+            <FormField label="سعر المحاضرة">
+              <Input
                 type="number"
                 value={form.lecture_price}
                 onChange={(e) => onUpdateForm({ lecture_price: e.target.value })}
                 disabled={!canManage}
               />
-            </div>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">حصص أسبوعية</label>
-              <input
-                className="fis"
+            <FormField label="حصص أسبوعية">
+              <Input
                 type="number"
                 value={form.weekly_hours}
                 onChange={(e) => onUpdateForm({ weekly_hours: e.target.value })}
                 disabled={!canManage}
               />
-            </div>
+            </FormField>
 
-            <div className="ff">
-              <label className="fl">الحالة</label>
-              <select
-                className="fis"
+            <FormField label="الحالة">
+              <Select
                 value={form.status}
                 onChange={(e) => onUpdateForm({ status: e.target.value as any })}
                 disabled={!canManage}
               >
                 <option value="active">نشط</option>
                 <option value="inactive">غير نشط</option>
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div className="ff full">
-              <label className="fl">الصفوف والشعب</label>
-              {form.classes_taught.map((cls, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    gap: "0.5rem",
-                    marginBottom: "0.35rem",
-                    alignItems: "flex-end",
-                  }}
-                >
-                  <select
-                    className="fis"
-                    value={cls.grade}
-                    onChange={(e) => onUpdateClassRow(i, "grade", e.target.value)}
-                    disabled={!canManage}
-                  >
-                    <option value="">الصف...</option>
-                    {CLASS_GRADES.map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                  </select>
-                  <select
-                    className="fis"
-                    value={cls.section}
-                    onChange={(e) => onUpdateClassRow(i, "section", e.target.value)}
-                    disabled={!canManage}
-                  >
-                    <option value="">الشعبة...</option>
-                    {SECTIONS_LIST.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  {form.classes_taught.length > 1 && (
-                    <button
-                      type="button"
-                      className="bc"
-                      onClick={() => onRemoveClassRow(i)}
-                      disabled={!canManage}
-                    >
-                      <AppIcon token="✕" size={12} />
-                    </button>
+            <FormField label="الصفوف والشعب" className="col-span-2">
+              <div className="space-y-2">
+                {form.classes_taught.map((cls, i) => (
+                  <div key={i} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Select
+                        value={cls.grade}
+                        onChange={(e) => onUpdateClassRow(i, "grade", e.target.value)}
+                        disabled={!canManage}
+                      >
+                        <option value="">الصف...</option>
+                        {CLASS_GRADES.map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="flex-1">
+                      <Select
+                        value={cls.section}
+                        onChange={(e) => onUpdateClassRow(i, "section", e.target.value)}
+                        disabled={!canManage}
+                      >
+                        <option value="">الشعبة...</option>
+                        {SECTIONS_LIST.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </Select>
+                    </div>
+                    {form.classes_taught.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveClassRow(i)}
+                        disabled={!canManage}
+                        className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                          "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)]",
+                          "hover:bg-[color-mix(in_srgb,var(--danger)_20%,transparent)] transition-colors",
+                          "disabled:opacity-50"
+                        )}
+                      >
+                        <AppIcon token="✕" size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={onAddClassRow}
+                  disabled={!canManage}
+                  className={cn(
+                    "w-full py-2 rounded-lg border-2 border-dashed border-[var(--border)]",
+                    "text-sm font-semibold text-[var(--text-secondary)]",
+                    "hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors",
+                    "disabled:opacity-50"
                   )}
-                </div>
-              ))}
-              <button
-                type="button"
-                className="bc"
-                style={{ marginTop: "0.35rem" }}
-                onClick={onAddClassRow}
-                disabled={!canManage}
-              >
-                + صف
-              </button>
-            </div>
+                >
+                  + صف
+                </button>
+              </div>
+            </FormField>
           </div>
-
-          <div className="fa">
-            <button type="submit" className="bs" disabled={saving || !canManage}>
-              {saving ? "جارٍ الحفظ..." : "حفظ"}
-            </button>
-            <button type="button" className="bc" onClick={onClose}>
-              إلغاء
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button type="submit" loading={saving} disabled={!canManage}>
+            {saving ? "جارٍ الحفظ..." : "حفظ"}
+          </Button>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            إلغاء
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { formatNumber } from "@/lib/formatting";
 import { BarChart3, TrendingUp, Wallet, Banknote, Tag, AlertTriangle } from "@/lib/icons";
 import { DashboardTotals } from "./types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/brand/brand-utils";
 
 const DashboardFinanceCharts = dynamic(
@@ -21,6 +22,9 @@ interface FinancialAnalysisPanelProps {
 }
 
 export function FinancialAnalysisPanel({ dashboardTotals }: FinancialAnalysisPanelProps) {
+  const t = useTranslations("dashboard.finance");
+  const commonT = useTranslations("common");
+
   const totalFees = dashboardTotals.totalFees;
   const totalPaid = dashboardTotals.totalPaid;
   const totalDiscount = dashboardTotals.totalDiscount;
@@ -30,89 +34,117 @@ export function FinancialAnalysisPanel({ dashboardTotals }: FinancialAnalysisPan
   const remainingPct = dashboardTotals.remainingPct;
 
   const barData = [
-    { name: "إجمالي الرسوم", value: totalFees, fill: "#6366f1" },
-    { name: "بعد الخصم", value: afterDiscount, fill: "#3b82f6" },
-    { name: "المدفوع", value: totalPaid, fill: "#10b981" },
-    { name: "الخصم", value: totalDiscount, fill: "#f59e0b" },
-    { name: "المتبقي", value: totalRemaining, fill: "#ef4444" },
+    { name: t("totalFees"), value: totalFees, fill: "#6366f1" },
+    { name: t("afterDiscountShort"), value: afterDiscount, fill: "#3b82f6" },
+    { name: t("paid"), value: totalPaid, fill: "#10b981" },
+    { name: t("discount"), value: totalDiscount, fill: "#f59e0b" },
+    { name: t("remaining"), value: totalRemaining, fill: "#ef4444" },
   ];
 
   const pieData = [
-    { name: "المدفوع", value: totalPaid, color: "#10b981" },
-    { name: "المتبقي", value: totalRemaining, color: "#f59e0b" },
+    { name: t("paid"), value: totalPaid, color: "#10b981" },
+    { name: t("remaining"), value: totalRemaining, color: "#f59e0b" },
   ];
 
   const finCards = [
-    { label: "إجمالي المبلغ المطلوب", value: totalFees, icon: Banknote, color: "#6366f1", bg: "bg-indigo-500/10" },
-    { label: "إجمالي التخفيضات", value: totalDiscount, icon: Tag, color: "#f59e0b", bg: "bg-amber-500/10" },
-    { label: "الواردات بعد التخفيض", value: afterDiscount, icon: TrendingUp, color: "#3b82f6", bg: "bg-blue-500/10" },
-    { label: "المبالغ المحصلة", value: totalPaid, icon: Wallet, color: "#10b981", bg: "bg-emerald-500/10" },
-    { label: "المبلغ المتبقي", value: totalRemaining, icon: AlertTriangle, color: "#ef4444", bg: "bg-rose-500/10" },
+    { label: t("totalRequested"), value: totalFees, icon: Banknote, variant: "info" as const },
+    { label: t("totalDiscounts"), value: totalDiscount, icon: Tag, variant: "warning" as const },
+    { label: t("afterDiscount"), value: afterDiscount, icon: TrendingUp, variant: "primary" as const },
+    { label: t("collectedAmounts"), value: totalPaid, icon: Wallet, variant: "success" as const },
+    { label: t("remainingAmount"), value: totalRemaining, icon: AlertTriangle, variant: "danger" as const },
   ];
 
+  const variantStyles = {
+    info: "bg-[color-mix(in_srgb,var(--info)_10%,transparent)] text-[var(--info)]",
+    warning: "bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)]",
+    primary: "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]",
+    success: "bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success)]",
+    danger: "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)]",
+  };
+
   return (
-    <Card className="border-none shadow-md bg-white dark:bg-slate-900/50 mb-8">
-      <CardHeader className="flex flex-row items-center gap-2 pb-6">
-        <BarChart3 size={20} className="text-primary" />
-        <CardTitle className="text-lg font-bold">لوحة التحليل المالي</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 mb-8">
-          {finCards.map((card, i) => (
-            <div key={i} className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={cn("p-1.5 rounded-lg", card.bg)}>
-                  <card.icon size={12} style={{ color: card.color }} />
-                </div>
-                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{card.label}</div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-2xl bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] flex items-center justify-center text-[var(--primary)]">
+            <BarChart3 size={22} />
+          </div>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{t("analysisTitle")}</h2>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {finCards.map((card, i) => (
+          <div key={i} className="group relative p-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-bg)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5">
+            <div className="flex flex-col gap-3">
+              <div className={cn(
+                "h-9 w-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",
+                variantStyles[card.variant]
+              )}>
+                <card.icon size={18} />
               </div>
-              <div className="text-sm font-black text-slate-900 dark:text-slate-100">
-                د.ع {formatNumber(card.value)}
+              <div>
+                <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">{card.label}</div>
+                <div className="text-base font-bold text-[var(--text-primary)] truncate">
+                  {commonT("currency")} {formatNumber(card.value)}
+                </div>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
 
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-6 border border-slate-100 dark:border-slate-800">
-          <DashboardFinanceCharts barData={barData} pieData={pieData} paidPct={paidPct} />
-        </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <Card className="bg-[var(--surface-muted)]/30">
+          <CardContent className="p-6">
+            <DashboardFinanceCharts barData={barData} pieData={pieData} paidPct={paidPct} />
+          </CardContent>
+        </Card>
 
-        <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
-          <h3 className="text-sm font-bold mb-6">تقدم التحصيل المالي</h3>
-          
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-3">
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-muted-foreground">المبالغ المحصلة</span>
-                <span className="text-emerald-600 dark:text-emerald-400">{paidPct}% (د.ع {formatNumber(totalPaid)})</span>
+        <div className="space-y-6 flex flex-col justify-center">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">{t("collectedAmounts")}</span>
+                  <span className="text-base font-bold text-[var(--success)]">{t("collectedPct", { pct: paidPct })}</span>
+                </div>
+                <span className="text-xs font-bold text-[var(--text-muted)]">{commonT("currency")} {formatNumber(totalPaid)}</span>
               </div>
-              <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-2 bg-[var(--surface-muted)] rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
+                  className="h-full bg-[var(--success)] rounded-full transition-all duration-1000" 
                   style={{ width: `${paidPct}%` }} 
                 />
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-muted-foreground">المبالغ المتبقية</span>
-                <span className="text-amber-600 dark:text-amber-400">{remainingPct}% (د.ع {formatNumber(totalRemaining)})</span>
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">{t("remainingAmount")}</span>
+                  <span className="text-base font-bold text-[var(--warning)]">{t("remainingPct", { pct: remainingPct })}</span>
+                </div>
+                <span className="text-xs font-bold text-[var(--text-muted)]">{commonT("currency")} {formatNumber(totalRemaining)}</span>
               </div>
-              <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-2 bg-[var(--surface-muted)] rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-amber-500 rounded-full transition-all duration-500" 
+                  className="h-full bg-[var(--warning)] rounded-full transition-all duration-1000" 
                   style={{ width: `${remainingPct}%` }} 
                 />
               </div>
             </div>
           </div>
 
-          <div className="mt-8 p-4 bg-primary/10 rounded-xl text-primary text-center text-sm font-black border border-primary/20">
-            إجمالي المستحقات المطلوبة: د.ع {formatNumber(totalFees)}
+          <div className="p-4 bg-gradient-to-r from-[var(--primary)] to-[var(--primary-strong)] rounded-[var(--radius-lg)] text-white shadow-lg shadow-[var(--primary)]/20">
+            <div className="flex flex-col gap-1 items-center">
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">{t("totalRequired")}</span>
+              <span className="text-xl font-bold">{commonT("currency")} {formatNumber(totalFees)}</span>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
+

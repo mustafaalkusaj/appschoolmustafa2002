@@ -86,5 +86,5 @@ export const QUICK_FILTERS: QuickFilterOption[] = [
   { id: "deleted", label: "الفواتير المحذوفة" },
 ];
 
-export const SEARCH_DEBOUNCE_MS = 300;
+export const SEARCH_DEBOUNCE_MS = 180;
 export const PAGE_SIZE = 25;

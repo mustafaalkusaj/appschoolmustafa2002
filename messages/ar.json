@@ -1,1 +1,792 @@
-{"nav":{"dashboard":"لوحة التحكم","students":"الطلاب","attendance":"الحضور","payments":"الحسابات","expenses":"المصروفات","reports":"التقارير","superAdmin":"المدير العام"},"common":{"save":"حفظ","cancel":"إلغاء","edit":"تعديل","delete":"حذف","add":"إضافة","search":"بحث","loading":"جارٍ التحميل...","error":"خطأ","success":"نجح","brand":"منصة إدارة المدرسة","subtitle":"النظام المدرسي الموحد","lightMode":"الوضع الفاتح","darkMode":"الوضع الداكن","allRightsReserved":"جميع الحقوق محفوظة"},"auth":{"login":"تسجيل الدخول","logout":"تسجيل الخروج","email":"البريد الإلكتروني","password":"كلمة المرور","invalidCredentials":"البريد الإلكتروني أو كلمة المرور غير صحيحة.","inactiveAccount":"حسابك غير مفعل حالياً. يرجى مراجعة الإدارة.","profileLoadError":"تعذر تحميل ملف المستخدم.","serverConfigError":"إعداد جلسة الخادم غير مكتمل. يرجى مراجعة الإدارة.","loginFailed":"فشل تسجيل الدخول. حاول مرة أخرى.","supabaseConfigError":"إعدادات Supabase غير صحيحة. تحقق من متغيرات البيئة.","securePlatform":"منصة مدرسية آمنة","forgotPassword":"نسيت كلمة المرور؟","passwordPlaceholder":"أدخل كلمة المرور","forgotPasswordTitle":"استعادة كلمة المرور","forgotPasswordDescription":"هذه صفحة تمهيدية حالياً. يمكنك التواصل مع إدارة المدرسة لإعادة تعيين كلمة المرور حتى يتم تفعيل الاستعادة الذاتية.","passwordRecoveryHint":"إذا تعذر تذكر كلمة المرور يمكنك فتح صفحة الاستعادة أو التواصل مع إدارة المدرسة.","backToLogin":"العودة إلى تسجيل الدخول"},"dashboard":{"emptyTitle":"لا توجد بيانات بعد","emptyDescription":"ستظهر هنا الإحصائيات والدفعات والتنبيهات بمجرد إضافة الطلاب أو الرسوم الدراسية أو تسجيل أول دفعة."},"gates":{"accessDenied":"تم رفض الوصول","accessDeniedDescription":"ليس لديك صلاحية لفتح هذه الصفحة.","goBack":"رجوع","dashboard":"لوحة التحكم","subscriptionExpired":"انتهى الاشتراك","subscriptionExpiredDescription":"انتهى اشتراك المدرسة. يرجى التواصل مع الجهة المزودة لإعادة تفعيل الوصول.","subscriptionRenewalHint":"تواصل مع الإدارة لتجديد الاشتراك","signOut":"تسجيل الخروج"},"ping":{"label":"وقت الاستجابة (Ping)","speedFast":"سريعة","speedMedium":"متوسطة","speedSlow":"بطيئة"}}
+{
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "students": "الطلاب",
+    "attendance": "الحضور",
+    "payments": "الحسابات",
+    "expenses": "المصروفات",
+    "reports": "التقارير",
+    "superAdmin": "المدير العام"
+  },
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "retry": "إعادة المحاولة",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "add": "إضافة",
+    "search": "بحث",
+    "loading": "جارٍ التحميل...",
+    "error": "خطأ",
+    "success": "نجح",
+    "brand": "منصة إدارة المدرسة",
+    "subtitle": "النظام المدرسي الموحد",
+    "lightMode": "الوضع الفاتح",
+    "darkMode": "الوضع الداكن",
+    "allRightsReserved": "جميع الحقوق محفوظة",
+    "language": {
+      "label": "اللغة",
+      "english": "English",
+      "arabic": "العربية",
+      "switchToEnglish": "التبديل إلى الإنجليزية",
+      "switchToArabic": "التبديل إلى العربية"
+    },
+    "theme": {
+      "label": "وضع المظهر",
+      "system": "تلقائي",
+      "light": "فاتح",
+      "dark": "داكن",
+      "enable": "تفعيل وضع {theme}"
+    },
+    "currency": "د.ع",
+    "paymentMethods": {
+      "cash": "نقداً",
+      "bank_transfer": "تحويل بنكي",
+      "check": "شيك"
+    },
+    "studentStatus": {
+      "active": "نشط",
+      "transferred": "منقول",
+      "suspended": "موقوف",
+      "graduated": "متخرج",
+      "withdrawn": "منسحب",
+      "archived": "مؤرشف",
+      "deleted": "محذوف"
+    }
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "email": "البريد الإلكتروني",
+    "emailPlaceholder": "name@school.com",
+    "password": "كلمة المرور",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
+    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+    "inactiveAccount": "حسابك غير مفعل حالياً. يرجى مراجعة الإدارة.",
+    "profileLoadError": "تعذر تحميل ملف المستخدم.",
+    "serverConfigError": "إعداد جلسة الخادم غير مكتمل. يرجى مراجعة الإدارة.",
+    "loginFailed": "فشل تسجيل الدخول. حاول مرة أخرى.",
+    "supabaseConfigError": "إعدادات Supabase غير صحيحة. تحقق من متغيرات البيئة.",
+    "securePlatform": "منصة مدرسية آمنة",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "passwordPlaceholder": "أدخل كلمة المرور",
+    "forgotPasswordTitle": "استعادة كلمة المرور",
+    "forgotPasswordDescription": "هذه صفحة تمهيدية حالياً. يمكنك التواصل مع إدارة المدرسة لإعادة تعيين كلمة المرور حتى يتم تفعيل الاستعادة الذاتية.",
+    "passwordRecoveryHint": "إذا تعذر تذكر كلمة المرور يمكنك فتح صفحة الاستعادة أو التواصل مع إدارة المدرسة.",
+    "backToLogin": "العودة إلى تسجيل الدخول",
+    "loginPage": {
+      "heroBadge": "تجربة عربية هادئة ومصقولة لإدارة المدرسة",
+      "heroTitle": "منصة مدرسية أكثر هدوءاً، أوضح في التسلسل، وأفضل في الثقة والاستخدام اليومي.",
+      "heroDescription": "تسجيل دخول آمن مع واجهة عربية أولاً، ودعم كامل للوضع الفاتح والداكن والتلقائي، وتجربة أهدأ للعمل المدرسي اليومي.",
+      "formDescription": "أدخل بياناتك للوصول إلى مساحة المدرسة ومتابعة يومك من دون تشويش.",
+      "sessionNote": "جلسة آمنة مع تحكم ثنائي اللغة وتفضيلات مظهر متكيفة"
+    }
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "emptyTitle": "لا توجد بيانات بعد",
+    "emptyDescription": "ستظهر هنا الإحصائيات والدفعات والتنبيهات بمجرد إضافة الطلاب أو الرسوم الدراسية أو تسجيل أول دفعة.",
+    "summary": {
+      "empty": "اختر مدرسة أولاً حتى تصبح بيانات الهيدر والإحصائيات مرتبطة بسياق واضح.",
+      "superAdmin": "عرض مركّز حسب المدرسة المحددة حالياً مع الحفاظ على نفس البيانات والعمليات.",
+      "default": "نظرة سريعة على الرسوم والمدفوعات والطلاب ضمن المدرسة الحالية."
+    },
+    "emptyState": {
+      "title": "لوحة التحكم",
+      "description": "اختر مدرسة أولاً لعرض الإحصائيات والرسوم الدراسية والبيانات المالية الخاصة بها."
+    },
+    "actions": {
+      "addFee": "إضافة قسط دراسي",
+      "hideTable": "إخفاء الجدول",
+      "showTable": "عرض جدول الأقساط",
+      "manageClasses": "إدارة الصفوف والشعب"
+    },
+    "stats": {
+      "totalStudents": "إجمالي الطلاب",
+      "registeredStudents": "الطلاب المقبولون والمثبتون",
+      "transferredStudents": "الطلاب المنقولون",
+      "totalFees": "إجمالي الرسوم",
+      "overallFees": "إجمالي الرسوم المسجلة",
+      "paidAmount": "المبلغ المدفوع",
+      "collectedFees": "المبالغ المحصلة من الطلاب",
+      "remainingBalance": "الرصيد المتبقي",
+      "outstandingDues": "المبالغ المتأخرة والديون",
+      "monthlySalaries": "رواتب هذا الشهر",
+      "currentSalaries": "إجمالي مستحقات الرواتب",
+      "monitoring": "مراقبة الأساتذة",
+      "teacherActivity": "نشاط الأستاذ ورسائله",
+      "feeAlerts": "تنبيهات الأقساط",
+      "pendingNotifications": "التنبيهات المرسلة حالياً"
+    },
+    "finance": {
+      "analysisTitle": "لوحة التحليل المالي",
+      "totalFees": "إجمالي الرسوم",
+      "totalRequested": "إجمالي المبلغ المطلوب",
+      "totalDiscounts": "إجمالي التخفيضات",
+      "afterDiscount": "الواردات بعد التخفيض",
+      "collectedAmounts": "المبالغ المحصلة",
+      "remainingAmount": "المبلغ المتبقي",
+      "collectionProgress": "تقدم التحصيل المالي",
+      "totalRequired": "إجمالي المستحقات المطلوبة",
+      "paid": "المدفوع",
+      "discount": "الخصم",
+      "remaining": "المتبقي",
+      "afterDiscountShort": "بعد الخصم",
+      "collectedPct": "{pct}% تم تحصيله",
+      "remainingPct": "{pct}% المبالغ المتبقية"
+    },
+    "payments": {
+      "recentTitle": "آخر التحصيلات",
+      "viewAll": "عرض الكل",
+      "noPayments": "لا توجد دفعات مسجلة حتى الآن"
+    },
+    "overdue": {
+      "title": "طلاب متأخرون عن السداد",
+      "noOverdue": "لا يوجد طلاب متأخرون حالياً"
+    },
+    "feesTable": {
+      "title": "رسوم الصفوف الدراسية",
+      "addLabel": "إضافة صف",
+      "empty": "لا توجد أقساط مضافة حتى الآن. ابدأ بإضافة أول صف دراسي.",
+      "className": "الصف الدراسي",
+      "students": "الطلاب",
+      "totalAmount": "المبلغ الكلي",
+      "installments": "الأقساط",
+      "collected": "المحصل",
+      "remaining": "المتبقي",
+      "actions": "الإجراءات",
+      "installmentsCount": "{count} أقساط",
+      "perInstallment": "{amount} للقسط"
+    },
+    "notifications": {
+      "title": "الإشعارات",
+      "unread": "{count} غير مقروءة",
+      "refresh": "تحديث",
+      "loading": "جارٍ تحميل الإشعارات...",
+      "disabled": "جدول الإشعارات غير مفعّل حالياً.",
+      "empty": "لا توجد إشعارات جديدة حالياً.",
+      "defaultTitle": "تنبيه جديد",
+      "noDetails": "بدون تفاصيل إضافية"
+    },
+    "activity": {
+      "title": "أحدث الأنشطة والتنبيهات",
+      "viewAll": "عرض الكل",
+      "loading": "جارٍ التحميل...",
+      "empty": "لا توجد أنشطة حديثة للمعالجة حالياً.",
+      "status": {
+        "active": "نشط",
+        "updated": "محدّث"
+      }
+    },
+    "loading": {
+      "overview": "جارٍ تجهيز لوحة التحكم..."
+    },
+    "errors": {
+      "overviewTitle": "بيانات لوحة التحكم غير متاحة مؤقتاً",
+      "overviewDescription": "تعذر تحميل widgets الخاصة بالملخص الآن. يمكنك إعادة المحاولة من دون مغادرة الصفحة.",
+      "activityTitle": "تعذر تحميل أحدث الأنشطة",
+      "activityDescription": "لم يتم تحميل الرسائل والواجبات وتنبيهات الأقساط لهذا الـ widget حالياً.",
+      "notificationsTitle": "تعذر تحميل الإشعارات",
+      "notificationsDescription": "تعذر تحميل لوحة الإشعارات الآن. أعد المحاولة لتحديث هذا الـ widget."
+    },
+    "branding": {
+      "title": "هوية المدرسة (سوبر أدمن)",
+      "schoolName": "اسم المدرسة",
+      "schoolNamePlaceholder": "أدخل اسم المدرسة",
+      "logoUrl": "رابط الشعار (URL)",
+      "logoPlaceholder": "https://example.com/logo.png",
+      "deriveColors": "استخراج الألوان من الشعار",
+      "themeFamilies": "عوائل الألوان والثيمات الجاهزة",
+      "primaryColor": "اللون الأساسي",
+      "secondaryColor": "اللون الثانوي",
+      "previewNotice": "هذه الألوان ستنعكس على كامل واجهة المدرسة والتقارير المطبوعة.",
+      "activeTheme": "الثيم النشط: {label}",
+      "saving": "جارٍ الحفظ...",
+      "saveAction": "حفظ الهوية",
+      "families": {
+        "blue": {
+          "label": "العائلة الزرقاء",
+          "description": "مؤسساتية، تعليمية، حديثة، ومناسبة للمدارس الرسمية والأهلية."
+        },
+        "green": {
+          "label": "العائلة الخضراء",
+          "description": "مريحة، متوازنة، وتوحي بالنمو والاستقرار والهدوء التعليمي."
+        },
+        "warm": {
+          "label": "العائلة الدافئة",
+          "description": "أكثر قرباً وإنسانية، ومناسبة للهويات العربية أو المدارس العريقة."
+        },
+        "purple": {
+          "label": "العائلة البنفسجية",
+          "description": "أنيقة وإبداعية، مثالية للمدارس الملكية والفنية والتقنية."
+        },
+        "classic": {
+          "label": "العائلة الكلاسيكية",
+          "description": "تصاميم تقليدية ونظيفة تعتمد على الألوان الأساسية."
+        },
+        "dark": {
+          "label": "العائلة الداكنة",
+          "description": "وضع احترافي داكن للعمل في الإضاءة المنخفضة."
+        }
+      }
+    }
+  },
+  "superAdmin": {
+    "title": "المدير العام",
+    "sidebar": {
+      "collapse": "طي الشريط الجانبي",
+      "expand": "توسيع الشريط الجانبي",
+      "schoolBoard": "لوحة المدرسة",
+      "currentAccount": "الحساب الحالي",
+      "fullAccess": "صلاحية كاملة مفعلة",
+      "brandingSettings": "إدارة الهوية والإعدادات",
+      "brandingHint": "ستجد اللغة والمظهر وتسجيل الخروج ضمن قائمة الحساب في الهيدر لتبقى اللوحة أخف وأكثر وضوحاً."
+    },
+    "tabs": {
+      "overview": { "label": "نظرة عامة", "hint": "ملخص الأداء" },
+      "schools": { "label": "المدارس", "hint": "إدارة المدارس" },
+      "users": { "label": "المستخدمون", "hint": "الصلاحيات والأدوار" },
+      "subscriptions": { "label": "الاشتراكات", "hint": "المتابعة والتجديد" },
+      "audit": { "label": "سجل العمليات", "hint": "مراقبة الإجراءات" },
+      "roles": { "label": "الأدوار", "hint": "إدارة الصلاحيات" },
+      "trash": { "label": "سلة المهملات", "hint": "استعادة البيانات" },
+      "notifications": { "label": "التنبيهات", "hint": "إشعارات النظام" },
+      "monitoring": { "label": "مراقبة النظام", "hint": "الصحة والتشغيل" },
+      "branches": { "label": "الفروع", "hint": "إدارة فروع المدارس" }
+    },
+    "header": {
+      "searchPlaceholder": {
+        "schools": "ابحث عن مدرسة أو مدينة أو بريد...",
+        "users": "ابحث عن مستخدم أو بريد...",
+        "subscriptions": "ابحث عن مدرسة أو حالة اشتراك...",
+        "default": "ابحث في لوحة المدير العام..."
+      },
+      "refresh": "تحديث",
+      "refreshing": "جاري التحديث",
+      "lastSync": "آخر مزامنة: {time}",
+      "notSynced": "لم تكتمل أول مزامنة بعد",
+      "smartFilter": "الفلتر الذكي: {label} · إلغاء"
+    },
+    "diagnostics": {
+      "title": "تحذير تحميل البيانات",
+      "description": "المشكلة الأساسية كانت أن الصفحة تعامل كل تحديث وكأنه تحميل أولي، ومع أي fallback في علاقات قاعدة البيانات يظهر تنبيه عام بدون توضيح. الآن صار عندك تشخيص أوضح لكل مجموعة بيانات وتحديث خلفي بدون تفريغ الشاشة.",
+      "healthItems": {
+        "schools": { "label": "المدارس", "hint": "قراءة أساسية للوحة" },
+        "users": { "label": "المستخدمون", "hint": "الصلاحيات وربط المدارس" },
+        "subscriptions": { "label": "الاشتراكات", "hint": "التجديدات والحالة الحالية" }
+      }
+    },
+    "schoolForm": {
+      "titleCreate": "إضافة مدرسة جديدة",
+      "titleEdit": "تعديل المدرسة",
+      "subtitle": "النموذج يتكيّف تلقائياً مع بنية Supabase الحالية، ويحفظ الألوان محلياً إذا كانت أعمدة الألوان غير متاحة بعد.",
+      "schoolName": "اسم المدرسة *",
+      "city": "المدينة",
+      "phone": "الهاتف",
+      "ownerEmail": "بريد المدير",
+      "address": "العنوان",
+      "logoUrl": "رابط الشعار (Logo URL)",
+      "themeFamily": "عائلة الثيم",
+      "selectFamily": "اختر عائلة...",
+      "selectedTheme": "الثيم المحدد",
+      "selectTheme": "اختر ثيم...",
+      "primaryColor": "اللون الأساسي",
+      "secondaryColor": "اللون الثانوي",
+      "sidebarColor": "لون الشريط الجانبي",
+      "accentColor": "لون الأزرار والتمييز",
+      "textColor": "لون النص البارز",
+      "previewTitle": "معاينة هوية المدرسة",
+      "previewHint": "ستؤثر هذه الهوية على الأزرار والخلفيات والنصوص والطباعة في جميع الواجهات.",
+      "sidebarLabel": "الشريط الجانبي",
+      "generalIdentity": "الهوية العامة",
+      "buttonsAccent": "الأزرار والتمييز",
+      "missingColumns": "أعمدة الألوان غير موجودة حالياً في قاعدة البيانات، لذا سيتم حفظ الهوية الموسعة محلياً أيضاً لضمان عمل الواجهة والطباعة.",
+      "plan": "الباقة",
+      "plans": {
+        "basic": "أساسية",
+        "premium": "مميزة",
+        "enterprise": "مؤسسية"
+      },
+      "extractColors": "استخراج الألوان من الشعار",
+      "extracting": "جارٍ تحليل الشعار...",
+      "saving": "جارٍ الحفظ...",
+      "add": "إضافة المدرسة",
+      "save": "حفظ التعديلات"
+    }
+  },
+  "reports": {
+    "title": "التقارير",
+    "emptyState": {
+      "description": "اختر مدرسة أولاً لعرض تقارير الطلاب والدفعات والمصروفات الخاصة بها."
+    },
+    "summary": {
+      "title": "الملخص المالي الكلي",
+      "totalFees": "إجمالي الرسوم",
+      "recordedPayments": "الحسابات المسجلة",
+      "expenses": "المصروفات",
+      "netSalaries": "صافي الرواتب",
+      "netBalance": "الصافي"
+    },
+    "detailedReports": "التقارير التفصيلية",
+    "exportAll": "تصدير الكل إكسل",
+    "printSummary": "طباعة الملخص",
+    "preparing": "جارٍ التحضير...",
+    "excel": "إكسل",
+    "print": "طباعة",
+    "cards": {
+      "students": {
+        "title": "تقرير الطلاب",
+        "description": "بيانات الطلاب والرسوم وحالة التسجيل الحالية."
+      },
+      "payments": {
+        "title": "تقرير الحسابات",
+        "description": "سجل الدفعات والتحصيلات المرتبطة بالطلاب."
+      },
+      "expenses": {
+        "title": "تقرير المصروفات",
+        "description": "المصروفات التشغيلية حسب النوع والتاريخ."
+      },
+      "salaries": {
+        "title": "تقرير الرواتب",
+        "description": "رواتب الأساتذة الشهرية مع صافي الاستحقاق بعد الخصومات."
+      },
+      "financialSummary": {
+        "title": "الملخص المالي",
+        "description": "ملخص الإيرادات والمصروفات وصافي الحركة المالية."
+      }
+    }
+  },
+  "home": {
+    "welcomeBack": "مرحباً بعودتك",
+    "cards": {
+      "dashboard": { "title": "لوحة التحكم", "desc": "تابع المؤشرات والتحليلات وأهم تفاصيل التشغيل اليومية" },
+      "schools": { "title": "المدارس", "desc": "إدارة المدارس وربطها بالاشتراكات والخطط" },
+      "students": { "title": "الطلاب", "desc": "إدارة بيانات الطلاب والصفوف والشعب الدراسية" },
+      "teachers": { "title": "إدارة الأساتذة", "desc": "إنشاء وتعديل حسابات الأساتذة وربطهم بالمواد والصفوف" },
+      "payments": { "title": "الحسابات", "desc": "متابعة التحصيلات والأرصدة المتبقية على الطلاب" },
+      "expenses": { "title": "المصروفات", "desc": "تسجيل المصروفات التشغيلية ومتابعة أنواعها" },
+      "attendance": { "title": "الحضور", "desc": "تسجيل حضور الطلاب اليومي ومتابعة حالاتهم" },
+      "reports": { "title": "التقارير", "desc": "إنشاء تقارير تشغيلية ومالية مفصلة" },
+      "subscriptions": { "title": "الاشتراكات", "desc": "إدارة خطط الاشتراك وحالة التفعيل لكل مدرسة" },
+      "superAdmin": { "title": "لوحة المدير العام", "desc": "إدارة المدارس والمستخدمين والاشتراكات وتشغيل المنصة" }
+    }
+  },
+  "teachers": {
+    "title": "إدارة حسابات الأساتذة",
+    "emptyState": {
+      "description": "يجب اختيار مدرسة صريحة أولاً قبل إنشاء أو تعديل حسابات الأساتذة."
+    },
+    "stats": {
+      "total": "إجمالي الأساتذة",
+      "active": "النشطون حالياً",
+      "inactive": "غير مفعلين"
+    },
+    "table": {
+      "showing": "يعرض {count} في هذه الصفحة من أصل {total} أستاذ مطابق",
+      "title": "حسابات الأساتذة الحالية",
+      "description": "راجع حسابات الأساتذة الحالية وابحث بسرعة ثم نفّذ الإجراء المناسب من نفس الجدول.",
+      "name": "اسم الأستاذ",
+      "email": "البريد الإلكتروني",
+      "subject": "المادة",
+      "status": "الحالة",
+      "actions": "الإجراءات"
+    },
+    "actions": {
+      "add": "إضافة أستاذ",
+      "import": "استيراد",
+      "export": "تصدير",
+      "downloadTemplate": "تحميل النموذج"
+    }
+  },
+  "students": {
+    "title": "بيانات الطلاب",
+    "emptyState": {
+      "description": "لن يتم تحميل الطلاب أو الأقساط أو عمليات الإضافة قبل اختيار مدرسة صريحة لهذا القسم."
+    },
+    "tabs": {
+      "active": "جميع الطلاب",
+      "transferred": "الطلاب المنقولون",
+      "suspended": "الطلاب الموقوفون",
+      "deleted": "المحذوفون"
+    },
+    "stats": {
+      "total": "إجمالي الطلاب",
+      "activeStudents": "الطلاب النشطون",
+      "boys": "بنين",
+      "girls": "بنات",
+      "collected": "المحصل",
+      "remaining": "الرصيد المتبقي",
+      "totalFee": "إجمالي الرسوم",
+      "totalRemaining": "الرصيد المتبقي"
+    },
+    "toolbar": {
+      "searchPlaceholder": "بحث...",
+      "filterClass": "كل الصفوف",
+      "filterSection": "كل الشعب",
+      "sectionLabel": "شعبة {name}",
+      "addStudent": "+ إضافة طالب",
+      "exportCurrent": "تصدير الصفحة الحالية",
+      "exportAll": "تصدير الكل إكسل",
+      "exportCurrentTitle": "تصدير الصفحة الحالية فقط (50 طالب)",
+      "exportAllTitle": "تصدير جميع الطلاب بغض النظر عن الصفحة أو الفلتر",
+      "printFiltered": "طباعة الطلاب المفلترين",
+      "printAllCards": "طباعة جميع بطاقات الطلاب",
+      "preparing": "جارٍ التحضير...",
+      "preparingCards": "جارٍ تجهيز البطاقات..."
+    },
+    "table": {
+      "name": "الاسم الكامل",
+      "class": "الصف",
+      "section": "الشعبة",
+      "fees": "إجمالي الرسوم",
+      "paid": "المدفوع",
+      "balance": "المتبقي",
+      "status": "الحالة",
+      "actions": "إجراءات",
+      "phone": "الهاتف",
+      "address": "العنوان",
+      "options": "خيارات ▾",
+      "studentOptions": "خيارات الطالب ▾",
+      "noSection": "بدون شعبة",
+      "errorLoading": "خطأ في تحميل البيانات: {error}",
+      "pagination": {
+        "info": "{count} طالب إجمالاً"
+      },
+      "empty": {
+        "noStudents": "لا يوجد طلاب — اضغط إضافة طالب",
+        "noStudentsTab": "لا يوجد طلاب في هذه القائمة ({tab})",
+        "noResults": "لا توجد نتائج مطابقة للفلاتر الحالية"
+      }
+    },
+    "pagination": {
+      "previous": "السابق",
+      "next": "التالي",
+      "pageInfo": "صفحة {page} من {total} | {count} طالب"
+    },
+    "modals": {
+      "addTitle": "إضافة طالب جديد",
+      "editTitle": "تعديل بيانات الطالب",
+      "deleteTitle": "تأكيد الحذف",
+      "importTitle": "استيراد من إكسل",
+      "accountCardTitle": "بطاقة الحساب",
+      "printCredentials": "طباعة بيانات الدخول",
+      "copyCredentials": "نسخ اسم المستخدم/المرور",
+      "steps": {
+        "info": "المعلومات",
+        "contact": "التواصل",
+        "fees": "الرسوم"
+      },
+      "form": {
+        "fullName": "اسم الطالب *",
+        "fullNamePlaceholder": "أحمد محمد علي",
+        "className": "الصف الدراسي *",
+        "selectClass": "— اختر الصف —",
+        "manualEntry": "أدخل يدوياً...",
+        "manualPlaceholder": "اكتب اسم الصف",
+        "section": "الشعبة",
+        "optional": "(اختياري)",
+        "sectionPlaceholder": "مثال: أ، ب، ج",
+        "address": "العنوان *",
+        "addressPlaceholder": "بغداد - الكرخ",
+        "phone": "الهاتف",
+        "phonePlaceholder": "07XXXXXXXXX",
+        "totalFee": "إجمالي الرسوم ({currency}) *",
+        "autoFromClass": "— تلقائي من الصف",
+        "paidFee": "المدفوع مسبقاً",
+        "discount": "التخفيض ({currency})",
+        "afterDiscount": "بعد الخصم: {amount}",
+        "installmentInfo": "قسط واحد: {amount} × {count} أقساط",
+        "saving": "جارٍ الحفظ...",
+        "saveStudent": "✓ حفظ الطالب",
+        "saveChanges": "✓ حفظ التعديلات",
+        "status": "الحالة"
+      },
+      "deleteConfirm": {
+        "message": "هل تريد حذف هذا الطالب؟",
+        "warning": "سيتم نقله لقائمة المحذوفين ويمكن استعادته لاحقاً",
+        "confirm": "نعم، احذف",
+        "cancel": "إلغاء"
+      },
+      "import": {
+        "title": "استيراد طلاب من إكسل",
+        "columnsTitle": "أعمدة الملف:",
+        "required": "إلزامي",
+        "columns": {
+          "name": "اسم الطالب",
+          "class": "الصف",
+          "address": "العنوان",
+          "phone": "الهاتف",
+          "parentPhone": "هاتف ولي الأمر",
+          "totalFee": "إجمالي الرسوم",
+          "paidFee": "المدفوع"
+        },
+        "downloadTemplate": "تحميل نموذج إكسل جاهز",
+        "uploadPrompt": "اضغط لرفع ملف إكسل",
+        "uploadHint": "xlsx فقط",
+        "previewTitle": "معاينة أول {count} صفوف:",
+        "importButton": "استيراد الطلاب",
+        "importing": "جارٍ الاستيراد...",
+        "cancel": "إلغاء"
+      },
+      "accountCard": {
+        "title": "بطاقة حساب التطبيق جاهزة",
+        "fullName": "الاسم الكامل",
+        "classSection": "الصف والشعبة",
+        "section": "الشعبة {name}",
+        "loginId": "معرّف الدخول",
+        "tempPassword": "كلمة المرور المؤقتة",
+        "passwordSet": "كلمة المرور تم تعيينها — لا يمكن استرجاعها. استخدم 'إعادة ضبط المرور' لإنشاء كلمة مرور جديدة.",
+        "instructions": "تعليمات الدخول",
+        "copy": "نسخ البيانات",
+        "print": "طباعة",
+        "close": "إغلاق"
+      }
+    }
+  },
+  "payments": {
+    "title": "الحسابات والدفعات",
+    "subtitle": "مراقبة الرسوم والأرصدة المتبقية وإدارة التحصيل اليومي",
+    "hero": {
+      "students": "الطلاب",
+      "totalFees": "إجمالي الرسوم",
+      "totalRemaining": "إجمالي المتبقي",
+      "archives": "الأرشيف"
+    },
+    "emptyState": {
+      "title": "فواتير الطلاب",
+      "description": "لن يتم تحميل الطلاب أو الدفعات أو الأرشيف قبل اختيار مدرسة واضحة لهذا القسم."
+    },
+    "sections": {
+      "currentLedgerTitle": "دفتر الحسابات الحالي",
+      "currentLedgerDescription": "سجل الدفعات وتابع حالة أرصدة الطلاب.",
+      "activeRecords": "السجلات الحالية"
+    },
+    "stats": {
+      "totalFees": "إجمالي الرسوم",
+      "totalPaid": "إجمالي المدفوع",
+      "totalRemaining": "إجمالي المتبقي",
+      "settledCount": "المسددة بالكامل"
+    },
+    "toolbar": {
+      "searchPlaceholder": "بحث باسم الطالب أو الصف...",
+      "loadingResults": "جارٍ تحميل النتائج...",
+      "resultsCount": "{count} نتيجة"
+    },
+    "filters": {
+      "operations": "العمليات",
+      "exportExcel": "تصدير إكسل",
+      "addInvoice": "+ إضافة فاتورة",
+      "advanced": "الفلاتر",
+      "classAndSection": "الصف والشعبة",
+      "allClasses": "- الكل -",
+      "sortBy": "ترتيب حسب",
+      "sortName": "الاسم",
+      "sortRemaining": "المتبقي",
+      "sortTotalFees": "إجمالي الرسوم",
+      "sortDirection": "اتجاه الترتيب",
+      "sortAsc": "تصاعدي ↑",
+      "sortDesc": "تنازلي ↓"
+    },
+    "quickFilters": {
+      "all": "الكل",
+      "no_invoice": "بدون دفعات",
+      "collected": "المبالغ المستوفاة",
+      "discounted": "الطلاب المخفضون",
+      "transferred": "الفواتير المنقولة",
+      "graduated": "فواتير المتخرجين",
+      "suspended": "فواتير الموقوفين",
+      "deleted": "الفواتير المحذوفة"
+    },
+    "table": {
+      "emptyTitle": "لا توجد نتائج",
+      "emptyDescription": "لم يتم العثور على طلاب مطابقين لمعايير البحث والفلاتر الحالية.",
+      "noClass": "بدون صف",
+      "paymentCount": "{count} دفعة",
+      "paidAmount": "المدفوع",
+      "totalAmount": "الإجمالي",
+      "discount": "الخصم",
+      "phone": "الهاتف",
+      "progress": "نسبة الإنجاز",
+      "addPayment": "إضافة دفعة",
+      "viewDetails": "عرض التفاصيل",
+      "registeredPayments": "{count} دفعة مسجلة",
+      "columns": {
+        "studentName": "اسم الطالب",
+        "classAndSection": "الصف والشعبة",
+        "phone": "رقم الهاتف",
+        "totalAmount": "المبلغ الكلي",
+        "paidAmount": "المبلغ المدفوع",
+        "discount": "الخصم",
+        "remainingAmount": "المبلغ المتبقي",
+        "actions": "العمليات"
+      },
+      "paymentStatus": {
+        "settled": "مسدد بالكامل",
+        "largeRemaining": "متبقي كثير",
+        "partialRemaining": "متبقي جزء",
+        "nearlySettled": "قارب السداد"
+      }
+    },
+    "pagination": {
+      "previous": "السابق",
+      "next": "التالي",
+      "pageInfo": "صفحة {page} من {total} | {count} طالب"
+    },
+    "archive": {
+      "title": "الأرشيف السنوي للحسابات",
+      "description": "يتم حفظ نسخة سنوية من دفعات المدرسة الحالية داخل Supabase بدون حذف السجلات الأصلية.",
+      "stats": {
+        "archivedYears": "السنوات المؤرشفة",
+        "totalArchivedAmount": "إجمالي المبلغ المؤرشف",
+        "latestArchivedYear": "آخر سنة مؤرشفة"
+      },
+      "yearOption": "سنة {year}",
+      "archiveAction": "أرشفة السنة المحددة",
+      "archiving": "جارٍ الأرشفة...",
+      "emptyTitle": "لا يوجد أرشيف سنوي محفوظ بعد",
+      "emptyDescription": "قم بأرشفة سنة لإنشاء نسخة احتياطية من بيانات الدفعات.",
+      "cardSummary": "{students} طالب • {payments} دفعة",
+      "archiveDate": "تاريخ الأرشفة: {date}",
+      "view": "عرض",
+      "export": "تصدير"
+    },
+    "detailPanel": {
+      "title": "تفاصيل الفاتورة — {student}",
+      "studentInfoTitle": "معلومات الطالب",
+      "studentName": "الاسم",
+      "className": "الصف",
+      "phone": "الهاتف",
+      "address": "العنوان",
+      "financialSummaryTitle": "الملخص المالي",
+      "totalAmount": "المبلغ الكلي",
+      "paidAmount": "المدفوع",
+      "discountAmount": "الخصم",
+      "remainingAmount": "المتبقي",
+      "progressLabel": "نسبة الإنجاز",
+      "transactionsTitle": "معاملات الدفع ({count})",
+      "addPayment": "+ إضافة دفعة",
+      "emptyPaymentsTitle": "لا توجد دفعات مسجلة",
+      "emptyPaymentsDescription": "قم بإضافة دفعة جديدة لهذا الطالب",
+      "close": "إغلاق",
+      "printReceipt": "طباعة الإيصال",
+      "deletePayment": "حذف الدفعة",
+      "date": "التاريخ",
+      "paperReceipt": "الإيصال الورقي",
+      "digitalReceipt": "الإيصال الإلكتروني",
+      "notes": "ملاحظات"
+    },
+    "dialogs": {
+      "deletePaymentTitle": "حذف الدفعة",
+      "deletePaymentDescriptionWithStudent": "سيتم حذف دفعة الطالب {student} وإعادة احتساب الرصيد المتبقي.",
+      "deletePaymentDescription": "سيتم حذف الدفعة المحددة وإعادة احتساب الرصيد المتبقي.",
+      "deletePaymentConfirm": "نعم، احذف الدفعة"
+    }
+  },
+  "salaries": {
+    "title": "إدارة الرواتب",
+    "subtitle": "متابعة الحسابات وجداول الحصص وصرف مستحقات الأساتذة",
+    "emptyState": {
+      "title": "بيانات الرواتب",
+      "description": "لن يتم تحميل المدرسين أو الرواتب أو الجداول قبل اختيار مدرسة صريحة لهذا القسم."
+    },
+    "sidebar": {
+      "sectionTitle": "الرواتب",
+      "items": {
+        "main": "الرئيسية",
+        "teachers": "الأساتذة",
+        "schedule_tab": "الجدول",
+        "deductions": "سحوبات",
+        "reports": "التقارير",
+        "calendar": "التقويم",
+        "archive": "الأرشيف",
+        "settings": "الإعدادات"
+      }
+    },
+    "quickAccess": {
+      "title": "الوصول السريع",
+      "showAll": "عرض الكل",
+      "showLess": "عرض أقل",
+      "items": {
+        "add_teacher": "إضافة أستاذ",
+        "schedule": "الجدول",
+        "prices": "أسعار المحاضرات",
+        "subjects": "المواد الدراسية",
+        "titles": "المسميات الوظيفية",
+        "classes": "إضافة صف وشعبة",
+        "print": "خيارات الطباعة",
+        "export": "تصدير بيانات",
+        "deductions": "سحوبات",
+        "detailed_report": "تقرير تفصيلي",
+        "schedule_lessons": "توقيتات الدروس",
+        "daily_log": "سجل يومي"
+      }
+    },
+    "summary": {
+      "activeTeachers": "الأساتذة النشطون",
+      "totalBaseSalaries": "إجمالي الرواتب الأساسية",
+      "paidThisMonth": "تم صرفه هذا الشهر",
+      "pendingPayout": "بانتظار الصرف"
+    },
+    "tabs": {
+      "teachers": "المدرسون",
+      "salaryLog": "سجل الرواتب",
+      "pendingPayout": "بانتظار الصرف"
+    },
+    "warning": {
+      "unpaidTeachers": "{count} مدرس لم يستلم راتب شهر {month} حتى الآن."
+    },
+    "loading": {
+      "main": "جارٍ تحميل بيانات الرواتب..."
+    },
+    "table": {
+      "loading": "جارٍ التحميل...",
+      "emptyTitle": "لا يوجد مدرسون",
+      "emptyDescription": "اضغط على إضافة مدرس لإنشاء حساب جديد.",
+      "columns": {
+        "name": "الاسم",
+        "jobTitle": "المسمى",
+        "subject": "المادة",
+        "baseSalary": "الراتب",
+        "lecturePrice": "سعر المحاضرة",
+        "monthStatus": "حالة الشهر",
+        "options": "خيارات"
+      },
+      "paid": "مدفوع",
+      "unpaid": "غير مدفوع",
+      "pay": "دفع"
+    },
+    "printModal": {
+      "title": "خيارات الطباعة",
+      "individualTitle": "تقرير أستاذ مفصل",
+      "individualDescription": "اختر الأستاذ لطباعة تقرير كامل بجميع محاضراته.",
+      "selectTeacherPlaceholder": "اختر الأستاذ...",
+      "print": "طباعة",
+      "summaryTitle": "تقرير شامل",
+      "summaryDescription": "تقرير لجميع الأساتذة.",
+      "printAll": "طباعة التقرير الشامل",
+      "close": "إغلاق"
+    },
+    "dialogs": {
+      "archiveMonthTitle": "أرشفة شهر الرواتب",
+      "archiveMonthDescription": "سيتم حفظ أرشيف شهر {month} وتصفير عدادات المحاضرات الخاصة به. استخدم هذا الإجراء فقط عند إغلاق الشهر.",
+      "archiveMonthConfirm": "نعم، أرشف الشهر"
+    }
+  },
+  "gates": {
+    "accessDenied": "تم رفض الوصول",
+    "accessDeniedDescription": "ليس لديك صلاحية لفتح هذه الصفحة.",
+    "goBack": "رجوع",
+    "dashboard": "لوحة التحكم",
+    "subscriptionExpired": "انتهى الاشتراك",
+    "subscriptionExpiredDescription": "انتهى اشتراك المدرسة. يرجى التواصل مع الجهة المزودة لإعادة تفعيل الوصول.",
+    "subscriptionRenewalHint": "تواصل مع الإدارة لتجديد الاشتراك",
+    "signOut": "تسجيل الخروج"
+  },
+  "ping": {
+    "label": "وقت الاستجابة (Ping)",
+    "speedFast": "سريعة",
+    "speedMedium": "متوسطة",
+    "speedSlow": "بطيئة"
+  }
+}

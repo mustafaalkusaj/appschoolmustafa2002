@@ -171,11 +171,11 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
         actions={
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
               <input 
                 type="text" 
                 placeholder="بحث..."
-                className="ui-input min-h-0 py-2 pl-9 text-xs"
+                className="ui-input min-h-0 py-2 ps-9 text-xs"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />

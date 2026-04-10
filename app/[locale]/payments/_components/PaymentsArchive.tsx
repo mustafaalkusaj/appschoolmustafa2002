@@ -1,10 +1,16 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentArchive } from "../_types";
 import { getPaymentMethodLabel, getArchiveStudents, getArchivePayments } from "../_hooks/useArchiveOperations";
 import { loadXLSX } from "@/lib/xlsx-loader";
+import { Archive, Calendar, CreditCard, Download, Eye } from "lucide-react";
 
 interface PaymentsArchiveProps {
   archives: PaymentArchive[];
@@ -33,6 +39,7 @@ export function PaymentsArchive({
   onExportArchive,
   archiveExportingId,
 }: PaymentsArchiveProps) {
+  const t = useTranslations();
   const archiveYearOptions = Array.from(
     new Set([...paymentYears, ...archives.map((a) => a.archive_year), new Date().getFullYear()])
   ).sort((a, b) => b - a);
@@ -42,76 +49,139 @@ export function PaymentsArchive({
   const latestArchive = archives[0] || null;
 
   return (
-    <div className="archive-box">
-      <div className="archive-top">
-        <div className="archive-ttl">
-          <AppIcon token="🗄️" size={14} /> الأرشيف السنوي للحسابات
-        </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Archive className="h-5 w-5 text-[var(--primary)]" />
+        <h3 className="text-lg font-bold text-[var(--text-primary)]">{t("payments.archive.title")}</h3>
       </div>
-      <div className="archive-note">
-        يتم حفظ نسخة سنوية من دفعات المدرسة الحالية داخل Supabase بدون حذف السجلات الأصلية.
-      </div>
+
+      {/* Notice */}
+      <p className="text-sm text-[var(--text-muted)]">
+        {t("payments.archive.description")}
+      </p>
+
+      {/* Error notice */}
       {archiveNotice && (
-        <div className="err" style={{ marginBottom: ".8rem" }}>
+        <div className="bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] rounded-[var(--radius-md)] p-3 text-sm font-semibold">
           {archiveNotice}
         </div>
       )}
-      <div className="archive-stats">
-        <div className="archive-stat">
-          <div className="archive-stat-label">السنوات المؤرشفة</div>
-          <div className="archive-stat-value">{formatNumber(archivedYearsCount)}</div>
-        </div>
-        <div className="archive-stat">
-          <div className="archive-stat-label">إجمالي المبلغ المؤرشف</div>
-          <div className="archive-stat-value">د.ع {formatNumber(totalArchivedAmount)}</div>
-        </div>
-        <div className="archive-stat">
-          <div className="archive-stat-label">آخر سنة مؤرشفة</div>
-          <div className="archive-stat-value">{latestArchive ? latestArchive.archive_year : "—"}</div>
-        </div>
+
+      {/* Stats Grid */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]">
+              <Calendar className="h-5 w-5 text-[var(--primary)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-muted)]">{t("payments.archive.stats.archivedYears")}</p>
+              <p className="text-lg font-bold text-[var(--text-primary)]">{formatNumber(archivedYearsCount)}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,transparent)]">
+              <CreditCard className="h-5 w-5 text-[var(--success)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-muted)]">{t("payments.archive.stats.totalArchivedAmount")}</p>
+              <p className="text-lg font-bold text-[var(--text-primary)]">
+                {t("common.currency")} {formatNumber(totalArchivedAmount)}
+              </p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--info)_10%,transparent)]">
+              <Archive className="h-5 w-5 text-[var(--info)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-muted)]">{t("payments.archive.stats.latestArchivedYear")}</p>
+              <p className="text-lg font-bold text-[var(--text-primary)]">
+                {latestArchive ? latestArchive.archive_year : "—"}
+              </p>
+            </div>
+          </div>
+        </Card>
       </div>
-      <div className="archive-controls">
-        <select className="archive-select" value={archiveYear} onChange={(e) => setArchiveYear(e.target.value)}>
+
+      {/* Archive Controls */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Select
+          value={archiveYear}
+          onChange={(e) => setArchiveYear(e.target.value)}
+          className="sm:w-48"
+        >
           {archiveYearOptions.map((year) => (
             <option key={year} value={year}>
-              سنة {year}
+              {t("payments.archive.yearOption", { year })}
             </option>
           ))}
-        </select>
+        </Select>
         {canDeletePayments && (
-          <button className="btn-add" onClick={onArchive} disabled={archiving}>
-            <AppIcon token="🗃️" size={14} /> {archiving ? "جارٍ الأرشفة..." : "أرشفة السنة المحددة"}
-          </button>
+          <Button variant="primary" onClick={onArchive} loading={archiving}>
+            <AppIcon token="🗃️" size={14} />
+            {archiving ? t("payments.archive.archiving") : t("payments.archive.archiveAction")}
+          </Button>
         )}
       </div>
+
+      {/* Archive List */}
       {archives.length === 0 ? (
-        <div className="empty" style={{ padding: "1.5rem 0" }}>
-          لا يوجد أرشيف سنوي محفوظ بعد
-        </div>
+        <EmptyState
+          title={t("payments.archive.emptyTitle")}
+          description={t("payments.archive.emptyDescription")}
+        />
       ) : (
-        <div className="archive-list">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {archives.map((archive) => (
-            <div className="arch-card" key={archive.id}>
-              <div className="arch-year">{archive.archive_year}</div>
-              <div className="arch-info">
-                {archive.total_students} طالب • {archive.total_payments} دفعة
+            <Card key={archive.id} className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-[var(--primary)]">
+                  {archive.archive_year}
+                </span>
+                <span className="text-sm font-bold text-[var(--success)]">
+                  {t("common.currency")} {formatNumber(archive.total_amount || 0)}
+                </span>
               </div>
-              <div className="arch-info">تاريخ الأرشفة: {formatDate(archive.archive_date)}</div>
-              <div className="arch-amount">د.ع {formatNumber(archive.total_amount || 0)}</div>
-              <div className="arch-actions">
-                <button className="arch-btn primary" onClick={() => onViewDetail(archive)}>
-                  <AppIcon token="📂" size={13} /> عرض التفاصيل
-                </button>
-                <button
-                  className="arch-btn soft"
+              <p className="text-sm text-[var(--text-muted)]">
+                {t("payments.archive.cardSummary", {
+                  students: archive.total_students ?? 0,
+                  payments: archive.total_payments ?? 0,
+                })}
+              </p>
+              <p className="text-xs text-[var(--text-tertiary)]">
+                {t("payments.archive.archiveDate", {
+                  date: formatDate(archive.archive_date),
+                })}
+              </p>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onViewDetail(archive)}
+                  className="flex-1"
+                >
+                  <Eye className="h-4 w-4" />
+                  {t("payments.archive.view")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => onExportArchive(archive)}
                   disabled={archiveExportingId === archive.id}
+                  loading={archiveExportingId === archive.id}
+                  className="flex-1"
                 >
-                  <AppIcon token="⬇️" size={13} />{" "}
-                  {archiveExportingId === archive.id ? "جارٍ التصدير..." : "تصدير الأرشيف"}
-                </button>
+                  <Download className="h-4 w-4" />
+                  {t("payments.archive.export")}
+                </Button>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

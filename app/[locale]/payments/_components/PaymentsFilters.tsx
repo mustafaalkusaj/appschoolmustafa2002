@@ -1,6 +1,9 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AppIcon } from "@/components/AppIcon";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { QUICK_FILTERS } from "../_types";
 
 interface PaymentsFiltersProps {
@@ -36,68 +39,94 @@ export function PaymentsFilters({
   resolvedSchoolId,
   canAddPayments,
 }: PaymentsFiltersProps) {
+  const t = useTranslations();
+
   return (
-    <div className="ops-section">
-      <div className="ops-header">
-        <div className="ops-title">
-          <AppIcon token="⚙️" size={14} /> العمليات
+    <div className="space-y-6">
+      {/* Header with actions */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <AppIcon token="⚙️" size={16} />
+          <span className="text-sm font-bold text-[var(--text-primary)]">{t("payments.filters.operations")}</span>
         </div>
-        <div className="ops-actions">
-          <button className="btn-export" onClick={onExport} disabled={exporting || !resolvedSchoolId}>
-            <AppIcon token="⬇️" size={14} /> {exporting ? "جارٍ التصدير..." : "تصدير إكسل"}
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={exporting || !resolvedSchoolId}
+            loading={exporting}
+          >
+            <AppIcon token="⬇️" size={14} />
+            {t("payments.filters.exportExcel")}
+          </Button>
           {canAddPayments && (
-            <button className="btn-add" onClick={onAddPayment}>
-              + إضافة فاتورة
-            </button>
+            <Button variant="primary" size="sm" onClick={onAddPayment}>
+              {t("payments.filters.addInvoice")}
+            </Button>
           )}
         </div>
       </div>
 
       {/* Quick filters */}
-      <div className="quick-filters">
+      <div className="flex flex-wrap gap-2">
         {QUICK_FILTERS.map((f) => (
           <button
             key={f.id}
-            className={`qf-btn${quickFilter === f.id ? " active" : ""}`}
             onClick={() => setQuickFilter(f.id)}
+            className={`
+              inline-flex items-center gap-1.5 px-3 py-1.5
+              text-sm font-semibold rounded-full
+              transition-all duration-150
+              ${
+                quickFilter === f.id
+                  ? "bg-[var(--primary)] text-white shadow-[var(--shadow-primary)]"
+                  : "bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+              }
+            `}
           >
-            <AppIcon token="📋" size={12} /> {f.label}
+            <AppIcon token="📋" size={12} />
+            {t(`payments.quickFilters.${f.id}`)}
           </button>
         ))}
       </div>
 
       {/* Advanced filters */}
-      <div className="adv-filters">
-        <div className="adv-title">
-          <AppIcon token="🔍" size={13} /> الفلاتر
+      <div className="bg-[var(--surface-soft)] rounded-[var(--radius-lg)] p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <AppIcon token="🔍" size={14} />
+          <span className="text-sm font-bold text-[var(--text-primary)]">{t("payments.filters.advanced")}</span>
         </div>
-        <div className="adv-grid2">
-          <div className="af-item">
-            <label className="af-label">الصف والشعبة</label>
-            <select className="af-input" value={filterClass} onChange={(e) => setFilterClass(e.target.value)}>
-              <option value="">- الكل -</option>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">
+              {t("payments.filters.classAndSection")}
+            </label>
+            <Select value={filterClass} onChange={(e) => setFilterClass(e.target.value)}>
+              <option value="">{t("payments.filters.allClasses")}</option>
               {classes.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
-          <div className="af-item">
-            <label className="af-label">ترتيب حسب</label>
-            <select className="af-input" value={filterSort} onChange={(e) => setFilterSort(e.target.value)}>
-              <option value="name">الاسم</option>
-              <option value="remaining">المتبقي</option>
-              <option value="total">إجمالي الرسوم</option>
-            </select>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">{t("payments.filters.sortBy")}</label>
+            <Select value={filterSort} onChange={(e) => setFilterSort(e.target.value)}>
+              <option value="name">{t("payments.filters.sortName")}</option>
+              <option value="remaining">{t("payments.filters.sortRemaining")}</option>
+              <option value="total">{t("payments.filters.sortTotalFees")}</option>
+            </Select>
           </div>
-          <div className="af-item">
-            <label className="af-label">اتجاه الترتيب</label>
-            <select className="af-input" value={filterDir} onChange={(e) => setFilterDir(e.target.value)}>
-              <option value="asc">تصاعدي ↑</option>
-              <option value="desc">تنازلي ↓</option>
-            </select>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">
+              {t("payments.filters.sortDirection")}
+            </label>
+            <Select value={filterDir} onChange={(e) => setFilterDir(e.target.value)}>
+              <option value="asc">{t("payments.filters.sortAsc")}</option>
+              <option value="desc">{t("payments.filters.sortDesc")}</option>
+            </Select>
           </div>
         </div>
       </div>

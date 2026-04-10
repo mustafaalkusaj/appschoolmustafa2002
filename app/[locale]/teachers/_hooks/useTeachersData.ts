@@ -44,6 +44,7 @@ import {
   validateTeacherImportFile,
   getSectionOptionsByClass,
 } from "../_utils";
+import { printHtmlDocument } from "@/lib/print/branding";
 
 const SEARCH_DEBOUNCE_MS = 350;
 const PAGE_SIZE = 25;
@@ -467,20 +468,12 @@ export function useTeachersData(
   }, []);
 
   const openPrintableWindow = useCallback((card: ManagedUserAccountCard, autoPrint = true) => {
-    const popup = window.open("", "_blank", "noopener,noreferrer,width=920,height=820");
-    if (!popup) {
-      throw new Error("يرجى السماح بالنوافذ المنبثقة لعرض بطاقة الحساب.");
-    }
-
     // Use the revealed password if available
     const passwordToShow = revealedPassword && revealedPassword !== "••••••••"
       ? revealedPassword
       : card.temporary_password;
     const cardWithPassword = { ...card, temporary_password: passwordToShow };
-
-    popup.document.open();
-    popup.document.write(buildPrintableCardHtml(cardWithPassword, autoPrint));
-    popup.document.close();
+    printHtmlDocument(buildPrintableCardHtml(cardWithPassword, autoPrint));
   }, [revealedPassword]);
 
   const handleCopyCredentials = useCallback(async () => {

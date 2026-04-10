@@ -1,13 +1,22 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Banknote, School, Pencil, Trash2, Plus, Check, X } from "@/lib/icons";
 import { formatNumber } from "@/lib/formatting";
 import { ClassFee } from "./types";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { TableSkeleton } from "@/components/skeleton";
 
 interface ClassFeesTableProps {
   classFees: ClassFee[];
   showFeesTable: boolean;
   canManageClasses: boolean;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   deleteConfirm: string | null;
   getClassStats: (cf: ClassFee) => {
     count: number;
@@ -27,6 +36,9 @@ export function ClassFeesTable({
   classFees,
   showFeesTable,
   canManageClasses,
+  loading,
+  error,
+  onRetry,
   deleteConfirm,
   getClassStats,
   onOpenNewFee,
@@ -35,152 +47,150 @@ export function ClassFeesTable({
   onCancelDelete,
   onConfirmDelete,
 }: ClassFeesTableProps) {
+  const t = useTranslations("dashboard.feesTable");
+  const dashboardT = useTranslations("dashboard");
+  const commonT = useTranslations("common");
+  
   if (!canManageClasses || !showFeesTable) return null;
 
   return (
-    <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1rem", fontWeight: 800 }}>
-          <Banknote size={20} className="text-primary" />
-          <span>أسعار الرسوم الدراسية حسب الصفوف</span>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]">
+            <Banknote size={18} />
+          </div>
+          <CardTitle>{t("title")}</CardTitle>
         </div>
-        <button 
-          className="ui-button ui-button--primary" 
+        <Button 
+          size="sm"
           onClick={onOpenNewFee} 
-          style={{ minHeight: "36px", padding: "0 0.875rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.35rem" }}
+          className="gap-2"
         >
-          <Plus size={14} />
-          إضافة صف جديد
-        </button>
-      </div>
+          <Plus size={16} strokeWidth={3} />
+          <span>{t("addLabel")}</span>
+        </Button>
+      </CardHeader>
 
-      {classFees.length === 0 ? (
-        <div style={{ 
-          textAlign: "center", 
-          color: "var(--text-tertiary)", 
-          padding: "3rem 1.5rem", 
-          fontSize: "0.875rem",
-          background: "var(--surface-soft)",
-          borderRadius: "16px",
-          border: "1px dashed var(--border)"
-        }}>
-          لا توجد أقساط مضافة حتى الآن. اضغط على "إضافة صف جديد" للبدء.
-        </div>
-      ) : (
-        <div style={{ overflowX: "auto", margin: "0 -1.5rem" }}>
-          <table className="ui-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "var(--surface-soft)" }}>
-                <th style={{ padding: "1rem 1.5rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>الصف الدراسي</th>
-                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>المبلغ الكلي</th>
-                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>عدد الأقساط</th>
-                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>قيمة القسط الواحد</th>
-                <th style={{ padding: "1rem 1rem", textAlign: "center", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>عدد الطلاب</th>
-                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>المدفوع</th>
-                <th style={{ padding: "1rem 1rem", textAlign: "right", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>المتبقي</th>
-                <th style={{ padding: "1rem 1.5rem", textAlign: "center", fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {classFees.map((cf) => {
-                const stats = getClassStats(cf);
-                return (
-                  <tr key={cf.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "1rem 1.5rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <School size={14} className="text-tertiary" />
-                        <span style={{ fontWeight: 700, fontSize: "0.875rem" }}>{cf.class_name}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "1rem 1rem", fontWeight: 800, color: "var(--primary)", fontSize: "0.875rem" }}>
-                      د.ع {formatNumber(cf.total_fee)}
-                    </td>
-                    <td style={{ padding: "1rem 1rem" }}>
-                      <span style={{ 
-                        padding: "0.25rem 0.625rem", 
-                        background: "var(--surface-soft)", 
-                        borderRadius: "999px", 
-                        fontSize: "0.6875rem", 
-                        fontWeight: 700,
-                        color: "var(--text-secondary)",
-                        border: "1px solid var(--border)"
-                      }}>
-                        × {cf.installments} أقساط
-                      </span>
-                    </td>
-                    <td style={{ padding: "1rem 1rem", fontWeight: 700, color: "#10b981", fontSize: "0.8125rem" }}>
-                      د.ع {formatNumber(cf.installment_amount)}
-                    </td>
-                    <td style={{ padding: "1rem 1rem", textAlign: "center", fontWeight: 700, fontSize: "0.875rem" }}>
-                      {stats.count}
-                    </td>
-                    <td style={{ padding: "1rem 1rem", color: "#10b981", fontWeight: 800, fontSize: "0.8125rem" }}>
-                      د.ع {formatNumber(stats.totalPaid)}
-                    </td>
-                    <td style={{ padding: "1rem 1rem", color: "var(--danger)", fontWeight: 800, fontSize: "0.8125rem" }}>
-                      د.ع {formatNumber(stats.totalRemaining)}
-                    </td>
-                    <td style={{ padding: "1rem 1.5rem", textAlign: "center" }}>
-                      <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem" }}>
-                        <button 
-                          className="ui-button" 
-                          style={{ 
-                            minHeight: "32px", 
-                            minWidth: "32px", 
-                            padding: 0, 
-                            borderRadius: "8px",
-                            background: "var(--surface-soft)",
-                            border: "1px solid var(--border)",
-                            color: "var(--text-secondary)"
-                          }} 
-                          onClick={() => onEditFee(cf)}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        
-                        {deleteConfirm === cf.id ? (
-                          <div style={{ display: "flex", gap: "0.25rem" }}>
-                            <button 
-                              className="ui-button ui-button--danger" 
-                              style={{ minHeight: "32px", padding: "0 0.75rem", fontSize: "0.6875rem", borderRadius: "8px" }} 
-                              onClick={() => onConfirmDelete(cf.id)}
-                            >
-                              <Check size={14} />
-                            </button>
-                            <button 
-                              className="ui-button ui-button--secondary" 
-                              style={{ minHeight: "32px", padding: "0 0.75rem", fontSize: "0.6875rem", borderRadius: "8px" }} 
-                              onClick={onCancelDelete}
-                            >
-                              <X size={14} />
-                            </button>
+      <CardContent className="p-0">
+        {loading ? (
+          <div className="p-4">
+            <TableSkeleton rows={5} cols={7} />
+          </div>
+        ) : error ? (
+          <ErrorState
+            title={dashboardT("errors.overviewTitle")}
+            description={dashboardT("errors.overviewDescription")}
+            onRetry={onRetry}
+            retryLabel={commonT("retry")}
+            className="min-h-[220px] py-8"
+          />
+        ) : classFees.length === 0 ? (
+          <EmptyState
+            icon={<School size={28} />}
+            title={t("empty")}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-[var(--surface-muted)]/50 border-y border-[var(--border)]">
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("className")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("students")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("totalAmount")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("installments")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("collected")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("remaining")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("actions")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)]">
+                {classFees.map((cf) => {
+                  const stats = getClassStats(cf);
+                  return (
+                    <tr key={cf.id} className="group hover:bg-[var(--surface-muted)]/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg bg-[var(--surface-muted)] flex items-center justify-center text-[var(--text-muted)] group-hover:bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] group-hover:text-[var(--primary)] transition-colors">
+                            <School size={14} />
                           </div>
-                        ) : (
-                          <button 
-                            className="ui-button ui-button--danger" 
-                            style={{ 
-                              minHeight: "32px", 
-                              minWidth: "32px", 
-                              padding: 0, 
-                              borderRadius: "8px",
-                              background: "rgba(239, 68, 68, 0.08)",
-                              border: "1px solid rgba(239, 68, 68, 0.16)",
-                              color: "var(--danger)"
-                            }} 
-                            onClick={() => onDeleteFee(cf.id)}
+                          <span className="font-semibold text-[var(--text-primary)] text-sm">{cf.class_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[var(--surface-muted)] text-xs font-bold text-[var(--text-secondary)]">
+                          {stats.count}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-bold text-[var(--primary)] text-sm whitespace-nowrap">
+                        {commonT("currency")} {formatNumber(cf.total_fee)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                            {t("installmentsCount", { count: cf.installments })}
+                          </span>
+                          <span className="text-[10px] font-medium text-[var(--success)] bg-[color-mix(in_srgb,var(--success)_10%,transparent)] px-1.5 py-0.5 rounded-md w-fit">
+                            {t("perInstallment", { amount: formatNumber(cf.installment_amount) })}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-[var(--success)] text-sm whitespace-nowrap">
+                        {commonT("currency")} {formatNumber(stats.totalPaid)}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-[var(--danger)] text-sm whitespace-nowrap">
+                        {commonT("currency")} {formatNumber(stats.totalRemaining)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button 
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => onEditFee(cf)}
                           >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+                            <Pencil size={14} />
+                          </Button>
+                          
+                          {deleteConfirm === cf.id ? (
+                            <div className="flex gap-1 animate-in zoom-in-95 duration-200">
+                              <Button 
+                                variant="destructive"
+                                size="sm"
+                                className="h-7 w-7 p-0" 
+                                onClick={() => onConfirmDelete(cf.id)}
+                              >
+                                <Check size={14} />
+                              </Button>
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                className="h-7 w-7 p-0" 
+                                onClick={onCancelDelete}
+                              >
+                                <X size={14} />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button 
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] opacity-0 group-hover:opacity-100 transition-opacity" 
+                              onClick={() => onDeleteFee(cf.id)}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

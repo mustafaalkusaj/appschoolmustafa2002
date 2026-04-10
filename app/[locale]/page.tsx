@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AppIcon } from "@/components/AppIcon";
 import { UltrathinkLogo } from "@/components/brand";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -14,92 +15,94 @@ export default function Home() {
   const { profile, role } = useRole();
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
+  const t = useTranslations("home");
+  const commonT = useTranslations("common");
 
   const cards = useMemo(() => {
     const allCards: Array<{ href: string; title: string; desc: string; icon: string; roles: UserRole[] }> = [
       {
         href: "/dashboard",
-        title: "لوحة التحكم",
-        desc: "تابع المؤشرات والتحليلات وأهم تفاصيل التشغيل اليومية",
+        title: t("cards.dashboard.title"),
+        desc: t("cards.dashboard.desc"),
         icon: "📊",
         roles: ["super_admin", "admin", "employee"],
       },
       {
         href: "/schools",
-        title: "المدارس",
-        desc: "إدارة المدارس وربطها بالاشتراكات والخطط",
+        title: t("cards.schools.title"),
+        desc: t("cards.schools.desc"),
         icon: "🏫",
         roles: ["super_admin"],
       },
       {
         href: "/students",
-        title: "الطلاب",
-        desc: "إدارة بيانات الطلاب والصفوف والشعب الدراسية",
+        title: t("cards.students.title"),
+        desc: t("cards.students.desc"),
         icon: "👥",
         roles: ["super_admin", "admin", "employee"],
       },
       {
         href: "/teachers",
-        title: "إدارة الأساتذة",
-        desc: "إنشاء وتعديل حسابات الأساتذة وربطهم بالمواد والصفوف",
+        title: t("cards.teachers.title"),
+        desc: t("cards.teachers.desc"),
         icon: "🪪",
         roles: ["super_admin", "admin"],
       },
       {
         href: "/payments",
-        title: "الحسابات",
-        desc: "متابعة التحصيلات والأرصدة المتبقية على الطلاب",
+        title: t("cards.payments.title"),
+        desc: t("cards.payments.desc"),
         icon: "💳",
         roles: ["super_admin", "admin", "employee"],
       },
       {
         href: "/expenses",
-        title: "المصروفات",
-        desc: "تسجيل المصروفات التشغيلية ومتابعة أنواعها",
+        title: t("cards.expenses.title"),
+        desc: t("cards.expenses.desc"),
         icon: "💰",
         roles: ["super_admin", "admin"],
       },
       {
         href: "/attendance",
-        title: "الحضور",
-        desc: "تسجيل حضور الطلاب اليومي ومتابعة حالاتهم",
+        title: t("cards.attendance.title"),
+        desc: t("cards.attendance.desc"),
         icon: "🗓️",
         roles: ["super_admin", "admin", "employee"],
       },
       {
         href: "/reports",
-        title: "التقارير",
-        desc: "إنشاء تقارير تشغيلية ومالية مفصلة",
+        title: t("cards.reports.title"),
+        desc: t("cards.reports.desc"),
         icon: "📈",
         roles: ["super_admin", "admin"],
       },
       {
         href: "/subscriptions",
-        title: "الاشتراكات",
-        desc: "إدارة خطط الاشتراك وحالة التفعيل لكل مدرسة",
+        title: t("cards.subscriptions.title"),
+        desc: t("cards.subscriptions.desc"),
         icon: "💳",
         roles: ["super_admin"],
       },
       {
         href: "/super-admin",
-        title: "لوحة المدير العام",
-        desc: "إدارة المدارس والمستخدمين والاشتراكات وتشغيل المنصة",
+        title: t("cards.superAdmin.title"),
+        desc: t("cards.superAdmin.desc"),
         icon: "👑",
         roles: ["super_admin"],
       },
     ];
     if (!role) return [];
     return allCards.filter((card) => card.roles.includes(role));
-  }, [role]);
+  }, [role, t]);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-blue-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
-        <header className="bg-white/90 dark:bg-slate-900/90 shadow-sm backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
+      <div className="min-h-screen bg-[var(--background)]">
+        <header className="bg-[var(--surface-strong)] shadow-sm border-b border-[var(--border)]">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <UltrathinkLogo size={40} title="منصة إدارة المدرسة" subtitle="نظام التشغيل المدرسي" />
+            <UltrathinkLogo size={40} title={commonT("brand")} subtitle={commonT("subtitle")} />
             <div className="text-right">
-              <p className="text-sm text-slate-500 dark:text-slate-400">مرحباً بعودتك</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t("welcomeBack")}</p>
               <p className="font-semibold text-slate-900 dark:text-white">{profile?.email}</p>
             </div>
           </div>
@@ -126,3 +129,4 @@ export default function Home() {
     </ProtectedRoute>
   );
 }
+

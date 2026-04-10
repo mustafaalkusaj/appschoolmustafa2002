@@ -1,6 +1,9 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { LecturePrice, ClassItem } from "../_types";
 
 interface PricesModalProps {
@@ -22,65 +25,43 @@ export function PricesModal({
   onPriceChange,
   onSave,
 }: PricesModalProps) {
-  if (!show) return null;
-
   const gradeOptions = Array.from(new Set(classes.map((c) => c.grade))) as string[];
 
   return (
-    <div className="overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="modal modal-sm">
-        <div className="mh">
-          <div className="mt" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token="🏷️" size={16} />
-            أسعار المحاضرات
-          </div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
-        <p style={{ fontSize: ".8rem", color: "var(--gray)", marginBottom: "1rem" }}>
+    <Modal open={show} onClose={onClose} size="sm">
+      <ModalHeader
+        title="أسعار المحاضرات"
+        onClose={onClose}
+      />
+      <ModalBody className="space-y-4">
+        <p className="text-sm text-[var(--text-muted)]">
           حدد سعر المحاضرة الواحدة لكل صف ليتم احتساب الرواتب تلقائياً.
         </p>
-        {gradeOptions.map((grade) => (
-          <div
-            key={grade}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: ".6rem .4rem",
-              borderBottom: "1px solid rgba(79,140,255,0.06)",
-            }}
-          >
-            <span style={{ fontWeight: 700, fontSize: ".88rem" }}>{grade}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
-              <input
-                type="number"
-                value={priceEdits[grade] || 0}
-                onChange={(e) => onPriceChange(grade, parseInt(e.target.value) || 0)}
-                style={{
-                  width: 100,
-                  padding: ".4rem .6rem",
-                  background: "#F7FBFF",
-                  border: "1.5px solid rgba(79,140,255,0.15)",
-                  borderRadius: 8,
-                  fontFamily: "var(--font-manrope),Segoe UI,sans-serif",
-                  fontSize: ".82rem",
-                  textAlign: "center",
-                  outline: "none",
-                }}
-              />
-              <span style={{ fontSize: ".75rem", color: "var(--gray)" }}>د.ع</span>
+
+        <div className="space-y-3">
+          {gradeOptions.map((grade) => (
+            <div
+              key={grade}
+              className="flex items-center justify-between gap-4 py-2 border-b border-[var(--border)] last:border-0"
+            >
+              <span className="text-sm font-semibold text-[var(--text-primary)]">{grade}</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={priceEdits[grade] || 0}
+                  onChange={(e) => onPriceChange(grade, parseInt(e.target.value) || 0)}
+                  className="w-24 text-center"
+                />
+                <span className="text-xs text-[var(--text-muted)]">د.ع</span>
+              </div>
             </div>
-          </div>
-        ))}
-        <div className="fa">
-          <button className="bs" onClick={onSave}>حفظ الأسعار</button>
-          <button className="bc" onClick={onClose}>إلغاء</button>
+          ))}
         </div>
-      </div>
-    </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button onClick={onSave}>حفظ الأسعار</Button>
+        <Button variant="secondary" onClick={onClose}>إلغاء</Button>
+      </ModalFooter>
+    </Modal>
   );
 }

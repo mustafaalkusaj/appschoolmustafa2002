@@ -1,0 +1,7 @@
+{
+  "name": "School App Figma Seeder",
+  "id": "com.codex.school-app-figma-seeder",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"]
+}

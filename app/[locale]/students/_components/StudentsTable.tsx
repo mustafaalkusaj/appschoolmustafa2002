@@ -1,7 +1,14 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { MoreHorizontal, Loader2 } from "lucide-react";
 import { formatNumber } from "@/lib/formatting";
-import { STATUS_MAP } from "../_constants";
+import { Badge } from "@/components/ui/badge";
+import { Button, IconButton } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/brand/brand-utils";
 import type { StudentWithFees, StudentActionItem } from "../_types";
 
 interface StudentsTableProps {
@@ -20,6 +27,17 @@ interface StudentsTableProps {
   onPageChange: (page: number) => void;
 }
 
+// Status badge variant mapping
+const statusVariantMap: Record<string, "success" | "warning" | "danger" | "info" | "neutral"> = {
+  active: "success",
+  transferred: "warning",
+  graduated: "info",
+  withdrawn: "danger",
+  archived: "neutral",
+  suspended: "warning",
+  deleted: "neutral",
+};
+
 export function StudentsTable({
   pagedStudents,
   pagedLoading,
@@ -35,196 +53,237 @@ export function StudentsTable({
   openMenu,
   onPageChange,
 }: StudentsTableProps) {
+  const t = useTranslations("students.table");
+  const commonT = useTranslations("common");
+  const tabsT = useTranslations("students.tabs");
+
+  // Loading state
   if (pagedLoading) {
     return (
-      <div className="tbl-wrap">
-        <div className="spin" />
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
       </div>
     );
   }
 
+  // Error state
   if (error || pagedError) {
     return (
-      <div className="tbl-wrap">
-        <div className="empty">
-          خطأ في تحميل البيانات: {error || pagedError || "غير معروف"}
-        </div>
-      </div>
+      <EmptyState
+        title={t("errorLoading", { error: error || pagedError || "???" })}
+        className="text-[var(--danger)]"
+      />
     );
   }
 
+  // Empty state
   if (pagedStudents.length === 0) {
-    return (
-      <div className="tbl-wrap">
-        <div className="empty">
-          {totalCount === 0
-            ? activeTab === "active" && canManageStudentAccounts
-              ? "لا يوجد طلاب — اضغط إضافة طالب"
-              : `لا يوجد طلاب في هذه القائمة (${activeTab})`
-            : "لا توجد نتائج مطابقة للفلاتر الحالية"}
-        </div>
-      </div>
-    );
+    const emptyTitle =
+      totalCount === 0
+        ? activeTab === "active" && canManageStudentAccounts
+          ? t("empty.noStudents")
+          : t("empty.noStudentsTab", { tab: tabsT(activeTab as any) })
+        : t("empty.noResults");
+
+    return <EmptyState title={emptyTitle} />;
   }
 
   return (
-    <div className="tbl-wrap">
-      <div className="tbl-mobile-cards">
+    <div className="space-y-4">
+      {/* Mobile Cards View */}
+      <div className="grid gap-4 md:hidden">
         {pagedStudents.map((s, i) => {
-          const st = STATUS_MAP[s.status] || STATUS_MAP.active;
           const actions = getActions(s);
           return (
-            <article key={s.id} className="tbl-mobile-card">
-              <div className="tbl-mobile-card__header">
-                <div>
-                  <button
-                    type="button"
-                    className="tbl-mobile-card__title"
-                    onClick={(e) => openMenu(e, s)}
-                  >
-                    {s.full_name}
-                  </button>
-                  <div className="tbl-mobile-card__subtitle">
-                    #{(page - 1) * pageSize + i + 1} • {s.class_name} • {s.section || "بدون شعبة"}
+            <Card key={s.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      className="text-base font-bold text-[var(--primary)] hover:underline text-start truncate"
+                      onClick={(e) => openMenu(e, s)}
+                    >
+                      {s.full_name}
+                    </button>
+                    <p className="text-sm text-[var(--text-muted)] mt-1">
+                      #{(page - 1) * pageSize + i + 1} • {s.class_name} • {s.section || t("noSection")}
+                    </p>
+                  </div>
+                  <Badge variant={statusVariantMap[s.status] || "neutral"} size="sm">
+                    {commonT(`studentStatus.${s.status}`)}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("phone")}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mt-1">
+                      {s.phone || "—"}
+                    </p>
+                  </div>
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("paid")}</p>
+                    <p className="text-sm font-semibold text-[var(--success)] mt-1">
+                      {commonT("currency")} {formatNumber(s.paid_fee)}
+                    </p>
+                  </div>
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("balance")}</p>
+                    <p
+                      className={cn(
+                        "text-sm font-semibold mt-1",
+                        s.remaining_fee > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
+                      )}
+                    >
+                      {commonT("currency")} {formatNumber(s.remaining_fee)}
+                    </p>
+                  </div>
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("address")}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mt-1 truncate">
+                      {s.address || "—"}
+                    </p>
                   </div>
                 </div>
-                <span className="badge" style={{ background: st.bg, color: st.color }}>
-                  {st.label}
-                </span>
-              </div>
 
-              <div className="tbl-mobile-card__grid">
-                <div className="tbl-mobile-card__item">
-                  <span>الهاتف</span>
-                  <strong>{s.phone || "—"}</strong>
-                </div>
-                <div className="tbl-mobile-card__item">
-                  <span>المدفوع</span>
-                  <strong style={{ color: "#10B981" }}>د.ع {formatNumber(s.paid_fee)}</strong>
-                </div>
-                <div className="tbl-mobile-card__item">
-                  <span>المتبقي</span>
-                  <strong style={{ color: s.remaining_fee > 0 ? "#EF4444" : "#10B981" }}>
-                    د.ع {formatNumber(s.remaining_fee)}
-                  </strong>
-                </div>
-                <div className="tbl-mobile-card__item">
-                  <span>العنوان</span>
-                  <strong>{s.address || "—"}</strong>
-                </div>
-              </div>
-
-              {actions.length > 0 ? (
-                <button
-                  type="button"
-                  className="btn-action tbl-mobile-card__action"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => openMenu(e, s)}
-                >
-                  خيارات الطالب ▾
-                </button>
-              ) : null}
-            </article>
+                {actions.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-4"
+                    onClick={(e) => openMenu(e, s)}
+                  >
+                    {t("studentOptions")}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           );
         })}
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>الاسم</th>
-            <th>الصف</th>
-            <th>الشعبة</th>
-            <th>العنوان</th>
-            <th>الهاتف</th>
-            <th>الرسوم</th>
-            <th>المدفوع</th>
-            <th>المتبقي</th>
-            <th>الحالة</th>
-            <th>خيارات</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pagedStudents.map((s, i) => {
-            const st = STATUS_MAP[s.status] || STATUS_MAP.active;
-            const actions = getActions(s);
-            return (
-              <tr key={s.id}>
-                <td style={{ color: "var(--gray)", fontSize: ".7rem" }}>
-                  {(page - 1) * pageSize + i + 1}
-                </td>
-                <td>
-                  <span
-                    className="student-name"
-                    style={{
-                      fontWeight: 700,
-                      color: "var(--p2)",
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                      textUnderlineOffset: "3px",
-                    }}
-                    onClick={(e) => openMenu(e, s)}
-                  >
-                    {s.full_name}
-                  </span>
-                </td>
-                <td>{s.class_name}</td>
-                <td>{s.section || "—"}</td>
-                <td style={{ color: "var(--gray)" }}>{s.address || "—"}</td>
-                <td style={{ color: "var(--gray)" }}>{s.phone || "—"}</td>
-                <td>د.ع {formatNumber(s.total_fee)}</td>
-                <td style={{ color: "#10B981", fontWeight: 600 }}>
-                  د.ع {formatNumber(s.paid_fee)}
-                </td>
-                <td
-                  style={{
-                    color: s.remaining_fee > 0 ? "#EF4444" : "#10B981",
-                    fontWeight: 600,
-                  }}
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)]">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--surface-soft)]">
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                #
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("name")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("class")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("section")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("address")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("phone")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("fees")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("paid")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("balance")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("status")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border)]">
+            {pagedStudents.map((s, i) => {
+              const actions = getActions(s);
+              return (
+                <tr
+                  key={s.id}
+                  className="hover:bg-[var(--surface-hover)] transition-colors"
                 >
-                  د.ع {formatNumber(s.remaining_fee)}
-                </td>
-                <td>
-                  <span className="badge" style={{ background: st.bg, color: st.color }}>
-                    {st.label}
-                  </span>
-                </td>
-                <td>
-                  {actions.length > 0 && (
+                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
+                    {(page - 1) * pageSize + i + 1}
+                  </td>
+                  <td className="px-4 py-3">
                     <button
-                      className="btn-action"
-                      onMouseDown={(e) => e.stopPropagation()}
+                      type="button"
+                      className="text-sm font-semibold text-[var(--primary)] hover:underline text-start"
                       onClick={(e) => openMenu(e, s)}
                     >
-                      خيارات ▾
+                      {s.full_name}
                     </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                    {s.class_name}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
+                    {s.section || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
+                    {s.address || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
+                    {s.phone || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                    {commonT("currency")} {formatNumber(s.total_fee)}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-[var(--success)]">
+                    {commonT("currency")} {formatNumber(s.paid_fee)}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-4 py-3 text-sm font-semibold",
+                      s.remaining_fee > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
+                    )}
+                  >
+                    {commonT("currency")} {formatNumber(s.remaining_fee)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={statusVariantMap[s.status] || "neutral"} size="sm">
+                      {commonT(`studentStatus.${s.status}`)}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {actions.length > 0 && (
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        aria-label={t("options")}
+                        onClick={(e) => openMenu(e, s)}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </IconButton>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="pagination flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
-          <button
-            className="btn-nav disabled:opacity-50 px-4 py-2 bg-gradient-to-l from-purple-600 to-purple-700 text-white rounded-lg cursor-pointer hover:shadow-md transition-all disabled:cursor-not-allowed"
-            disabled={page === 1}
-            onClick={() => onPageChange(page - 1)}
-          >
-            السابق
-          </button>
-          <span className="font-bold text-slate-800 dark:text-slate-200">
-            صفحة {page} من {totalPages} | {totalCount} طالب
-          </span>
-          <button
-            className="btn-nav disabled:opacity-50 px-4 py-2 bg-gradient-to-l from-purple-600 to-purple-700 text-white rounded-lg cursor-pointer hover:shadow-md transition-all disabled:cursor-not-allowed"
-            disabled={page === totalPages}
-            onClick={() => onPageChange(page + 1)}
-          >
-            التالي
-          </button>
+        <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
+          <p className="text-sm text-[var(--text-muted)]">
+            {t("pagination.info", { count: totalCount })}
+          </p>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+          />
         </div>
       )}
     </div>

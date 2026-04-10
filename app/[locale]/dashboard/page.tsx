@@ -8,6 +8,10 @@ import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { Database } from "@/lib/icons";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { AnalysisSkeleton } from "@/components/skeleton";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { getLocaleFromPath } from "@/lib/locale-routing";
@@ -16,10 +20,12 @@ import { useClassesSections } from "./_hooks/useClassesSections";
 import { useFeeManagement } from "./_hooks/useFeeManagement";
 import { useBranding } from "./_hooks/useBranding";
 import { useNotifications } from "./_hooks/useNotifications";
+import { useRecentActivity } from "./_hooks/useRecentActivity";
 import {
   DashboardActions,
   SchoolBrandingPanel,
   NotificationsPanel,
+  RecentActivityPanel,
   ClassFeesTable,
   StatisticsCards,
   FinancialAnalysisPanel,
@@ -32,12 +38,19 @@ import {
 export default function DashboardPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
-  const t = useTranslations();
+  const t = useTranslations("dashboard");
+  const commonT = useTranslations("common");
   const { profile, canAny } = useRole();
   const schoolScope = useSchoolScope(profile);
   const canManageClasses = canAny(["add_students", "edit_students", "delete_students"]);
 
   const dashboardData = useDashboardData({
+    profile,
+    selectedSchoolId: schoolScope.selectedSchoolId,
+    scopeLoading: schoolScope.scopeLoading,
+  });
+
+  const recentActivity = useRecentActivity({
     profile,
     selectedSchoolId: schoolScope.selectedSchoolId,
     scopeLoading: schoolScope.scopeLoading,
@@ -74,35 +87,47 @@ export default function DashboardPage() {
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
   const canCustomizeBranding = profile?.role === "super_admin";
   const hasOperationalData =
-    dashboardData.dashboardTotals.studentsCount > 0 ||
-    dashboardData.classFees.length > 0 ||
-    dashboardData.recentPayments.length > 0 ||
-    dashboardData.overdueStudents.length > 0;
+    !dashboardData.error &&
+    (dashboardData.dashboardTotals.studentsCount > 0 ||
+      dashboardData.classFees.length > 0 ||
+      dashboardData.recentPayments.length > 0 ||
+      dashboardData.overdueStudents.length > 0);
+    
   const dashboardSummary = schoolScope.shouldBlockContent
-    ? "اختر مدرسة أولاً حتى تصبح بيانات الهيدر والإحصائيات مرتبطة بسياق واضح."
+    ? t("summary.empty")
     : schoolScope.isSuperAdminScope
-      ? "عرض مركّز حسب المدرسة المحددة حالياً مع الحفاظ على نفس البيانات والعمليات."
-      : "نظرة سريعة على الرسوم والمدفوعات والطلاب ضمن المدرسة الحالية.";
+      ? t("summary.superAdmin")
+      : t("summary.default");
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-      <>
-        <div className="layout">
-          <AppSidebar currentPath="/dashboard" />
-          <div className="main">
-            <AppShellTopbar title="لوحة التحكم" subtitle={dashboardSummary} scope={schoolScope} fixed />
-            <div className="content app-shell-content app-shell-content--with-fixed-topbar">
+      <div className="flex min-h-screen">
+        <AppSidebar currentPath="/dashboard" />
+        
+        <div className="flex-1 flex flex-col min-w-0">
+          <AppShellTopbar 
+            title={t("title")} 
+            subtitle={dashboardSummary} 
+            scope={schoolScope} 
+            fixed 
+          />
+          
+          <main className="flex-1 pt-16 overflow-y-auto custom-scrollbar">
+            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />
+              
               {schoolScope.shouldBlockContent ? (
-                <SchoolScopeEmptyState
-                  scope={schoolScope}
-                  title="لوحة التحكم"
-                  description="اختر مدرسة أولاً لعرض الإحصائيات والرسوم الدراسية والبيانات المالية الخاصة بها."
-                />
-              ) : dashboardData.loading ? (
-                <div className="spin" />
+                <Card className="text-center">
+                  <CardContent className="py-12">
+                    <SchoolScopeEmptyState
+                      scope={schoolScope}
+                      title={t("emptyState.title")}
+                      description={t("emptyState.description")}
+                    />
+                  </CardContent>
+                </Card>
               ) : (
-                <>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   <DashboardActions
                     canManageClasses={canManageClasses}
                     showFeesTable={showFeesTable}
@@ -111,38 +136,81 @@ export default function DashboardPage() {
                     onOpenClassesModal={() => setShowClassesModal(true)}
                   />
 
-                  {(canCustomizeBranding || profile?.role === "admin" || profile?.role === "super_admin") && (
-                    <div className="grid gap-6 md:grid-cols-2 mb-8">
+                  <StatisticsCards
+                    dashboardTotals={dashboardData.dashboardTotals}
+                    loading={dashboardData.loading}
+                    error={dashboardData.error}
+                    onRetry={dashboardData.refetch}
+                  />
+
+                  <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+                    <div className="space-y-6">
+                      <Card>
+                        <CardContent className="p-6">
+                          {dashboardData.loading ? (
+                            <AnalysisSkeleton />
+                          ) : dashboardData.error ? (
+                            <ErrorState
+                              title={t("errors.overviewTitle")}
+                              description={t("errors.overviewDescription")}
+                              onRetry={dashboardData.refetch}
+                              retryLabel={commonT("retry")}
+                              className="min-h-[320px] px-0 py-8"
+                            />
+                          ) : (
+                            <FinancialAnalysisPanel dashboardTotals={dashboardData.dashboardTotals} />
+                          )}
+                        </CardContent>
+                      </Card>
+
                       {canCustomizeBranding && (
-                        <SchoolBrandingPanel
-                          brandingForm={branding.brandingForm}
-                          setBrandingForm={branding.setBrandingForm}
-                          brandingSaving={branding.brandingSaving}
-                          brandingDeriving={branding.brandingDeriving}
-                          brandingNotice={branding.brandingNotice}
-                          selectedBrandTheme={branding.selectedBrandTheme}
-                          onSave={branding.saveBrandingFromDashboard}
-                          onApplyTheme={branding.applyBrandThemePreset}
-                          onDeriveFromLogo={branding.deriveDashboardBrandingFromLogo}
-                        />
+                        <Card>
+                          <CardContent className="p-6">
+                            <SchoolBrandingPanel
+                              brandingForm={branding.brandingForm}
+                              setBrandingForm={branding.setBrandingForm}
+                              brandingSaving={branding.brandingSaving}
+                              brandingDeriving={branding.brandingDeriving}
+                              brandingNotice={branding.brandingNotice}
+                              selectedBrandTheme={branding.selectedBrandTheme}
+                              onSave={branding.saveBrandingFromDashboard}
+                              onApplyTheme={branding.applyBrandThemePreset}
+                              onDeriveFromLogo={branding.deriveDashboardBrandingFromLogo}
+                            />
+                          </CardContent>
+                        </Card>
                       )}
+                    </div>
+                    
+                    <div className="space-y-6">
+                      <RecentActivityPanel
+                        activities={recentActivity.activities}
+                        loading={recentActivity.loading}
+                        error={recentActivity.error}
+                        onRetry={recentActivity.refresh}
+                        locale={locale}
+                      />
                       <NotificationsPanel
                         notifications={notifications.notifications}
                         notificationsEnabled={notifications.notificationsEnabled}
                         notificationsLoading={notifications.notificationsLoading}
+                        error={notifications.error}
                         unreadNotifications={notifications.unreadNotifications}
                         onRefresh={notifications.fetchDashboardNotifications}
                         onMarkAsRead={notifications.markNotificationAsRead}
                       />
                     </div>
-                  )}
+                  </div>
 
-                  {hasOperationalData ? (
-                    <>
+                  {dashboardData.loading || dashboardData.error || hasOperationalData ? (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
                       <ClassFeesTable
                         classFees={dashboardData.classFees}
                         showFeesTable={showFeesTable}
                         canManageClasses={canManageClasses}
+                        loading={dashboardData.loading}
+                        error={dashboardData.error}
+                        onRetry={dashboardData.refetch}
                         deleteConfirm={feeManagement.deleteConfirm}
                         getClassStats={feeManagement.getClassStats}
                         onOpenNewFee={feeManagement.openNewFee}
@@ -152,45 +220,43 @@ export default function DashboardPage() {
                         onConfirmDelete={feeManagement.handleDeleteFee}
                       />
 
-                      <StatisticsCards dashboardTotals={dashboardData.dashboardTotals} />
-                      <FinancialAnalysisPanel dashboardTotals={dashboardData.dashboardTotals} />
-
-                      <div className="grid gap-6 md:grid-cols-2 mb-8">
-                        <RecentPaymentsPanel recentPayments={dashboardData.recentPayments} paymentsPageHref={paymentsPageHref} />
-                        <OverdueStudentsPanel overdueStudents={dashboardData.overdueStudents} paymentsPageHref={paymentsPageHref} />
+                      <div className="grid gap-6 md:grid-cols-2">
+                        <RecentPaymentsPanel
+                          recentPayments={dashboardData.recentPayments}
+                          paymentsPageHref={paymentsPageHref}
+                          locale={locale}
+                          loading={dashboardData.loading}
+                          error={dashboardData.error}
+                          onRetry={dashboardData.refetch}
+                        />
+                        <OverdueStudentsPanel
+                          overdueStudents={dashboardData.overdueStudents}
+                          paymentsPageHref={paymentsPageHref}
+                          locale={locale}
+                          loading={dashboardData.loading}
+                          error={dashboardData.error}
+                          onRetry={dashboardData.refetch}
+                        />
                       </div>
-                    </>
-                  ) : (
-                    <div className="card" style={{ textAlign: "center", padding: "4rem 2rem", background: "var(--surface-soft)", borderStyle: "dashed" }}>
-                      <div
-                        style={{
-                          width: 80,
-                          height: 80,
-                          margin: "0 auto 1.5rem",
-                          borderRadius: 24,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: "var(--primary-soft)",
-                          color: "var(--primary)",
-                        }}
-                      >
-                        <Database size={32} />
-                      </div>
-                      <h3 style={{ marginBottom: "0.75rem", fontSize: "1.125rem", fontWeight: 800, color: "var(--text-primary)" }}>
-                        {t("dashboard.emptyTitle")}
-                      </h3>
-                      <p className="muted" style={{ maxWidth: 480, margin: "0 auto", lineHeight: 1.8, fontSize: "0.875rem" }}>
-                        {t("dashboard.emptyDescription")}
-                      </p>
                     </div>
+                  ) : (
+                    <EmptyState
+                      icon={
+                        <div className="h-16 w-16 flex items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]">
+                          <Database size={32} />
+                        </div>
+                      }
+                      title={t("emptyTitle")}
+                      description={t("emptyDescription")}
+                    />
                   )}
-                </>
+                </div>
               )}
             </div>
-          </div>
+          </main>
         </div>
 
+        {/* Modals */}
         <ClassesModal
           show={showClassesModal}
           classes={classesSections.classes}
@@ -214,7 +280,7 @@ export default function DashboardPage() {
           onSave={feeManagement.handleSaveFee}
           onFormChange={feeManagement.setFeeForm}
         />
-      </>
+      </div>
     </ProtectedRoute>
   );
 }

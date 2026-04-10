@@ -1,6 +1,10 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/brand/brand-utils";
 import { type LessonTime } from "../_types";
 
 interface LessonTimesModalProps {
@@ -20,62 +24,57 @@ export function LessonTimesModal({
   onTimeChange,
   onSave,
 }: LessonTimesModalProps) {
-  if (!show) return null;
-
   return (
-    <div className="overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="modal modal-sm">
-        <div className="mh">
-          <div className="mt" style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-            <AppIcon token="⏰" size={16} />
-            توقيتات الدروس
-          </div>
-          <button className="mc" onClick={onClose}>
-            <AppIcon token="✕" size={14} />
-          </button>
-        </div>
+    <Modal open={show} onClose={onClose} size="sm">
+      <ModalHeader
+        title="توقيتات الدروس"
+        onClose={onClose}
+      />
+      <ModalBody className="space-y-6">
         {["morning", "afternoon"].map((sessionType) => (
-          <div key={sessionType}>
-            <div
-              className="session-title"
-              style={{ display: "flex", alignItems: "center", gap: ".35rem" }}
-            >
+          <div key={sessionType} className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] px-4 py-2 rounded-lg">
               <AppIcon token={sessionType === "morning" ? "🌅" : "🌞"} size={14} />
               {sessionType === "morning" ? "الدوام الصباحي" : "الدوام الظهري"}
             </div>
-            {lessonTimes
-              .filter((t) => t.session_type === sessionType)
-              .map((t) => (
-                <div key={t.id} className="times-row">
-                  <span className="times-lbl">الدرس {t.period}</span>
-                  <input
-                    type="time"
-                    className="time-input"
-                    value={timeEdits[`${t.period}-${t.session_type}-start`] || ""}
-                    onChange={(e) =>
-                      onTimeChange(`${t.period}-${t.session_type}-start`, e.target.value)
-                    }
-                  />
-                  <span style={{ color: "var(--gray)" }}>-</span>
-                  <input
-                    type="time"
-                    className="time-input"
-                    value={timeEdits[`${t.period}-${t.session_type}-end`] || ""}
-                    onChange={(e) =>
-                      onTimeChange(`${t.period}-${t.session_type}-end`, e.target.value)
-                    }
-                  />
-                </div>
-              ))}
+            <div className="space-y-2">
+              {lessonTimes
+                .filter((t) => t.session_type === sessionType)
+                .map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-3 py-2 border-b border-[var(--border)] last:border-0"
+                  >
+                    <span className="text-sm font-semibold min-w-[60px] text-[var(--text-primary)]">
+                      الدرس {t.period}
+                    </span>
+                    <Input
+                      type="time"
+                      value={timeEdits[`${t.period}-${t.session_type}-start`] || ""}
+                      onChange={(e) =>
+                        onTimeChange(`${t.period}-${t.session_type}-start`, e.target.value)
+                      }
+                      className="w-28"
+                    />
+                    <span className="text-[var(--text-muted)]">-</span>
+                    <Input
+                      type="time"
+                      value={timeEdits[`${t.period}-${t.session_type}-end`] || ""}
+                      onChange={(e) =>
+                        onTimeChange(`${t.period}-${t.session_type}-end`, e.target.value)
+                      }
+                      className="w-28"
+                    />
+                  </div>
+                ))}
+            </div>
           </div>
         ))}
-        <div className="fa">
-          <button className="bs" onClick={onSave}>حفظ توقيتات الدروس</button>
-          <button className="bc" onClick={onClose}>إلغاء</button>
-        </div>
-      </div>
-    </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button onClick={onSave}>حفظ توقيتات الدروس</Button>
+        <Button variant="secondary" onClick={onClose}>إلغاء</Button>
+      </ModalFooter>
+    </Modal>
   );
 }

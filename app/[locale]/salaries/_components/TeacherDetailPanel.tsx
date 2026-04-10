@@ -1,7 +1,11 @@
 "use client";
 
 import { AppIcon } from "@/components/AppIcon";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Drawer, DrawerHeader, DrawerBody } from "@/components/ui/drawer";
 import { formatNumber, formatDate } from "@/lib/formatting";
+import { cn } from "@/lib/brand/brand-utils";
 import { SALARY_TYPES } from "../_types";
 import type { Teacher, Salary } from "../_types";
 
@@ -32,175 +36,141 @@ export function TeacherDetailPanel({
   );
 
   return (
-    <div className="det-overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="det-panel">
-        <div className="det-hdr">
-          <div className="det-ttl">تفاصيل — {teacher.full_name}</div>
-          <button className="det-cls" onClick={onClose}>
-            <AppIcon token="✕" size={12} />
-          </button>
-        </div>
-
-        <div className="dp-cards">
-          <div className="dp-card">
-            <div className="dp-ct">المعلومات</div>
-            <div className="dp-row">
-              <span className="dp-lbl">الاسم:</span>
-              <span className="dp-val">{teacher.full_name}</span>
+    <Drawer open={true} onClose={onClose} side="end" width="480px">
+      <DrawerHeader
+        title={`تفاصيل — ${teacher.full_name}`}
+        onClose={onClose}
+      />
+      <DrawerBody className="space-y-6">
+        {/* Info Cards */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+              المعلومات
             </div>
-            <div className="dp-row">
-              <span className="dp-lbl">المسمى:</span>
-              <span className="dp-val">{teacher.job_title || "—"}</span>
-            </div>
-            <div className="dp-row">
-              <span className="dp-lbl">المادة:</span>
-              <span className="dp-val">{teacher.subject || "—"}</span>
-            </div>
-            <div className="dp-row">
-              <span className="dp-lbl">الهاتف:</span>
-              <span className="dp-val">{teacher.phone || "—"}</span>
-            </div>
-          </div>
-          <div className="dp-card">
-            <div className="dp-ct">الرواتب</div>
-            <div className="dp-row">
-              <span className="dp-lbl">نظام الراتب:</span>
-              <span className="dp-val">
-                {SALARY_TYPES.find((s) => s.value === teacher.salary_type)?.label || "—"}
-              </span>
-            </div>
-            <div className="dp-row">
-              <span className="dp-lbl">الأساسي:</span>
-              <span className="dp-val">د.ع {formatNumber(teacher.base_salary)}</span>
-            </div>
-            <div className="dp-row">
-              <span className="dp-lbl">سعر المحاضرة:</span>
-              <span className="dp-val">
-                د.ع {formatNumber(teacher.lecture_price || 0)}
-              </span>
-            </div>
-            <div className="dp-row">
-              <span className="dp-lbl">عدد الرواتب:</span>
-              <span className="dp-val">{teacherSalaries.length}</span>
-            </div>
-            <div className="dp-row">
-              <span className="dp-lbl">إجمالي المستلم:</span>
-              <span className="dp-val" style={{ color: "#10B981" }}>
-                د.ع {formatNumber(totalReceived)}
-              </span>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">الاسم:</span>
+                <span className="font-semibold text-[var(--text-primary)]">{teacher.full_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">المسمى:</span>
+                <span className="font-semibold text-[var(--text-primary)]">{teacher.job_title || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">المادة:</span>
+                <span className="font-semibold text-[var(--text-primary)]">{teacher.subject || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">الهاتف:</span>
+                <span className="font-semibold text-[var(--text-primary)]">{teacher.phone || "—"}</span>
+              </div>
             </div>
           </div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+              الرواتب
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">نظام الراتب:</span>
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {SALARY_TYPES.find((s) => s.value === teacher.salary_type)?.label || "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">الأساسي:</span>
+                <span className="font-semibold text-[var(--text-primary)]">د.ع {formatNumber(teacher.base_salary)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">سعر المحاضرة:</span>
+                <span className="font-semibold text-[var(--text-primary)]">
+                  د.ع {formatNumber(teacher.lecture_price || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">عدد الرواتب:</span>
+                <span className="font-semibold text-[var(--text-primary)]">{teacherSalaries.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">إجمالي المستلم:</span>
+                <span className="font-bold text-[var(--success)]">
+                  د.ع {formatNumber(totalReceived)}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Classes Taught */}
         {teacher.classes_taught && teacher.classes_taught.length > 0 && (
-          <div
-            style={{
-              background: "#F7FBFF",
-              borderRadius: 12,
-              padding: "1rem",
-              marginBottom: "1rem",
-            }}
-          >
-            <div
-              style={{
-                fontSize: ".8rem",
-                fontWeight: 700,
-                color: "var(--p2)",
-                marginBottom: ".6rem",
-              }}
-            >
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3">
               الصفوف والشعب
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: ".4rem" }}>
+            <div className="flex flex-wrap gap-2">
               {teacher.classes_taught.map((c, i) => (
-                <span
-                  key={i}
-                  className="badge"
-                  style={{ background: "#EDF6FF", color: "var(--p3)", fontSize: ".75rem" }}
-                >
+                <Badge key={i} variant="primary" size="sm">
                   {c.grade} ({c.section})
-                </span>
+                </Badge>
               ))}
             </div>
           </div>
         )}
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: ".8rem",
-          }}
-        >
-          <span style={{ fontSize: ".88rem", fontWeight: 800 }}>
+        {/* Salary History */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-[var(--text-primary)]">
             سجل الرواتب ({teacherSalaries.length})
           </span>
-          <button
-            className="btn-add"
-            style={{ padding: ".4rem .8rem", fontSize: ".75rem" }}
-            onClick={() => onPaySalary(teacher)}
-          >
+          <Button size="sm" onClick={() => onPaySalary(teacher)}>
             + دفع راتب
-          </button>
+          </Button>
         </div>
 
         {teacherSalaries.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "2rem",
-              color: "var(--gray)",
-              fontSize: ".85rem",
-            }}
-          >
+          <div className="text-center py-8 text-[var(--text-muted)] text-sm">
             لا توجد رواتب بعد
           </div>
         ) : (
-          teacherSalaries.map((s, i) => {
-            const net = (s.gross_salary || 0) - (s.deductions || 0);
-            return (
-              <div className="sal-row" key={s.id}>
-                <div className="sal-num">{i + 1}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        color: "#10B981",
-                        fontSize: ".85rem",
-                      }}
-                    >
-                      د.ع {formatNumber(net)}
-                    </span>
-                    <span
-                      className="badge"
-                      style={{
-                        background: "#EDF6FF",
-                        color: "var(--p3)",
-                        fontSize: ".65rem",
-                      }}
-                    >
-                      {s.month}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: ".7rem", color: "var(--gray)" }}>
-                    {s.paid_at ? formatDate(s.paid_at) : "—"}
-                  </div>
-                </div>
-                <button
-                  className="btn-print-sm"
-                  onClick={() => onPrintSalarySlip(s)}
+          <div className="space-y-2">
+            {teacherSalaries.map((s, i) => {
+              const net = (s.gross_salary || 0) - (s.deductions || 0);
+              return (
+                <div
+                  key={s.id}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]"
                 >
-                  <AppIcon token="🖨️" size={12} />
-                </button>
-              </div>
-            );
-          })
+                  <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)] flex items-center justify-center text-xs font-bold">
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[var(--success)] text-sm">
+                        د.ع {formatNumber(net)}
+                      </span>
+                      <Badge variant="primary" size="sm">{s.month}</Badge>
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)]">
+                      {s.paid_at ? formatDate(s.paid_at) : "—"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onPrintSalarySlip(s)}
+                    className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center",
+                      "bg-[var(--surface-muted)] text-[var(--text-secondary)]",
+                      "hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)] transition-colors"
+                    )}
+                  >
+                    <AppIcon token="🖨️" size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
-      </div>
-    </div>
+      </DrawerBody>
+    </Drawer>
   );
 }

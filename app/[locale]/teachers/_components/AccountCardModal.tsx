@@ -69,7 +69,7 @@ export function AccountCardModal({
                 alt="شعار المدرسة"
                 label={accountCard.school_name}
                 size={56}
-                className="rounded-[18px] border border-[var(--border)] bg-white"
+                className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-strong)]"
               />
               <div className="text-right">
                 <div className="text-sm font-black text-[var(--text-secondary)]">المدرسة</div>
@@ -126,7 +126,7 @@ export function AccountCardModal({
               <BookOpen size={16} />
               تعليمات تسجيل الدخول
             </div>
-            <ol className="space-y-2 pr-5 text-sm leading-8 text-[var(--text-secondary)]">
+            <ol className="space-y-2 pe-5 text-sm leading-8 text-[var(--text-secondary)]">
               {accountCard.instructions.map((instruction) => (
                 <li key={instruction}>{instruction}</li>
               ))}

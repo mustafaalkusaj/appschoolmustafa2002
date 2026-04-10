@@ -1,9 +1,10 @@
 "use client";
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useTheme } from "next-themes";
-import { AppIcon } from "@/components/AppIcon";
 
-// ─── أنواع ───────────────────────────────────────────────────────────────────
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { cn } from "@/lib/brand/brand-utils";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 type ToastType = "success" | "error" | "warning" | "info";
 
 interface Toast {
@@ -21,85 +22,29 @@ interface ToastContextValue {
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
+
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
+
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
   return ctx;
 }
 
-// ─── إعدادات كل نوع ──────────────────────────────────────────────────────────
-type ToastConfig = { icon: string; color: string; bg: string; border: string; progress: string };
+// ─── Icon Configs (icons only, colors from CSS custom properties) ────────────
 
-const CONFIGS_LIGHT: Record<ToastType, ToastConfig> = {
-  success: {
-    icon: "✓",
-    color: "#065F46",
-    bg: "rgba(209,250,229,0.97)",
-    border: "#6EE7B7",
-    progress: "#10B981",
-  },
-  error: {
-    icon: "✕",
-    color: "#991B1B",
-    bg: "rgba(254,226,226,0.97)",
-    border: "#FCA5A5",
-    progress: "#EF4444",
-  },
-  warning: {
-    icon: "⚠",
-    color: "#92400E",
-    bg: "rgba(254,243,199,0.97)",
-    border: "#FDE68A",
-    progress: "#F59E0B",
-  },
-  info: {
-    icon: "ℹ",
-    color: "#1E40AF",
-    bg: "rgba(219,234,254,0.97)",
-    border: "#93C5FD",
-    progress: "#3B82F6",
-  },
-};
-
-const CONFIGS_DARK: Record<ToastType, ToastConfig> = {
-  success: {
-    icon: "✓",
-    color: "#6EE7B7",
-    bg: "rgba(6,25,20,0.96)",
-    border: "rgba(110,231,183,0.28)",
-    progress: "#34D399",
-  },
-  error: {
-    icon: "✕",
-    color: "#FCA5A5",
-    bg: "rgba(30,5,5,0.96)",
-    border: "rgba(252,165,165,0.28)",
-    progress: "#F87171",
-  },
-  warning: {
-    icon: "⚠",
-    color: "#FCD34D",
-    bg: "rgba(28,16,2,0.96)",
-    border: "rgba(252,211,77,0.28)",
-    progress: "#FBBF24",
-  },
-  info: {
-    icon: "ℹ",
-    color: "#93C5FD",
-    bg: "rgba(5,15,30,0.96)",
-    border: "rgba(147,197,253,0.28)",
-    progress: "#60A5FA",
-  },
+const TOAST_ICONS: Record<ToastType, string> = {
+  success: "✓",
+  error: "✕",
+  warning: "⚠",
+  info: "ℹ",
 };
 
 // ─── Toast Item ───────────────────────────────────────────────────────────────
+
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) => void }) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-  const cfg = isDark ? CONFIGS_DARK[toast.type] : CONFIGS_LIGHT[toast.type];
   const duration = toast.duration ?? 3500;
   const [visible, setVisible] = useState(false);
   const [progress, setProgress] = useState(100);
@@ -107,7 +52,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
   const rafRef = useRef<number | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Slide in
+  // Slide in animation
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(raf);
@@ -132,7 +77,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
       }
     };
     rafRef.current = requestAnimationFrame(tick);
-    return () => { 
+    return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [duration, handleClose]);
@@ -144,73 +89,103 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
     };
   }, []);
 
+  // Map toast type to CSS variable token
+  const tokenMap: Record<ToastType, string> = {
+    success: "--success",
+    error: "--danger",
+    warning: "--warning",
+    info: "--info",
+  };
+
+  const token = tokenMap[toast.type];
+  const icon = TOAST_ICONS[toast.type];
+
   return (
     <div
       onClick={handleClose}
+      className={cn(
+        "relative flex items-start gap-3",
+        "p-3.5 pe-4 mb-2.5",
+        "min-w-[280px] max-w-[360px]",
+        "rounded-[14px]",
+        "border border-[var(--border-strong)]",
+        "backdrop-blur-xl",
+        "cursor-pointer",
+        "overflow-hidden",
+        "shadow-[var(--shadow-lg)]",
+        // Background with token color
+        "bg-[var(--card-bg)]",
+        // Animation
+        "transition-all duration-300",
+        visible
+          ? "translate-x-0 scale-100 opacity-100"
+          : "translate-x-[-60px] scale-95 opacity-0"
+      )}
       style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "flex-start",
-        gap: ".7rem",
-        background: cfg.bg,
-        border: `1.5px solid ${cfg.border}`,
-        borderRadius: "14px",
-        padding: ".85rem 1rem .85rem .9rem",
-        marginBottom: ".6rem",
-        cursor: "pointer",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        fontFamily: "var(--font-ui)",
-        direction: "rtl",
-        minWidth: "280px",
-        maxWidth: "360px",
-        overflow: "hidden",
-        transform: visible ? "translateX(0) scale(1)" : "translateX(-60px) scale(0.95)",
-        opacity: visible ? 1 : 0,
-        transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease",
+        // Dynamic border color based on toast type
+        borderColor: `var(${token})`,
+        borderWidth: "1.5px",
       }}
     >
-      {/* أيقونة */}
-      <div style={{
-        width: "28px", height: "28px", borderRadius: "8px",
-        background: cfg.progress, color: "white",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: ".85rem", fontWeight: 900, flexShrink: 0,
-      }}>
-        <AppIcon token={cfg.icon} size={14} className="text-white" />
+      {/* Accent bar on start edge */}
+      <div
+        className="absolute top-0 start-0 bottom-0 w-1 rounded-s-[14px]"
+        style={{ background: `var(${token})` }}
+      />
+
+      {/* Icon */}
+      <div
+        className={cn(
+          "shrink-0 w-7 h-7 rounded-lg",
+          "flex items-center justify-center",
+          "text-white text-sm font-bold"
+        )}
+        style={{ background: `var(${token})` }}
+      >
+        <span className="text-xs">{icon}</span>
       </div>
 
-      {/* النص */}
-      <div style={{ flex: 1, paddingTop: "3px" }}>
-        <div style={{ fontSize: ".82rem", fontWeight: 700, color: cfg.color, lineHeight: 1.4 }}>
+      {/* Message */}
+      <div className="flex-1 pt-0.5">
+        <p
+          className="text-sm font-semibold leading-relaxed"
+          style={{ color: `var(${token})` }}
+        >
           {toast.message}
-        </div>
+        </p>
       </div>
 
-      {/* زر الإغلاق */}
-      <div style={{
-        color: cfg.color, opacity: 0.5, fontSize: ".75rem",
-        paddingTop: "2px", flexShrink: 0,
-      }}><AppIcon token="✕" size={12} /></div>
+      {/* Close indicator */}
+      <div
+        className="shrink-0 pt-0.5 opacity-50"
+        style={{ color: `var(${token})` }}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path
+            d="M1 1L11 11M1 11L11 1"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
 
-      {/* شريط التقدم */}
-      <div style={{
-        position: "absolute", bottom: 0, right: 0, left: 0,
-        height: "3px", background: "rgba(0,0,0,0.06)",
-      }}>
-        <div style={{
-          height: "100%", background: cfg.progress,
-          width: `${progress}%`,
-          transition: "width 0.1s linear",
-          borderRadius: "0 0 0 14px",
-        }} />
+      {/* Progress bar */}
+      <div className="absolute bottom-0 start-0 end-0 h-1 bg-[var(--border)]">
+        <div
+          className="h-full rounded-be-[14px] transition-[width] duration-100"
+          style={{
+            width: `${progress}%`,
+            background: `var(${token})`,
+          }}
+        />
       </div>
     </div>
   );
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isMounted, setIsMounted] = useState(false);
@@ -227,6 +202,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const add = useCallback((message: string, type: ToastType, duration?: number) => {
     const now = Date.now();
     const lastToast = lastToastRef.current;
+    // Deduplicate: skip if same message+type within 1.5s
     if (lastToast && lastToast.message === message && lastToast.type === type && now - lastToast.at < 1500) {
       return;
     }
@@ -254,18 +230,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {/* حاوية الإشعارات */}
-      <div style={{
-        position: "fixed",
-        top: "1.2rem",
-        insetInlineStart: "1.2rem",
-        zIndex: 99999,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        pointerEvents: "none",
-      }}>
-        <div style={{ pointerEvents: "auto" }}>
+      {/* Toast container */}
+      <div
+        className={cn(
+          "fixed top-5 start-5 z-[var(--z-toast)]",
+          "flex flex-col items-start",
+          "pointer-events-none"
+        )}
+        aria-live="polite"
+        aria-label="Notifications"
+      >
+        <div className="pointer-events-auto">
           {toasts.map(t => (
             <ToastItem key={t.id} toast={t} onRemove={remove} />
           ))}

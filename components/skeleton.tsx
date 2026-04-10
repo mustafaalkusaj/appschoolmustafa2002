@@ -3,7 +3,8 @@
 // CSS variables (defined in globals.css via html.dark) drive the skeleton shimmer colour.
 // The card wrappers use var(--surface-card) / var(--border) to adapt automatically.
 
-// ─── خلية واحدة ──────────────────────────────────────────────────────────────
+// ─── SkBox: Base Skeleton Cell ───────────────────────────────────────────────
+
 function SkBox({ w = "100%", h = "14px", r = "8px", style = {} }: {
   w?: string; h?: string; r?: string; style?: React.CSSProperties;
 }) {
@@ -12,7 +13,8 @@ function SkBox({ w = "100%", h = "14px", r = "8px", style = {} }: {
   );
 }
 
-// ─── Card wrapper رياعي الثيم ─────────────────────────────────────────────────
+// ─── Card wrapper (theme-aware via CSS variables) ─────────────────────────────
+
 const skCard: React.CSSProperties = {
   background: "var(--surface-strong)",
   borderRadius: "12px",
@@ -25,25 +27,25 @@ const skInner: React.CSSProperties = {
   borderRadius: "11px",
 };
 
-// ─── 1. Skeleton بطاقة إحصائية ───────────────────────────────────────────────
+// ─── 1. StatCardSkeleton ──────────────────────────────────────────────────────
+
 export function StatCardSkeleton() {
   return (
-    <>
-      <div style={{
-        ...skCard, padding: ".9rem 1rem",
-        display: "flex", alignItems: "center", gap: ".8rem",
-      }}>
-        <SkBox w="40px" h="40px" r="11px" />
-        <div style={{ flex: 1 }}>
-          <SkBox w="60%" h="11px" style={{ marginBottom: ".5rem" }} />
-          <SkBox w="80%" h="16px" />
-        </div>
+    <div style={{
+      ...skCard, padding: ".9rem 1rem",
+      display: "flex", alignItems: "center", gap: ".8rem",
+    }}>
+      <SkBox w="40px" h="40px" r="11px" />
+      <div style={{ flex: 1 }}>
+        <SkBox w="60%" h="11px" style={{ marginBottom: ".5rem" }} />
+        <SkBox w="80%" h="16px" />
       </div>
-    </>
+    </div>
   );
 }
 
-// ─── 2. Skeleton صف جدول ─────────────────────────────────────────────────────
+// ─── 2. TableSkeleton ─────────────────────────────────────────────────────────
+
 function TableRowSkeleton({ cols = 8 }: { cols?: number }) {
   return (
     <tr>
@@ -58,97 +60,94 @@ function TableRowSkeleton({ cols = 8 }: { cols?: number }) {
 
 export function TableSkeleton({ rows = 6, cols = 8 }: { rows?: number; cols?: number }) {
   return (
-    <>
-      <div style={{ ...skCard, borderRadius: "13px", overflow: "hidden" }}>
-        {/* Header */}
-        <div style={{ ...skInner, borderRadius: 0, padding: ".65rem .9rem", display: "flex", gap: "1.5rem" }}>
-          {Array.from({ length: cols }).map((_, i) => (
-            <SkBox key={i} w={i === 1 ? "100px" : "60px"} h="12px" />
-          ))}
-        </div>
-        {/* Rows */}
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <tbody>
-            {Array.from({ length: rows }).map((_, i) => (
-              <TableRowSkeleton key={i} cols={cols} />
-            ))}
-          </tbody>
-        </table>
+    <div style={{ ...skCard, borderRadius: "13px", overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ ...skInner, borderRadius: 0, padding: ".65rem .9rem", display: "flex", gap: "1.5rem" }}>
+        {Array.from({ length: cols }).map((_, i) => (
+          <SkBox key={i} w={i === 1 ? "100px" : "60px"} h="12px" />
+        ))}
       </div>
-    </>
+      {/* Rows */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <tbody>
+          {Array.from({ length: rows }).map((_, i) => (
+            <TableRowSkeleton key={i} cols={cols} />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-// ─── 3. Skeleton لوحة التحليل المالي ─────────────────────────────────────────
+// ─── 3. AnalysisSkeleton ──────────────────────────────────────────────────────
+
 export function AnalysisSkeleton() {
   return (
-    <>
-      <div style={{ ...skCard, borderRadius: "14px", padding: "1.2rem 1.4rem", marginBottom: "1rem" }}>
-        {/* عنوان */}
-        <SkBox w="200px" h="16px" style={{ marginBottom: "1.2rem" }} />
-        {/* كاردات مالية */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: ".7rem", marginBottom: "1.2rem" }}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} style={{ ...skInner, padding: ".8rem" }}>
-              <SkBox w="80%" h="11px" style={{ marginBottom: ".5rem" }} />
-              <SkBox w="60%" h="18px" />
-            </div>
-          ))}
+    <div style={{ ...skCard, borderRadius: "14px", padding: "1.2rem 1.4rem", marginBottom: "1rem" }}>
+      {/* Title */}
+      <SkBox w="200px" h="16px" style={{ marginBottom: "1.2rem" }} />
+      {/* Financial cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: ".7rem", marginBottom: "1.2rem" }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} style={{ ...skInner, padding: ".8rem" }}>
+            <SkBox w="80%" h="11px" style={{ marginBottom: ".5rem" }} />
+            <SkBox w="60%" h="18px" />
+          </div>
+        ))}
+      </div>
+      {/* Charts */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "1rem" }}>
+        <div style={{ ...skInner, padding: "1rem" }}>
+          <SkBox w="140px" h="13px" style={{ marginBottom: ".8rem" }} />
+          <SkBox w="100%" h="180px" r="10px" />
         </div>
-        {/* رسوم بيانية */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "1rem" }}>
-          <div style={{ ...skInner, padding: "1rem" }}>
-            <SkBox w="140px" h="13px" style={{ marginBottom: ".8rem" }} />
-            <SkBox w="100%" h="180px" r="10px" />
-          </div>
-          <div style={{ ...skInner, padding: "1rem" }}>
-            <SkBox w="100px" h="13px" style={{ marginBottom: ".8rem" }} />
-            <SkBox w="100%" h="180px" r="10px" />
-          </div>
+        <div style={{ ...skInner, padding: "1rem" }}>
+          <SkBox w="100px" h="13px" style={{ marginBottom: ".8rem" }} />
+          <SkBox w="100%" h="180px" r="10px" />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
-// ─── 4. Skeleton بطاقة طالب ──────────────────────────────────────────────────
+// ─── 4. StudentCardSkeleton ───────────────────────────────────────────────────
+
 export function StudentCardSkeleton() {
   return (
-    <>
-      <div style={{ ...skCard, padding: ".8rem 1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: ".7rem", marginBottom: ".6rem" }}>
-          <SkBox w="36px" h="36px" r="10px" />
-          <div style={{ flex: 1 }}>
-            <SkBox w="70%" h="13px" style={{ marginBottom: ".4rem" }} />
-            <SkBox w="45%" h="11px" />
-          </div>
+    <div style={{ ...skCard, padding: ".8rem 1rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: ".7rem", marginBottom: ".6rem" }}>
+        <SkBox w="36px" h="36px" r="10px" />
+        <div style={{ flex: 1 }}>
+          <SkBox w="70%" h="13px" style={{ marginBottom: ".4rem" }} />
+          <SkBox w="45%" h="11px" />
         </div>
-        <SkBox w="100%" h="8px" r="20px" />
       </div>
-    </>
+      <SkBox w="100%" h="8px" r="20px" />
+    </div>
   );
 }
 
-// ─── 5. Skeleton Dashboard كامل ──────────────────────────────────────────────
+// ─── 5. DashboardSkeleton ─────────────────────────────────────────────────────
+
 export function DashboardSkeleton() {
   return (
     <>
-      {/* إحصائيات سريعة */}
+      {/* Quick stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: ".8rem", marginBottom: ".8rem" }}>
         {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: ".8rem", marginBottom: "1rem", maxWidth: "50%" }}>
         {Array.from({ length: 2 }).map((_, i) => <StatCardSkeleton key={i} />)}
       </div>
-      {/* تحليل مالي */}
+      {/* Financial analysis */}
       <AnalysisSkeleton />
-      {/* شبكة سفلية */}
+      {/* Bottom grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".8rem" }}>
         {[5, 3].map((rows, i) => (
           <div key={i} style={{ ...skCard, padding: "1rem 1.2rem" }}>
             <SkBox w="140px" h="14px" style={{ marginBottom: ".8rem" }} />
             {Array.from({ length: rows }).map((_, j) => (
-              <div key={j} style={{ display: "flex", gap: ".7rem", padding: ".45rem 0", alignItems: "center", borderBottom: "1px solid rgba(108,74,182,0.05)" }}>
+              <div key={j} style={{ display: "flex", gap: ".7rem", padding: ".45rem 0", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
                 <SkBox w="30px" h="30px" r="8px" />
                 <div style={{ flex: 1 }}>
                   <SkBox w="60%" h="12px" style={{ marginBottom: ".35rem" }} />
@@ -164,7 +163,8 @@ export function DashboardSkeleton() {
   );
 }
 
-// ─── 6. Skeleton صفحة الطلاب ─────────────────────────────────────────────────
+// ─── 6. StudentsPageSkeleton ──────────────────────────────────────────────────
+
 export function StudentsPageSkeleton() {
   return (
     <>
@@ -174,7 +174,17 @@ export function StudentsPageSkeleton() {
         ...skCard, borderRadius: "13px", padding: ".5rem",
       }}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} style={{ flex: 1, borderRadius: "9px", padding: ".6rem .8rem", background: i === 0 ? "linear-gradient(135deg,#6C4AB6,#4C2F9E)" : "#F0EEFF" }}>
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              borderRadius: "9px",
+              padding: ".6rem .8rem",
+              background: i === 0
+                ? "linear-gradient(135deg, var(--primary), var(--primary-strong))"
+                : "var(--surface-soft)",
+            }}
+          >
             <SkBox w="70%" h="13px" style={{ margin: "auto", opacity: i === 0 ? 0.3 : 1 }} />
           </div>
         ))}
@@ -196,7 +206,8 @@ export function StudentsPageSkeleton() {
   );
 }
 
-// ─── 7. Skeleton صفحة الحسابات ───────────────────────────────────────────────
+// ─── 7. PaymentsPageSkeleton ──────────────────────────────────────────────────
+
 export function PaymentsPageSkeleton() {
   return (
     <>

@@ -1,0 +1,525 @@
+{
+  "meta": {
+    "name": "School App Figma Reconstruction Tokens",
+    "source": "/Users/musatafa/school-app",
+    "direction": "rtl-first with ltr locale support",
+    "generatedAt": "2026-04-08T09:16:12.565Z",
+    "visualVerification": {
+      "confirmedLive": [
+        "/Users/musatafa/school-app/figma-handoff/screenshots/login-desktop.png",
+        "/Users/musatafa/school-app/figma-handoff/screenshots/login-mobile.png"
+      ],
+      "checkedLocalManualScreens": [
+        "/Users/musatafa/school-app/output/playwright/manual-check/dashboard.png",
+        "/Users/musatafa/school-app/output/playwright/manual-check/attendance.png"
+      ]
+    }
+  },
+  "foundations": {
+    "fonts": {
+      "latin": "'Inter', 'Segoe UI', system-ui, sans-serif",
+      "arabic": "'Cairo', 'Tahoma', sans-serif",
+      "ui": "var(--font-arabic), var(--font-sans), Arial, sans-serif",
+      "localeMapping": {
+        "ar": "Cairo first",
+        "en": "Inter first"
+      }
+    },
+    "spacing": {
+      "0": 0,
+      "4": 4,
+      "8": 8,
+      "12": 12,
+      "16": 16,
+      "20": 20,
+      "24": 24,
+      "32": 32,
+      "40": 40,
+      "48": 48,
+      "56": 56,
+      "64": 64,
+      "72": 72,
+      "80": 80
+    },
+    "radii": {
+      "xs": "6px",
+      "sm": "10px",
+      "md": "14px",
+      "lg": "18px",
+      "xl": "24px",
+      "2xl": "32px",
+      "full": "9999px",
+      "aliases": {
+        "card": "24px",
+        "input": "18px",
+        "button": "16px",
+        "modal": "28px",
+        "pill": "9999px"
+      }
+    },
+    "shadows": {
+      "xs": "0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)",
+      "sm": "0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04)",
+      "md": "0 8px 24px rgba(15, 23, 42, 0.10), 0 4px 8px rgba(15, 23, 42, 0.06)",
+      "lg": "0 16px 48px rgba(15, 23, 42, 0.12), 0 8px 16px rgba(15, 23, 42, 0.08)",
+      "xl": "0 24px 64px rgba(15, 23, 42, 0.14), 0 12px 24px rgba(15, 23, 42, 0.10)",
+      "primary": "0 4px 16px rgba(79, 140, 255, 0.28)",
+      "inset": "inset 0 1px 0 rgba(255, 255, 255, 0.65)"
+    },
+    "motion": {
+      "fast": "120ms ease",
+      "base": "200ms ease",
+      "slow": "320ms ease",
+      "spring": "300ms cubic-bezier(0.34, 1.56, 0.64, 1)"
+    },
+    "zIndex": {
+      "sidebar": "60",
+      "topbar": "40",
+      "modal": "200",
+      "toast": "300"
+    },
+    "layout": {
+      "sidebarWidth": "280px",
+      "sidebarWidthToken": "224px",
+      "sidebarWidthCollapsedLegacy": "64px",
+      "topbarHeight": "64px",
+      "topbarFootprint": "calc(var(--topbar-height) + 1.5rem)",
+      "topbarDesktopOffset": "280px",
+      "glassBlur": "22px",
+      "implementationNotes": [
+        "Current React shell hard-codes a 280px desktop sidebar in AppSidebar and AppShellTopbar.",
+        "Legacy CSS variable --sidebar-width remains 224px and should be treated as an outdated token for Figma reconstruction.",
+        "Collapsed sidebar tokens still exist in CSS, but the current production shell does not expose a collapsed sidebar state."
+      ]
+    },
+    "breakpoints": {
+      "xs": "390 (observed mobile verification frame)",
+      "sm": "640 (Tailwind default inferred)",
+      "md": "768 (Tailwind default inferred)",
+      "lg": "1024 (Tailwind default inferred)",
+      "xl": "1280 (Tailwind default inferred)",
+      "2xl": "1536 (Tailwind default inferred)"
+    }
+  },
+  "colors": {
+    "light": {
+      "color-primary-50": "#eff6ff",
+      "color-primary-100": "#dbeafe",
+      "color-primary-200": "#bfdbfe",
+      "color-primary-400": "#60a5fa",
+      "color-primary-500": "#4f8cff",
+      "color-primary-600": "#3e7df7",
+      "color-primary-700": "#2563eb",
+      "color-cyan-400": "#79d7ff",
+      "color-cyan-500": "#38bdf8",
+      "background": "#f4f7fc",
+      "background-subtle": "#eef2f9",
+      "foreground": "#0f172a",
+      "surface": "rgba(255, 255, 255, 0.85)",
+      "surface-strong": "#ffffff",
+      "surface-muted": "rgba(255, 255, 255, 0.58)",
+      "surface-soft": "rgba(248, 251, 255, 0.95)",
+      "surface-hover": "rgba(79, 140, 255, 0.05)",
+      "surface-active": "rgba(79, 140, 255, 0.10)",
+      "primary": "#4f8cff",
+      "primary-strong": "#3e7df7",
+      "primary-soft": "#eff6ff",
+      "secondary": "#79d7ff",
+      "text-primary": "#0f172a",
+      "text-secondary": "#475569",
+      "text-tertiary": "#94a3b8",
+      "text-on-primary": "#ffffff",
+      "brand-text-strong": "#0f172a",
+      "border": "rgba(15, 23, 42, 0.07)",
+      "border-strong": "rgba(15, 23, 42, 0.13)",
+      "border-focus": "#4f8cff",
+      "success": "#10b981",
+      "success-soft": "#ecfdf5",
+      "warning": "#f59e0b",
+      "warning-soft": "#fffbeb",
+      "danger": "#ef4444",
+      "danger-soft": "#fef2f2",
+      "info": "#3b82f6",
+      "info-soft": "#eff6ff",
+      "button-accent": "#4f8cff",
+      "button-accent-strong": "#3e7df7",
+      "focus-ring": "rgba(79, 140, 255, 0.30)",
+      "focus-ring-solid": "#4f8cff",
+      "topbar-bg": "rgba(255, 255, 255, 0.82)",
+      "sidebar-bg": "#ffffff",
+      "sidebar-border": "rgba(15, 23, 42, 0.07)",
+      "sidebar-item-hover": "rgba(79, 140, 255, 0.07)",
+      "sidebar-item-active-bg": "linear-gradient(135deg, rgba(79, 140, 255, 0.96), rgba(121, 215, 255, 0.96))",
+      "sidebar-item-active-text": "#ffffff",
+      "grid-line": "rgba(79, 140, 255, 0.08)",
+      "p2": "#255ea8",
+      "p3": "#4f8cff",
+      "p4": "#79d7ff",
+      "bg": "#eef4fb",
+      "dark": "#16324f",
+      "gray": "#6b7280",
+      "sidebar-a": "#edf6ff",
+      "sidebar-b": "#dbeafb"
+    },
+    "dark": {
+      "background": "#080e1a",
+      "background-subtle": "#0d1425",
+      "foreground": "#f1f5f9",
+      "surface": "rgba(14, 22, 40, 0.85)",
+      "surface-strong": "#111827",
+      "surface-muted": "rgba(24, 31, 48, 0.68)",
+      "surface-soft": "rgba(14, 22, 40, 0.95)",
+      "surface-hover": "rgba(118, 169, 255, 0.07)",
+      "surface-active": "rgba(118, 169, 255, 0.14)",
+      "primary": "#76a9ff",
+      "primary-strong": "#5e97ff",
+      "primary-soft": "rgba(118, 169, 255, 0.12)",
+      "secondary": "#8ae7ff",
+      "text-primary": "#f1f5f9",
+      "text-secondary": "#94a3b8",
+      "text-tertiary": "#64748b",
+      "text-on-primary": "#0f172a",
+      "brand-text-strong": "#f1f5f9",
+      "border": "rgba(255, 255, 255, 0.07)",
+      "border-strong": "rgba(255, 255, 255, 0.12)",
+      "border-focus": "#76a9ff",
+      "success": "#34d399",
+      "success-soft": "rgba(16, 185, 129, 0.12)",
+      "warning": "#fbbf24",
+      "warning-soft": "rgba(245, 158, 11, 0.12)",
+      "danger": "#f87171",
+      "danger-soft": "rgba(239, 68, 68, 0.12)",
+      "info": "#60a5fa",
+      "info-soft": "rgba(59, 130, 246, 0.12)",
+      "button-accent": "#76a9ff",
+      "button-accent-strong": "#5b95fb",
+      "focus-ring": "rgba(118, 169, 255, 0.30)",
+      "focus-ring-solid": "#76a9ff",
+      "topbar-bg": "rgba(10, 16, 30, 0.88)",
+      "sidebar-bg": "#0d1425",
+      "sidebar-border": "rgba(255, 255, 255, 0.07)",
+      "sidebar-item-hover": "rgba(118, 169, 255, 0.08)",
+      "sidebar-item-active-bg": "linear-gradient(135deg, rgba(118, 169, 255, 0.96), rgba(138, 231, 255, 0.84))",
+      "sidebar-item-active-text": "#08111f",
+      "grid-line": "rgba(138, 231, 255, 0.07)",
+      "p2": "#9ec3ff",
+      "p3": "#7fb1ff",
+      "p4": "#80d8f6",
+      "bg": "#0f172a",
+      "dark": "#e8f2ff",
+      "gray": "#a8b0c8",
+      "sidebar-a": "#182338",
+      "sidebar-b": "#111b2e"
+    },
+    "chartRecommendations": {
+      "primaryBar": "#4f8cff",
+      "secondaryBar": "#79d7ff",
+      "success": "#10b981",
+      "warning": "#f59e0b",
+      "danger": "#ef4444",
+      "info": "#3b82f6"
+    },
+    "runtimeBranding": {
+      "cssVariablesMutatedAtRuntime": [
+        "--primary",
+        "--primary-strong",
+        "--secondary",
+        "--button-accent",
+        "--button-accent-strong",
+        "--brand-text-strong",
+        "--focus-ring",
+        "--p2",
+        "--p3",
+        "--p4",
+        "--bg",
+        "--sidebar-a",
+        "--sidebar-b",
+        "--sidebar-bg",
+        "--topbar-bg"
+      ],
+      "behavior": "Per-school branding derives from stored overrides, DB colors, or logo-based palette extraction; Figma should model default blue/cyan theme plus an explicit theme-preset catalog."
+    },
+    "themePresets": [
+      {
+        "id": "blue-academic",
+        "familyId": "blue",
+        "familyLabel": "العائلة الزرقاء",
+        "label": "Academic Classic",
+        "description": "طابع أكاديمي رسمي بدرجات زرقاء هادئة ومظهر مؤسساتي واضح.",
+        "primaryColor": "#1E5AA8",
+        "secondaryColor": "#6DB4FF",
+        "accentColor": "#F0A43B",
+        "backgroundColor": "#F4F8FE",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#E8F0FB",
+        "sidebarColor": "#E1ECFB",
+        "textColor": "#10233F"
+      },
+      {
+        "id": "blue-modern",
+        "familyId": "blue",
+        "familyLabel": "العائلة الزرقاء",
+        "label": "Modern School",
+        "description": "هوية حديثة ونظيفة مناسبة للمدارس الأهلية العصرية.",
+        "primaryColor": "#0F5B8D",
+        "secondaryColor": "#4EC4F3",
+        "accentColor": "#7B61FF",
+        "backgroundColor": "#F2F9FD",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#E3F3FA",
+        "sidebarColor": "#D6EEF9",
+        "textColor": "#0F172A"
+      },
+      {
+        "id": "blue-premium",
+        "familyId": "blue",
+        "familyLabel": "العائلة الزرقاء",
+        "label": "Premium Campus",
+        "description": "مظهر راقٍ يناسب المدارس الخاصة ذات الهوية الفاخرة.",
+        "primaryColor": "#233876",
+        "secondaryColor": "#7FA7FF",
+        "accentColor": "#D5A13E",
+        "backgroundColor": "#F6F7FC",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#E8ECF8",
+        "sidebarColor": "#E2E8F8",
+        "textColor": "#151E34"
+      },
+      {
+        "id": "green-growth",
+        "familyId": "green",
+        "familyLabel": "العائلة الخضراء",
+        "label": "Growth",
+        "description": "ألوان مريحة توحي بالنمو والرعاية ومناسبة للمراحل المبكرة.",
+        "primaryColor": "#0F8A6A",
+        "secondaryColor": "#76D9BE",
+        "accentColor": "#F4B740",
+        "backgroundColor": "#F2FBF8",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#E0F5EF",
+        "sidebarColor": "#D5F0E8",
+        "textColor": "#10332B"
+      },
+      {
+        "id": "green-heritage",
+        "familyId": "green",
+        "familyLabel": "العائلة الخضراء",
+        "label": "Heritage",
+        "description": "هوية هادئة بطابع عربي/تراثي مع لمسة مؤسساتية دافئة.",
+        "primaryColor": "#2F6B57",
+        "secondaryColor": "#B9C98A",
+        "accentColor": "#C78D4D",
+        "backgroundColor": "#F7FAF5",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#EBF1E7",
+        "sidebarColor": "#E5ECDD",
+        "textColor": "#203227"
+      },
+      {
+        "id": "green-stem",
+        "familyId": "green",
+        "familyLabel": "العائلة الخضراء",
+        "label": "STEM Green",
+        "description": "هوية علمية متوازنة للأكاديميات التقنية والبرامج المتقدمة.",
+        "primaryColor": "#157A74",
+        "secondaryColor": "#8FE3D4",
+        "accentColor": "#6A8DFF",
+        "backgroundColor": "#F1FBFA",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#DDF3F1",
+        "sidebarColor": "#D2EEEA",
+        "textColor": "#112827"
+      },
+      {
+        "id": "warm-leadership",
+        "familyId": "warm",
+        "familyLabel": "العائلة الدافئة",
+        "label": "Leadership",
+        "description": "هوية قوية للثانويات والمدارس القيادية بطابع جاد وواضح.",
+        "primaryColor": "#8D2D49",
+        "secondaryColor": "#E39DB0",
+        "accentColor": "#F4B35D",
+        "backgroundColor": "#FCF6F8",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#F4E6EB",
+        "sidebarColor": "#F0DDE5",
+        "textColor": "#331824"
+      },
+      {
+        "id": "warm-desert",
+        "familyId": "warm",
+        "familyLabel": "العائلة الدافئة",
+        "label": "Desert Gold",
+        "description": "ألوان عربية دافئة مع حضور بصري قوي ومناسب للهوية المحلية.",
+        "primaryColor": "#A45A2A",
+        "secondaryColor": "#F1C27A",
+        "accentColor": "#7D4DCC",
+        "backgroundColor": "#FFF8F2",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#F8EBDD",
+        "sidebarColor": "#F5E4D2",
+        "textColor": "#3A2415"
+      },
+      {
+        "id": "warm-scholars",
+        "familyId": "warm",
+        "familyLabel": "العائلة الدافئة",
+        "label": "Scholars",
+        "description": "هوية أكاديمية تقليدية أكثر دفئاً وملاءمة للمدارس العريقة.",
+        "primaryColor": "#7A3E2B",
+        "secondaryColor": "#D7B08B",
+        "accentColor": "#A74AC7",
+        "backgroundColor": "#FBF6F2",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#F1E7DF",
+        "sidebarColor": "#ECDDCE",
+        "textColor": "#2F211A"
+      },
+      {
+        "id": "purple-royal",
+        "familyId": "purple",
+        "familyLabel": "العائلة البنفسجية",
+        "label": "Royal Academy",
+        "description": "هوية ملكية أنيقة للمدارس ذات المستوى العالي والتقاليد.",
+        "primaryColor": "#6B46C1",
+        "secondaryColor": "#C084FC",
+        "accentColor": "#FBBF24",
+        "backgroundColor": "#F8F7FC",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#EDE9FE",
+        "sidebarColor": "#E8DAFD",
+        "textColor": "#1A0D2E"
+      },
+      {
+        "id": "purple-creative",
+        "familyId": "purple",
+        "familyLabel": "العائلة البنفسجية",
+        "label": "Creative Arts",
+        "description": "ألوان إبداعية حيوية لمدارس الفنون والموسيقى والثقافة.",
+        "primaryColor": "#8B5CF6",
+        "secondaryColor": "#D8B4FE",
+        "accentColor": "#F59E0B",
+        "backgroundColor": "#FBFAFE",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#EDE9FE",
+        "sidebarColor": "#E2D8FD",
+        "textColor": "#1E1B4B"
+      },
+      {
+        "id": "purple-tech",
+        "familyId": "purple",
+        "familyLabel": "العائلة البنفسجية",
+        "label": "Tech Innovation",
+        "description": "هوية تقنية متقدمة للمدارس التقنية والمختبرات.",
+        "primaryColor": "#7C3AED",
+        "secondaryColor": "#A78BFA",
+        "accentColor": "#06B6D4",
+        "backgroundColor": "#F5F3FF",
+        "surfaceColor": "#FFFFFF",
+        "surfaceMutedColor": "#EDE9FE",
+        "sidebarColor": "#DDD6FE",
+        "textColor": "#1E1B4B"
+      },
+      {
+        "id": "classic-white",
+        "familyId": "classic",
+        "familyLabel": "العائلة الكلاسيكية",
+        "label": "Classic White",
+        "description": "تصميم نظيف كلاسيكي يعتمد على الأبيض والرمادي للمظهر الرسمي.",
+        "primaryColor": "#1F2937",
+        "secondaryColor": "#6B7280",
+        "accentColor": "#111827",
+        "backgroundColor": "#FFFFFF",
+        "surfaceColor": "#F9FAFB",
+        "surfaceMutedColor": "#F3F4F6",
+        "sidebarColor": "#F9FAFB",
+        "textColor": "#111827"
+      },
+      {
+        "id": "dark-professional",
+        "familyId": "dark",
+        "familyLabel": "العائلة الداكنة",
+        "label": "Dark Professional",
+        "description": "وضع داكن احترافي للعمل ليلاً أو المظهر المتطور.",
+        "primaryColor": "#6366F1",
+        "secondaryColor": "#A5B4FC",
+        "accentColor": "#FCD34D",
+        "backgroundColor": "#0F172A",
+        "surfaceColor": "#1E293B",
+        "surfaceMutedColor": "#334155",
+        "sidebarColor": "#1E293B",
+        "textColor": "#F8FAFC"
+      }
+    ]
+  },
+  "typography": {
+    "bodyBase": {
+      "fontFamily": "var(--font-ui)",
+      "fontSize": 14,
+      "lineHeight": 1.6
+    },
+    "recommendedStyles": {
+      "displayXL": {
+        "size": 56,
+        "weight": 900,
+        "lineHeight": 1.1
+      },
+      "headingXL": {
+        "size": 32,
+        "weight": 900,
+        "lineHeight": 1.2
+      },
+      "headingL": {
+        "size": 24,
+        "weight": 900,
+        "lineHeight": 1.25
+      },
+      "headingM": {
+        "size": 20,
+        "weight": 800,
+        "lineHeight": 1.3
+      },
+      "headingS": {
+        "size": 18,
+        "weight": 800,
+        "lineHeight": 1.35
+      },
+      "bodyL": {
+        "size": 16,
+        "weight": 500,
+        "lineHeight": 1.7
+      },
+      "bodyM": {
+        "size": 14,
+        "weight": 500,
+        "lineHeight": 1.6
+      },
+      "bodyS": {
+        "size": 12,
+        "weight": 500,
+        "lineHeight": 1.5
+      },
+      "labelL": {
+        "size": 14,
+        "weight": 800,
+        "lineHeight": 1.4
+      },
+      "labelM": {
+        "size": 12,
+        "weight": 800,
+        "lineHeight": 1.35
+      },
+      "labelS": {
+        "size": 11,
+        "weight": 800,
+        "lineHeight": 1.3
+      },
+      "overline": {
+        "size": 10,
+        "weight": 900,
+        "lineHeight": 1.2,
+        "letterSpacing": "0.15em"
+      }
+    }
+  }
+}

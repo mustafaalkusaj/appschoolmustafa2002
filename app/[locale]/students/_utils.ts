@@ -15,7 +15,7 @@ export function formatCardDate(value: string | null | undefined) {
 export function buildPrintableCardHtml(
   card: ManagedUserAccountCard,
   options: PrintCardOptions,
-  autoPrint = true,
+  _autoPrint = true,
 ) {
   const locale = options.locale;
   const classLine = [card.class_name, card.section ? `الشعبة ${card.section}` : null].filter(Boolean).join(" • ");
@@ -31,7 +31,7 @@ export function buildPrintableCardHtml(
       secondaryColor: options.secondaryColor,
       locale,
     },
-    autoPrint,
+    autoPrint: false,
     bodyHtml: `
       <div class="print-grid" style="margin-bottom:16px">
         <div class="print-panel">
@@ -191,6 +191,7 @@ export function buildSingleStudentPrintHtml(
       secondaryColor: options.secondaryColor,
       locale,
     },
+    autoPrint: false,
     bodyHtml: `
       <div class="print-grid">
         <div class="print-panel"><span class="print-label">${locale === "en" ? "Name" : "الاسم"}</span><div class="print-value">${escapeHtml(student.full_name)}</div></div>

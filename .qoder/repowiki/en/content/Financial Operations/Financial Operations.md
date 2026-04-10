@@ -11,6 +11,8 @@
 - [route.ts](file://app/api/web/reports/dataset/route.ts)
 - [payments-server.ts](file://lib/payments-server.ts)
 - [payments-overview.ts](file://lib/payments-overview.ts)
+- [financials.ts](file://lib/students/financials.ts)
+- [overview.ts](file://lib/students/overview.ts)
 - [page.tsx](file://app/[locale]/payments/page.tsx)
 - [PaymentModal.tsx](file://app/[locale]/payments/_components/PaymentModal.tsx)
 - [PaymentsTable.tsx](file://app/[locale]/payments/_components/PaymentsTable.tsx)
@@ -36,16 +38,18 @@
 - [ArchiveSection.tsx](file://app/[locale]/salaries/_components/ArchiveSection.tsx)
 - [CalendarSection.tsx](file://app/[locale]/salaries/_components/CalendarSection.tsx)
 - [_types.ts](file://app/[locale]/salaries/_types.ts)
+- [20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [20260326_000000_reports_summary_function.sql](file://migrations/20260326_000000_reports_summary_function.sql)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the newly redesigned salary management system with modular component architecture
-- Documented sophisticated features including monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities
-- Updated financial operations to include salary processing alongside traditional payment operations
-- Enhanced payment processing workflow to include salary management integration
-- Expanded financial reporting system to encompass both payment and salary analytics
-- Added documentation for teacher management, deduction tracking, and comprehensive export capabilities
+- Added comprehensive documentation for the new shared financial logic (student financials) that standardizes fee calculations across all API endpoints and reporting modules
+- Documented the new `calculateStudentRemainingFee` function and its integration into the payment processing workflow
+- Updated payment processing workflow to include database-level consistency checks and trigger-based calculations
+- Enhanced financial reporting system to leverage shared logic for consistent fee calculations
+- Added documentation for the new database triggers that automatically maintain student financial consistency
+- Expanded payment operations to include robust error handling and consistency validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -54,26 +58,32 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Payment Operations](#enhanced-payment-operations)
-7. [Salary Management System](#salary-management-system)
-8. [Archive Management System](#archive-management-system)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
-13. [Appendices](#appendices)
+7. [Shared Financial Logic System](#shared-financial-logic-system)
+8. [Database-Level Consistency](#database-level-consistency)
+9. [Salary Management System](#salary-management-system)
+10. [Archive Management System](#archive-management-system)
+11. [Dependency Analysis](#dependency-analysis)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
+15. [Appendices](#appendices)
 
 ## Introduction
-This document explains the financial operations system for payment processing, expense management, financial reporting, and salary management. It covers invoice generation, payment collection, reconciliation, dashboards for revenue tracking, expense monitoring, cash flow analysis, and comprehensive salary processing workflows. The system now includes sophisticated features for teacher management, monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities. It documents supported payment methods, refund processing, financial audit trails, fee structures, discount management, subscription billing, integration with student management, invoice systems, export functionality for accounting, and common financial scenarios including payment failures and reconciliation procedures.
+This document explains the financial operations system for payment processing, expense management, financial reporting, and salary management. It covers invoice generation, payment collection, reconciliation, dashboards for revenue tracking, expense monitoring, cash flow analysis, and comprehensive salary processing workflows. The system now includes sophisticated features for teacher management, monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities. The system has been significantly enhanced with new shared financial logic that standardizes fee calculations across all API endpoints and reporting modules, ensuring consistency and reliability in financial computations.
 
-**Updated** The financial operations system has been significantly expanded to include a comprehensive salary management module with modular component architecture containing over 20 React components, sophisticated monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities.
+**Updated** The financial operations system has been enhanced with a new shared financial logic layer that provides standardized fee calculations across all API endpoints and reporting modules, ensuring consistency and reliability in financial computations.
 
 ## Project Structure
-The financial domain is implemented as a set of Next.js API routes under app/api/web, backed by Supabase queries and server-side helpers. The system now includes two primary modules: payments management and salary management, each with comprehensive component libraries, centralized hooks, and enhanced operational capabilities.
+The financial domain is implemented as a set of Next.js API routes under app/api/web, backed by Supabase queries and server-side helpers. The system now includes two primary modules: payments management and salary management, each with comprehensive component libraries, centralized hooks, and enhanced operational capabilities. A new shared financial logic layer provides standardized calculations across all components.
 
-**Updated** The financial operations system now encompasses two major modules with comprehensive architectural redesign:
+**Updated** The financial operations system now encompasses two major modules with comprehensive architectural redesign and a new shared financial logic layer:
 
 ```mermaid
 graph TB
+subgraph "Shared Financial Logic Layer"
+FINANCIALS["lib/students/financials.ts<br/>(17 lines)<br/>calculateStudentRemainingFee"]
+TRIGGERS["Database Triggers<br/>recompute_student_payment_totals<br/>sync_student_payment_totals_from_payments"]
+END
 subgraph "Payments Module"
 P_MAIN["app/[locale]/payments/page.tsx<br/>(200 lines)"]
 P_HOOKS["usePaymentsPage.ts<br/>(317 lines)"]
@@ -135,14 +145,18 @@ API_SALARY_REPORT["/api/web/salaries/report"]
 API_SALARY_LECTURES["/api/web/salaries/lectures"]
 API_SALARY_DEDUCTIONS["/api/web/salaries/deductions"]
 API_SALARY_ARCHIVE["/api/web/salaries/archive"]
+API_REPORTS_OVERVIEW["/api/web/reports/overview"]
+API_DASHBOARD_OVERVIEW["/api/web/dashboard/overview"]
 end
 subgraph "Server Libraries"
 LIB_SERVER["lib/payments-server.ts"]
 LIB_OVERVIEW["lib/payments-overview.ts"]
+LIB_STUDENTS_OVERVIEW["lib/students/overview.ts"]
 END
 ```
 
 **Diagram sources**
+- [financials.ts](file://lib/students/financials.ts)
 - [page.tsx](file://app/[locale]/payments/page.tsx)
 - [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
 - [page.tsx](file://app/[locale]/salaries/page.tsx)
@@ -191,8 +205,11 @@ END
 - [route.ts](file://app/api/web/salaries/lectures/route.ts)
 - [route.ts](file://app/api/web/salaries/deductions/route.ts)
 - [route.ts](file://app/api/web/salaries/archive/route.ts)
+- [route.ts](file://app/api/web/reports/overview/route.ts)
+- [route.ts](file://app/api/web/dashboard/overview/route.ts)
 - [payments-server.ts](file://lib/payments-server.ts)
 - [payments-overview.ts](file://lib/payments-overview.ts)
+- [overview.ts](file://lib/students/overview.ts)
 
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
@@ -210,8 +227,12 @@ END
 - [route.ts](file://app/api/web/salaries/lectures/route.ts)
 - [route.ts](file://app/api/web/salaries/deductions/route.ts)
 - [route.ts](file://app/api/web/salaries/archive/route.ts)
+- [route.ts](file://app/api/web/reports/overview/route.ts)
+- [route.ts](file://app/api/web/dashboard/overview/route.ts)
 - [payments-server.ts](file://lib/payments-server.ts)
 - [payments-overview.ts](file://lib/payments-overview.ts)
+- [financials.ts](file://lib/students/financials.ts)
+- [overview.ts](file://lib/students/overview.ts)
 
 ## Core Components
 - **Payments Page Main**: Streamlined 200-line page orchestrating the entire payments interface with comprehensive component library.
@@ -234,8 +255,9 @@ END
 - **Reports Section**: Detailed reporting system with summary and detailed views, teacher filtering, and print functionality.
 - **Schedule Section**: Weekly schedule management with grade/section selection, grid editing, and schedule saving.
 - **Enhanced Salary Components**: 15+ specialized components for teacher management, pricing, lesson times, daily logging, export, printing, and administrative functions.
+- **Shared Financial Logic**: New standardized fee calculation system ensuring consistency across all API endpoints and reporting modules.
 
-**Updated** The core components now include a comprehensive salary management module with sophisticated functionality:
+**Updated** The core components now include a comprehensive salary management module with sophisticated functionality and a new shared financial logic layer:
 
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
@@ -256,13 +278,12 @@ END
 - [DeductionsSection.tsx](file://app/[locale]/salaries/_components/DeductionsSection.tsx)
 - [ReportsSection.tsx](file://app/[locale]/salaries/_components/ReportsSection.tsx)
 - [ScheduleSection.tsx](file://app/[locale]/salaries/_components/ScheduleSection.tsx)
-- [usePaymentsPage.ts](file://app/[locale]/payments/_hooks/usePaymentsPage.ts)
-- [useSalariesData.ts](file://app/[locale]/salaries/_hooks/useSalariesData.ts)
+- [financials.ts](file://lib/students/financials.ts)
 
 ## Architecture Overview
 The system integrates Next.js API routes with Supabase for data persistence and computation. The redesigned financial operations system now encompasses two major modules: payments management with comprehensive component library and salary management with sophisticated modular architecture. Payments are recorded against students and immediately reconciled to update balances. Salary management includes teacher creation/editing, monthly payment processing, lecture scheduling, deduction tracking, and comprehensive reporting. Reporting leverages dedicated RPCs for performance and falls back to client-side aggregation when unavailable. Export endpoints support CSV/XLSX downloads for accounting systems. The enhanced architecture includes comprehensive error handling, caching mechanisms, improved user experience through modal-based interactions, and seamless integration between payment and salary operations.
 
-**Updated** The architecture now emphasizes dual-module design with comprehensive modularity, enhanced state management, and improved user experience across both payment and salary operations:
+**Updated** The architecture now emphasizes dual-module design with comprehensive modularity, enhanced state management, improved user experience across both payment and salary operations, and a new shared financial logic layer that ensures consistency across all components:
 
 ```mermaid
 sequenceDiagram
@@ -274,17 +295,18 @@ participant SalariesHooks as "useSalariesData"
 participant PaymentModal as "PaymentModal"
 participant SalaryModal as "PaySalaryModal"
 participant API as "Next.js API"
-participant Lib as "Server Libraries"
-participant DB as "Supabase"
+participant Financials as "Shared Financials"
+participant Database as "Database Triggers"
 Client->>PaymentsPage : Navigate to /payments
 Client->>SalariesPage : Navigate to /salaries
 PaymentsPage->>PaymentsHooks : Initialize enhanced hooks and state
 SalariesPage->>SalariesHooks : Initialize comprehensive hooks and state
 PaymentsHooks->>API : Load payments metadata with caching
 SalariesHooks->>API : Load salary bootstrap data
-API->>DB : Query payments overview
-API->>DB : Query salary bootstrap data
-DB-->>API : Cached/Real-time metadata response
+API->>Database : Trigger payment processing
+Database->>Financials : Apply shared fee calculations
+Financials-->>Database : Consistent fee calculations
+Database-->>API : Updated student financials
 API-->>PaymentsHooks : {summary, classes, archives}
 API-->>SalariesHooks : {teachers, salaries, classes, subjects}
 PaymentsHooks-->>PaymentsPage : Component props with enhanced state
@@ -292,20 +314,17 @@ SalariesHooks-->>SalariesPage : Component props with comprehensive state
 Client->>PaymentModal : Click "Add Payment"
 PaymentModal->>PaymentModal : Validate form with enhanced validation
 PaymentModal->>API : POST /api/web/payments/records
-API->>DB : Insert payment row
-DB-->>API : Created payment
-API->>Lib : Recompute student paid fee
-Lib->>DB : Select payments for student
-Lib->>DB : Update student.paid_fee
-DB-->>Lib : OK
+API->>Database : Insert payment row
+Database->>Financials : Recalculate student fees
+Financials->>Database : Apply calculateStudentRemainingFee
+Database-->>API : Updated student financials
 API-->>PaymentModal : {ok, payment, studentUpdate, warning}
 PaymentModal-->>PaymentsPage : Update UI state with enhanced feedback
 Client->>SalaryModal : Click "Pay Salary"
 SalaryModal->>SalaryModal : Calculate lecture salary with enhanced logic
 SalaryModal->>API : POST /api/web/salaries/pay
-API->>DB : Insert salary payment
-DB-->>API : Created salary record
-API->>Lib : Update teacher salary status
+API->>Database : Insert salary payment
+Database->>Financials : Update teacher salary status
 API-->>SalaryModal : {ok, salary, warning}
 SalaryModal-->>SalariesPage : Update UI state with comprehensive feedback
 ```
@@ -319,7 +338,8 @@ SalaryModal-->>SalariesPage : Update UI state with comprehensive feedback
 - [PaySalaryModal.tsx](file://app/[locale]/salaries/_components/PaySalaryModal.tsx)
 - [route.ts](file://app/api/web/payments/records/route.ts)
 - [route.ts](file://app/api/web/salaries/pay/route.ts)
-- [payments-server.ts](file://lib/payments-server.ts)
+- [financials.ts](file://lib/students/financials.ts)
+- [20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
 
 ## Detailed Component Analysis
 
@@ -623,6 +643,116 @@ Key behaviors:
 - [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
 - [usePrintFunctions.ts](file://app/[locale]/salaries/_hooks/usePrintFunctions.ts)
 
+## Enhanced Payment Operations
+**Updated** The payment operations system has been comprehensively enhanced with improved state management and business logic, now integrated with the new shared financial logic layer:
+
+### Payment Creation Workflow with Shared Financial Logic
+The payment creation process now includes robust consistency checks and shared financial calculations:
+
+1. **Payment Validation**: Enhanced form validation with comprehensive error handling
+2. **Student Retrieval**: Fetch student data with paid_fee, total_fee, discount_value, and remaining_fee
+3. **Payment Recording**: Insert payment record with automatic receipt number generation
+4. **Financial Recalculation**: Apply shared financial logic to recalculate student totals
+5. **Consistency Verification**: Database triggers ensure paid_fee and remaining_fee consistency
+6. **Cache Invalidation**: Invalidate cached domains for dashboard, payments, and reports
+7. **Response Generation**: Return updated student financials with enhanced error handling
+
+### Database-Level Consistency Enforcement
+The system now includes sophisticated database triggers that automatically maintain financial consistency:
+
+- **recompute_student_payment_totals**: Calculates paid_fee from payment records and updates remaining_fee
+- **sync_student_payment_totals_from_payments**: Trigger-based synchronization on payment insert/update/delete
+- **Automatic Cleanup**: Removes duplicate salary records and ensures unique constraints
+
+**Section sources**
+- [usePaymentOperations.ts](file://app/[locale]/payments/_hooks/usePaymentOperations.ts)
+- [useArchiveOperations.ts](file://app/[locale]/payments/_hooks/useArchiveOperations.ts)
+- [usePaymentsMeta.ts](file://app/[locale]/payments/_hooks/usePaymentsMeta.ts)
+- [useStudentsPage.ts](file://app/[locale]/payments/_hooks/useStudentsPage.ts)
+- [route.ts](file://app/api/web/payments/records/route.ts)
+- [payments-server.ts](file://lib/payments-server.ts)
+- [20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+
+## Shared Financial Logic System
+**Updated** The new shared financial logic system provides standardized fee calculations across all API endpoints and reporting modules:
+
+### calculateStudentRemainingFee Function
+The core function that standardizes fee calculations:
+
+```typescript
+export function calculateStudentRemainingFee(student: StudentFinancials): number {
+  const total = Number(student.total_fee ?? 0);
+  const paid = Number(student.paid_fee ?? 0);
+  const discount = Number(student.discount_value ?? 0);
+  
+  return Math.max(total - paid - discount, 0);
+}
+```
+
+Key features:
+- **Type Safety**: Strongly typed StudentFinancials interface ensures consistent data structure
+- **Null Safety**: Graceful handling of null/undefined values with default fallbacks
+- **Precision**: Uses Number conversion for reliable arithmetic operations
+- **Consistency**: Mathematical formula ensures identical calculations across all components
+
+### Integration Points
+The shared financial logic is integrated at multiple levels:
+
+1. **Student Overview Normalization**: Used to calculate remaining_fee when not stored in database
+2. **Payment Processing**: Applied to ensure consistency after payment operations
+3. **Report Calculations**: Used in fallback calculations when RPC functions are unavailable
+4. **Dashboard Metrics**: Integrated into dashboard overview calculations
+
+### Benefits of Standardization
+- **Consistency**: Identical calculations across all API endpoints and reporting modules
+- **Reliability**: Reduced risk of calculation errors and inconsistencies
+- **Maintainability**: Single source of truth for fee calculations
+- **Performance**: Efficient client-side calculations when database values are unavailable
+
+**Section sources**
+- [financials.ts](file://lib/students/financials.ts)
+- [overview.ts](file://lib/students/overview.ts)
+- [route.ts](file://app/api/web/reports/overview/route.ts)
+- [route.ts](file://app/api/web/dashboard/overview/route.ts)
+
+## Database-Level Consistency
+**Updated** The database now includes sophisticated triggers and constraints that automatically maintain financial consistency:
+
+### Payment Consistency Triggers
+The system includes two critical triggers that ensure payment data integrity:
+
+1. **recompute_student_payment_totals**: Computes paid_fee from payment records and updates remaining_fee
+2. **sync_student_payment_totals_from_payments**: Trigger-based synchronization on payment operations
+
+### Salary Uniqueness Constraints
+The system prevents duplicate salary records with unique constraints:
+
+- **Unique Index**: Ensures (school_id, teacher_id, month) uniqueness
+- **Automatic Cleanup**: Removes duplicate records during migration
+- **Preventive Measures**: Unique constraints prevent future duplicates
+
+### Migration Implementation
+The consistency system is implemented through database migrations:
+
+```sql
+-- Create or replace payment totals recomputation function
+CREATE OR REPLACE FUNCTION public.recompute_student_payment_totals(target_student_id UUID)
+RETURNS VOID LANGUAGE plpgsql AS $body$
+BEGIN
+  -- Implementation details...
+END;
+$body$;
+
+-- Create payment synchronization trigger
+CREATE TRIGGER trg_sync_student_payment_totals_on_payments
+AFTER INSERT OR UPDATE OR DELETE ON public.payments
+FOR EACH ROW EXECUTE FUNCTION public.sync_student_payment_totals_from_payments();
+```
+
+**Section sources**
+- [20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
+- [payments-server.ts](file://lib/payments-server.ts)
+
 ## Archive Management System
 **Updated** The archive management system has been comprehensively enhanced with dual-module support:
 
@@ -676,13 +806,14 @@ Key behaviors:
 - [useArchiveOperations.ts](file://app/[locale]/payments/_hooks/useArchiveOperations.ts)
 
 ## Dependency Analysis
-**Updated** The dependency structure now reflects the comprehensive modular component architecture with dual-module support:
+**Updated** The dependency structure now reflects the comprehensive modular component architecture with dual-module support and a new shared financial logic layer:
 
 - **Payments Page Main** depends on:
   - Complete component library from _components directory with enhanced exports
   - Centralized hooks for comprehensive state management
   - Enhanced internationalization and localization utilities
   - ProtectedRoute for role-based access control with improved permissions
+  - Shared financial logic for consistent fee calculations
 
 - **Salary Management Main** depends on:
   - Comprehensive component library with 15+ specialized components from _components directory
@@ -690,18 +821,21 @@ Key behaviors:
   - Multiple specialized hooks for different aspects of salary management
   - Enhanced internationalization and localization utilities
   - ProtectedRoute for role-based access control with enhanced permissions
+  - Shared financial logic for consistent fee calculations
 
 - **Individual Components** depend on:
   - Shared types from _types.ts with enhanced type definitions
   - Parent component handlers passed as props with improved typing
   - Enhanced formatting utilities for currency and dates
   - Icon components for improved UI elements
+  - Shared financial logic for consistent calculations
 
 - **Enhanced Hooks** depend on:
   - All API routes for comprehensive data operations
   - School scope resolution utilities with enhanced context management
   - Role-based permission checking with improved security
   - Enhanced internationalization utilities with improved locale handling
+  - Shared financial logic for consistent calculations
 
 - **Component Dependencies** include:
   - PaymentModal depends on usePaymentOperations for state management
@@ -711,6 +845,7 @@ Key behaviors:
   - Salary components depend on useSalariesData for comprehensive state management
   - Teacher components depend on useTeacherOperations for teacher management
   - Print components depend on usePrintFunctions for enhanced printing capabilities
+  - Database triggers depend on shared financial logic for consistency enforcement
 
 ```mermaid
 graph LR
@@ -777,6 +912,10 @@ HOOK_PAYMENTS --> API_RECORDS["payments/records/route.ts"]
 HOOK_PAYMENTS --> API_EXPORT["payments/export/route.ts"]
 HOOK_PAYMENTS --> API_ARCHIVE["payments/archive/route.ts"]
 HOOK_PAYMENTS --> API_META["payments/meta/route.ts"]
+HOOK_PAYMENTS --> FINANCIALS["calculateStudentRemainingFee"]
+HOOK_SALARIES --> FINANCIALS
+HOOK_SALARIES --> TRIGGERS["Database Triggers"]
+HOOK_SALARIES --> REPORTS_RPC["school_reports_summary RPC"]
 ```
 
 **Diagram sources**
@@ -822,6 +961,8 @@ HOOK_PAYMENTS --> API_META["payments/meta/route.ts"]
 - [route.ts](file://app/api/web/salaries/lectures/route.ts)
 - [route.ts](file://app/api/web/salaries/deductions/route.ts)
 - [route.ts](file://app/api/web/salaries/archive/route.ts)
+- [financials.ts](file://lib/students/financials.ts)
+- [20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
 
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
@@ -857,18 +998,12 @@ HOOK_PAYMENTS --> API_META["payments/meta/route.ts"]
 - [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
 - [usePrintFunctions.ts](file://app/[locale]/salaries/_hooks/usePrintFunctions.ts)
 - [route.ts](file://app/api/web/payments/records/route.ts)
-- [route.ts](file://app/api/web/payments/export/route.ts)
-- [route.ts](file://app/api/web/payments/archive/route.ts)
-- [route.ts](file://app/api/web/payments/meta/route.ts)
-- [route.ts](file://app/api/web/salaries/bootstrap/route.ts)
 - [route.ts](file://app/api/web/salaries/pay/route.ts)
-- [route.ts](file://app/api/web/salaries/report/route.ts)
-- [route.ts](file://app/api/web/salaries/lectures/route.ts)
-- [route.ts](file://app/api/web/salaries/deductions/route.ts)
-- [route.ts](file://app/api/web/salaries/archive/route.ts)
+- [financials.ts](file://lib/students/financials.ts)
+- [20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
 
 ## Performance Considerations
-**Updated** Performance improvements from the comprehensive modular redesign with dual-module support:
+**Updated** Performance improvements from the comprehensive modular redesign with dual-module support and new shared financial logic:
 
 - **Enhanced Component Lazy Loading**: Comprehensive component library enables better code splitting and lazy loading with improved bundle optimization across both payments and salary modules
 - **Significant Bundle Size Reduction**: Main payments page reduced from 1841 lines to 200 lines significantly improving initial load time and memory usage
@@ -881,9 +1016,12 @@ HOOK_PAYMENTS --> API_META["payments/meta/route.ts"]
 - **Enhanced Export Optimization**: Excel generation handled client-side with improved performance and reduced server load for both modules
 - **Progressive Enhancement**: Components load progressively based on user interaction with enhanced user experience across both modules
 - **Memory Management**: Enhanced cleanup and resource management with improved component lifecycle handling for comprehensive financial operations
+- **Shared Financial Logic Optimization**: Centralized calculations reduce redundant computations and improve performance across all components
+- **Database Trigger Efficiency**: Server-side consistency enforcement reduces client-side computation overhead
+- **RPC Function Caching**: Enhanced caching strategies for database functions and stored procedures
 
 ## Troubleshooting Guide
-**Updated** Common issues and resolutions for the comprehensive modular architecture with dual-module support:
+**Updated** Common issues and resolutions for the comprehensive modular architecture with dual-module support and new shared financial logic:
 
 - **Component Import Failures**:
   - Symptom: Components not rendering or throwing import errors
@@ -933,6 +1071,18 @@ HOOK_PAYMENTS --> API_META["payments/meta/route.ts"]
   - Symptom: Salary module not responding to section changes or not loading reference data
   - Resolution: Verify useSalariesData hook is properly managing section-based data loading with enhanced error handling
 
+- **Shared Financial Logic Issues**:
+  - Symptom: Inconsistent fee calculations or remaining fee discrepancies
+  - Resolution: Verify calculateStudentRemainingFee function is properly imported and used consistently across all components
+
+- **Database Trigger Issues**:
+  - Symptom: Payment or salary data inconsistencies despite correct API operations
+  - Resolution: Check database triggers are properly installed and functioning with enhanced error handling
+
+- **Enhanced Payment Processing Issues**:
+  - Symptom: Payment creation succeeds but student financials show incorrect values
+  - Resolution: Verify database triggers are properly recalculating paid_fee and remaining_fee with enhanced debugging
+
 **Section sources**
 - [page.tsx](file://app/[locale]/payments/page.tsx)
 - [page.tsx](file://app/[locale]/salaries/page.tsx)
@@ -948,9 +1098,15 @@ HOOK_PAYMENTS --> API_META["payments/meta/route.ts"]
 - [useTeacherOperations.ts](file://app/[locale]/salaries/_hooks/useTeacherOperations.ts)
 - [route.ts](file://app/api/web/payments/records/route.ts)
 - [route.ts](file://app/api/web/salaries/pay/route.ts)
+- [financials.ts](file://lib/students/financials.ts)
+- [20260403_000000_payment_consistency_and_salary_uniqueness.sql](file://migrations/20260403_000000_payment_consistency_and_salary_uniqueness.sql)
 
 ## Conclusion
-The financial operations system provides a comprehensive foundation for payment processing, reconciliation, reporting, and salary management. The extensive redesign has transformed the payments interface from a monolithic 1841-line component to a modular, maintainable architecture with 200 lines of orchestration code and 1600+ lines of comprehensive component library. The system has been significantly expanded to include a sophisticated salary management module with modular component architecture containing over 20 React components, comprehensive teacher management, monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities. This comprehensive approach enhances developer experience, improves code maintainability, and enables better performance through component-specific optimizations. The system emphasizes school-scoped access, enhanced permission-driven actions, scalable reporting via RPCs with graceful fallbacks, comprehensive integration with student management and export capabilities that support accounting workflows and compliance needs, and seamless integration between payment and salary operations. The enhanced architecture includes advanced state management, comprehensive error handling, caching strategies, and improved user experience through modal-based interactions across both payment and salary management modules.
+The financial operations system provides a comprehensive foundation for payment processing, reconciliation, reporting, and salary management. The extensive redesign has transformed the payments interface from a monolithic 1841-line component to a modular, maintainable architecture with 200 lines of orchestration code and 1600+ lines of comprehensive component library. The system has been significantly expanded to include a sophisticated salary management module with modular component architecture containing over 20 React components, comprehensive teacher management, monthly archive functionality, calendar-based lecture scheduling, and detailed reporting capabilities. 
+
+**Updated** The system has been enhanced with a new shared financial logic layer that provides standardized fee calculations across all API endpoints and reporting modules, ensuring consistency and reliability in financial computations. This enhancement includes database-level consistency enforcement through sophisticated triggers and constraints, comprehensive error handling, caching strategies, and improved user experience through modal-based interactions across both payment and salary management modules.
+
+The system emphasizes school-scoped access, enhanced permission-driven actions, scalable reporting via RPCs with graceful fallbacks, comprehensive integration with student management and export capabilities that support accounting workflows and compliance needs, and seamless integration between payment and salary operations. The enhanced architecture includes advanced state management, comprehensive error handling, caching strategies, and improved user experience through modal-based interactions across both payment and salary management modules.
 
 ## Appendices
 
@@ -965,6 +1121,7 @@ The financial operations system provides a comprehensive foundation for payment 
   - Students carry total_fee and paid_fee; upon payment creation, paid_fee is recomputed and remaining_fee is derived accordingly with enhanced calculations.
 - **Discounts**:
   - Students carry discount_value; remaining_fee accounts for discounts during reconciliation with enhanced precision.
+- **Shared Financial Logic**: The new calculateStudentRemainingFee function ensures consistent fee calculations across all components and reporting modules.
 
 ### Subscription Billing
 - **Not implemented** in the referenced routes; subscription billing would require a billing cycle engine, recurring invoices, and payment scheduling.
@@ -999,8 +1156,8 @@ The financial operations system provides a comprehensive foundation for payment 
 - **Enhanced Payment Collection Workflow**
   - Step 1: Authenticate and authorize user within the target school with enhanced permission checking.
   - Step 2: Use enhanced PaymentModal to search for student with intelligent search and validation, then validate amount, optional receipt number/manual receipt number, and payment method.
-  - Step 3: System persists the payment with enhanced receipt number generation and branch resolution, then recalculates student paid fee with improved accuracy.
-  - Step 4: Return updated student totals and payment details with enhanced error handling and user feedback.
+  - Step 3: System persists the payment with enhanced receipt number generation and branch resolution, then recalculates student paid fee with improved accuracy using shared financial logic.
+  - Step 4: Database triggers automatically enforce consistency and update remaining_fee calculations, returning updated student totals and payment details with enhanced error handling and user feedback.
 
 - **Enhanced Salary Payment Workflow**
   - Step 1: Authenticate and authorize user within the target school with enhanced permission checking.
@@ -1028,7 +1185,7 @@ The financial operations system provides a comprehensive foundation for payment 
 
 - **Enhanced Financial Reporting Workflow**
   - Step 1: Authenticate and authorize admin-level user within the target school.
-  - Step 2: Request enhanced overview metrics with caching and performance optimization; system uses RPC if available, otherwise falls back to client-side aggregation.
+  - Step 2: Request enhanced overview metrics with caching and performance optimization; system uses RPC if available, otherwise falls back to client-side aggregation using shared financial logic.
   - Step 3: Optionally export enhanced datasets for students, payments, expenses, salaries, and lecture data with improved formatting.
 
 - **Enhanced Export for Accounting**
@@ -1037,14 +1194,14 @@ The financial operations system provides a comprehensive foundation for payment 
   - Step 3: Click export button to generate enhanced Excel file with filtered student payment data and improved formatting.
 
 - **Enhanced Reconciliation Procedures**
-  - Step 1: Compare payments with student balances after each payment entry with enhanced accuracy.
+  - Step 1: Compare payments with student balances after each payment entry with enhanced accuracy using shared financial logic.
   - Step 2: Investigate warnings for partial synchronization and retry as needed with enhanced error handling.
   - Step 3: Use annual archive exports for period-end reconciliation with enhanced data integrity.
   - Step 4: Verify salary payments match lecture records and teacher status with enhanced reconciliation procedures.
 
 - **Enhanced Common Scenarios**
   - **Enhanced Payment Failure**: Validate inputs with comprehensive error handling, check permissions with enhanced validation, and inspect returned error messages with improved user feedback.
-  - **Overpayment/Underpayment**: Adjust student totals with enhanced calculations; ensure discount and remaining fee reflect correct values with improved precision.
+  - **Overpayment/Underpayment**: Adjust student totals with enhanced calculations; ensure discount and remaining fee reflect correct values with improved precision using shared financial logic.
   - **Duplicate Receipt Numbers**: Use manual receipt number to avoid conflicts with enhanced validation.
   - **Enhanced Student Search Issues**: Verify API connectivity and student data availability with improved error handling.
   - **Component Rendering Problems**: Check component imports and prop passing between parent and child components with enhanced debugging capabilities.
@@ -1053,3 +1210,5 @@ The financial operations system provides a comprehensive foundation for payment 
   - **Enhanced Salary Calculation Issues**: Verify lecture data, teacher salary types, and calculation logic with enhanced debugging capabilities.
   - **Enhanced Teacher Management Issues**: Verify teacher data validation, class assignments, and reference data synchronization with comprehensive error handling.
   - **Enhanced Schedule Management Issues**: Verify schedule validation, teacher assignments, and calendar synchronization with enhanced error handling.
+  - **Shared Financial Logic Issues**: Verify calculateStudentRemainingFee function is properly imported and used consistently across all components with enhanced debugging.
+  - **Database Trigger Issues**: Verify payment and salary data consistency with enhanced error handling and database trigger validation.
