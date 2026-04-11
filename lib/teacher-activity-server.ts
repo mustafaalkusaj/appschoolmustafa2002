@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { escapeFilterValue } from "@/lib/supabase-query-helpers";
@@ -39,7 +40,7 @@ type StudentRow = {
 };
 
 type TeacherActivityScope = {
-  actorSupabase: any;
+  actorSupabase: RouteSupabaseClient;
   actorUserId: string;
   actorRole: "super_admin" | "admin";
   schoolId: string;
@@ -49,8 +50,80 @@ type TeacherActivityScope = {
   availableBranches: MonitoringMetaOption[];
 };
 
+const TEACHER_MESSAGE_GROUP_SELECT = [
+  "group_id",
+  "representative_id",
+  "title",
+  "message",
+  "type",
+  "status",
+  "school_id",
+  "school_name",
+  "branch_id",
+  "branch_name",
+  "teacher_id",
+  "teacher_name",
+  "target_count",
+  "targets",
+  "created_at",
+  "updated_at",
+  "moderated_at",
+  "moderation_reason",
+].join(", ");
+
+const HOMEWORK_MONITORING_SELECT = [
+  "id",
+  "title",
+  "description",
+  "subject",
+  "class_name",
+  "section",
+  "student_id",
+  "student_name",
+  "content_kind",
+  "due_at",
+  "status",
+  "school_id",
+  "school_name",
+  "branch_id",
+  "branch_name",
+  "teacher_id",
+  "teacher_name",
+  "created_at",
+  "updated_at",
+  "moderated_at",
+  "moderation_reason",
+  "attachment_bucket",
+  "attachment_path",
+  "attachment_name",
+  "attachment_mime_type",
+  "attachment_size_bytes",
+  "metadata",
+].join(", ");
+
+const FEE_NOTIFICATION_SELECT = [
+  "id",
+  "title",
+  "message",
+  "note",
+  "due_at",
+  "deep_link",
+  "target_mode",
+  "sent_count",
+  "failed_count",
+  "created_at",
+  "school_id",
+  "branch_id",
+  "created_by",
+  "target_filters",
+].join(", ");
+
 function asRecord(value: unknown): JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as JsonRecord) : {};
+}
+
+function asRecordArray(value: unknown): JsonRecord[] {
+  return Array.isArray(value) ? value.map((item) => asRecord(item)) : [];
 }
 
 function asString(value: unknown) {
@@ -112,7 +185,7 @@ export function jsonError(message: string, status: number, fieldErrors?: Record<
 }
 
 async function actorHasAnyPermission(
-  actorSupabase: any,
+  actorSupabase: RouteSupabaseClient,
   actorUserId: string,
   actorRole: "super_admin" | "admin",
   permissions: Permission[],
@@ -198,28 +271,42 @@ async function resolveTeacherActivityScope(
   };
 }
 
-function applyBranchScopeToQuery(query: any, scope: TeacherActivityScope, requestedBranchId?: string | null) {
+type BranchScopeQueryLike = {
+  eq: (column: string, value: unknown) => BranchScopeQueryLike;
+  in: (column: string, values: unknown[]) => BranchScopeQueryLike;
+};
+
+function applyBranchScopeToQuery<TQuery>(query: TQuery, scope: TeacherActivityScope, requestedBranchId?: string | null) {
   const branchId = asNullableString(requestedBranchId);
+  const scoped = query as unknown as BranchScopeQueryLike;
 
   if (branchId) {
     if (scope.allowedBranchIds && !scope.allowedBranchIds.includes(branchId)) {
       return { ok: false as const, status: 403, message: "لا يمكنك الوصول إلى بيانات هذا الفرع." };
     }
-    return { ok: true as const, value: query.eq("branch_id", branchId) };
+    return { ok: true as const, value: scoped.eq("branch_id", branchId) as unknown as TQuery };
   }
 
   if (scope.allowedBranchIds && scope.allowedBranchIds.length > 0) {
-    return { ok: true as const, value: query.in("branch_id", scope.allowedBranchIds) };
+    return { ok: true as const, value: scoped.in("branch_id", scope.allowedBranchIds) as unknown as TQuery };
   }
 
   return { ok: true as const, value: query };
 }
 
-function applySharedOrdering(query: any, sort: string) {
-  if (sort === "oldest") return query.order("created_at", { ascending: true });
-  if (sort === "teacher") return query.order("teacher_name", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
-  if (sort === "school") return query.order("school_name", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
-  return query.order("created_at", { ascending: false });
+type SharedOrderingQueryLike = {
+  order: (column: string, options?: { ascending?: boolean; nullsFirst?: boolean }) => SharedOrderingQueryLike;
+};
+
+function applySharedOrdering<TQuery>(query: TQuery, sort: string): TQuery {
+  let next = query as unknown as SharedOrderingQueryLike;
+
+  if (sort === "oldest") next = next.order("created_at", { ascending: true });
+  else if (sort === "teacher") next = next.order("teacher_name", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
+  else if (sort === "school") next = next.order("school_name", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
+  else next = next.order("created_at", { ascending: false });
+
+  return next as unknown as TQuery;
 }
 
 async function fetchAuditTrail(serviceSupabase: ServiceSupabaseClient, entityType: string, entityId: string) {
@@ -377,11 +464,11 @@ export async function getTeacherActivityMeta(
   if (!scopeResult.ok) return scopeResult;
 
   const scope = scopeResult.value;
-  let teachersQuery = scope.serviceSupabase.from("teachers").select("id, full_name").eq("school_id", scope.schoolId).order("full_name", { ascending: true });
+  const teachersQuery = scope.serviceSupabase.from("teachers").select("id, full_name").eq("school_id", scope.schoolId).order("full_name", { ascending: true });
   const scopedTeachers = applyBranchScopeToQuery(teachersQuery, scope, options?.branchId ?? null);
   if (!scopedTeachers.ok) return scopedTeachers;
 
-  let studentsQuery = scope.serviceSupabase
+  const studentsQuery = scope.serviceSupabase
     .from("students")
     .select("id, full_name, class_name, section, branch_id")
     .eq("school_id", scope.schoolId)
@@ -396,7 +483,7 @@ export async function getTeacherActivityMeta(
     scopedStudents.value = scopedStudents.value.or(buildSearchClause(["full_name", "class_name", "section"], asString(options?.studentQuery)) ?? "");
   }
 
-  let classRowsQuery = scope.serviceSupabase.from("students").select("class_name, section, branch_id").eq("school_id", scope.schoolId);
+  const classRowsQuery = scope.serviceSupabase.from("students").select("class_name, section, branch_id").eq("school_id", scope.schoolId);
   const scopedClassRows = applyBranchScopeToQuery(classRowsQuery, scope, options?.branchId ?? null);
   if (!scopedClassRows.ok) return scopedClassRows;
 
@@ -458,7 +545,10 @@ export async function listTeacherMessages(request: NextRequest, filters: Teacher
   if (!scopeResult.ok) return scopeResult;
 
   const scope = scopeResult.value;
-  let query = scope.serviceSupabase.from("dashboard_teacher_message_groups").select("*", { count: "exact" }).eq("school_id", scope.schoolId);
+  let query = scope.serviceSupabase
+    .from("dashboard_teacher_message_groups")
+    .select(TEACHER_MESSAGE_GROUP_SELECT, { count: "exact" })
+    .eq("school_id", scope.schoolId);
   const scopedQuery = applyBranchScopeToQuery(query, scope, filters.branchId);
   if (!scopedQuery.ok) return scopedQuery;
   query = scopedQuery.value;
@@ -488,12 +578,16 @@ export async function listTeacherMessages(request: NextRequest, filters: Teacher
 
   return {
     ok: true as const,
-    value: { items: ((data ?? []) as JsonRecord[]).map(mapTeacherMessageRow), totalCount: count ?? 0 },
+    value: { items: asRecordArray(data).map(mapTeacherMessageRow), totalCount: count ?? 0 },
   };
 }
 
 async function fetchTeacherMessageDetailInternal(scope: TeacherActivityScope, groupId: string) {
-  let groupQuery = scope.serviceSupabase.from("dashboard_teacher_message_groups").select("*").eq("group_id", groupId).eq("school_id", scope.schoolId);
+  const groupQuery = scope.serviceSupabase
+    .from("dashboard_teacher_message_groups")
+    .select(TEACHER_MESSAGE_GROUP_SELECT)
+    .eq("group_id", groupId)
+    .eq("school_id", scope.schoolId);
   const scopedGroupQuery = applyBranchScopeToQuery(groupQuery, scope);
   if (!scopedGroupQuery.ok) return scopedGroupQuery;
 
@@ -501,7 +595,7 @@ async function fetchTeacherMessageDetailInternal(scope: TeacherActivityScope, gr
   if (groupError) return { ok: false as const, status: 500, message: groupError.message };
   if (!groupRow) return { ok: false as const, status: 404, message: "لم يتم العثور على الرسالة المطلوبة." };
 
-  let rowsQuery = scope.serviceSupabase
+  const rowsQuery = scope.serviceSupabase
     .from("notifications")
     .select("id, title, message, link, note, due_at, metadata, status, created_at, updated_at, moderated_at, moderation_reason, deleted_at, branch_id")
     .eq("message_group_id", groupId)
@@ -519,7 +613,7 @@ async function fetchTeacherMessageDetailInternal(scope: TeacherActivityScope, gr
 
   const firstRow = asRecord((rowsResult.data ?? [])[0]);
   const metadata = asRecord(firstRow.metadata);
-  const base = mapTeacherMessageRow(groupRow as JsonRecord);
+  const base = mapTeacherMessageRow(asRecord(groupRow));
 
   return {
     ok: true as const,
@@ -577,7 +671,7 @@ export async function updateTeacherMessageByAdmin(
   if (current.value.status === "deleted_by_admin") return { ok: false as const, status: 409, message: "لا يمكن تعديل رسالة محذوفة." };
 
   const now = new Date().toISOString();
-  let updateQuery = scope.serviceSupabase
+  const updateQuery = scope.serviceSupabase
     .from("notifications")
     .update({
       title: input.title,
@@ -651,7 +745,7 @@ export async function deleteTeacherMessageByAdmin(
   if (current.value.status === "deleted_by_admin") return { ok: false as const, status: 409, message: "تم حذف هذه الرسالة سابقاً." };
 
   const now = new Date().toISOString();
-  let deleteQuery = scope.serviceSupabase
+  const deleteQuery = scope.serviceSupabase
     .from("notifications")
     .update({
       status: "deleted_by_admin",
@@ -699,7 +793,10 @@ export async function listHomework(request: NextRequest, filters: HomeworkFilter
   if (!scopeResult.ok) return scopeResult;
 
   const scope = scopeResult.value;
-  let query = scope.serviceSupabase.from("dashboard_homework_monitoring").select("*", { count: "exact" }).eq("school_id", scope.schoolId);
+  let query = scope.serviceSupabase
+    .from("dashboard_homework_monitoring")
+    .select(HOMEWORK_MONITORING_SELECT, { count: "exact" })
+    .eq("school_id", scope.schoolId);
   const scopedQuery = applyBranchScopeToQuery(query, scope, filters.branchId);
   if (!scopedQuery.ok) return scopedQuery;
   query = scopedQuery.value;
@@ -727,11 +824,15 @@ export async function listHomework(request: NextRequest, filters: HomeworkFilter
     return { ok: false as const, status: 500, message: error.message || "تعذر تحميل الواجبات." };
   }
 
-  return { ok: true as const, value: { items: ((data ?? []) as JsonRecord[]).map(mapHomeworkRow), totalCount: count ?? 0 } };
+  return { ok: true as const, value: { items: asRecordArray(data).map(mapHomeworkRow), totalCount: count ?? 0 } };
 }
 
 async function fetchHomeworkDetailInternal(scope: TeacherActivityScope, homeworkId: string) {
-  let query = scope.serviceSupabase.from("dashboard_homework_monitoring").select("*").eq("id", homeworkId).eq("school_id", scope.schoolId);
+  const query = scope.serviceSupabase
+    .from("dashboard_homework_monitoring")
+    .select(HOMEWORK_MONITORING_SELECT)
+    .eq("id", homeworkId)
+    .eq("school_id", scope.schoolId);
   const scopedQuery = applyBranchScopeToQuery(query, scope);
   if (!scopedQuery.ok) return scopedQuery;
 
@@ -743,12 +844,13 @@ async function fetchHomeworkDetailInternal(scope: TeacherActivityScope, homework
   if (rowResult.error) return { ok: false as const, status: 500, message: rowResult.error.message };
   if (!rowResult.data) return { ok: false as const, status: 404, message: "لم يتم العثور على الواجب المطلوب." };
 
-  const base = mapHomeworkRow(rowResult.data as JsonRecord);
+  const homeworkRow = asRecord(rowResult.data);
+  const base = mapHomeworkRow(homeworkRow);
   return {
     ok: true as const,
     value: {
       ...base,
-      metadata: asRecord((rowResult.data as JsonRecord).metadata),
+      metadata: asRecord(homeworkRow.metadata),
       auditTrail,
     } satisfies HomeworkDetail,
   };
@@ -788,7 +890,7 @@ export async function updateHomeworkByAdmin(
   if (current.value.status === "deleted_by_admin") return { ok: false as const, status: 409, message: "لا يمكن تعديل واجب محذوف." };
 
   const now = new Date().toISOString();
-  let updateQuery = scope.serviceSupabase
+  const updateQuery = scope.serviceSupabase
     .from("assignments")
     .update({
       title: input.title,
@@ -862,7 +964,7 @@ export async function deleteHomeworkByAdmin(
   if (current.value.status === "deleted_by_admin") return { ok: false as const, status: 409, message: "تم حذف هذا الواجب سابقاً." };
 
   const now = new Date().toISOString();
-  let deleteQuery = scope.serviceSupabase
+  const deleteQuery = scope.serviceSupabase
     .from("assignments")
     .update({
       status: "deleted_by_admin",
@@ -948,7 +1050,10 @@ export async function listFeeNotifications(
   if (!scopeResult.ok) return scopeResult;
 
   const scope = scopeResult.value;
-  let query = scope.serviceSupabase.from("fee_notifications").select("*", { count: "exact" }).eq("school_id", scope.schoolId);
+  let query = scope.serviceSupabase
+    .from("fee_notifications")
+    .select(FEE_NOTIFICATION_SELECT, { count: "exact" })
+    .eq("school_id", scope.schoolId);
   const scopedQuery = applyBranchScopeToQuery(query, scope, filters.branchId ?? null);
   if (!scopedQuery.ok) return scopedQuery;
   query = scopedQuery.value;
@@ -968,7 +1073,7 @@ export async function listFeeNotifications(
     return { ok: false as const, status: 500, message: error.message };
   }
 
-  const rows = (data ?? []) as JsonRecord[];
+  const rows = asRecordArray(data);
   const creatorIds = Array.from(new Set(rows.map((row) => asNullableString(row.created_by)).filter((value): value is string => Boolean(value))));
   const branchIds = Array.from(new Set(rows.map((row) => asNullableString(row.branch_id)).filter((value): value is string => Boolean(value))));
   const [creatorNames, branchNames] = await Promise.all([fetchCreatorNames(scope.serviceSupabase, creatorIds), fetchBranchNames(scope.serviceSupabase, branchIds)]);
@@ -977,7 +1082,11 @@ export async function listFeeNotifications(
 }
 
 async function fetchFeeNotificationDetailInternal(scope: TeacherActivityScope, notificationId: string) {
-  let query = scope.serviceSupabase.from("fee_notifications").select("*").eq("id", notificationId).eq("school_id", scope.schoolId);
+  const query = scope.serviceSupabase
+    .from("fee_notifications")
+    .select(FEE_NOTIFICATION_SELECT)
+    .eq("id", notificationId)
+    .eq("school_id", scope.schoolId);
   const scopedQuery = applyBranchScopeToQuery(query, scope);
   if (!scopedQuery.ok) return scopedQuery;
 
@@ -988,7 +1097,7 @@ async function fetchFeeNotificationDetailInternal(scope: TeacherActivityScope, n
   if (rowResult.error) return { ok: false as const, status: 500, message: rowResult.error.message };
   if (!rowResult.data) return { ok: false as const, status: 404, message: "لم يتم العثور على إشعار الأقساط المطلوب." };
 
-  const feeRow = rowResult.data as JsonRecord;
+  const feeRow = asRecord(rowResult.data);
   const recipientsResult = await scope.serviceSupabase
     .from("fee_notification_recipients")
     .select("id, student_id, user_id, delivery_status, failure_reason, created_at")

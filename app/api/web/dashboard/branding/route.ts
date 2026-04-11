@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
+}
+
+function normalizeLogoUrl(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+  return sanitizeImageUrl(value) ?? null;
 }
 
 export async function GET(req: NextRequest) {
@@ -72,7 +80,7 @@ export async function PATCH(req: NextRequest) {
   const schemaCompat = await detectAppSchemaCompatWithClient(context.value.actorSupabase);
   const payload = {
     name,
-    logo_url: typeof body?.logo_url === "string" && body.logo_url.trim() ? body.logo_url.trim() : null,
+    logo_url: normalizeLogoUrl(body?.logo_url),
     ...(schemaCompat.schoolColors
       ? {
           primary_color:

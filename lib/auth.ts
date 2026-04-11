@@ -56,6 +56,16 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   employee: "موظف",
 };
 
+export const ROLE_LABELS_BY_LOCALE: Record<UserRole, { ar: string; en: string }> = {
+  super_admin: { ar: "المدير العام", en: "System Owner" },
+  admin: { ar: "مدير المدرسة", en: "School Admin" },
+  employee: { ar: "موظف", en: "Employee" },
+};
+
+export function getRoleLabel(role: UserRole, locale: "ar" | "en" = "ar"): string {
+  return ROLE_LABELS_BY_LOCALE[role][locale];
+}
+
 export const ROLE_COLORS: Record<UserRole, { bg: string; color: string }> = {
   super_admin: { bg: "#FEF3C7", color: "#92400E" },
   admin: { bg: "#DBEAFE", color: "#1E40AF" },

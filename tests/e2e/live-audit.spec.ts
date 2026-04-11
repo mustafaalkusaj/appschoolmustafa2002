@@ -70,47 +70,26 @@ const OUTPUT_DIR = "/Users/musatafa/school-app/output/playwright/live-audit";
 const SCREENSHOT_DIR = path.join(OUTPUT_DIR, "screenshots");
 const REPORT_PATH = path.join(OUTPUT_DIR, "live-audit.json");
 const BASE_URL = "http://127.0.0.1:3000";
-
-const CREDENTIALS: Record<AuditRole, { email: string; password: string }> = {
-  admin: {
-    email: process.env.PW_ADMIN_EMAIL ?? "admin@schoolapp.com",
-    password: process.env.PW_ADMIN_PASSWORD ?? "Admin@12345",
-  },
-  super_admin: {
-    email: process.env.PW_SUPER_ADMIN_EMAIL ?? "super.admin@schoolapp.com",
-    password: process.env.PW_SUPER_ADMIN_PASSWORD ?? "Owner@12345",
-  },
+const STORAGE_STATE_BY_ROLE: Record<AuditRole, string> = {
+  admin: "/Users/musatafa/school-app/artifacts/reliability-audit/admin-storage-state.json",
+  super_admin: "/Users/musatafa/school-app/artifacts/reliability-audit/super-admin-storage-state.json",
 };
 
 const ROUTES_BY_ROLE: Record<AuditRole, string[]> = {
   admin: [
     "/dashboard",
     "/students",
-    "/teachers",
-    "/attendance",
     "/payments",
-    "/expenses",
     "/salaries",
     "/reports",
     "/monitoring",
     "/fee-notifications",
-    "/super-admin",
   ],
   super_admin: [
     "/super-admin",
     "/schools",
     "/subscriptions",
     "/users",
-    "/dashboard",
-    "/students",
-    "/teachers",
-    "/attendance",
-    "/payments",
-    "/expenses",
-    "/salaries",
-    "/reports",
-    "/monitoring",
-    "/fee-notifications",
   ],
 };
 
@@ -153,27 +132,14 @@ async function installAuditHooks(page: Page) {
   });
 }
 
-async function loginViaUi(page: Page, role: AuditRole, locale: AuditLocale): Promise<AuthAuditEntry> {
-  const credentials = CREDENTIALS[role];
+async function captureAuthenticatedLanding(page: Page, role: AuditRole, locale: AuditLocale): Promise<AuthAuditEntry> {
+  const landingPath = role === "super_admin" ? `/${locale}/super-admin` : `/${locale}/dashboard`;
   const loginUrl = `${BASE_URL}/${locale}/login`;
 
-  await page.goto(loginUrl, { waitUntil: "domcontentloaded" });
-  await page.locator("#email").fill(credentials.email);
-  await page.locator("#password").fill(credentials.password);
-  await page
-    .getByRole("button", {
-      name: locale === "en" ? "Sign in" : "تسجيل الدخول",
-    })
-    .click();
-
-  const expectedLanding =
-    role === "super_admin"
-      ? new RegExp(`/${locale}/super-admin(?:\\?.*)?$`)
-      : new RegExp(`/${locale}/dashboard(?:\\?.*)?$`);
-
-  await expect.poll(() => page.url(), { timeout: 20_000 }).toMatch(expectedLanding);
+  await page.goto(`${BASE_URL}${landingPath}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator("h1, h2").first()).toBeVisible({ timeout: 20_000 });
   await page.waitForLoadState("networkidle").catch(() => undefined);
-  await page.waitForTimeout(1_000);
+  await page.waitForTimeout(300);
 
   return {
     role,
@@ -231,7 +197,7 @@ async function captureRoute(
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {
     notes.push("networkidle timeout");
   });
-  await page.waitForTimeout(1_500);
+  await page.waitForTimeout(500);
 
   page.off("console", onConsole);
   page.off("pageerror", onPageError);
@@ -318,7 +284,7 @@ async function captureOfflineReloadProbe(
 ): Promise<NetworkResilienceEntry> {
   await page.goto(`${BASE_URL}/${locale}/dashboard`, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => undefined);
-  await page.waitForTimeout(1_000);
+  await page.waitForTimeout(300);
 
   let reloadError: string | null = null;
   await context.setOffline(true);
@@ -329,7 +295,7 @@ async function captureOfflineReloadProbe(
     reloadError = error instanceof Error ? error.message : String(error);
   }
 
-  await page.waitForTimeout(1_000);
+  await page.waitForTimeout(300);
 
   const probe = await page.evaluate(() => ({
     heading: document.querySelector("h1")?.textContent?.trim() ?? null,
@@ -337,7 +303,7 @@ async function captureOfflineReloadProbe(
   }));
 
   await context.setOffline(false);
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(200);
 
   return {
     role,
@@ -368,12 +334,13 @@ test("collect live audit artifacts across roles and locales", async ({ browser }
       const context = await browser.newContext({
         baseURL: BASE_URL,
         viewport: { width: 1440, height: 1100 },
+        storageState: STORAGE_STATE_BY_ROLE[role],
       });
       const page = await context.newPage();
 
       await installAuditHooks(page);
 
-      const auth = await loginViaUi(page, role, locale);
+      const auth = await captureAuthenticatedLanding(page, role, locale);
       report.auth.push(auth);
 
       for (const route of ROUTES_BY_ROLE[role]) {

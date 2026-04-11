@@ -58,14 +58,19 @@ export function QuickAccessGrid({
               "transition-all duration-150",
               "focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30"
             )}
-          >
+            >
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm"
+              className={cn(
+                "w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm",
+                // Quick-access icon backgrounds are intentionally light even in dark mode.
+                // Force a dark icon color for contrast.
+                "text-slate-900 ring-1 ring-black/10"
+              )}
               style={{ background: qa.bg }}
             >
               <AppIcon token={qa.icon} size={20} />
             </div>
-            <span className="text-xs font-semibold text-[var(--text-secondary)] text-center leading-tight">
+            <span className="text-xs font-semibold text-[var(--text-primary)] opacity-80 text-center leading-tight">
               {t(`salaries.quickAccess.items.${qa.id}`)}
             </span>
           </button>

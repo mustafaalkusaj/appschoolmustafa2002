@@ -82,7 +82,7 @@ export function StudentsTable({
       totalCount === 0
         ? activeTab === "active" && canManageStudentAccounts
           ? t("empty.noStudents")
-          : t("empty.noStudentsTab", { tab: tabsT(activeTab as any) })
+          : t("empty.noStudentsTab", { tab: tabsT(activeTab) })
         : t("empty.noResults");
 
     return <EmptyState title={emptyTitle} />;
@@ -101,6 +101,7 @@ export function StudentsTable({
                   <div className="flex-1 min-w-0">
                     <button
                       type="button"
+                      data-student-menu-trigger
                       className="text-base font-bold text-[var(--primary)] hover:underline text-start truncate"
                       onClick={(e) => openMenu(e, s)}
                     >
@@ -151,6 +152,7 @@ export function StudentsTable({
                   <Button
                     variant="outline"
                     size="sm"
+                    data-student-menu-trigger
                     className="w-full mt-4"
                     onClick={(e) => openMenu(e, s)}
                   >
@@ -217,6 +219,7 @@ export function StudentsTable({
                   <td className="px-4 py-3">
                     <button
                       type="button"
+                      data-student-menu-trigger
                       className="text-sm font-semibold text-[var(--primary)] hover:underline text-start"
                       onClick={(e) => openMenu(e, s)}
                     >
@@ -257,6 +260,7 @@ export function StudentsTable({
                   <td className="px-4 py-3">
                     {actions.length > 0 && (
                       <IconButton
+                        data-student-menu-trigger
                         variant="ghost"
                         size="sm"
                         aria-label={t("options")}

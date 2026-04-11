@@ -153,6 +153,7 @@ export default function StudentsPage() {
       getStudentActions({
         student: s,
         activeTab,
+        locale,
         isReadOnlyView,
         canEditStudents,
         canDeleteStudents,
@@ -167,19 +168,23 @@ export default function StudentsPage() {
         },
         setActiveMenu: modals.setActiveMenu,
       }),
-    [activeTab, isReadOnlyView, canEditStudents, canDeleteStudents, canManageStudentAccounts, modals, operations, print]
+    [activeTab, locale, isReadOnlyView, canEditStudents, canDeleteStudents, canManageStudentAccounts, modals, operations, print]
   );
 
   const exportAllStudentsExcel = useCallback(async () => {
     const fullDataset = await loadStudentsDataset();
     if (fullDataset.length === 0) {
-      modals.setError("تعذر تحميل بيانات التصدير الكاملة");
+      modals.setError(locale === "en" ? "Could not load the full export dataset." : "تعذر تحميل بيانات التصدير الكاملة");
       return;
     }
     operations.exportExcel(fullDataset);
-    modals.setSuccess(`${fullDataset.length} طالب مصدر بنجاح (الكل)`);
+    modals.setSuccess(
+      locale === "en"
+        ? `${fullDataset.length} students exported successfully.`
+        : `${fullDataset.length} طالب مصدر بنجاح (الكل)`,
+    );
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [loadStudentsDataset, modals, operations]);
+  }, [loadStudentsDataset, locale, modals, operations]);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>

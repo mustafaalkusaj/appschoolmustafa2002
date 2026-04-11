@@ -1,7 +1,6 @@
 "use client";
 
 import { formatNumber } from "@/lib/formatting";
-import { AppIcon } from "@/components/AppIcon";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,7 @@ import { Select } from "@/components/ui/select";
 import { FormField } from "@/components/ui/form-field";
 import { Card } from "@/components/ui/card";
 import { Student, PayFormState } from "../_types";
-import { Search, Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 
 interface PaymentModalProps {
   show: boolean;

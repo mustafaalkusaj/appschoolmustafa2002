@@ -102,11 +102,19 @@ function normalizeExpenseRow(row: Record<string, unknown>): ExpenseRow {
   };
 }
 
-function applyExpensesFilters(
-  query: any,
+type ExpensesFilterQueryLike = {
+  eq: (column: string, value: unknown) => ExpensesFilterQueryLike;
+  gte: (column: string, value: unknown) => ExpensesFilterQueryLike;
+  lte: (column: string, value: unknown) => ExpensesFilterQueryLike;
+  or: (filters: string) => ExpensesFilterQueryLike;
+  order: (column: string, options?: { ascending?: boolean }) => ExpensesFilterQueryLike;
+};
+
+function applyExpensesFilters<TQuery>(
+  query: TQuery,
   filters: Pick<ExpensesListFilters, "search" | "expenseTypeId" | "fromDate" | "toDate">,
-) {
-  let nextQuery = query;
+): TQuery {
+  let nextQuery = query as unknown as ExpensesFilterQueryLike;
 
   if (filters.expenseTypeId) {
     nextQuery = nextQuery.eq("expense_type_id", filters.expenseTypeId);
@@ -124,9 +132,8 @@ function applyExpensesFilters(
     nextQuery = nextQuery.or(buildSafeOrFilter(["recipient", "receipt_number", "notes"], filters.search));
   }
 
-  return nextQuery
-    .order("expense_date", { ascending: false })
-    .order("created_at", { ascending: false });
+  nextQuery = nextQuery.order("expense_date", { ascending: false }).order("created_at", { ascending: false });
+  return nextQuery as unknown as TQuery;
 }
 
 async function fetchExpenseSummaryViaRpc(

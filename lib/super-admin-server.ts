@@ -15,6 +15,20 @@ import { type Permission, resolveKnownUserRole } from "@/types/roles";
 type RouteSupabaseClient = Awaited<ReturnType<typeof createRouteSupabaseClient>>;
 type SuperAdminDataSupabaseClient = RouteSupabaseClient | ReturnType<typeof createServiceSupabaseClient>;
 
+type PostgrestLikeResult = {
+  data?: unknown;
+  error?: unknown;
+};
+
+function readPostgrestLikeResult(value: unknown): PostgrestLikeResult {
+  if (!value || typeof value !== "object") return {};
+  const record = value as Record<string, unknown>;
+  return {
+    data: record.data,
+    error: record.error,
+  };
+}
+
 export type SuperAdminActorContext = {
   actorSupabase: RouteSupabaseClient;
   dataSupabase: SuperAdminDataSupabaseClient;
@@ -209,11 +223,12 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
           ? actorSupabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`).is("deleted_at", null)
           : actorSupabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`);
 
-        let usersResponse: any = await usersQuery.order("created_at", { ascending: false });
+        let usersResponse: unknown = await usersQuery.order("created_at", { ascending: false });
         let useSchoolFallback = false;
         const warnings: string[] = [];
 
-        if (usersResponse.error && isMissingRelationError(usersResponse.error, "user_profiles", "schools")) {
+        const initialUsersResult = readPostgrestLikeResult(usersResponse);
+        if (initialUsersResult.error && isMissingRelationError(initialUsersResult.error, "user_profiles", "schools")) {
           const warning = "تم تفعيل عرض بديل لأسماء المدارس لأن علاقة الربط لبعض جداول المدير العام غير متاحة حالياً.";
           warnings.push(warning);
           useSchoolFallback = true;
@@ -226,14 +241,15 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
             : await actorSupabase.from("user_profiles").select(baseUserColumns).order("created_at", { ascending: false });
         }
 
-        if (usersResponse.error) {
-          throw usersResponse.error;
+        const finalUsersResult = readPostgrestLikeResult(usersResponse);
+        if (finalUsersResult.error) {
+          throw finalUsersResult.error;
         }
 
         const rawUsers = (
           useSchoolFallback
-            ? attachSchoolNames((usersResponse.data ?? []) as SuperAdminUserRecord[], schools)
-            : ((usersResponse.data ?? []) as Array<Record<string, unknown>>)
+            ? attachSchoolNames((finalUsersResult.data ?? []) as SuperAdminUserRecord[], schools)
+            : ((finalUsersResult.data ?? []) as Array<Record<string, unknown>>)
         ) as Array<Record<string, unknown>>;
 
         return {
@@ -272,14 +288,15 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
     })(),
     (async () => {
       try {
-        let subscriptionsResponse: any = await actorSupabase
+        let subscriptionsResponse: unknown = await actorSupabase
           .from("subscriptions")
           .select("id, school_id, plan, status, start_date, end_date, created_at, schools(name)")
           .order("created_at", { ascending: false });
         let useSchoolFallback = false;
         const warnings: string[] = [];
 
-        if (subscriptionsResponse.error && isMissingRelationError(subscriptionsResponse.error, "subscriptions", "schools")) {
+        const initialSubscriptions = readPostgrestLikeResult(subscriptionsResponse);
+        if (initialSubscriptions.error && isMissingRelationError(initialSubscriptions.error, "subscriptions", "schools")) {
           const warning = "تم تفعيل عرض بديل لأسماء المدارس لأن علاقة الربط لبعض جداول المدير العام غير متاحة حالياً.";
           warnings.push(warning);
           useSchoolFallback = true;
@@ -289,13 +306,14 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
             .order("created_at", { ascending: false });
         }
 
-        if (subscriptionsResponse.error) {
-          throw subscriptionsResponse.error;
+        const finalSubscriptions = readPostgrestLikeResult(subscriptionsResponse);
+        if (finalSubscriptions.error) {
+          throw finalSubscriptions.error;
         }
 
         const rawSubscriptions = useSchoolFallback
-          ? attachSchoolNames((subscriptionsResponse.data ?? []) as SuperAdminSubscriptionRecord[], schools)
-          : ((subscriptionsResponse.data ?? []) as Array<Record<string, unknown>>);
+          ? attachSchoolNames((finalSubscriptions.data ?? []) as SuperAdminSubscriptionRecord[], schools)
+          : ((finalSubscriptions.data ?? []) as Array<Record<string, unknown>>);
 
         return {
           status: useSchoolFallback ? ("fallback" as OverviewDatasetStatus) : ("loaded" as OverviewDatasetStatus),
@@ -365,11 +383,11 @@ export async function updateSuperAdminUserProfile(
     is_active: boolean;
     custom_permissions: Permission[] | null;
   },
-) {
+  ) {
   const baseSelect = "id, full_name, email, role, school_id, phone, is_active, created_at";
   const updatePayload = { ...payload } as typeof payload & { custom_permissions?: Permission[] | null };
   let select = `${baseSelect}, custom_permissions, schools(name)`;
-  let response: any;
+  let response: unknown;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     response = await actorSupabase
@@ -379,17 +397,18 @@ export async function updateSuperAdminUserProfile(
       .select(select)
       .single();
 
-    if (!response.error) {
+    const responseResult = readPostgrestLikeResult(response);
+    if (!responseResult.error) {
       break;
     }
 
-    if (isMissingColumnError(response.error, "user_profiles", "custom_permissions") && "custom_permissions" in updatePayload) {
+    if (isMissingColumnError(responseResult.error, "user_profiles", "custom_permissions") && "custom_permissions" in updatePayload) {
       delete (updatePayload as Record<string, unknown>).custom_permissions;
       select = select.replace(", custom_permissions", "");
       continue;
     }
 
-    if (isMissingRelationError(response.error, "user_profiles", "schools") && select.includes("schools(name)")) {
+    if (isMissingRelationError(responseResult.error, "user_profiles", "schools") && select.includes("schools(name)")) {
       select = select.replace(", schools(name)", "");
       continue;
     }
@@ -397,15 +416,18 @@ export async function updateSuperAdminUserProfile(
     break;
   }
 
-  if (response.error || !response.data) {
-    throw response.error ?? new Error("تعذر تحديث المستخدم.");
+  const finalResult = readPostgrestLikeResult(response);
+  if (finalResult.error || !finalResult.data) {
+    throw finalResult.error ?? new Error("تعذر تحديث المستخدم.");
   }
 
   return {
-    ...response.data,
-    schools: normalizeSchoolRelation(response.data.schools),
-    custom_permissions: Array.isArray(response.data.custom_permissions)
-      ? (response.data.custom_permissions.filter((item: unknown): item is Permission => typeof item === "string") as Permission[])
+    ...(finalResult.data as Record<string, unknown>),
+    schools: normalizeSchoolRelation((finalResult.data as Record<string, unknown>).schools),
+    custom_permissions: Array.isArray((finalResult.data as Record<string, unknown>).custom_permissions)
+      ? (((finalResult.data as Record<string, unknown>).custom_permissions as unknown[]).filter(
+          (item): item is Permission => typeof item === "string",
+        ) as Permission[])
       : null,
   } as SuperAdminUserRecord;
 }

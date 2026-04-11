@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import type { UserProfile } from "@/lib/auth";
+import type { SchoolScopeState } from "@/hooks/useSchoolScope";
 import type {
   SalariesBootstrapScope,
   Teacher,
@@ -88,8 +90,8 @@ interface UseSalariesDataReturn {
 }
 
 export function useSalariesData(
-  profile: any,
-  schoolScope: any
+  profile: UserProfile | null,
+  schoolScope: SchoolScopeState
 ): UseSalariesDataReturn {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

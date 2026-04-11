@@ -6,6 +6,7 @@ import {
   expenseMutationSchema,
   expensesListQuerySchema,
   expenseTypeMutationSchema,
+  forgotPasswordRequestSchema,
   salaryPaymentSchema,
 } from "@/lib/api-schemas";
 
@@ -84,5 +85,18 @@ describe("api schemas", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("normalizes forgot-password payloads", () => {
+    const result = forgotPasswordRequestSchema.safeParse({
+      email: "  USER@School.COM  ",
+      locale: "en",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe("user@school.com");
+      expect(result.data.locale).toBe("en");
+    }
   });
 });

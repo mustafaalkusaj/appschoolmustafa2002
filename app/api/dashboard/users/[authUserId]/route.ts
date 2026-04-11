@@ -17,6 +17,7 @@ import {
   type ManagedUsersActorContext,
   updateManagedUserLoginIdentifier,
 } from "@/lib/managed-users-server";
+import { invalidateManagedUsersListCache } from "@/lib/managed-users/list-cache";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
@@ -345,6 +346,8 @@ export async function PATCH(
     );
   }
 
+  invalidateManagedUsersListCache(targetSchoolId);
+
   return NextResponse.json({
     ok: true,
     user: updatedUser,
@@ -458,6 +461,8 @@ export async function DELETE(
   if (authDeleteError) {
     return jsonError(authDeleteError.message || "تم حذف السجلات لكن تعذر حذف حساب المصادقة.", 500);
   }
+
+  invalidateManagedUsersListCache(targetSchoolId);
 
   return NextResponse.json({ ok: true });
 }

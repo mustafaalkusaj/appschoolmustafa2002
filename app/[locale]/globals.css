@@ -2,11 +2,11 @@
 
 :root {
   /* ── Fonts ── */
-  --font-sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
-  --font-arabic: var(--font-cairo), Tahoma, sans-serif;
+  --font-sans: var(--font-noto-sans-arabic), "Noto Sans Arabic", sans-serif;
+  --font-arabic: var(--font-noto-sans-arabic), "Noto Sans Arabic", sans-serif;
   /* Legacy aliases — kept for backward compat */
   --font-manrope: var(--font-sans);
-  --font-ui: var(--font-sans), Arial, sans-serif;
+  --font-ui: var(--font-sans);
 
   /* ── Brand palette ── */
   --color-primary-50:  #eff6ff;
@@ -215,12 +215,12 @@
 /* ── Typography: font per locale ── */
 html[lang="ar"],
 html[dir="rtl"] {
-  font-family: var(--font-arabic);
+  font-family: var(--font-ui);
 }
 
 html[lang="en"],
 html[dir="ltr"] {
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
 }
 
 html.dark {
@@ -280,7 +280,7 @@ html.dark {
   --shadow-primary: 0 4px 16px rgba(118, 169, 255, 0.22);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
-  --topbar-bg:               rgba(10, 16, 30, 0.88);
+  --topbar-bg:               rgba(13, 20, 37, 0.92);
   --sidebar-bg:              #0d1425;
   --sidebar-border:          rgba(255, 255, 255, 0.07);
   --sidebar-item-hover:      rgba(118, 169, 255, 0.08);
@@ -326,7 +326,7 @@ body {
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -1152,10 +1152,10 @@ html.dark .app-sidebar__link.is-active {
   width: 100%;
   max-width: none;
   justify-content: flex-start;
-  min-height: 40px;
+  min-height: 44px;
   border-radius: 18px;
   background: var(--surface-soft);
-  padding: 0.28rem 0.45rem 0.28rem 0.28rem;
+  padding: 0.35rem 0.55rem 0.35rem 0.35rem;
 }
 
 .app-sidebar__profile-menu .profile-menu__avatar {
@@ -1196,8 +1196,8 @@ html.dark .app-sidebar__link.is-active {
 }
 
 .app-sidebar__footer-copy strong {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 700;
   color: var(--text-secondary);
 }
 
@@ -1210,6 +1210,8 @@ html.dark .app-sidebar__link.is-active {
   padding: 0.75rem 1rem;
   min-height: var(--topbar-height);
   background: var(--topbar-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
 }
@@ -1381,12 +1383,12 @@ html.dark .app-sidebar__link.is-active {
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  min-height: 46px;
-  max-width: 280px;
+  min-height: 42px;
+  max-width: 236px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface-strong);
-  padding: 0.35rem 0.55rem 0.35rem 0.35rem;
+  padding: 0.28rem 0.45rem 0.28rem 0.28rem;
   color: var(--text-primary);
   box-shadow: var(--shadow-xs);
 }
@@ -1403,10 +1405,10 @@ html.dark .app-sidebar__link.is-active {
 }
 
 .app-shell-topbar__profile-menu .profile-menu__trigger {
-  max-width: 124px;
-  min-height: 38px;
-  gap: 0.45rem;
-  padding: 0.22rem 0.35rem 0.22rem 0.22rem;
+  max-width: 172px;
+  min-height: 36px;
+  gap: 0.4rem;
+  padding: 0.18rem 0.32rem 0.18rem 0.18rem;
 }
 
 .app-shell-topbar__profile-menu .profile-menu__copy {
@@ -1418,8 +1420,8 @@ html.dark .app-sidebar__link.is-active {
 }
 
 .app-shell-topbar__profile-menu .profile-menu__avatar {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
 }
 
 .profile-menu__trigger.is-open {
@@ -1464,7 +1466,7 @@ html.dark .app-sidebar__link.is-active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 900;
 }
 
@@ -1473,7 +1475,7 @@ html.dark .app-sidebar__link.is-active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-secondary);
 }
@@ -1757,9 +1759,9 @@ html.dark .app-sidebar__link.is-active {
   }
 
   .app-shell-topbar__profile-menu .profile-menu__trigger {
-    max-width: 280px;
-    min-height: 46px;
-    padding-inline-end: 0.55rem;
+    max-width: 220px;
+    min-height: 40px;
+    padding-inline-end: 0.42rem;
   }
 }
 

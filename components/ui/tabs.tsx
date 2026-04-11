@@ -68,11 +68,11 @@ Tabs.displayName = "Tabs";
 
 // ── TabsList Component ────────────────────────────────────────────────────────
 
-export interface TabsListProps extends React.HTMLAttributes<HTMLDivElement> {}
+type TabsListProps = React.HTMLAttributes<HTMLDivElement>;
 
 const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(
   ({ className, children, ...props }, ref) => {
-    const { value, onValueChange } = useTabsContext();
+    const { onValueChange } = useTabsContext();
     const innerRef = React.useRef<HTMLDivElement | null>(null);
     
     // Combine refs
@@ -174,6 +174,7 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
     return (
       <button
         ref={ref}
+        id={`tab-${value}`}
         type="button"
         role="tab"
         aria-selected={isSelected}

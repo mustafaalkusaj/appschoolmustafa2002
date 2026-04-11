@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, LogOut } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 
-import { ROLE_LABELS, signOutClient } from "@/lib/auth";
+import { getRoleLabel, signOutClient } from "@/lib/auth";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -36,7 +36,7 @@ export function ProfileMenu({ className }: { className?: string }) {
   const [avatarBroken, setAvatarBroken] = useState(false);
 
   const displayName = profile?.full_name || profile?.email || (locale === "en" ? "Current user" : "المستخدم الحالي");
-  const roleLabel = profile?.role ? ROLE_LABELS[profile.role] : locale === "en" ? "Current user" : "المستخدم الحالي";
+  const roleLabel = profile?.role ? getRoleLabel(profile.role, locale) : locale === "en" ? "Current user" : "المستخدم الحالي";
   const emailLabel = profile?.email || roleLabel;
   const avatarLabel = useMemo(() => getAvatarInitials(profile?.full_name || profile?.email), [profile?.email, profile?.full_name]);
   const avatarSrc = profile?.avatar_url || null;

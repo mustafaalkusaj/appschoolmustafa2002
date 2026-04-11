@@ -1,5 +1,7 @@
 import type { StudentStatus } from "@/types/student";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
+import type { RouteSupabaseClient } from "@/lib/managed-users/types";
+import { calculateStudentRemainingFee } from "@/lib/students/financials";
 
 export type StudentsStatusTab = "active" | "transferred" | "suspended" | "deleted";
 
@@ -71,8 +73,6 @@ function normalizeStatusTab(value: string | null): StudentsStatusTab {
   }
 }
 
-
-
 function normalizeNumber(value: unknown) {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -83,9 +83,15 @@ type StudentFilterOptions = {
   includeSection?: boolean;
 };
 
-function applyStudentFilters(query: any, filters: StudentsListFilters, options: StudentFilterOptions = {}) {
+type StudentsFilterQueryLike = {
+  in: (column: string, values: unknown[]) => StudentsFilterQueryLike;
+  eq: (column: string, value: unknown) => StudentsFilterQueryLike;
+  or: (filters: string) => StudentsFilterQueryLike;
+};
+
+function applyStudentFilters<TQuery>(query: TQuery, filters: StudentsListFilters, options: StudentFilterOptions = {}): TQuery {
   const status = options.statusOverride ?? filters.status;
-  let nextQuery = query;
+  let nextQuery = query as unknown as StudentsFilterQueryLike;
 
   if (status === "active") {
     nextQuery = nextQuery.in("status", ACTIVE_TAB_STATUSES);
@@ -105,19 +111,17 @@ function applyStudentFilters(query: any, filters: StudentsListFilters, options: 
     nextQuery = nextQuery.or(buildSafeOrFilter(["full_name", "class_name"], filters.search));
   }
 
-  return nextQuery;
+  return nextQuery as unknown as TQuery;
 }
 
-import { calculateStudentRemainingFee } from "@/lib/students/financials";
-
-function normalizeStudentRows(rows: any[]): StudentListRow[] {
+function normalizeStudentRows(rows: Array<Record<string, unknown>>): StudentListRow[] {
   return (rows ?? []).map((row) => {
     const totalFee = normalizeNumber(row.total_fee);
     const paidFee = normalizeNumber(row.paid_fee);
     const discountValue = normalizeNumber(row.discount_value);
-    
+
     // Use stored value if exists, otherwise calculate using shared logic
-    const remainingFee = 
+    const remainingFee =
       row.remaining_fee !== null && row.remaining_fee !== undefined
         ? normalizeNumber(row.remaining_fee)
         : calculateStudentRemainingFee({
@@ -146,7 +150,12 @@ function normalizeStudentRows(rows: any[]): StudentListRow[] {
   });
 }
 
-async function countStudentsForTab(actorSupabase: any, schoolId: string, filters: StudentsListFilters, status: StudentsStatusTab) {
+async function countStudentsForTab(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  filters: StudentsListFilters,
+  status: StudentsStatusTab,
+) {
   const { count, error } = await applyStudentFilters(
     actorSupabase.from("students").select("id", { count: "exact", head: true }).eq("school_id", schoolId),
     filters,
@@ -160,7 +169,7 @@ async function countStudentsForTab(actorSupabase: any, schoolId: string, filters
   return typeof count === "number" ? count : 0;
 }
 
-async function fetchSummary(actorSupabase: any, schoolId: string, filters: StudentsListFilters): Promise<StudentsSummary> {
+async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters): Promise<StudentsSummary> {
   const { data, error } = await applyStudentFilters(
     actorSupabase
       .from("students")
@@ -192,7 +201,7 @@ async function fetchSummary(actorSupabase: any, schoolId: string, filters: Stude
   );
 }
 
-async function fetchSectionOptions(actorSupabase: any, schoolId: string, filters: StudentsListFilters) {
+async function fetchSectionOptions(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters) {
   const { data, error } = await applyStudentFilters(
     actorSupabase.from("students").select("section").eq("school_id", schoolId),
     filters,
@@ -229,7 +238,7 @@ export function parseStudentsListFilters(searchParams: URLSearchParams): Student
   };
 }
 
-export async function resolveStudentsListPage(actorSupabase: any, schoolId: string, filters: StudentsListFilters) {
+export async function resolveStudentsListPage(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters) {
   const from = Math.max(0, (filters.page - 1) * filters.pageSize);
   const to = from + filters.pageSize - 1;
 
@@ -262,7 +271,7 @@ export async function resolveStudentsListPage(actorSupabase: any, schoolId: stri
   };
 }
 
-export async function resolveStudentsMeta(actorSupabase: any, schoolId: string, filters: StudentsListFilters): Promise<StudentsMetaPayload> {
+export async function resolveStudentsMeta(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters): Promise<StudentsMetaPayload> {
   const [summary, sectionOptions, activeCount, transferredCount, suspendedCount, deletedCount] = await Promise.all([
     fetchSummary(actorSupabase, schoolId, filters),
     fetchSectionOptions(actorSupabase, schoolId, filters),

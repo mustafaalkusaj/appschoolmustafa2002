@@ -1,21 +1,12 @@
 import * as React from "react";
 import { cn } from "@/lib/brand/brand-utils";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-export interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-export interface CardTitleProps
-  extends React.HTMLAttributes<HTMLHeadingElement> {}
-
-export interface CardDescriptionProps
-  extends React.HTMLAttributes<HTMLParagraphElement> {}
-
-export interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-export interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
+type CardProps = React.HTMLAttributes<HTMLDivElement>;
+type CardHeaderProps = React.HTMLAttributes<HTMLDivElement>;
+type CardTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
+type CardDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>;
+type CardContentProps = React.HTMLAttributes<HTMLDivElement>;
+type CardFooterProps = React.HTMLAttributes<HTMLDivElement>;
 
 // ── Card Component ────────────────────────────────────────────────────────────
 

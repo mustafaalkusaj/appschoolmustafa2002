@@ -288,10 +288,13 @@ export function useTeachersData(
     const compat = await detectAppSchemaCompat();
     const classQuery = supabase
       .from("classes")
-      .select("*")
+      .select("id, name, grade, section")
       .eq("school_id", currentSchoolId)
       .order("created_at", { ascending: true });
-    let sectionQuery = supabase.from("sections").select("*").order("created_at", { ascending: true });
+    let sectionQuery = supabase
+      .from("sections")
+      .select("id, name, class_id, section")
+      .order("created_at", { ascending: true });
     if (compat.sectionsSchoolScope) {
       sectionQuery = sectionQuery.eq("school_id", currentSchoolId);
     }
@@ -479,9 +482,12 @@ export function useTeachersData(
   const handleCopyCredentials = useCallback(async () => {
     if (!accountCard) return;
 
-    const passwordText = revealedPassword && revealedPassword !== "••••••••"
-      ? revealedPassword
-      : "تم التعيين (غير متوفر للنسخ)";
+    const passwordText =
+      (revealedPassword && revealedPassword !== "••••••••"
+        ? revealedPassword
+        : accountCard.temporary_password && accountCard.temporary_password !== "••••••••"
+          ? accountCard.temporary_password
+          : null) ?? "تم التعيين (غير متوفر للنسخ)";
 
     try {
       await navigator.clipboard.writeText(

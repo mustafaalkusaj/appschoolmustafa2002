@@ -3,6 +3,7 @@ import type { StudentWithFees, StudentActionItem } from "../_types";
 interface GetStudentActionsOptions {
   student: StudentWithFees;
   activeTab: string;
+  locale: "ar" | "en";
   isReadOnlyView: boolean;
   canEditStudents: boolean;
   canDeleteStudents: boolean;
@@ -19,6 +20,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
   const {
     student,
     activeTab,
+    locale,
     isReadOnlyView,
     canEditStudents,
     canDeleteStudents,
@@ -30,12 +32,41 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
     onInitDelete,
     setActiveMenu,
   } = options;
+  const copy = locale === "en"
+    ? {
+        credentials: "Account card",
+        print: "Print",
+        transfer: "Transfer student",
+        transferSuccess: "Student transferred successfully.",
+        suspend: "Suspend student",
+        suspendSuccess: "Student suspended successfully.",
+        edit: "Edit",
+        delete: "Delete",
+        restore: "Restore student",
+        restoreSuccess: "Student restored successfully.",
+        reactivate: "Reactivate student",
+        reactivateSuccess: "Student reactivated successfully.",
+      }
+    : {
+        credentials: "بطاقة الدخول",
+        print: "طباعة",
+        transfer: "نقل الطالب",
+        transferSuccess: "تم نقل الطالب ✓",
+        suspend: "توقيف الطالب",
+        suspendSuccess: "تم توقيف الطالب ✓",
+        edit: "تعديل",
+        delete: "حذف",
+        restore: "استعادة الطالب",
+        restoreSuccess: "تم استعادة الطالب ✓",
+        reactivate: "إعادة التفعيل",
+        reactivateSuccess: "تم تفعيل الطالب ✓",
+      };
 
   const credentialActions: StudentActionItem[] = canManageStudentAccounts
     ? [
         {
           icon: "🔐",
-          label: "بطاقة الدخول",
+          label: copy.credentials,
           fn: () => {
             onOpenCredentials(student);
             setActiveMenu(null);
@@ -46,7 +77,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
 
   const printAction: StudentActionItem = {
     icon: "🖨️",
-    label: "طباعة",
+    label: copy.print,
     fn: () => {
       onPrint(student);
       setActiveMenu(null);
@@ -65,23 +96,23 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
         ? [
             {
               icon: "📦",
-              label: "نقل الطالب",
+              label: copy.transfer,
               fn: () => {
-                onChangeStatus(student, "transferred", "تم نقل الطالب ✓");
+                onChangeStatus(student, "transferred", copy.transferSuccess);
                 setActiveMenu(null);
               },
             },
             {
               icon: "⏸️",
-              label: "توقيف الطالب",
+              label: copy.suspend,
               fn: () => {
-                onChangeStatus(student, "suspended", "تم توقيف الطالب ✓");
+                onChangeStatus(student, "suspended", copy.suspendSuccess);
                 setActiveMenu(null);
               },
             },
             {
               icon: "✏️",
-              label: "تعديل",
+              label: copy.edit,
               fn: () => onOpenEdit(student),
             },
           ]
@@ -91,7 +122,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
             { sep: true as const },
             {
               icon: "🗑️",
-              label: "حذف",
+              label: copy.delete,
               danger: true,
               fn: () => {
                 onInitDelete(student);
@@ -111,15 +142,15 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
         ? [
             {
               icon: "↩️",
-              label: "استعادة الطالب",
+              label: copy.restore,
               fn: () => {
-                onChangeStatus(student, "active", "تم استعادة الطالب ✓");
+                onChangeStatus(student, "active", copy.restoreSuccess);
                 setActiveMenu(null);
               },
             },
             {
               icon: "✏️",
-              label: "تعديل",
+              label: copy.edit,
               fn: () => onOpenEdit(student),
             },
           ]
@@ -135,15 +166,15 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
         ? [
             {
               icon: "↩️",
-              label: "إعادة التفعيل",
+              label: copy.reactivate,
               fn: () => {
-                onChangeStatus(student, "active", "تم تفعيل الطالب ✓");
+                onChangeStatus(student, "active", copy.reactivateSuccess);
                 setActiveMenu(null);
               },
             },
             {
               icon: "✏️",
-              label: "تعديل",
+              label: copy.edit,
               fn: () => onOpenEdit(student),
             },
           ]
@@ -155,9 +186,9 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
     return [
       {
         icon: "↩️",
-        label: "استعادة الطالب",
+        label: copy.restore,
         fn: () => {
-          onChangeStatus(student, "active", "تم استعادة الطالب ✓");
+          onChangeStatus(student, "active", copy.restoreSuccess);
           setActiveMenu(null);
         },
       },

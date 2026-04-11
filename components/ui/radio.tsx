@@ -11,7 +11,8 @@ export interface RadioProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
 
 export const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
   ({ className, label, disabled, checked, ...props }, ref) => {
-    const id = props.id || props.name || React.useId();
+    const autoId = React.useId();
+    const id = props.id || props.name || autoId;
 
     return (
       <div className="flex items-center gap-2">
@@ -48,10 +49,7 @@ export const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
             )}
             aria-hidden="true"
           >
-            {/* Inner filled circle when checked */}
-            {checked && (
-              <span className="w-2.5 h-2.5 rounded-full bg-[var(--primary)]" />
-            )}
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--primary)] opacity-0 transition-opacity duration-150 peer-checked:opacity-100" />
           </span>
         </div>
         {/* Label */}

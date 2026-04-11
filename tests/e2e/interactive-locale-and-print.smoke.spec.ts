@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
-import { loginAsAdmin } from "./helpers/auth";
 
 const screenshotDir = "/Users/musatafa/school-app/output/playwright/interactive-flows";
+
+test.use({ storageState: "/Users/musatafa/school-app/artifacts/reliability-audit/admin-storage-state.json" });
 
 async function installPrintFrameProbe(page: Page) {
   await page.evaluate(() => {
@@ -37,14 +38,13 @@ test.describe.serial("interactive locale and print coverage", () => {
     test.setTimeout(240_000);
     await fs.mkdir(screenshotDir, { recursive: true });
 
-    await loginAsAdmin(page, "en");
     await page.goto("/en/payments");
 
     await page.locator("tbody tr").nth(1).locator("button").first().click();
 
     await expect(page.getByRole("heading", { name: /Invoice details/ })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("Student information")).toBeVisible();
-    await expect(page.getByText("Financial summary")).toBeVisible();
+    await expect(page.locator("text=Student information").first()).toBeVisible();
+    await expect(page.locator("text=Financial summary").first()).toBeVisible();
 
     await page.screenshot({ path: `${screenshotDir}/payments-detail-en.png`, fullPage: true });
 
@@ -68,7 +68,6 @@ test.describe.serial("interactive locale and print coverage", () => {
     test.setTimeout(240_000);
     await fs.mkdir(screenshotDir, { recursive: true });
 
-    await loginAsAdmin(page, "en");
     await page.goto("/en/salaries");
 
     await page.getByRole("button", { name: "Print options" }).click();

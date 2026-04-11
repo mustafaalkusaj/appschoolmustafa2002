@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import createIntlMiddleware from 'next-intl/middleware';
 import { getPublicEnv } from "@/lib/env/public";
+import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import { routing } from "./i18n/routing";
+import {
+  getMatchingPermissionRule,
+  getMatchingRouteRule,
+  hasAnyPermission,
+  isRoleAllowedForPath,
+  normalizePath,
+  PUBLIC_PATHS,
+} from "@/types/roles";
 
 /**
  * Generates a cryptographically random nonce for CSP.
@@ -29,6 +38,106 @@ function resolveOptionalOrigin(value: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+function isSubscriptionExpired(endDate: string | null | undefined, now = new Date()) {
+  if (!endDate) return false;
+  const parsed = new Date(endDate);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const endOfDay = new Date(parsed);
+  endOfDay.setHours(23, 59, 59, 999);
+  return now.getTime() > endOfDay.getTime();
+}
+
+function getLocaleFromRequestPath(pathname: string) {
+  const firstSegment = pathname.split("/").filter(Boolean)[0];
+  return routing.locales.includes(firstSegment as (typeof routing.locales)[number])
+    ? firstSegment
+    : routing.defaultLocale;
+}
+
+function localizePath(pathname: string, locale: string) {
+  const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  if (normalized === "/") {
+    return `/${locale}`;
+  }
+
+  const stripped = normalizePath(normalized);
+  return stripped === "/" ? `/${locale}` : `/${locale}${stripped}`;
+}
+
+function resolveGuardRedirect(reason: "unauthenticated" | "forbidden" | "school_inactive" | "subscription_expired", request: NextRequest) {
+  const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+  const fullPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+
+  if (reason === "unauthenticated") {
+    const loginUrl = new URL(localizePath("/login", locale), request.url);
+    loginUrl.searchParams.set("next", fullPath);
+    return loginUrl;
+  }
+
+  if (reason === "school_inactive" || reason === "subscription_expired") {
+    return new URL(localizePath("/subscription-expired", locale), request.url);
+  }
+
+  return new URL(localizePath("/access-denied", locale), request.url);
+}
+
+async function getGuardRedirect(request: NextRequest) {
+  const normalizedPath = normalizePath(request.nextUrl.pathname);
+  const isPublicPath = PUBLIC_PATHS.some((path) => normalizedPath === path);
+
+  if (isPublicPath) {
+    return null;
+  }
+
+  const routeRule = getMatchingRouteRule(normalizedPath);
+  if (!routeRule) {
+    return null;
+  }
+
+  const rbacToken = request.cookies.get(RBAC_COOKIE_NAME)?.value;
+  const session = await verifyRBACSession(rbacToken);
+
+  if (!session) {
+    return resolveGuardRedirect("unauthenticated", request);
+  }
+
+  if (!session.userActive) {
+    return resolveGuardRedirect("forbidden", request);
+  }
+
+  if (!isRoleAllowedForPath(session.role, normalizedPath)) {
+    return resolveGuardRedirect("forbidden", request);
+  }
+
+  const permissionRule = getMatchingPermissionRule(normalizedPath);
+  if (permissionRule) {
+    const allowed = permissionRule.requireAll
+      ? permissionRule.permissions.every((permission) => session.permissions.includes(permission))
+      : hasAnyPermission(session.permissions, permissionRule.permissions);
+
+    if (!allowed) {
+      return resolveGuardRedirect("forbidden", request);
+    }
+  }
+
+  if (routeRule.requiresActiveSchool && session.role !== "super_admin") {
+    if (!session.schoolId || !session.schoolActive) {
+      return resolveGuardRedirect("school_inactive", request);
+    }
+
+    const subscriptionStatus = (session.subscriptionStatus || "").toLowerCase();
+    if (subscriptionStatus === "suspended" || subscriptionStatus === "inactive" || subscriptionStatus === "stopped") {
+      return resolveGuardRedirect("school_inactive", request);
+    }
+
+    if (subscriptionStatus === "expired" || isSubscriptionExpired(session.subscriptionEnd)) {
+      return resolveGuardRedirect("subscription_expired", request);
+    }
+  }
+
+  return null;
 }
 
 // Create the next-intl middleware
@@ -114,6 +223,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // If intl middleware returns a redirect (e.g., adding locale prefix), return it
   if (intlResponse.status === 307 || intlResponse.status === 308) {
     return intlResponse;
+  }
+
+  const guardRedirect = await getGuardRedirect(request);
+  if (guardRedirect) {
+    return NextResponse.redirect(guardRedirect);
   }
 
   // Apply headers to the response

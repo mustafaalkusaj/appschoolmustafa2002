@@ -36,6 +36,14 @@ export function EditStudentModal({
 }: EditStudentModalProps) {
   const t = useTranslations("students.modals");
   const commonT = useTranslations("common");
+  const classOptions = [
+    ...classFees,
+    ...(editForm.class_name &&
+    editForm.class_name !== "__manual__" &&
+    !classFees.some((item) => item.class_name === editForm.class_name)
+      ? [{ id: `custom-${editForm.class_name}`, class_name: editForm.class_name }]
+      : []),
+  ];
 
   if (isReadOnlyView || !selectedStudent) return null;
 
@@ -65,14 +73,14 @@ export function EditStudentModal({
                   const cf = classFees.find((x) => x.class_name === cls);
                   setEditForm({ ...editForm, class_name: cls, total_fee: cf ? String(cf.total_fee ?? "") : editForm.total_fee });
                 }}
-              >
-                <option value="">{t("form.selectClass")}</option>
-                {classFees.map((cf) => (
-                  <option key={cf.id} value={cf.class_name}>
-                    {cf.class_name}
-                  </option>
-                ))}
-                <option value="__manual__">{t("form.manualEntry")}</option>
+                  >
+                    <option value="">{t("form.selectClass")}</option>
+                    {classOptions.map((cf) => (
+                      <option key={cf.id} value={cf.class_name}>
+                        {cf.class_name}
+                      </option>
+                    ))}
+                    <option value="__manual__">{t("form.manualEntry")}</option>
               </Select>
               {editForm.class_name === "__manual__" && (
                 <Input

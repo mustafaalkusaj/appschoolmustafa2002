@@ -33,6 +33,14 @@ import {
   tableHasColumn,
   type ManagedUsersActorContext,
 } from "@/lib/managed-users-server";
+import {
+  buildManagedUsersListCacheKey,
+  getManagedUsersListCache,
+  getManagedUsersListPending,
+  invalidateManagedUsersListCache,
+  setManagedUsersListCache,
+  setManagedUsersListPending,
+} from "@/lib/managed-users/list-cache";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
@@ -338,7 +346,9 @@ async function fallbackListUsersFromUserProfiles(
     tableHasColumn(actorSupabase, "students", "auth_user_id"),
     tableHasColumn(actorSupabase, "teachers", "auth_user_id"),
   ]);
-  const teacherTableCapabilities = teachersLinkAvailable
+  const shouldLoadStudents = options.roleFilter !== "teacher";
+  const shouldLoadTeachers = options.roleFilter !== "student";
+  const teacherTableCapabilities = teachersLinkAvailable && shouldLoadTeachers
     ? await getTeacherTableCapabilities(actorSupabase)
     : null;
   const teacherSelectColumns = [
@@ -355,13 +365,13 @@ async function fallbackListUsersFromUserProfiles(
   ].join(", ");
 
   const [studentsResult, teachersResult] = await Promise.all([
-    studentsLinkAvailable
+    studentsLinkAvailable && shouldLoadStudents
       ? actorSupabase
           .from("students")
           .select("id, auth_user_id, full_name, class_name, section, address, total_fee, paid_fee, discount_value, status")
           .in("auth_user_id", authUserIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
-    teachersLinkAvailable
+    teachersLinkAvailable && shouldLoadTeachers
       ? actorSupabase
           .from("teachers")
           .select(teacherSelectColumns)
@@ -526,6 +536,7 @@ export async function GET(req: NextRequest) {
   const pageSize = hasPagination ? Math.min(200, Math.max(10, rawPageSize)) : 0;
   const from = hasPagination ? (page - 1) * pageSize : 0;
   const to = hasPagination ? from + pageSize - 1 : 0;
+  const skipCache = req.nextUrl.searchParams.get("cache") === "0";
   const requiresTeacherScopedFiltering =
     roleFilter === "teacher" && Boolean(classFilter || sectionFilter || subjectFilter);
   const fallbackNeedsDecoratedFiltering = requiresTeacherScopedFiltering && Boolean(searchQuery);
@@ -539,125 +550,176 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  const matchingTeacherIds = requiresTeacherScopedFiltering
-    ? await resolveTeacherIdsForFilters(actorSupabase, targetSchoolId, {
-        classFilter,
-        sectionFilter,
-        subjectFilter,
-      })
-    : null;
+  const cacheKey = buildManagedUsersListCacheKey({
+    schoolId: targetSchoolId,
+    roleFilter,
+    statusFilter,
+    searchQuery,
+    classFilter,
+    sectionFilter,
+    subjectFilter,
+    page,
+    pageSize,
+    hasPagination,
+  });
 
-  if (requiresTeacherScopedFiltering && matchingTeacherIds && matchingTeacherIds.length === 0) {
-    return NextResponse.json({
-      ok: true,
-      users: [],
-      totalCount: 0,
-      page,
-      pageSize: hasPagination ? pageSize : 0,
-    });
-  }
-
-  let query = actorSupabase
-    .from("managed_user_profiles")
-    .select(MANAGED_USER_SELECT, { count: "exact" })
-    .eq("school_id", targetSchoolId)
-    .order("created_at", { ascending: false });
-
-  if (roleFilter && MANAGED_USER_ROLES.includes(roleFilter as (typeof MANAGED_USER_ROLES)[number])) {
-    query = query.eq("role", roleFilter);
-  }
-
-  if (statusFilter === "active") {
-    query = query.eq("is_active", true);
-  } else if (statusFilter === "inactive") {
-    query = query.eq("is_active", false);
-  }
-
-  if (searchQuery && !(requiresTeacherScopedFiltering && matchingTeacherIds)) {
-    query = query.or(buildSafeOrFilter(["full_name", "email", "phone"], searchQuery));
-  }
-
-  if (matchingTeacherIds) {
-    query = query.in("teacher_id", matchingTeacherIds);
-  }
-
-  if (hasPagination && !(requiresTeacherScopedFiltering && searchQuery)) {
-    query = query.range(from, to);
-  }
-
-  const { data, error, count } = await query;
-  if (error) {
-    if (isMissingTableError(error, "managed_user_profiles") || isInfrastructureCompatError(error)) {
-      const fallback = await fallbackListUsersFromUserProfiles(actorSupabase, targetSchoolId, {
-        roleFilter,
-        statusFilter,
-        searchQuery: fallbackNeedsDecoratedFiltering ? "" : searchQuery,
-        matchingTeacherIds,
-        from,
-        to,
-        paginate: hasPagination && !fallbackNeedsDecoratedFiltering,
-      });
-      if (fallback.error) {
-        return jsonError(
-          fallback.error.message || "تعذر تحميل الحسابات من ملفات المستخدمين الحالية.",
-          getPostgrestStatus(fallback.error),
-        );
-      }
-
-      const decoratedUsers = await decorateManagedUsers(actorSupabase, fallback.users);
-      const searchedUsers = fallbackNeedsDecoratedFiltering
-        ? filterDecoratedManagedUsers(decoratedUsers, {
-            roleFilter,
-            searchQuery,
-            classFilter,
-            sectionFilter,
-            subjectFilter,
-          })
-        : decoratedUsers;
-      const pagedUsers = fallbackNeedsDecoratedFiltering && hasPagination
-        ? searchedUsers.slice(from, to + 1)
-        : searchedUsers;
-      return NextResponse.json({
-        ok: true,
-        users: pagedUsers,
-        totalCount: fallbackNeedsDecoratedFiltering
-          ? searchedUsers.length
-          : fallback.totalCount,
-        page,
-        pageSize: hasPagination ? pageSize : searchedUsers.length,
+  if (!skipCache) {
+    const cachedPayload = getManagedUsersListCache<Record<string, unknown>>(cacheKey);
+    if (cachedPayload) {
+      return NextResponse.json(cachedPayload, {
+        headers: { "x-managed-users-cache": "HIT" },
       });
     }
 
-    return jsonError(error.message || "تعذر تحميل الحسابات.", getPostgrestStatus(error));
+    const pendingPayload = getManagedUsersListPending<Record<string, unknown>>(cacheKey);
+    if (pendingPayload) {
+      return NextResponse.json(await pendingPayload, {
+        headers: { "x-managed-users-cache": "PENDING" },
+      });
+    }
   }
 
-  const normalizedUsers = normalizeManagedUserRecords((data ?? []) as Record<string, unknown>[]);
-  const decoratedUsers = await decorateManagedUsers(actorSupabase, normalizedUsers);
-  const filteredUsers = requiresTeacherScopedFiltering && Boolean(searchQuery)
-    ? filterDecoratedManagedUsers(decoratedUsers, {
-        roleFilter,
-        searchQuery,
-        classFilter,
-        sectionFilter,
-        subjectFilter,
-      })
-    : decoratedUsers;
-  const pagedUsers =
-    requiresTeacherScopedFiltering && Boolean(searchQuery) && hasPagination
-      ? filteredUsers.slice(from, to + 1)
-      : filteredUsers;
+  const loadUsersPayload = async () => {
+    const matchingTeacherIds = requiresTeacherScopedFiltering
+      ? await resolveTeacherIdsForFilters(actorSupabase, targetSchoolId, {
+          classFilter,
+          sectionFilter,
+          subjectFilter,
+        })
+      : null;
 
-  return NextResponse.json({
-    ok: true,
-    users: pagedUsers,
-    totalCount: requiresTeacherScopedFiltering && Boolean(searchQuery)
-      ? filteredUsers.length
-      : typeof count === "number"
-        ? count
-        : decoratedUsers.length,
-    page,
-    pageSize: hasPagination ? pageSize : filteredUsers.length,
-  });
+    if (requiresTeacherScopedFiltering && matchingTeacherIds && matchingTeacherIds.length === 0) {
+      return {
+        ok: true,
+        users: [],
+        totalCount: 0,
+        page,
+        pageSize: hasPagination ? pageSize : 0,
+      };
+    }
+
+    let query = actorSupabase
+      .from("managed_user_profiles")
+      .select(MANAGED_USER_SELECT, { count: "exact" })
+      .eq("school_id", targetSchoolId)
+      .order("created_at", { ascending: false });
+
+    if (roleFilter && MANAGED_USER_ROLES.includes(roleFilter as (typeof MANAGED_USER_ROLES)[number])) {
+      query = query.eq("role", roleFilter);
+    }
+
+    if (statusFilter === "active") {
+      query = query.eq("is_active", true);
+    } else if (statusFilter === "inactive") {
+      query = query.eq("is_active", false);
+    }
+
+    if (searchQuery && !(requiresTeacherScopedFiltering && matchingTeacherIds)) {
+      query = query.or(buildSafeOrFilter(["full_name", "email", "phone"], searchQuery));
+    }
+
+    if (matchingTeacherIds) {
+      query = query.in("teacher_id", matchingTeacherIds);
+    }
+
+    if (hasPagination && !(requiresTeacherScopedFiltering && searchQuery)) {
+      query = query.range(from, to);
+    }
+
+    const { data, error, count } = await query;
+    if (error) {
+      if (isMissingTableError(error, "managed_user_profiles") || isInfrastructureCompatError(error)) {
+        const fallback = await fallbackListUsersFromUserProfiles(actorSupabase, targetSchoolId, {
+          roleFilter,
+          statusFilter,
+          searchQuery: fallbackNeedsDecoratedFiltering ? "" : searchQuery,
+          matchingTeacherIds,
+          from,
+          to,
+          paginate: hasPagination && !fallbackNeedsDecoratedFiltering,
+        });
+        if (fallback.error) {
+          return jsonError(
+            fallback.error.message || "تعذر تحميل الحسابات من ملفات المستخدمين الحالية.",
+            getPostgrestStatus(fallback.error),
+          );
+        }
+
+        const decoratedUsers = await decorateManagedUsers(actorSupabase, fallback.users);
+        const searchedUsers = fallbackNeedsDecoratedFiltering
+          ? filterDecoratedManagedUsers(decoratedUsers, {
+              roleFilter,
+              searchQuery,
+              classFilter,
+              sectionFilter,
+              subjectFilter,
+            })
+          : decoratedUsers;
+        const pagedUsers = fallbackNeedsDecoratedFiltering && hasPagination
+          ? searchedUsers.slice(from, to + 1)
+          : searchedUsers;
+
+        return {
+          ok: true,
+          users: pagedUsers,
+          totalCount: fallbackNeedsDecoratedFiltering ? searchedUsers.length : fallback.totalCount,
+          page,
+          pageSize: hasPagination ? pageSize : searchedUsers.length,
+        };
+      }
+
+      return jsonError(error.message || "تعذر تحميل الحسابات.", getPostgrestStatus(error));
+    }
+
+    const normalizedUsers = normalizeManagedUserRecords((data ?? []) as Record<string, unknown>[]);
+    const decoratedUsers = await decorateManagedUsers(actorSupabase, normalizedUsers);
+    const filteredUsers = requiresTeacherScopedFiltering && Boolean(searchQuery)
+      ? filterDecoratedManagedUsers(decoratedUsers, {
+          roleFilter,
+          searchQuery,
+          classFilter,
+          sectionFilter,
+          subjectFilter,
+        })
+      : decoratedUsers;
+    const pagedUsers =
+      requiresTeacherScopedFiltering && Boolean(searchQuery) && hasPagination
+        ? filteredUsers.slice(from, to + 1)
+        : filteredUsers;
+
+    return {
+      ok: true,
+      users: pagedUsers,
+      totalCount: requiresTeacherScopedFiltering && Boolean(searchQuery)
+        ? filteredUsers.length
+        : typeof count === "number"
+          ? count
+          : decoratedUsers.length,
+      page,
+      pageSize: hasPagination ? pageSize : filteredUsers.length,
+    };
+  };
+
+  const pendingPayload = loadUsersPayload();
+  if (!skipCache) {
+    setManagedUsersListPending(cacheKey, pendingPayload);
+  }
+
+  try {
+    const payload = await pendingPayload;
+    if (!(payload instanceof NextResponse) && !skipCache) {
+      setManagedUsersListCache(cacheKey, payload);
+    }
+    return payload instanceof NextResponse
+      ? payload
+      : NextResponse.json(payload, {
+          headers: { "x-managed-users-cache": skipCache ? "BYPASS" : "MISS" },
+        });
+  } finally {
+    if (!skipCache) {
+      setManagedUsersListPending(cacheKey, null);
+    }
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -1150,7 +1212,7 @@ export async function POST(req: NextRequest) {
 
     try {
       accountCard = decoratedUser
-        ? await buildManagedUserAccountCard(actorSupabase, decoratedUser)
+        ? await buildManagedUserAccountCard(actorSupabase, decoratedUser, { temporaryPassword })
         : null;
     } catch {
       const firstTeacherAssignment = validation.value.teacher?.assignments?.[0] ?? null;
@@ -1172,6 +1234,8 @@ export async function POST(req: NextRequest) {
         temporaryPassword,
       });
     }
+
+    invalidateManagedUsersListCache(targetSchoolId);
 
     return NextResponse.json(
       {

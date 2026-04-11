@@ -7,7 +7,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/brand/brand-utils";
-import { SALARY_TYPES, CLASS_GRADES, SECTIONS_LIST, type Subject, type JobTitle, type TeacherFormData } from "../_types";
+import { SALARY_TYPES, CLASS_GRADES, SECTIONS_LIST, type SalaryType, type Subject, type JobTitle, type TeacherFormData } from "../_types";
 
 interface TeacherModalProps {
   show: boolean;
@@ -118,7 +118,7 @@ export function TeacherModal({
             <FormField label="نظام الراتب">
               <Select
                 value={form.salary_type}
-                onChange={(e) => onUpdateForm({ salary_type: e.target.value as any })}
+                onChange={(e) => onUpdateForm({ salary_type: e.target.value as SalaryType })}
                 disabled={!canManage}
               >
                 {SALARY_TYPES.map((s) => (
@@ -157,7 +157,7 @@ export function TeacherModal({
             <FormField label="الحالة">
               <Select
                 value={form.status}
-                onChange={(e) => onUpdateForm({ status: e.target.value as any })}
+                onChange={(e) => onUpdateForm({ status: e.target.value as TeacherFormData["status"] })}
                 disabled={!canManage}
               >
                 <option value="active">نشط</option>

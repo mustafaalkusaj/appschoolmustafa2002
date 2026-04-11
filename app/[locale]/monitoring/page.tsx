@@ -10,7 +10,10 @@ import { useToast } from "@/components/toast";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { translateLegacyText } from "@/lib/legacy-locale";
+import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { usePathname } from "next/navigation";
 import type {
   HomeworkDetail,
   HomeworkListItem,
@@ -46,10 +49,14 @@ function badgeTone(status: TeacherActivityStatus) {
   return "bg-[var(--success)]/10 text-[var(--success)]";
 }
 
-function statusLabel(status: TeacherActivityStatus) {
-  if (status === "edited_by_admin") return "معدّل إداريًا";
-  if (status === "deleted_by_admin") return "محذوف إداريًا";
-  return "نشط";
+function tx(value: string, locale: "ar" | "en") {
+  return translateLegacyText(value, locale);
+}
+
+function statusLabel(status: TeacherActivityStatus, locale: "ar" | "en") {
+  if (status === "edited_by_admin") return tx("معدّل إداريًا", locale);
+  if (status === "deleted_by_admin") return tx("محذوف إداريًا", locale);
+  return tx("نشط", locale);
 }
 
 function readApiError(payload: unknown, fallback: string) {
@@ -58,17 +65,28 @@ function readApiError(payload: unknown, fallback: string) {
   return candidate.error?.message || fallback;
 }
 
-function formatDateTime(value: string | null | undefined) {
+function formatDateTime(value: string | null | undefined, locale: "ar" | "en") {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("ar-IQ", {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ar-IQ", {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatPageLabel(page: number, pageCount: number, locale: "ar" | "en") {
+  return locale === "en" ? `Page ${page} of ${pageCount}` : `صفحة ${page} من ${pageCount}`;
+}
+
+function formatStudentCount(count: number, locale: "ar" | "en") {
+  if (locale === "en") {
+    return `${count} ${count === 1 ? "student" : "students"}`;
+  }
+  return `${count} طالب`;
 }
 
 function DetailModal({
@@ -83,6 +101,7 @@ function DetailModal({
   onDelete,
   saving,
   canModerate,
+  locale,
 }: {
   tab: TabKey;
   item: TeacherMessageDetail | HomeworkDetail;
@@ -95,6 +114,7 @@ function DetailModal({
   onDelete: () => void;
   saving: boolean;
   canModerate: boolean;
+  locale: "ar" | "en";
 }) {
   const isMessage = tab === "messages";
   const messageItem = isMessage ? (item as TeacherMessageDetail) : null;
@@ -123,7 +143,7 @@ function DetailModal({
             onClick={onClose}
             className="rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-400"
           >
-            إغلاق
+            {tx("إغلاق", locale)}
           </button>
         </div>
 
@@ -131,20 +151,20 @@ function DetailModal({
           <div className="space-y-5 px-6 py-5">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
-                <div className="text-xs font-bold text-slate-400 dark:text-slate-500">الحالة</div>
+                <div className="text-xs font-bold text-slate-400 dark:text-slate-500">{tx("الحالة", locale)}</div>
                 <div className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${badgeTone(item.status)}`}>
-                  {statusLabel(item.status)}
+                  {statusLabel(item.status, locale)}
                 </div>
               </div>
               <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
-                <div className="text-xs font-bold text-slate-400 dark:text-slate-500">آخر تحديث</div>
-                <div className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-300">{formatDateTime(item.updatedAt || item.createdAt)}</div>
+                <div className="text-xs font-bold text-slate-400 dark:text-slate-500">{tx("آخر تحديث", locale)}</div>
+                <div className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-300">{formatDateTime(item.updatedAt || item.createdAt, locale)}</div>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">العنوان</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{locale === "en" ? "Title" : "العنوان"}</span>
                 <input
                   className={inputClass()}
                   value={editValues.title ?? item.title}
@@ -153,7 +173,7 @@ function DetailModal({
                 />
               </label>
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isMessage ? "الرابط" : "المادة"}</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{tx(isMessage ? "الرابط" : "المادة", locale)}</span>
                 <input
                   className={inputClass()}
                   value={editValues[isMessage ? "link" : "subject"] ?? (isMessage ? (messageItem?.link || "") : (homeworkItem?.subject || ""))}
@@ -164,7 +184,7 @@ function DetailModal({
             </div>
 
             <label className="flex flex-col gap-2">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isMessage ? "المحتوى" : "الوصف"}</span>
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{tx(isMessage ? "المحتوى" : "الوصف", locale)}</span>
               <textarea
                 className={areaClass()}
                 value={editValues[isMessage ? "message" : "description"] ?? (isMessage ? (messageItem?.message || "") : (homeworkItem?.description || ""))}
@@ -175,7 +195,7 @@ function DetailModal({
 
             <div className="grid gap-4 md:grid-cols-3">
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">تاريخ الاستحقاق/التسليم</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{tx("تاريخ الاستحقاق/التسليم", locale)}</span>
                 <input
                   type="datetime-local"
                   className={inputClass()}
@@ -186,20 +206,20 @@ function DetailModal({
               </label>
               {!isMessage ? (
                 <label className="flex flex-col gap-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">نوع المحتوى</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{tx("نوع المحتوى", locale)}</span>
                   <select
                     className={inputClass()}
                     value={editValues.content_kind ?? (homeworkItem?.contentKind || "homework")}
                     disabled={!editMode || saving}
                     onChange={(event) => onChange("content_kind", event.target.value)}
                   >
-                    <option value="homework">واجب</option>
-                    <option value="exam_material">مادة امتحانية</option>
+                    <option value="homework">{tx("واجب", locale)}</option>
+                    <option value="exam_material">{tx("مادة امتحانية", locale)}</option>
                   </select>
                 </label>
               ) : (
                 <label className="flex flex-col gap-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">ملاحظة</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{tx("ملاحظة", locale)}</span>
                   <input
                     className={inputClass()}
                     value={editValues.note ?? (messageItem?.note || "")}
@@ -209,7 +229,7 @@ function DetailModal({
                 </label>
               )}
               <label className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">سبب الإجراء</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{tx("سبب الإجراء", locale)}</span>
                 <input
                   className={inputClass()}
                   value={editValues.reason ?? ""}
@@ -220,22 +240,22 @@ function DetailModal({
             </div>
 
             <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/50">
-              <div className="mb-3 text-sm font-black text-slate-800 dark:text-slate-200">الاستهداف</div>
+              <div className="mb-3 text-sm font-black text-slate-800 dark:text-slate-200">{tx("الاستهداف", locale)}</div>
               {isMessage ? (
                 <div className="flex flex-wrap gap-2">
                   {(item as TeacherMessageDetail).targets.length > 0 ? (
                     (item as TeacherMessageDetail).targets.map((target, index) => (
                       <span key={`${target.student_id || target.user_id || index}`} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-300">
-                        {target.student_name || "طالب"} {target.class_name ? `• ${target.class_name}` : ""} {target.section ? `• ${target.section}` : ""}
+                        {target.student_name || tx("طالب", locale)} {target.class_name ? `• ${target.class_name}` : ""} {target.section ? `• ${target.section}` : ""}
                       </span>
                     ))
                   ) : (
-                    <span className="text-sm text-slate-500 dark:text-slate-400">لا توجد بيانات استهداف مفصلة.</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">{tx("لا توجد بيانات استهداف مفصلة.", locale)}</span>
                   )}
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <span>{homeworkItem?.studentName || "لكل الصف"}</span>
+                  <span>{homeworkItem?.studentName || tx("لكل الصف", locale)}</span>
                   <span>{homeworkItem?.className || "—"}</span>
                   <span>{homeworkItem?.section || "—"}</span>
                 </div>
@@ -244,9 +264,9 @@ function DetailModal({
 
             {attachment ? (
               <div className="rounded-[22px] border border-slate-100 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/50">
-                <div className="text-sm font-black text-slate-800 dark:text-slate-200">المرفق</div>
+                <div className="text-sm font-black text-slate-800 dark:text-slate-200">{tx("المرفق", locale)}</div>
                 <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  {attachment.name || attachment.path || "ملف مرفق"} {attachment.mimeType ? `• ${attachment.mimeType}` : ""}
+                  {attachment.name || attachment.path || tx("ملف مرفق", locale)} {attachment.mimeType ? `• ${attachment.mimeType}` : ""}
                 </div>
               </div>
             ) : null}
@@ -258,7 +278,7 @@ function DetailModal({
                 disabled={saving || !canModerate}
                 className="rounded-[16px] bg-sky-600 px-4 py-3 text-sm font-black text-white disabled:opacity-40 dark:bg-sky-700"
               >
-                {saving ? "جارٍ الحفظ..." : !canModerate ? "للقراءة فقط" : editMode ? "حفظ التعديلات" : "تعديل"}
+                {saving ? tx("جارٍ الحفظ...", locale) : !canModerate ? tx("للقراءة فقط", locale) : editMode ? tx("حفظ التعديلات", locale) : tx("تعديل", locale)}
               </button>
               <button
                 type="button"
@@ -266,27 +286,27 @@ function DetailModal({
                 disabled={saving || !canModerate}
                 className="rounded-[16px] bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:opacity-40 dark:bg-rose-700"
               >
-                حذف
+                {tx("حذف", locale)}
               </button>
             </div>
           </div>
 
           <aside className="border-t border-slate-100 bg-slate-50 px-6 py-5 dark:border-slate-800 dark:bg-slate-900/50 lg:border-r lg:border-t-0">
-            <div className="text-sm font-black text-slate-800 dark:text-slate-200">سجل التدقيق</div>
+            <div className="text-sm font-black text-slate-800 dark:text-slate-200">{tx("سجل التدقيق", locale)}</div>
             <div className="mt-4 space-y-3">
               {item.auditTrail.length > 0 ? (
                 item.auditTrail.map((entry: TeacherActivityAuditEntry) => (
                   <div key={entry.id} className="rounded-[18px] border border-white bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="text-sm font-black text-slate-800 dark:text-slate-200">{entry.summary}</div>
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {entry.actorName || entry.actorEmail || "إدارة"} • {formatDateTime(entry.createdAt)}
+                      {entry.actorName || entry.actorEmail || tx("إدارة", locale)} • {formatDateTime(entry.createdAt, locale)}
                     </div>
-                    {entry.reason ? <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">السبب: {entry.reason}</div> : null}
+                    {entry.reason ? <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">{tx("السبب:", locale)} {entry.reason}</div> : null}
                   </div>
                 ))
               ) : (
                 <div className="rounded-[18px] border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                  لا يوجد سجل تدقيق بعد.
+                  {tx("لا يوجد سجل تدقيق بعد.", locale)}
                 </div>
               )}
             </div>
@@ -298,6 +318,8 @@ function DetailModal({
 }
 
 export default function MonitoringPage() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname) as "ar" | "en";
   const { profile, can } = useRole();
   const schoolScope = useSchoolScope(profile);
   const toast = useToast();
@@ -354,7 +376,7 @@ export default function MonitoringPage() {
     );
 
     if (!response.ok) {
-      throw new Error(readApiError(payload, "تعذر تحميل المرشحات."));
+      throw new Error(readApiError(payload, tx("تعذر تحميل المرشحات.", locale)));
     }
 
     setMeta({
@@ -364,7 +386,7 @@ export default function MonitoringPage() {
       sections: payload?.sections ?? [],
       students: payload?.students ?? [],
     });
-  }, [schoolId, branchId, className, section]);
+  }, [branchId, className, locale, schoolId, section]);
 
   const fetchList = useCallback(async () => {
     if (!schoolId) {
@@ -397,7 +419,7 @@ export default function MonitoringPage() {
     setLoading(false);
 
     if (!response.ok) {
-      throw new Error(readApiError(payload, "تعذر تحميل البيانات."));
+      throw new Error(readApiError(payload, tx("تعذر تحميل البيانات.", locale)));
     }
 
     setTotalCount(payload?.totalCount ?? 0);
@@ -406,22 +428,22 @@ export default function MonitoringPage() {
     } else {
       setHomeworkItems((payload?.items as HomeworkListItem[]) ?? []);
     }
-  }, [schoolId, page, status, search, branchId, teacherId, className, section, tab]);
+  }, [branchId, className, locale, page, schoolId, search, section, status, tab, teacherId]);
 
   useEffect(() => {
     if (!schoolId || schoolScope.shouldBlockContent) return;
     void fetchMeta().catch((error) => {
-      toast.error(error instanceof Error ? error.message : "تعذر تحميل المرشحات.");
+      toast.error(error instanceof Error ? error.message : tx("تعذر تحميل المرشحات.", locale));
     });
-  }, [fetchMeta, schoolId, schoolScope.shouldBlockContent, toast]);
+  }, [fetchMeta, locale, schoolId, schoolScope.shouldBlockContent, toast]);
 
   useEffect(() => {
     if (!schoolId || schoolScope.shouldBlockContent) return;
     void fetchList().catch((error) => {
-      toast.error(error instanceof Error ? error.message : "تعذر تحميل القائمة.");
+      toast.error(error instanceof Error ? error.message : tx("تعذر تحميل القائمة.", locale));
       setLoading(false);
     });
-  }, [fetchList, schoolId, schoolScope.shouldBlockContent, toast]);
+  }, [fetchList, locale, schoolId, schoolScope.shouldBlockContent, toast]);
 
   const currentItems = tab === "messages" ? messageItems : homeworkItems;
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -436,7 +458,7 @@ export default function MonitoringPage() {
       }>(`${endpoint}?schoolId=${encodeURIComponent(schoolId)}`);
 
       if (!response.ok || !payload?.item) {
-        throw new Error(readApiError(payload, "تعذر تحميل التفاصيل."));
+        throw new Error(readApiError(payload, tx("تعذر تحميل التفاصيل.", locale)));
       }
 
       setSelectedId(id);
@@ -444,7 +466,7 @@ export default function MonitoringPage() {
       setEditMode(false);
       setEditValues({});
     },
-    [schoolId, tab],
+    [locale, schoolId, tab],
   );
 
   const handleSave = useCallback(async () => {
@@ -485,15 +507,15 @@ export default function MonitoringPage() {
     setSaving(false);
 
     if (!response.ok || !payload?.item) {
-      throw new Error(readApiError(payload, "تعذر حفظ التعديلات."));
+      throw new Error(readApiError(payload, tx("تعذر حفظ التعديلات.", locale)));
     }
 
     setSelectedDetail(payload.item);
     setEditMode(false);
     setEditValues({});
-    toast.success("تم حفظ التعديلات.");
+    toast.success(tx("تم حفظ التعديلات.", locale));
     await fetchList();
-  }, [selectedId, schoolId, selectedDetail, tab, editValues, toast, fetchList]);
+  }, [editValues, fetchList, locale, schoolId, selectedDetail, selectedId, tab, toast]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedId || !schoolId) return;
@@ -511,16 +533,16 @@ export default function MonitoringPage() {
     setConfirmDelete(false);
 
     if (!response.ok) {
-      throw new Error(readApiError(payload, "تعذر حذف العنصر."));
+      throw new Error(readApiError(payload, tx("تعذر حذف العنصر.", locale)));
     }
 
     setSelectedId(null);
     setSelectedDetail(null);
     setEditMode(false);
     setEditValues({});
-    toast.success("تم الحذف بنجاح.");
+    toast.success(tx("تم الحذف بنجاح.", locale));
     await fetchList();
-  }, [selectedId, schoolId, tab, editValues.reason, toast, fetchList]);
+  }, [editValues.reason, fetchList, locale, schoolId, selectedId, tab, toast]);
 
   const summaryCards = useMemo(
     () => [
@@ -528,8 +550,8 @@ export default function MonitoringPage() {
       { label: "الواجبات الحالية", value: String(homeworkItems.length).padStart(2, "0") },
       { label: "الأساتذة المتاحون", value: String(meta.teachers.length).padStart(2, "0") },
       { label: "الفروع", value: String(meta.branches.length).padStart(2, "0") },
-    ],
-    [homeworkItems.length, messageItems.length, meta.branches.length, meta.teachers.length],
+    ].map((card) => ({ ...card, label: tx(card.label, locale) })),
+    [homeworkItems.length, locale, messageItems.length, meta.branches.length, meta.teachers.length],
   );
 
   return (
@@ -542,16 +564,16 @@ export default function MonitoringPage() {
             <SchoolScopeBanner scope={schoolScope} />
 
             {schoolScope.shouldBlockContent ? (
-              <SchoolScopeEmptyState scope={schoolScope} title="مراقبة نشاط الأساتذة" />
+              <SchoolScopeEmptyState scope={schoolScope} title={tx("مراقبة نشاط الأساتذة", locale)} />
             ) : (
               <div className="space-y-5">
                 <section className="rounded-[32px] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)] backdrop-blur-xl">
                   <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                     <div>
                       <div className="text-xs font-black tracking-[0.28em] text-[var(--text-muted)]">Teacher Monitoring</div>
-                      <h1 className="mt-3 text-3xl font-black text-[var(--text-primary)]">صفحة مراقبة نشاط الأساتذة</h1>
+                      <h1 className="mt-3 text-3xl font-black text-[var(--text-primary)]">{tx("صفحة مراقبة نشاط الأساتذة", locale)}</h1>
                       <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--text-muted)]">
-                        راقب رسائل الأساتذة وواجباتهم، عدّل المحتوى غير المناسب، واحفظ أثرًا تدقيقيًا لكل إجراء إداري.
+                        {tx("راقب رسائل الأساتذة وواجباتهم، عدّل المحتوى غير المناسب، واحفظ أثرًا تدقيقيًا لكل إجراء إداري.", locale)}
                       </p>
                     </div>
 
@@ -576,7 +598,7 @@ export default function MonitoringPage() {
                       }}
                       className={`rounded-full px-4 py-2 text-sm font-black ${tab === "messages" ? "bg-[var(--primary)] text-white" : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"}`}
                     >
-                      الرسائل والإشعارات
+                      {tx("الرسائل والإشعارات", locale)}
                     </button>
                     <button
                       type="button"
@@ -586,46 +608,46 @@ export default function MonitoringPage() {
                       }}
                       className={`rounded-full px-4 py-2 text-sm font-black ${tab === "homework" ? "bg-[var(--primary)] text-white" : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"}`}
                     >
-                      الواجبات
+                      {tx("الواجبات", locale)}
                     </button>
                   </div>
 
                   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <input
                       className={inputClass()}
-                      placeholder="بحث بالكلمات"
+                      placeholder={tx("بحث بالكلمات", locale)}
                       value={searchInput}
                       onChange={(event) => setSearchInput(event.target.value)}
                     />
                     <select className={inputClass()} value={branchId} onChange={(event) => { setBranchId(event.target.value); setPage(1); }}>
-                      <option value="">كل الفروع</option>
+                      <option value="">{tx("كل الفروع", locale)}</option>
                       {meta.branches.map((branch) => (
                         <option key={branch.id} value={branch.id}>{branch.name}</option>
                       ))}
                     </select>
                     <select className={inputClass()} value={teacherId} onChange={(event) => { setTeacherId(event.target.value); setPage(1); }}>
-                      <option value="">كل الأساتذة</option>
+                      <option value="">{tx("كل الأساتذة", locale)}</option>
                       {meta.teachers.map((teacher) => (
                         <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
                       ))}
                     </select>
                     <select className={inputClass()} value={className} onChange={(event) => { setClassName(event.target.value); setPage(1); }}>
-                      <option value="">كل الصفوف</option>
+                      <option value="">{tx("كل الصفوف", locale)}</option>
                       {meta.classes.map((value) => (
                         <option key={value} value={value}>{value}</option>
                       ))}
                     </select>
                     <select className={inputClass()} value={section} onChange={(event) => { setSection(event.target.value); setPage(1); }}>
-                      <option value="">كل الشعب</option>
+                      <option value="">{tx("كل الشعب", locale)}</option>
                       {meta.sections.map((value) => (
                         <option key={value} value={value}>{value}</option>
                       ))}
                     </select>
                     <select className={inputClass()} value={status} onChange={(event) => { setStatus(event.target.value as "all" | TeacherActivityStatus); setPage(1); }}>
-                      <option value="all">كل الحالات</option>
-                      <option value="active">نشط</option>
-                      <option value="edited_by_admin">معدّل إداريًا</option>
-                      <option value="deleted_by_admin">محذوف إداريًا</option>
+                      <option value="all">{tx("كل الحالات", locale)}</option>
+                      <option value="active">{tx("نشط", locale)}</option>
+                      <option value="edited_by_admin">{tx("معدّل إداريًا", locale)}</option>
+                      <option value="deleted_by_admin">{tx("محذوف إداريًا", locale)}</option>
                     </select>
                   </div>
 
@@ -634,23 +656,23 @@ export default function MonitoringPage() {
                       <table className="min-w-full divide-y divide-[var(--border)]">
                         <thead className="bg-[var(--surface-muted)]">
                           <tr className="text-right text-xs font-black text-[var(--text-muted)]">
-                            <th className="px-4 py-3">العنوان</th>
-                            <th className="px-4 py-3">الأستاذ</th>
-                            <th className="px-4 py-3">الفرع</th>
-                            <th className="px-4 py-3">{tab === "messages" ? "الاستهداف" : "الصف/الشعبة"}</th>
-                            <th className="px-4 py-3">الحالة</th>
-                            <th className="px-4 py-3">التاريخ</th>
+                            <th className="px-4 py-3">{locale === "en" ? "Title" : "العنوان"}</th>
+                            <th className="px-4 py-3">{tx("الأستاذ", locale)}</th>
+                            <th className="px-4 py-3">{tx("الفرع", locale)}</th>
+                            <th className="px-4 py-3">{tx(tab === "messages" ? "الاستهداف" : "الصف/الشعبة", locale)}</th>
+                            <th className="px-4 py-3">{tx("الحالة", locale)}</th>
+                            <th className="px-4 py-3">{tx("التاريخ", locale)}</th>
                             <th className="px-4 py-3" />
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--border)] bg-[var(--card-bg)]">
                           {loading ? (
                             <tr>
-                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">جارٍ تحميل البيانات...</td>
+                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">{tx("جارٍ تحميل البيانات...", locale)}</td>
                             </tr>
                           ) : currentItems.length === 0 ? (
                             <tr>
-                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">لا توجد بيانات مطابقة للفلاتر الحالية.</td>
+                              <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">{tx("لا توجد بيانات مطابقة للفلاتر الحالية.", locale)}</td>
                             </tr>
                           ) : (
                             currentItems.map((item) => (
@@ -664,21 +686,21 @@ export default function MonitoringPage() {
                                 <td className="px-4 py-4">{item.teacherName || "—"}</td>
                                 <td className="px-4 py-4">{item.branchName || "—"}</td>
                                 <td className="px-4 py-4">
-                                  {"targetCount" in item ? `${item.targetCount} طالب` : `${item.className || "—"} / ${item.section || "—"}`}
+                                  {"targetCount" in item ? formatStudentCount(item.targetCount, locale) : `${item.className || "—"} / ${item.section || "—"}`}
                                 </td>
                                 <td className="px-4 py-4">
                                   <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${badgeTone(item.status)}`}>
-                                    {statusLabel(item.status)}
+                                    {statusLabel(item.status, locale)}
                                   </span>
                                 </td>
-                                <td className="px-4 py-4">{formatDateTime(item.createdAt)}</td>
+                                <td className="px-4 py-4">{formatDateTime(item.createdAt, locale)}</td>
                                 <td className="px-4 py-4">
                                   <button
                                     type="button"
-                                    onClick={() => void openDetail(item.id).catch((error) => toast.error(error instanceof Error ? error.message : "تعذر تحميل التفاصيل."))}
+                                    onClick={() => void openDetail(item.id).catch((error) => toast.error(error instanceof Error ? error.message : tx("تعذر تحميل التفاصيل.", locale)))}
                                     className="rounded-full bg-[var(--surface-muted)] px-3 py-2 text-xs font-black text-[var(--text-secondary)]"
                                   >
-                                    تفاصيل
+                                    {tx("تفاصيل", locale)}
                                   </button>
                                 </td>
                               </tr>
@@ -690,7 +712,7 @@ export default function MonitoringPage() {
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-3">
-                    <div className="text-sm text-[var(--text-muted)]">إجمالي السجلات: {totalCount}</div>
+                    <div className="text-sm text-[var(--text-muted)]">{tx("إجمالي السجلات:", locale)} {totalCount}</div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -698,10 +720,10 @@ export default function MonitoringPage() {
                         onClick={() => setPage((current) => Math.max(1, current - 1))}
                         className="rounded-full bg-[var(--surface-muted)] px-4 py-2 text-sm font-black text-[var(--text-secondary)] disabled:opacity-40"
                       >
-                        السابق
+                        {tx("السابق", locale)}
                       </button>
                       <span className="text-sm font-bold text-[var(--text-secondary)]">
-                        صفحة {page} من {pageCount}
+                        {formatPageLabel(page, pageCount, locale)}
                       </span>
                       <button
                         type="button"
@@ -709,7 +731,7 @@ export default function MonitoringPage() {
                         onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
                         className="rounded-full bg-[var(--surface-muted)] px-4 py-2 text-sm font-black text-[var(--text-secondary)] disabled:opacity-40"
                       >
-                        التالي
+                        {tx("التالي", locale)}
                       </button>
                     </div>
                   </div>
@@ -737,24 +759,25 @@ export default function MonitoringPage() {
             if (!canModerate) return;
             setEditMode(true);
           }}
-          onSave={() => void handleSave().catch((error) => toast.error(error instanceof Error ? error.message : "تعذر حفظ التعديلات."))}
+          onSave={() => void handleSave().catch((error) => toast.error(error instanceof Error ? error.message : tx("تعذر حفظ التعديلات.", locale)))}
           onDelete={() => {
             if (!canModerate) return;
             setConfirmDelete(true);
           }}
           saving={saving}
           canModerate={canModerate}
+          locale={locale}
         />
       ) : null}
 
       <ConfirmDialog
         open={confirmDelete}
-        title="حذف هذا المحتوى؟"
-        description="سيتم تطبيق حذف إداري ناعم مع الاحتفاظ بسجل التدقيق."
-        confirmLabel="حذف"
+        title={tx("حذف هذا المحتوى؟", locale)}
+        description={tx("سيتم تطبيق حذف إداري ناعم مع الاحتفاظ بسجل التدقيق.", locale)}
+        confirmLabel={tx("حذف", locale)}
         busy={saving}
         onClose={() => setConfirmDelete(false)}
-        onConfirm={() => void handleDelete().catch((error) => toast.error(error instanceof Error ? error.message : "تعذر حذف العنصر."))}
+        onConfirm={() => void handleDelete().catch((error) => toast.error(error instanceof Error ? error.message : tx("تعذر حذف العنصر.", locale)))}
       />
     </ProtectedRoute>
   );

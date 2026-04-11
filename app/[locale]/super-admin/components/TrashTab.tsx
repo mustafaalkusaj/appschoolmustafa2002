@@ -19,6 +19,15 @@ import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 type TrashEntity = "schools" | "users" | "branches";
 
+type TrashItem = {
+  id: string;
+  name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  deleted_at?: string | null;
+  [key: string]: unknown;
+};
+
 export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
   const availableEntities = useMemo<TrashEntity[]>(
     () => [
@@ -34,11 +43,11 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
   );
 
   const [activeEntity, setActiveEntity] = useState<TrashEntity>(availableEntities[0] ?? "schools");
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
-  const [itemToRestore, setItemToRestore] = useState<any>(null);
+  const [itemToRestore, setItemToRestore] = useState<TrashItem | null>(null);
 
   const fetchDeleted = useCallback(async () => {
     if (availableEntities.length === 0) {

@@ -17,17 +17,17 @@ export function StudentsTabs({ activeTab, setActiveTab, studentsMeta }: Students
   const t = useTranslations("students.tabs");
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab}>
-      <TabsList className="bg-[var(--surface-soft)] rounded-[var(--radius-lg)] p-1 gap-1">
+    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value)}>
+      <TabsList className="bg-[var(--surface-soft)] rounded-[var(--radius-lg)] p-2 gap-2 flex flex-wrap">
         {TABS.map((tab) => {
-          const count = studentsMeta.tabCounts[tab.id as keyof typeof studentsMeta.tabCounts] ?? 0;
+          const count = studentsMeta.tabCounts[tab.id] ?? 0;
           return (
             <TabsTrigger
               key={tab.id}
               value={tab.id}
               className={`
-                flex items-center gap-2 px-4 py-2.5 rounded-[var(--radius-md)]
-                text-sm font-semibold transition-all duration-200
+                flex items-center gap-2.5 px-3 sm:px-4 py-2 rounded-[var(--radius-md)]
+                text-sm font-semibold transition-all duration-200 whitespace-nowrap
                 data-[state=active]:bg-[var(--primary)] data-[state=active]:text-white
                 data-[state=active]:shadow-[var(--shadow-primary)]
                 data-[state=inactive]:text-[var(--text-secondary)]
@@ -36,7 +36,7 @@ export function StudentsTabs({ activeTab, setActiveTab, studentsMeta }: Students
               `}
             >
               <AppIcon token={tab.icon} size={16} />
-              <span>{t(tab.id as any)}</span>
+              <span>{t(tab.id)}</span>
               <Badge
                 variant={activeTab === tab.id ? "primary" : "neutral"}
                 size="sm"

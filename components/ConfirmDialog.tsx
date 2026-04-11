@@ -4,6 +4,9 @@ import * as React from "react";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/brand/brand-utils";
+import { translateLegacyText } from "@/lib/legacy-locale";
+import { getLocaleFromPath } from "@/lib/locale-routing";
+import { usePathname } from "next/navigation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,14 +72,26 @@ export function ConfirmDialog({
   open,
   title,
   description = "",
-  confirmLabel = "تأكيد",
-  cancelLabel = "إلغاء",
+  confirmLabel,
+  cancelLabel,
   tone = "danger",
   busy = false,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
+  const locale = getLocaleFromPath(usePathname()) as "ar" | "en";
   const isDanger = tone === "danger";
+  const resolvedTitle = translateLegacyText(title, locale);
+  const resolvedDescription = translateLegacyText(description, locale);
+  const resolvedConfirmLabel = translateLegacyText(
+    confirmLabel ?? (locale === "en" ? "Confirm" : "تأكيد"),
+    locale,
+  );
+  const resolvedCancelLabel = translateLegacyText(
+    cancelLabel ?? (locale === "en" ? "Cancel" : "إلغاء"),
+    locale,
+  );
+  const busyLabel = locale === "en" ? "Processing..." : "جارٍ التنفيذ...";
 
   const handleConfirm = async () => {
     await onConfirm();
@@ -105,11 +120,11 @@ export function ConfirmDialog({
           {/* Title and Description */}
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-bold text-[var(--text-primary)] mb-1">
-              {title}
+              {resolvedTitle}
             </h2>
-            {description && (
+            {resolvedDescription && (
               <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                {description}
+                {resolvedDescription}
               </p>
             )}
           </div>
@@ -124,7 +139,7 @@ export function ConfirmDialog({
           loading={busy}
           className="flex-1"
         >
-          {busy ? "جارٍ التنفيذ..." : confirmLabel}
+          {busy ? busyLabel : resolvedConfirmLabel}
         </Button>
         <Button
           variant="ghost"
@@ -132,7 +147,7 @@ export function ConfirmDialog({
           disabled={busy}
           className="flex-1"
         >
-          {cancelLabel}
+          {resolvedCancelLabel}
         </Button>
       </ModalFooter>
     </Modal>

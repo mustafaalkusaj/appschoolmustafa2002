@@ -106,6 +106,106 @@ export default function ReportsPage() {
   const commonT = useTranslations("common");
   const dashboardT = useTranslations("dashboard");
   const isEnglish = locale === "en";
+  const reportCopy = isEnglish
+    ? {
+        loadReportsFailed: "Failed to load reports.",
+        loadDatasetFailed: "Failed to prepare the dataset.",
+        loadComprehensiveFailed: "Failed to load the comprehensive report.",
+        subtitle: "School-wide financial and operational analytics.",
+        analyzing: "Analyzing data...",
+        todayPayments: "Today's payments",
+        recordCount: "Record count",
+        totalAmount: "Total amount",
+        expenseTypes: "Expense types",
+        salaryRecords: "Salary records",
+        netTotal: "Net total",
+        monthlySalaryPayments: "Current month payouts",
+        expensesMetric: "Expenses",
+        salariesMetric: "Salaries",
+        recordsSuffix: "records",
+        studentsSheet: "Students",
+        studentsFile: "students_report",
+        studentName: "Name",
+        className: "Class",
+        status: "Status",
+        totalFees: "Total fees",
+        paid: "Paid",
+        remaining: "Remaining",
+        phone: "Phone",
+        address: "Address",
+        paymentsSheet: "Payments",
+        paymentsFile: "payments_report",
+        student: "Student",
+        amount: "Amount",
+        paymentMethod: "Payment method",
+        date: "Date",
+        receiptNumber: "Receipt number",
+        notes: "Notes",
+        expensesSheet: "Expenses",
+        expensesFile: "expenses_report",
+        type: "Type",
+        recipient: "Recipient",
+        salariesSheet: "Salaries",
+        salariesFile: "salaries_report",
+        teacher: "Teacher",
+        subject: "Subject",
+        month: "Month",
+        gross: "Gross",
+        deductions: "Deductions",
+        net: "Net",
+        paidAt: "Paid at",
+        allFile: "full_report",
+      }
+    : {
+        loadReportsFailed: "تعذر تحميل التقارير.",
+        loadDatasetFailed: "تعذر تجهيز مجموعة البيانات.",
+        loadComprehensiveFailed: "تعذر تحميل التقرير الشامل.",
+        subtitle: "تحليل البيانات المالية والإحصائية الشاملة للمدرسة",
+        analyzing: "جارٍ تحليل البيانات...",
+        todayPayments: "دفعات اليوم",
+        recordCount: "عدد السجلات",
+        totalAmount: "إجمالي المبلغ",
+        expenseTypes: "أنواع المصروفات",
+        salaryRecords: "سجلات الرواتب",
+        netTotal: "إجمالي الصافي",
+        monthlySalaryPayments: "مدفوعات الشهر",
+        expensesMetric: "المصروفات",
+        salariesMetric: "الرواتب",
+        recordsSuffix: "سجل",
+        studentsSheet: "الطلاب",
+        studentsFile: "تقرير_الطلاب",
+        studentName: "الاسم",
+        className: "الصف",
+        status: "الحالة",
+        totalFees: "إجمالي الرسوم",
+        paid: "المدفوع",
+        remaining: "المتبقي",
+        phone: "الهاتف",
+        address: "العنوان",
+        paymentsSheet: "الحسابات",
+        paymentsFile: "تقرير_الحسابات",
+        student: "الطالب",
+        amount: "المبلغ",
+        paymentMethod: "طريقة الدفع",
+        date: "التاريخ",
+        receiptNumber: "رقم الإيصال",
+        notes: "ملاحظات",
+        expensesSheet: "المصروفات",
+        expensesFile: "تقرير_المصروفات",
+        type: "النوع",
+        recipient: "المستلم",
+        salariesSheet: "الرواتب",
+        salariesFile: "تقرير_الرواتب",
+        teacher: "الأستاذ",
+        subject: "المادة",
+        month: "الشهر",
+        gross: "الإجمالي",
+        deductions: "الخصومات",
+        net: "الصافي",
+        paidAt: "تاريخ الدفع",
+        allFile: "تقرير_شامل",
+      };
+  const currency = commonT("currency");
   const { profile } = useRole();
 
   function paymentMethodLabel(method: string | null | undefined) {
@@ -157,7 +257,7 @@ export default function ReportsPage() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to load reports");
+        throw new Error(reportCopy.loadReportsFailed);
       }
 
       datasetCacheRef.current = {};
@@ -168,7 +268,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile, schoolScope.selectedSchoolId]);
+  }, [profile, reportCopy.loadReportsFailed, schoolScope.selectedSchoolId]);
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
@@ -207,7 +307,7 @@ export default function ReportsPage() {
         }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=${type}`);
 
         if (!response.ok) {
-          throw new Error(payload?.error?.message || "Failed to prepare dataset");
+          throw new Error(payload?.error?.message || reportCopy.loadDatasetFailed);
         }
 
         const nextRows =
@@ -225,7 +325,7 @@ export default function ReportsPage() {
         setActionLoading((current) => (current === type ? null : current));
       }
     },
-    [getScopedSchoolId],
+    [getScopedSchoolId, reportCopy.loadDatasetFailed],
   );
 
   const loadAllDatasets = useCallback(async () => {
@@ -258,7 +358,7 @@ export default function ReportsPage() {
         error?: { message?: string };
       }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=all`);
 
-      if (!response.ok) throw new Error("Failed to load comprehensive report");
+      if (!response.ok) throw new Error(reportCopy.loadComprehensiveFailed);
 
       datasetCacheRef.current = {
         students: payload?.students ?? [],
@@ -276,7 +376,7 @@ export default function ReportsPage() {
     } finally {
       setActionLoading((current) => (current === "all" ? null : current));
     }
-  }, [getScopedSchoolId]);
+  }, [getScopedSchoolId, reportCopy.loadComprehensiveFailed]);
 
   async function exportRows(rows: Record<string, unknown>[], sheetName: string, fileName: string) {
     const XLSX = await loadXLSX();
@@ -290,17 +390,17 @@ export default function ReportsPage() {
     const students = await loadDataset("students");
     await exportRows(
       students.map((item) => ({
-        الاسم: item.full_name,
-        الصف: item.class_name || "—",
-        الحالة: studentStatusLabel(item.status),
-        "إجمالي الرسوم": item.total_fee || 0,
-        المدفوع: item.paid_fee || 0,
-        المتبقي: item.remaining_fee || 0,
-        الهاتف: item.phone || "",
-        العنوان: item.address || "",
+        [reportCopy.studentName]: item.full_name,
+        [reportCopy.className]: item.class_name || "—",
+        [reportCopy.status]: studentStatusLabel(item.status),
+        [reportCopy.totalFees]: item.total_fee || 0,
+        [reportCopy.paid]: item.paid_fee || 0,
+        [reportCopy.remaining]: item.remaining_fee || 0,
+        [reportCopy.phone]: item.phone || "",
+        [reportCopy.address]: item.address || "",
       })),
-      "الطلاب",
-      "تقرير_الطلاب",
+      reportCopy.studentsSheet,
+      reportCopy.studentsFile,
     );
   }
 
@@ -308,16 +408,16 @@ export default function ReportsPage() {
     const payments = await loadDataset("payments");
     await exportRows(
       payments.map((item) => ({
-        الطالب: item.students?.full_name || "—",
-        الصف: item.students?.class_name || "—",
-        المبلغ: item.amount || 0,
-        "طريقة الدفع": paymentMethodLabel(item.payment_method),
-        التاريخ: formatDate(item.created_at ?? ""),
-        "رقم الإيصال": item.receipt_number || "—",
-        ملاحظات: item.notes || "",
+        [reportCopy.student]: item.students?.full_name || "—",
+        [reportCopy.className]: item.students?.class_name || "—",
+        [reportCopy.amount]: item.amount || 0,
+        [reportCopy.paymentMethod]: paymentMethodLabel(item.payment_method),
+        [reportCopy.date]: formatDate(item.created_at ?? ""),
+        [reportCopy.receiptNumber]: item.receipt_number || "—",
+        [reportCopy.notes]: item.notes || "",
       })),
-      "الحسابات",
-      "تقرير_الحسابات",
+      reportCopy.paymentsSheet,
+      reportCopy.paymentsFile,
     );
   }
 
@@ -325,15 +425,15 @@ export default function ReportsPage() {
     const expenses = await loadDataset("expenses");
     await exportRows(
       expenses.map((item) => ({
-        النوع: item.expense_types?.name || "—",
-        المبلغ: item.amount || 0,
-        التاريخ: formatDate(item.expense_date ?? ""),
-        المستلم: item.recipient || "—",
-        "رقم الإيصال": item.receipt_number || "—",
-        ملاحظات: item.notes || "",
+        [reportCopy.type]: item.expense_types?.name || "—",
+        [reportCopy.amount]: item.amount || 0,
+        [reportCopy.date]: formatDate(item.expense_date ?? ""),
+        [reportCopy.recipient]: item.recipient || "—",
+        [reportCopy.receiptNumber]: item.receipt_number || "—",
+        [reportCopy.notes]: item.notes || "",
       })),
-      "المصروفات",
-      "تقرير_المصروفات",
+      reportCopy.expensesSheet,
+      reportCopy.expensesFile,
     );
   }
 
@@ -341,16 +441,16 @@ export default function ReportsPage() {
     const salaries = await loadDataset("salaries");
     await exportRows(
       salaries.map((item) => ({
-        الأستاذ: item.teachers?.full_name || "—",
-        المادة: item.teachers?.subject || "—",
-        الشهر: item.month || "—",
-        الإجمالي: item.gross_salary || 0,
-        الخصومات: item.deductions || 0,
-        الصافي: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
-        "تاريخ الدفع": item.paid_at ? formatDate(item.paid_at) : "—",
+        [reportCopy.teacher]: item.teachers?.full_name || "—",
+        [reportCopy.subject]: item.teachers?.subject || "—",
+        [reportCopy.month]: item.month || "—",
+        [reportCopy.gross]: item.gross_salary || 0,
+        [reportCopy.deductions]: item.deductions || 0,
+        [reportCopy.net]: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+        [reportCopy.paidAt]: item.paid_at ? formatDate(item.paid_at) : "—",
       })),
-      "الرواتب",
-      "تقرير_الرواتب",
+      reportCopy.salariesSheet,
+      reportCopy.salariesFile,
     );
   }
 
@@ -360,39 +460,39 @@ export default function ReportsPage() {
     const wb = XLSX.utils.book_new();
     const sheets = [
       {
-        name: "الطلاب",
+        name: reportCopy.studentsSheet,
         rows: students.map((item) => ({
-          الاسم: item.full_name,
-          الصف: item.class_name || "—",
-          الحالة: studentStatusLabel(item.status),
-          الرسوم: item.total_fee || 0,
-          المدفوع: item.paid_fee || 0,
-          المتبقي: item.remaining_fee || 0,
+          [reportCopy.studentName]: item.full_name,
+          [reportCopy.className]: item.class_name || "—",
+          [reportCopy.status]: studentStatusLabel(item.status),
+          [reportCopy.totalFees]: item.total_fee || 0,
+          [reportCopy.paid]: item.paid_fee || 0,
+          [reportCopy.remaining]: item.remaining_fee || 0,
         })),
       },
       {
-        name: "الحسابات",
+        name: reportCopy.paymentsSheet,
         rows: payments.map((item) => ({
-          الطالب: item.students?.full_name || "—",
-          المبلغ: item.amount || 0,
-          التاريخ: formatDate(item.created_at ?? ""),
+          [reportCopy.student]: item.students?.full_name || "—",
+          [reportCopy.amount]: item.amount || 0,
+          [reportCopy.date]: formatDate(item.created_at ?? ""),
         })),
       },
       {
-        name: "المصروفات",
+        name: reportCopy.expensesSheet,
         rows: expenses.map((item) => ({
-          النوع: item.expense_types?.name || "—",
-          المبلغ: item.amount || 0,
-          التاريخ: formatDate(item.expense_date ?? ""),
+          [reportCopy.type]: item.expense_types?.name || "—",
+          [reportCopy.amount]: item.amount || 0,
+          [reportCopy.date]: formatDate(item.expense_date ?? ""),
         })),
       },
       {
-        name: "الرواتب",
+        name: reportCopy.salariesSheet,
         rows: salaries.map((item) => ({
-          الأستاذ: item.teachers?.full_name || "—",
-          الشهر: item.month || "—",
-          الصافي: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
-          تاريخ_الدفع: item.paid_at ? formatDate(item.paid_at) : "—",
+          [reportCopy.teacher]: item.teachers?.full_name || "—",
+          [reportCopy.month]: item.month || "—",
+          [reportCopy.net]: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+          [reportCopy.paidAt.replaceAll(" ", "_")]: item.paid_at ? formatDate(item.paid_at) : "—",
         })),
       },
     ];
@@ -403,7 +503,7 @@ export default function ReportsPage() {
       }
     });
 
-    await XLSX.writeFile(wb, `تقرير_شامل_${formatDate(new Date())}.xlsx`);
+    await XLSX.writeFile(wb, `${reportCopy.allFile}_${formatDate(new Date())}.xlsx`);
   }
 
   function printDocument(title: string, subtitle: string, bodyHtml: string) {
@@ -443,7 +543,7 @@ export default function ReportsPage() {
           <tbody>${students
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.class_name || "—")}</td><td>${escapeHtml(studentStatusLabel(item.status))}</td><td>د.ع ${formatNumber(item.total_fee || 0)}</td><td>د.ع ${formatNumber(item.paid_fee || 0)}</td><td>د.ع ${formatNumber(item.remaining_fee || 0)}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.class_name || "—")}</td><td>${escapeHtml(studentStatusLabel(item.status))}</td><td>${currency} ${formatNumber(item.total_fee || 0)}</td><td>${currency} ${formatNumber(item.paid_fee || 0)}</td><td>${currency} ${formatNumber(item.remaining_fee || 0)}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -462,7 +562,7 @@ export default function ReportsPage() {
           <tbody>${payments
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.students?.full_name || "—")}</td><td>${escapeHtml(item.students?.class_name || "—")}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${escapeHtml(paymentMethodLabel(item.payment_method))}</td><td>${formatDate(item.created_at ?? "")}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${escapeHtml(item.students?.full_name || "—")}</td><td>${escapeHtml(item.students?.class_name || "—")}</td><td>${currency} ${formatNumber(item.amount || 0)}</td><td>${escapeHtml(paymentMethodLabel(item.payment_method))}</td><td>${formatDate(item.created_at ?? "")}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -481,7 +581,7 @@ export default function ReportsPage() {
           <tbody>${expenses
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.expense_types?.name || "—")}</td><td>د.ع ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.expense_date ?? "")}</td><td>${escapeHtml(item.recipient || "—")}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${escapeHtml(item.expense_types?.name || "—")}</td><td>${currency} ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.expense_date ?? "")}</td><td>${escapeHtml(item.recipient || "—")}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -500,7 +600,7 @@ export default function ReportsPage() {
           <tbody>${salaries
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.teachers?.full_name || "—")}</td><td>${escapeHtml(item.teachers?.subject || "—")}</td><td>${escapeHtml(item.month || "—")}</td><td>د.ع ${formatNumber(Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)))}</td><td>${item.paid_at ? formatDate(item.paid_at) : "—"}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${escapeHtml(item.teachers?.full_name || "—")}</td><td>${escapeHtml(item.teachers?.subject || "—")}</td><td>${escapeHtml(item.month || "—")}</td><td>${currency} ${formatNumber(Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)))}</td><td>${item.paid_at ? formatDate(item.paid_at) : "—"}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -514,13 +614,13 @@ export default function ReportsPage() {
       isEnglish ? "School financial snapshot" : "ملخص مالي سريع للمدرسة",
       `
         <div class="totals">
-          <div class="total-item"><span class="total-label">${isEnglish ? "Total fees" : "إجمالي الرسوم"}: </span><span class="total-val">د.ع ${formatNumber(metrics.totalFees)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Paid" : "المدفوع"}: </span><span class="total-val">د.ع ${formatNumber(metrics.totalPaid)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Remaining" : "المتبقي"}: </span><span class="total-val">د.ع ${formatNumber(metrics.totalRemaining)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Recorded payments" : "الحسابات المسجلة"}: </span><span class="total-val">د.ع ${formatNumber(metrics.paymentVolume)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Net salaries" : "صافي الرواتب"}: </span><span class="total-val">د.ع ${formatNumber(metrics.salaryVolume)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Expenses" : "المصروفات"}: </span><span class="total-val">د.ع ${formatNumber(metrics.expenseVolume)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Net balance" : "الصافي"}: </span><span class="total-val">د.ع ${formatNumber(metrics.netBalance)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Total fees" : "إجمالي الرسوم"}: </span><span class="total-val">${currency} ${formatNumber(metrics.totalFees)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Paid" : "المدفوع"}: </span><span class="total-val">${currency} ${formatNumber(metrics.totalPaid)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Remaining" : "المتبقي"}: </span><span class="total-val">${currency} ${formatNumber(metrics.totalRemaining)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Recorded payments" : "الحسابات المسجلة"}: </span><span class="total-val">${currency} ${formatNumber(metrics.paymentVolume)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Net salaries" : "صافي الرواتب"}: </span><span class="total-val">${currency} ${formatNumber(metrics.salaryVolume)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Expenses" : "المصروفات"}: </span><span class="total-val">${currency} ${formatNumber(metrics.expenseVolume)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Net balance" : "الصافي"}: </span><span class="total-val">${currency} ${formatNumber(metrics.netBalance)}</span></div>
         </div>
       `,
     );
@@ -553,7 +653,7 @@ export default function ReportsPage() {
       stats: [
         { label: dashboardT("finance.paid"), value: formatNumber(metrics.paymentsCount) },
         { label: dashboardT("finance.collectedAmounts"), value: `${commonT("currency")} ${formatNumber(metrics.paymentVolume)}` },
-        { label: "دفعات اليوم", value: formatNumber(metrics.todayPayments) },
+        { label: reportCopy.todayPayments, value: formatNumber(metrics.todayPayments) },
       ],
       onExcel: exportPaymentsExcel,
       onPrint: printPayments,
@@ -566,9 +666,9 @@ export default function ReportsPage() {
       bg: "bg-[var(--danger)]/10",
       description: t("cards.expenses.description"),
       stats: [
-        { label: "عدد السجلات", value: formatNumber(metrics.expensesCount) },
-        { label: "إجمالي المبلغ", value: `${commonT("currency")} ${formatNumber(metrics.expenseVolume)}` },
-        { label: "أنواع المصروفات", value: formatNumber(metrics.expenseTypeCount) },
+        { label: reportCopy.recordCount, value: formatNumber(metrics.expensesCount) },
+        { label: reportCopy.totalAmount, value: `${currency} ${formatNumber(metrics.expenseVolume)}` },
+        { label: reportCopy.expenseTypes, value: formatNumber(metrics.expenseTypeCount) },
       ],
       onExcel: exportExpensesExcel,
       onPrint: printExpenses,
@@ -581,9 +681,9 @@ export default function ReportsPage() {
       bg: "bg-[var(--primary)]/10",
       description: t("cards.salaries.description"),
       stats: [
-        { label: "سجلات الرواتب", value: formatNumber(metrics.salariesCount) },
-        { label: "إجمالي الصافي", value: `${commonT("currency")} ${formatNumber(metrics.salaryVolume)}` },
-        { label: "مدفوعات الشهر", value: formatNumber(metrics.currentMonthSalaryCount) },
+        { label: reportCopy.salaryRecords, value: formatNumber(metrics.salariesCount) },
+        { label: reportCopy.netTotal, value: `${currency} ${formatNumber(metrics.salaryVolume)}` },
+        { label: reportCopy.monthlySalaryPayments, value: formatNumber(metrics.currentMonthSalaryCount) },
       ],
       onExcel: exportSalariesExcel,
       onPrint: printSalaries,
@@ -598,7 +698,7 @@ export default function ReportsPage() {
         <div className="flex-1 flex flex-col min-w-0">
           <AppShellTopbar 
             title={t("title")} 
-            subtitle="تحليل البيانات المالية والإحصائية الشاملة للمدرسة" 
+            subtitle={reportCopy.subtitle}
             scope={schoolScope} 
             fixed 
           />
@@ -618,7 +718,7 @@ export default function ReportsPage() {
               ) : loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <div className="h-12 w-12 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
-                  <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">جارٍ تحليل البيانات...</span>
+                  <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">{reportCopy.analyzing}</span>
                 </div>
               ) : (
                 <div className="space-y-8">
@@ -683,8 +783,8 @@ export default function ReportsPage() {
                     {[
                       { label: dashboardT("nav.students"), value: metrics.studentsCount, icon: Users, color: "text-[var(--info)]", bg: "bg-[var(--info)]/10" },
                       { label: dashboardT("nav.payments"), value: metrics.paymentsCount, icon: CreditCard, color: "text-[var(--success)]", bg: "bg-[var(--success)]/10" },
-                      { label: "المصروفات", value: metrics.expensesCount, icon: Wallet, color: "text-[var(--danger)]", bg: "bg-[var(--danger)]/10" },
-                      { label: "الرواتب", value: metrics.salariesCount, icon: Briefcase, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
+                      { label: reportCopy.expensesMetric, value: metrics.expensesCount, icon: Wallet, color: "text-[var(--danger)]", bg: "bg-[var(--danger)]/10" },
+                      { label: reportCopy.salariesMetric, value: metrics.salariesCount, icon: Briefcase, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
                     ].map((card, i) => (
                       <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] flex items-center gap-4">
                         <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center", card.bg, card.color)}>
@@ -692,7 +792,7 @@ export default function ReportsPage() {
                         </div>
                         <div>
                           <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{card.label}</div>
-                          <div className="text-base font-black text-[var(--text-primary)] mt-0.5">{formatNumber(card.value)} سجل</div>
+                          <div className="text-base font-black text-[var(--text-primary)] mt-0.5">{formatNumber(card.value)} {reportCopy.recordsSuffix}</div>
                         </div>
                       </div>
                     ))}

@@ -4,7 +4,6 @@ import { AppIcon } from "@/components/AppIcon";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatNumber, formatDate } from "@/lib/formatting";
-import { cn } from "@/lib/brand/brand-utils";
 import type { SalaryArchive } from "../_types";
 
 interface ArchiveSectionProps {

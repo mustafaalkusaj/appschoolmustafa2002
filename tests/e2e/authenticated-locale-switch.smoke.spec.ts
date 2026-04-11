@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { loginAsAdmin } from "./helpers/auth";
+
+test.use({ storageState: "/Users/musatafa/school-app/artifacts/reliability-audit/admin-storage-state.json" });
 
 test("authenticated dashboard supports bilingual locale switching", async ({ page }) => {
-  await loginAsAdmin(page, "ar");
+  await page.goto("/ar/dashboard");
 
   await expect(
     page.getByRole("heading", {
@@ -10,7 +11,7 @@ test("authenticated dashboard supports bilingual locale switching", async ({ pag
     }).first(),
   ).toBeVisible();
 
-  await page.locator("button").filter({ hasText: "English" }).first().click();
+  await page.getByRole("button", { name: "التبديل إلى الإنجليزية" }).click();
   await expect(page).toHaveURL(/\/en\/dashboard(?:\?.*)?$/);
   await expect(
     page.getByRole("heading", {
@@ -18,6 +19,6 @@ test("authenticated dashboard supports bilingual locale switching", async ({ pag
     }).first(),
   ).toBeVisible();
 
-  await page.locator("button").filter({ hasText: "العربية" }).first().click();
+  await page.getByRole("button", { name: "Switch to Arabic" }).click();
   await expect(page).toHaveURL(/\/ar\/dashboard(?:\?.*)?$/);
 });

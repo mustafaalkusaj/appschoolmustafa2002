@@ -28,7 +28,7 @@ export interface AuditLogPayload {
   entity_type: EntityType;
   entity_id?: string;
   summary: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

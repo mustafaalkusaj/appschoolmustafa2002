@@ -2,6 +2,8 @@
 import { useCallback, useDeferredValue, useEffect, useState } from "react";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { formatNumber, formatDate } from "@/lib/formatting";
+import { translateLegacyText } from "@/lib/legacy-locale";
+import { getLocaleFromPath } from "@/lib/locale-routing";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -12,6 +14,7 @@ import { useRole } from "@/hooks/useRole";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
+import { usePathname } from "next/navigation";
 import { Search, RefreshCw, Download, Plus, FileText, Tags, Trash2, Edit2, X } from "@/lib/icons";
 
 const DEFAULT_EXPENSE_DATE = new Date().toISOString().split("T")[0];
@@ -98,9 +101,153 @@ function buildExpensesUrl(path: string, params: Record<string, string | number |
   return `${path}?${searchParams.toString()}`;
 }
 
+function tx(value: string, locale: "ar" | "en") {
+  return translateLegacyText(value, locale);
+}
+
+function formatCurrency(value: number, locale: "ar" | "en") {
+  return locale === "en" ? `IQD ${formatNumber(value)}` : `د.ع ${formatNumber(value)}`;
+}
+
+function formatPageLabel(page: number, totalPages: number, locale: "ar" | "en") {
+  return locale === "en" ? `Page ${page} of ${totalPages}` : `صفحة ${page} من ${totalPages}`;
+}
+
+function formatRecordCount(count: number, locale: "ar" | "en") {
+  return locale === "en" ? `${formatNumber(count)} records` : `${formatNumber(count)} سجل`;
+}
+
+function formatUsageCount(count: number, locale: "ar" | "en") {
+  return locale === "en" ? `${formatNumber(count)} uses` : `${formatNumber(count)} استخدام`;
+}
+
 export default function ExpensesPage() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname) as "ar" | "en";
+  const isEnglish = locale === "en";
   const { profile } = useRole();
   const schoolScope = useSchoolScope(profile);
+  const copy = isEnglish
+    ? {
+        title: "Expenses",
+        subtitle: "Manage operating expense records and categories",
+        schoolScopeTitle: "Expenses",
+        schoolScopeDescription: "Expense records and categories will not load until a school is selected for this section.",
+        noSchoolRecord: "Could not resolve the school for this record.",
+        noSchoolType: "Could not resolve the school for this category.",
+        loadTypesError: "Could not load expense categories.",
+        loadExpensesError: "Could not load expenses.",
+        saveExpenseError: "Could not save the expense.",
+        saveTypeError: "Could not save the category.",
+        updateExpenseSuccess: "Expense updated successfully.",
+        createExpenseSuccess: "Expense added successfully.",
+        updateTypeSuccess: "Category updated successfully.",
+        createTypeSuccess: "Category added successfully.",
+        deleteExpenseError: "Could not delete the expense.",
+        deleteExpenseSuccess: "Expense deleted successfully.",
+        deleteTypeError: "Could not delete the category.",
+        deleteTypeSuccess: "Category deleted successfully.",
+        exportSchoolMissing: "Select a school before exporting.",
+        exportError: "Could not export expenses.",
+        exportTypesFile: "expense_categories.xlsx",
+        exportSheet: "Expenses",
+        exportTypesSheet: "Expense categories",
+        exportFile: `expenses_${formatDate(new Date())}.xlsx`,
+        exportRows: {
+          type: "Type",
+          amount: "Amount",
+          date: "Date",
+          recipient: "Recipient",
+          receipt: "Receipt number",
+          note: "Notes",
+        },
+        exportTypeRows: {
+          name: "Name",
+          notes: "Notes",
+          usageCount: "Usage count",
+          usageTotal: "Total usage",
+        },
+        pageTotal: "Page total:",
+        searchPlaceholder: "Quick search...",
+        noExpenses: "No expenses found yet.",
+        refreshLabel: "Refresh",
+        invoices: "Expenses",
+        categories: "Categories",
+        addExpense: "Add expense",
+        addCategory: "Add category",
+        expenseActions: "Expense actions",
+        expensesList: "Expenses list",
+        categoriesList: "Expense categories",
+        loading: "Loading data...",
+        cancel: "Cancel",
+        selectType: "Select a type...",
+        notesFallback: "No notes",
+        deleteExpenseTitle: "Delete expense",
+        deleteExpenseDescription: "This expense record will be removed from the current list.",
+        deleteTypeTitle: "Delete expense category",
+        deleteTypeDescription: "This expense category will be removed from the system.",
+        confirmDelete: "Yes, delete",
+      }
+    : {
+        title: "المصروفات",
+        subtitle: "إدارة فواتير المصاريف التشغيلية وأنواعها",
+        schoolScopeTitle: "المصروفات",
+        schoolScopeDescription: "لن يتم تحميل فواتير المصروفات أو أنواعها قبل اختيار مدرسة صريحة لهذا القسم.",
+        noSchoolRecord: "لا يمكن تحديد المدرسة لهذا السجل",
+        noSchoolType: "لا يمكن تحديد المدرسة لهذا النوع",
+        loadTypesError: "تعذر تحميل أنواع المصروفات.",
+        loadExpensesError: "تعذر تحميل المصروفات.",
+        saveExpenseError: "تعذر حفظ المصروف.",
+        saveTypeError: "تعذر حفظ نوع المصروف.",
+        updateExpenseSuccess: "تم تحديث المصروف ✓",
+        createExpenseSuccess: "تمت إضافة المصروف ✓",
+        updateTypeSuccess: "تم تحديث النوع ✓",
+        createTypeSuccess: "تمت إضافة النوع ✓",
+        deleteExpenseError: "تعذر حذف المصروف.",
+        deleteExpenseSuccess: "تم حذف المصروف ✓",
+        deleteTypeError: "تعذر حذف نوع المصروف.",
+        deleteTypeSuccess: "تم حذف النوع ✓",
+        exportSchoolMissing: "لا يمكن تحديد المدرسة قبل التصدير",
+        exportError: "تعذر تصدير المصروفات.",
+        exportTypesFile: "أنواع_المصاريف.xlsx",
+        exportSheet: "المصاريف",
+        exportTypesSheet: "أنواع المصروفات",
+        exportFile: `مصاريف_${formatDate(new Date())}.xlsx`,
+        exportRows: {
+          type: "نوع المصروف",
+          amount: "المبلغ",
+          date: "التاريخ",
+          recipient: "مستلم الفاتورة",
+          receipt: "رقم الإيصال",
+          note: "ملاحظة",
+        },
+        exportTypeRows: {
+          name: "الاسم",
+          notes: "ملاحظات",
+          usageCount: "عدد الاستخدامات",
+          usageTotal: "إجمالي الاستخدام",
+        },
+        pageTotal: "إجمالي الصفحة:",
+        searchPlaceholder: "بحث سريع...",
+        noExpenses: "لا توجد مصروفات حالياً",
+        refreshLabel: "تحديث",
+        invoices: "المصروفات",
+        categories: "الأنواع",
+        addExpense: "إضافة مصروف",
+        addCategory: "إضافة نوع",
+        expenseActions: "إجراءات المصروفات",
+        expensesList: "قائمة المصروفات",
+        categoriesList: "تصنيفات المصروفات",
+        loading: "جارٍ تحميل البيانات...",
+        cancel: "إلغاء",
+        selectType: "اختر النوع...",
+        notesFallback: "لا توجد ملاحظات",
+        deleteExpenseTitle: "حذف المصروف",
+        deleteExpenseDescription: "سيتم حذف سجل المصروف نهائياً من القائمة الحالية.",
+        deleteTypeTitle: "حذف نوع المصروف",
+        deleteTypeDescription: "سيتم حذف نوع المصروف المحدد من النظام.",
+        confirmDelete: "نعم، احذف",
+      };
   const [activeTab, setActiveTab] = useState<"invoices"|"types">("invoices");
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseTypeRow[]>([]);
@@ -165,18 +312,18 @@ export default function ExpensesPage() {
         );
 
         if (!response.ok) {
-          throw new Error(getApiErrorMessage(payload, "تعذر تحميل أنواع المصروفات."));
+          throw new Error(getApiErrorMessage(payload, copy.loadTypesError));
         }
 
         setExpenseTypes(payload?.rows ?? []);
       } catch (fetchError) {
         setExpenseTypes([]);
-        setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل أنواع المصروفات.");
+        setError(fetchError instanceof Error ? fetchError.message : copy.loadTypesError);
       } finally {
         setTypesLoading(false);
       }
     },
-    [resolveScopedSchoolId],
+    [copy.loadTypesError, resolveScopedSchoolId],
   );
 
   const fetchExpenses = useCallback(
@@ -206,7 +353,7 @@ export default function ExpensesPage() {
         );
 
         if (!response.ok) {
-          throw new Error(getApiErrorMessage(payload, "تعذر تحميل المصروفات."));
+          throw new Error(getApiErrorMessage(payload, copy.loadExpensesError));
         }
 
         const nextTotalPages = payload?.totalPages ?? 1;
@@ -224,12 +371,12 @@ export default function ExpensesPage() {
         setExpenseSummary(EMPTY_EXPENSE_SUMMARY);
         setExpenseTotalCount(0);
         setExpenseTotalPages(1);
-        setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل المصروفات.");
+        setError(fetchError instanceof Error ? fetchError.message : copy.loadExpensesError);
       } finally {
         setExpensesLoading(false);
       }
     },
-    [deferredSearch, expensePage, expenseTypeFilter, filterFrom, filterTo, resolveScopedSchoolId],
+    [copy.loadExpensesError, deferredSearch, expensePage, expenseTypeFilter, filterFrom, filterTo, resolveScopedSchoolId],
   );
 
   const fetchAll = useCallback(async () => {
@@ -269,7 +416,7 @@ export default function ExpensesPage() {
     const scopedSchoolId = await resolveScopedSchoolId();
     const targetSchoolId = editExpense?.school_id || scopedSchoolId;
     if (!targetSchoolId) {
-      setError("لا يمكن تحديد المدرسة لهذا السجل");
+      setError(copy.noSchoolRecord);
       setSaving(false);
       return;
     }
@@ -296,9 +443,9 @@ export default function ExpensesPage() {
     );
 
     if (!response.ok) {
-      setError(getApiErrorMessage(responsePayload, "تعذر حفظ المصروف."));
+      setError(getApiErrorMessage(responsePayload, copy.saveExpenseError));
     } else {
-      setSuccess(editExpense ? "تم تحديث المصروف ✓" : "تمت إضافة المصروف ✓");
+      setSuccess(editExpense ? copy.updateExpenseSuccess : copy.createExpenseSuccess);
       setShowExpenseForm(false); setEditExpense(null);
       setForm({ expense_type_id: "", amount: "", expense_date: DEFAULT_EXPENSE_DATE, recipient: "", receipt_number: "", notes: "" });
       const shouldResetPage = !editExpense && expensePage !== 1;
@@ -318,7 +465,7 @@ export default function ExpensesPage() {
     const scopedSchoolId = await resolveScopedSchoolId();
     const targetSchoolId = editType?.school_id || scopedSchoolId;
     if (!targetSchoolId) {
-      setError("لا يمكن تحديد المدرسة لهذا النوع");
+      setError(copy.noSchoolType);
       setSavingType(false);
       return;
     }
@@ -335,9 +482,9 @@ export default function ExpensesPage() {
     );
 
     if (!response.ok) {
-      setError(getApiErrorMessage(responsePayload, "تعذر حفظ نوع المصروف."));
+      setError(getApiErrorMessage(responsePayload, copy.saveTypeError));
     } else {
-      setSuccess(editType ? "تم تحديث النوع ✓" : "تمت إضافة النوع ✓");
+      setSuccess(editType ? copy.updateTypeSuccess : copy.createTypeSuccess);
       setShowTypeForm(false); setEditType(null);
       setTypeForm({ name: "", notes: "" });
       await fetchExpenseTypes(targetSchoolId);
@@ -349,7 +496,7 @@ export default function ExpensesPage() {
   async function deleteExpense(id: string) {
     const scopedSchoolId = await resolveScopedSchoolId();
     if (!scopedSchoolId) {
-      setError("لا يمكن تحديد المدرسة لهذا السجل");
+      setError(copy.noSchoolRecord);
       return;
     }
 
@@ -363,11 +510,11 @@ export default function ExpensesPage() {
     );
 
     if (!response.ok) {
-      setError(getApiErrorMessage(payload, "تعذر حذف المصروف."));
+      setError(getApiErrorMessage(payload, copy.deleteExpenseError));
       return;
     }
 
-    setSuccess("تم حذف المصروف ✓");
+    setSuccess(copy.deleteExpenseSuccess);
     await fetchExpenses(scopedSchoolId);
     await fetchExpenseTypes(scopedSchoolId);
     setTimeout(() => setSuccess(""), 3000);
@@ -376,7 +523,7 @@ export default function ExpensesPage() {
   async function deleteType(id: string) {
     const scopedSchoolId = await resolveScopedSchoolId();
     if (!scopedSchoolId) {
-      setError("لا يمكن تحديد المدرسة لهذا السجل");
+      setError(copy.noSchoolRecord);
       return;
     }
 
@@ -390,11 +537,11 @@ export default function ExpensesPage() {
     );
 
     if (!response.ok) {
-      setError(getApiErrorMessage(payload, "تعذر حذف نوع المصروف."));
+      setError(getApiErrorMessage(payload, copy.deleteTypeError));
       return;
     }
 
-    setSuccess("تم حذف النوع ✓");
+    setSuccess(copy.deleteTypeSuccess);
     await fetchExpenseTypes(scopedSchoolId);
     setTimeout(() => setSuccess(""), 3000);
   }
@@ -432,7 +579,7 @@ export default function ExpensesPage() {
   async function exportExcel() {
     const scopedSchoolId = await resolveScopedSchoolId();
     if (!scopedSchoolId) {
-      setError("لا يمكن تحديد المدرسة قبل التصدير");
+      setError(copy.exportSchoolMissing);
       return;
     }
 
@@ -455,7 +602,7 @@ export default function ExpensesPage() {
       );
 
       if (!response.ok) {
-        setError(getApiErrorMessage(payload, "تعذر تصدير المصروفات."));
+        setError(getApiErrorMessage(payload, copy.exportError));
         return;
       }
 
@@ -466,32 +613,32 @@ export default function ExpensesPage() {
 
     const rows = exportRows.map((item, index) => ({
       "#": index + 1,
-      "نوع المصروف": item.expense_types?.name || "—",
-      "المبلغ": item.amount,
-      "التاريخ": item.expense_date,
-      "مستلم الفاتورة": item.recipient || "—",
-      "رقم الإيصال": item.receipt_number || "—",
-      "ملاحظة": item.notes || "",
+      [copy.exportRows.type]: item.expense_types?.name || "—",
+      [copy.exportRows.amount]: item.amount,
+      [copy.exportRows.date]: item.expense_date,
+      [copy.exportRows.recipient]: item.recipient || "—",
+      [copy.exportRows.receipt]: item.receipt_number || "—",
+      [copy.exportRows.note]: item.notes || "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "المصاريف");
-    await XLSX.writeFile(wb, `مصاريف_${formatDate(new Date())}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, copy.exportSheet);
+    await XLSX.writeFile(wb, copy.exportFile);
   }
 
   async function exportTypesExcel() {
     const XLSX = await loadXLSX();
     const rows = expenseTypes.map((t, i) => ({
       "#": i + 1,
-      "الاسم": t.name,
-      "ملاحظات": t.notes || "",
-      "عدد الاستخدامات": t.usage_count,
-      "إجمالي الاستخدام": t.usage_total,
+      [copy.exportTypeRows.name]: t.name,
+      [copy.exportTypeRows.notes]: t.notes || "",
+      [copy.exportTypeRows.usageCount]: t.usage_count,
+      [copy.exportTypeRows.usageTotal]: t.usage_total,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "أنواع المصروفات");
-    await XLSX.writeFile(wb, `أنواع_المصاريف.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, copy.exportTypesSheet);
+    await XLSX.writeFile(wb, copy.exportTypesFile);
   }
 
   const filteredTypes = expenseTypes.filter((t) => !typeSearch || t.name.includes(typeSearch));
@@ -507,8 +654,8 @@ export default function ExpensesPage() {
 
         <div className="flex-1 flex flex-col min-w-0">
           <AppShellTopbar 
-            title="المصروفات" 
-            subtitle="إدارة فواتير المصاريف التشغيلية وأنواعها" 
+            title={copy.title} 
+            subtitle={copy.subtitle} 
             scope={schoolScope} 
             fixed 
           />
@@ -532,19 +679,19 @@ export default function ExpensesPage() {
                 <div className="rounded-[40px] border border-[var(--border)] bg-[var(--surface-strong)] p-8 shadow-lg">
                   <SchoolScopeEmptyState
                     scope={schoolScope}
-                    title="المصروفات"
-                    description="لن يتم تحميل فواتير المصروفات أو أنواعها قبل اختيار مدرسة صريحة لهذا القسم."
+                    title={copy.schoolScopeTitle}
+                    description={copy.schoolScopeDescription}
                   />
                 </div>
               ) : (
                 <div className="space-y-8">
                   {/* Hero Stats */}
                   <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: "إجمالي المصروفات", value: `د.ع ${formatNumber(totalAll)}`, icon: FileText, color: "text-[var(--info)]", bg: "bg-[var(--info)]/10" },
-                      { label: "عدد السجلات", value: formatNumber(expenseSummary.schoolTotalCount), icon: Search, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
-                      { label: "أنواع المصروفات", value: formatNumber(expenseTypes.length), icon: Tags, color: "text-[var(--success)]", bg: "bg-[var(--success)]/10" },
-                      { label: "مصاريف اليوم", value: `د.ع ${formatNumber(expenseSummary.schoolTodayAmount)}`, icon: RefreshCw, color: "text-[var(--warning)]", bg: "bg-[var(--warning)]/10" },
+                      {[
+                      { label: tx("إجمالي المصروفات", locale), value: formatCurrency(totalAll, locale), icon: FileText, color: "text-[var(--info)]", bg: "bg-[var(--info)]/10" },
+                      { label: tx("عدد السجلات", locale), value: formatNumber(expenseSummary.schoolTotalCount), icon: Search, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
+                      { label: tx("أنواع المصروفات", locale), value: formatNumber(expenseTypes.length), icon: Tags, color: "text-[var(--success)]", bg: "bg-[var(--success)]/10" },
+                      { label: tx("مصاريف اليوم", locale), value: formatCurrency(expenseSummary.schoolTodayAmount, locale), icon: RefreshCw, color: "text-[var(--warning)]", bg: "bg-[var(--warning)]/10" },
                     ].map((card, i) => (
                       <div key={i} className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 shadow-sm flex items-center gap-4">
                         <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center", card.bg, card.color)}>
@@ -566,7 +713,7 @@ export default function ExpensesPage() {
                           <div className="h-8 w-8 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center">
                             <Plus size={18} />
                           </div>
-                          <h2 className="text-lg font-black text-[var(--text-primary)]">إجراءات المصروفات</h2>
+                          <h2 className="text-lg font-black text-[var(--text-primary)]">{copy.expenseActions}</h2>
                         </div>
                         <div className="flex gap-2">
                           <button 
@@ -574,7 +721,7 @@ export default function ExpensesPage() {
                             onClick={activeTab === "invoices" ? exportExcel : exportTypesExcel}
                           >
                             <Download size={16} />
-                            تصدير إكسل
+                            {tx("تصدير إكسل", locale)}
                           </button>
                           <button 
                             className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[var(--primary)] text-white text-xs font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95"
@@ -584,7 +731,7 @@ export default function ExpensesPage() {
                             }}
                           >
                             <Plus size={16} />
-                            {activeTab === "invoices" ? "إضافة مصروف" : "إضافة نوع"}
+                            {activeTab === "invoices" ? copy.addExpense : copy.addCategory}
                           </button>
                         </div>
                       </div>
@@ -592,17 +739,17 @@ export default function ExpensesPage() {
                       {activeTab === "invoices" && (
                         <div className="grid gap-4 sm:grid-cols-3 p-4 rounded-2xl bg-[var(--surface-muted)] border border-[var(--border)]">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">من تاريخ</label>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("من تاريخ", locale)}</label>
                             <input type="date" className={inputClasses} value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">إلى تاريخ</label>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("إلى تاريخ", locale)}</label>
                             <input type="date" className={inputClasses} value={filterTo} onChange={e => setFilterTo(e.target.value)} />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">نوع المصروف</label>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("نوع المصروف", locale)}</label>
                             <select className={inputClasses} value={expenseTypeFilter} onChange={e => setExpenseTypeFilter(e.target.value)}>
-                              <option value="">كل الأنواع</option>
+                              <option value="">{tx("كل الأنواع", locale)}</option>
                               {expenseTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
                           </div>
@@ -621,7 +768,7 @@ export default function ExpensesPage() {
                       onClick={() => setActiveTab("invoices")}
                     >
                       <FileText size={14} />
-                      المصروفات
+                      {copy.invoices}
                       <span className="ms-1 px-1.5 py-0.5 rounded-md bg-[var(--surface-muted)] text-[10px]">{expenseSummary.schoolTotalCount}</span>
                     </button>
                     <button 
@@ -632,7 +779,7 @@ export default function ExpensesPage() {
                       onClick={() => setActiveTab("types")}
                     >
                       <Tags size={14} />
-                      الأنواع
+                      {copy.categories}
                       <span className="ms-1 px-1.5 py-0.5 rounded-md bg-[var(--surface-muted)] text-[10px]">{expenseTypes.length}</span>
                     </button>
                   </div>
@@ -642,10 +789,10 @@ export default function ExpensesPage() {
                     <div className="space-y-8">
                       <div className="flex items-center justify-between border-b border-[var(--border)] pb-6">
                         <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 rounded-full bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-wider">{activeTab === "invoices" ? expenseTotalCount : filteredTypes.length} سجل</span>
-                          <h2 className="text-xl font-black text-[var(--text-primary)]">{activeTab === "invoices" ? "قائمة المصروفات" : "تصنيفات المصروفات"}</h2>
+                          <span className="px-3 py-1 rounded-full bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-wider">{formatRecordCount(activeTab === "invoices" ? expenseTotalCount : filteredTypes.length, locale)}</span>
+                          <h2 className="text-xl font-black text-[var(--text-primary)]">{activeTab === "invoices" ? copy.expensesList : copy.categoriesList}</h2>
                         </div>
-                        <button className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--surface-muted)] text-[var(--primary)] transition-all hover:bg-[var(--border)]" onClick={fetchAll}>
+                        <button aria-label={copy.refreshLabel} title={copy.refreshLabel} className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--surface-muted)] text-[var(--primary)] transition-all hover:bg-[var(--border)]" onClick={fetchAll}>
                           <RefreshCw size={18} />
                         </button>
                       </div>
@@ -653,7 +800,7 @@ export default function ExpensesPage() {
                       <div className="relative">
                         <Search size={16} className="absolute start-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                         <input 
-                          placeholder="بحث سريع..." 
+                          placeholder={copy.searchPlaceholder} 
                           className={cn(inputClasses, "ps-11")}
                           value={activeTab === "invoices" ? search : typeSearch} 
                           onChange={e => activeTab === "invoices" ? setSearch(e.target.value) : setTypeSearch(e.target.value)} 
@@ -663,22 +810,22 @@ export default function ExpensesPage() {
                       {expensesLoading && activeTab === "invoices" ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-4">
                           <div className="h-12 w-12 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
-                          <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">جارٍ تحميل البيانات...</span>
+                          <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">{copy.loading}</span>
                         </div>
                       ) : activeTab === "invoices" && expenses.length === 0 ? (
-                        <div className="py-20 text-center text-[var(--text-secondary)] font-bold">لا توجد مصروفات حالياً</div>
+                        <div className="py-20 text-center text-[var(--text-secondary)] font-bold">{copy.noExpenses}</div>
                       ) : activeTab === "invoices" ? (
                         <div className="overflow-x-auto rounded-2xl border border-[var(--border)]">
                           <table className="w-full text-start border-collapse">
                             <thead>
                               <tr className="bg-[var(--surface-muted)] text-start">
                                 <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">#</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">النوع</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">المبلغ</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">التاريخ</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">المستلم</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الإيصال</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">إجراءات</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{tx("النوع", locale)}</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{tx("المبلغ", locale)}</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{tx("التاريخ", locale)}</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{tx("المستلم", locale)}</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{tx("الإيصال", locale)}</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{tx("الإجراءات", locale)}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--border)]">
@@ -693,7 +840,7 @@ export default function ExpensesPage() {
                                     </span>
                                   </td>
                                   <td className="p-4 text-sm font-black text-[var(--danger)]">
-                                    د.ع {formatNumber(e.amount)}
+                                    {formatCurrency(e.amount, locale)}
                                   </td>
                                   <td className="p-4 text-xs font-bold text-[var(--text-secondary)]">
                                     {formatDate(e.expense_date)}
@@ -725,13 +872,13 @@ export default function ExpensesPage() {
                       {activeTab === "invoices" && expenses.length > 0 && (
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
                           <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)]">
-                            <span className="text-xs font-black uppercase tracking-wider opacity-70">إجمالي الصفحة:</span>
-                            <span className="text-sm font-black">د.ع {formatNumber(totalFiltered)}</span>
+                            <span className="text-xs font-black uppercase tracking-wider opacity-70">{copy.pageTotal}</span>
+                            <span className="text-sm font-black">{formatCurrency(totalFiltered, locale)}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button className="h-10 px-4 rounded-xl bg-[var(--surface-muted)] text-xs font-black disabled:opacity-40" onClick={() => setExpensePage((current) => Math.max(1, current - 1))} disabled={expensePage <= 1}>السابق</button>
-                            <span className="text-xs font-bold text-[var(--text-secondary)]">صفحة {expensePage} من {expenseTotalPages}</span>
-                            <button className="h-10 px-4 rounded-xl bg-[var(--surface-muted)] text-xs font-black disabled:opacity-40" onClick={() => setExpensePage((current) => Math.min(expenseTotalPages, current + 1))} disabled={expensePage >= expenseTotalPages}>التالي</button>
+                            <button className="h-10 px-4 rounded-xl bg-[var(--surface-muted)] text-xs font-black disabled:opacity-40" onClick={() => setExpensePage((current) => Math.max(1, current - 1))} disabled={expensePage <= 1}>{tx("السابق", locale)}</button>
+                            <span className="text-xs font-bold text-[var(--text-secondary)]">{formatPageLabel(expensePage, expenseTotalPages, locale)}</span>
+                            <button className="h-10 px-4 rounded-xl bg-[var(--surface-muted)] text-xs font-black disabled:opacity-40" onClick={() => setExpensePage((current) => Math.min(expenseTotalPages, current + 1))} disabled={expensePage >= expenseTotalPages}>{tx("التالي", locale)}</button>
                           </div>
                         </div>
                       )}
@@ -743,7 +890,7 @@ export default function ExpensesPage() {
                               <div className="flex items-start justify-between">
                                 <div className="space-y-1">
                                   <h3 className="font-black text-[var(--text-primary)]">{t.name}</h3>
-                                  <p className="text-xs text-[var(--text-secondary)] line-clamp-1">{t.notes || "لا توجد ملاحظات"}</p>
+                                  <p className="text-xs text-[var(--text-secondary)] line-clamp-1">{t.notes || copy.notesFallback}</p>
                                 </div>
                                 <div className="flex gap-1">
                                   <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[var(--border)] transition-colors" onClick={() => openEditType(t)}>
@@ -755,8 +902,8 @@ export default function ExpensesPage() {
                                 </div>
                               </div>
                               <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
-                                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{t.usage_count} استخدام</div>
-                                <div className="text-sm font-black text-[var(--primary)]">د.ع {formatNumber(t.usage_total)}</div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{formatUsageCount(t.usage_count, locale)}</div>
+                                <div className="text-sm font-black text-[var(--primary)]">{formatCurrency(t.usage_total, locale)}</div>
                               </div>
                             </div>
                           ))}
@@ -780,7 +927,7 @@ export default function ExpensesPage() {
                 <div className="h-10 w-10 rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center">
                   <FileText size={20} />
                 </div>
-                <h3 className="text-lg font-black text-[var(--text-primary)]">{editExpense ? "تعديل المصروف" : "إضافة مصروف جديد"}</h3>
+                <h3 className="text-lg font-black text-[var(--text-primary)]">{editExpense ? tx("تعديل المصروف", locale) : tx("إضافة مصروف جديد", locale)}</h3>
               </div>
               <button className="h-8 w-8 flex items-center justify-center rounded-full bg-[var(--surface-strong)] shadow-sm border border-[var(--border)]" onClick={() => setShowExpenseForm(false)}>
                 <X size={16} />
@@ -788,41 +935,41 @@ export default function ExpensesPage() {
             </div>
             <form onSubmit={handleSaveExpense} className="p-8 space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">نوع المصروف *</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("نوع المصروف", locale)} *</label>
                 <select className={inputClasses} required value={form.expense_type_id} onChange={e => setForm({ ...form, expense_type_id: e.target.value })}>
-                  <option value="">اختر النوع...</option>
+                  <option value="">{copy.selectType}</option>
                   {expenseTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">المبلغ (د.ع) *</label>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("المبلغ (د.ع) *", locale)}</label>
                   <input className={inputClasses} type="number" required placeholder="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">التاريخ *</label>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("التاريخ", locale)} *</label>
                   <input className={inputClasses} type="date" required value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">مستلم الفاتورة</label>
-                  <input className={inputClasses} placeholder="اسم المستلم..." value={form.recipient} onChange={e => setForm({ ...form, recipient: e.target.value })} />
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("مستلم الفاتورة", locale)}</label>
+                  <input className={inputClasses} placeholder={tx("اسم المستلم...", locale)} value={form.recipient} onChange={e => setForm({ ...form, recipient: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">رقم الإيصال</label>
-                  <input className={inputClasses} placeholder="رقم الإيصال..." value={form.receipt_number} onChange={e => setForm({ ...form, receipt_number: e.target.value })} />
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("رقم الإيصال", locale)}</label>
+                  <input className={inputClasses} placeholder={tx("رقم الإيصال...", locale)} value={form.receipt_number} onChange={e => setForm({ ...form, receipt_number: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">ملاحظات إضافية</label>
-                <textarea className={cn(inputClasses, "h-24 resize-none")} placeholder="أي ملاحظات..." value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("ملاحظات إضافية", locale)}</label>
+                <textarea className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("أي ملاحظات...", locale)} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 h-12 bg-[var(--primary)] text-white rounded-2xl font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={saving}>
-                  {saving ? "جارٍ الحفظ..." : (editExpense ? "تعديل السجل" : "إضافة السجل")}
+                  {saving ? tx("جارٍ الحفظ...", locale) : (editExpense ? tx("تعديل السجل", locale) : tx("إضافة السجل", locale))}
                 </button>
-                <button type="button" className="px-8 h-12 bg-[var(--surface-muted)] text-[var(--text-secondary)] rounded-2xl font-black" onClick={() => setShowExpenseForm(false)}>إلغاء</button>
+                <button type="button" className="px-8 h-12 bg-[var(--surface-muted)] text-[var(--text-secondary)] rounded-2xl font-black" onClick={() => setShowExpenseForm(false)}>{copy.cancel}</button>
               </div>
             </form>
           </div>
@@ -837,7 +984,7 @@ export default function ExpensesPage() {
                 <div className="h-10 w-10 rounded-2xl bg-[var(--success)]/10 text-[var(--success)] flex items-center justify-center">
                   <Tags size={20} />
                 </div>
-                <h3 className="text-lg font-black text-[var(--text-primary)]">{editType ? "تعديل النوع" : "إضافة نوع جديد"}</h3>
+                <h3 className="text-lg font-black text-[var(--text-primary)]">{editType ? tx("تعديل النوع", locale) : tx("إضافة نوع جديد", locale)}</h3>
               </div>
               <button className="h-8 w-8 flex items-center justify-center rounded-full bg-[var(--surface-strong)] shadow-sm border border-[var(--border)]" onClick={() => setShowTypeForm(false)}>
                 <X size={16} />
@@ -845,18 +992,18 @@ export default function ExpensesPage() {
             </div>
             <form onSubmit={handleSaveType} className="p-8 space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">اسم التصنيف *</label>
-                <input className={inputClasses} required placeholder="مثال: صيانة، قرطاسية..." value={typeForm.name} onChange={e => setTypeForm({ ...typeForm, name: e.target.value })} />
+                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("اسم التصنيف *", locale)}</label>
+                <input className={inputClasses} required placeholder={tx("مثال: صيانة، قرطاسية...", locale)} value={typeForm.name} onChange={e => setTypeForm({ ...typeForm, name: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">وصف أو ملاحظات</label>
-                <textarea className={cn(inputClasses, "h-24 resize-none")} placeholder="اختياري..." value={typeForm.notes} onChange={e => setTypeForm({ ...typeForm, notes: e.target.value })} />
+                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("وصف أو ملاحظات", locale)}</label>
+                <textarea className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("اختياري...", locale)} value={typeForm.notes} onChange={e => setTypeForm({ ...typeForm, notes: e.target.value })} />
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 h-12 bg-[var(--success)] text-white rounded-2xl font-black shadow-lg shadow-[var(--success)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={savingType}>
-                  {savingType ? "جارٍ الحفظ..." : (editType ? "حفظ التغييرات" : "إضافة النوع")}
+                  {savingType ? tx("جارٍ الحفظ...", locale) : (editType ? tx("حفظ التغييرات", locale) : tx("إضافة نوع", locale))}
                 </button>
-                <button type="button" className="px-8 h-12 bg-[var(--surface-muted)] text-[var(--text-secondary)] rounded-2xl font-black" onClick={() => setShowTypeForm(false)}>إلغاء</button>
+                <button type="button" className="px-8 h-12 bg-[var(--surface-muted)] text-[var(--text-secondary)] rounded-2xl font-black" onClick={() => setShowTypeForm(false)}>{copy.cancel}</button>
               </div>
             </form>
           </div>
@@ -865,10 +1012,10 @@ export default function ExpensesPage() {
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}
-        title={pendingDelete?.type === "expense" ? "حذف المصروف" : "حذف نوع المصروف"}
-        description={pendingDelete?.type === "expense" ? "سيتم حذف سجل المصروف نهائياً من القائمة الحالية." : "سيتم حذف نوع المصروف المحدد من النظام."}
-        confirmLabel="نعم، احذف"
-        cancelLabel="إلغاء"
+        title={pendingDelete?.type === "expense" ? copy.deleteExpenseTitle : copy.deleteTypeTitle}
+        description={pendingDelete?.type === "expense" ? copy.deleteExpenseDescription : copy.deleteTypeDescription}
+        confirmLabel={copy.confirmDelete}
+        cancelLabel={copy.cancel}
         tone="danger"
         onClose={() => setPendingDelete(null)}
         onConfirm={() => void handleConfirmDelete()}

@@ -150,24 +150,43 @@ function safeNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
-async function applyModerationVisibilityScope(
-  query: any,
+type ModerationVisibilityScope = {
+  hasStatus: boolean;
+  hasDeletedAt: boolean;
+};
+
+const moderationVisibilityScopeCache = new Map<"notifications" | "assignments", Promise<ModerationVisibilityScope>>();
+
+async function getModerationVisibilityScope(
   client: ReturnType<typeof createServiceSupabaseClient>,
   table: "notifications" | "assignments",
-) {
-  const [hasStatus, hasDeletedAt] = await Promise.all([
+): Promise<ModerationVisibilityScope> {
+  const cached = moderationVisibilityScopeCache.get(table);
+  if (cached) return cached;
+
+  const promise = Promise.all([
     tableHasColumn(client, table, "status").catch(() => false),
     tableHasColumn(client, table, "deleted_at").catch(() => false),
-  ]);
+  ]).then(([hasStatus, hasDeletedAt]) => ({ hasStatus, hasDeletedAt }));
 
-  let nextQuery = query;
-  if (hasStatus) {
-    nextQuery = nextQuery.neq("status", "deleted_by_admin");
+  moderationVisibilityScopeCache.set(table, promise);
+  return promise;
+}
+
+type ModerationVisibilityQueryLike = {
+  neq: (column: string, value: unknown) => ModerationVisibilityQueryLike;
+  is: (column: string, value: unknown) => ModerationVisibilityQueryLike;
+};
+
+function applyModerationVisibilityScope<TQuery>(query: TQuery, scope: ModerationVisibilityScope): TQuery {
+  let next = query as unknown as ModerationVisibilityQueryLike;
+  if (scope.hasStatus) {
+    next = next.neq("status", "deleted_by_admin");
   }
-  if (hasDeletedAt) {
-    nextQuery = nextQuery.is("deleted_at", null);
+  if (scope.hasDeletedAt) {
+    next = next.is("deleted_at", null);
   }
-  return nextQuery;
+  return next as unknown as TQuery;
 }
 
 export function parseMobileListParams(req: NextRequest, defaults?: { limit?: number; maxLimit?: number }): MobileListParams {
@@ -287,13 +306,14 @@ async function queryStudentNotificationsInternal(
   ctx: MobileRouteContext,
   params: MobileListParams,
 ) {
+  const notificationsVisibility = await getModerationVisibilityScope(ctx.serviceSupabase, "notifications");
   let notificationsQuery = ctx.serviceSupabase
     .from("notifications")
     .select(NOTIFICATION_SELECT)
     .eq("user_id", ctx.authUserId)
     .eq("school_id", ctx.schoolId);
 
-  notificationsQuery = await applyModerationVisibilityScope(notificationsQuery, ctx.serviceSupabase, "notifications");
+  notificationsQuery = applyModerationVisibilityScope(notificationsQuery, notificationsVisibility);
 
   const response = await notificationsQuery
     .order("created_at", { ascending: false })
@@ -315,7 +335,7 @@ async function queryStudentNotificationsInternal(
     .eq("school_id", ctx.schoolId)
     .eq("is_read", false);
 
-  unreadQuery = await applyModerationVisibilityScope(unreadQuery, ctx.serviceSupabase, "notifications");
+  unreadQuery = applyModerationVisibilityScope(unreadQuery, notificationsVisibility);
 
   const unreadResponse = await unreadQuery;
 
@@ -343,6 +363,8 @@ export async function queryStudentAssignments(
   if (!student?.id) {
     return { gate: AVAILABLE_GATE, items: [] };
   }
+
+  const assignmentsVisibility = await getModerationVisibilityScope(ctx.serviceSupabase, "assignments");
 
   const buildQueries = () => {
     const queries = [
@@ -373,11 +395,15 @@ export async function queryStudentAssignments(
       }
     }
 
-    return queries.map(async (query) =>
-      (await applyModerationVisibilityScope(query, ctx.serviceSupabase, "assignments"))
+    return queries.map(async (query) => {
+      const scoped = applyModerationVisibilityScope(query, assignmentsVisibility);
+      const response = await scoped
         .order("created_at", { ascending: false })
-        .limit(Math.max(params.limit * 3, 60)),
-    );
+        .limit(Math.max(params.limit * 3, 60));
+
+      const record = response as { data?: unknown; error?: unknown };
+      return { data: record.data ?? null, error: record.error ?? null };
+    });
   };
 
   const results = await Promise.all(buildQueries());
@@ -391,9 +417,7 @@ export async function queryStudentAssignments(
   }
 
   const rows = dedupeRowsById(
-    results.flatMap((result) =>
-      Array.isArray(result.data) ? (result.data as unknown as Record<string, unknown>[]) : [],
-    ),
+    results.flatMap((result) => (Array.isArray(result.data) ? (result.data as Record<string, unknown>[]) : [])),
   );
 
   return {
@@ -529,7 +553,7 @@ export async function queryTeacherAssignments(
     .eq("school_id", ctx.schoolId)
     .eq("teacher_id", teacher.id);
 
-  query = await applyModerationVisibilityScope(query, ctx.serviceSupabase, "assignments");
+  query = applyModerationVisibilityScope(query, await getModerationVisibilityScope(ctx.serviceSupabase, "assignments"));
 
   const { data, error } = await query
     .order("created_at", { ascending: false })
@@ -601,7 +625,7 @@ export async function queryTeacherNotifications(
     .eq("school_id", ctx.schoolId)
     .contains("metadata", { teacher_id: teacher.id });
 
-  query = await applyModerationVisibilityScope(query, ctx.serviceSupabase, "notifications");
+  query = applyModerationVisibilityScope(query, await getModerationVisibilityScope(ctx.serviceSupabase, "notifications"));
 
   const { data, error } = await query
     .order("created_at", { ascending: false })

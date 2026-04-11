@@ -2,9 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
+  workers: 1,
   reporter: [
     ["list"],
     ["html", { open: "never", outputFolder: "output/playwright/report" }],
@@ -22,7 +23,16 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
       name: "chromium",
+      dependencies: ["setup"],
+      testIgnore: /auth\.setup\.ts/,
       use: {
         ...devices["Desktop Chrome"],
       },

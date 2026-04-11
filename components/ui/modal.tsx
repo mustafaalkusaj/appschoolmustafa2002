@@ -203,7 +203,8 @@ export function Modal({
             "rounded-[var(--modal-radius)]",
             "border border-[var(--card-border)]",
             "shadow-xl",
-            "focus:outline-none"
+            "focus:outline-none",
+            className
           )}
           style={animationStyles.panel}
         >

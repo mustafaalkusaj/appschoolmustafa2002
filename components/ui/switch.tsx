@@ -47,7 +47,8 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
     },
     ref
   ) => {
-    const generatedId = id || name || React.useId();
+    const autoId = React.useId();
+    const generatedId = id || name || autoId;
 
     const handleClick = () => {
       if (!disabled && onChange) {

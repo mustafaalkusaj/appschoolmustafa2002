@@ -32,7 +32,8 @@ function CheckIcon({ className }: { className?: string }) {
 
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, label, disabled, checked, ...props }, ref) => {
-    const id = props.id || props.name || React.useId();
+    const autoId = React.useId();
+    const id = props.id || props.name || autoId;
 
     return (
       <div className="flex items-center gap-2">
@@ -70,10 +71,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             )}
             aria-hidden="true"
           >
-            {/* Checkmark */}
-            {checked && (
-              <CheckIcon className="text-white" />
-            )}
+            <CheckIcon className="text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100" />
           </span>
         </div>
         {/* Label */}

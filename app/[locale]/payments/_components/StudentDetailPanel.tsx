@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
-import { Drawer, DrawerHeader, DrawerBody, DrawerFooter } from "@/components/ui/drawer";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button, IconButton } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -46,13 +46,14 @@ export function StudentDetailPanel({
   const progressPct = student.total_fee > 0 ? Math.min(100, Math.round((student.paid_fee / student.total_fee) * 100)) : 0;
 
   return (
-    <Drawer open={show} onClose={onClose} side="end">
-      <DrawerHeader
+    <Modal open={show} onClose={onClose} size="full" className="max-h-[88vh] overflow-hidden">
+      <ModalHeader
         title={t("payments.detailPanel.title", { student: student.full_name })}
+        description={t("payments.detailPanel.financialSummaryTitle")}
         onClose={onClose}
       />
 
-      <DrawerBody className="space-y-6">
+      <ModalBody className="max-h-[calc(88vh-9.5rem)] overflow-y-auto space-y-6">
         {/* Student Info Card */}
         <Card className="p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-bold text-[var(--primary)]">
@@ -162,14 +163,14 @@ export function StudentDetailPanel({
             </div>
           )}
         </div>
-      </DrawerBody>
+      </ModalBody>
 
-      <DrawerFooter>
+      <ModalFooter>
         <Button variant="secondary" onClick={onClose}>
           {t("payments.detailPanel.close")}
         </Button>
-      </DrawerFooter>
-    </Drawer>
+      </ModalFooter>
+    </Modal>
   );
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { AppIcon } from "@/components/AppIcon";
 import { cn } from "@/lib/brand/brand-utils";
 import type { StudentWithFees, StudentActionItem } from "../_types";
@@ -19,8 +20,9 @@ export function StudentDropdownMenu({
 }: StudentDropdownMenuProps) {
   if (!activeMenu || !selectedStudent) return null;
 
-  return (
+  const content = (
     <div
+      data-student-dropdown-menu
       className={cn(
         "fixed z-[var(--z-dropdown)]",
         "min-w-[180px]",
@@ -41,6 +43,7 @@ export function StudentDropdownMenu({
           <button
             key={i}
             type="button"
+            data-student-dropdown-action
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-start",
               "transition-colors",
@@ -57,4 +60,6 @@ export function StudentDropdownMenu({
       )}
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(content, document.body) : null;
 }

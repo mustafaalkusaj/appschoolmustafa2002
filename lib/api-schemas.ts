@@ -109,6 +109,16 @@ export const loginRequestSchema = z.object({
   password: z.string().min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل.").max(256),
 });
 
+export const forgotPasswordRequestSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .max(320)
+    .email("أدخل بريداً إلكترونياً صحيحاً.")
+    .transform((value) => value.toLowerCase()),
+  locale: z.enum(["ar", "en"]).default("ar"),
+});
+
 export const createPaymentSchema = z.object({
   school_id: entityIdSchema(),
   student_id: entityIdSchema(),

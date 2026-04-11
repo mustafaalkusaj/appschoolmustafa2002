@@ -7,6 +7,7 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { getAcademicYearLabel } from "@/lib/academic-year";
+import { translateLegacyText } from "@/lib/legacy-locale";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { cn } from "@/lib/brand/brand-utils";
 
@@ -30,6 +31,8 @@ export function AppShellTopbar({
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const academicYearLabel = getAcademicYearLabel(new Date(), locale);
+  const resolvedTitle = translateLegacyText(title, locale);
+  const resolvedSubtitle = subtitle ? translateLegacyText(subtitle, locale) : subtitle;
 
   
   const topbarRef = useRef<HTMLElement | null>(null);
@@ -62,7 +65,7 @@ export function AppShellTopbar({
       ref={topbarRef} 
       className={cn(
         "h-[var(--topbar-height)] px-4 sm:px-6 flex items-center bg-[var(--topbar-bg)] border-b border-[var(--border)] z-[var(--z-topbar)] transition-all duration-300",
-        fixed && "fixed top-0 inset-x-0 lg:start-[var(--sidebar-width)]",
+        fixed && "fixed top-0 inset-x-0 lg:start-[var(--sidebar-width)] shadow-[var(--shadow-sm)] backdrop-blur-[18px]",
         className
       )}
     >
@@ -79,12 +82,12 @@ export function AppShellTopbar({
           </button>
 
           <div className="flex flex-col min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)] leading-tight truncate">
-              {title}
+            <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)] leading-tight">
+              {resolvedTitle}
             </h1>
-            {subtitle && (
+            {resolvedSubtitle && (
               <p className="text-xs text-[var(--text-muted)] font-medium truncate max-w-[200px] sm:max-w-[400px]">
-                {subtitle}
+                {resolvedSubtitle}
               </p>
             )}
           </div>

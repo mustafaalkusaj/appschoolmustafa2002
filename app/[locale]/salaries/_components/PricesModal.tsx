@@ -1,6 +1,5 @@
 "use client";
 
-import { AppIcon } from "@/components/AppIcon";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

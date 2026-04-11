@@ -1,7 +1,9 @@
 "use client";
 
+import { getLocaleFromPath } from "@/lib/locale-routing";
 import { TableSkeleton } from "@/components/skeleton";
 import { ListPagination } from "@/components/school/ListPagination";
+import { usePathname } from "next/navigation";
 
 export function DataTableShell({
   loading,
@@ -32,6 +34,11 @@ export function DataTableShell({
   totalCount: number;
   onPageChange: (p: number) => void;
 }) {
+  const locale = getLocaleFromPath(usePathname()) as "ar" | "en";
+  const retryLabel = locale === "en" ? "Try again" : "إعادة المحاولة";
+  const resolvedEmptyMessage =
+    emptyMessage === "لا توجد بيانات" && locale === "en" ? "No data available" : emptyMessage;
+
   if (error) {
     return (
       <div
@@ -57,7 +64,7 @@ export function DataTableShell({
               opacity: 0.82,
             }}
           >
-            إعادة المحاولة
+            {retryLabel}
           </button>
         ) : null}
       </div>
@@ -73,7 +80,7 @@ export function DataTableShell({
         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: ".5rem" }}
       >
         <div style={{ fontSize: "2rem", lineHeight: 1 }}>{emptyIcon}</div>
-        <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{emptyMessage}</div>
+        <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{resolvedEmptyMessage}</div>
         {emptyDetail ? (
           <div style={{ fontSize: ".78rem", color: "var(--text-tertiary)", maxWidth: 280, textAlign: "center" }}>
             {emptyDetail}

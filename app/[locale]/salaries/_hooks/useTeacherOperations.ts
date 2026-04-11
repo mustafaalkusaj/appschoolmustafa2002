@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
-import type { Teacher, TeacherFormData, SalaryFormData, Salary } from "../_types";
+import type { Teacher, TeacherFormData, SalaryFormData, Salary, SalaryType } from "../_types";
 
 interface UseTeacherOperationsProps {
   schoolId: string | null;
@@ -62,7 +62,7 @@ export function useTeacherOperations({
     setTeacherForm({
       full_name: String(t.full_name ?? ""),
       job_title: String(t.job_title ?? ""),
-      salary_type: String(t.salary_type ?? "fixed") as any,
+      salary_type: String(t.salary_type ?? "fixed") as SalaryType,
       subject: String(t.subject ?? ""),
       phone: String(t.phone ?? ""),
       address: String(t.address ?? ""),
@@ -70,7 +70,7 @@ export function useTeacherOperations({
       lecture_price: String(t.lecture_price ?? ""),
       weekly_hours: String(t.weekly_hours ?? ""),
       classes_taught: ct.length ? ct : [{ grade: "", section: "" }],
-      status: String(t.status ?? "active") as any,
+      status: String(t.status ?? "active") as TeacherFormData["status"],
     });
     setTeacherModalError("");
     setShowTeacherModal(true);

@@ -43,6 +43,14 @@ export function AddStudentModal({
   const t = useTranslations("students.modals");
   const commonT = useTranslations("common");
   const paginationT = useTranslations("students.pagination");
+  const classOptions = [
+    ...classFees,
+    ...(form.class_name &&
+    form.class_name !== "__manual__" &&
+    !classFees.some((item) => item.class_name === form.class_name)
+      ? [{ id: `custom-${form.class_name}`, class_name: form.class_name }]
+      : []),
+  ];
 
   if (isReadOnlyView || !canManageStudentAccounts) return null;
 
@@ -138,7 +146,7 @@ export function AddStudentModal({
                     }}
                   >
                     <option value="">{t("form.selectClass")}</option>
-                    {classFees.map((cf) => (
+                    {classOptions.map((cf) => (
                       <option key={cf.id} value={cf.class_name}>
                         {cf.class_name}
                       </option>

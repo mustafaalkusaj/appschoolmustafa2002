@@ -21,13 +21,25 @@ export const DEFAULT_COMPAT: AppSchemaCompat = {
 
 let compatPromise: Promise<AppSchemaCompat> | null = null;
 
+type SchemaCompatSelectQuery = {
+  // Supabase's query builders are thenables (PromiseLike). Keep this intentionally
+  // loose so callers can pass different SupabaseClient flavors without type
+  // incompatibilities.
+  limit: (count: number) => unknown;
+};
+
+type SchemaCompatFromQuery = {
+  select: (columns: string) => SchemaCompatSelectQuery;
+};
+
 type SchemaCompatClient = {
-  from: (table: string) => any;
+  from: (table: string) => SchemaCompatFromQuery;
 };
 
 async function probeColumnWithClient(client: SchemaCompatClient, table: string, column: string) {
   try {
-    const { error } = await client.from(table).select(`id, ${column}`).limit(1);
+    const result = client.from(table).select(`id, ${column}`).limit(1);
+    const { error } = await (result as PromiseLike<{ error?: unknown }>);
     if (!error) return true;
     if (isMissingColumnError(error, table, column)) {
       return false;

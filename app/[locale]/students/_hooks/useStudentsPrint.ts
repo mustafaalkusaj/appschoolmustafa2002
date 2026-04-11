@@ -96,9 +96,12 @@ export function useStudentsPrint(options: UseStudentsPrintOptions) {
   const copyAccountCardCredentials = useCallback(
     async (card: ManagedUserAccountCard | null, setSuccess: (msg: string) => void, revealedPassword?: string | null) => {
       if (!card) return;
-      const passwordText = revealedPassword && revealedPassword !== "••••••••"
-        ? revealedPassword
-        : "تم التعيين (غير متوفر للنسخ)";
+      const passwordText =
+        (revealedPassword && revealedPassword !== "••••••••"
+          ? revealedPassword
+          : card.temporary_password && card.temporary_password !== "••••••••"
+            ? card.temporary_password
+            : null) ?? "تم التعيين (غير متوفر للنسخ)";
       await navigator.clipboard.writeText(
         `معرّف الدخول: ${card.login_identifier}\nكلمة المرور المؤقتة: ${passwordText}`
       );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 import { detectAdminInfrastructure } from "@/lib/admin-infrastructure";
 import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
 import { resolveSuperAdminActorContext } from "@/lib/super-admin-server";
@@ -26,6 +27,13 @@ function buildSchoolSelect(schemaCompat: Awaited<ReturnType<typeof detectAppSche
   return schemaCompat.schoolColors
     ? "id, name, address, phone, owner_email, city, logo_url, primary_color, secondary_color, plan, is_active, created_at"
     : "id, name, address, phone, owner_email, city, logo_url, plan, is_active, created_at";
+}
+
+function normalizeLogoUrl(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+  return sanitizeImageUrl(value) ?? null;
 }
 
 export async function PATCH(
@@ -107,7 +115,7 @@ export async function PATCH(
     phone: typeof body?.phone === "string" && body.phone.trim() ? body.phone.trim() : null,
     owner_email: typeof body?.owner_email === "string" && body.owner_email.trim() ? body.owner_email.trim() : null,
     city: typeof body?.city === "string" && body.city.trim() ? body.city.trim() : null,
-    logo_url: typeof body?.logo_url === "string" && body.logo_url.trim() ? body.logo_url.trim() : null,
+    logo_url: normalizeLogoUrl(body?.logo_url),
     ...(schemaCompat.schoolColors
       ? {
           primary_color:

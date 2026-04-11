@@ -1,7 +1,9 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { getPublicEnv } from "@/lib/env/public";
 
-let cachedSupabase: any = null;
+type BrowserSupabaseClient = ReturnType<typeof createBrowserClient>;
+
+let cachedSupabase: BrowserSupabaseClient | null = null;
 
 export const getSupabase = () => {
   if (cachedSupabase) return cachedSupabase;
@@ -11,4 +13,4 @@ export const getSupabase = () => {
 };
 
 // For backward compatibility while refactoring
-export const supabase = typeof window !== 'undefined' ? getSupabase() : null;
+export const supabase = typeof window !== "undefined" ? getSupabase() : null;

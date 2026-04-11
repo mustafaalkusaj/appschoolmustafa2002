@@ -45,6 +45,11 @@ type CustomRoleRecord = {
   schools?: SchoolRelation;
 };
 
+type CustomRoleQueryResponse = {
+  data: CustomRoleRecord[] | null;
+  error: { message: string } | null;
+};
+
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "مدير عام",
   admin: "مدير مدرسة",
@@ -96,7 +101,7 @@ export function RolesTab({
     setLoading(true);
     try {
       let needsSchoolFallback = false;
-      let response: any = await supabase
+      let response: CustomRoleQueryResponse = await supabase
         .from("custom_roles")
         .select("id, name, description, school_id, base_role, permissions, created_at, schools(name)")
         .order("created_at", { ascending: false });

@@ -22,7 +22,7 @@ interface AuditLog {
   entity_type: string;
   summary: string;
   created_at: string;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
 }
 
 const PAGE_SIZE = 10;

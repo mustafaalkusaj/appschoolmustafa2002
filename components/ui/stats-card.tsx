@@ -92,7 +92,10 @@ export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
               </p>
 
               {/* Value */}
-              <p className="text-2xl font-bold text-[var(--text-primary)] truncate">
+              <p
+                className="text-2xl font-bold text-[var(--text-primary)] tabular-nums whitespace-normal break-words leading-tight"
+                dir="auto"
+              >
                 {value}
               </p>
 

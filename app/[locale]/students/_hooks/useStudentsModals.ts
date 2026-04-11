@@ -4,6 +4,9 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { StudentWithFees, StudentFormData, ManagedUserAccountCard } from "../_types";
 import { DEFAULT_STUDENT_FORM } from "../_constants";
 
+const STUDENT_MENU_WIDTH = 216;
+const STUDENT_MENU_VIEWPORT_GAP = 12;
+
 export interface UseStudentsModalsReturn {
   // Modal visibility states
   showModal: boolean;
@@ -105,9 +108,8 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     const close = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
-      if (target.closest(".dropdown-menu")) return;
-      if (target.closest(".btn-action")) return;
-      if (target.closest(".student-name")) return;
+      if (target.closest("[data-student-dropdown-menu]")) return;
+      if (target.closest("[data-student-menu-trigger]")) return;
       setActiveMenu(null);
     };
 
@@ -136,10 +138,23 @@ export function useStudentsModals(): UseStudentsModalsReturn {
   const openMenu = useCallback((e: React.MouseEvent, student: StudentWithFees) => {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setMenuPos({ top: rect.bottom + 4, left: rect.left - 100 });
-    setActiveMenu(activeMenu === student.id ? null : student.id);
+    const isRTL = document.documentElement.getAttribute("dir") === "rtl";
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const top = Math.max(
+      STUDENT_MENU_VIEWPORT_GAP,
+      Math.min(rect.bottom + 8, viewportHeight - 260),
+    );
+    const rawLeft = isRTL ? rect.right - STUDENT_MENU_WIDTH : rect.left;
+    const left = Math.max(
+      STUDENT_MENU_VIEWPORT_GAP,
+      Math.min(rawLeft, viewportWidth - STUDENT_MENU_WIDTH - STUDENT_MENU_VIEWPORT_GAP),
+    );
+
+    setMenuPos({ top, left });
+    setActiveMenu((current) => (current === student.id ? null : student.id));
     setSelectedStudent(student);
-  }, [activeMenu]);
+  }, []);
 
   const resetForm = useCallback(() => {
     setForm(DEFAULT_STUDENT_FORM);

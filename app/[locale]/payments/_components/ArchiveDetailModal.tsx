@@ -1,7 +1,6 @@
 "use client";
 
 import { formatNumber, formatDate } from "@/lib/formatting";
-import { AppIcon } from "@/components/AppIcon";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentArchive } from "../_types";
 import { getPaymentMethodLabel, getArchiveStudents, getArchivePayments } from "../_hooks/useArchiveOperations";
-import { Download, X, Users, CreditCard, Calendar, DollarSign } from "lucide-react";
+import { Download, Users, CreditCard, Calendar, DollarSign, X } from "lucide-react";
 
 interface ArchiveDetailModalProps {
   archive: PaymentArchive | null;

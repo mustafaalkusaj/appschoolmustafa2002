@@ -23,6 +23,12 @@ export function AccountCardModal({
 }: AccountCardModalProps) {
   if (!accountCard) return null;
 
+  const visiblePassword =
+    (revealedPassword && revealedPassword !== "••••••••" ? revealedPassword : null) ||
+    (accountCard.temporary_password && accountCard.temporary_password !== "••••••••"
+      ? accountCard.temporary_password
+      : null);
+
   return (
     <div
       className="ui-backdrop flex items-center justify-center p-4"
@@ -107,13 +113,13 @@ export function AccountCardModal({
             <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
               <div className="text-sm font-black text-[var(--text-secondary)]">كلمة المرور المؤقتة</div>
               <div
-                className="mt-2 text-lg font-black"
+                className="mt-2 break-all text-lg font-black"
                 dir="ltr"
-                style={{ color: revealedPassword && revealedPassword !== "••••••••" ? "var(--text-primary)" : "#888" }}
+                style={{ color: visiblePassword ? "var(--text-primary)" : "#888" }}
               >
-                {revealedPassword && revealedPassword !== "••••••••" ? revealedPassword : "••••••••"}
+                {visiblePassword || "••••••••"}
               </div>
-              {(!revealedPassword || revealedPassword === "••••••••") && (
+              {!visiblePassword && (
                 <div className="mt-2 text-xs text-[var(--text-tertiary)]">
                   كلمة المرور تم تعيينها — لا يمكن استرجاعها. استخدم "إعادة ضبط المرور" لإنشاء كلمة مرور جديدة.
                 </div>

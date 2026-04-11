@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 
 type ReportsMetrics = {
@@ -47,7 +48,12 @@ function normalizeMetricNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-async function loadFallbackMetrics(actorSupabase: any, schoolId: string, currentMonth: string, todayKey: string) {
+async function loadFallbackMetrics(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  currentMonth: string,
+  todayKey: string,
+) {
   const [studentsResult, paymentsResult, expensesResult, salariesResult] = await Promise.allSettled([
     actorSupabase
       .from("students")
@@ -135,7 +141,12 @@ async function loadFallbackMetrics(actorSupabase: any, schoolId: string, current
   };
 }
 
-async function loadSummaryMetrics(actorSupabase: any, schoolId: string, currentMonth: string, todayDate: string) {
+async function loadSummaryMetrics(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  currentMonth: string,
+  todayDate: string,
+) {
   const { data, error } = await actorSupabase.rpc("school_reports_summary", {
     p_school_id: schoolId,
     p_current_month: currentMonth,

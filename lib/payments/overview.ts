@@ -1,5 +1,6 @@
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
+import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 
 export type PaymentsQuickFilter =
   | "all"
@@ -52,8 +53,19 @@ export type PaymentsMetaPayload = {
   classOptions: string[];
   paymentYears: number[];
   totalPaymentCount: number;
-  archives: any[];
+  archives: PaymentArchive[];
   archiveNotice: string;
+};
+
+export type PaymentArchive = {
+  id: string;
+  school_id: string;
+  archive_year: number;
+  archive_date: string;
+  total_students: number | null;
+  total_payments: number | null;
+  total_amount: number | null;
+  data: unknown | null;
 };
 
 type PaymentsSummaryRpcRecord = {
@@ -149,8 +161,18 @@ function getClassOptionName(option: { name?: string | null; grade?: string | nul
   return "";
 }
 
-function applyStudentFilters(query: any, filters: PaymentsListFilters) {
-  let nextQuery = query;
+type PaymentsStudentFilterQueryLike = {
+  eq: (column: string, value: unknown) => PaymentsStudentFilterQueryLike;
+  neq: (column: string, value: unknown) => PaymentsStudentFilterQueryLike;
+  gt: (column: string, value: unknown) => PaymentsStudentFilterQueryLike;
+  lte: (column: string, value: unknown) => PaymentsStudentFilterQueryLike;
+  in: (column: string, values: unknown[]) => PaymentsStudentFilterQueryLike;
+  or: (filters: string) => PaymentsStudentFilterQueryLike;
+  order: (column: string, options?: { ascending?: boolean; nullsFirst?: boolean }) => PaymentsStudentFilterQueryLike;
+};
+
+function applyStudentFilters<TQuery>(query: TQuery, filters: PaymentsListFilters): TQuery {
+  let nextQuery = query as unknown as PaymentsStudentFilterQueryLike;
 
   if (filters.quickFilter === "transferred") {
     nextQuery = nextQuery.eq("status", "transferred");
@@ -184,11 +206,12 @@ function applyStudentFilters(query: any, filters: PaymentsListFilters) {
     nextQuery = nextQuery.order("full_name", { ascending: filters.dir === "asc" });
   }
 
-  return nextQuery.order("full_name", { ascending: true });
+  nextQuery = nextQuery.order("full_name", { ascending: true });
+  return nextQuery as unknown as TQuery;
 }
 
 async function fetchPaymentCountsByStudent(
-  actorSupabase: any,
+  actorSupabase: RouteSupabaseClient,
   schoolId: string,
   studentIds: string[],
 ) {
@@ -211,7 +234,7 @@ async function fetchPaymentCountsByStudent(
   }, {});
 }
 
-async function fetchSchoolPaymentStudentIds(actorSupabase: any, schoolId: string) {
+async function fetchSchoolPaymentStudentIds(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const results: string[] = [];
   let from = 0;
 
@@ -244,7 +267,7 @@ async function fetchSchoolPaymentStudentIds(actorSupabase: any, schoolId: string
   return Array.from(new Set(results));
 }
 
-async function fetchClassOptions(actorSupabase: any, schoolId: string) {
+async function fetchClassOptions(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const { data, error } = await actorSupabase
     .from("classes")
     .select("*")
@@ -282,7 +305,7 @@ async function fetchClassOptions(actorSupabase: any, schoolId: string) {
   );
 }
 
-async function fetchSummary(actorSupabase: any, schoolId: string): Promise<PaymentsSummary> {
+async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string): Promise<PaymentsSummary> {
   const summary: PaymentsSummary = {
     totalStudents: 0,
     totalFee: 0,
@@ -339,7 +362,7 @@ async function fetchSummary(actorSupabase: any, schoolId: string): Promise<Payme
   return summary;
 }
 
-async function fetchCollectedCount(actorSupabase: any, schoolId: string) {
+async function fetchCollectedCount(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const { count, error } = await actorSupabase
     .from("students")
     .select("id", { count: "exact", head: true })
@@ -355,7 +378,7 @@ async function fetchCollectedCount(actorSupabase: any, schoolId: string) {
   return typeof count === "number" ? count : 0;
 }
 
-async function fetchSummaryViaRpc(actorSupabase: any, schoolId: string) {
+async function fetchSummaryViaRpc(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const { data, error } = await actorSupabase.rpc("school_payments_summary", {
     p_school_id: schoolId,
   });
@@ -382,7 +405,7 @@ async function fetchSummaryViaRpc(actorSupabase: any, schoolId: string) {
   };
 }
 
-async function fetchSummaryViaReportsRpc(actorSupabase: any, schoolId: string) {
+async function fetchSummaryViaReportsRpc(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const todayDate = new Date().toISOString().slice(0, 10);
 
@@ -414,7 +437,20 @@ async function fetchSummaryViaReportsRpc(actorSupabase: any, schoolId: string) {
   };
 }
 
-async function fetchArchives(actorSupabase: any, schoolId: string) {
+function normalizeArchiveRows(rows: Array<Record<string, unknown>>): PaymentArchive[] {
+  return (rows ?? []).map((row) => ({
+    id: String(row.id),
+    school_id: String(row.school_id ?? ""),
+    archive_year: Math.trunc(Number(row.archive_year ?? 0)),
+    archive_date: typeof row.archive_date === "string" ? row.archive_date : "",
+    total_students: row.total_students === null || row.total_students === undefined ? null : Number(row.total_students ?? 0),
+    total_payments: row.total_payments === null || row.total_payments === undefined ? null : Number(row.total_payments ?? 0),
+    total_amount: row.total_amount === null || row.total_amount === undefined ? null : Number(row.total_amount ?? 0),
+    data: typeof row.data === "undefined" ? null : (row.data as unknown),
+  }));
+}
+
+async function fetchArchives(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const { data, error } = await actorSupabase
     .from("account_archives")
     .select("id, school_id, archive_year, total_students, total_payments, total_amount, data, archive_date")
@@ -432,12 +468,12 @@ async function fetchArchives(actorSupabase: any, schoolId: string) {
   }
 
   return {
-    archives: data ?? [],
+    archives: normalizeArchiveRows((data ?? []) as Array<Record<string, unknown>>),
     archiveNotice: "",
   };
 }
 
-async function fetchPaymentYears(actorSupabase: any, schoolId: string) {
+async function fetchPaymentYears(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const years = new Set<number>();
   let from = 0;
   let totalPaymentCount = 0;
@@ -488,7 +524,7 @@ async function fetchPaymentYears(actorSupabase: any, schoolId: string) {
   };
 }
 
-async function fetchStudentsPageViaRpc(actorSupabase: any, schoolId: string, filters: PaymentsListFilters) {
+async function fetchStudentsPageViaRpc(actorSupabase: RouteSupabaseClient, schoolId: string, filters: PaymentsListFilters) {
   const { data, error } = await actorSupabase.rpc("school_payment_students_page", {
     p_school_id: schoolId,
     p_search: filters.search,
@@ -539,11 +575,24 @@ async function fetchStudentsPageViaRpc(actorSupabase: any, schoolId: string, fil
   };
 }
 
-function buildStudentRowsPayload(rows: any[]) {
-  return (rows ?? []) as PaymentStudentRecord[];
+function buildStudentRowsPayload(rows: Array<Record<string, unknown>>): PaymentStudentRecord[] {
+  return (rows ?? []).map((row) => ({
+    id: String(row.id),
+    school_id: String(row.school_id ?? ""),
+    full_name: String(row.full_name ?? ""),
+    class_name: typeof row.class_name === "string" ? row.class_name : null,
+    section: typeof row.section === "string" ? row.section : null,
+    phone: typeof row.phone === "string" ? row.phone : null,
+    address: typeof row.address === "string" ? row.address : null,
+    total_fee: normalizeMetricNumber(row.total_fee),
+    paid_fee: normalizeMetricNumber(row.paid_fee),
+    discount_value: normalizeMetricNumber(row.discount_value),
+    remaining_fee: normalizeMetricNumber(row.remaining_fee),
+    status: typeof row.status === "string" ? row.status : null,
+  }));
 }
 
-async function fetchAllFilteredStudents(actorSupabase: any, schoolId: string, filters: PaymentsListFilters) {
+async function fetchAllFilteredStudents(actorSupabase: RouteSupabaseClient, schoolId: string, filters: PaymentsListFilters) {
   const rows: PaymentStudentRecord[] = [];
   let from = 0;
 
@@ -558,7 +607,7 @@ async function fetchAllFilteredStudents(actorSupabase: any, schoolId: string, fi
       throw new Error(error.message || "تعذر تحميل قائمة الطلاب.");
     }
 
-    const batch = buildStudentRowsPayload(data ?? []);
+    const batch = buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>);
     rows.push(...batch);
 
     if (batch.length < QUERY_BATCH_SIZE) {
@@ -586,7 +635,7 @@ export function parsePaymentsListFilters(searchParams: URLSearchParams): Payment
   };
 }
 
-export async function resolvePaymentsMeta(actorSupabase: any, schoolId: string): Promise<PaymentsMetaPayload> {
+export async function resolvePaymentsMeta(actorSupabase: RouteSupabaseClient, schoolId: string): Promise<PaymentsMetaPayload> {
   try {
     const rpcSummary = await fetchSummaryViaRpc(actorSupabase, schoolId);
     if (rpcSummary) {
@@ -662,7 +711,7 @@ export async function resolvePaymentsMeta(actorSupabase: any, schoolId: string):
 }
 
 export async function resolvePaymentsStudentsPage(
-  actorSupabase: any,
+  actorSupabase: RouteSupabaseClient,
   schoolId: string,
   filters: PaymentsListFilters,
 ) {
@@ -709,7 +758,7 @@ export async function resolvePaymentsStudentsPage(
     throw new Error(error.message || "تعذر تحميل قائمة الطلاب.");
   }
 
-  const rows = buildStudentRowsPayload(data ?? []);
+  const rows = buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>);
   const paymentCountsByStudent = await fetchPaymentCountsByStudent(
     actorSupabase,
     schoolId,
@@ -727,7 +776,7 @@ export async function resolvePaymentsStudentsPage(
   };
 }
 
-export async function searchPaymentStudents(actorSupabase: any, schoolId: string, search: string, limit = 8) {
+export async function searchPaymentStudents(actorSupabase: RouteSupabaseClient, schoolId: string, search: string, limit = 8) {
   const normalizedSearch = search.trim();
   if (!normalizedSearch) return [];
 
@@ -747,11 +796,11 @@ export async function searchPaymentStudents(actorSupabase: any, schoolId: string
     throw new Error(error.message || "تعذر تحميل نتائج البحث.");
   }
 
-  return buildStudentRowsPayload(data ?? []);
+  return buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>);
 }
 
 export async function exportPaymentStudents(
-  actorSupabase: any,
+  actorSupabase: RouteSupabaseClient,
   schoolId: string,
   filters: Omit<PaymentsListFilters, "page" | "pageSize">,
 ) {

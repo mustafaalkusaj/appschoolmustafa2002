@@ -1,15 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+
+import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/brand/brand-utils";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { formatNumber } from "@/lib/formatting";
+import { getLocaleFromPath } from "@/lib/locale-routing";
+import {
+  AlertTriangle,
+  Building2,
+  Loader2,
+  MapPin,
+  Power,
+  RefreshCw,
+  School,
+  ShieldCheck,
+} from "@/lib/icons";
 
 type SchoolRecord = {
   id: string;
   name: string;
   city: string | null;
+  address: string | null;
+  phone: string | null;
+  owner_email: string | null;
+  logo_url: string | null;
+  plan: "basic" | "premium" | "enterprise";
   is_active: boolean;
+  created_at?: string | null;
 };
 
 type SubscriptionRecord = {
@@ -17,17 +40,207 @@ type SubscriptionRecord = {
   school_id: string;
   status: string | null;
   end_date: string | null;
+  start_date?: string | null;
 };
 
+type SchoolsResponse = {
+  ok?: boolean;
+  schools?: SchoolRecord[];
+  subscriptions?: SubscriptionRecord[];
+  error?: { message?: string };
+};
+
+type ActionResponse = {
+  ok?: boolean;
+  error?: { message?: string };
+};
+
+type LocaleCopy = {
+  title: string;
+  subtitle: string;
+  loading: string;
+  empty: string;
+  loadFailed: string;
+  renewSuccess: string;
+  activateSuccess: string;
+  suspendSuccess: string;
+  renewFailed: string;
+  toggleFailed: string;
+  stats: {
+    total: string;
+    active: string;
+    expired: string;
+  };
+  actions: {
+    refresh: string;
+    activate: string;
+    suspend: string;
+    renew: string;
+    renewing: string;
+    updating: string;
+  };
+  labels: {
+    schools: string;
+    location: string;
+    owner: string;
+    phone: string;
+    joined: string;
+    status: string;
+    plan: string;
+    subscriptionEnds: string;
+    noDate: string;
+    noCity: string;
+    unknownOwner: string;
+    inactive: string;
+    active: string;
+    expired: string;
+    activeSubscription: string;
+    noSubscription: string;
+  };
+};
+
+const COPY: Record<"ar" | "en", LocaleCopy> = {
+  ar: {
+    title: "إدارة المدارس",
+    subtitle: "لوحة موحّدة لإدارة المدارس والاشتراكات وحالة التفعيل من نفس نظام التصميم.",
+    loading: "جارٍ تحميل المدارس...",
+    empty: "لا توجد مدارس لعرضها حالياً.",
+    loadFailed: "تعذر تحميل بيانات المدارس.",
+    renewSuccess: "تم تجديد الاشتراك لمدة سنة كاملة.",
+    activateSuccess: "تم تفعيل المدرسة ومزامنة اشتراكها.",
+    suspendSuccess: "تم إيقاف المدرسة وتعليق اشتراكها الحالي.",
+    renewFailed: "تعذر تجديد الاشتراك.",
+    toggleFailed: "تعذر تحديث حالة المدرسة.",
+    stats: {
+      total: "إجمالي المدارس",
+      active: "المدارس النشطة",
+      expired: "اشتراكات منتهية",
+    },
+    actions: {
+      refresh: "تحديث",
+      activate: "تفعيل",
+      suspend: "إيقاف",
+      renew: "تجديد الاشتراك",
+      renewing: "جارٍ التجديد...",
+      updating: "جارٍ التحديث...",
+    },
+    labels: {
+      schools: "قائمة المدارس",
+      location: "الموقع",
+      owner: "المالك",
+      phone: "الهاتف",
+      joined: "تاريخ الإنشاء",
+      status: "الحالة",
+      plan: "الخطة",
+      subscriptionEnds: "ينتهي الاشتراك",
+      noDate: "غير محدد",
+      noCity: "مدينة غير محددة",
+      unknownOwner: "غير محدد",
+      inactive: "موقوفة",
+      active: "نشطة",
+      expired: "منتهي",
+      activeSubscription: "ساري",
+      noSubscription: "بدون اشتراك",
+    },
+  },
+  en: {
+    title: "Schools Management",
+    subtitle: "A unified control surface for school operations, subscription health, and activation state.",
+    loading: "Loading schools...",
+    empty: "No schools are available yet.",
+    loadFailed: "Failed to load schools data.",
+    renewSuccess: "The subscription was renewed for one full year.",
+    activateSuccess: "The school has been activated and its subscription was synced.",
+    suspendSuccess: "The school has been suspended and its current subscription was synced.",
+    renewFailed: "Failed to renew the subscription.",
+    toggleFailed: "Failed to update the school status.",
+    stats: {
+      total: "Total schools",
+      active: "Active schools",
+      expired: "Expired subscriptions",
+    },
+    actions: {
+      refresh: "Refresh",
+      activate: "Activate",
+      suspend: "Suspend",
+      renew: "Renew subscription",
+      renewing: "Renewing...",
+      updating: "Updating...",
+    },
+    labels: {
+      schools: "School roster",
+      location: "Location",
+      owner: "Owner",
+      phone: "Phone",
+      joined: "Created",
+      status: "Status",
+      plan: "Plan",
+      subscriptionEnds: "Subscription ends",
+      noDate: "Not set",
+      noCity: "City not set",
+      unknownOwner: "Not set",
+      inactive: "Suspended",
+      active: "Active",
+      expired: "Expired",
+      activeSubscription: "Current",
+      noSubscription: "No subscription",
+    },
+  },
+};
+
+function resolveApiError(payload: ActionResponse | SchoolsResponse | null, fallback: string) {
+  return payload?.error?.message?.trim() || fallback;
+}
+
+function isExpiredSubscription(subscription: SubscriptionRecord | null | undefined) {
+  if (!subscription?.end_date) {
+    return !subscription || (subscription.status || "").toLowerCase() !== "active";
+  }
+
+  const status = (subscription.status || "").toLowerCase();
+  if (status && status !== "active") {
+    return true;
+  }
+
+  const expiresAt = new Date(subscription.end_date);
+  if (Number.isNaN(expiresAt.getTime())) {
+    return false;
+  }
+
+  expiresAt.setHours(23, 59, 59, 999);
+  return expiresAt.getTime() < Date.now();
+}
+
+function formatDateLabel(value: string | null | undefined, locale: "ar" | "en", fallback: string) {
+  if (!value) {
+    return fallback;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ar-IQ", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
 export default function SchoolsPage() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname) === "en" ? "en" : "ar";
+  const copy = COPY[locale];
+  const isRTL = locale === "ar";
+
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    void fetchAll();
-  }, []);
+  const [error, setError] = useState("");
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const latestSubscriptionsBySchool = useMemo(() => {
     const map = new Map<string, SubscriptionRecord>();
@@ -39,160 +252,365 @@ export default function SchoolsPage() {
     return map;
   }, [subscriptions]);
 
-  async function fetchAll() {
-    setLoading(true);
-    const [{ data: schoolsData }, { data: subscriptionsData }] = await Promise.all([
-      supabase.from("schools").select("*").order("created_at", { ascending: false }),
-      supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
-    ]);
-    setSchools((schoolsData as SchoolRecord[] | null) || []);
-    setSubscriptions((subscriptionsData as SubscriptionRecord[] | null) || []);
-    setLoading(false);
-  }
-
-  function getSubscriptionForSchool(schoolId: string): SubscriptionRecord | null {
-    return latestSubscriptionsBySchool.get(schoolId) || null;
-  }
-
-  async function toggleSchool(schoolId: string, isActive: boolean) {
-    await supabase.from("schools").update({ is_active: !isActive }).eq("id", schoolId);
-    const latestSubscription = getSubscriptionForSchool(schoolId);
-    if (latestSubscription?.id) {
-      await supabase
-        .from("subscriptions")
-        .update({ status: isActive ? "suspended" : "active" })
-        .eq("id", latestSubscription.id);
+  const fetchSchools = useCallback(async (mode: "initial" | "refresh" = "initial") => {
+    if (mode === "refresh") {
+      setRefreshing(true);
     } else {
-      await supabase.from("subscriptions").insert({
-        school_id: schoolId,
-        status: isActive ? "suspended" : "active",
-      });
+      setLoading(true);
     }
+    setError("");
 
-    setMessage(isActive ? "تم إيقاف المدرسة بنجاح." : "تم تفعيل المدرسة بنجاح.");
-    void fetchAll();
-    setTimeout(() => setMessage(""), 2500);
-  }
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<SchoolsResponse>(
+        "/api/web/super-admin/schools",
+      );
 
-  async function renewSubscription(schoolId: string) {
-    const endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
+      if (!response.ok || !payload?.ok) {
+        throw new Error(resolveApiError(payload, copy.loadFailed));
+      }
 
-    const latestSubscription = getSubscriptionForSchool(schoolId);
-    if (latestSubscription?.id) {
-      await supabase
-        .from("subscriptions")
-        .update({ status: "active", end_date: endDate })
-        .eq("id", latestSubscription.id);
-    } else {
-      await supabase.from("subscriptions").insert({
-        school_id: schoolId,
-        status: "active",
-        end_date: endDate,
-      });
+      setSchools(payload.schools ?? []);
+      setSubscriptions(payload.subscriptions ?? []);
+    } catch (fetchError) {
+      setSchools([]);
+      setSubscriptions([]);
+      setError(fetchError instanceof Error ? fetchError.message : copy.loadFailed);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, [copy.loadFailed]);
 
-    setMessage("تم تجديد الاشتراك لمدة سنة.");
-    void fetchAll();
-    setTimeout(() => setMessage(""), 2500);
-  }
+  useEffect(() => {
+    void fetchSchools();
+  }, [fetchSchools]);
 
   const overview = useMemo(() => {
-    const activeSchools = schools.filter((school) => school.is_active).length;
-    const expiredSubs = schools.filter((school) => {
-      const sub = latestSubscriptionsBySchool.get(school.id);
-      if (!sub) return true;
-      if ((sub.status || "").toLowerCase() !== "active") return true;
-      if (!sub.end_date) return false;
-      return new Date(sub.end_date).getTime() < Date.now();
-    }).length;
+    const active = schools.filter((school) => school.is_active).length;
+    const expired = schools.filter((school) =>
+      isExpiredSubscription(latestSubscriptionsBySchool.get(school.id)),
+    ).length;
 
     return {
       total: schools.length,
-      active: activeSchools,
-      expired: expiredSubs,
+      active,
+      expired,
     };
   }, [latestSubscriptionsBySchool, schools]);
 
+  const metricsCards = [
+    {
+      label: copy.stats.total,
+      value: formatNumber(overview.total),
+      icon: School,
+      tone: "text-[var(--primary)]",
+      bg: "bg-[var(--primary)]/10",
+    },
+    {
+      label: copy.stats.active,
+      value: formatNumber(overview.active),
+      icon: ShieldCheck,
+      tone: "text-[var(--success)]",
+      bg: "bg-[var(--success)]/10",
+    },
+    {
+      label: copy.stats.expired,
+      value: formatNumber(overview.expired),
+      icon: AlertTriangle,
+      tone: "text-[var(--warning)]",
+      bg: "bg-[var(--warning)]/10",
+    },
+  ];
+
+  async function handleToggleSchool(school: SchoolRecord) {
+    setPendingAction(`toggle:${school.id}`);
+    setError("");
+    setMessage("");
+
+    try {
+      const nextActive = !school.is_active;
+      const { response, payload } = await fetchJsonWithAuthorizedSession<ActionResponse>(
+        `/api/web/super-admin/schools/${school.id}`,
+        {
+          method: "PATCH",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({
+            mode: "toggle",
+            is_active: nextActive,
+          }),
+        },
+      );
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(resolveApiError(payload, copy.toggleFailed));
+      }
+
+      setMessage(nextActive ? copy.activateSuccess : copy.suspendSuccess);
+      await fetchSchools("refresh");
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : copy.toggleFailed);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function handleRenewSubscription(schoolId: string) {
+    setPendingAction(`renew:${schoolId}`);
+    setError("");
+    setMessage("");
+
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<ActionResponse>(
+        `/api/web/super-admin/subscriptions/${schoolId}`,
+        {
+          method: "POST",
+          headers: withJsonHeaders(),
+        },
+      );
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(resolveApiError(payload, copy.renewFailed));
+      }
+
+      setMessage(copy.renewSuccess);
+      await fetchSchools("refresh");
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : copy.renewFailed);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   return (
     <ProtectedRoute roles={["super_admin"]}>
-      <div className="layout">
+      <div dir={isRTL ? "rtl" : "ltr"} className="layout min-h-screen bg-[var(--bg)]">
         <AppSidebar currentPath="/schools" />
 
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-extrabold text-purple-900">إدارة المدارس</h1>
-              <p className="text-sm text-slate-500">لوحة تحكم المدير العام لإدارة المدارس والاشتراكات</p>
-            </div>
-          </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AppShellTopbar title={copy.title} subtitle={copy.subtitle} />
 
-          {message && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 text-sm font-semibold">
-              {message}
-            </div>
-          )}
+          <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+            <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
+              <section className="ui-glass overflow-hidden rounded-[32px] p-6 sm:p-8">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="max-w-3xl">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-[var(--text-muted)]">
+                      <Building2 size={14} />
+                      {copy.title}
+                    </div>
+                    <h1 className="mt-4 text-3xl font-black tracking-tight text-[var(--text-primary)] sm:text-4xl">
+                      {copy.title}
+                    </h1>
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--text-secondary)] sm:text-base">
+                      {copy.subtitle}
+                    </p>
+                  </div>
 
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="rounded-xl bg-white border border-purple-100 p-4">
-              <div className="text-xs text-slate-500">إجمالي المدارس</div>
-              <div className="text-2xl font-black text-purple-900">{overview.total}</div>
-            </div>
-            <div className="rounded-xl bg-white border border-purple-100 p-4">
-              <div className="text-xs text-slate-500">المدارس النشطة</div>
-              <div className="text-2xl font-black text-emerald-600">{overview.active}</div>
-            </div>
-            <div className="rounded-xl bg-white border border-purple-100 p-4">
-              <div className="text-xs text-slate-500">الاشتراكات المنتهية</div>
-              <div className="text-2xl font-black text-red-600">{overview.expired}</div>
-            </div>
-          </section>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-w-[140px]"
+                    onClick={() => void fetchSchools("refresh")}
+                    disabled={refreshing || loading}
+                  >
+                    {refreshing ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                    <span>{copy.actions.refresh}</span>
+                  </Button>
+                </div>
 
-          <section className="rounded-xl bg-white border border-purple-100 overflow-hidden">
-            <div className="px-4 py-3 border-b border-purple-100 font-bold text-purple-900">قائمة المدارس</div>
-            {loading ? (
-              <div className="p-6 text-sm text-slate-500">جارٍ تحميل المدارس...</div>
-            ) : schools.length === 0 ? (
-              <div className="p-6 text-sm text-slate-500">لا توجد مدارس.</div>
-            ) : (
-              <div className="divide-y divide-purple-100">
-                {schools.map((school) => {
-                  const sub = getSubscriptionForSchool(school.id);
-                  const expired = !sub || (sub.status || "").toLowerCase() !== "active" || (sub.end_date && new Date(sub.end_date).getTime() < Date.now());
-                  return (
-                    <div key={school.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="font-bold text-slate-900">{school.name}</div>
-                        <div className="text-xs text-slate-500">
-                          {school.city || "المدينة غير محددة"} • ينتهي الاشتراك في: {sub?.end_date || "غير محدد"}
+                <div className="mt-8 grid gap-4 md:grid-cols-3">
+                  {metricsCards.map((card) => {
+                    const Icon = card.icon;
+                    return (
+                      <div
+                        key={card.label}
+                        className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                              {card.label}
+                            </div>
+                            <div className="mt-3 text-3xl font-black text-[var(--text-primary)]">
+                              {card.value}
+                            </div>
+                          </div>
+                          <div className={cn("flex h-12 w-12 items-center justify-center rounded-[18px]", card.bg, card.tone)}>
+                            <Icon size={20} />
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              </section>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          className={`px-3 py-1.5 rounded-lg text-sm font-bold ${school.is_active ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}
-                          onClick={() => toggleSchool(school.id, school.is_active)}
-                        >
-                          {school.is_active ? "إيقاف" : "تفعيل"}
-                        </button>
+              {message ? (
+                <div className="rounded-[22px] border border-[var(--success)]/20 bg-[var(--success)]/10 px-4 py-3 text-sm font-bold text-[var(--success)]">
+                  {message}
+                </div>
+              ) : null}
 
-                        {expired && (
-                          <button
-                            className="px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-100 text-blue-700"
-                            onClick={() => renewSubscription(school.id)}
-                          >
-                            تجديد الاشتراك
-                          </button>
-                        )}
-                      </div>
+              {error ? (
+                <div className="rounded-[22px] border border-[var(--danger)]/20 bg-[var(--danger)]/10 px-4 py-3 text-sm font-bold text-[var(--danger)]">
+                  {error}
+                </div>
+              ) : null}
+
+              <section className="rounded-[30px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)]">
+                <div className="flex flex-col gap-3 border-b border-[var(--border)] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                      {copy.labels.schools}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </main>
+                    <h2 className="mt-2 text-2xl font-black text-[var(--text-primary)]">
+                      {copy.labels.schools}
+                    </h2>
+                  </div>
+                  <div className="text-sm font-semibold text-[var(--text-secondary)]">
+                    {formatNumber(schools.length)} {copy.labels.schools}
+                  </div>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center gap-3 px-6 py-16 text-sm font-bold text-[var(--text-secondary)]">
+                    <Loader2 className="animate-spin" size={18} />
+                    <span>{copy.loading}</span>
+                  </div>
+                ) : schools.length === 0 ? (
+                  <div className="px-6 py-16 text-center text-sm font-semibold text-[var(--text-secondary)]">
+                    {copy.empty}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[var(--border)]">
+                    {schools.map((school) => {
+                      const subscription = latestSubscriptionsBySchool.get(school.id) ?? null;
+                      const expired = isExpiredSubscription(subscription);
+                      const actionKey = pendingAction?.split(":");
+                      const isUpdating = actionKey?.[0] === "toggle" && actionKey?.[1] === school.id;
+                      const isRenewing = actionKey?.[0] === "renew" && actionKey?.[1] === school.id;
+
+                      return (
+                        <article key={school.id} className="px-6 py-5">
+                          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <h3 className="text-xl font-black text-[var(--text-primary)]">
+                                  {school.name}
+                                </h3>
+                                <span
+                                  className={cn(
+                                    "rounded-full px-3 py-1 text-xs font-black",
+                                    school.is_active
+                                      ? "bg-[var(--success)]/10 text-[var(--success)]"
+                                      : "bg-[var(--danger)]/10 text-[var(--danger)]",
+                                  )}
+                                >
+                                  {school.is_active ? copy.labels.active : copy.labels.inactive}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "rounded-full px-3 py-1 text-xs font-black",
+                                    expired
+                                      ? "bg-[var(--warning)]/10 text-[var(--warning)]"
+                                      : "bg-[var(--primary)]/10 text-[var(--primary)]",
+                                  )}
+                                >
+                                  {expired ? copy.labels.expired : copy.labels.activeSubscription}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                                <div className="rounded-[20px] bg-[var(--surface-muted)] px-4 py-3">
+                                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                                    {copy.labels.location}
+                                  </div>
+                                  <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                                    <MapPin size={14} className="text-[var(--text-muted)]" />
+                                    <span>{school.city || copy.labels.noCity}</span>
+                                  </div>
+                                </div>
+                                <div className="rounded-[20px] bg-[var(--surface-muted)] px-4 py-3">
+                                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                                    {copy.labels.owner}
+                                  </div>
+                                  <div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                    {school.owner_email || copy.labels.unknownOwner}
+                                  </div>
+                                </div>
+                                <div className="rounded-[20px] bg-[var(--surface-muted)] px-4 py-3">
+                                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                                    {copy.labels.phone}
+                                  </div>
+                                  <div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                    {school.phone || copy.labels.unknownOwner}
+                                  </div>
+                                </div>
+                                <div className="rounded-[20px] bg-[var(--surface-muted)] px-4 py-3">
+                                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                                    {copy.labels.plan}
+                                  </div>
+                                  <div className="mt-2 text-sm font-semibold uppercase text-[var(--text-primary)]">
+                                    {school.plan}
+                                  </div>
+                                </div>
+                                <div className="rounded-[20px] bg-[var(--surface-muted)] px-4 py-3">
+                                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                                    {copy.labels.subscriptionEnds}
+                                  </div>
+                                  <div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                    {subscription
+                                      ? formatDateLabel(subscription.end_date, locale, copy.labels.noDate)
+                                      : copy.labels.noSubscription}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap gap-5 text-xs font-semibold text-[var(--text-secondary)]">
+                                <span>
+                                  {copy.labels.joined}:{" "}
+                                  {formatDateLabel(school.created_at, locale, copy.labels.noDate)}
+                                </span>
+                                <span>
+                                  {copy.labels.status}:{" "}
+                                  {school.is_active ? copy.labels.active : copy.labels.inactive}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3">
+                              <Button
+                                type="button"
+                                variant={school.is_active ? "outline" : "primary"}
+                                onClick={() => void handleToggleSchool(school)}
+                                disabled={Boolean(pendingAction)}
+                                className="min-w-[140px]"
+                              >
+                                {isUpdating ? <Loader2 className="animate-spin" size={16} /> : <Power size={16} />}
+                                <span>{isUpdating ? copy.actions.updating : school.is_active ? copy.actions.suspend : copy.actions.activate}</span>
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => void handleRenewSubscription(school.id)}
+                                disabled={Boolean(pendingAction)}
+                                className="min-w-[180px]"
+                              >
+                                {isRenewing ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                                <span>{isRenewing ? copy.actions.renewing : copy.actions.renew}</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </div>
+          </main>
+        </div>
       </div>
     </ProtectedRoute>
   );

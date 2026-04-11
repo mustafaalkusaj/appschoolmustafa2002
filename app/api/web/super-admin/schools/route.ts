@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 import { detectAdminInfrastructure, isInfrastructureCompatError } from "@/lib/admin-infrastructure";
 import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
 import { resolveSuperAdminActorContext } from "@/lib/super-admin-server";
@@ -37,10 +38,74 @@ type SchoolRecord = {
   created_at?: string | null;
 };
 
+type SubscriptionRecord = {
+  id: string;
+  school_id: string;
+  plan: "basic" | "premium" | "enterprise";
+  status: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_at?: string | null;
+};
+
 function buildSchoolSelect(schemaCompat: Awaited<ReturnType<typeof detectAppSchemaCompatWithClient>>) {
   return schemaCompat.schoolColors
     ? "id, name, address, phone, owner_email, city, logo_url, primary_color, secondary_color, plan, is_active, created_at"
     : "id, name, address, phone, owner_email, city, logo_url, plan, is_active, created_at";
+}
+
+function normalizeLogoUrl(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+  return sanitizeImageUrl(value) ?? null;
+}
+
+export async function GET(req: NextRequest) {
+  const context = await resolveSuperAdminActorContext(req.headers.get("authorization"));
+  if (!context.ok) {
+    return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
+  }
+
+  const { dataSupabase } = context.value;
+  const schemaCompat = await detectAppSchemaCompatWithClient(dataSupabase);
+  const schoolSelect = buildSchoolSelect(schemaCompat);
+
+  const [{ data: schoolsData, error: schoolsError }, { data: subscriptionsData, error: subscriptionsError }] =
+    await Promise.all([
+      dataSupabase.from("schools").select(schoolSelect).order("created_at", { ascending: false }),
+      dataSupabase
+        .from("subscriptions")
+        .select("id, school_id, plan, status, start_date, end_date, created_at")
+        .order("created_at", { ascending: false }),
+    ]);
+
+  if (schoolsError) {
+    return jsonError(schoolsError.message || "تعذر تحميل المدارس.", 500);
+  }
+
+  if (subscriptionsError) {
+    return jsonError(subscriptionsError.message || "تعذر تحميل الاشتراكات.", 500);
+  }
+
+  const schools = ((schoolsData ?? []) as unknown as SchoolRecord[]).map((school) => ({
+    ...school,
+    logo_url: normalizeLogoUrl(school.logo_url),
+  }));
+
+  const latestSubscriptionsBySchool = new Map<string, SubscriptionRecord>();
+  for (const subscription of (subscriptionsData ?? []) as SubscriptionRecord[]) {
+    if (!latestSubscriptionsBySchool.has(subscription.school_id)) {
+      latestSubscriptionsBySchool.set(subscription.school_id, subscription);
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    schools,
+    subscriptions: Array.from(latestSubscriptionsBySchool.values()),
+    schemaCompat,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -70,7 +135,7 @@ export async function POST(req: NextRequest) {
     phone: typeof body?.phone === "string" && body.phone.trim() ? body.phone.trim() : null,
     owner_email: typeof body?.owner_email === "string" && body.owner_email.trim() ? body.owner_email.trim() : null,
     city: typeof body?.city === "string" && body.city.trim() ? body.city.trim() : null,
-    logo_url: typeof body?.logo_url === "string" && body.logo_url.trim() ? body.logo_url.trim() : null,
+    logo_url: normalizeLogoUrl(body?.logo_url),
     ...(schemaCompat.schoolColors
       ? {
           primary_color:

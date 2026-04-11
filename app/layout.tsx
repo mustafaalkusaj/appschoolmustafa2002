@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
-import { Cairo, Inter } from "next/font/google";
+import { Noto_Sans_Arabic } from "next/font/google";
 import { Providers } from "@/app/[locale]/providers";
 import { ToastProvider } from "@/components/toast";
 
-const inter = Inter({
-  subsets: ["latin"],
+const notoSansArabic = Noto_Sans_Arabic({
+  subsets: ["arabic"],
   display: "swap",
-  variable: "--font-inter",
-});
-
-const cairo = Cairo({
-  subsets: ["arabic", "latin"],
-  display: "swap",
-  variable: "--font-cairo",
+  variable: "--font-noto-sans-arabic",
+  weight: ["400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
@@ -30,7 +25,7 @@ export default async function AppLayout({
 }) {
   return (
     <html suppressHydrationWarning translate="no" className="notranslate">
-      <body className={`${inter.variable} ${cairo.variable} notranslate`} translate="no">
+      <body className={`${notoSansArabic.variable} notranslate`} translate="no">
         <Providers>
           <ToastProvider>
             {children}

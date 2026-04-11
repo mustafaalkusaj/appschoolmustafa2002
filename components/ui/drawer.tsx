@@ -217,7 +217,8 @@ export function Drawer({
             "max-w-[85vw]",
             "bg-[var(--card-bg)]",
             "shadow-xl",
-            "focus:outline-none"
+            "focus:outline-none",
+            className
           )}
           style={{ ...animationStyles, width: width || undefined }}
         >

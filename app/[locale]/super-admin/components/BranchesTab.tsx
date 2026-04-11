@@ -34,13 +34,13 @@ type BranchRecord = {
 };
 
 export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
-  const [branches, setBranches] = useState<any[]>([]);
-  const [schools, setSchools] = useState<any[]>([]);
+  const [branches, setBranches] = useState<BranchRecord[]>([]);
+  const [schools, setSchools] = useState<BranchSchool[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingBranch, setEditingBranch] = useState<any>(null);
+  const [editingBranch, setEditingBranch] = useState<BranchRecord | null>(null);
   const [message, setMessage] = useState("");
-  const [branchToDelete, setBranchToDelete] = useState<any>(null);
+  const [branchToDelete, setBranchToDelete] = useState<BranchRecord | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -71,10 +71,12 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
         schoolsQuery = schoolsQuery.is("deleted_at", null);
       }
 
-      let [branchesRes, schoolsRes]: any = await Promise.all([
+      const results = await Promise.all([
         branchesQuery.order("created_at", { ascending: false }),
-        schoolsQuery
+        schoolsQuery,
       ]);
+      let branchesRes = results[0];
+      const schoolsRes = results[1];
 
       if (branchesRes.error && isMissingRelationError(branchesRes.error, "branches", "schools")) {
         setMessage("تم عرض أسماء المدارس للفروع بوضع توافق لأن علاقة الربط مع جدول المدارس غير متاحة حالياً.");

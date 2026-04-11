@@ -1,7 +1,19 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 
+type ProbeResult = PromiseLike<{ error: PostgrestError | null }>;
+
 type ProbeClient = {
-  from: (table: string) => any;
+  from: (table: string) => {
+    select: (columns: string) => {
+      limit: (count: number) => ProbeResult;
+      is: (
+        column: string,
+        value: null,
+      ) => {
+        limit: (count: number) => ProbeResult;
+      };
+    };
+  };
 };
 
 export interface AdminInfrastructure {
@@ -118,7 +130,7 @@ export function getAdminInfrastructureNotice(infrastructure: AdminInfrastructure
 }
 
 async function probe(
-  action: () => Promise<{ error: PostgrestError | null }>,
+  action: () => ProbeResult,
 ) {
   try {
     const { error } = await action();

@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Menu, X, ChevronRight, ChevronLeft, School, ChevronDown } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 import { AppIcon } from "@/components/AppIcon";
-import { UltrathinkLogo } from "@/components/brand";
+import { SchoolLogo } from "@/components/brand";
 import { getAcademicYearLabel } from "@/lib/academic-year";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { getSidebarItemsForRole, isPathMatch, type SidebarItem } from "@/types/roles";
@@ -23,6 +24,14 @@ interface AppSidebarProps {
   currentPath: string;
   showFloatingToggle?: boolean;
 }
+
+const SIDEBAR_MODE_STORAGE_KEY = "app-sidebar-mode:v1";
+const SIDEBAR_WIDTH_BY_MODE = {
+  default: "224px",
+  wide: "320px",
+} as const;
+
+type SidebarMode = keyof typeof SIDEBAR_WIDTH_BY_MODE;
 
 const GROUP_LABELS: Record<string, { ar: string; en: string }> = {
   general: { ar: "العامة", en: "General" },
@@ -53,13 +62,25 @@ export function AppSidebar({
   showFloatingToggle = true,
 }: AppSidebarProps) {
   const { role, profile } = useRole();
+  const runtimeBranding = useRuntimeBranding();
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const isRTL = locale === "ar";
   const schoolScope = useSchoolScope(profile);
   const [scopedSchoolId, setScopedSchoolId] = useState<string | null>(() => readSchoolScopeFromWindow());
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
+    if (typeof window === "undefined") return "default";
+    const stored = window.localStorage.getItem(SIDEBAR_MODE_STORAGE_KEY);
+    return stored === "wide" ? "wide" : "default";
+  });
   const academicYearLabel = getAcademicYearLabel(new Date(), locale);
+  const schoolName =
+    runtimeBranding.schoolName ||
+    schoolScope.selectedSchool?.name ||
+    profile?.school?.name ||
+    (locale === "en" ? "Current school" : "المدرسة الحالية");
+  const schoolLogoUrl = runtimeBranding.logoUrl;
 
   const navItems = useMemo(() => getSidebarItemsForRole(role), [role]);
   
@@ -101,6 +122,13 @@ export function AppSidebar({
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const width = SIDEBAR_WIDTH_BY_MODE[sidebarMode];
+    document.documentElement.style.setProperty("--sidebar-width", width);
+    window.localStorage.setItem(SIDEBAR_MODE_STORAGE_KEY, sidebarMode);
+  }, [sidebarMode]);
+
   return (
     <>
       {showFloatingToggle && !mobileOpen ? (
@@ -135,27 +163,46 @@ export function AppSidebar({
                 ? buildPathWithSchoolScope(localizeAppPath("/dashboard", locale), scopedSchoolId)
                 : localizeAppPath("/dashboard", locale)
             }
-            className="flex items-center gap-3"
+            className="flex min-w-0 items-center gap-3"
           >
-            <UltrathinkLogo size={34} showText={false} />
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-black text-[var(--text-primary)] uppercase tracking-tight">
-                {locale === "en" ? "Edu" : "منصة"}
+            <SchoolLogo
+              src={schoolLogoUrl}
+              alt={schoolName}
+              label={schoolName}
+              size={42}
+              className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-strong)] shadow-[var(--shadow-xs)]"
+              imageClassName="object-contain p-1.5 bg-[var(--surface-strong)]"
+              fallbackClassName="text-[0.95rem] font-black text-white"
+            />
+            <div className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-sm font-black text-[var(--text-primary)] tracking-tight">
+                {schoolName}
               </span>
-              <span className="text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest">
-                {locale === "en" ? "Manager" : "المدرسة"}
+              <span className="text-[11px] font-bold text-[var(--text-tertiary)] tracking-[0.18em]">
+                {locale === "en" ? "SCHOOL WORKSPACE" : "مساحة المدرسة"}
               </span>
             </div>
           </Link>
 
-          <button
-            type="button"
-            className="lg:hidden h-8 w-8 flex items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-tertiary)]"
-            onClick={() => setMobileOpen(false)}
-            aria-label={locale === "en" ? "Close navigation" : "إغلاق التنقل"}
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="hidden lg:flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]"
+              onClick={() => setSidebarMode((current) => (current === "wide" ? "default" : "wide"))}
+              aria-label={locale === "en" ? "Resize sidebar" : "تغيير عرض القائمة الجانبية"}
+              title={locale === "en" ? "Resize sidebar" : "تغيير عرض القائمة الجانبية"}
+            >
+              {sidebarMode === "wide" ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            </button>
+            <button
+              type="button"
+              className="lg:hidden h-8 w-8 flex items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-tertiary)]"
+              onClick={() => setMobileOpen(false)}
+              aria-label={locale === "en" ? "Close navigation" : "إغلاق التنقل"}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-6">
@@ -195,7 +242,7 @@ export function AppSidebar({
                           )}>
                             <AppIcon token={item.iconToken} size={20} />
                           </span>
-                          <span className="flex-1 text-sm truncate">{label}</span>
+                          <span className="flex-1 text-sm leading-5 whitespace-normal">{label}</span>
                           {isActive && (
                             <span className="shrink-0 opacity-60">
                               {locale === "en" ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
@@ -246,16 +293,21 @@ export function AppSidebar({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-3 px-1 py-1">
-                <div className="h-8 w-8 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
-                  <School size={16} />
-                </div>
-                <div className="flex flex-col min-w-0">
+              <div className="flex items-start gap-3 px-1 py-1">
+                <SchoolLogo
+                  src={schoolLogoUrl}
+                  alt={schoolName}
+                  label={schoolName}
+                  size={38}
+                  className="rounded-[14px] border border-[var(--border)] bg-[var(--surface-strong)]"
+                  imageClassName="object-contain p-1"
+                />
+                <div className="flex min-w-0 flex-1 flex-col">
                   <span className="text-xs font-semibold uppercase text-[var(--text-muted)] tracking-wider">
                     {locale === "en" ? "Current School" : "المدرسة الحالية"}
                   </span>
-                  <span className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                    {profile?.school?.name || (locale === "en" ? "Default" : "المدرسة الافتراضية")}
+                  <span className="text-sm font-semibold text-[var(--text-primary)] whitespace-normal leading-5 break-words">
+                    {schoolName}
                   </span>
                 </div>
               </div>

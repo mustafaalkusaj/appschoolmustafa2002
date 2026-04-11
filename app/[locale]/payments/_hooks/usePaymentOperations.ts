@@ -249,7 +249,7 @@ export function usePaymentOperations(
         setSaving(false);
       }
     },
-    [canAddPayments, resolvedSchoolId, onError, onSuccess]
+    [canAddPayments, resolvedSchoolId, onError, onPaymentCreated, onSuccess]
   );
 
   const deletePayment = useCallback(

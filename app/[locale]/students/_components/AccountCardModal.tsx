@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Copy, Printer, X } from "lucide-react";
+import { Copy, Printer } from "lucide-react";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import type { ManagedUserAccountCard } from "../_types";
@@ -20,7 +20,11 @@ export function AccountCardModal({ accountCard, revealedPassword, onPrint, onCop
 
   if (!accountCard) return null;
 
-  const isPasswordRevealed = revealedPassword && revealedPassword !== "••••••••";
+  const visiblePassword =
+    (revealedPassword && revealedPassword !== "••••••••" ? revealedPassword : null) ||
+    (accountCard.temporary_password && accountCard.temporary_password !== "••••••••"
+      ? accountCard.temporary_password
+      : null);
 
   return (
     <Modal open={!!accountCard} onClose={onClose} size="xl">
@@ -63,12 +67,12 @@ export function AccountCardModal({ accountCard, revealedPassword, onPrint, onCop
               {t("tempPassword")}
             </p>
             <p
-              className={`text-lg font-bold text-start ltr ${isPasswordRevealed ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
+              className={`text-lg font-bold text-start ltr break-all ${visiblePassword ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
               dir="ltr"
             >
-              {isPasswordRevealed ? revealedPassword : "••••••••"}
+              {visiblePassword || "••••••••"}
             </p>
-            {!isPasswordRevealed && (
+            {!visiblePassword && (
               <p className="text-xs text-[var(--text-muted)] mt-1">
                 {t("passwordSet")}
               </p>
