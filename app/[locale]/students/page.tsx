@@ -32,6 +32,7 @@ import { EditStudentModal } from "./_components/EditStudentModal";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
 import { ImportExcelModal } from "./_components/ImportExcelModal";
 import { AccountCardModal } from "./_components/AccountCardModal";
+import { BulkImportModal } from "@/components/students/BulkImportModal";
 
 export default function StudentsPage() {
   const pathname = usePathname();
@@ -55,6 +56,7 @@ export default function StudentsPage() {
   const [filterClass, setFilterClass] = useState("");
   const [filterSection, setFilterSection] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -212,14 +214,14 @@ export default function StudentsPage() {
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => print.openAccountCardWindow(modals.accountCard!, true)}
+                          onClick={() => print.openAccountCardWindow(modals.accountCard!, true, modals.revealedPassword)}
                         >
                           {t("modals.printCredentials")}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => print.copyAccountCardCredentials(modals.accountCard, modals.setSuccess)}
+                          onClick={() => print.copyAccountCardCredentials(modals.accountCard, modals.setSuccess, modals.revealedPassword)}
                         >
                           {t("modals.copyCredentials")}
                         </Button>
@@ -291,6 +293,7 @@ export default function StudentsPage() {
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
                         onPrintAllCards={() => {}}
                         onAddStudent={() => modals.setShowModal(true)}
+                        onBulkImport={() => setShowBulkImport(true)}
                       />
                       <StudentsTable
                         pagedStudents={pagedStudents}
@@ -388,6 +391,11 @@ export default function StudentsPage() {
             modals.setAccountCard(null);
             modals.setRevealedPassword(null);
           }}
+        />
+        <BulkImportModal
+          show={showBulkImport}
+          onClose={() => setShowBulkImport(false)}
+          onImportComplete={reload}
         />
       </div>
     </ProtectedRoute>

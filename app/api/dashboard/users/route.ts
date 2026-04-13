@@ -6,7 +6,6 @@ import {
   MANAGED_USER_INACTIVE_BAN_DURATION,
   MANAGED_USER_ROLES,
   type ManagedUserAccountCard,
-  type ManagedTeacherAssignmentRecord,
   type ManagedUserRecord,
   validateCreateManagedUserInput,
 } from "@/lib/managed-users";
@@ -16,7 +15,6 @@ import {
   buildManagedAuthIdentityPayload,
   buildTeacherClassesTaught,
   decorateManagedUsers,
-  fetchTeacherAssignments,
   findManagedProfileByLinkedRecord,
   fetchManagedUserByAuthUserId,
   fetchManagedAccountSchoolBrand,
@@ -31,6 +29,9 @@ import {
   syncStudentTeacherLinks,
   getTeacherTableCapabilities,
   tableHasColumn,
+  getClassLookupName,
+  parseTeacherClassesTaught,
+  type ManagedTeacherAssignmentRecord,
   type ManagedUsersActorContext,
 } from "@/lib/managed-users-server";
 import {
@@ -70,6 +71,14 @@ function normalizeNumber(value: unknown) {
 function normalizeIdentityText(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
+
+type LegacyTeacherAssignment = {
+  subject_name?: string | null;
+  class_name?: string | null;
+  grade?: string | null;
+  section?: string | null;
+  section_name?: string | null;
+};
 
 function getPrimaryTeacherSubjectName(user: {
   teacher?: { specialization?: string | null; assignments?: Array<{ subject_name: string }> | null } | null;
@@ -493,32 +502,98 @@ async function resolveTeacherIdsForFilters(
     subjectFilter: string;
   },
 ) {
+  const hasAssignmentsTable = await tableHasColumn(actorSupabase, "teacher_assignments", "id");
+
+  if (hasAssignmentsTable) {
+    // Optimized path: query teacher_assignments directly
+    let query = actorSupabase
+      .from("teacher_assignments")
+      .select("teacher_id")
+      .eq("school_id", schoolId)
+      .eq("is_active", true);
+
+    if (filters.classFilter) {
+      // Find matching class IDs first
+      const { data: classRows } = await actorSupabase
+        .from("classes")
+        .select("id, name, grade")
+        .eq("school_id", schoolId);
+      
+      const matchingClassIds = ((classRows ?? []) as Array<Record<string, unknown>>)
+        .filter(row => normalizeIdentityText(getClassLookupName(row)) === filters.classFilter)
+        .map(row => row.id as string);
+      
+      if (matchingClassIds.length === 0) return [];
+      query = query.in("class_id", matchingClassIds);
+    }
+
+    if (filters.sectionFilter) {
+      // Find matching section IDs first
+      const { data: sectionRows } = await actorSupabase
+        .from("sections")
+        .select("id, name")
+        .eq("school_id", schoolId);
+      
+      const matchingSectionIds = ((sectionRows ?? []) as Array<Record<string, unknown>>)
+        .filter(row => normalizeIdentityText(row.name as string) === filters.sectionFilter)
+        .map(row => row.id as string);
+      
+      if (matchingSectionIds.length === 0) return [];
+      query = query.in("section_id", matchingSectionIds);
+    }
+
+    if (filters.subjectFilter) {
+      // Find matching subject IDs first
+      const { data: subjectRows } = await actorSupabase
+        .from("subjects")
+        .select("id, name")
+        .eq("school_id", schoolId);
+      
+      const matchingSubjectIds = ((subjectRows ?? []) as Array<Record<string, unknown>>)
+        .filter(row => normalizeIdentityText(row.name as string) === filters.subjectFilter)
+        .map(row => row.id as string);
+      
+      if (matchingSubjectIds.length === 0) return [];
+      query = query.in("subject_id", matchingSubjectIds);
+    }
+
+    const { data: assignments, error } = await query;
+    if (error) throw error;
+
+    return Array.from(new Set(
+      ((assignments ?? []) as Array<{ teacher_id?: string | null }>)
+        .map(a => a.teacher_id)
+        .filter((id): id is string => Boolean(id))
+    ));
+  }
+
+  // Legacy fallback: still fetching in memory but limited to school
   const { data: teachers, error } = await actorSupabase
     .from("teachers")
-    .select("id")
+    .select("id, classes_taught")
     .eq("school_id", schoolId);
 
   if (error) {
     throw error;
   }
 
-  const teacherIds = ((teachers ?? []) as Array<{ id?: string | null }>)
-    .map((teacher) => teacher.id)
-    .filter((teacherId): teacherId is string => Boolean(teacherId));
-
-  if (teacherIds.length === 0) {
-    return [] as string[];
-  }
-
-  const assignmentsByTeacherId = await fetchTeacherAssignments(actorSupabase, teacherIds, {
-    schoolId,
-  });
-
-  return teacherIds.filter((teacherId) =>
-    (assignmentsByTeacherId.get(teacherId) ?? []).some((assignment) =>
-      teacherAssignmentMatchesFilters(assignment, filters),
-    ),
-  );
+  return ((teachers ?? []) as Array<Record<string, unknown>>)
+    .filter((teacher) => {
+      const assignments = parseTeacherClassesTaught(teacher.classes_taught) as LegacyTeacherAssignment[];
+      return assignments.some((assignment) =>
+        teacherAssignmentMatchesFilters({
+          id: "",
+          subject_id: null,
+          subject_name: String(assignment.subject_name || ""),
+          class_id: null,
+          class_name: String(assignment.class_name || assignment.grade || ""),
+          section_id: null,
+          section_name: assignment.section ? String(assignment.section) : assignment.section_name ? String(assignment.section_name) : null,
+          is_active: true
+        } as ManagedTeacherAssignmentRecord, filters),
+      );
+    })
+    .map((teacher) => String(teacher.id));
 }
 
 export async function GET(req: NextRequest) {
@@ -745,7 +820,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "dashboard-managed-users-post",
     windowMs: 10 * 60_000,
     maxHits: 25,

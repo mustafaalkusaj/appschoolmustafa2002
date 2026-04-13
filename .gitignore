@@ -13,6 +13,7 @@
 # testing
 /coverage
 /output/
+artifacts/reliability-audit/*storage-state.json
 
 # next.js
 /.next/

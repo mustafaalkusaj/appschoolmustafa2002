@@ -77,7 +77,7 @@ export function PingIndicator() {
   return (
     <div className="ping-indicator flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)]">
       <span className="whitespace-nowrap">{label}</span>
-      <span className="font-mono text-sm">{formattedMs}</span>
+      <span className="ui-numeric text-sm">{formattedMs}</span>
       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getSpeedColor(ping.speed)}`}>
         {getSpeedLabel(ping.speed)}
       </span>

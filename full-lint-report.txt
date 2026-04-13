@@ -1,0 +1,39 @@
+
+/Users/musatafa/school-app/app/[locale]/attendance/page.tsx
+    3:43  error  'useRef' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  520:28  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+/Users/musatafa/school-app/app/[locale]/attendance/page.tsx:520:28
+  518 |   }, [students, filterClass]);
+  519 |
+> 520 |   const filteredStudents = useMemo(() => {
+      |                            ^^^^^^^^^^^^^^^
+> 521 |     return students.filter((student) => {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 522 |       const draft = attendanceDrafts[student.id];
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 529 |     });
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 530 |   }, [students, attendanceDrafts, search, filterClass, filterSection, filterStatus]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  531 |
+  532 |   const stats = useMemo(() => {
+  533 |     const count = { present: 0, absent: 0, late: 0, excused: 0, unrecorded: 0 };  react-hooks/preserve-manual-memoization
+  542:7   error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+/Users/musatafa/school-app/app/[locale]/attendance/page.tsx:542:7
+  540 |     const attendanceRate = total ? Math.round(((count.present + count.late) / total) * 100) : 0;
+  541 |     return { ...count, total, attendanceRate };
+> 542 |   }, [filteredStudents, attendanceDrafts]);
+      |       ^^^^^^^^^^^^^^^^ This dependency may be modified later
+  543 |
+  544 |   const changedCount = useMemo(() => Object.values(attendanceDrafts).filter((draft) => draft.touched && draft.status).length, [attendanceDrafts]);
+  545 |   const heroDateLabel = useMemo(                                                                                                                                                                                                                                                                                                react-hooks/preserve-manual-memoization
+
+✖ 3 problems (3 errors, 0 warnings)
+

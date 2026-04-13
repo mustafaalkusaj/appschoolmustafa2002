@@ -37,7 +37,7 @@ export async function POST(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "students-ensure-account",
     windowMs: 10 * 60_000,
     maxHits: 20,

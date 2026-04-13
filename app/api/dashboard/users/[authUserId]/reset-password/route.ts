@@ -31,7 +31,7 @@ export async function POST(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "managed-user-reset-password",
     windowMs: 10 * 60_000,
     maxHits: 10,

@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-deductions-read",
     windowMs: 60_000,
     maxHits: 90,
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-deductions-write",
     windowMs: 60_000,
     maxHits: 45,

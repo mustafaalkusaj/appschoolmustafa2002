@@ -43,6 +43,13 @@ export function wrapPrintDocument(input: {
         <meta charset="utf-8" />
         <title>${title}</title>
         <style>
+          @font-face{
+            font-family:"Noto Sans Arabic";
+            src:url("/fonts/noto-sans-arabic/NotoSansArabic-Variable.ttf") format("truetype");
+            font-style:normal;
+            font-weight:100 900;
+            font-display:swap;
+          }
           :root{
             --print-primary:${palette.primaryColor};
             --print-primary-strong:${palette.primaryStrong};
@@ -58,7 +65,9 @@ export function wrapPrintDocument(input: {
             padding:24px;
             background:#eef4fb;
             color:var(--print-text);
-            font-family:Segoe UI,Tahoma,Arial,sans-serif;
+            font-family:"Noto Sans Arabic",Segoe UI,Tahoma,Arial,sans-serif;
+            font-optical-sizing:auto;
+            font-variation-settings:"wdth" 100;
             -webkit-print-color-adjust:exact;
             print-color-adjust:exact;
           }

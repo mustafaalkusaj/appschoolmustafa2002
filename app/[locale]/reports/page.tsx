@@ -105,6 +105,7 @@ export default function ReportsPage() {
   const t = useTranslations("reports");
   const commonT = useTranslations("common");
   const dashboardT = useTranslations("dashboard");
+  const navT = useTranslations("nav");
   const isEnglish = locale === "en";
   const reportCopy = isEnglish
     ? {
@@ -781,10 +782,10 @@ export default function ReportsPage() {
                   {/* Metrics Strip */}
                   <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
                     {[
-                      { label: dashboardT("nav.students"), value: metrics.studentsCount, icon: Users, color: "text-[var(--info)]", bg: "bg-[var(--info)]/10" },
-                      { label: dashboardT("nav.payments"), value: metrics.paymentsCount, icon: CreditCard, color: "text-[var(--success)]", bg: "bg-[var(--success)]/10" },
+                      { label: navT("students"), value: metrics.studentsCount, icon: Users, color: "text-[var(--info)]", bg: "bg-[var(--info)]/10" },
+                      { label: navT("payments"), value: metrics.paymentsCount, icon: CreditCard, color: "text-[var(--success)]", bg: "bg-[var(--success)]/10" },
                       { label: reportCopy.expensesMetric, value: metrics.expensesCount, icon: Wallet, color: "text-[var(--danger)]", bg: "bg-[var(--danger)]/10" },
-                      { label: reportCopy.salariesMetric, value: metrics.salariesCount, icon: Briefcase, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
+                      { label: navT("reports"), value: metrics.salariesCount, icon: Briefcase, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
                     ].map((card, i) => (
                       <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] flex items-center gap-4">
                         <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center", card.bg, card.color)}>

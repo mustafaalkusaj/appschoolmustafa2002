@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "rbac-session",
     windowMs: 60_000,
     maxHits: 30,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "rbac-session-delete",
     windowMs: 60_000,
     maxHits: 60,

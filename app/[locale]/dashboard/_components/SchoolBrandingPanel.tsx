@@ -160,7 +160,7 @@ export function SchoolBrandingPanel({
                 onChange={(e) => setBrandingForm((prev) => ({ ...prev, primary_color: e.target.value, theme_preset: "" }))}
               />
               <div className="w-7 h-7 rounded-lg shrink-0" style={{ background: brandingForm.primary_color || "#4f8cff" }} />
-              <span className="px-3 text-xs font-mono font-bold text-[var(--text-muted)] uppercase">
+              <span className="ui-hex px-3 text-xs font-bold text-[var(--text-muted)] uppercase">
                 {brandingForm.primary_color || "#4F8CFF"}
               </span>
             </div>
@@ -178,7 +178,7 @@ export function SchoolBrandingPanel({
                 onChange={(e) => setBrandingForm((prev) => ({ ...prev, secondary_color: e.target.value, theme_preset: "" }))}
               />
               <div className="w-7 h-7 rounded-lg shrink-0" style={{ background: brandingForm.secondary_color || "#79d7ff" }} />
-              <span className="px-3 text-xs font-mono font-bold text-[var(--text-muted)] uppercase">
+              <span className="ui-hex px-3 text-xs font-bold text-[var(--text-muted)] uppercase">
                 {brandingForm.secondary_color || "#79D7FF"}
               </span>
             </div>
@@ -265,4 +265,3 @@ export function SchoolBrandingPanel({
     </Card>
   );
 }
-

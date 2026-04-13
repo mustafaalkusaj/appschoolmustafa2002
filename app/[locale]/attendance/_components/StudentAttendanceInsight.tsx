@@ -101,10 +101,18 @@ function buildPrintHtml(input: {
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>${safe(title)}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700;800&display=swap');
+        @font-face {
+          font-family: "Noto Sans Arabic";
+          src: url("/fonts/noto-sans-arabic/NotoSansArabic-Variable.ttf") format("truetype");
+          font-style: normal;
+          font-weight: 100 900;
+          font-display: swap;
+        }
         :root { color-scheme: light; }
         body {
           font-family: "Noto Sans Arabic", system-ui, -apple-system, Segoe UI, sans-serif;
+          font-optical-sizing: auto;
+          font-variation-settings: "wdth" 100;
           margin: 24px;
           color: #0f172a;
         }
@@ -219,7 +227,6 @@ function buildPrintHtml(input: {
           ${rows || `<tr><td colspan="3">${safe(input.locale === "ar" ? "لا توجد سجلات ضمن الفترة." : "No records in range.")}</td></tr>`}
         </tbody>
       </table>
-      <script>window.addEventListener('load', () => setTimeout(() => window.print(), 60));</script>
     </body>
   </html>`;
 }
@@ -442,6 +449,16 @@ export function StudentAttendanceInsight(props: {
     w.document.open();
     w.document.write(html);
     w.document.close();
+    
+    // Trigger print from the parent context after it's fully loaded (approximate)
+    // This complies with CSP better than injecting an inline script in a document.written page
+    setTimeout(() => {
+      try {
+        w.print();
+      } catch (e) {
+        console.error("Print failed:", e);
+      }
+    }, 500);
   }
 
   async function exportClassAbsences() {

@@ -103,7 +103,7 @@ async function resolveStudentContext(
     };
   }
 
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: `students-${permission}`,
     windowMs: 60_000,
     maxHits: 90,

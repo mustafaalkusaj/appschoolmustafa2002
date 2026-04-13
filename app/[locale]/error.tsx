@@ -1,15 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
+import { Button } from "@/components/ui/button";
 
-/**
- * Locale-level error boundary.
- * Catches unhandled errors thrown inside any page under app/[locale]/.
- * Rendered only on the client — must be a Client Component.
- */
-export default function LocaleError({
+export default function Error({
   error,
   reset,
 }: {
@@ -17,50 +12,21 @@ export default function LocaleError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO: forward to a monitoring service (e.g. Sentry) in production
-    console.error("[LocaleError]", error);
+    // Log the error to Sentry
+    Sentry.captureException(error);
   }, [error]);
 
   return (
-    <div
-      className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center"
-      dir="rtl"
-    >
-      <div
-        className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600"
-        aria-hidden="true"
-      >
-        ⚠
-      </div>
-
-      <div className="max-w-sm">
-        <h1 className="mb-2 text-xl font-semibold text-[var(--text-primary)]">
-          حدث خطأ غير متوقع
-        </h1>
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-          نعتذر عن هذا الخطأ. يمكنك المحاولة مجدداً أو العودة للصفحة الرئيسية.
-        </p>
-        {error.digest && (
-          <p className="mt-2 font-mono text-xs text-[var(--text-muted)]">
-            رمز الخطأ: {error.digest}
-          </p>
-        )}
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={reset}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-        >
-          حاول مجدداً
-        </button>
-        <Link
-          href={`/${(useParams() as { locale?: string }).locale ?? "ar"}/dashboard`}
-          className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2"
-        >
-          الصفحة الرئيسية
-        </Link>
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+      <h2 className="text-2xl font-bold mb-4">عذراً، حدث خطأ غير متوقع</h2>
+      <p className="text-muted-foreground mb-6">لقد تم إرسال تقرير بالخطأ للفريق التقني.</p>
+      <div className="flex gap-4">
+        <Button onClick={() => reset()} variant="default">
+          إعادة المحاولة
+        </Button>
+        <Button onClick={() => window.location.href = "/"} variant="outline">
+          العودة للرئيسية
+        </Button>
       </div>
     </div>
   );

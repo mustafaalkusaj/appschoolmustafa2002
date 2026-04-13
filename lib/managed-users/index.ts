@@ -12,6 +12,8 @@ export type {
   TeacherTableCapabilities,
 } from "./types";
 
+export type { ManagedTeacherAssignmentRecord, ManagedUserRecord } from "../managed-users";
+
 // Cache constants
 export {
   SCHEMA_CAPABILITY_TTL_MS,

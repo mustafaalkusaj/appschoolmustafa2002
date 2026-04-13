@@ -8,6 +8,7 @@ export {
   type TeacherAssignmentRow,
   type TeacherAssignmentLookupRow,
   type LookupRecord,
+  type ManagedTeacherAssignmentRecord,
   type ManagedUsersActorContext,
   type SchoolScopedActorContext,
   type ManagedAccountLinkageStatus,

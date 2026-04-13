@@ -175,7 +175,9 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     ensureAccountError: (name: string) =>
       isEnglish ? `Could not create an app account for ${name}.` : `تعذر إنشاء حساب التطبيق للطالب ${name}.`,
     ensureAccountSuccess: isEnglish ? "Student app account created and credential card prepared." : "تم إنشاء حساب التطبيق لهذا الطالب وتجهيز بطاقة الدخول فوراً.",
-    openCardSuccess: isEnglish ? "Credential card opened successfully." : "تم فتح بطاقة الدخول بنجاح.",
+    openCardSuccess: isEnglish
+      ? "A new temporary password was issued and the credential card is ready to print."
+      : "تم إصدار كلمة مرور مؤقتة جديدة وتجهيز بطاقة الدخول للطباعة.",
     resetCardError: (name: string) =>
       isEnglish ? `Could not create a credential card for ${name}.` : `تعذر إنشاء بطاقة دخول للطالب ${name}.`,
     openCardError: isEnglish ? "Could not open the credential card." : "تعذر فتح بطاقة الدخول.",
@@ -526,27 +528,18 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         modals.setRevealedPassword((ensurePayload?.temporary_password as string | null) ?? null);
         modals.setSuccess(copy.ensureAccountSuccess);
       } else {
-        const cardResponse = await fetchWithAuthorizedSession(
-          `/api/dashboard/users/${student.auth_user_id}/card?schoolId=${encodeURIComponent(school_id)}`,
-          { cache: "no-store" }
+        // Always issue a fresh temporary password when opening the card so the value is visible and printable.
+        const resetResponse = await fetchWithAuthorizedSession(
+          `/api/dashboard/users/${student.auth_user_id}/reset-password`,
+          { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ school_id }) }
         );
-        const cardPayload = await cardResponse.json().catch(() => null);
-        if (cardResponse.ok && cardPayload?.accountCard) {
-          modals.setAccountCard(cardPayload.accountCard);
-          modals.setSuccess(copy.openCardSuccess);
-        } else {
-          const resetResponse = await fetchWithAuthorizedSession(
-            `/api/dashboard/users/${student.auth_user_id}/reset-password`,
-            { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ school_id }) }
-          );
-          const resetPayload = await resetResponse.json().catch(() => null);
-          if (!resetResponse.ok || !resetPayload?.accountCard) {
-            throw new Error(readApiError(resetPayload, copy.resetCardError(student.full_name)));
-          }
-          modals.setAccountCard(resetPayload.accountCard);
-          // Store the revealed password from the reset response (one-time reveal)
-          modals.setRevealedPassword((resetPayload?.temporary_password as string | null) ?? null);
+        const resetPayload = await resetResponse.json().catch(() => null);
+        if (!resetResponse.ok || !resetPayload?.accountCard) {
+          throw new Error(readApiError(resetPayload, copy.resetCardError(student.full_name)));
         }
+        modals.setAccountCard(resetPayload.accountCard);
+        modals.setRevealedPassword((resetPayload?.temporary_password as string | null) ?? null);
+        modals.setSuccess(copy.openCardSuccess);
       }
       void reload();
       setTimeout(() => modals.setSuccess(""), 3000);

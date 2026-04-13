@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const useDevServer = process.env.PLAYWRIGHT_USE_DEV_SERVER === "1";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -39,9 +41,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
+    command: useDevServer
+      ? "npm run dev -- --hostname 127.0.0.1 --port 3000"
+      : "npm run build && npm run start -- --hostname 127.0.0.1 --port 3000",
     url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: useDevServer && !process.env.CI,
+    timeout: useDevServer ? 120_000 : 240_000,
   },
 });

@@ -42,3 +42,41 @@ Build the production bundle:
 ```bash
 npm run build
 ```
+
+## Deployment
+
+Before a production deploy, run:
+
+```bash
+npm run predeploy:check
+npm run check
+npm run test:e2e
+```
+
+After deploy, run:
+
+```bash
+APP_URL=https://your-domain.example \
+HEALTHCHECK_TOKEN=... \
+npm run postdeploy:smoke
+
+node scripts/postdeploy-smoke.mjs https://your-domain.example <healthcheck-token>
+node scripts/uptime-check.mjs https://your-domain.example
+psql "$DATABASE_URL" -f scripts/verify-production-db.sql
+```
+
+Production requires these environment variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `RBAC_COOKIE_SECRET`
+- `HEALTHCHECK_TOKEN`
+
+Recommended for production:
+
+- `NEXT_PUBLIC_SENTRY_DSN`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+Operational release and rollback guidance lives in `docs/production-runbook.md`.

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const locale = normalizeLocale(parsed.data.locale);
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "auth-forgot-password",
     windowMs: 10 * 60_000,
     maxHits: 3,

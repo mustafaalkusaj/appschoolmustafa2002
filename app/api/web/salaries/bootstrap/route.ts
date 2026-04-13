@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-bootstrap",
     windowMs: 60_000,
     maxHits: 90,

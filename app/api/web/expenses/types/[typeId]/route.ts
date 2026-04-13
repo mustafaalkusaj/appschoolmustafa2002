@@ -64,7 +64,7 @@ export async function PATCH(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-update",
     windowMs: 60_000,
     maxHits: 30,
@@ -151,7 +151,7 @@ export async function DELETE(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-delete",
     windowMs: 60_000,
     maxHits: 20,

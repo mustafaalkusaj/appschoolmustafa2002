@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { message: "Unauthorized." } }, { status: 401 });
   }
 
-  const rateLimitResponse = enforceRateLimit(req, {
+  const rateLimitResponse = await enforceRateLimit(req, {
     namespace: "users-create",
     windowMs: 10 * 60 * 1000,
     maxHits: 10,

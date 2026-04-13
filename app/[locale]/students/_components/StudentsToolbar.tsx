@@ -27,6 +27,7 @@ interface StudentsToolbarProps {
   onPrintFiltered: () => void;
   onPrintAllCards: () => void;
   onAddStudent: () => void;
+  onBulkImport: () => void;
 }
 
 export function StudentsToolbar({
@@ -48,6 +49,7 @@ export function StudentsToolbar({
   onPrintFiltered,
   onPrintAllCards,
   onAddStudent,
+  onBulkImport,
 }: StudentsToolbarProps) {
   const t = useTranslations("students.toolbar");
 
@@ -141,14 +143,25 @@ export function StudentsToolbar({
         )}
 
         {activeTab === "active" && !isReadOnlyView && canManageStudentAccounts && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onAddStudent}
-          >
-            <Plus className="h-4 w-4" />
-            {t("addStudent")}
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBulkImport}
+              className="text-purple-600 border-purple-200"
+            >
+              <Upload className="h-4 w-4" />
+              <span>استيراد جماعي</span>
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onAddStudent}
+            >
+              <Plus className="h-4 w-4" />
+              {t("addStudent")}
+            </Button>
+          </>
         )}
       </div>
     </div>

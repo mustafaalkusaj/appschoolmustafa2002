@@ -2,11 +2,16 @@
 
 :root {
   /* ── Fonts ── */
-  --font-sans: var(--font-noto-sans-arabic), "Noto Sans Arabic", sans-serif;
-  --font-arabic: var(--font-noto-sans-arabic), "Noto Sans Arabic", sans-serif;
+  --font-primary: var(--font-primary-next), system-ui, sans-serif;
+  --font-arabic: var(--font-arabic-next), system-ui, sans-serif;
+  --font-english: var(--font-english-next), system-ui, sans-serif;
+  --font-zain: var(--font-zain-next), system-ui, sans-serif;
+  
+  --font-sans: var(--font-primary);
+  --font-ui: var(--font-sans);
+
   /* Legacy aliases — kept for backward compat */
   --font-manrope: var(--font-sans);
-  --font-ui: var(--font-sans);
 
   /* ── Brand palette ── */
   --color-primary-50:  #eff6ff;
@@ -208,19 +213,54 @@
   --radius-button: var(--button-radius);
   --radius-card: var(--card-radius);
   --radius-input: var(--input-radius);
-  --font-sans: var(--font-ui);
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-sans: var(--font-primary);
+  --font-mono: var(--font-english), monospace;
 }
 
 /* ── Typography: font per locale ── */
 html[lang="ar"],
 html[dir="rtl"] {
-  font-family: var(--font-ui);
+  font-family: var(--font-arabic);
 }
 
 html[lang="en"],
 html[dir="ltr"] {
+  font-family: var(--font-english);
+}
+
+/* ── Number Formatting ── */
+* {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+input[type='number'],
+.ui-numeric,
+.tabular-nums,
+.currency,
+.price,
+table td:has(number),
+[class*='amount'],
+[class*='total'],
+[class*='price'] {
+  font-family: var(--font-english), Rubik, monospace !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
   font-family: var(--font-ui);
+  font-optical-sizing: auto;
+}
+
+.ui-hex {
+  font-family: var(--font-english), monospace;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  letter-spacing: 0.04em;
 }
 
 html.dark {
@@ -333,6 +373,13 @@ body {
   transition:
     background var(--transition-base),
     color var(--transition-base);
+}
+
+/* ── Print Styles ── */
+@media print {
+  * {
+    font-family: var(--font-ui), sans-serif !important;
+  }
 }
 
 html.dark body {

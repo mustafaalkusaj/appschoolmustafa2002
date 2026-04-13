@@ -7,6 +7,7 @@ import { getPublicEnv } from "@/lib/env/public";
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().trim().min(1).optional(),
   RBAC_COOKIE_SECRET: z.string().trim().min(32).optional(),
+  HEALTHCHECK_TOKEN: z.string().trim().min(24).optional(),
   SESSION_COOKIE_SECURE: z.enum(["true", "false"]).optional(),
 });
 
@@ -17,6 +18,7 @@ let cachedServerEnv: {
   supabaseAnonKey: string;
   serviceRoleKey: string | null;
   rbacCookieSecret: string | null;
+  healthcheckToken: string | null;
   sessionCookieSecureOverride: boolean | null;
 } | null = null;
 
@@ -29,6 +31,7 @@ export function getServerEnv() {
   const parsed = serverEnvSchema.safeParse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     RBAC_COOKIE_SECRET: process.env.RBAC_COOKIE_SECRET,
+    HEALTHCHECK_TOKEN: process.env.HEALTHCHECK_TOKEN,
     SESSION_COOKIE_SECURE: process.env.SESSION_COOKIE_SECURE,
   });
 
@@ -42,6 +45,7 @@ export function getServerEnv() {
     supabaseAnonKey: publicEnv.supabaseAnonKey,
     serviceRoleKey: parsed.data.SUPABASE_SERVICE_ROLE_KEY?.trim() || null,
     rbacCookieSecret: parsed.data.RBAC_COOKIE_SECRET?.trim() || null,
+    healthcheckToken: parsed.data.HEALTHCHECK_TOKEN?.trim() || null,
     sessionCookieSecureOverride:
       parsed.data.SESSION_COOKIE_SECURE === "true"
         ? true
@@ -61,4 +65,3 @@ export function shouldUseSecureCookies() {
 
   return process.env.NODE_ENV === "production";
 }
-

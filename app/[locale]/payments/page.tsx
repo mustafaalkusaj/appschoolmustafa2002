@@ -6,9 +6,7 @@ import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
-import { formatNumber } from "@/lib/formatting";
 import { Card } from "@/components/ui/card";
-import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
 
 import {
   PaymentsStats,
@@ -22,7 +20,6 @@ import {
 } from "./_components";
 import { usePaymentsPage } from "./_hooks";
 import "./_components/payments.css";
-import { Users, Wallet, DollarSign, Archive } from "lucide-react";
 
 export default function PaymentsPage() {
   const t = useTranslations();
@@ -59,34 +56,6 @@ export default function PaymentsPage() {
     openPaymentForStudent,
   } = usePaymentsPage();
 
-  const heroCards = [
-    {
-      label: t("payments.hero.students"),
-      value: metaHook.metaLoading ? "..." : formatNumber(metaHook.summary.totalStudents),
-      icon: Users,
-      variant: "primary" as const,
-    },
-    {
-      label: t("payments.hero.totalFees"),
-      value: metaHook.metaLoading ? "..." : `${t("common.currency")} ${formatNumber(metaHook.summary.totalFee)}`,
-      icon: Wallet,
-      variant: "info" as const,
-    },
-    {
-      label: t("payments.hero.totalRemaining"),
-      value:
-        metaHook.metaLoading ? "..." : `${t("common.currency")} ${formatNumber(metaHook.summary.totalRemaining)}`,
-      icon: DollarSign,
-      variant: "danger" as const,
-    },
-    {
-      label: t("payments.hero.archives"),
-      value: metaHook.metaLoading ? "..." : formatNumber(metaHook.archives.length),
-      icon: Archive,
-      variant: "neutral" as const,
-    },
-  ];
-
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
       <div className="flex min-h-screen bg-[var(--bg-base)]">
@@ -102,19 +71,6 @@ export default function PaymentsPage() {
 
           <main className="flex-1 pt-16 overflow-y-auto custom-scrollbar">
             <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-              {/* Hero KPI Cards */}
-              <KPIGrid>
-                {heroCards.map((card) => (
-                  <StatsCard
-                    key={card.label}
-                    label={card.label}
-                    value={card.value}
-                    icon={card.icon}
-                    variant={card.variant}
-                  />
-                ))}
-              </KPIGrid>
-
               {/* Success/Error Messages */}
               {success && (
                 <div className="bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success)] rounded-[var(--radius-lg)] p-4 font-semibold border border-[color-mix(in_srgb,var(--success)_20%,transparent)]">

@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-lectures",
     windowMs: 60_000,
     maxHits: 120,

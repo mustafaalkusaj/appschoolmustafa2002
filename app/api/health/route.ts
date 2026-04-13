@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServerEnv } from "@/lib/env/server";
+import { isAuthorizedHealthRequest } from "@/lib/ops-health";
 
 type DependencyStatus = "ok" | "error" | "unconfigured";
 
 export async function GET(req: NextRequest) {
+  const env = getServerEnv();
+  const authorized = isAuthorizedHealthRequest(req, env.healthcheckToken, process.env.NODE_ENV === "production");
+
+  if (!authorized) {
+    return NextResponse.json(
+      { ok: false, message: "Not found." },
+      {
+        status: 404,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const startedAt = Date.now();
   const timestamp = new Date().toISOString();
@@ -15,7 +31,6 @@ export async function GET(req: NextRequest) {
   let envErrorMessage: string | null = null;
 
   try {
-    const env = getServerEnv();
     if (!env.serviceRoleKey) {
       supabaseStatus = "unconfigured";
       envConfigured = false;

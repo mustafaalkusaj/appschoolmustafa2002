@@ -723,16 +723,7 @@ export function useTeachersData(
     setCardLoadingId(user.auth_user_id);
 
     try {
-      const response = await fetchWithAuthorizedSession(
-        `/api/dashboard/users/${user.auth_user_id}/card?schoolId=${encodeURIComponent(currentSchoolId)}`,
-        { cache: "no-store" },
-      );
-      const payload = await response.json().catch(() => null);
-      if (response.ok && payload?.accountCard) {
-        setAccountCard(payload.accountCard as ManagedUserAccountCard);
-        return;
-      }
-
+      // Always issue a fresh temporary password when opening the card so the value is visible and printable.
       const resetResponse = await fetchWithAuthorizedSession(`/api/dashboard/users/${user.auth_user_id}/reset-password`, {
         method: "POST",
         headers: withJsonHeaders(),
@@ -740,10 +731,11 @@ export function useTeachersData(
       });
       const resetPayload = await resetResponse.json().catch(() => null);
       if (!resetResponse.ok || !resetPayload?.accountCard) {
-        throw new Error(readApiError(resetPayload ?? payload, "تعذر تحميل بطاقة الحساب."));
+        throw new Error(readApiError(resetPayload, "تعذر تحميل بطاقة الحساب."));
       }
 
       setAccountCard(resetPayload.accountCard as ManagedUserAccountCard);
+      setRevealedPassword((resetPayload?.temporary_password as string | null) ?? null);
       setSuccess("تم إصدار كلمة مرور مؤقتة جديدة وفتح بطاقة الحساب مباشرة.");
       await fetchUsers();
     } catch (cardError) {

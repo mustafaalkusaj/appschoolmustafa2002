@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     return jsonValidationError(parsed.error);
   }
 
-  const rateLimited = enforceRateLimit(req, {
+  const rateLimited = await enforceRateLimit(req, {
     namespace: "auth-login",
     windowMs: 10 * 60_000,
     maxHits: 5,

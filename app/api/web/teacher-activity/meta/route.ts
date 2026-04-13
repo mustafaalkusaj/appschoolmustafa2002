@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 import { getTeacherActivityMeta, jsonError } from "@/lib/teacher-activity-server";
 
 export async function GET(request: NextRequest) {
-  const schoolId = request.nextUrl.searchParams.get("schoolId") ?? request.nextUrl.searchParams.get("school_id");
   const input = {
     schoolId: request.nextUrl.searchParams.get("schoolId") ?? request.nextUrl.searchParams.get("school_id"),
     studentQuery: request.nextUrl.searchParams.get("studentQuery") ?? request.nextUrl.searchParams.get("student_query"),
@@ -14,34 +12,23 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const payload = schoolId?.trim()
-      ? await rememberWithTtl(
-          `teacher-activity:meta:${schoolId.trim()}:${request.nextUrl.searchParams.toString()}`,
-          15_000,
-          async () => {
-            const result = await getTeacherActivityMeta(request, input);
-            if (result.ok === false) {
-              const error = new Error(result.message) as Error & { status?: number };
-              error.status = result.status;
-              throw error;
-            }
-            return { ok: true as const, ...result.value };
-          },
-          { tags: [buildSchoolCacheTag(schoolId.trim(), "teacher-activity")] },
-        )
-      : await (async () => {
-          const result = await getTeacherActivityMeta(request, input);
-          if (result.ok === false) {
-            return { ok: false as const, status: result.status, message: result.message };
-          }
-          return { ok: true as const, ...result.value };
-        })();
+    const result = await getTeacherActivityMeta(request, input);
 
-    if (!payload.ok) {
-      return jsonError(payload.message, payload.status);
+    if (result.ok === false) {
+      return jsonError(result.message, result.status);
     }
 
-    return NextResponse.json(payload);
+    return NextResponse.json(
+      {
+        ok: true,
+        ...result.value,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      },
+    );
   } catch (error) {
     const status = error instanceof Error && "status" in error && typeof error.status === "number"
       ? error.status

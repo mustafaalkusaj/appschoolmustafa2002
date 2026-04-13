@@ -1,10 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { chromium } from "playwright";
 
-import { chromium } from "@playwright/test";
-
-const BASE_URL = "http://127.0.0.1:3000";
-const OUTPUT_DIR = "/Users/musatafa/school-app/output/playwright/print-audit";
+const BASE_URL = process.env.AUDIT_BASE_URL || "http://127.0.0.1:3000";
+const OUTPUT_DIR = "./output/playwright/print-audit";
 const SCREENSHOT_DIR = path.join(OUTPUT_DIR, "screenshots");
 const REPORT_PATH = path.join(OUTPUT_DIR, "print-audit.json");
 
@@ -20,117 +19,165 @@ async function ensureDirs() {
 }
 
 async function login(page, locale = "ar") {
+  console.log(`[print-audit] Logging in to ${BASE_URL}/${locale}/login...`);
   await page.goto(`${BASE_URL}/${locale}/login`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  
   const emailInput = page.locator("#email");
   const passwordInput = page.locator("#password");
-  const submitButton = page.getByRole("button", {
-    name: locale === "en" ? "Sign in" : "تسجيل الدخول",
-  });
+  
+  await emailInput.waitFor({ state: "visible", timeout: 15_000 });
+  await emailInput.fill(ADMIN_EMAIL);
+  await passwordInput.fill(ADMIN_PASSWORD);
 
-  await emailInput.waitFor({ state: "visible", timeout: 30_000 });
-  await emailInput.click();
-  await page.keyboard.press("Meta+A").catch(() => undefined);
-  await page.keyboard.type(ADMIN_EMAIL, { delay: 25 });
-
-  await passwordInput.click();
-  await page.keyboard.press("Meta+A").catch(() => undefined);
-  await page.keyboard.type(ADMIN_PASSWORD, { delay: 25 });
-
+  const submitButton = page.locator('button[type="submit"]');
+  await submitButton.waitFor({ state: "visible" });
+  
+  // Wait for button to be enabled if it has loading state
   await page.waitForFunction(() => {
-    const button = document.querySelector('button[type="submit"]');
-    return button instanceof HTMLButtonElement ? !button.disabled : false;
-  });
+    const btn = document.querySelector('button[type="submit"]');
+    return btn && !btn.disabled;
+  }, { timeout: 10_000 }).catch(() => console.log("[print-audit] Submit button still disabled, trying anyway..."));
 
   await submitButton.click();
-  await page.waitForURL(new RegExp(`/${locale}/dashboard(?:\\?.*)?$`), { timeout: 20_000 });
-  await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+  
+  // Wait for dashboard redirect
+  await page.waitForURL(new RegExp(`/${locale}/dashboard`), { timeout: 20_000 });
+  console.log("[print-audit] Login successful.");
+  await delay(2000); // Allow dashboard to settle
 }
 
 function beginPrintPreviewWait(page) {
+  console.log("[print-audit] Waiting for print-preview iframe...");
   return page.waitForSelector('iframe[title="print-preview"]', {
     state: "attached",
-    timeout: 6_000,
+    timeout: 30_000,
   });
 }
 
 async function capturePrintPreview(frameHandlePromise, context, slug) {
   const frameHandle = await frameHandlePromise;
-  let frame = null;
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    frame = await frameHandle.contentFrame();
-    if (frame) break;
-    await delay(200);
-  }
+  const frame = frameHandle.contentFrame();
   if (!frame) {
     throw new Error("print preview iframe did not expose a content frame");
   }
 
-  await frame.locator("body").waitFor({ state: "visible", timeout: 6_000 }).catch(() => undefined);
-  await delay(750);
+  console.log(`[print-audit] Capturing preview for ${slug}...`);
+  // Wait for some content to be present in the body
+  await frame.waitForSelector("body", { state: "visible", timeout: 15_000 });
+  
+  // Ensure the print-shell or some content is rendered
+  await frame.waitForSelector(".print-shell, table, .print-panel", { state: "visible", timeout: 10_000 })
+    .catch(() => console.log(`[print-audit] Warning: Specific print elements not found for ${slug}, capturing body anyway.`));
+
+  await delay(1500); // Extra time for fonts and layout
 
   const html = await frame.content();
   const text = await frame.locator("body").innerText().catch(() => "");
-  const previewPage = await context.newPage({ viewport: { width: 1240, height: 1754 } });
+  
+  const previewPage = await context.newPage({ 
+    viewport: { width: 1240, height: 1754 },
+    bypassCSP: true
+  });
 
   try {
-    await previewPage.setContent(html, { waitUntil: "load", timeout: 10_000 });
-    await delay(500);
+    await previewPage.setContent(html, { waitUntil: "networkidle", timeout: 20_000 });
+    await delay(1000);
     const screenshotPath = path.join(SCREENSHOT_DIR, `${slug}.png`);
     await previewPage.screenshot({ path: screenshotPath, fullPage: true });
 
     await fs.writeFile(path.join(OUTPUT_DIR, `${slug}.html`), html, "utf8");
     await fs.writeFile(path.join(OUTPUT_DIR, `${slug}.txt`), `${text}\n`, "utf8");
 
+    console.log(`[print-audit] Captured ${slug} successfully.`);
     return {
       screenshotPath,
       htmlPath: path.join(OUTPUT_DIR, `${slug}.html`),
       textPath: path.join(OUTPUT_DIR, `${slug}.txt`),
-      textSample: text.slice(0, 800),
+      textSample: text.slice(0, 500),
     };
   } finally {
     await previewPage.close();
   }
 }
 
+async function withRetry(fn, maxAttempts = 2) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      console.warn(`[print-audit] Attempt ${attempt} failed: ${error.message}`);
+      if (attempt < maxAttempts) await delay(3000);
+    }
+  }
+  throw lastError;
+}
+
 async function auditTeacherAccountCard(page, context) {
-  await page.goto(`${BASE_URL}/ar/teachers`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
-  await page.getByRole("button", { name: "بطاقة الدخول" }).first().click();
-  await page.getByText(/بطاقة حساب التطبيق جاهزة/).first().waitFor({ state: "visible", timeout: 20_000 });
+  console.log("[print-audit] Auditing Teacher Account Card...");
+  await page.goto(`${BASE_URL}/ar/teachers`, { waitUntil: "networkidle", timeout: 30_000 });
+  
+  // Find the first "بطاقة الدخول" button in the table
+  const cardBtn = page.getByRole("button", { name: "بطاقة الدخول" }).first();
+  await cardBtn.waitFor({ state: "visible", timeout: 15_000 });
+  await cardBtn.click();
+  
+  // Wait for modal to appear
+  await page.waitForSelector("text=بطاقة حساب التطبيق جاهزة", { timeout: 20_000 });
+  
   const frameHandlePromise = beginPrintPreviewWait(page);
   await page.getByRole("button", { name: "طباعة بطاقة الدخول" }).click();
+  
   return capturePrintPreview(frameHandlePromise, context, "teacher-account-card");
 }
 
 async function auditReportsSummary(page, context) {
-  await page.goto(`${BASE_URL}/ar/reports`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+  console.log("[print-audit] Auditing Reports Summary...");
+  await page.goto(`${BASE_URL}/ar/reports`, { waitUntil: "networkidle", timeout: 30_000 });
+  
   const frameHandlePromise = beginPrintPreviewWait(page);
-  await page.getByRole("button", { name: "طباعة الملخص" }).click();
+  const printBtn = page.getByRole("button", { name: "طباعة الملخص" });
+  await printBtn.waitFor({ state: "visible", timeout: 15_000 });
+  await printBtn.click();
+  
   return capturePrintPreview(frameHandlePromise, context, "reports-summary");
 }
 
 async function auditSalariesSummary(page, context) {
-  await page.goto(`${BASE_URL}/ar/salaries`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
-  await page.getByRole("button", { name: "خيارات الطباعة" }).click();
-  await page.getByText(/خيارات الطباعة/).first().waitFor({ state: "visible", timeout: 15_000 });
+  console.log("[print-audit] Auditing Salaries Summary...");
+  await page.goto(`${BASE_URL}/ar/salaries`, { waitUntil: "networkidle", timeout: 30_000 });
+  
+  const optionsBtn = page.getByRole("button", { name: "خيارات الطباعة" });
+  await optionsBtn.waitFor({ state: "visible" });
+  await optionsBtn.click();
+  
+  await page.waitForSelector("text=خيارات الطباعة", { timeout: 15_000 });
+  
   const frameHandlePromise = beginPrintPreviewWait(page);
-  await page.getByRole("button", { name: "طباعة التقرير الشامل" }).click();
+  const printAllBtn = page.getByRole("button", { name: "طباعة التقرير الشامل" });
+  await printAllBtn.click();
+  
   return capturePrintPreview(frameHandlePromise, context, "salaries-all-teachers");
 }
 
 async function auditStudentsFiltered(page, context) {
-  await page.goto(`${BASE_URL}/ar/students`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+  console.log("[print-audit] Auditing Students Filtered...");
+  await page.goto(`${BASE_URL}/ar/students`, { waitUntil: "networkidle", timeout: 30_000 });
+  
   const frameHandlePromise = beginPrintPreviewWait(page);
-  await page.getByRole("button", { name: /طباعة الطلاب المفلترين/ }).first().click();
+  
+  // Use a more robust selector that finds the button even with hidden spans
+  const printBtn = page.locator('button:has-text("طباعة الطلاب المفلترين")');
+  await printBtn.waitFor({ state: "visible", timeout: 15_000 });
+  await printBtn.click();
+  
   return capturePrintPreview(frameHandlePromise, context, "students-filtered");
 }
 
 async function attemptCapture(fn) {
   try {
-    const result = await fn();
+    const result = await withRetry(fn);
     return { ok: true, ...result };
   } catch (error) {
     return {
@@ -141,10 +188,14 @@ async function attemptCapture(fn) {
 }
 
 async function main() {
+  console.log("[print-audit] Starting audit...");
   await ensureDirs();
 
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
+  const context = await browser.newContext({ 
+    viewport: { width: 1440, height: 960 },
+    locale: "ar-IQ"
+  });
   const page = await context.newPage();
 
   try {
@@ -153,23 +204,17 @@ async function main() {
     const report = {
       generatedAt: new Date().toISOString(),
       captures: {
-        teacherAccountCard: await attemptCapture(() =>
-          auditTeacherAccountCard(page, context),
-        ),
-        reportsSummary: await attemptCapture(() =>
-          auditReportsSummary(page, context),
-        ),
-        salariesAllTeachers: await attemptCapture(() =>
-          auditSalariesSummary(page, context),
-        ),
-        studentsFiltered: await attemptCapture(() =>
-          auditStudentsFiltered(page, context),
-        ),
+        teacherAccountCard: await attemptCapture(() => auditTeacherAccountCard(page, context)),
+        reportsSummary: await attemptCapture(() => auditReportsSummary(page, context)),
+        salariesAllTeachers: await attemptCapture(() => auditSalariesSummary(page, context)),
+        studentsFiltered: await attemptCapture(() => auditStudentsFiltered(page, context)),
       },
     };
 
-    await fs.writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-    console.log(`[print-audit] report written to ${REPORT_PATH}`);
+    const finalPath = path.resolve(REPORT_PATH);
+    await fs.mkdir(path.dirname(finalPath), { recursive: true });
+    await fs.writeFile(finalPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    console.log(`[print-audit] Audit completed. Report written to ${finalPath}`);
   } finally {
     await context.close();
     await browser.close();
@@ -177,6 +222,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error("[print-audit] Fatal error:", error);
   process.exit(1);
 });

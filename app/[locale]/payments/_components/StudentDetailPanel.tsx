@@ -245,7 +245,7 @@ function PaymentRow({ payment, index, onPrint, onDelete, canDelete }: PaymentRow
         <div className="flex items-center gap-2">
           <Hash className="h-3.5 w-3.5 text-[var(--text-muted)]" />
           <span className="text-[var(--text-muted)]">{t("payments.detailPanel.digitalReceipt")}:</span>
-          <span className="font-semibold text-[var(--primary)] font-mono text-xs break-all">
+          <span className="ui-numeric font-semibold text-[var(--primary)] text-xs break-all">
             {payment.receipt_number || "—"}
           </span>
         </div>

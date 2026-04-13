@@ -1,4 +1,6 @@
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { cookies } from "next/headers";
+import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import {
   createRouteSupabaseClient,
   getRouteAuthenticatedUser,
@@ -16,6 +18,23 @@ function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
   if (Number.isNaN(parsed.getTime())) return false;
   parsed.setHours(23, 59, 59, 999);
   return Date.now() > parsed.getTime();
+}
+
+async function readValidatedRbacSession(authHeader?: string | null) {
+  if (authHeader?.trim()) {
+    return null;
+  }
+
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(RBAC_COOKIE_NAME)?.value;
+    if (!token) {
+      return null;
+    }
+    return verifyRBACSession(token);
+  } catch {
+    return null;
+  }
 }
 
 // Resolve school-scoped actor context
@@ -38,6 +57,65 @@ export async function resolveSchoolScopedActorContext(
 
   if (actorUserError || !user?.id) {
     return { ok: false, status: 401, message: "يجب تسجيل الدخول أولاً." };
+  }
+
+  const rbacSession = await readValidatedRbacSession(authHeader);
+  if (rbacSession) {
+    const actorRole = resolveKnownUserRole(rbacSession.role);
+    if (!actorRole) {
+      return { ok: false, status: 403, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." };
+    }
+
+    if (!options.allowedRoles.includes(actorRole)) {
+      return { ok: false, status: 403, message: options.roleDeniedMessage };
+    }
+
+    if (!rbacSession.userActive) {
+      return { ok: false, status: 403, message: "ليس لديك صلاحية لاستخدام هذه الواجهة." };
+    }
+
+    const requested = requestedSchoolId?.trim() || null;
+    let targetSchoolId = requested;
+
+    if (actorRole !== "super_admin") {
+      if (!rbacSession.schoolId) {
+        return { ok: false, status: 403, message: "الحساب الحالي غير مرتبط بمدرسة صالحة." };
+      }
+
+      if (requested && requested !== rbacSession.schoolId) {
+        return { ok: false, status: 403, message: "لا يمكنك تنفيذ هذا الإجراء خارج مدرسة حسابك الحالية." };
+      }
+
+      targetSchoolId = rbacSession.schoolId;
+    }
+
+    if (!targetSchoolId) {
+      return { ok: false, status: 400, message: "يجب تحديد مدرسة قبل متابعة هذا الإجراء." };
+    }
+
+    if (actorRole !== "super_admin") {
+      if (!rbacSession.schoolActive) {
+        return { ok: false, status: 403, message: "المدرسة الحالية غير مفعلة، لذلك تم حظر هذا الإجراء." };
+      }
+
+      const status = (rbacSession.subscriptionStatus || "").toLowerCase();
+      const blockedByStatus = status === "suspended" || status === "inactive" || status === "stopped";
+      const blockedByExpiry = status === "expired" || isSchoolSubscriptionExpired(rbacSession.subscriptionEnd);
+
+      if (blockedByStatus || blockedByExpiry) {
+        return { ok: false, status: 403, message: "اشتراك المدرسة الحالية غير صالح، لذلك تم حظر هذا الإجراء." };
+      }
+    }
+
+    return {
+      ok: true,
+      value: {
+        actorSupabase,
+        actorUserId: user.id,
+        actorRole,
+        targetSchoolId,
+      },
+    };
   }
 
   const { data: actorProfile, error: actorProfileError } = await actorSupabase

@@ -15,14 +15,25 @@ test.describe.serial("attendance student insights", () => {
 
     const searchInput = page.getByTestId("attendance-student-search-input");
     await expect(searchInput).toBeVisible();
+    await expect(searchInput).toBeEditable();
 
-    await searchInput.fill("zz");
+    await searchInput.click();
+    await searchInput.pressSequentially("zz", { delay: 20 });
+    await expect(searchInput).toHaveValue("zz");
 
     const emptyMessage = page.getByText("No matching results.");
     const results = page.getByTestId("attendance-student-search-results");
 
-    // Let the debounce + fetch complete.
-    await page.waitForTimeout(800);
+    await expect
+      .poll(
+        async () => {
+          if (await results.isVisible()) return "results";
+          if (await emptyMessage.isVisible()) return "empty";
+          return "pending";
+        },
+        { timeout: 20_000 },
+      )
+      .toMatch(/results|empty/);
 
     if (await results.isVisible()) {
       await results.getByTestId("attendance-student-search-result").first().click();

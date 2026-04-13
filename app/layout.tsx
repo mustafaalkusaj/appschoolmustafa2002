@@ -1,14 +1,7 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Arabic } from "next/font/google";
 import { Providers } from "@/app/[locale]/providers";
 import { ToastProvider } from "@/components/toast";
-
-const notoSansArabic = Noto_Sans_Arabic({
-  subsets: ["arabic"],
-  display: "swap",
-  variable: "--font-noto-sans-arabic",
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
+import { primaryFont, notoSansArabic, rubik, zain } from "./fonts";
 
 export const metadata: Metadata = {
   title: "School Management Platform",
@@ -24,8 +17,8 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html suppressHydrationWarning translate="no" className="notranslate">
-      <body className={`${notoSansArabic.variable} notranslate`} translate="no">
+    <html suppressHydrationWarning translate="no" className={`notranslate ${primaryFont.variable} ${notoSansArabic.variable} ${rubik.variable} ${zain.variable}`}>
+      <body className={`${primaryFont.className} antialiased notranslate`} translate="no">
         <Providers>
           <ToastProvider>
             {children}
