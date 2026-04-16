@@ -66,7 +66,10 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean)
   const accentColor = sanitizeColor(branding.accentColor) || appearance.accentColor;
   const textColor = sanitizeColor(branding.textColor) || appearance.textColor;
   const softenedCanvas = appearance.backgroundColor;
-  const softenedSidebar = sidebarColor;
+  const softenedSidebar = isDark ? mixColors(sidebarColor, "#080e1a", 0.9) : sidebarColor;
+  const topbarChrome = isDark
+    ? mixColors(softenedSidebar, appearance.surfaceColor, 0.14)
+    : softenedSidebar;
 
   root.style.setProperty("--primary", appearance.primaryColor);
   root.style.setProperty("--primary-strong", appearance.primaryStrong);
@@ -84,7 +87,7 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean)
 
   if (isDark) {
     root.style.setProperty("--sidebar-bg", softenedSidebar);
-    root.style.setProperty("--topbar-bg", toRgba(softenedSidebar, 0.88));
+    root.style.setProperty("--topbar-bg", toRgba(topbarChrome, 0.92));
   } else {
     root.style.removeProperty("--sidebar-bg");
     root.style.removeProperty("--topbar-bg");
