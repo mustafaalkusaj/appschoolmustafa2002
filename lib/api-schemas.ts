@@ -209,3 +209,62 @@ export const expenseTypeMutationSchema = z.object({
   name: z.string().trim().min(1, "اسم النوع مطلوب.").max(120, "اسم النوع طويل جداً."),
   notes: optionalTrimmedString(1000),
 });
+
+// Settings schemas
+export const settingsQuerySchema = z.object({
+  schoolId: entityIdSchema(),
+});
+
+export const settingsMutationSchema = z.object({
+  schoolId: entityIdSchema(),
+  name: z.string().trim().min(1, "اسم المدرسة مطلوب.").max(200).optional(),
+  address: optionalTrimmedString(300),
+  phone: optionalTrimmedString(40),
+  city: optionalTrimmedString(120),
+  logo_url: optionalTrimmedString(500),
+  primary_color: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "اللون يجب أن يكون بالصيغة #RRGGBB.")
+    .optional()
+    .nullable(),
+  secondary_color: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "اللون يجب أن يكون بالصيغة #RRGGBB.")
+    .optional()
+    .nullable(),
+});
+
+// Timetable schemas
+const DAY_OF_WEEK_VALUES = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+] as const;
+
+export const timetableListQuerySchema = z.object({
+  schoolId: entityIdSchema(),
+  classFilter: z.string().trim().max(120).optional().nullable(),
+});
+
+export const timetableCreateSchema = z.object({
+  schoolId: entityIdSchema(),
+  class_name: z.string().trim().min(1, "اسم الصف مطلوب.").max(120),
+  section: optionalTrimmedString(60),
+  day_of_week: z.enum(DAY_OF_WEEK_VALUES, { error: "يوم الأسبوع غير صالح." }),
+  period_number: z.coerce.number().int().min(1).max(12),
+  subject: z.string().trim().min(1, "المادة مطلوبة.").max(120),
+  teacher_name: optionalTrimmedString(160),
+  start_time: optionalTrimmedString(10),
+  end_time: optionalTrimmedString(10),
+});
+
+export const timetableDeleteSchema = z.object({
+  schoolId: entityIdSchema(),
+  id: entityIdSchema(),
+});
