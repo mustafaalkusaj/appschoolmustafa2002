@@ -60,7 +60,7 @@ export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: Us
         throw new Error(payload?.error?.message || "تعذر تحميل لوحة التحكم.");
       }
 
-      setDashboardTotals(payload?.totals ?? EMPTY_DASHBOARD_TOTALS);
+      setDashboardTotals({ ...EMPTY_DASHBOARD_TOTALS, ...(payload?.totals ?? {}) });
       setRecentPayments(payload?.recentPayments ?? []);
       setOverdueStudents(payload?.overdueStudents ?? []);
       setStudentCountByClass(payload?.studentCountByClass ?? {});

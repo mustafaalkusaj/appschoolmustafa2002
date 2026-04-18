@@ -119,7 +119,7 @@ async function loadFallbackMetrics(
     expenseTypeCount,
     salariesCount: salaries.length,
     salaryVolume: salaries.reduce(
-      (sum, item) => sum + Math.max(0, Number(item.gross_salary ?? 0) - Number(item.deductions ?? 0)),
+      (sum, item) => sum + Number(item.gross_salary ?? 0) - Number(item.deductions ?? 0),
       0,
     ),
     currentMonthSalaryCount: salaries.filter((item) => item.month === currentMonth).length,

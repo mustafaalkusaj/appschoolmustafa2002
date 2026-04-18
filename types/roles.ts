@@ -349,7 +349,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   },
   {
     id: "fee-notifications",
-    label: "تنبيهات الأقساق",
+    label: "تنبيهات الأقساط",
     href: "/fee-notifications",
     iconToken: "🔔",
     roles: ["super_admin", "admin"],

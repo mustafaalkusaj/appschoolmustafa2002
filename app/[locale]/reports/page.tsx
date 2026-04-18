@@ -447,7 +447,7 @@ export default function ReportsPage() {
         [reportCopy.month]: item.month || "—",
         [reportCopy.gross]: item.gross_salary || 0,
         [reportCopy.deductions]: item.deductions || 0,
-        [reportCopy.net]: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+        [reportCopy.net]: (item.gross_salary || 0) - (item.deductions || 0),
         [reportCopy.paidAt]: item.paid_at ? formatDate(item.paid_at) : "—",
       })),
       reportCopy.salariesSheet,
@@ -492,7 +492,7 @@ export default function ReportsPage() {
         rows: salaries.map((item) => ({
           [reportCopy.teacher]: item.teachers?.full_name || "—",
           [reportCopy.month]: item.month || "—",
-          [reportCopy.net]: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+          [reportCopy.net]: (item.gross_salary || 0) - (item.deductions || 0),
           [reportCopy.paidAt.replaceAll(" ", "_")]: item.paid_at ? formatDate(item.paid_at) : "—",
         })),
       },
@@ -601,7 +601,7 @@ export default function ReportsPage() {
           <tbody>${salaries
             .map(
               (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.teachers?.full_name || "—")}</td><td>${escapeHtml(item.teachers?.subject || "—")}</td><td>${escapeHtml(item.month || "—")}</td><td>${currency} ${formatNumber(Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)))}</td><td>${item.paid_at ? formatDate(item.paid_at) : "—"}</td></tr>`,
+                `<tr><td>${index + 1}</td><td>${escapeHtml(item.teachers?.full_name || "—")}</td><td>${escapeHtml(item.teachers?.subject || "—")}</td><td>${escapeHtml(item.month || "—")}</td><td>${currency} ${formatNumber((item.gross_salary || 0) - (item.deductions || 0))}</td><td>${item.paid_at ? formatDate(item.paid_at) : "—"}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
