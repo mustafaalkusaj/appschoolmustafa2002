@@ -2,7 +2,9 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { getLocaleFromPath } from "@/lib/locale-routing";
 
 export default function Error({
   error,
@@ -11,8 +13,10 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+
   useEffect(() => {
-    // Log the error to Sentry
     Sentry.captureException(error);
   }, [error]);
 
@@ -24,7 +28,7 @@ export default function Error({
         <Button onClick={() => reset()} variant="default">
           إعادة المحاولة
         </Button>
-        <Button onClick={() => window.location.href = "/"} variant="outline">
+        <Button onClick={() => { window.location.href = `/${locale}`; }} variant="outline">
           العودة للرئيسية
         </Button>
       </div>
