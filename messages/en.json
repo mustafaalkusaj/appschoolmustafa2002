@@ -251,6 +251,30 @@
         "dark": {
           "label": "Dark Family",
           "description": "Professional dark mode for low-light work."
+        },
+        "orange": {
+          "label": "Orange Family",
+          "description": "Vibrant and energetic, ideal for dynamic and active schools."
+        },
+        "teal": {
+          "label": "Teal Family",
+          "description": "Modern and calm, blending professionalism with freshness, great for tech and science schools."
+        },
+        "red": {
+          "label": "Red Family",
+          "description": "Bold and powerful, conveying energy and passion, perfect for sports and arts schools."
+        },
+        "indigo": {
+          "label": "Indigo Family",
+          "description": "Deep and calm, reflecting knowledge and wisdom, suited for academic and research schools."
+        },
+        "emerald": {
+          "label": "Emerald Family",
+          "description": "Natural and refreshing, symbolizing growth and prosperity, beautiful for community schools."
+        },
+        "amber": {
+          "label": "Amber Family",
+          "description": "Warm and welcoming, inspiring comfort and optimism, ideal for primary schools and kindergartens."
         }
       }
     }
