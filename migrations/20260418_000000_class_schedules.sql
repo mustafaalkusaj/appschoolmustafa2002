@@ -21,16 +21,16 @@ ALTER TABLE public.class_schedules ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "school_schedules_select" ON public.class_schedules
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM public.managed_users mu
-      WHERE mu.user_id = auth.uid() AND mu.school_id = class_schedules.school_id
+      SELECT 1 FROM public.user_profiles up
+      WHERE up.id = auth.uid() AND up.school_id = class_schedules.school_id
     )
   );
 
 CREATE POLICY "school_schedules_modify" ON public.class_schedules
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM public.managed_users mu
-      WHERE mu.user_id = auth.uid() AND mu.school_id = class_schedules.school_id
-        AND mu.role IN ('super_admin', 'admin')
+      SELECT 1 FROM public.user_profiles up
+      WHERE up.id = auth.uid() AND up.school_id = class_schedules.school_id
+        AND up.role IN ('super_admin', 'admin')
     )
   );
