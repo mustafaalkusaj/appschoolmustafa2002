@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
-/**
- * Global error boundary.
- * Catches unhandled errors that escape the root layout — including errors
- * thrown inside app/layout.tsx itself. Must render its own <html> and <body>.
- */
 export default function GlobalError({
   error,
   reset,
@@ -15,8 +11,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO: forward to a monitoring service (e.g. Sentry) in production
-    console.error("[GlobalError]", error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (
@@ -80,22 +75,44 @@ export default function GlobalError({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={reset}
-            style={{
-              background: "#7c3aed",
-              color: "white",
-              border: "none",
-              borderRadius: "0.5rem",
-              padding: "0.5rem 1.25rem",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            حاول مجدداً
-          </button>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={reset}
+              style={{
+                background: "#7c3aed",
+                color: "white",
+                border: "none",
+                borderRadius: "0.5rem",
+                padding: "0.5rem 1.25rem",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              حاول مجدداً
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const seg = window.location.pathname.split("/").filter(Boolean)[0];
+                const locale = seg === "en" ? "en" : "ar";
+                window.location.href = `/${locale}`;
+              }}
+              style={{
+                background: "transparent",
+                color: "#7c3aed",
+                border: "1px solid #7c3aed",
+                borderRadius: "0.5rem",
+                padding: "0.5rem 1.25rem",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              العودة للرئيسية
+            </button>
+          </div>
         </div>
       </body>
     </html>

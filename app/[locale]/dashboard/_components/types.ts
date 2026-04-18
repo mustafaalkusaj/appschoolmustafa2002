@@ -36,6 +36,8 @@ export type DashboardTotals = {
   afterDiscount: number;
   paidPct: number;
   remainingPct: number;
+  feeNotificationsCount: number;
+  monthlySalaries: number;
 };
 
 export type DashboardRecentPayment = {
@@ -64,6 +66,8 @@ export const EMPTY_DASHBOARD_TOTALS: DashboardTotals = {
   afterDiscount: 0,
   paidPct: 0,
   remainingPct: 0,
+  feeNotificationsCount: 0,
+  monthlySalaries: 0,
 };
 
 export interface FeeFormData {

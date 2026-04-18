@@ -108,18 +108,18 @@ export function StatisticsCards({ dashboardTotals, loading, error, onRetry }: St
           variant="warning" 
           description={t("teacherActivity")}
         />
-        <StatsCard 
+        <StatsCard
           label={t("feeAlerts")}
-          value="02"
-          icon={AlertTriangle} 
-          variant="neutral" 
+          value={formatNumber(dashboardTotals.feeNotificationsCount)}
+          icon={AlertTriangle}
+          variant="neutral"
           description={t("pendingNotifications")}
         />
-        <StatsCard 
+        <StatsCard
           label={t("monthlySalaries")}
-          value={`${commonT("currency")} 0`}
-          icon={Wallet} 
-          variant="info" 
+          value={`${commonT("currency")} ${formatNumber(dashboardTotals.monthlySalaries)}`}
+          icon={Wallet}
+          variant="info"
           description={t("currentSalaries")}
           className="col-span-2"
         />

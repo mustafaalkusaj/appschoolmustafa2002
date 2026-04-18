@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
       async () => {
         const classFeesSchoolScope = await tableHasColumn(actorSupabase, "class_fees", "school_id").catch(() => false);
 
+        const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
         const studentsPromise = actorSupabase
           .from("students")
           .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
@@ -83,10 +85,23 @@ export async function GET(req: NextRequest) {
           classFeesPromise = classFeesPromise.eq("school_id", targetSchoolId);
         }
 
-        const [studentsResult, recentPaymentsResult, classFeesResult] = await Promise.allSettled([
+        const feeNotificationsCountPromise = actorSupabase
+          .from("fee_notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", targetSchoolId);
+
+        const monthlySalariesPromise = actorSupabase
+          .from("salaries")
+          .select("gross_salary, deductions")
+          .eq("school_id", targetSchoolId)
+          .eq("month", currentMonth);
+
+        const [studentsResult, recentPaymentsResult, classFeesResult, feeNotificationsResult, monthlySalariesResult] = await Promise.allSettled([
           studentsPromise,
           recentPaymentsPromise,
           classFeesPromise,
+          feeNotificationsCountPromise,
+          monthlySalariesPromise,
         ]);
 
         if (studentsResult.status !== "fulfilled" || studentsResult.value.error) {
@@ -161,6 +176,21 @@ export async function GET(req: NextRequest) {
               })
             : [];
 
+        const feeNotificationsCount =
+          feeNotificationsResult.status === "fulfilled" && !feeNotificationsResult.value.error
+            ? (feeNotificationsResult.value.count ?? 0)
+            : 0;
+
+        const monthlySalaryRows =
+          monthlySalariesResult.status === "fulfilled" && !monthlySalariesResult.value.error
+            ? (monthlySalariesResult.value.data ?? [])
+            : [];
+
+        const monthlySalaries = monthlySalaryRows.reduce(
+          (sum, row) => sum + Number(row.gross_salary ?? 0) - Number(row.deductions ?? 0),
+          0,
+        );
+
         const totals = {
           studentsCount: students.length,
           transferredCount: students.filter((student) => student.status === "transferred").length,
@@ -168,6 +198,8 @@ export async function GET(req: NextRequest) {
           totalPaid: students.reduce((sum, student) => sum + Number(student.paid_fee ?? 0), 0),
           totalDiscount: students.reduce((sum, student) => sum + Number(student.discount_value ?? 0), 0),
           totalRemaining: students.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
+          feeNotificationsCount,
+          monthlySalaries,
         };
 
         const afterDiscount = totals.totalFees - totals.totalDiscount;

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { AppShellTopbar } from "@/components/AppShellTopbar";
+import { formatNumber } from "@/lib/formatting";
 
 const PLAN_LABELS: Record<string, string> = {
   basic: "أساسية",
@@ -11,46 +13,42 @@ const PLAN_LABELS: Record<string, string> = {
   enterprise: "مؤسسية",
 };
 
+type SchoolNameRelation = { name: string | null } | Array<{ name: string | null }> | null;
+
 type SubscriptionRecord = {
   id: string;
   school_id: string;
   status: string | null;
   end_date: string | null;
   plan: string | null;
+  schools: SchoolNameRelation;
 };
 
-type SchoolRecord = {
-  id: string;
-  name: string | null;
-};
+function relationName(value: SchoolNameRelation) {
+  if (!value) return null;
+  if (Array.isArray(value)) return value[0]?.name ?? null;
+  return value.name ?? null;
+}
 
-type SchoolsPayload = {
-  ok?: boolean;
-  schools?: SchoolRecord[];
-  subscriptions?: SubscriptionRecord[];
-  error?: { message?: string };
-};
-
-type ActionPayload = {
-  ok?: boolean;
-  error?: { message?: string };
-};
+function formatEndDate(value: string | null) {
+  if (!value) return "غير محدد";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ar-IQ", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
 
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
-  const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     void fetchSubscriptions();
   }, []);
-
-  const schoolNamesById = useMemo(
-    () => new Map(schools.map((school) => [school.id, school.name])),
-    [schools],
-  );
 
   const latestSubscriptions = useMemo(() => {
     const map = new Map<string, SubscriptionRecord>();
@@ -64,38 +62,41 @@ export default function SubscriptionsPage() {
 
   async function fetchSubscriptions() {
     setLoading(true);
-    setError("");
-    const { response, payload } = await fetchJsonWithAuthorizedSession<SchoolsPayload>("/api/web/super-admin/schools");
-    if (!response.ok || !payload?.ok) {
-      setSubscriptions([]);
-      setSchools([]);
-      setError(payload?.error?.message || "تعذر تحميل الاشتراكات.");
-      setLoading(false);
-      return;
-    }
-    setSubscriptions(payload.subscriptions ?? []);
-    setSchools(payload.schools ?? []);
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("*, schools(name)")
+      .order("created_at", { ascending: false });
+    setSubscriptions((data as SubscriptionRecord[] | null) || []);
     setLoading(false);
   }
 
   async function renewSubscription(schoolId: string) {
-    setError("");
-    const { response, payload } = await fetchJsonWithAuthorizedSession<ActionPayload>(
-      `/api/web/super-admin/subscriptions/${schoolId}`,
-      {
-        method: "POST",
-        headers: withJsonHeaders(),
-      },
-    );
+    const endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
 
-    if (!response.ok || !payload?.ok) {
-      setError(payload?.error?.message || "تعذر تجديد الاشتراك.");
-      return;
+    const latestSubscription = latestSubscriptions.find((subscription) => subscription.school_id === schoolId);
+    if (latestSubscription?.id) {
+      await supabase
+        .from("subscriptions")
+        .update({ status: "active", end_date: endDate })
+        .eq("id", latestSubscription.id);
+    } else {
+      await supabase.from("subscriptions").insert({
+        school_id: schoolId,
+        status: "active",
+        end_date: endDate,
+      });
     }
 
-    setMessage("تم تجديد الاشتراك وتفعيل المدرسة.");
+    await supabase
+      .from("schools")
+      .update({ is_active: true })
+      .eq("id", schoolId);
+
+    setMessage({ text: "تم تجديد الاشتراك وتفعيل المدرسة.", type: "success" });
     void fetchSubscriptions();
-    setTimeout(() => setMessage(""), 2500);
+    setTimeout(() => setMessage(null), 3000);
   }
 
   const overview = useMemo(() => {
@@ -119,83 +120,103 @@ export default function SubscriptionsPage() {
 
   return (
     <ProtectedRoute roles={["super_admin"]}>
-      <div className="layout">
-        <AppSidebar currentPath="/subscriptions" />
+      <div className="flex min-h-screen bg-[var(--surface-muted)]">
+        <AppSidebar currentPath="/subscriptions" showFloatingToggle />
 
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-extrabold text-purple-900">الاشتراكات</h1>
-            <p className="text-sm text-slate-500">متابعة اشتراكات المدارس وتجديدها</p>
-          </div>
+        <div className="flex-1 min-w-0">
+          <AppShellTopbar title="الاشتراكات" subtitle="متابعة اشتراكات المدارس وتجديدها" />
 
-          {message && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 text-sm font-semibold">
-              {message}
-            </div>
-          )}
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm font-semibold">
-              {error}
-            </div>
-          )}
-
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="rounded-xl bg-white border border-purple-100 p-4">
-              <div className="text-xs text-slate-500">إجمالي الاشتراكات</div>
-              <div className="text-2xl font-black text-purple-900">{overview.total}</div>
-            </div>
-            <div className="rounded-xl bg-white border border-purple-100 p-4">
-              <div className="text-xs text-slate-500">الاشتراكات النشطة</div>
-              <div className="text-2xl font-black text-emerald-600">{overview.active}</div>
-            </div>
-            <div className="rounded-xl bg-white border border-purple-100 p-4">
-              <div className="text-xs text-slate-500">الاشتراكات المنتهية</div>
-              <div className="text-2xl font-black text-red-600">{overview.expired}</div>
-            </div>
-          </section>
-
-          <section className="rounded-xl bg-white border border-purple-100 overflow-hidden">
-            <div className="px-4 py-3 border-b border-purple-100 font-bold text-purple-900">تفاصيل الاشتراكات</div>
-            {loading ? (
-              <div className="p-6 text-sm text-slate-500">جارٍ تحميل الاشتراكات...</div>
-            ) : latestSubscriptions.length === 0 ? (
-              <div className="p-6 text-sm text-slate-500">لا توجد اشتراكات.</div>
-            ) : (
-              <div className="divide-y divide-purple-100">
-                {latestSubscriptions.map((sub) => {
-                  const status = (sub.status || "").toLowerCase();
-                  const expiredByDate = sub.end_date && new Date(sub.end_date).getTime() < Date.now();
-                  const expired = status !== "active" || expiredByDate;
-                  return (
-                    <div key={sub.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="font-bold text-slate-900">{schoolNamesById.get(sub.school_id) || "مدرسة غير معروفة"}</div>
-                        <div className="text-xs text-slate-500">
-                          الباقة: {(sub.plan ? PLAN_LABELS[sub.plan] : null) || "أساسية"} • تاريخ الانتهاء: {sub.end_date || "غير محدد"}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${expired ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
-                          {expired ? "منتهي" : "نشط"}
-                        </span>
-
-                        {expired && (
-                          <button
-                            className="px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-100 text-blue-700"
-                            onClick={() => renewSubscription(sub.school_id)}
-                          >
-                            تجديد
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+          <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 space-y-5">
+            {message && (
+              <div
+                className={`rounded-[18px] border px-5 py-3.5 text-sm font-semibold ${
+                  message.type === "success"
+                    ? "border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success)]"
+                    : "border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)]"
+                }`}
+              >
+                {message.text}
               </div>
             )}
-          </section>
-        </main>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">
+                <div className="text-xs font-bold text-[var(--text-muted)]">إجمالي الاشتراكات</div>
+                <div className="mt-3 text-3xl font-black text-[var(--text-primary)]">{formatNumber(overview.total)}</div>
+              </div>
+              <div className="rounded-[24px] border border-[var(--success)]/20 bg-[var(--success)]/5 p-5 shadow-[var(--card-shadow)]">
+                <div className="text-xs font-bold text-[var(--success)]">الاشتراكات النشطة</div>
+                <div className="mt-3 text-3xl font-black text-[var(--success)]">{formatNumber(overview.active)}</div>
+              </div>
+              <div className="rounded-[24px] border border-[var(--danger)]/20 bg-[var(--danger)]/5 p-5 shadow-[var(--card-shadow)]">
+                <div className="text-xs font-bold text-[var(--danger)]">الاشتراكات المنتهية</div>
+                <div className="mt-3 text-3xl font-black text-[var(--danger)]">{formatNumber(overview.expired)}</div>
+              </div>
+            </div>
+
+            {/* Subscriptions table */}
+            <div className="rounded-[28px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+              <div className="px-6 py-4 border-b border-[var(--border)]">
+                <h2 className="text-sm font-black text-[var(--text-primary)]">تفاصيل الاشتراكات</h2>
+              </div>
+
+              {loading ? (
+                <div className="px-6 py-10 text-center text-sm text-[var(--text-muted)]">
+                  جارٍ تحميل الاشتراكات...
+                </div>
+              ) : latestSubscriptions.length === 0 ? (
+                <div className="px-6 py-10 text-center text-sm text-[var(--text-muted)]">
+                  لا توجد اشتراكات.
+                </div>
+              ) : (
+                <div className="divide-y divide-[var(--border)]">
+                  {latestSubscriptions.map((sub) => {
+                    const status = (sub.status || "").toLowerCase();
+                    const expiredByDate = sub.end_date && new Date(sub.end_date).getTime() < Date.now();
+                    const expired = status !== "active" || expiredByDate;
+                    return (
+                      <div key={sub.id} className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                        <div className="min-w-0">
+                          <div className="font-bold text-[var(--text-primary)]">
+                            {relationName(sub.schools) || "مدرسة غير معروفة"}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--text-muted)]">
+                            الباقة: {(sub.plan ? PLAN_LABELS[sub.plan] : null) || "أساسية"}
+                            {" • "}
+                            الانتهاء: {formatEndDate(sub.end_date)}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-black ${
+                              expired
+                                ? "bg-[var(--danger)]/10 text-[var(--danger)]"
+                                : "bg-[var(--success)]/10 text-[var(--success)]"
+                            }`}
+                          >
+                            {expired ? "منتهي" : "نشط"}
+                          </span>
+
+                          {expired && (
+                            <button
+                              type="button"
+                              className="rounded-full bg-[var(--primary)] px-4 py-1.5 text-xs font-black text-white transition hover:opacity-90"
+                              onClick={() => void renewSubscription(sub.school_id)}
+                            >
+                              تجديد
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
     </ProtectedRoute>
   );

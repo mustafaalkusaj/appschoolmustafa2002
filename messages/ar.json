@@ -6,7 +6,9 @@
     "payments": "الحسابات",
     "expenses": "المصروفات",
     "reports": "التقارير",
-    "superAdmin": "المدير العام"
+    "superAdmin": "المدير العام",
+    "timetable": "الجداول الدراسية",
+    "settings": "الإعدادات"
   },
   "common": {
     "save": "حفظ",

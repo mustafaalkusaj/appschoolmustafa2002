@@ -6,7 +6,9 @@
     "payments": "Finance",
     "expenses": "Expenses",
     "reports": "Reports",
-    "superAdmin": "Super Admin"
+    "superAdmin": "Super Admin",
+    "timetable": "Timetable",
+    "settings": "Settings"
   },
   "common": {
     "save": "Save",
