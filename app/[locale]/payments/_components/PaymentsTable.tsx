@@ -100,7 +100,7 @@ export function PaymentsTable({
               </div>
 
               {/* Grid */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
                   <span className="text-xs text-[var(--text-muted)]">{t("payments.table.paidAmount")}</span>
                   <p className="text-sm font-bold text-[var(--success)] mt-1">
@@ -149,7 +149,7 @@ export function PaymentsTable({
               </div>
 
               {/* Actions */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Button variant="primary" size="sm" onClick={() => onAddPayment(s)}>
                   {t("payments.table.addPayment")}
                 </Button>

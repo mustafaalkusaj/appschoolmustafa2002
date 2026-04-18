@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { supabase } from "@/lib/supabase";
 import { formatNumber, formatDate } from "@/lib/formatting";
+import { AppIcon } from "@/components/AppIcon";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -39,7 +40,7 @@ import {
   PrintModal,
   ManagerModals,
 } from "./_components";
-import { EMPTY_TEACHER_FORM, EMPTY_SALARY_FORM, EMPTY_EXPORT_OPTIONS, type Teacher, type TeacherFormData, type SalaryFormData, type ExportOptions } from "./_types";
+import { EMPTY_TEACHER_FORM, EMPTY_SALARY_FORM, EMPTY_EXPORT_OPTIONS, SIDEBAR_ITEMS, type Teacher, type TeacherFormData, type SalaryFormData, type ExportOptions } from "./_types";
 import { cn } from "@/lib/brand/brand-utils";
 import { AlertCircle, Wallet, Users, Banknote, CalendarCheck } from "@/lib/icons";
 
@@ -202,6 +203,13 @@ export default function SalariesPage() {
   const totalPaidThisMonth = monthSalaries.reduce((a, s) => a + ((s.gross_salary || 0) - (s.deductions || 0)), 0);
   const activeTeachers = teachers.filter((t) => t.status === "active").length;
   const gradeOptions = Array.from(new Set(classes.map((c) => c.grade))) as string[];
+  const isMainSection = activeSection === "main";
+
+  const handleResponsiveSectionChange = (section: string) => {
+    setActiveSection(section);
+    if (section === "deductions") void fetchDeductionsList();
+    if (section === "calendar") void fetchCalendarLectures(calYear, calMonth);
+  };
 
   // Effects & Logic (same as before)
   useEffect(() => {
@@ -841,13 +849,36 @@ export default function SalariesPage() {
         <div className="flex-1 flex flex-col min-w-0">
           <AppShellTopbar title={t("salaries.title")} subtitle={t("salaries.subtitle")} scope={schoolScope} fixed />
 
-          <main className="flex-1 pt-[var(--topbar-height,var(--topbar-height,4rem))] flex flex-row overflow-hidden">
+          <main className="app-shell-frame--with-fixed-topbar flex-1 min-h-0 flex flex-col overflow-hidden xl:flex-row">
             <div className="w-72 shrink-0 border-e border-[var(--border)] bg-[var(--surface-soft)] backdrop-blur-xl hidden xl:block">
               <SalariesSidebar activeSection={activeSection} onSectionChange={setActiveSection} onDeductionsLoad={() => void fetchDeductionsList()} onCalendarLoad={() => void fetchCalendarLectures(calYear, calMonth)} />
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+                <section className="xl:hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-3 shadow-[var(--card-shadow)]">
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {SIDEBAR_ITEMS.filter((item) => item.id !== "teachers").map((item) => {
+                      const isActive = item.id === "main" ? isMainSection : activeSection === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={cn(
+                            "flex shrink-0 items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-bold transition-all",
+                            isActive
+                              ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[var(--shadow-primary)]"
+                              : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                          )}
+                          onClick={() => handleResponsiveSectionChange(item.id)}
+                        >
+                          <AppIcon token={item.icon} size={16} />
+                          <span>{t(`salaries.sidebar.items.${item.id}`)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
                 {success && <div className="p-4 rounded-2xl bg-[color-mix(in_srgb,var(--success)_10%,transparent)] border border-[color-mix(in_srgb,var(--success)_30%,transparent)] text-[var(--success)] font-bold flex items-center gap-3"><Users size={18} /> {success}</div>}
                 {error && <div className="p-4 rounded-2xl bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] border border-[color-mix(in_srgb,var(--danger)_30%,transparent)] text-[var(--danger)] font-bold flex items-center gap-3"><AlertCircle size={18} /> {error}</div>}
 
@@ -863,7 +894,7 @@ export default function SalariesPage() {
                   </div>
                 ) : (
                   <>
-                    {activeSection === "main" && (
+                    {isMainSection && (
                       <div className="space-y-8">
                         {/* Summary Stats */}
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

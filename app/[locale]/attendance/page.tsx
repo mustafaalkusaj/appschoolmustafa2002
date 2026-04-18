@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { formatNumber } from "@/lib/formatting";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
@@ -66,6 +66,20 @@ type HistorySummary = {
   excused: number;
   total: number;
   rate: number;
+};
+
+type AttendanceSnapshotResponse = {
+  ok?: boolean;
+  students?: Student[];
+  records?: AttendanceRow[];
+  history?: HistorySummary[];
+  error?: { message?: string };
+};
+
+type AttendanceSaveResponse = {
+  ok?: boolean;
+  savedCount?: number;
+  error?: { message?: string };
 };
 
 type AttendanceCopy = {
@@ -292,67 +306,48 @@ export default function AttendancePage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  const fetchStudents = useCallback(async () => {
-    setLoadingStudents(true);
-    setError("");
-    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    if (!scopedSchoolId) {
-      setStudents([]);
-      setLoadingStudents(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("students")
-      .select("id, full_name, class_name, section, status, school_id, branch_id")
-      .eq("school_id", scopedSchoolId)
-      .neq("status", "deleted")
-      .order("class_name", { ascending: true })
-      .order("full_name", { ascending: true });
-
-    if (error) {
-      setError(copy.loadStudentsFailed);
-      setLoadingStudents(false);
-      return;
-    }
-
-    setStudents((data || []) as Student[]);
-    setLoadingStudents(false);
-  }, [copy.loadStudentsFailed, profile, schoolScope.selectedSchoolId]);
-
   const resolvedSchoolIdForInsights = useMemo(() => {
     return schoolScope.selectedSchoolId ?? profile?.school_id ?? null;
   }, [profile?.school_id, schoolScope.selectedSchoolId]);
 
-  const fetchAttendanceForDate = useCallback(async (dateValue: string) => {
+  const fetchAttendanceSnapshot = useCallback(async (dateValue: string) => {
+    setLoadingStudents(true);
     setLoadingAttendance(true);
     setError("");
     const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!scopedSchoolId) {
+      setStudents([]);
       setAttendanceDrafts({});
+      setHistoryRows([]);
+      setLoadingStudents(false);
       setLoadingAttendance(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("attendance_records")
-      .select("id, student_id, status, note, updated_at, school_id")
-      .eq("school_id", scopedSchoolId)
-      .eq("attendance_date", dateValue);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<AttendanceSnapshotResponse>(
+      `/api/web/attendance?schoolId=${encodeURIComponent(scopedSchoolId)}&date=${encodeURIComponent(dateValue)}`,
+    );
 
-    if (error) {
-      setError(`${copy.loadAttendanceFailedPrefix} ${mapAttendanceDbError(error.message, copy)}`);
+    if (!response.ok || !payload?.ok) {
+      const message = payload?.error?.message || copy.loadStudentsFailed;
+      setError(`${copy.loadAttendanceFailedPrefix} ${mapAttendanceDbError(message, copy)}`);
+      setStudents([]);
+      setAttendanceDrafts({});
+      setHistoryRows([]);
+      setLoadingStudents(false);
       setLoadingAttendance(false);
       return;
     }
 
+    const nextStudents = payload.students ?? [];
+    const nextRows = payload.records ?? [];
     const byStudent: Record<string, AttendanceRow> = {};
-    ((data || []) as AttendanceRow[]).forEach((row) => {
+    nextRows.forEach((row) => {
       byStudent[row.student_id] = row;
     });
 
     const nextDrafts: Record<string, AttendanceDraft> = {};
-    students.forEach((student) => {
+    nextStudents.forEach((student) => {
       const row = byStudent[student.id];
       if (row && isAttendanceStatus(row.status)) {
         nextDrafts[student.id] = {
@@ -367,72 +362,32 @@ export default function AttendancePage() {
       }
     });
 
+    setStudents(nextStudents);
     setAttendanceDrafts(nextDrafts);
+    setHistoryRows(payload.history ?? []);
+    setLoadingStudents(false);
     setLoadingAttendance(false);
-  }, [copy, profile, schoolScope.selectedSchoolId, students]);
-
-  const fetchHistory = useCallback(async (dateValue: string) => {
-    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
-    if (!scopedSchoolId) {
-      setHistoryRows([]);
-      return;
-    }
-    const d = new Date(dateValue + "T00:00:00");
-    d.setDate(d.getDate() - 14);
-    const fromDate = getLocalIsoDate(d);
-
-    const { data, error } = await supabase
-      .from("attendance_records")
-      .select("attendance_date, status, school_id")
-      .eq("school_id", scopedSchoolId)
-      .gte("attendance_date", fromDate)
-      .lte("attendance_date", dateValue);
-
-    if (error) return;
-
-    const grouped: Record<string, AttendanceStatusCounts> = {};
-
-    ((data || []) as AttendanceHistoryRow[]).forEach((row) => {
-      if (!grouped[row.attendance_date]) {
-        grouped[row.attendance_date] = { present: 0, absent: 0, late: 0, excused: 0 };
-      }
-      if (row.status in grouped[row.attendance_date]) {
-        const statusKey = row.status as keyof AttendanceStatusCounts;
-        grouped[row.attendance_date][statusKey] += 1;
-      }
-    });
-
-    const rows = Object.keys(grouped)
-      .sort((a, b) => (a > b ? -1 : 1))
-      .map((date) => {
-        const g = grouped[date];
-        const total = g.present + g.absent + g.late + g.excused;
-        const rate = total ? Math.round(((g.present + g.late) / total) * 100) : 0;
-        return { date, ...g, total, rate };
-      });
-
-    setHistoryRows(rows);
   }, [profile, schoolScope.selectedSchoolId]);
 
   useEffect(() => {
     if (schoolScope.scopeLoading) return;
-    void fetchStudents();
-  }, [fetchStudents, schoolScope.scopeLoading]);
+    if (schoolScope.shouldBlockContent) {
+      setStudents([]);
+      setAttendanceDrafts({});
+      setHistoryRows([]);
+      return;
+    }
+    void fetchAttendanceSnapshot(selectedDate);
+  }, [fetchAttendanceSnapshot, schoolScope.scopeLoading, schoolScope.shouldBlockContent, selectedDate]);
 
   useEffect(() => {
     if (schoolScope.scopeLoading || schoolScope.shouldBlockContent) {
       setAttendanceDrafts({});
       setHistoryRows([]);
+      setStudents([]);
       return;
     }
-    if (!students.length) {
-      setAttendanceDrafts({});
-      setHistoryRows([]);
-      return;
-    }
-    void fetchAttendanceForDate(selectedDate);
-    void fetchHistory(selectedDate);
-  }, [selectedDate, students.length, fetchAttendanceForDate, fetchHistory, schoolScope.scopeLoading, schoolScope.shouldBlockContent]);
+  }, [schoolScope.scopeLoading, schoolScope.shouldBlockContent]);
 
   function setRowStatus(studentId: string, status: AttendanceStatus) {
     setAttendanceDrafts((prev) => {
@@ -460,7 +415,7 @@ export default function AttendancePage() {
   }
 
   function resetUnsavedChanges() {
-    fetchAttendanceForDate(selectedDate);
+    void fetchAttendanceSnapshot(selectedDate);
     setSuccess(copy.reloadSuccess);
     setTimeout(() => setSuccess(""), 2500);
   }
@@ -468,11 +423,6 @@ export default function AttendancePage() {
   async function saveAttendance() {
     setSaving(true);
     setError("");
-
-    const studentById: Record<string, Student> = {};
-    students.forEach((student) => {
-      studentById[student.id] = student;
-    });
 
     const changedEntries = Object.entries(attendanceDrafts).filter(([, draft]) => draft.touched && draft.status);
 
@@ -483,31 +433,43 @@ export default function AttendancePage() {
     }
 
     const payload = changedEntries.map(([studentId, draft]) => {
-      const student = studentById[studentId];
       return {
         student_id: studentId,
-        school_id: student?.school_id || null,
-        branch_id: student?.branch_id || null,
-        attendance_date: selectedDate,
         status: draft.status,
         note: draft.note.trim() || null,
       };
     });
 
-    const { error } = await supabase
-      .from("attendance_records")
-      .upsert(payload, { onConflict: "student_id,attendance_date" });
+    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    if (!scopedSchoolId) {
+      setError(copy.loadStudentsFailed);
+      setSaving(false);
+      return;
+    }
 
-    if (error) {
-      setError(`${copy.saveFailedPrefix} ${mapAttendanceDbError(error.message, copy)}`);
+    const { response, payload: result } = await fetchJsonWithAuthorizedSession<AttendanceSaveResponse>(
+      "/api/web/attendance",
+      {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          school_id: scopedSchoolId,
+          attendance_date: selectedDate,
+          entries: payload,
+        }),
+      },
+    );
+
+    if (!response.ok || !result?.ok) {
+      const message = result?.error?.message || copy.saveFailedPrefix;
+      setError(`${copy.saveFailedPrefix} ${mapAttendanceDbError(message, copy)}`);
       setSaving(false);
       return;
     }
 
     setSuccess(copy.saveSuccess(payload.length));
     setTimeout(() => setSuccess(""), 3000);
-    await fetchAttendanceForDate(selectedDate);
-    await fetchHistory(selectedDate);
+    await fetchAttendanceSnapshot(selectedDate);
     setSaving(false);
   }
 
@@ -569,7 +531,7 @@ export default function AttendancePage() {
             fixed 
           />
 
-          <main className="flex-1 pt-16 overflow-y-auto custom-scrollbar">
+          <main className="app-shell-frame--with-fixed-topbar flex-1 overflow-y-auto custom-scrollbar">
             <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
               {/* Header Card */}
               <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">

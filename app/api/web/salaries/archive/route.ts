@@ -4,6 +4,11 @@ import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
+import {
+  applyEffectiveSalaryDeductions,
+  calculateNetSalary,
+  loadSchoolDeductionIndex,
+} from "@/lib/salaries/effective-deductions";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -87,14 +92,16 @@ export async function POST(req: NextRequest) {
     return jsonError(lecturesResult.error.message || "تعذر تحميل المحاضرات المرتبطة بالشهر.", 500);
   }
 
-  const salaries = (salariesResult.data ?? []).map((item) => ({
+  const normalizedSalaries = (salariesResult.data ?? []).map((item) => ({
     ...item,
     teachers: Array.isArray(item.teachers) ? item.teachers[0] ?? null : item.teachers ?? null,
   }));
+  const deductionIndex = await loadSchoolDeductionIndex(actorSupabase, targetSchoolId);
+  const salaries = applyEffectiveSalaryDeductions(normalizedSalaries, deductionIndex);
   const lectures = lecturesResult.data ?? [];
   const totalTeachers = teachersResult.data?.length ?? 0;
   const totalAmount = salaries.reduce(
-    (sum, salary) => sum + (Number(salary.gross_salary ?? 0) - Number(salary.deductions ?? 0)),
+    (sum, salary) => sum + calculateNetSalary(salary.gross_salary, salary.deductions),
     0,
   );
 

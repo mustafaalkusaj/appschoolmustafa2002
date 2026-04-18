@@ -1,5 +1,10 @@
 import { getServerEnv, shouldUseSecureCookies } from "@/lib/env/server";
-import type { Permission, UserRole } from "@/types/roles";
+import {
+  buildTemplatePermissions,
+  normalizePermissions,
+  type Permission,
+  type UserRole,
+} from "@/types/roles";
 
 export const RBAC_COOKIE_NAME = "school_rbac";
 export const RBAC_SESSION_MAX_AGE = 60 * 60 * 8;
@@ -49,10 +54,26 @@ export function hasRBACSecret() {
   return getSecretKeyMaterial().length > 0;
 }
 
+function compactPermissionsForPayload(role: UserRole, permissions: Permission[]) {
+  const normalized = normalizePermissions(permissions, role);
+  const defaults = buildTemplatePermissions(role);
+  const normalizedSet = new Set(normalized);
+
+  if (
+    normalized.length === defaults.length &&
+    defaults.every((permission) => normalizedSet.has(permission))
+  ) {
+    return [] as Permission[];
+  }
+
+  return normalized;
+}
+
 export function buildRBACSessionPayload(input: Omit<RBACSessionPayload, "iat" | "exp" | "version">): RBACSessionPayload {
   const nowSec = Math.floor(Date.now() / 1000);
   return {
     ...input,
+    permissions: compactPermissionsForPayload(input.role, input.permissions),
     iat: nowSec,
     exp: nowSec + RBAC_SESSION_MAX_AGE,
     version: 1,
@@ -131,7 +152,10 @@ export async function verifyRBACSession(token: string | undefined | null): Promi
     if (!parsed || parsed.version !== 1) return null;
     if (!parsed.exp || parsed.exp <= Math.floor(Date.now() / 1000)) return null;
 
-    return parsed;
+    return {
+      ...parsed,
+      permissions: normalizePermissions(parsed.permissions, parsed.role),
+    };
   } catch {
     return null;
   }

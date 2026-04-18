@@ -5,6 +5,7 @@ import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-u
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
+import { calculateStudentPaidPercentage } from "@/lib/students/financials";
 
 type DashboardStudentRow = {
   id: string;
@@ -170,7 +171,11 @@ export async function GET(req: NextRequest) {
         };
 
         const afterDiscount = totals.totalFees - totals.totalDiscount;
-        const paidPct = totals.totalFees > 0 ? Math.round((totals.totalPaid / totals.totalFees) * 100) : 0;
+        const paidPct = calculateStudentPaidPercentage({
+          total_fee: totals.totalFees,
+          paid_fee: totals.totalPaid,
+          discount_value: totals.totalDiscount,
+        });
 
         return {
           totals: {

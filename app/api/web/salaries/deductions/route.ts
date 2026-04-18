@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -132,6 +133,8 @@ export async function POST(req: NextRequest) {
   if (error || !data) {
     return jsonError(error?.message || "تعذر تسجيل السحب.", 500);
   }
+
+  invalidateSchoolCacheDomains(context.value.targetSchoolId, ["reports-overview"]);
 
   return NextResponse.json({
     ok: true,

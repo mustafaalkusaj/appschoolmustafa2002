@@ -408,7 +408,7 @@ export default function FeeNotificationsPage() {
             fixed
           />
 
-          <main className="flex-1 pt-16 overflow-y-auto custom-scrollbar">
+          <main className="app-shell-frame--with-fixed-topbar flex-1 overflow-y-auto custom-scrollbar">
             <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
               <SchoolScopeBanner scope={schoolScope} />
 

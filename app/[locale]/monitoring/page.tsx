@@ -555,7 +555,7 @@ export default function MonitoringPage() {
   );
 
   return (
-    <ProtectedRoute roles={["super_admin", "admin"]} permissions={["view_teacher_activity"]}>
+    <ProtectedRoute roles={["super_admin", "admin"]} permissions={["view_monitoring", "view_teacher_activity"]}>
       <div className="flex min-h-screen bg-[var(--surface-muted)]">
         <AppSidebar currentPath="/monitoring" showFloatingToggle />
 

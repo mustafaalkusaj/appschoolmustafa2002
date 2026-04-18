@@ -42,7 +42,9 @@ import {
   setManagedUsersListCache,
   setManagedUsersListPending,
 } from "@/lib/managed-users/list-cache";
+import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number, fieldErrors?: Record<string, string>) {
@@ -897,6 +899,27 @@ export async function POST(req: NextRequest) {
       }
 
       if (matchingStudent?.id) {
+        let nextPaidFee = validation.value.student!.paid_fee;
+        try {
+          nextPaidFee = await resolveAuthoritativeStudentPaidFee(
+            actorSupabase,
+            targetSchoolId,
+            String(matchingStudent.id),
+            validation.value.student!.paid_fee,
+          );
+        } catch (paymentError) {
+          return jsonError(
+            paymentError instanceof Error ? paymentError.message : "تعذر التحقق من إجمالي دفعات الطالب الحالية.",
+            500,
+          );
+        }
+
+        if (nextPaidFee > validation.value.student!.total_fee) {
+          return jsonError("المدفوع الفعلي لا يمكن أن يكون أكبر من إجمالي الرسوم.", 400, {
+            "student.total_fee": "إجمالي الرسوم أقل من مجموع الدفعات المسجلة فعلياً.",
+          });
+        }
+
         const { error: reuseStudentError } = await actorSupabase
           .from("students")
           .update({
@@ -907,7 +930,7 @@ export async function POST(req: NextRequest) {
             phone: validation.value.phone,
             address: validation.value.student!.address,
             total_fee: validation.value.student!.total_fee,
-            paid_fee: validation.value.student!.paid_fee,
+            paid_fee: nextPaidFee,
             discount_value: validation.value.student!.discount_value,
           })
           .eq("id", String(matchingStudent.id))
@@ -1311,6 +1334,9 @@ export async function POST(req: NextRequest) {
     }
 
     invalidateManagedUsersListCache(targetSchoolId);
+    if (validation.value.role === "student") {
+      invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
+    }
 
     return NextResponse.json(
       {

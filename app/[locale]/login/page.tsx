@@ -67,7 +67,9 @@ export default function LoginPage() {
       const profile = payload?.profile ?? null;
 
       if (!response.ok || !payload?.ok || !profile) {
-        if (payload?.reason === "server_config") {
+        if (response.status >= 500 || !payload) {
+          setError(t("auth.loginFailed"));
+        } else if (payload?.reason === "server_config") {
           setError(t("auth.serverConfigError"));
         } else if (payload?.reason === "inactive_account") {
           setError(t("auth.inactiveAccount"));

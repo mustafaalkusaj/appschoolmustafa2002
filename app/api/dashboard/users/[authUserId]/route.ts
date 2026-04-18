@@ -18,7 +18,9 @@ import {
   updateManagedUserLoginIdentifier,
 } from "@/lib/managed-users-server";
 import { invalidateManagedUsersListCache } from "@/lib/managed-users/list-cache";
+import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number, fieldErrors?: Record<string, string>) {
@@ -210,6 +212,32 @@ export async function PATCH(
       return jsonError("رابط سجل الطالب غير مكتمل لهذا الحساب.", 500);
     }
 
+    let nextPaidFee = validation.value.student!.paid_fee;
+    try {
+      nextPaidFee = await resolveAuthoritativeStudentPaidFee(
+        actorSupabase,
+        targetSchoolId,
+        existing.student.id,
+        validation.value.student!.paid_fee,
+      );
+    } catch (paymentError) {
+      await rollbackAuthUser(authUserId, existing);
+      await restoreManagedProfile(actorSupabase, existing);
+
+      return jsonError(
+        paymentError instanceof Error ? paymentError.message : "تعذر التحقق من إجمالي دفعات الطالب الحالية.",
+        500,
+      );
+    }
+
+    if (nextPaidFee > validation.value.student!.total_fee) {
+      await rollbackAuthUser(authUserId, existing);
+      await restoreManagedProfile(actorSupabase, existing);
+      return jsonError("المدفوع الفعلي لا يمكن أن يكون أكبر من إجمالي الرسوم.", 400, {
+        "student.total_fee": "إجمالي الرسوم أقل من مجموع الدفعات المسجلة فعلياً.",
+      });
+    }
+
     const { error: studentError } = await actorSupabase
       .from("students")
       .update({
@@ -219,7 +247,7 @@ export async function PATCH(
         phone: validation.value.phone,
         address: validation.value.student!.address,
         total_fee: validation.value.student!.total_fee,
-        paid_fee: validation.value.student!.paid_fee,
+        paid_fee: nextPaidFee,
         discount_value: validation.value.student!.discount_value,
       })
       .eq("id", existing.student.id)
@@ -347,6 +375,9 @@ export async function PATCH(
   }
 
   invalidateManagedUsersListCache(targetSchoolId);
+  if (existing.role === "student") {
+    invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
+  }
 
   return NextResponse.json({
     ok: true,

@@ -57,6 +57,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "view_salaries",
     "manage_salaries",
     "manage_branches",
+    "view_monitoring",
     "view_teacher_activity",
     "moderate_teacher_activity",
     "view_fee_notifications",
@@ -263,7 +264,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pathPrefix: "/schools", permissions: ["manage_schools"] },
   { pathPrefix: "/subscriptions", permissions: ["manage_subscriptions"] },
   { pathPrefix: "/super-admin", permissions: ["full_access"] },
-  { pathPrefix: "/monitoring", permissions: ["view_teacher_activity"] },
+  { pathPrefix: "/monitoring", permissions: ["view_monitoring", "view_teacher_activity"] },
   { pathPrefix: "/fee-notifications", permissions: ["view_fee_notifications"] },
 ];
 

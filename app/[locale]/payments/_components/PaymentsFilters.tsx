@@ -49,19 +49,20 @@ export function PaymentsFilters({
           <AppIcon token="⚙️" size={16} />
           <span className="text-sm font-bold text-[var(--text-primary)]">{t("payments.filters.operations")}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <Button
             variant="outline"
             size="sm"
             onClick={onExport}
             disabled={exporting || !resolvedSchoolId}
             loading={exporting}
+            className="w-full justify-center sm:w-auto"
           >
             <AppIcon token="⬇️" size={14} />
             {t("payments.filters.exportExcel")}
           </Button>
           {canAddPayments && (
-            <Button variant="primary" size="sm" onClick={onAddPayment}>
+            <Button variant="primary" size="sm" onClick={onAddPayment} className="w-full justify-center sm:w-auto">
               {t("payments.filters.addInvoice")}
             </Button>
           )}
@@ -97,7 +98,7 @@ export function PaymentsFilters({
           <AppIcon token="🔍" size={14} />
           <span className="text-sm font-bold text-[var(--text-primary)]">{t("payments.filters.advanced")}</span>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-[var(--text-muted)]">
               {t("payments.filters.classAndSection")}

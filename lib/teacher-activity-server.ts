@@ -459,7 +459,7 @@ export async function getTeacherActivityMeta(
 ) {
   const scopeResult = await resolveTeacherActivityScope(request, {
     requestedSchoolId: options?.schoolId ?? null,
-    requiredPermissions: ["view_teacher_activity", "view_fee_notifications"],
+    requiredPermissions: ["view_monitoring", "view_teacher_activity", "view_fee_notifications"],
   });
   if (!scopeResult.ok) return scopeResult;
 
@@ -540,7 +540,7 @@ export async function getTeacherActivityMeta(
 export async function listTeacherMessages(request: NextRequest, filters: TeacherMessageFilters) {
   const scopeResult = await resolveTeacherActivityScope(request, {
     requestedSchoolId: filters.schoolId,
-    requiredPermissions: ["view_teacher_activity"],
+    requiredPermissions: ["view_monitoring", "view_teacher_activity"],
   });
   if (!scopeResult.ok) return scopeResult;
 
@@ -640,7 +640,7 @@ async function fetchTeacherMessageDetailInternal(scope: TeacherActivityScope, gr
 export async function getTeacherMessageDetail(request: NextRequest, groupId: string, schoolId?: string | null) {
   const scopeResult = await resolveTeacherActivityScope(request, {
     requestedSchoolId: schoolId ?? null,
-    requiredPermissions: ["view_teacher_activity"],
+    requiredPermissions: ["view_monitoring", "view_teacher_activity"],
   });
   if (!scopeResult.ok) return scopeResult;
   return fetchTeacherMessageDetailInternal(scopeResult.value, groupId);
@@ -788,7 +788,7 @@ export async function deleteTeacherMessageByAdmin(
 export async function listHomework(request: NextRequest, filters: HomeworkFilters) {
   const scopeResult = await resolveTeacherActivityScope(request, {
     requestedSchoolId: filters.schoolId,
-    requiredPermissions: ["view_teacher_activity"],
+    requiredPermissions: ["view_monitoring", "view_teacher_activity"],
   });
   if (!scopeResult.ok) return scopeResult;
 
@@ -859,7 +859,7 @@ async function fetchHomeworkDetailInternal(scope: TeacherActivityScope, homework
 export async function getHomeworkDetail(request: NextRequest, homeworkId: string, schoolId?: string | null) {
   const scopeResult = await resolveTeacherActivityScope(request, {
     requestedSchoolId: schoolId ?? null,
-    requiredPermissions: ["view_teacher_activity"],
+    requiredPermissions: ["view_monitoring", "view_teacher_activity"],
   });
   if (!scopeResult.ok) return scopeResult;
   return fetchHomeworkDetailInternal(scopeResult.value, homeworkId);

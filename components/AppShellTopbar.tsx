@@ -61,32 +61,32 @@ export function AppShellTopbar({
   }, [fixed]);
 
   return (
-    <header 
-      ref={topbarRef} 
+    <header
+      ref={topbarRef}
       className={cn(
-        "h-[var(--topbar-height)] px-4 sm:px-6 flex items-center bg-[var(--topbar-bg)] border-b border-[var(--border)] z-[var(--z-topbar)] transition-all duration-300",
-        fixed && "fixed top-0 inset-x-0 lg:start-[var(--sidebar-width)] shadow-[var(--shadow-sm)] backdrop-blur-[18px]",
+        "app-shell-topbar transition-all duration-300",
+        fixed && "app-shell-topbar--fixed",
         className
       )}
     >
-      <div className="flex-1 flex items-center justify-between gap-4 w-full">
+      <div className="app-shell-topbar__row w-full">
         {/* Left Section: Menu & Title */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="app-shell-topbar__primary">
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-[var(--button-radius)] bg-[var(--surface-muted)] text-[var(--text-secondary)] lg:hidden transition-all hover:bg-[var(--surface-hover)] active:scale-95"
+            className="app-shell-topbar__menu flex h-10 w-10 items-center justify-center rounded-[var(--button-radius)] bg-[var(--surface-muted)] text-[var(--text-secondary)] transition-all hover:bg-[var(--surface-hover)] active:scale-95"
             onClick={() => window.dispatchEvent(new Event("app-sidebar-toggle"))}
             aria-label={locale === "en" ? "Open navigation" : "فتح التنقل"}
           >
             <Menu size={20} />
           </button>
 
-          <div className="flex flex-col min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)] leading-tight">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <h1 className="text-base font-bold leading-tight text-[var(--text-primary)] sm:text-lg">
               {resolvedTitle}
             </h1>
             {resolvedSubtitle && (
-              <p className="text-xs text-[var(--text-muted)] font-medium truncate max-w-[200px] sm:max-w-[400px]">
+              <p className="text-xs font-medium leading-relaxed text-[var(--text-muted)] sm:truncate">
                 {resolvedSubtitle}
               </p>
             )}
@@ -94,9 +94,9 @@ export function AppShellTopbar({
         </div>
 
         {/* Right Section: Actions & Context */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="app-shell-topbar__actions">
           {/* Custom Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex max-w-full flex-wrap items-center gap-2">
             {actions}
           </div>
 
@@ -110,7 +110,7 @@ export function AppShellTopbar({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <LanguageToggle className="shell-utility-button hidden md:inline-flex" />
             <ThemeModeToggle
               variant="inline"

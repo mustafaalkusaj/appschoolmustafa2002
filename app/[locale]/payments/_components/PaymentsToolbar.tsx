@@ -18,7 +18,7 @@ export function PaymentsToolbar({ searchInput, setSearchInput, totalCount, loadi
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       {/* Search input with icon */}
-      <div className="relative flex-1 max-w-md">
+      <div className="relative w-full flex-1 sm:max-w-md">
         <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-tertiary)] pointer-events-none" />
         <Input
           placeholder={t("payments.toolbar.searchPlaceholder")}
@@ -29,7 +29,7 @@ export function PaymentsToolbar({ searchInput, setSearchInput, totalCount, loadi
       </div>
       
       {/* Results count */}
-      <span className="text-sm text-[var(--text-muted)] font-medium">
+      <span className="text-sm text-[var(--text-muted)] font-medium sm:text-end">
         {loading
           ? t("payments.toolbar.loadingResults")
           : t("payments.toolbar.resultsCount", { count: formatNumber(totalCount) })}

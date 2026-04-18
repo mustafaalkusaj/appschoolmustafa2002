@@ -153,7 +153,7 @@ export function AppSidebar({
         className={cn(
           "fixed inset-y-0 start-0 z-[var(--z-sidebar)] flex w-[var(--sidebar-width)] flex-col border-e border-[var(--border)] bg-[var(--surface-strong)] transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:!translate-x-0",
           isRTL && "start-auto end-0 border-e-0 border-s",
-          mobileOpen ? "translate-x-0" : isRTL ? "translate-x-full" : "-translate-x-full"
+          mobileOpen ? "translate-x-0" : isRTL ? "translate-x-[100vw]" : "-translate-x-[100vw]"
         )}
       >
         <div className="flex h-[var(--topbar-height)] items-center justify-between px-6 border-b border-[var(--border)]">

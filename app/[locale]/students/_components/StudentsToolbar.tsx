@@ -54,9 +54,9 @@ export function StudentsToolbar({
   const t = useTranslations("students.toolbar");
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
       {/* Search Input */}
-      <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-xs">
+      <div className="relative w-full xl:max-w-xs xl:flex-1">
         <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-tertiary)] pointer-events-none" />
         <Input
           placeholder={t("searchPlaceholder")}
@@ -67,14 +67,14 @@ export function StudentsToolbar({
       </div>
 
       {/* Filter Selects */}
-      <div className="flex items-center gap-2 w-full sm:w-auto">
+      <div className="grid w-full gap-2 sm:grid-cols-2 xl:w-auto">
         <Select
           value={filterClass}
           onChange={(e) => {
             setFilterClass(e.target.value);
             setFilterSection("");
           }}
-          className="w-full sm:w-auto min-w-[140px]"
+          className="w-full xl:min-w-[160px]"
         >
           <option value="">{t("filterClass")}</option>
           {classes.map((c) => (
@@ -87,7 +87,7 @@ export function StudentsToolbar({
         <Select
           value={filterSection}
           onChange={(e) => setFilterSection(e.target.value)}
-          className="w-full sm:w-auto min-w-[140px]"
+          className="w-full xl:min-w-[160px]"
         >
           <option value="">{t("filterSection")}</option>
           {sectionsList.map((sec) => (
@@ -99,15 +99,16 @@ export function StudentsToolbar({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:w-auto xl:flex-wrap xl:justify-end">
         <Button
           variant="outline"
           size="sm"
           onClick={onExportCurrentPage}
           title={t("exportCurrentTitle")}
+          className="w-full justify-center xl:w-auto"
         >
           <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">{t("exportCurrent")}</span>
+          <span>{t("exportCurrent")}</span>
         </Button>
 
         <Button
@@ -116,6 +117,7 @@ export function StudentsToolbar({
           onClick={onExportAll}
           disabled={datasetLoading}
           title={t("exportAllTitle")}
+          className="w-full justify-center xl:w-auto"
         >
           <Download className="h-4 w-4" />
           {datasetLoading ? t("preparing") : t("exportAll")}
@@ -125,9 +127,10 @@ export function StudentsToolbar({
           variant="outline"
           size="sm"
           onClick={onPrintFiltered}
+          className="w-full justify-center xl:w-auto"
         >
           <Printer className="h-4 w-4" />
-          <span className="hidden sm:inline">{t("printFiltered")}</span>
+          <span>{t("printFiltered")}</span>
         </Button>
 
         {canManageStudentAccounts && (
@@ -136,6 +139,7 @@ export function StudentsToolbar({
             size="sm"
             onClick={onPrintAllCards}
             disabled={printingCards}
+            className="w-full justify-center xl:w-auto"
           >
             <CreditCard className="h-4 w-4" />
             {printingCards ? t("preparingCards") : t("printAllCards")}
@@ -148,7 +152,7 @@ export function StudentsToolbar({
               variant="outline"
               size="sm"
               onClick={onBulkImport}
-              className="text-purple-600 border-purple-200"
+              className="w-full justify-center border-[color-mix(in_srgb,var(--primary)_18%,transparent)] text-[var(--primary)] hover:bg-[color-mix(in_srgb,var(--primary)_6%,transparent)] xl:w-auto"
             >
               <Upload className="h-4 w-4" />
               <span>استيراد جماعي</span>
@@ -157,6 +161,7 @@ export function StudentsToolbar({
               variant="primary"
               size="sm"
               onClick={onAddStudent}
+              className="w-full justify-center xl:w-auto"
             >
               <Plus className="h-4 w-4" />
               {t("addStudent")}

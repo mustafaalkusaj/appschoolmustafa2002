@@ -295,7 +295,7 @@ export default function SuperAdminPage() {
             fixed 
           />
 
-          <main className="flex-1 pt-16 flex flex-row overflow-hidden">
+          <main className="app-shell-frame--with-fixed-topbar flex-1 min-h-0 flex flex-col overflow-hidden xl:flex-row">
             {/* Super Admin Vertical Tabs Sidebar */}
             <div className="w-80 shrink-0 border-e border-[var(--border)] bg-[var(--surface-muted)] hidden xl:flex flex-col p-4">
               <div className="space-y-1">
@@ -335,13 +335,33 @@ export default function SuperAdminPage() {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+              <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
+                <section className="xl:hidden rounded-[28px] border border-[var(--border)] bg-[var(--card-bg)] p-3 shadow-[var(--card-shadow)]">
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {availableTabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        className={cn(
+                          "flex shrink-0 items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-bold transition-all",
+                          activeTab === tab.id
+                            ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[var(--shadow-primary)]"
+                            : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        )}
+                        onClick={() => setActiveTab(tab.id)}
+                      >
+                        <tab.icon size={16} />
+                        <span>{tab.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
                 
                 {/* Global Search & Action Bar */}
-                <section className="rounded-[32px] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
-                  <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="relative flex-1 w-full max-w-2xl">
+                <section className="rounded-[32px] border border-[var(--border)] bg-[var(--card-bg)] p-4 shadow-[var(--card-shadow)] sm:p-6">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="relative w-full flex-1 xl:max-w-2xl">
                       <Search size={18} className="absolute start-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                       <input 
                         className="w-full h-12 ps-12 pe-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] text-sm font-bold text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--primary)]/10 transition-all"
@@ -350,18 +370,18 @@ export default function SuperAdminPage() {
                         onChange={(e) => setQuery(e.target.value)}
                       />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button className="h-12 w-12 flex items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--text-secondary)] transition-all hover:bg-[var(--border)]" onClick={() => refreshDashboard()}>
+                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end xl:w-auto">
+                      <button className="flex h-12 w-full items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--text-secondary)] transition-all hover:bg-[var(--border)] sm:w-12" onClick={() => refreshDashboard()}>
                         <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
                       </button>
-                      <button className="h-12 px-6 flex items-center gap-2 rounded-2xl bg-[var(--primary)] text-white font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95" onClick={() => activeTab === "users" ? openCreateUser() : openCreateSchool()}>
+                      <button className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--primary)] px-6 text-white font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95 sm:w-auto" onClick={() => activeTab === "users" ? openCreateUser() : openCreateSchool()}>
                         <Plus size={20} />
                         {activeTab === "users" ? "إضافة مستخدم" : "إضافة مدرسة"}
                       </button>
                     </div>
                   </div>
                   {spotlightFilter && (
-                    <div className="mt-4 flex items-center gap-2 p-2 rounded-xl bg-[var(--primary)]/5 border border-[var(--primary)]/10 w-fit">
+                    <div className="mt-4 flex w-full flex-wrap items-center gap-2 rounded-xl border border-[var(--primary)]/10 bg-[var(--primary)]/5 p-2 sm:w-fit">
                       <span className="text-[11px] font-black text-[var(--primary)] px-2">فلتر نشط: {spotlightFilterLabel(spotlightFilter)}</span>
                       <button onClick={clearSpotlightFilter} className="h-6 w-6 flex items-center justify-center rounded-lg bg-[var(--surface-strong)] text-[var(--primary)] shadow-sm"><X size={12} /></button>
                     </div>

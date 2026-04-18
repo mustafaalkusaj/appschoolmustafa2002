@@ -21,7 +21,8 @@ export function SalariesSidebar({
   const t = useTranslations();
 
   const handleClick = (id: string) => {
-    onSectionChange(id);
+    const resolvedSection = id === "teachers" ? "main" : id;
+    onSectionChange(resolvedSection);
     if (id === "deductions") onDeductionsLoad();
     if (id === "calendar") onCalendarLoad();
   };
@@ -31,22 +32,28 @@ export function SalariesSidebar({
       <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-3 py-2 border-b border-[var(--border)] mb-2">
         {t("salaries.sidebar.sectionTitle")}
       </div>
-      {SIDEBAR_ITEMS.map((item) => (
-        <button
-          key={item.id}
-          className={cn(
-            "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all",
-            "w-full text-start",
-            activeSection === item.id
-              ? "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]"
-              : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
-          )}
-          onClick={() => handleClick(item.id)}
-        >
-          <AppIcon token={item.icon} size={16} />
-          <span>{t(`salaries.sidebar.items.${item.id}`)}</span>
-        </button>
-      ))}
+      {(() => {
+        const mainSectionActive = activeSection === "main";
+        return SIDEBAR_ITEMS.map((item) => {
+          const isActive = item.id === "teachers" ? mainSectionActive : activeSection === item.id;
+          return (
+            <button
+              key={item.id}
+              className={cn(
+                "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all",
+                "w-full text-start",
+                isActive
+                  ? "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              )}
+              onClick={() => handleClick(item.id)}
+            >
+              <AppIcon token={item.icon} size={16} />
+              <span>{t(`salaries.sidebar.items.${item.id}`)}</span>
+            </button>
+          );
+        });
+      })()}
     </nav>
   );
 }

@@ -116,7 +116,7 @@ export function StudentsTable({
                   </Badge>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
                     <p className="text-xs text-[var(--text-muted)]">{t("phone")}</p>
                     <p className="text-sm font-semibold text-[var(--text-primary)] mt-1">
@@ -279,14 +279,15 @@ export function StudentsTable({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
-          <p className="text-sm text-[var(--text-muted)]">
+        <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-center text-sm text-[var(--text-muted)] sm:text-start">
             {t("pagination.info", { count: totalCount })}
           </p>
           <Pagination
             currentPage={page}
             totalPages={totalPages}
             onPageChange={onPageChange}
+            className="w-full justify-center sm:w-auto"
           />
         </div>
       )}

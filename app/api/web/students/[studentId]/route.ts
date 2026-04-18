@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { hasPermissionInList } from "@/types/roles";
 import type { StudentStatus } from "@/types/student";
@@ -73,7 +75,7 @@ async function requireStudentPermission(req: NextRequest, permission: "edit_stud
     };
   }
 
-  return { ok: true as const };
+  return { ok: true as const, session };
 }
 
 async function resolveStudentContext(
@@ -124,6 +126,7 @@ async function resolveStudentContext(
       actorUserId: context.value.actorUserId,
       targetSchoolId: context.value.targetSchoolId,
       serviceSupabase: createServiceSupabaseClient(),
+      actorRole: permissionCheck.session.role,
     },
   };
 }
@@ -157,7 +160,7 @@ export async function PATCH(
     return jsonError(context.message, context.status);
   }
 
-  const { serviceSupabase, targetSchoolId } = context.value;
+  const { serviceSupabase, targetSchoolId, actorRole } = context.value;
   const currentStudent = await fetchStudent(serviceSupabase, studentId, targetSchoolId);
   if (!currentStudent) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
@@ -173,7 +176,7 @@ export async function PATCH(
   const nextTotalFee = hasOwn(body, "total_fee")
     ? parseNonNegativeNumber(body?.total_fee)
     : Number(currentStudent.total_fee ?? 0);
-  const nextPaidFee = hasOwn(body, "paid_fee")
+  const requestedPaidFee = hasOwn(body, "paid_fee")
     ? parseNonNegativeNumber(body?.paid_fee)
     : Number(currentStudent.paid_fee ?? 0);
   const nextDiscount = hasOwn(body, "discount_value")
@@ -192,16 +195,38 @@ export async function PATCH(
     return jsonError("حالة الطالب غير صالحة.", 400);
   }
 
-  if (nextTotalFee === null || nextPaidFee === null || nextDiscount === null) {
+  if (nextTotalFee === null || requestedPaidFee === null || nextDiscount === null) {
     return jsonError("الرسوم والمدفوع والخصم يجب أن تكون أرقاماً صحيحة تساوي صفراً أو أكثر.", 400);
-  }
-
-  if (nextPaidFee > nextTotalFee) {
-    return jsonError("المدفوع لا يمكن أن يكون أكبر من إجمالي الرسوم.", 400);
   }
 
   if (nextDiscount > nextTotalFee) {
     return jsonError("الخصم لا يمكن أن يكون أكبر من إجمالي الرسوم.", 400);
+  }
+
+  const currentTotalFee = Number(currentStudent.total_fee ?? 0);
+  const currentDiscount = Number(currentStudent.discount_value ?? 0);
+  if (
+    actorRole === "employee" &&
+    ((hasOwn(body, "total_fee") && nextTotalFee !== currentTotalFee) ||
+      (hasOwn(body, "discount_value") && nextDiscount !== currentDiscount))
+  ) {
+    return jsonError("لا تملك صلاحية تعديل إجمالي الرسوم أو الخصم مباشرة.", 403);
+  }
+
+  let nextPaidFee = requestedPaidFee;
+  try {
+    nextPaidFee = await resolveAuthoritativeStudentPaidFee(
+      serviceSupabase,
+      targetSchoolId,
+      studentId,
+      requestedPaidFee,
+    );
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر التحقق من إجمالي دفعات الطالب الحالية.", 500);
+  }
+
+  if (nextPaidFee > nextTotalFee) {
+    return jsonError("المدفوع الفعلي لا يمكن أن يكون أكبر من إجمالي الرسوم.", 400);
   }
 
   const updatePayload: Partial<StudentRow> = {
@@ -227,6 +252,8 @@ export async function PATCH(
   if (error || !data?.id) {
     return jsonError(error?.message || "تعذر تحديث بيانات الطالب.", 500);
   }
+
+  invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
 
   return NextResponse.json({ ok: true, student: data });
 }

@@ -4,6 +4,11 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
+import {
+  applyEffectiveSalaryDeductions,
+  calculateNetSalary,
+  loadSchoolDeductionIndex,
+} from "@/lib/salaries/effective-deductions";
 
 type ReportsMetrics = {
   studentsCount: number;
@@ -98,6 +103,8 @@ async function loadFallbackMetrics(
         ? []
         : ((salariesResult.value.data ?? []) as Array<Record<string, unknown>>)
       : [];
+  const deductionIndex = await loadSchoolDeductionIndex(actorSupabase, schoolId);
+  const effectiveSalaries = applyEffectiveSalaryDeductions(salaries, deductionIndex);
 
   const expenseTypeCount = new Set(
     expenses
@@ -117,12 +124,12 @@ async function loadFallbackMetrics(
     expensesCount: expenses.length,
     expenseVolume: expenses.reduce((sum, item) => sum + Number(item.amount ?? 0), 0),
     expenseTypeCount,
-    salariesCount: salaries.length,
-    salaryVolume: salaries.reduce(
-      (sum, item) => sum + Math.max(0, Number(item.gross_salary ?? 0) - Number(item.deductions ?? 0)),
+    salariesCount: effectiveSalaries.length,
+    salaryVolume: effectiveSalaries.reduce(
+      (sum, item) => sum + calculateNetSalary(item.gross_salary, item.deductions),
       0,
     ),
-    currentMonthSalaryCount: salaries.filter((item) => item.month === currentMonth).length,
+    currentMonthSalaryCount: effectiveSalaries.filter((item) => item.month === currentMonth).length,
   };
 
   return {
@@ -162,7 +169,28 @@ async function loadSummaryMetrics(
     return null;
   }
 
+  const { data: salaryRows, error: salaryRowsError } = await actorSupabase
+    .from("salaries")
+    .select("teacher_id, gross_salary, deductions, month")
+    .eq("school_id", schoolId);
+
+  if (salaryRowsError) {
+    throw salaryRowsError;
+  }
+
+  const deductionIndex = await loadSchoolDeductionIndex(actorSupabase, schoolId);
+  const effectiveSalaries = applyEffectiveSalaryDeductions(
+    ((salaryRows ?? []) as Array<Record<string, unknown>>),
+    deductionIndex,
+  );
   const source = record as Record<string, unknown>;
+  const paymentVolume = normalizeMetricNumber(source.payment_volume);
+  const expenseVolume = normalizeMetricNumber(source.expense_volume);
+  const salaryVolume = effectiveSalaries.reduce(
+    (sum, item) => sum + calculateNetSalary(item.gross_salary, item.deductions),
+    0,
+  );
+
   return {
     studentsCount: normalizeMetricNumber(source.students_count),
     activeStudents: normalizeMetricNumber(source.active_students),
@@ -170,15 +198,15 @@ async function loadSummaryMetrics(
     totalPaid: normalizeMetricNumber(source.total_paid),
     totalRemaining: normalizeMetricNumber(source.total_remaining),
     paymentsCount: normalizeMetricNumber(source.payments_count),
-    paymentVolume: normalizeMetricNumber(source.payment_volume),
+    paymentVolume,
     todayPayments: normalizeMetricNumber(source.today_payments),
     expensesCount: normalizeMetricNumber(source.expenses_count),
-    expenseVolume: normalizeMetricNumber(source.expense_volume),
+    expenseVolume,
     expenseTypeCount: normalizeMetricNumber(source.expense_type_count),
-    salariesCount: normalizeMetricNumber(source.salaries_count),
-    salaryVolume: normalizeMetricNumber(source.salary_volume),
-    currentMonthSalaryCount: normalizeMetricNumber(source.current_month_salary_count),
-    netBalance: normalizeMetricNumber(source.net_balance),
+    salariesCount: effectiveSalaries.length,
+    salaryVolume,
+    currentMonthSalaryCount: effectiveSalaries.filter((item) => item.month === currentMonth).length,
+    netBalance: paymentVolume - expenseVolume - salaryVolume,
   } satisfies ReportsMetrics;
 }
 

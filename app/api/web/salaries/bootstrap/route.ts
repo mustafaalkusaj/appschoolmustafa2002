@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-users-server";
+import { applyEffectiveSalaryDeductions, loadSchoolDeductionIndex } from "@/lib/salaries/effective-deductions";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -134,15 +135,18 @@ export async function GET(req: NextRequest) {
     isMissingTableError(archiveResult.value.error, "salary_archives")
       ? null
       : readSettledWarning(archiveResult, "أرشيف الرواتب");
+  const normalizedSalaries: Array<Record<string, unknown>> = readSettledData(results[1], []).map(
+    (item: Record<string, unknown>) => ({
+      ...item,
+      teachers: Array.isArray(item.teachers) ? item.teachers[0] ?? null : item.teachers ?? null,
+    }),
+  );
+  const deductionIndex = includeCore ? await loadSchoolDeductionIndex(actorSupabase, targetSchoolId) : new Map<string, number>();
 
   return NextResponse.json({
     ok: true,
     teachers: readSettledData(results[0], []),
-    salaries:
-      readSettledData(results[1], []).map((item: Record<string, unknown>) => ({
-        ...item,
-        teachers: Array.isArray(item.teachers) ? item.teachers[0] ?? null : item.teachers ?? null,
-      })),
+    salaries: applyEffectiveSalaryDeductions(normalizedSalaries, deductionIndex),
     classes: readSettledData(results[2], []),
     subjects: readSettledData(results[3], []),
     jobTitles: readSettledData(results[4], []),

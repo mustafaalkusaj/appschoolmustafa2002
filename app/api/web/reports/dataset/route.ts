@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { applyEffectiveSalaryDeductions, loadSchoolDeductionIndex } from "@/lib/salaries/effective-deductions";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 type DatasetType = "students" | "payments" | "expenses" | "salaries" | "all";
@@ -140,10 +141,12 @@ export async function GET(req: NextRequest) {
       .eq("school_id", targetSchoolId)
       .order("paid_at", { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((item) => ({
+    const normalized = (data ?? []).map((item) => ({
       ...item,
       teachers: normalizeRelation(item.teachers),
     }));
+    const deductionIndex = await loadSchoolDeductionIndex(actorSupabase, targetSchoolId);
+    return applyEffectiveSalaryDeductions(normalized, deductionIndex);
   };
 
   try {

@@ -196,10 +196,47 @@ function applyIntlResponse(target: NextResponse, source: NextResponse) {
   });
 }
 
+function applyBaseSecurityHeaders(response: NextResponse, requestId: string, nonce: string, csp: string) {
+  response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  response.headers.set("Origin-Agent-Cluster", "?1");
+  response.headers.set("X-DNS-Prefetch-Control", "off");
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), browsing-topics=()"
+  );
+  response.headers.set("x-request-id", requestId);
+  response.headers.set("x-nonce", nonce);
+
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload"
+    );
+  }
+}
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const requestId = resolveRequestId(request);
   const nonce = generateNonce();
   const csp = buildCSP();
+  const isPageMethod = request.method === "GET" || request.method === "HEAD" || request.method === "OPTIONS";
+
+  if (!isPageMethod) {
+    const response = new NextResponse("Method Not Allowed", {
+      status: 405,
+      headers: {
+        Allow: "GET, HEAD, OPTIONS",
+        "Cache-Control": "no-store",
+      },
+    });
+    applyBaseSecurityHeaders(response, requestId, nonce, csp);
+    return response;
+  }
 
   const intlResponse = intlMiddleware(request);
 
@@ -228,30 +265,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
 
   if (!isApiRequest) {
-    response.headers.set("Content-Security-Policy", csp);
+    applyBaseSecurityHeaders(response, requestId, nonce, csp);
   }
-
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
-  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
-  response.headers.set("Origin-Agent-Cluster", "?1");
-  response.headers.set("X-DNS-Prefetch-Control", "off");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), browsing-topics=()"
-  );
-  response.headers.set("x-request-id", requestId);
-
-  if (process.env.NODE_ENV === "production") {
-    response.headers.set(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains; preload"
-    );
-  }
-
-  response.headers.set("x-nonce", nonce);
 
   return response;
 }

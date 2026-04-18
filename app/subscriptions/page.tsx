@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
 const PLAN_LABELS: Record<string, string> = {
   basic: "أساسية",
@@ -11,31 +11,46 @@ const PLAN_LABELS: Record<string, string> = {
   enterprise: "مؤسسية",
 };
 
-type SchoolNameRelation = { name: string | null } | Array<{ name: string | null }> | null;
-
 type SubscriptionRecord = {
   id: string;
   school_id: string;
   status: string | null;
   end_date: string | null;
   plan: string | null;
-  schools: SchoolNameRelation;
 };
 
-function relationName(value: SchoolNameRelation) {
-  if (!value) return null;
-  if (Array.isArray(value)) return value[0]?.name ?? null;
-  return value.name ?? null;
-}
+type SchoolRecord = {
+  id: string;
+  name: string | null;
+};
+
+type SchoolsPayload = {
+  ok?: boolean;
+  schools?: SchoolRecord[];
+  subscriptions?: SubscriptionRecord[];
+  error?: { message?: string };
+};
+
+type ActionPayload = {
+  ok?: boolean;
+  error?: { message?: string };
+};
 
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
+  const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     void fetchSubscriptions();
   }, []);
+
+  const schoolNamesById = useMemo(
+    () => new Map(schools.map((school) => [school.id, school.name])),
+    [schools],
+  );
 
   const latestSubscriptions = useMemo(() => {
     const map = new Map<string, SubscriptionRecord>();
@@ -49,37 +64,34 @@ export default function SubscriptionsPage() {
 
   async function fetchSubscriptions() {
     setLoading(true);
-    const { data } = await supabase
-      .from("subscriptions")
-      .select("*, schools(name)")
-      .order("created_at", { ascending: false });
-    setSubscriptions((data as SubscriptionRecord[] | null) || []);
+    setError("");
+    const { response, payload } = await fetchJsonWithAuthorizedSession<SchoolsPayload>("/api/web/super-admin/schools");
+    if (!response.ok || !payload?.ok) {
+      setSubscriptions([]);
+      setSchools([]);
+      setError(payload?.error?.message || "تعذر تحميل الاشتراكات.");
+      setLoading(false);
+      return;
+    }
+    setSubscriptions(payload.subscriptions ?? []);
+    setSchools(payload.schools ?? []);
     setLoading(false);
   }
 
   async function renewSubscription(schoolId: string) {
-    const endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
+    setError("");
+    const { response, payload } = await fetchJsonWithAuthorizedSession<ActionPayload>(
+      `/api/web/super-admin/subscriptions/${schoolId}`,
+      {
+        method: "POST",
+        headers: withJsonHeaders(),
+      },
+    );
 
-    const latestSubscription = latestSubscriptions.find((subscription) => subscription.school_id === schoolId);
-    if (latestSubscription?.id) {
-      await supabase
-        .from("subscriptions")
-        .update({ status: "active", end_date: endDate })
-        .eq("id", latestSubscription.id);
-    } else {
-      await supabase.from("subscriptions").insert({
-        school_id: schoolId,
-        status: "active",
-        end_date: endDate,
-      });
+    if (!response.ok || !payload?.ok) {
+      setError(payload?.error?.message || "تعذر تجديد الاشتراك.");
+      return;
     }
-
-    await supabase
-      .from("schools")
-      .update({ is_active: true })
-      .eq("id", schoolId);
 
     setMessage("تم تجديد الاشتراك وتفعيل المدرسة.");
     void fetchSubscriptions();
@@ -121,6 +133,11 @@ export default function SubscriptionsPage() {
               {message}
             </div>
           )}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm font-semibold">
+              {error}
+            </div>
+          )}
 
           <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="rounded-xl bg-white border border-purple-100 p-4">
@@ -152,7 +169,7 @@ export default function SubscriptionsPage() {
                   return (
                     <div key={sub.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <div className="font-bold text-slate-900">{relationName(sub.schools) || "مدرسة غير معروفة"}</div>
+                        <div className="font-bold text-slate-900">{schoolNamesById.get(sub.school_id) || "مدرسة غير معروفة"}</div>
                         <div className="text-xs text-slate-500">
                           الباقة: {(sub.plan ? PLAN_LABELS[sub.plan] : null) || "أساسية"} • تاريخ الانتهاء: {sub.end_date || "غير محدد"}
                         </div>
