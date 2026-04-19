@@ -41,6 +41,8 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
   const [editingBranch, setEditingBranch] = useState<BranchRecord | null>(null);
   const [message, setMessage] = useState("");
   const [branchToDelete, setBranchToDelete] = useState<BranchRecord | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -121,6 +123,8 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
+    setSaveError(null);
     try {
       if (editingBranch) {
         const { error } = await supabase.from("branches").update(formData).eq("id", editingBranch.id);
@@ -135,6 +139,9 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
       fetchData();
     } catch (err) {
       console.error("Submit error:", err);
+      setSaveError(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ. حاول مرة أخرى.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -326,9 +333,16 @@ export function BranchesTab({ infrastructure }: { infrastructure: AdminInfrastru
                 />
                 <label htmlFor="branch_active" className="text-xs font-black">تفعيل الفرع</label>
               </div>
+              {saveError && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3">
+                  {saveError}
+                </div>
+              )}
               <div className="flex items-center gap-2 pt-4">
-                <button type="submit" className="ui-button ui-button--primary flex-1">حفظ</button>
-                <button type="button" onClick={() => setShowForm(false)} className="ui-button ui-button--secondary flex-1">إلغاء</button>
+                <button type="submit" disabled={saving} className="ui-button ui-button--primary flex-1">
+                  {saving ? "جاري الحفظ..." : "حفظ"}
+                </button>
+                <button type="button" onClick={() => { setShowForm(false); setSaveError(null); }} className="ui-button ui-button--secondary flex-1">إلغاء</button>
               </div>
             </form>
           </div>
