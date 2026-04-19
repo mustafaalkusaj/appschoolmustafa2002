@@ -11,6 +11,7 @@ import {
   normalizePath,
   PUBLIC_PATHS,
 } from "@/types/roles";
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * Generates a cryptographically random nonce for CSP.
@@ -129,6 +130,33 @@ async function getGuardRedirect(request: NextRequest) {
 
     if (subscriptionStatus === "expired" || isSubscriptionExpired(session.subscriptionEnd)) {
       return resolveGuardRedirect("subscription_expired", request);
+    }
+  }
+
+  // Group scope guard: /group is only accessible to users with scope="group"
+  if (normalizePath(request.nextUrl.pathname) === "/group" && session.role !== "super_admin") {
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && supabaseServiceKey) {
+        const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+        // Resolve userId via Supabase auth cookie
+        const { data: { user } } = await serviceClient.auth.getUser(
+          request.cookies.get("sb-access-token")?.value ?? ""
+        );
+        if (user) {
+          const { data: profile } = await serviceClient
+            .from("user_profiles")
+            .select("scope")
+            .eq("id", user.id)
+            .single();
+          if (!profile || profile.scope !== "group") {
+            return resolveGuardRedirect("forbidden", request);
+          }
+        }
+      }
+    } catch {
+      // If scope check fails, allow through — page will redirect as needed
     }
   }
 

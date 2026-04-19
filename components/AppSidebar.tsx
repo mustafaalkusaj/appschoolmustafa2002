@@ -55,6 +55,7 @@ const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   "super-admin": { ar: "الإدارة العامة", en: "Super Admin" },
   schools: { ar: "المدارس", en: "Schools" },
   subscriptions: { ar: "الاشتراكات", en: "Subscriptions" },
+  group: { ar: "لوحة المجموعة", en: "Group Dashboard" },
 };
 
 export function AppSidebar({
