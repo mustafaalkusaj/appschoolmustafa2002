@@ -45,7 +45,7 @@ export type StudentsMetaPayload = {
   sectionOptions: string[];
 };
 
-const ACTIVE_TAB_STATUSES: StudentStatus[] = ["active", "graduated", "archived", "withdrawn"];
+const ACTIVE_TAB_STATUSES: StudentStatus[] = ["active"];
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 

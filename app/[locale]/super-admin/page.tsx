@@ -29,6 +29,7 @@ import { ROLE_LABELS, type Permission } from "@/lib/auth";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useRole } from "@/hooks/useRole";
 import { requestRuntimeBrandingRefresh } from "@/hooks/brand";
 import { setStoredSchoolBranding, getStoredSchoolBranding } from "@/lib/brand/palette";
 import { type AdminInfrastructure, DEFAULT_ADMIN_INFRASTRUCTURE } from "@/lib/admin-infrastructure";
@@ -79,6 +80,8 @@ function isTabAvailable(tab: ActiveTab, infrastructure: AdminInfrastructure) {
 export default function SuperAdminPage() {
   const t = useTranslations("superAdmin");
   const toast = useToast();
+  const { profile, loading: authLoading } = useRole();
+  const isSuperAdmin = !authLoading && profile?.role === "super_admin";
 
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -136,7 +139,10 @@ export default function SuperAdminPage() {
     } catch (e) { flashError(getErrorMessage(e, "تعذر تحميل البيانات.")); } finally { setLoading(false); setRefreshing(false); }
   }, [flashError]);
 
-  useEffect(() => { void refreshDashboard(); }, [refreshDashboard]);
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    void refreshDashboard();
+  }, [isSuperAdmin, refreshDashboard]);
 
   // Actions
   const openCreateSchool = useCallback(() => { setEditSchool(null); setShowSchoolForm(true); }, []);
