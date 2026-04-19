@@ -251,16 +251,6 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
     requiresActiveSchool: true,
   },
   {
-    pathPrefix: "/timetable",
-    roles: ["super_admin", "admin", "employee"],
-    requiresActiveSchool: true,
-  },
-  {
-    pathPrefix: "/settings",
-    roles: ["super_admin", "admin"],
-    requiresActiveSchool: true,
-  },
-  {
     pathPrefix: "/",
     roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
@@ -327,14 +317,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     group: "academic",
   },
   {
-    id: "timetable",
-    label: "الجداول الدراسية",
-    href: "/timetable",
-    iconToken: "📅",
-    roles: ["super_admin", "admin", "employee"],
-    group: "academic",
-  },
-  {
     id: "payments",
     label: "الحسابات",
     href: "/payments",
@@ -379,14 +361,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     label: "التقارير",
     href: "/reports",
     iconToken: "📄",
-    roles: ["super_admin", "admin"],
-    group: "system",
-  },
-  {
-    id: "settings",
-    label: "الإعدادات",
-    href: "/settings",
-    iconToken: "⚙️",
     roles: ["super_admin", "admin"],
     group: "system",
   },
