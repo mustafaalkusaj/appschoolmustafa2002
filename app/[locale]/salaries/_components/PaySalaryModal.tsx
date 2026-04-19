@@ -112,8 +112,15 @@ export function PaySalaryModal({
             <div className="border-t border-[var(--border)] pt-2 mt-2">
               <div className="flex justify-between">
                 <span className="text-[var(--text-muted)] font-medium">الصافي:</span>
-                <span className="text-lg font-bold text-[var(--primary)]">د.ع {formatNumber(net)}</span>
+                <span className={`text-lg font-bold ${net < 0 ? "text-[var(--danger)]" : "text-[var(--primary)]"}`}>
+                  د.ع {formatNumber(net)}
+                </span>
               </div>
+              {net < 0 && (
+                <p className="mt-1 text-xs font-semibold text-[var(--danger)]">
+                  الخصومات تتجاوز الإجمالي!
+                </p>
+              )}
             </div>
           </div>
         </ModalBody>
