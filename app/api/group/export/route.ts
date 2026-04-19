@@ -27,14 +27,17 @@ export async function GET(req: NextRequest) {
 
   const branchStats = await Promise.all(
     (branches ?? []).map(async (branch) => {
-      const [studentsRes, paymentsRes, expensesRes] = await Promise.all([
+      const [studentsRes, paymentsRes, expensesRes, feesRes] = await Promise.all([
         service.from("students").select("id", { count: "exact", head: true }).eq("branch_id", branch.id).neq("status", "deleted"),
         service.from("payments").select("amount").eq("branch_id", branch.id),
         service.from("expenses").select("amount").eq("branch_id", branch.id),
+        service.from("students").select("total_fee").eq("branch_id", branch.id).neq("status", "deleted"),
       ]);
       const collected = (paymentsRes.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
       const expenses = (expensesRes.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
-      return { id: branch.id, name: branch.name, students: studentsRes.count ?? 0, collected, expenses, net: collected - expenses };
+      const expected = (feesRes.data ?? []).reduce((s, r) => s + Number(r.total_fee ?? 0), 0);
+      const collectionRate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
+      return { id: branch.id, name: branch.name, students: studentsRes.count ?? 0, collected, expenses, net: collected - expenses, collectionRate };
     })
   );
 
@@ -56,6 +59,7 @@ export async function GET(req: NextRequest) {
       { header: "الإيرادات", key: "collected", width: 20 },
       { header: "المصاريف", key: "expenses", width: 20 },
       { header: "الصافي", key: "net", width: 20 },
+      { header: "نسبة التحصيل", key: "collectionRate", width: 18 },
     ];
 
     // Purple header
@@ -66,11 +70,11 @@ export async function GET(req: NextRequest) {
     });
 
     branchStats.forEach((b) => {
-      ws.addRow({ name: b.name, students: b.students, collected: fmtIQD(b.collected), expenses: fmtIQD(b.expenses), net: fmtIQD(b.net) });
+      ws.addRow({ name: b.name, students: b.students, collected: fmtIQD(b.collected), expenses: fmtIQD(b.expenses), net: fmtIQD(b.net), collectionRate: `${b.collectionRate}%` });
     });
 
     // Totals row
-    const totalRow = ws.addRow({ name: "المجموع الكلي", students: totals.students, collected: fmtIQD(totals.collected), expenses: fmtIQD(totals.expenses), net: fmtIQD(totals.net) });
+    const totalRow = ws.addRow({ name: "المجموع الكلي", students: totals.students, collected: fmtIQD(totals.collected), expenses: fmtIQD(totals.expenses), net: fmtIQD(totals.net), collectionRate: "" });
     totalRow.font = { bold: true };
     totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDE9FE" } };
 
@@ -82,6 +86,7 @@ export async function GET(req: NextRequest) {
       bs.addRow(["الإيرادات", fmtIQD(b.collected)]);
       bs.addRow(["المصاريف", fmtIQD(b.expenses)]);
       bs.addRow(["الصافي", fmtIQD(b.net)]);
+      bs.addRow(["نسبة التحصيل", `${b.collectionRate}%`]);
     }
 
     const buf = await wb.xlsx.writeBuffer();
@@ -94,13 +99,13 @@ export async function GET(req: NextRequest) {
   }
 
   // PDF format — simple HTML-based table response that can be printed
-  const rows = branchStats.map((b) => `<tr><td>${b.name}</td><td>${b.students}</td><td>${fmtIQD(b.collected)}</td><td>${fmtIQD(b.expenses)}</td><td>${fmtIQD(b.net)}</td></tr>`).join("");
+  const rows = branchStats.map((b) => `<tr><td>${b.name}</td><td>${b.students}</td><td>${fmtIQD(b.collected)}</td><td>${fmtIQD(b.expenses)}</td><td>${fmtIQD(b.net)}</td><td>${b.collectionRate}%</td></tr>`).join("");
   const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير ${group.name}</title>
   <style>body{font-family:Arial,sans-serif;direction:rtl}table{width:100%;border-collapse:collapse}th{background:#7C3AED;color:#fff;padding:8px}td{border:1px solid #ccc;padding:8px}tfoot td{font-weight:bold;background:#EDE9FE}</style></head>
   <body><h1>${group.name}</h1><p>تاريخ التصدير: ${new Date().toLocaleDateString("ar-IQ")}</p>
-  <table><thead><tr><th>الفرع</th><th>الطلاب</th><th>الإيرادات</th><th>المصاريف</th><th>الصافي</th></tr></thead>
+  <table><thead><tr><th>الفرع</th><th>الطلاب</th><th>الإيرادات</th><th>المصاريف</th><th>الصافي</th><th>نسبة التحصيل</th></tr></thead>
   <tbody>${rows}</tbody>
-  <tfoot><tr><td>المجموع</td><td>${totals.students}</td><td>${fmtIQD(totals.collected)}</td><td>${fmtIQD(totals.expenses)}</td><td>${fmtIQD(totals.net)}</td></tr></tfoot>
+  <tfoot><tr><td>المجموع</td><td>${totals.students}</td><td>${fmtIQD(totals.collected)}</td><td>${fmtIQD(totals.expenses)}</td><td>${fmtIQD(totals.net)}</td><td></td></tr></tfoot>
   </table></body></html>`;
   return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

@@ -294,6 +294,16 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   if (!isApiRequest) {
     applyBaseSecurityHeaders(response, requestId, nonce, csp);
+
+    // Set layout mode cookie for client-side consumption
+    const rbacToken = request.cookies.get(RBAC_COOKIE_NAME)?.value;
+    if (rbacToken) {
+      const session = await verifyRBACSession(rbacToken);
+      if (session) {
+        const layoutMode = (session as { scope?: string }).scope === "focused" ? "focused" : "full";
+        response.cookies.set("lm", layoutMode, { httpOnly: false, sameSite: "lax", path: "/" });
+      }
+    }
   }
 
   return response;
