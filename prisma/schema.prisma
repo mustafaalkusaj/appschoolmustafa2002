@@ -20,8 +20,10 @@ model School {
   nameEn    String
   currency  String   @default("IQD")
   logoUrl   String?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relations
   branches        Branch[]
@@ -38,6 +40,8 @@ model School {
   attendances     Attendance[]
   auditLogs       AuditLog[]
 
+  @@index([isActive])
+  @@index([createdAt])
   @@map("schools")
 }
 
@@ -47,9 +51,12 @@ model Branch {
   nameAr     String
   nameEn     String
   branchCode String   @unique
+  principalName String?
+  phoneNumber String?
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
 
   // Relations
   school       School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -64,6 +71,8 @@ model Branch {
   auditLogs    AuditLog[]
 
   @@index([schoolId])
+  @@index([isActive])
+  @@index([schoolId, isActive])
   @@map("branches")
 }
 
@@ -85,6 +94,7 @@ model User {
   lastLoginAt          DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+  deletedAt            DateTime?
 
   // Relations
   school               School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -98,6 +108,8 @@ model User {
   @@index([branchId])
   @@index([roleId])
   @@index([email])
+  @@index([isSinglePageUser])
+  @@index([schoolId, isActive])
   @@map("users")
 }
 
@@ -226,8 +238,11 @@ model Student {
   fullNameEn         String
   dateOfBirth        DateTime?
   status             String   @default("active") // active, inactive, transferred, graduated
+  parentName         String?
+  parentPhone        String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  deletedAt          DateTime?
 
   // Relations
   school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -238,6 +253,8 @@ model Student {
   @@index([schoolId])
   @@index([branchId])
   @@index([classId])
+  @@index([schoolId, branchId])
+  @@index([schoolId, status])
   @@map("students")
 }
 
@@ -247,6 +264,7 @@ model Student {
 
 model Attendance {
   id               String   @id @default(cuid())
+  schoolId         String
   branchId         String
   studentId        String
   attendanceDate   DateTime
@@ -256,12 +274,15 @@ model Attendance {
   updatedAt        DateTime @updatedAt
 
   // Relations
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, attendanceDate])
+  @@index([schoolId])
   @@index([branchId])
   @@index([studentId])
+  @@index([schoolId, branchId, attendanceDate])
   @@map("attendance")
 }
 
@@ -280,6 +301,7 @@ model Account {
   balance        Decimal  @default(0) @db.Decimal(15, 2)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
 
   // Relations
   branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
@@ -289,11 +311,14 @@ model Account {
   @@unique([branchId, accountCode])
   @@index([branchId])
   @@index([schoolId])
+  @@index([schoolId, branchId])
+  @@index([accountType])
   @@map("accounts")
 }
 
 model Transaction {
   id               String   @id @default(cuid())
+  schoolId         String
   accountId        String
   branchId         String
   transactionDate  DateTime
@@ -306,13 +331,16 @@ model Transaction {
   updatedAt        DateTime @updatedAt
 
   // Relations
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   account          Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   createdByUser    User     @relation("CreatedBy", fields: [createdBy], references: [id])
 
+  @@index([schoolId])
   @@index([accountId])
   @@index([branchId])
   @@index([createdBy])
+  @@index([schoolId, branchId, transactionDate])
   @@map("transactions")
 }
 
@@ -322,6 +350,7 @@ model Transaction {
 
 model Employee {
   id           String   @id @default(cuid())
+  schoolId     String
   branchId     String
   employeeCode String
   fullNameAr   String
@@ -334,16 +363,20 @@ model Employee {
   updatedAt    DateTime @updatedAt
 
   // Relations
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   salaries     Salary[]
 
   @@unique([branchId, employeeCode])
+  @@index([schoolId])
   @@index([branchId])
+  @@index([schoolId, branchId])
   @@map("employees")
 }
 
 model Salary {
   id            String   @id @default(cuid())
+  schoolId      String
   branchId      String
   employeeId    String
   month         Int
@@ -359,12 +392,16 @@ model Salary {
   updatedAt     DateTime @updatedAt
 
   // Relations
+  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   branch        Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, month, year])
+  @@index([schoolId])
   @@index([branchId])
   @@index([employeeId])
+  @@index([schoolId, branchId])
+  @@index([schoolId, status])
   @@map("salaries")
 }
 
