@@ -58,6 +58,8 @@ const API_PATH_REWRITES: Array<[prefix: string, pagePath: string]> = [
   ["/api/web/monitoring", "/monitoring"],
   ["/api/branches", "/dashboard"],
   ["/api/users", "/super-admin"],
+  ["/api/web/group", "/group"],
+  ["/api/group", "/group"],
 ];
 
 function normalizePageToken(value: string) {

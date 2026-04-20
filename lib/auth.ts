@@ -115,7 +115,15 @@ export function getDefaultRouteForRole(role: UserRole): string {
   return DEFAULT_PATH_BY_ROLE[role] ?? "/dashboard";
 }
 
+function isSchoolManagerRestrictedProfile(profile: UserProfile | null) {
+  return Boolean(profile && profile.role !== "super_admin" && profile.scope_level === "group_admin");
+}
+
 export function getDefaultRouteForProfile(profile: UserProfile | null) {
+  if (isSchoolManagerRestrictedProfile(profile)) {
+    return "/group";
+  }
+
   if (profile?.default_path && profile.default_path.startsWith("/")) {
     return profile.default_path;
   }
@@ -143,6 +151,13 @@ export function isSchoolAccessBlocked(profile: UserProfile): boolean {
 export function getAccessDecision(profile: UserProfile | null, pathname: string): AccessDecision {
   if (!profile) return { allowed: false, reason: "unauthenticated", readOnly: false };
   if (!profile.is_active) return { allowed: false, reason: "inactive_user", readOnly: false };
+
+  if (isSchoolManagerRestrictedProfile(profile)) {
+    const pageCode = resolvePageCodeFromPath(pathname);
+    if (pageCode !== "group") {
+      return { allowed: false, reason: "forbidden", readOnly: false };
+    }
+  }
 
   if (!isRoleAllowedForPath(profile.role, pathname)) {
     return { allowed: false, reason: "forbidden", readOnly: false };

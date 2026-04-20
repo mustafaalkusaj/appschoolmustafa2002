@@ -197,7 +197,7 @@ export interface RoutePermissionRule {
 export const PUBLIC_PATHS = ["/login", "/forgot-password", "/access-denied", "/subscription-expired"] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
-  { pathPrefix: "/group", roles: ["super_admin", "admin", "employee"], requiresActiveSchool: false },
+  { pathPrefix: "/group", roles: ["admin"], requiresActiveSchool: true },
   { pathPrefix: "/super-admin", roles: ["super_admin"], requiresActiveSchool: false },
   { pathPrefix: "/schools", roles: ["super_admin"], requiresActiveSchool: false },
   { pathPrefix: "/subscriptions", roles: ["super_admin"], requiresActiveSchool: false },

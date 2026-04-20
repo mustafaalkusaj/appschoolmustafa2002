@@ -299,7 +299,12 @@ function buildDefaultPath(
   role: UserRole,
   allowedPages: PageCode[],
   isSinglePageUser: boolean,
+  scopeLevel?: AuthorizationScopeLevel | null,
 ) {
+  if (scopeLevel === "group_admin" && role !== "super_admin") {
+    return "/group";
+  }
+
   if (allowedPages.length > 0 && (isSinglePageUser || !allowedPages.includes("dashboard"))) {
     return getPathForPageCode(allowedPages[0]) ?? DEFAULT_PATH_BY_ROLE[role];
   }
@@ -424,7 +429,6 @@ export async function resolveWebUserProfile(
     profileRow.default_branch_id ??
     allowedBranchIds[0] ??
     null;
-  const defaultPath = buildDefaultPath(role, allowedPages, isSinglePageUser);
   const scopeLevel = normalizeScopeLevel(
     role,
     profileRow.scope,
@@ -432,6 +436,7 @@ export async function resolveWebUserProfile(
     isSinglePageUser,
     allowedBranchIds.length > 0,
   );
+  const defaultPath = buildDefaultPath(role, allowedPages, isSinglePageUser, scopeLevel);
   const roleCodes = Array.from(
     new Set(
       [profileRow.role]

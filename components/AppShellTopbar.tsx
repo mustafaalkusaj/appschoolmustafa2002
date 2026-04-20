@@ -35,7 +35,7 @@ export function AppShellTopbar({
   const academicYearLabel = getAcademicYearLabel(new Date(), locale);
   const resolvedTitle = translateLegacyText(title, locale);
   const resolvedSubtitle = subtitle ? translateLegacyText(subtitle, locale) : subtitle;
-  const isFocusedUser = Boolean(profile?.is_single_page_user);
+  const isFocusedUser = Boolean(profile?.is_single_page_user || profile?.scope_level === "group_admin");
 
   
   const topbarRef = useRef<HTMLElement | null>(null);

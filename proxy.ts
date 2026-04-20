@@ -136,6 +136,10 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     return resolveGuardRedirect("forbidden", request);
   }
 
+  const isSchoolManagerScope =
+    session.role !== "super_admin" &&
+    session.scopeLevel === "group_admin";
+
   if (!isApiRequest && !isRoleAllowedForPath(session.role, normalizedPath)) {
     return resolveGuardRedirect("forbidden", request);
   }
@@ -182,6 +186,13 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
       normalizedCurrent === "/api/auth/me" ||
       normalizedCurrent === "/api/account/me" ||
       normalizedCurrent === "/api/health";
+    const isSchoolManagerEndpoint =
+      normalizedCurrent === "/api/web/group/export" ||
+      normalizedCurrent.startsWith("/api/web/group/");
+
+    if (isSchoolManagerScope && !isSessionMaintenanceEndpoint && !isSchoolManagerEndpoint) {
+      return buildApiGuardResponse(403, "This account can only access the school manager page APIs.");
+    }
 
     if (session.isSinglePageUser && session.allowedPages.length > 0 && !isSessionMaintenanceEndpoint) {
       if (!apiPageCode || !session.allowedPages.includes(apiPageCode)) {
@@ -193,6 +204,16 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
   }
 
   // Focused user enforcement: lock to allowed pages only.
+  if (isSchoolManagerScope) {
+    const normalizedCurrent = normalizePath(request.nextUrl.pathname);
+    const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+    const isPublicUtilityPath = PUBLIC_PATHS.some((path) => normalizedCurrent === path);
+
+    if (!isPublicUtilityPath && normalizedCurrent !== "/group") {
+      return new URL(localizePath("/group", locale), request.url);
+    }
+  }
+
   if (session.isSinglePageUser && session.allowedPages.length > 0) {
     const normalizedCurrent = normalizePath(request.nextUrl.pathname);
     const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
@@ -357,9 +378,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (rbacToken) {
       const session = await verifyRBACSession(rbacToken);
       if (session) {
-        const sessionWithScope = session as typeof session & { scopeLevel?: string | null };
+      const sessionWithScope = session as typeof session & { scopeLevel?: string | null };
         let layoutMode: string;
-        if (sessionWithScope.scopeLevel === 'restricted') {
+        if (sessionWithScope.scopeLevel === 'restricted' || sessionWithScope.scopeLevel === 'group_admin') {
           layoutMode = "restricted";
         } else if ((session as { scope?: string }).scope === "focused") {
           layoutMode = "focused";

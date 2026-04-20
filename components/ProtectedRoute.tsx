@@ -75,7 +75,7 @@ export function ProtectedRoute({
   useEffect(() => {
     if (loading || !blockedReason) return;
     const focusedDefaultPath =
-      profile?.is_single_page_user && blockedReason === "forbidden"
+      (profile?.is_single_page_user || profile?.scope_level === "group_admin") && blockedReason === "forbidden"
         ? getDefaultRouteForProfile(profile)
         : null;
     router.replace(resolveRedirect(blockedReason, pathname, focusedDefaultPath));

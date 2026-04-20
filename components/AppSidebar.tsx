@@ -142,7 +142,7 @@ export function AppSidebar({
     window.localStorage.setItem(SIDEBAR_MODE_STORAGE_KEY, sidebarMode);
   }, [sidebarMode]);
 
-  if (profile?.is_single_page_user) {
+  if (profile?.is_single_page_user || profile?.scope_level === "group_admin") {
     return null;
   }
 
