@@ -51,11 +51,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
     });
 
     if (!student) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json({ ok: true, student }, { status: 200 });
   } catch (error) {
     log.logError(
@@ -85,7 +85,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const allowedRoles = ['INVESTOR', 'BRANCH_MANAGER', 'ACCOUNTANT'];
     if (!allowedRoles.includes(authContext.role)) {
       log.logAuthEvent('permission_denied', `Role ${authContext.role} cannot update students`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
@@ -98,7 +98,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     });
 
     if (!existingStudent) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
@@ -108,7 +108,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       (authContext.branchId && existingStudent.branchId !== authContext.branchId)
     ) {
       log.logAuthEvent('permission_denied', `Unauthorized access to student ${studentId}`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Cannot access this student' }, { status: 403 });
     }
 
@@ -122,7 +122,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       validation.error.issues.forEach((issue) => {
         errors[issue.path.join('.')] = issue.message;
       });
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
 
@@ -157,7 +157,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       }
     });
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json({ ok: true, student: updatedStudent }, { status: 200 });
   } catch (error) {
     log.logError(
@@ -187,7 +187,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     const allowedRoles = ['INVESTOR', 'BRANCH_MANAGER'];
     if (!allowedRoles.includes(authContext.role)) {
       log.logAuthEvent('permission_denied', `Role ${authContext.role} cannot delete students`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
@@ -200,7 +200,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     });
 
     if (!student) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
@@ -210,7 +210,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       (authContext.branchId && student.branchId !== authContext.branchId)
     ) {
       log.logAuthEvent('permission_denied', `Unauthorized access to student ${studentId}`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Cannot access this student' }, { status: 403 });
     }
 
@@ -237,7 +237,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       }
     });
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json({ ok: true, message: 'Student deleted successfully' }, { status: 200 });
   } catch (error) {
     log.logError(

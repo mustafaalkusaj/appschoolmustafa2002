@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       validation.error.issues.forEach((issue) => {
         errors[issue.path.join('.')] = issue.message;
       });
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json({ error: 'Invalid query parameters', details: errors }, { status: 400 });
     }
 
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
       orderBy: { attendanceDate: 'desc' }
     });
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     const allowedRoles = ['BRANCH_MANAGER', 'ATTENDANCE_OFFICER', 'ACCOUNTANT'];
     if (!allowedRoles.includes(authContext.role)) {
       log.logAuthEvent('permission_denied', `Role ${authContext.role} cannot record attendance`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       validation.error.issues.forEach((issue) => {
         errors[issue.path.join('.')] = issue.message;
       });
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
 
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!student) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
       (authContext.branchId && student.branchId !== authContext.branchId)
     ) {
       log.logAuthEvent('permission_denied', `Unauthorized access to student ${studentId}`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Cannot access this student' }, { status: 403 });
     }
 
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingRecord) {
-      log.logResponse(409, authContext.userId);
+      log.logResponse(409, { userId: authContext.userId });
       return NextResponse.json(
         { error: 'Attendance record already exists for this date' },
         { status: 409 }
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    log.logResponse(201, authContext.userId);
+    log.logResponse(201, { userId: authContext.userId });
     return NextResponse.json({ ok: true, record }, { status: 201 });
   } catch (error) {
     log.logError(

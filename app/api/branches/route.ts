@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       branches = await getAccessibleBranches(authContext);
     }
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
         errors[path || 'root'] = issue.message;
       });
 
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json(
         {
           error: 'Validation failed',
@@ -128,14 +128,14 @@ export async function POST(req: NextRequest) {
     if (!result.success) {
       const statusCode =
         result.error?.includes('already exists') ? 409 : 400;
-      log.logResponse(statusCode, authContext.userId);
+      log.logResponse(statusCode, { userId: authContext.userId });
       return NextResponse.json(
         { error: result.error },
         { status: statusCode }
       );
     }
 
-    log.logResponse(201, authContext.userId);
+    log.logResponse(201, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,

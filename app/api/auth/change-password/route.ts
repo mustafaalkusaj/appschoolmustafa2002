@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         errors[path || 'root'] = issue.message;
       });
 
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json(
         {
           error: 'Validation failed',
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (!result.success) {
       const statusCode =
         result.error?.code === 'INVALID_CREDENTIALS' ? 401 : 400;
-      log.logResponse(statusCode, authContext.userId);
+      log.logResponse(statusCode, { userId: authContext.userId });
       return NextResponse.json(
         {
           error: result.error?.message,
@@ -71,11 +71,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    log.logDataModification('update', 'users', authContext.userId, authContext.userId, {
+    log.logDataModification('update', 'users', authContext.userId, {
       action: 'password_changed'
     });
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,

@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       validation.error.issues.forEach((issue) => {
         errors[issue.path.join('.')] = issue.message;
       });
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json({ error: 'Invalid query parameters', details: errors }, { status: 400 });
     }
 
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' }
     });
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     const allowedRoles = ['INVESTOR', 'BRANCH_MANAGER'];
     if (!allowedRoles.includes(authContext.role)) {
       log.logAuthEvent('permission_denied', `Role ${authContext.role} cannot create employees`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       validation.error.issues.forEach((issue) => {
         errors[issue.path.join('.')] = issue.message;
       });
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
 
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
       // Investors need to specify
       const branchIdParam = body.branchId;
       if (!branchIdParam) {
-        log.logResponse(400, authContext.userId);
+        log.logResponse(400, { userId: authContext.userId });
         return NextResponse.json({ error: 'branchId is required for investors' }, { status: 400 });
       }
       branchId = branchIdParam;
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!branch || branch.schoolId !== authContext.schoolId) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json({ error: 'Branch not found' }, { status: 404 });
     }
 
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingEmployee) {
-      log.logResponse(409, authContext.userId);
+      log.logResponse(409, { userId: authContext.userId });
       return NextResponse.json(
         { error: 'Employee code already exists in this branch' },
         { status: 409 }
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    log.logResponse(201, authContext.userId);
+    log.logResponse(201, { userId: authContext.userId });
     return NextResponse.json({ ok: true, employee }, { status: 201 });
   } catch (error) {
     log.logError(

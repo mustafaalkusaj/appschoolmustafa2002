@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!school) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json(
         { error: 'School not found' },
         { status: 404 }
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     // Get recent activities
     const recentActivities = await getRecentActivities(authContext.schoolId, 10);
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,

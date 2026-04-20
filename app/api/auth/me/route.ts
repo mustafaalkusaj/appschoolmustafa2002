@@ -31,14 +31,14 @@ export async function GET(req: NextRequest) {
     const profile = await getUserProfile(authContext.userId);
 
     if (!profile) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json(
         { error: 'User profile not found' },
         { status: 404 }
       );
     }
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,

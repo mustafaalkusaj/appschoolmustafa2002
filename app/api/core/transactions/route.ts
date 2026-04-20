@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       validation.error.issues.forEach((issue) => {
         errors[issue.path.join('.')] = issue.message;
       });
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json({ error: 'Invalid query parameters', details: errors }, { status: 400 });
     }
 
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
       orderBy: { transactionDate: 'desc' }
     });
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     const allowedRoles = ['ACCOUNTANT', 'BRANCH_MANAGER'];
     if (!allowedRoles.includes(authContext.role)) {
       log.logAuthEvent('permission_denied', `Role ${authContext.role} cannot record transactions`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       validation.error.issues.forEach((issue) => {
         errors[issue.path.join('.')] = issue.message;
       });
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
 
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!account) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
       (authContext.branchId && account.branchId !== authContext.branchId)
     ) {
       log.logAuthEvent('permission_denied', `Unauthorized access to account ${accountId}`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Cannot access this account' }, { status: 403 });
     }
 
@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    log.logResponse(201, authContext.userId);
+    log.logResponse(201, { userId: authContext.userId });
     return NextResponse.json({ ok: true, transaction, newBalance }, { status: 201 });
   } catch (error) {
     log.logError(

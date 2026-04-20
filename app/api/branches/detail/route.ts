@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const branchId = url.searchParams.get('branchId');
 
     if (!branchId) {
-      log.logResponse(400, authContext.userId);
+      log.logResponse(400, { userId: authContext.userId });
       return NextResponse.json(
         { error: 'branchId is required' },
         { status: 400 }
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     const access = await verifyBranchAccess(authContext, branchId, authContext.schoolId);
     if (!access.allowed) {
       log.logAuthEvent('permission_denied', `Unauthorized access to branch: ${branchId}`);
-      log.logResponse(403, authContext.userId);
+      log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json(
         { error: 'You do not have access to this branch' },
         { status: 403 }
@@ -51,14 +51,14 @@ export async function GET(req: NextRequest) {
     const branchData = await getBranchWithStats(branchId, authContext.schoolId, authContext);
 
     if (!branchData) {
-      log.logResponse(404, authContext.userId);
+      log.logResponse(404, { userId: authContext.userId });
       return NextResponse.json(
         { error: 'Branch not found' },
         { status: 404 }
       );
     }
 
-    log.logResponse(200, authContext.userId);
+    log.logResponse(200, { userId: authContext.userId });
     return NextResponse.json(
       {
         ok: true,
