@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMissingColumnError } from "@/lib/admin-infrastructure";
+import { resolveScopedUserConfig, ScopedUserConfigError } from "@/lib/authorization/scoped-user-config";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { replaceSuperAdminUserPageAccess } from "@/lib/super-admin-server";
 import { ALL_PERMISSIONS, normalizePermissions, normalizeUserRole } from "@/types/roles";
 import {
   createRouteSupabaseClient,
@@ -18,8 +20,12 @@ type CreateUserBody = {
   full_name?: string | null;
   role?: string | null;
   school_id?: string | null;
+  branch_id?: string | null;
   phone?: string | null;
   is_active?: boolean;
+  scope_level?: string | null;
+  is_single_page_user?: boolean;
+  allowed_pages?: unknown;
   custom_permissions?: unknown;
 };
 
@@ -41,6 +47,8 @@ function validateCreateUserInput(body: unknown) {
   if (role !== "super_admin" && !schoolId) {
     return { ok: false as const, message: "school_id is required for non-super_admin users." };
   }
+
+  const branchId = typeof data.branch_id === "string" && data.branch_id.trim() ? data.branch_id.trim() : null;
 
   const fullName = typeof data.full_name === "string" ? data.full_name.trim() : "";
   const phone = typeof data.phone === "string" ? data.phone.trim() : "";
@@ -66,9 +74,15 @@ function validateCreateUserInput(body: unknown) {
       password,
       role,
       school_id: schoolId,
+      branch_id: branchId,
       full_name: fullName || null,
       phone: phone || null,
       is_active: isActive,
+      scope_level: typeof data.scope_level === "string" ? data.scope_level.trim().toLowerCase() : null,
+      is_single_page_user: data.is_single_page_user === true,
+      allowed_pages: Array.isArray(data.allowed_pages)
+        ? data.allowed_pages.filter((page): page is string => typeof page === "string" && page.trim().length > 0)
+        : [],
       custom_permissions: customPermissions,
     },
   };
@@ -144,6 +158,37 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const effectivePermissions = validation.value.custom_permissions ?? normalizePermissions([], validation.value.role);
+
+  let scopedConfig;
+  try {
+    scopedConfig = resolveScopedUserConfig({
+      role: validation.value.role,
+      schoolId: validation.value.school_id,
+      branchId: validation.value.branch_id,
+      scopeLevel: validation.value.scope_level,
+      isSinglePageUser: validation.value.is_single_page_user,
+      allowedPages: validation.value.allowed_pages,
+      permissions: effectivePermissions,
+    });
+  } catch (error) {
+    const message = error instanceof ScopedUserConfigError ? error.message : "Invalid scope configuration.";
+    return NextResponse.json({ error: { message } }, { status: 400 });
+  }
+
+  if (scopedConfig.branchId && scopedConfig.schoolId) {
+    const { data: branch, error: branchError } = await serviceSupabase
+      .from("branches")
+      .select("id")
+      .eq("id", scopedConfig.branchId)
+      .eq("school_id", scopedConfig.schoolId)
+      .maybeSingle();
+
+    if (branchError || !branch?.id) {
+      return NextResponse.json({ error: { message: "Invalid branch_id for the selected school." } }, { status: 400 });
+    }
+  }
+
   const { data: authData, error: createAuthError } = await serviceSupabase.auth.admin.createUser({
     email: validation.value.email,
     password: validation.value.password,
@@ -163,9 +208,15 @@ export async function POST(req: NextRequest) {
     email: validation.value.email,
     full_name: validation.value.full_name,
     role: validation.value.role,
-    school_id: validation.value.school_id,
+    school_id: scopedConfig.schoolId,
+    branch_id: scopedConfig.branchId,
+    default_branch_id: scopedConfig.defaultBranchId,
     phone: validation.value.phone,
     is_active: validation.value.is_active,
+    scope_level: scopedConfig.scopeLevel,
+    allowed_module: scopedConfig.allowedModule,
+    is_single_page_user: scopedConfig.isSinglePageUser,
+    hierarchy_level: null,
     custom_permissions: validation.value.custom_permissions,
   };
 
@@ -177,6 +228,14 @@ export async function POST(req: NextRequest) {
     void _omit;
     ({ error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(legacyPayload));
   }
+
+  if (isMissingColumnError(insertProfileError, "user_profiles", "branch_id")) {
+    await serviceSupabase.auth.admin.deleteUser(authData.user.id);
+    return NextResponse.json(
+      { error: { message: "The scoped authorization fields are missing from user_profiles. Run migration 20260420_000000_scoped_authorization_foundation.sql first." } },
+      { status: 400 },
+    );
+  }
   
   if (insertProfileError) {
     // Rollback: delete the auth user if profile creation fails
@@ -187,12 +246,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  try {
+    if (scopedConfig.schoolId && scopedConfig.pageAccessGrants.length > 0) {
+      await replaceSuperAdminUserPageAccess(serviceSupabase, {
+        userId: authData.user.id,
+        schoolId: scopedConfig.schoolId,
+        branchId: scopedConfig.branchId,
+        grants: scopedConfig.pageAccessGrants,
+      });
+    }
+  } catch (error) {
+    await serviceSupabase.from("user_profiles").delete().eq("id", authData.user.id);
+    await serviceSupabase.auth.admin.deleteUser(authData.user.id);
+    return NextResponse.json(
+      { error: { message: error instanceof Error ? error.message : "Failed to configure page access." } },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json(
     {
       ok: true,
       user: {
         id: authData.user.id,
         email: authData.user.email,
+        school_id: scopedConfig.schoolId,
+        branch_id: scopedConfig.branchId,
+        scope_level: scopedConfig.scopeLevel,
+        allowed_pages: scopedConfig.allowedPages,
       },
     },
     { status: 201 },

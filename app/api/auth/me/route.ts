@@ -1,61 +1,38 @@
-// @ts-nocheck
-/**
- * Get Current User Endpoint
- * GET /api/auth/me
- * Returns the authenticated user's profile
- */
+import { NextRequest, NextResponse } from "next/server";
 
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/middleware/auth-middleware';
-import { getUserProfile } from '@/lib/services/auth-service';
-import { createApiLogger } from '@/lib/api-logger';
+import { resolveWebUserProfile } from "@/lib/authorization/snapshot";
+import { createRouteSupabaseClient, getRouteAuthenticatedUser } from "@/lib/supabase-server";
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ ok: false, error: { message } }, { status });
+}
 
 export async function GET(req: NextRequest) {
-  const endpoint = '/api/auth/me';
-  const log = createApiLogger({
-    endpoint,
-    ip: req.headers.get('x-forwarded-for') || 'unknown'
+  const supabase = await createRouteSupabaseClient();
+  const {
+    data: { user },
+    error,
+  } = await getRouteAuthenticatedUser(supabase, req.headers.get("authorization"));
+
+  if (error || !user?.id) {
+    return jsonError("Unauthorized", 401);
+  }
+
+  const resolved = await resolveWebUserProfile(supabase, user.id).catch((resolveError) => {
+    console.error("[auth/me] failed to resolve web user profile", {
+      userId: user.id,
+      error: resolveError,
+    });
+    return null;
   });
 
-  try {
-    log.logRequest('GET');
-
-    // Require authentication
-    const authResult = requireAuth(req, endpoint);
-    if (authResult.response) {
-      return authResult.response;
-    }
-
-    const authContext = authResult.auth!;
-
-    // Get user profile
-    const profile = await getUserProfile(authContext.userId);
-
-    if (!profile) {
-      log.logResponse(404, { userId: authContext.userId });
-      return NextResponse.json(
-        { error: 'User profile not found' },
-        { status: 404 }
-      );
-    }
-
-    log.logResponse(200, { userId: authContext.userId });
-    return NextResponse.json(
-      {
-        ok: true,
-        user: profile
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    log.logError(
-      error instanceof Error ? error : new Error(String(error)),
-      { endpoint }
-    );
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  if (!resolved) {
+    return jsonError("Profile not found", 404);
   }
+
+  return NextResponse.json({
+    ok: true,
+    user: resolved.profile,
+    session: resolved.snapshot,
+  });
 }

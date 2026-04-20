@@ -83,7 +83,19 @@ export function AppSidebar({
     (locale === "en" ? "Current school" : "المدرسة الحالية");
   const schoolLogoUrl = runtimeBranding.logoUrl;
 
-  const navItems = useMemo(() => getSidebarItemsForRole(role), [role]);
+  const navItems = useMemo(() => {
+    if (profile?.is_single_page_user) {
+      return [];
+    }
+
+    const baseItems = getSidebarItemsForRole(role);
+    const allowedPages = profile?.allowed_pages ?? [];
+    if (allowedPages.length === 0) {
+      return baseItems;
+    }
+
+    return baseItems.filter((item) => allowedPages.includes(item.id));
+  }, [profile?.allowed_pages, profile?.is_single_page_user, role]);
   
   const groupedItems = useMemo(() => {
     const groups: Record<string, SidebarItem[]> = {};
@@ -129,6 +141,10 @@ export function AppSidebar({
     document.documentElement.style.setProperty("--sidebar-width", width);
     window.localStorage.setItem(SIDEBAR_MODE_STORAGE_KEY, sidebarMode);
   }, [sidebarMode]);
+
+  if (profile?.is_single_page_user) {
+    return null;
+  }
 
   return (
     <>

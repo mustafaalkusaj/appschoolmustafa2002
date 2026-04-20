@@ -42,9 +42,26 @@ export interface UserRecord {
   email: string | null;
   role: "super_admin" | "admin" | "employee";
   school_id: string | null;
+  branch_id: string | null;
+  default_branch_id: string | null;
   phone: string | null;
   is_active: boolean;
   custom_permissions: Permission[] | null;
+  scope_level: "super_admin" | "group_admin" | "branch_user" | "restricted" | null;
+  allowed_module: string | null;
+  is_single_page_user: boolean;
+  hierarchy_level: number | null;
+  permissions_version: number;
+  allowed_pages: string[];
+  schools?: SchoolRelation;
+  created_at?: string | null;
+}
+
+export interface BranchOptionRecord {
+  id: string;
+  school_id: string;
+  name: string;
+  is_active: boolean;
   schools?: SchoolRelation;
   created_at?: string | null;
 }

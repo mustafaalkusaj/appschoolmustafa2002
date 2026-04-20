@@ -3,13 +3,14 @@
 import { Users, UserRoundPlus, FileDown, PencilLine, Trash2 } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { formatDate, relationName } from "./utils";
-import type { SchoolRecord, UserRecord } from "./types";
+import type { BranchOptionRecord, SchoolRecord, UserRecord } from "./types";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/auth";
 import { exportToCSV } from "@/lib/export";
 
 interface UsersTabProps {
   users: UserRecord[];
   schools: SchoolRecord[];
+  branches: BranchOptionRecord[];
   filteredUsers: UserRecord[];
   onOpenCreateUser: () => void;
   onOpenEditUser: (user: UserRecord) => void;
@@ -19,15 +20,18 @@ interface UsersTabProps {
 export function UsersTab({
   users: _users,
   schools: _schools,
+  branches,
   filteredUsers,
   onOpenCreateUser,
   onOpenEditUser,
   onDeleteUser,
 }: UsersTabProps) {
+  const branchNames = new Map(branches.map((branch) => [branch.id, branch.name]));
+
   return (
     <SectionCard
       title={`إدارة المستخدمين (${filteredUsers.length})`}
-      description="إدارة المستخدمين والأدوار والصلاحيات المخصصة مع إبقاء تدفق الإنشاء والتعديل الحالي."
+      description="إدارة المستخدمين مع إظهار المدرسة، الفرع، ونمط الوصول المقيّد للصفحات عندما يكون ذلك مطلوباً."
       actions={
         <div className="flex items-center gap-2">
           <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => exportToCSV(filteredUsers, "users")}>
@@ -69,6 +73,15 @@ export function UsersTab({
                   {filteredUsers.map((user) => {
                     const roleColor = ROLE_COLORS[user.role] ?? { bg: "rgba(79,140,255,0.12)", color: "#4F8CFF" };
                     const customPermissionsCount = user.custom_permissions?.length ?? 0;
+                    const branchName = user.branch_id ? branchNames.get(user.branch_id) ?? "—" : null;
+                    const accessMode =
+                      user.role === "super_admin"
+                        ? "عام"
+                        : user.scope_level === "restricted"
+                          ? "مقيّد"
+                          : user.scope_level === "branch_user"
+                            ? "فرع"
+                            : "مدرسة";
 
                     return (
                       <tr key={user.id}>
@@ -86,7 +99,14 @@ export function UsersTab({
                         </td>
                         <td className="text-[var(--text-secondary)]">{relationName(user.schools) || "كل المدارس"}</td>
                         <td>
-                          <span className="ui-pill">{customPermissionsCount === 0 ? "افتراضي" : `${customPermissionsCount} مخصص`}</span>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="ui-pill">{customPermissionsCount === 0 ? "افتراضي" : `${customPermissionsCount} مخصص`}</span>
+                            <span className="ui-pill">{accessMode}</span>
+                            {branchName ? <span className="ui-pill">{branchName}</span> : null}
+                            {user.scope_level === "restricted" && user.allowed_pages.length > 0 ? (
+                              <span className="ui-pill">{`${user.allowed_pages.length} صفحات`}</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td>
                           <span className={user.is_active ? "ui-pill ui-pill--success" : "ui-pill ui-pill--danger"}>{user.is_active ? "نشط" : "موقوف"}</span>
@@ -114,6 +134,7 @@ export function UsersTab({
           <div className="space-y-3 lg:hidden">
             {filteredUsers.map((user) => {
               const roleColor = ROLE_COLORS[user.role] ?? { bg: "rgba(79,140,255,0.12)", color: "#4F8CFF" };
+              const branchName = user.branch_id ? branchNames.get(user.branch_id) ?? "—" : null;
 
               return (
                 <article key={user.id} className="ui-surface rounded-[28px] p-4">
@@ -128,6 +149,10 @@ export function UsersTab({
                   </div>
                   <div className="mb-4 flex flex-wrap gap-2">
                     <span className="ui-pill">{relationName(user.schools) || "كل المدارس"}</span>
+                    {branchName ? <span className="ui-pill">{branchName}</span> : null}
+                    {user.scope_level === "restricted" && user.allowed_pages.length > 0 ? (
+                      <span className="ui-pill">{`${user.allowed_pages.length} صفحات`}</span>
+                    ) : null}
                     <span className={user.is_active ? "ui-pill ui-pill--success" : "ui-pill ui-pill--danger"}>{user.is_active ? "نشط" : "موقوف"}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">

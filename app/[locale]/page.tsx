@@ -92,8 +92,13 @@ export default function Home() {
       },
     ];
     if (!role) return [];
-    return allCards.filter((card) => card.roles.includes(role));
-  }, [role, t]);
+    const allowedPages = profile?.allowed_pages ?? [];
+    return allCards.filter((card) => {
+      if (!card.roles.includes(role)) return false;
+      if (allowedPages.length === 0) return true;
+      return allowedPages.includes(card.href.replace(/^\//, ""));
+    });
+  }, [profile?.allowed_pages, role, t]);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
@@ -129,4 +134,3 @@ export default function Home() {
     </ProtectedRoute>
   );
 }
-

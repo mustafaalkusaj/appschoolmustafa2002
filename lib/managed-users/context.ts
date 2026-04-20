@@ -114,13 +114,18 @@ export async function resolveSchoolScopedActorContext(
         actorUserId: user.id,
         actorRole,
         targetSchoolId,
+        actorBranchId: rbacSession.branchId,
+        allowedBranchIds: rbacSession.allowedBranchIds,
+        scopeLevel: rbacSession.scopeLevel,
+        isSinglePageUser: rbacSession.isSinglePageUser,
+        permissionsVersion: rbacSession.permissionsVersion,
       },
     };
   }
 
   const { data: actorProfile, error: actorProfileError } = await actorSupabase
     .from("user_profiles")
-    .select("role, school_id, is_active")
+    .select("role, school_id, is_active, branch_id, scope_level, permissions_version")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -200,6 +205,31 @@ export async function resolveSchoolScopedActorContext(
       actorUserId: user.id,
       actorRole,
       targetSchoolId,
+      actorBranchId:
+        actorProfile && "branch_id" in actorProfile && typeof actorProfile.branch_id === "string"
+          ? actorProfile.branch_id
+          : null,
+      allowedBranchIds:
+        actorProfile && "branch_id" in actorProfile && typeof actorProfile.branch_id === "string"
+          ? [actorProfile.branch_id]
+          : [],
+      scopeLevel:
+        actorProfile && "scope_level" in actorProfile &&
+        (actorProfile.scope_level === "super_admin" ||
+          actorProfile.scope_level === "group_admin" ||
+          actorProfile.scope_level === "branch_user" ||
+          actorProfile.scope_level === "restricted")
+          ? actorProfile.scope_level
+          : actorRole === "super_admin"
+            ? "super_admin"
+            : null,
+      isSinglePageUser:
+        Boolean(actorProfile && "scope_level" in actorProfile && actorProfile.scope_level === "restricted"),
+      permissionsVersion:
+        actorProfile && "permissions_version" in actorProfile &&
+        typeof actorProfile.permissions_version === "number"
+          ? actorProfile.permissions_version
+          : 1,
     },
   };
 }

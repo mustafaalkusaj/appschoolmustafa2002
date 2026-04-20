@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import createIntlMiddleware from 'next-intl/middleware';
+import {
+  isPagePathAllowed,
+  resolvePageCodeFromApiPath,
+} from "@/lib/authorization/page-access";
 import { getPublicEnv } from "@/lib/env/public";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import { routing } from "./i18n/routing";
@@ -11,7 +15,6 @@ import {
   normalizePath,
   PUBLIC_PATHS,
 } from "@/types/roles";
-import { createClient } from "@supabase/supabase-js";
 
 /**
  * Generates a cryptographically random nonce for CSP.
@@ -79,16 +82,40 @@ function resolveGuardRedirect(reason: "unauthenticated" | "forbidden" | "school_
   return new URL(localizePath("/access-denied", locale), request.url);
 }
 
-async function getGuardRedirect(request: NextRequest) {
-  const normalizedPath = normalizePath(request.nextUrl.pathname);
-  const isPublicPath = PUBLIC_PATHS.some((path) => normalizedPath === path);
+function buildApiGuardResponse(status: 401 | 403, message: string) {
+  return NextResponse.json(
+    {
+      error: status === 401 ? "Unauthorized" : "Forbidden",
+      message,
+    },
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
 
-  if (isPublicPath) {
+async function getGuardRedirect(request: NextRequest): Promise<URL | NextResponse | null> {
+  const normalizedPath = normalizePath(request.nextUrl.pathname);
+  const isApiRequest = normalizedPath.startsWith("/api/");
+  const isPublicPath = PUBLIC_PATHS.some((path) => normalizedPath === path);
+  const isPublicApiPath =
+    normalizedPath === "/api/auth/login" ||
+    normalizedPath === "/api/auth/me" ||
+    normalizedPath === "/api/auth/forgot-password" ||
+    normalizedPath === "/api/auth/register" ||
+    normalizedPath === "/api/rbac/session" ||
+    normalizedPath === "/api/account/me" ||
+    normalizedPath === "/api/health";
+
+  if ((!isApiRequest && isPublicPath) || (isApiRequest && isPublicApiPath)) {
     return null;
   }
 
-  const routeRule = getMatchingRouteRule(normalizedPath);
-  if (!routeRule) {
+  const routeRule = isApiRequest ? null : getMatchingRouteRule(normalizedPath);
+  if (!isApiRequest && !routeRule) {
     return null;
   }
 
@@ -96,19 +123,25 @@ async function getGuardRedirect(request: NextRequest) {
   const session = await verifyRBACSession(rbacToken);
 
   if (!session) {
+    if (isApiRequest) {
+      return buildApiGuardResponse(401, "Authentication is required.");
+    }
     return resolveGuardRedirect("unauthenticated", request);
   }
 
   if (!session.userActive) {
+    if (isApiRequest) {
+      return buildApiGuardResponse(403, "This account is inactive.");
+    }
     return resolveGuardRedirect("forbidden", request);
   }
 
-  if (!isRoleAllowedForPath(session.role, normalizedPath)) {
+  if (!isApiRequest && !isRoleAllowedForPath(session.role, normalizedPath)) {
     return resolveGuardRedirect("forbidden", request);
   }
 
-  const permissionRule = getMatchingPermissionRule(normalizedPath);
-  if (permissionRule) {
+  const permissionRule = isApiRequest ? null : getMatchingPermissionRule(normalizedPath);
+  if (!isApiRequest && permissionRule) {
     const allowed = permissionRule.requireAll
       ? permissionRule.permissions.every((permission) => session.permissions.includes(permission))
       : hasAnyPermission(session.permissions, permissionRule.permissions);
@@ -118,7 +151,7 @@ async function getGuardRedirect(request: NextRequest) {
     }
   }
 
-  if (routeRule.requiresActiveSchool && session.role !== "super_admin") {
+  if (!isApiRequest && routeRule?.requiresActiveSchool && session.role !== "super_admin") {
     if (!session.schoolId || !session.schoolActive) {
       return resolveGuardRedirect("school_inactive", request);
     }
@@ -133,45 +166,52 @@ async function getGuardRedirect(request: NextRequest) {
     }
   }
 
-  // Group scope guard: /group is only accessible to users with scope="group"
-  if (normalizePath(request.nextUrl.pathname) === "/group" && session.role !== "super_admin") {
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (supabaseUrl && supabaseServiceKey) {
-        const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-        // Resolve userId via Supabase auth cookie
-        const { data: { user } } = await serviceClient.auth.getUser(
-          request.cookies.get("sb-access-token")?.value ?? ""
-        );
-        if (user) {
-          const { data: profile } = await serviceClient
-            .from("user_profiles")
-            .select("scope")
-            .eq("id", user.id)
-            .single();
-          if (!profile || profile.scope !== "group") {
-            return resolveGuardRedirect("forbidden", request);
-          }
-        }
-      }
-    } catch {
-      // If scope check fails, allow through — page will redirect as needed
+  // Group scope guard.
+  if (!isApiRequest && normalizePath(request.nextUrl.pathname) === "/group" && session.role !== "super_admin") {
+    if (session.scopeLevel !== "group_admin") {
+      return resolveGuardRedirect("forbidden", request);
     }
   }
 
-  // Restricted user enforcement: lock to their allowed_module
-  const sessionWithScope = session as typeof session & {
-    scopeLevel?: string | null;
-    allowedModule?: string | null;
-  };
-  if (sessionWithScope.scopeLevel === 'restricted' && sessionWithScope.allowedModule) {
-    const allowedPath = `/${sessionWithScope.allowedModule}`;
+  if (isApiRequest) {
+    const normalizedCurrent = normalizePath(request.nextUrl.pathname);
+    const apiPageCode = resolvePageCodeFromApiPath(normalizedCurrent);
+    const isSessionMaintenanceEndpoint =
+      normalizedCurrent === "/api/rbac/session" ||
+      normalizedCurrent === "/api/auth/login" ||
+      normalizedCurrent === "/api/auth/me" ||
+      normalizedCurrent === "/api/account/me" ||
+      normalizedCurrent === "/api/health";
+
+    if (session.isSinglePageUser && session.allowedPages.length > 0 && !isSessionMaintenanceEndpoint) {
+      if (!apiPageCode || !session.allowedPages.includes(apiPageCode)) {
+        return buildApiGuardResponse(403, "This account cannot access the requested API scope.");
+      }
+    }
+
+    return null;
+  }
+
+  // Focused user enforcement: lock to allowed pages only.
+  if (session.isSinglePageUser && session.allowedPages.length > 0) {
     const normalizedCurrent = normalizePath(request.nextUrl.pathname);
     const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+    const defaultPath = session.defaultPath || "/dashboard";
+    const isPublicUtilityPath = PUBLIC_PATHS.some((path) => normalizedCurrent === path);
 
-    if (normalizedCurrent !== allowedPath) {
-      return new URL(localizePath(allowedPath, locale), request.url);
+    if (!isPublicUtilityPath && normalizedCurrent === "/") {
+      return new URL(localizePath(defaultPath, locale), request.url);
+    }
+
+    if (
+      !isPublicUtilityPath &&
+      !isPagePathAllowed(normalizedCurrent, session.allowedPages)
+    ) {
+      // The dashboard is intentionally blocked for focused users unless explicitly granted.
+      if (normalizedCurrent === "/dashboard") {
+        return new URL(localizePath(defaultPath, locale), request.url);
+      }
+      return resolveGuardRedirect("forbidden", request);
     }
   }
 
@@ -267,9 +307,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const requestId = resolveRequestId(request);
   const nonce = generateNonce();
   const csp = buildCSP();
+  const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
   const isPageMethod = request.method === "GET" || request.method === "HEAD" || request.method === "OPTIONS";
 
-  if (!isPageMethod) {
+  if (!isApiRequest && !isPageMethod) {
     const response = new NextResponse("Method Not Allowed", {
       status: 405,
       headers: {
@@ -281,14 +322,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return response;
   }
 
-  const intlResponse = intlMiddleware(request);
+  const intlResponse = isApiRequest ? NextResponse.next() : intlMiddleware(request);
 
-  if (intlResponse.status === 307 || intlResponse.status === 308) {
+  if (!isApiRequest && (intlResponse.status === 307 || intlResponse.status === 308)) {
     return intlResponse;
   }
 
   const guardRedirect = await getGuardRedirect(request);
   if (guardRedirect) {
+    if (guardRedirect instanceof NextResponse) {
+      return guardRedirect;
+    }
     return NextResponse.redirect(guardRedirect);
   }
 
@@ -304,8 +348,6 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   });
 
   applyIntlResponse(response, intlResponse);
-
-  const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
 
   if (!isApiRequest) {
     applyBaseSecurityHeaders(response, requestId, nonce, csp);
@@ -334,6 +376,15 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
-    "/((?!api|_next|_vercel|.*\\..*).*)",
+    "/((?!_next|_vercel|.*\\..*).*)",
+    "/api/web/:path*",
+    "/api/students/:path*",
+    "/api/dashboard/:path*",
+    "/api/branches/:path*",
+    "/api/users/:path*",
+    "/api/auth/:path*",
+    "/api/rbac/:path*",
+    "/api/account/:path*",
+    "/api/health",
   ],
 };

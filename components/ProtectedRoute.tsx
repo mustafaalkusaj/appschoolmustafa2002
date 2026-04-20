@@ -3,7 +3,13 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/hooks/useRole";
-import { getAccessDecision, hasPermission, type Permission, type UserRole } from "@/lib/auth";
+import {
+  getAccessDecision,
+  getDefaultRouteForProfile,
+  hasPermission,
+  type Permission,
+  type UserRole,
+} from "@/lib/auth";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 
 interface ProtectedRouteProps {
@@ -15,7 +21,11 @@ interface ProtectedRouteProps {
   fallback?: React.ReactNode;
 }
 
-function resolveRedirect(reason: ReturnType<typeof getAccessDecision>["reason"], pathname: string) {
+function resolveRedirect(
+  reason: ReturnType<typeof getAccessDecision>["reason"],
+  pathname: string,
+  focusedDefaultPath?: string | null,
+) {
   const locale = getLocaleFromPath(pathname);
   const safePath = pathname && pathname.startsWith("/") ? pathname : localizeAppPath("/", locale);
 
@@ -25,6 +35,10 @@ function resolveRedirect(reason: ReturnType<typeof getAccessDecision>["reason"],
 
   if (reason === "school_inactive" || reason === "subscription_expired") {
     return localizeAppPath("/subscription-expired", locale);
+  }
+
+  if (reason === "forbidden" && focusedDefaultPath) {
+    return localizeAppPath(focusedDefaultPath, locale);
   }
 
   return localizeAppPath("/access-denied", locale);
@@ -60,8 +74,12 @@ export function ProtectedRoute({
 
   useEffect(() => {
     if (loading || !blockedReason) return;
-    router.replace(resolveRedirect(blockedReason, pathname));
-  }, [blockedReason, loading, pathname, router]);
+    const focusedDefaultPath =
+      profile?.is_single_page_user && blockedReason === "forbidden"
+        ? getDefaultRouteForProfile(profile)
+        : null;
+    router.replace(resolveRedirect(blockedReason, pathname, focusedDefaultPath));
+  }, [blockedReason, loading, pathname, profile, router]);
 
   if (loading || blockedReason) {
     return <>{fallback}</>;

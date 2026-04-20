@@ -1,4 +1,5 @@
 import { getServerEnv, shouldUseSecureCookies } from "@/lib/env/server";
+import { getPathForPageCode } from "@/lib/authorization/page-access";
 import {
   buildTemplatePermissions,
   normalizePermissions,
@@ -11,19 +12,28 @@ export const RBAC_SESSION_MAX_AGE = 60 * 60 * 8;
 let devFallbackSecret = "";
 
 export interface RBACSessionPayload {
+  userId: string;
   role: UserRole;
   permissions: Permission[];
   schoolId: string | null;
+  branchId: string | null;
+  allowedBranchIds: string[];
   userActive: boolean;
   schoolActive: boolean;
   subscriptionStatus: string | null;
   subscriptionEnd: string | null;
   scopeLevel: 'super_admin' | 'group_admin' | 'branch_user' | 'restricted' | null;
   allowedModule: string | null;
+  allowedModules: string[];
+  allowedPages: string[];
+  defaultPath: string;
+  isSinglePageUser: boolean;
+  hierarchyLevel: number | null;
+  permissionsVersion: number;
   groupId: string | null;
   iat: number;
   exp: number;
-  version: 1;
+  version: 1 | 2;
 }
 
 function getSecretKeyMaterial(): string {
@@ -79,7 +89,7 @@ export function buildRBACSessionPayload(input: Omit<RBACSessionPayload, "iat" | 
     permissions: compactPermissionsForPayload(input.role, input.permissions),
     iat: nowSec,
     exp: nowSec + RBAC_SESSION_MAX_AGE,
-    version: 1,
+    version: 2,
   };
 }
 
@@ -152,11 +162,38 @@ export async function verifyRBACSession(token: string | undefined | null): Promi
     const json = new TextDecoder().decode(fromBase64Url(payloadPart));
     const parsed = JSON.parse(json) as RBACSessionPayload;
 
-    if (!parsed || parsed.version !== 1) return null;
+    if (!parsed || (parsed.version !== 1 && parsed.version !== 2)) return null;
     if (!parsed.exp || parsed.exp <= Math.floor(Date.now() / 1000)) return null;
 
     return {
       ...parsed,
+      userId: typeof parsed.userId === "string" ? parsed.userId : "",
+      branchId: typeof parsed.branchId === "string" ? parsed.branchId : null,
+      allowedBranchIds: Array.isArray(parsed.allowedBranchIds)
+        ? parsed.allowedBranchIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        : [],
+      allowedModules: Array.isArray(parsed.allowedModules)
+        ? parsed.allowedModules.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        : [],
+      allowedPages: Array.isArray(parsed.allowedPages)
+        ? parsed.allowedPages.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        : [],
+      defaultPath:
+        typeof parsed.defaultPath === "string" && parsed.defaultPath.trim().length > 0
+          ? parsed.defaultPath
+          : getPathForPageCode(typeof parsed.allowedModule === "string" ? parsed.allowedModule : null) ?? "/dashboard",
+      isSinglePageUser:
+        typeof parsed.isSinglePageUser === "boolean"
+          ? parsed.isSinglePageUser
+          : parsed.scopeLevel === "restricted",
+      hierarchyLevel:
+        typeof parsed.hierarchyLevel === "number" && Number.isFinite(parsed.hierarchyLevel)
+          ? parsed.hierarchyLevel
+          : null,
+      permissionsVersion:
+        typeof parsed.permissionsVersion === "number" && Number.isFinite(parsed.permissionsVersion)
+          ? parsed.permissionsVersion
+          : 1,
       permissions: normalizePermissions(parsed.permissions, parsed.role),
     };
   } catch {

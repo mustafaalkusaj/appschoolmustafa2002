@@ -57,6 +57,7 @@ import {
   type SchoolRecord,
   type UserRecord,
   type SubscriptionRecord,
+  type BranchOptionRecord,
   type ActiveTab,
   type SpotlightFilter,
   type OverviewDiagnostics,
@@ -85,6 +86,7 @@ export default function SuperAdminPage() {
   const isSuperAdmin = !authLoading && profile?.role === "super_admin";
 
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
+  const [branches, setBranches] = useState<BranchOptionRecord[]>([]);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,14 +130,23 @@ export default function SuperAdminPage() {
   const refreshDashboard = useCallback(async () => {
     if (!hasLoadedOnceRef.current) setLoading(true); else setRefreshing(true);
     try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{ infrastructure?: AdminInfrastructure; schemaCompat?: AppSchemaCompat; infrastructureNotice?: string; diagnostics?: OverviewDiagnostics; schools?: SchoolRecord[]; users?: UserRecord[]; subscriptions?: SubscriptionRecord[]; error?: { message?: string }; }>("/api/web/super-admin/overview");
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ infrastructure?: AdminInfrastructure; schemaCompat?: AppSchemaCompat; infrastructureNotice?: string; diagnostics?: OverviewDiagnostics; schools?: SchoolRecord[]; branches?: BranchOptionRecord[]; users?: UserRecord[]; subscriptions?: SubscriptionRecord[]; error?: { message?: string }; }>("/api/web/super-admin/overview");
       if (!response.ok) throw new Error(payload?.error?.message || "تعذر تحميل البيانات.");
       setInfrastructure(payload?.infrastructure ?? DEFAULT_ADMIN_INFRASTRUCTURE);
       setSchemaCompat(payload?.schemaCompat ?? null);
       setInfrastructureNotice(payload?.infrastructureNotice ?? "");
       setOverviewDiagnostics(payload?.diagnostics ?? null);
       setSchools((payload?.schools ?? []).map((s) => { const b = getStoredSchoolBranding(s.id); return { ...s, primary_color: s.primary_color ?? b?.primaryColor ?? null, secondary_color: s.secondary_color ?? b?.secondaryColor ?? null }; }));
-      setUsers((payload?.users ?? []).map((u) => ({ ...u, custom_permissions: Array.isArray(u.custom_permissions) ? (u.custom_permissions as Permission[]) : null })));
+      setBranches(payload?.branches ?? []);
+      setUsers((payload?.users ?? []).map((u) => ({
+        ...u,
+        branch_id: typeof u.branch_id === "string" ? u.branch_id : null,
+        default_branch_id: typeof u.default_branch_id === "string" ? u.default_branch_id : null,
+        custom_permissions: Array.isArray(u.custom_permissions) ? (u.custom_permissions as Permission[]) : null,
+        allowed_pages: Array.isArray(u.allowed_pages) ? u.allowed_pages.filter((item): item is string => typeof item === "string") : [],
+        is_single_page_user: u.is_single_page_user === true,
+        permissions_version: typeof u.permissions_version === "number" ? u.permissions_version : 1,
+      })));
       setSubscriptions(payload?.subscriptions ?? []);
       hasLoadedOnceRef.current = true;
     } catch (e) { flashError(getErrorMessage(e, "تعذر تحميل البيانات.")); } finally { setLoading(false); setRefreshing(false); }
@@ -177,7 +188,20 @@ export default function SuperAdminPage() {
 
   const handleSaveUser = useCallback(async (f: UserFormData, editing: UserRecord | null) => {
     try {
-      const payload = { full_name: f.full_name, email: f.email, role: f.role, school_id: f.school_id || null, phone: f.phone || null, is_active: f.is_active, custom_permissions: f.permissions.length ? f.permissions : null };
+      const payload = {
+        full_name: f.full_name,
+        email: f.email,
+        role: f.role,
+        school_id: f.school_id || null,
+        branch_id: f.branch_id || null,
+        phone: f.phone || null,
+        is_active: f.is_active,
+        scope_level: f.scope_level,
+        is_single_page_user: f.is_single_page_user,
+        allowed_pages: f.allowed_pages,
+        permissions_version: f.permissions_version,
+        custom_permissions: f.permissions.length ? f.permissions : null,
+      };
       if (editing) {
         const { response, payload: res } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(`/api/web/super-admin/users/${editing.id}`, { method: "PATCH", headers: withJsonHeaders(), body: JSON.stringify(payload) });
         if (!response.ok) throw new Error(res?.error?.message || "تعذر التحديث.");
@@ -432,7 +456,7 @@ export default function SuperAdminPage() {
                   <div className="space-y-6">
                     {activeTab === "overview" && <OverviewTab schools={schools} users={users} subscriptions={subscriptions} loading={loading} overviewDiagnostics={overviewDiagnostics} spotlightFilter={spotlightFilter} onClearSpotlightFilter={clearSpotlightFilter} onFocusSpotlight={focusSpotlight} onOpenCreateSchool={openCreateSchool} onOpenCreateUser={openCreateUser} onSetActiveTab={setActiveTab} ROLE_LABELS={ROLE_LABELS} PLAN_LABELS={PLAN_LABELS} />}
                     {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onPermanentlyDeleteSchool={setPermanentDeleteSchoolTarget} onRefresh={refreshDashboard} />}
-                    {activeTab === "users" && <UsersTab users={users} schools={schools} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} />}
+                    {activeTab === "users" && <UsersTab users={users} schools={schools} branches={branches} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} />}
                     {activeTab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} filteredSubscriptions={filteredSubscriptions} onExtendSubscription={handleExtendSubscription} />}
                     {activeTab === "audit" && <AuditLogTab infrastructure={infrastructure} />}
                     {activeTab === "roles" && <RolesTab infrastructure={infrastructure} schools={schools.map(s => ({ id: s.id, name: s.name }))} />}
@@ -448,7 +472,7 @@ export default function SuperAdminPage() {
         </div>
 
         <SchoolForm isOpen={showSchoolForm} editSchool={editSchool} schemaCompat={schemaCompat} onClose={() => setShowSchoolForm(false)} onSave={handleSaveSchool} />
-        <UserForm isOpen={showUserForm} editUser={editUser} schools={schools.map(s => ({ id: s.id, name: s.name }))} infrastructure={infrastructure} onClose={() => setShowUserForm(false)} onSave={handleSaveUser} />
+        <UserForm isOpen={showUserForm} editUser={editUser} schools={schools.map(s => ({ id: s.id, name: s.name }))} branches={branches} infrastructure={infrastructure} onClose={() => setShowUserForm(false)} onSave={handleSaveUser} />
         <DeleteSchoolDialog school={deleteSchoolTarget} onClose={() => setDeleteSchoolTarget(null)} onConfirm={() => void handleDeleteSchool()} />
         <ConfirmDialog
           open={!!permanentDeleteSchoolTarget}

@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   getAccessDecision,
-  getDefaultRouteForRole,
+  getDefaultRouteForProfile,
   type UserProfile,
 } from "@/lib/auth";
 import { SchoolLogo } from "@/components/brand";
@@ -95,7 +95,7 @@ export default function LoginPage() {
         }
       }
 
-      const defaultPath = localizeAppPath(getDefaultRouteForRole(profile.role), locale);
+      const defaultPath = localizeAppPath(getDefaultRouteForProfile(profile), locale);
       const defaultDecision = getAccessDecision(profile, defaultPath);
 
       if (!defaultDecision.allowed) {

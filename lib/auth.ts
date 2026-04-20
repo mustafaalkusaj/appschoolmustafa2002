@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { resolvePageCodeFromPath } from "@/lib/authorization/page-access";
 import {
   DEFAULT_PATH_BY_ROLE,
   buildTemplatePermissions,
@@ -42,7 +43,21 @@ export interface UserProfile {
   phone?: string | null;
   school?: SchoolProfile | null;
   subscription?: SubscriptionProfile | null;
+  branch_id?: string | null;
+  allowed_branch_ids?: string[];
+  allowed_pages?: string[];
+  is_single_page_user?: boolean;
+  default_path?: string | null;
+  scope_level?: AccessScopeLevel;
+  permissions_version?: number;
 }
+
+export type AccessScopeLevel =
+  | "super_admin"
+  | "group_admin"
+  | "branch_user"
+  | "restricted"
+  | null;
 
 export interface AccessDecision {
   allowed: boolean;
@@ -100,6 +115,18 @@ export function getDefaultRouteForRole(role: UserRole): string {
   return DEFAULT_PATH_BY_ROLE[role] ?? "/dashboard";
 }
 
+export function getDefaultRouteForProfile(profile: UserProfile | null) {
+  if (profile?.default_path && profile.default_path.startsWith("/")) {
+    return profile.default_path;
+  }
+
+  return profile ? getDefaultRouteForRole(profile.role) : "/dashboard";
+}
+
+function hasFocusedPageRestriction(profile: UserProfile) {
+  return Boolean(profile.is_single_page_user) && Array.isArray(profile.allowed_pages) && profile.allowed_pages.length > 0;
+}
+
 export function isSchoolAccessBlocked(profile: UserProfile): boolean {
   if (profile.role === "super_admin") return false;
   if (!profile.school_id) return true;
@@ -145,6 +172,15 @@ export function getAccessDecision(profile: UserProfile | null, pathname: string)
 
     if (status === "expired" || isSubscriptionExpired(profile.subscription?.end_date)) {
       return { allowed: false, reason: "subscription_expired", readOnly: false };
+    }
+  }
+
+  if (hasFocusedPageRestriction(profile)) {
+    const pageCode = resolvePageCodeFromPath(pathname);
+    const allowedPages = profile.allowed_pages ?? [];
+
+    if (!pageCode || !allowedPages.includes(pageCode)) {
+      return { allowed: false, reason: "forbidden", readOnly: false };
     }
   }
 
@@ -243,6 +279,26 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
     phone: data.phone ?? null,
     school,
     subscription,
+    branch_id: typeof data.branch_id === "string" ? data.branch_id : null,
+    allowed_branch_ids: Array.isArray(data.allowed_branch_ids)
+      ? data.allowed_branch_ids.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+      : [],
+    allowed_pages: Array.isArray(data.allowed_pages)
+      ? data.allowed_pages.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+      : [],
+    is_single_page_user: Boolean(data.is_single_page_user),
+    default_path: typeof data.default_path === "string" ? data.default_path : null,
+    scope_level:
+      data.scope_level === "super_admin" ||
+      data.scope_level === "group_admin" ||
+      data.scope_level === "branch_user" ||
+      data.scope_level === "restricted"
+        ? data.scope_level
+        : null,
+    permissions_version:
+      typeof data.permissions_version === "number" && Number.isFinite(data.permissions_version)
+        ? data.permissions_version
+        : 1,
   };
 }
 
@@ -257,6 +313,38 @@ export async function getUserProfile(): Promise<UserProfile | null> {
       console.error("[Auth] getUser error:", error);
     }
     return null;
+  }
+
+  try {
+    const response = await fetch("/api/auth/me", {
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (response.ok) {
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; user?: UserProfile | null }
+        | null;
+
+      if (payload?.ok && payload.user) {
+        return {
+          ...payload.user,
+          avatar_url:
+            typeof user.user_metadata?.avatar_url === "string"
+              ? user.user_metadata.avatar_url
+              : typeof user.user_metadata?.picture === "string"
+                ? user.user_metadata.picture
+                : null,
+        };
+      }
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      console.warn("[Auth] /api/auth/me failed, falling back to direct profile read", error.message);
+    }
   }
 
   const profile = await fetchUserProfileById(user.id);

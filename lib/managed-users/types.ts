@@ -45,6 +45,11 @@ export type SchoolScopedActorContext = {
   actorUserId: string;
   actorRole: UserRole;
   targetSchoolId: string;
+  actorBranchId: string | null;
+  allowedBranchIds: string[];
+  scopeLevel: "super_admin" | "group_admin" | "branch_user" | "restricted" | null;
+  isSinglePageUser: boolean;
+  permissionsVersion: number;
 };
 
 export type ManagedAccountLinkageStatus = "ok" | "missing";

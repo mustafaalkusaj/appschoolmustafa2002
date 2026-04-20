@@ -3,7 +3,9 @@ import {
   getAdminInfrastructureNotice,
   isMissingColumnError,
   isMissingRelationError,
+  isMissingTableError,
 } from "@/lib/admin-infrastructure";
+import { filterAllowedPageCodes, type PageCode } from "@/lib/authorization/page-access";
 import { detectAppSchemaCompatWithClient, type AppSchemaCompat } from "@/lib/schema-compat";
 import {
   createRouteSupabaseClient,
@@ -18,6 +20,12 @@ type SuperAdminDataSupabaseClient = RouteSupabaseClient | ReturnType<typeof crea
 type PostgrestLikeResult = {
   data?: unknown;
   error?: unknown;
+};
+
+type UserPageAccessRecord = {
+  user_id: string;
+  page_code: string | null;
+  can_view: boolean | null;
 };
 
 function readPostgrestLikeResult(value: unknown): PostgrestLikeResult {
@@ -58,9 +66,26 @@ export type SuperAdminUserRecord = {
   email: string | null;
   role: "super_admin" | "admin" | "employee";
   school_id: string | null;
+  branch_id: string | null;
+  default_branch_id: string | null;
   phone: string | null;
   is_active: boolean;
   custom_permissions: Permission[] | null;
+  scope_level: "super_admin" | "group_admin" | "branch_user" | "restricted" | null;
+  allowed_module: string | null;
+  is_single_page_user: boolean;
+  hierarchy_level: number | null;
+  permissions_version: number;
+  allowed_pages: PageCode[];
+  schools?: SuperAdminSchoolRelation;
+  created_at?: string | null;
+};
+
+export type SuperAdminBranchRecord = {
+  id: string;
+  school_id: string;
+  name: string;
+  is_active: boolean;
   schools?: SuperAdminSchoolRelation;
   created_at?: string | null;
 };
@@ -97,6 +122,7 @@ type OverviewResult = {
   infrastructure: Awaited<ReturnType<typeof detectAdminInfrastructure>>;
   schemaCompat: AppSchemaCompat;
   schools: SuperAdminSchoolRecord[];
+  branches: SuperAdminBranchRecord[];
   users: SuperAdminUserRecord[];
   subscriptions: SuperAdminSubscriptionRecord[];
   diagnostics: OverviewDiagnostics;
@@ -131,6 +157,76 @@ function attachSchoolNames<T extends { school_id: string | null }>(
     ...record,
     schools: record.school_id ? { name: schoolNamesById.get(record.school_id) ?? null } : null,
   }));
+}
+
+function mapAllowedPagesByUserId(records: UserPageAccessRecord[]) {
+  const allowedPagesByUserId = new Map<string, PageCode[]>();
+
+  for (const record of records) {
+    if (!record.user_id || record.can_view === false) {
+      continue;
+    }
+
+    const nextPages = filterAllowedPageCodes([record.page_code]);
+    if (nextPages.length === 0) {
+      continue;
+    }
+
+    const current = allowedPagesByUserId.get(record.user_id) ?? [];
+    allowedPagesByUserId.set(record.user_id, filterAllowedPageCodes([...current, ...nextPages]));
+  }
+
+  return allowedPagesByUserId;
+}
+
+export async function replaceSuperAdminUserPageAccess(
+  actorSupabase: SuperAdminDataSupabaseClient,
+  options: {
+    userId: string;
+    schoolId: string;
+    branchId: string | null;
+    grants: Array<{
+      page_code: PageCode;
+      can_view: boolean;
+      can_create: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+      can_approve: boolean;
+      can_export: boolean;
+    }>;
+  },
+) {
+  const { error: deleteError } = await actorSupabase
+    .from("user_page_access")
+    .delete()
+    .eq("user_id", options.userId);
+
+  if (deleteError && !isMissingTableError(deleteError, "user_page_access")) {
+    throw deleteError;
+  }
+
+  if (deleteError && isMissingTableError(deleteError, "user_page_access")) {
+    throw new Error("جدول user_page_access غير موجود بعد. شغّل migration 20260420_000000_scoped_authorization_foundation.sql أولاً.");
+  }
+
+  if (options.grants.length === 0) {
+    return;
+  }
+
+  const rows = options.grants.map((grant) => ({
+    user_id: options.userId,
+    school_id: options.schoolId,
+    branch_id: options.branchId,
+    ...grant,
+  }));
+
+  const { error: insertError } = await actorSupabase.from("user_page_access").insert(rows);
+  if (insertError) {
+    if (isMissingTableError(insertError, "user_page_access")) {
+      throw new Error("جدول user_page_access غير موجود بعد. شغّل migration 20260420_000000_scoped_authorization_foundation.sql أولاً.");
+    }
+    throw insertError;
+  }
 }
 
 export async function resolveSuperAdminActorContext(
@@ -212,18 +308,108 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
     secondary_color: typeof school.secondary_color === "string" ? school.secondary_color : null,
   }));
 
-  const baseUserColumns = infrastructure.customPermissions
-    ? "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions"
-    : "id, full_name, email, role, school_id, phone, is_active, created_at";
+  const userColumnSelects = infrastructure.customPermissions
+    ? [
+        "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, custom_permissions, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version",
+        "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, custom_permissions",
+        "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions",
+      ]
+    : [
+        "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version",
+        "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at",
+        "id, full_name, email, role, school_id, phone, is_active, created_at",
+      ];
 
-  const [usersResult, subscriptionsResult] = await Promise.all([
+  const [branchesResult, usersResult, subscriptionsResult] = await Promise.all([
+    (async () => {
+      if (!infrastructure.branches) {
+        return {
+          warnings: [] as string[],
+          branches: [] as SuperAdminBranchRecord[],
+        };
+      }
+
+      try {
+        const branchesQuery = infrastructure.softDeleteBranches
+          ? actorSupabase.from("branches").select("id, school_id, name, is_active, created_at, schools(name)").is("deleted_at", null)
+          : actorSupabase.from("branches").select("id, school_id, name, is_active, created_at, schools(name)");
+
+        let branchesResponse: unknown = await branchesQuery.order("created_at", { ascending: false });
+        let useSchoolFallback = false;
+        const warnings: string[] = [];
+
+        const initialBranches = readPostgrestLikeResult(branchesResponse);
+        if (initialBranches.error && isMissingRelationError(initialBranches.error, "branches", "schools")) {
+          warnings.push("تم تفعيل عرض بديل لأسماء المدارس لبعض بيانات الفروع لأن علاقة الربط غير متاحة حالياً.");
+          useSchoolFallback = true;
+          branchesResponse = infrastructure.softDeleteBranches
+            ? await actorSupabase
+                .from("branches")
+                .select("id, school_id, name, is_active, created_at")
+                .is("deleted_at", null)
+                .order("created_at", { ascending: false })
+            : await actorSupabase
+                .from("branches")
+                .select("id, school_id, name, is_active, created_at")
+                .order("created_at", { ascending: false });
+        }
+
+        const finalBranches = readPostgrestLikeResult(branchesResponse);
+        if (finalBranches.error) {
+          throw finalBranches.error;
+        }
+
+        const rawBranches = (
+          useSchoolFallback
+            ? attachSchoolNames((finalBranches.data ?? []) as SuperAdminBranchRecord[], schools)
+            : ((finalBranches.data ?? []) as Array<Record<string, unknown>>)
+        ) as Array<Record<string, unknown>>;
+
+        return {
+          warnings,
+          branches: rawBranches.map((branch): SuperAdminBranchRecord => ({
+            id: String(branch.id),
+            school_id: String(branch.school_id),
+            name: typeof branch.name === "string" ? branch.name : "—",
+            is_active: branch.is_active !== false,
+            schools: normalizeSchoolRelation(branch.schools),
+            created_at: typeof branch.created_at === "string" ? branch.created_at : null,
+          })),
+        };
+      } catch (error) {
+        return {
+          warnings: [error instanceof Error && error.message ? error.message : "تعذر تحميل قائمة الفروع حالياً."],
+          branches: [] as SuperAdminBranchRecord[],
+        };
+      }
+    })(),
     (async () => {
       try {
-        const usersQuery = infrastructure.softDeleteUsers
-          ? actorSupabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`).is("deleted_at", null)
-          : actorSupabase.from("user_profiles").select(`${baseUserColumns}, schools(name)`);
+        let selectColumns = userColumnSelects[0];
+        let usersResponse: unknown = null;
+        for (const candidateSelect of userColumnSelects) {
+          selectColumns = candidateSelect;
+          usersResponse = infrastructure.softDeleteUsers
+            ? await actorSupabase
+                .from("user_profiles")
+                .select(`${candidateSelect}, schools(name)`)
+                .is("deleted_at", null)
+                .order("created_at", { ascending: false })
+            : await actorSupabase
+                .from("user_profiles")
+                .select(`${candidateSelect}, schools(name)`)
+                .order("created_at", { ascending: false });
 
-        let usersResponse: unknown = await usersQuery.order("created_at", { ascending: false });
+          const candidateResult = readPostgrestLikeResult(usersResponse);
+          if (!candidateResult.error) {
+            break;
+          }
+
+          if (!isMissingColumnError(candidateResult.error, "user_profiles")) {
+            break;
+          }
+        }
+
         let useSchoolFallback = false;
         const warnings: string[] = [];
 
@@ -235,10 +421,10 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
           usersResponse = infrastructure.softDeleteUsers
             ? await actorSupabase
                 .from("user_profiles")
-                .select(baseUserColumns)
+                .select(selectColumns)
                 .is("deleted_at", null)
                 .order("created_at", { ascending: false })
-            : await actorSupabase.from("user_profiles").select(baseUserColumns).order("created_at", { ascending: false });
+            : await actorSupabase.from("user_profiles").select(selectColumns).order("created_at", { ascending: false });
         }
 
         const finalUsersResult = readPostgrestLikeResult(usersResponse);
@@ -268,11 +454,25 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
                     ? "admin"
                     : "employee",
               school_id: typeof user.school_id === "string" ? user.school_id : null,
+              branch_id: typeof user.branch_id === "string" ? user.branch_id : null,
+              default_branch_id: typeof user.default_branch_id === "string" ? user.default_branch_id : null,
               phone: typeof user.phone === "string" ? user.phone : null,
               is_active: user.is_active !== false,
               custom_permissions: Array.isArray(user.custom_permissions)
                 ? (user.custom_permissions.filter((item): item is Permission => typeof item === "string") as Permission[])
                 : null,
+              scope_level:
+                user.scope_level === "super_admin" ||
+                user.scope_level === "group_admin" ||
+                user.scope_level === "branch_user" ||
+                user.scope_level === "restricted"
+                  ? user.scope_level
+                  : null,
+              allowed_module: typeof user.allowed_module === "string" ? user.allowed_module : null,
+              is_single_page_user: user.is_single_page_user === true,
+              hierarchy_level: typeof user.hierarchy_level === "number" ? user.hierarchy_level : null,
+              permissions_version: typeof user.permissions_version === "number" ? user.permissions_version : 1,
+              allowed_pages: [],
               schools: normalizeSchoolRelation(user.schools),
               created_at: typeof user.created_at === "string" ? user.created_at : null,
             };
@@ -342,13 +542,39 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
     })(),
   ]);
 
+  const userIds = usersResult.users.map((user) => user.id);
+  let allowedPagesByUserId = new Map<string, PageCode[]>();
+  if (userIds.length > 0) {
+    const pageAccessResponse = await actorSupabase
+      .from("user_page_access")
+      .select("user_id, page_code, can_view")
+      .in("user_id", userIds);
+
+    if (pageAccessResponse.error) {
+      if (!isMissingTableError(pageAccessResponse.error, "user_page_access")) {
+        throw pageAccessResponse.error;
+      }
+    } else {
+      allowedPagesByUserId = mapAllowedPagesByUserId(
+        (pageAccessResponse.data ?? []) as UserPageAccessRecord[],
+      );
+    }
+  }
+
   usersStatus = usersResult.status;
   subscriptionsStatus = subscriptionsResult.status;
 
-  notices.push(...usersResult.warnings, ...subscriptionsResult.warnings);
-  loadWarnings.push(...usersResult.warnings, ...subscriptionsResult.warnings);
+  notices.push(...branchesResult.warnings, ...usersResult.warnings, ...subscriptionsResult.warnings);
+  loadWarnings.push(...branchesResult.warnings, ...usersResult.warnings, ...subscriptionsResult.warnings);
 
-  const users = usersResult.users;
+  const branches = branchesResult.branches;
+  const users = usersResult.users.map((user) => {
+    const allowedPages = allowedPagesByUserId.get(user.id) ?? filterAllowedPageCodes([user.allowed_module]);
+    return {
+      ...user,
+      allowed_pages: allowedPages,
+    };
+  });
   const subscriptions = subscriptionsResult.subscriptions;
 
   const warnings = Array.from(new Set(notices.filter(Boolean)));
@@ -359,6 +585,7 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
     infrastructure,
     schemaCompat,
     schools,
+    branches,
     users,
     subscriptions,
     diagnostics: {
@@ -379,17 +606,50 @@ export async function updateSuperAdminUserProfile(
     email: string | null;
     role: "super_admin" | "admin" | "employee";
     school_id: string | null;
+    branch_id: string | null;
+    default_branch_id: string | null;
     phone: string | null;
     is_active: boolean;
     custom_permissions: Permission[] | null;
+    scope_level: "super_admin" | "group_admin" | "branch_user" | "restricted";
+    allowed_module: string | null;
+    is_single_page_user: boolean;
+    hierarchy_level: number | null;
+    permissions_version: number;
+    allowed_pages: PageCode[];
+    page_access_grants: Array<{
+      page_code: PageCode;
+      can_view: boolean;
+      can_create: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+      can_approve: boolean;
+      can_export: boolean;
+    }>;
   },
-  ) {
-  const baseSelect = "id, full_name, email, role, school_id, phone, is_active, created_at";
-  const updatePayload = { ...payload } as typeof payload & { custom_permissions?: Permission[] | null };
+) {
+  const baseSelect =
+    "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version";
+  const updatePayload = {
+    full_name: payload.full_name,
+    email: payload.email,
+    role: payload.role,
+    school_id: payload.school_id,
+    branch_id: payload.branch_id,
+    default_branch_id: payload.default_branch_id,
+    phone: payload.phone,
+    is_active: payload.is_active,
+    custom_permissions: payload.custom_permissions,
+    scope_level: payload.scope_level,
+    allowed_module: payload.allowed_module,
+    is_single_page_user: payload.is_single_page_user,
+    hierarchy_level: payload.hierarchy_level,
+    permissions_version: payload.permissions_version,
+  } as Record<string, unknown>;
   let select = `${baseSelect}, custom_permissions, schools(name)`;
   let response: unknown;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     response = await actorSupabase
       .from("user_profiles")
       .update(updatePayload)
@@ -403,9 +663,13 @@ export async function updateSuperAdminUserProfile(
     }
 
     if (isMissingColumnError(responseResult.error, "user_profiles", "custom_permissions") && "custom_permissions" in updatePayload) {
-      delete (updatePayload as Record<string, unknown>).custom_permissions;
+      delete updatePayload.custom_permissions;
       select = select.replace(", custom_permissions", "");
       continue;
+    }
+
+    if (isMissingColumnError(responseResult.error, "user_profiles", "branch_id") && "branch_id" in updatePayload) {
+      throw new Error("حقول النطاق الجديد غير موجودة بعد في user_profiles. شغّل migration 20260420_000000_scoped_authorization_foundation.sql أولاً.");
     }
 
     if (isMissingRelationError(responseResult.error, "user_profiles", "schools") && select.includes("schools(name)")) {
@@ -421,7 +685,25 @@ export async function updateSuperAdminUserProfile(
     throw finalResult.error ?? new Error("تعذر تحديث المستخدم.");
   }
 
-  return {
+  if (payload.school_id && payload.page_access_grants.length > 0) {
+    await replaceSuperAdminUserPageAccess(actorSupabase, {
+      userId,
+      schoolId: payload.school_id,
+      branchId: payload.branch_id,
+      grants: payload.page_access_grants,
+    });
+  } else {
+    const { error: deleteError } = await actorSupabase
+      .from("user_page_access")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deleteError && !isMissingTableError(deleteError, "user_page_access")) {
+      throw deleteError;
+    }
+  }
+
+  const normalizedRecord = {
     ...(finalResult.data as Record<string, unknown>),
     schools: normalizeSchoolRelation((finalResult.data as Record<string, unknown>).schools),
     custom_permissions: Array.isArray((finalResult.data as Record<string, unknown>).custom_permissions)
@@ -429,5 +711,30 @@ export async function updateSuperAdminUserProfile(
           (item): item is Permission => typeof item === "string",
         ) as Permission[])
       : null,
+  } as SuperAdminUserRecord;
+
+  return {
+    ...normalizedRecord,
+    branch_id: typeof normalizedRecord.branch_id === "string" ? normalizedRecord.branch_id : payload.branch_id,
+    default_branch_id:
+      typeof normalizedRecord.default_branch_id === "string"
+        ? normalizedRecord.default_branch_id
+        : payload.default_branch_id,
+    scope_level:
+      normalizedRecord.scope_level === "super_admin" ||
+      normalizedRecord.scope_level === "group_admin" ||
+      normalizedRecord.scope_level === "branch_user" ||
+      normalizedRecord.scope_level === "restricted"
+        ? normalizedRecord.scope_level
+        : payload.scope_level,
+    allowed_module: typeof normalizedRecord.allowed_module === "string" ? normalizedRecord.allowed_module : payload.allowed_module,
+    is_single_page_user: normalizedRecord.is_single_page_user === true || payload.is_single_page_user,
+    hierarchy_level:
+      typeof normalizedRecord.hierarchy_level === "number" ? normalizedRecord.hierarchy_level : payload.hierarchy_level,
+    permissions_version:
+      typeof normalizedRecord.permissions_version === "number"
+        ? normalizedRecord.permissions_version
+        : payload.permissions_version,
+    allowed_pages: payload.allowed_pages,
   } as SuperAdminUserRecord;
 }

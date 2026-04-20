@@ -2,32 +2,66 @@
 
 import { ModalFrame } from "./ui";
 import { cx } from "./utils";
-import type { UserRecord } from "./types";
+import type { BranchOptionRecord, UserRecord } from "./types";
 import type { Permission } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/auth";
+import { getPathForPageCode, PAGE_PATHS, type PageCode } from "@/lib/authorization/page-access";
 import { PERMISSION_GROUPS } from "@/types/roles";
+import { isRoleAllowedForPath } from "@/types/roles";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface UserFormData {
   full_name: string;
   email: string;
   role: "super_admin" | "admin" | "employee";
   school_id: string;
+  branch_id: string;
   phone: string;
   is_active: boolean;
   password: string;
   permissions: Permission[];
+  scope_level: "super_admin" | "group_admin" | "branch_user" | "restricted";
+  is_single_page_user: boolean;
+  allowed_pages: PageCode[];
+  permissions_version: number;
 }
 
 interface UserFormProps {
   isOpen: boolean;
   editUser: UserRecord | null;
   schools: { id: string; name: string }[];
+  branches: BranchOptionRecord[];
   infrastructure: AdminInfrastructure;
   onClose: () => void;
   onSave: (data: UserFormData, editUser: UserRecord | null) => Promise<void>;
 }
+
+const PAGE_LABELS: Record<PageCode, string> = {
+  dashboard: "لوحة التحكم",
+  students: "الطلاب",
+  teachers: "الأساتذة",
+  attendance: "الحضور",
+  payments: "الحسابات",
+  expenses: "المصروفات",
+  salaries: "الرواتب",
+  reports: "التقارير",
+  monitoring: "المراقبة",
+  "fee-notifications": "تنبيهات الأقساط",
+  group: "لوحة المجموعة",
+  schools: "المدارس",
+  subscriptions: "الاشتراكات",
+  "super-admin": "الإدارة العامة",
+};
+
+const FOCUSED_PAGE_CODES = (Object.keys(PAGE_PATHS) as PageCode[]).filter(
+  (pageCode) =>
+    pageCode !== "dashboard" &&
+    pageCode !== "group" &&
+    pageCode !== "schools" &&
+    pageCode !== "subscriptions" &&
+    pageCode !== "super-admin",
+);
 
 function createInitialFormState(): UserFormData {
   return {
@@ -35,16 +69,38 @@ function createInitialFormState(): UserFormData {
     email: "",
     role: "employee",
     school_id: "",
+    branch_id: "",
     phone: "",
     is_active: true,
     password: "",
     permissions: [],
+    scope_level: "group_admin",
+    is_single_page_user: false,
+    allowed_pages: [],
+    permissions_version: 1,
   };
 }
 
-export function UserForm({ isOpen, editUser, schools, infrastructure, onClose, onSave }: UserFormProps) {
+export function UserForm({ isOpen, editUser, schools, branches, infrastructure, onClose, onSave }: UserFormProps) {
   const [formData, setFormData] = useState<UserFormData>(createInitialFormState());
   const [saving, setSaving] = useState(false);
+
+  const availableBranches = useMemo(
+    () => branches.filter((branch) => !formData.school_id || branch.school_id === formData.school_id),
+    [branches, formData.school_id],
+  );
+
+  const availableFocusedPages = useMemo(
+    () =>
+      FOCUSED_PAGE_CODES.filter((pageCode) => {
+        const pagePath = getPathForPageCode(pageCode);
+        if (!pagePath) {
+          return false;
+        }
+        return isRoleAllowedForPath(formData.role, pagePath);
+      }),
+    [formData.role],
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -54,16 +110,40 @@ export function UserForm({ isOpen, editUser, schools, infrastructure, onClose, o
           email: editUser.email ?? "",
           role: editUser.role,
           school_id: editUser.school_id ?? "",
+          branch_id: editUser.branch_id ?? editUser.default_branch_id ?? "",
           phone: editUser.phone ?? "",
           is_active: editUser.is_active,
           password: "",
           permissions: editUser.custom_permissions ?? [],
+          scope_level:
+            editUser.role === "super_admin"
+              ? "super_admin"
+              : editUser.scope_level === "branch_user" || editUser.scope_level === "restricted"
+                ? editUser.scope_level
+                : "group_admin",
+          is_single_page_user: editUser.is_single_page_user,
+          allowed_pages: Array.isArray(editUser.allowed_pages) ? (editUser.allowed_pages as PageCode[]) : [],
+          permissions_version: editUser.permissions_version ?? 1,
         });
       } else {
         setFormData(createInitialFormState());
       }
     }
   }, [isOpen, editUser]);
+
+  useEffect(() => {
+    const allowedPageSet = new Set<PageCode>(availableFocusedPages);
+    setFormData((current) => {
+      const nextAllowedPages = current.allowed_pages.filter((pageCode) => allowedPageSet.has(pageCode));
+      if (nextAllowedPages.length === current.allowed_pages.length) {
+        return current;
+      }
+      return {
+        ...current,
+        allowed_pages: nextAllowedPages,
+      };
+    });
+  }, [availableFocusedPages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +160,7 @@ export function UserForm({ isOpen, editUser, schools, infrastructure, onClose, o
   return (
     <ModalFrame
       title={editUser ? "تعديل المستخدم" : "إضافة مستخدم جديد"}
-      subtitle="يمكنك ضبط صلاحيات مخصصة أو تركها فارغة ليتم استخدام الافتراضي المرتبط بالدور."
+      subtitle="حدّد ما إذا كان المستخدم على مستوى المدرسة، على مستوى فرع واحد، أو مقيّداً إلى صفحة أو صفحات محددة فقط."
       onClose={onClose}
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
@@ -112,7 +192,23 @@ export function UserForm({ isOpen, editUser, schools, infrastructure, onClose, o
             <select
               className="ui-input"
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as "super_admin" | "admin" | "employee" })}
+              onChange={(e) => {
+                const nextRole = e.target.value as "super_admin" | "admin" | "employee";
+                setFormData((current) => ({
+                  ...current,
+                  role: nextRole,
+                  school_id: nextRole === "super_admin" ? "" : current.school_id,
+                  branch_id: nextRole === "super_admin" ? "" : current.branch_id,
+                  scope_level:
+                    nextRole === "super_admin"
+                      ? "super_admin"
+                      : current.scope_level === "super_admin"
+                        ? "group_admin"
+                        : current.scope_level,
+                  is_single_page_user: nextRole === "super_admin" ? false : current.is_single_page_user,
+                  allowed_pages: nextRole === "super_admin" ? [] : current.allowed_pages,
+                }));
+              }}
             >
               <option value="super_admin">{ROLE_LABELS.super_admin}</option>
               <option value="admin">{ROLE_LABELS.admin}</option>
@@ -122,8 +218,19 @@ export function UserForm({ isOpen, editUser, schools, infrastructure, onClose, o
 
           <div>
             <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">المدرسة</label>
-            <select className="ui-input" value={formData.school_id} onChange={(e) => setFormData({ ...formData, school_id: e.target.value })}>
-              <option value="">كل المدارس (المدير العام)</option>
+            <select
+              className="ui-input"
+              value={formData.school_id}
+              disabled={formData.role === "super_admin"}
+              onChange={(e) =>
+                setFormData((current) => ({
+                  ...current,
+                  school_id: e.target.value,
+                  branch_id: "",
+                }))
+              }
+            >
+              <option value="">{formData.role === "super_admin" ? "كل المدارس (المدير العام)" : "اختر المدرسة"}</option>
               {schools.map((school) => (
                 <option key={school.id} value={school.id}>
                   {school.name}
@@ -131,6 +238,48 @@ export function UserForm({ isOpen, editUser, schools, infrastructure, onClose, o
               ))}
             </select>
           </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">نطاق التشغيل</label>
+            <select
+              className="ui-input"
+              value={formData.scope_level}
+              disabled={formData.role === "super_admin"}
+              onChange={(e) => {
+                const nextScope = e.target.value as UserFormData["scope_level"];
+                setFormData((current) => ({
+                  ...current,
+                  scope_level: nextScope,
+                  is_single_page_user: nextScope === "restricted",
+                  branch_id: nextScope === "group_admin" ? "" : current.branch_id,
+                  allowed_pages: nextScope === "restricted" ? current.allowed_pages : [],
+                }));
+              }}
+            >
+              {formData.role === "super_admin" ? <option value="super_admin">صلاحية عامة للمنصة</option> : null}
+              <option value="group_admin">على مستوى المدرسة</option>
+              <option value="branch_user">على مستوى فرع واحد</option>
+              <option value="restricted">مستخدم مقيّد بصفحة</option>
+            </select>
+          </div>
+
+          {formData.role !== "super_admin" && formData.scope_level !== "group_admin" ? (
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الفرع</label>
+              <select
+                className="ui-input"
+                value={formData.branch_id}
+                onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+              >
+                <option value="">اختر الفرع</option>
+                {availableBranches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الحالة</label>
@@ -144,6 +293,62 @@ export function UserForm({ isOpen, editUser, schools, infrastructure, onClose, o
             </select>
           </div>
         </div>
+
+        {formData.role !== "super_admin" && formData.scope_level === "restricted" ? (
+          <div className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+            <div className="mb-4 space-y-1">
+              <h3 className="text-base font-black text-[var(--text-primary)]">صفحات المستخدم المقيّد</h3>
+              <p className="text-sm leading-7 text-[var(--text-secondary)]">
+                هذا المستخدم لن يرى لوحة التحكم العامة أو القائمة الجانبية الكاملة. سيُعاد توجيهه مباشرة إلى أول صفحة مسموحة فقط.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {availableFocusedPages.map((pageCode) => {
+                const checked = formData.allowed_pages.includes(pageCode);
+                return (
+                  <label
+                    key={pageCode}
+                    className={cx(
+                      "flex items-center gap-3 rounded-[18px] border px-3 py-3 text-sm font-bold transition",
+                      checked
+                        ? "border-[rgba(79,140,255,0.22)] bg-[rgba(79,140,255,0.10)] text-[var(--text-primary)]"
+                        : "border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-secondary)]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData((current) => ({
+                            ...current,
+                            allowed_pages: [...current.allowed_pages, pageCode],
+                            is_single_page_user: true,
+                            scope_level: "restricted",
+                          }));
+                          return;
+                        }
+
+                        setFormData((current) => ({
+                          ...current,
+                          allowed_pages: current.allowed_pages.filter((item) => item !== pageCode),
+                        }));
+                      }}
+                    />
+                    <span>{PAGE_LABELS[pageCode]}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 text-sm font-bold text-[var(--text-secondary)]">
+              {formData.allowed_pages.length === 0
+                ? "لم يتم اختيار أي صفحة بعد."
+                : `${formData.allowed_pages.length} صفحة مسموحة لهذا المستخدم.`}
+            </div>
+          </div>
+        ) : null}
 
         <div className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
           <div className="mb-4 space-y-1">

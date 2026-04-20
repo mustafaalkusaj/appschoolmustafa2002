@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { detectAdminInfrastructure } from "@/lib/admin-infrastructure";
+import { resolveScopedUserConfig, ScopedUserConfigError } from "@/lib/authorization/scoped-user-config";
 import { resolveSuperAdminActorContext, updateSuperAdminUserProfile } from "@/lib/super-admin-server";
 import { normalizePermissions, normalizeUserRole, type Permission } from "@/types/roles";
 
@@ -13,8 +14,13 @@ type UpdateUserBody = {
   email?: unknown;
   role?: unknown;
   school_id?: unknown;
+  branch_id?: unknown;
   phone?: unknown;
   is_active?: unknown;
+  scope_level?: unknown;
+  is_single_page_user?: unknown;
+  allowed_pages?: unknown;
+  permissions_version?: unknown;
   custom_permissions?: unknown;
 };
 
@@ -36,6 +42,7 @@ export async function PATCH(
   const body = (await req.json().catch(() => null)) as UpdateUserBody | null;
   const role = normalizeUserRole(typeof body?.role === "string" ? body.role : null);
   const schoolId = typeof body?.school_id === "string" && body.school_id.trim() ? body.school_id.trim() : null;
+  const branchId = typeof body?.branch_id === "string" && body.branch_id.trim() ? body.branch_id.trim() : null;
   const isActive = body?.is_active ?? true;
 
   if (typeof isActive !== "boolean") {
@@ -65,15 +72,60 @@ export async function PATCH(
       ) as Permission[]
     : [];
 
+  const effectivePermissions = customPermissions.length > 0 ? customPermissions : normalizePermissions([], role);
+
+  let scopedConfig;
+  try {
+    scopedConfig = resolveScopedUserConfig({
+      role,
+      schoolId,
+      branchId,
+      scopeLevel: typeof body?.scope_level === "string" ? body.scope_level : null,
+      isSinglePageUser: body?.is_single_page_user === true,
+      allowedPages: Array.isArray(body?.allowed_pages)
+        ? body.allowed_pages.filter((page): page is string => typeof page === "string" && page.trim().length > 0)
+        : [],
+      permissions: effectivePermissions,
+    });
+  } catch (error) {
+    const message = error instanceof ScopedUserConfigError ? error.message : "تعذر التحقق من نطاق المستخدم.";
+    return jsonError(message, 400);
+  }
+
+  if (scopedConfig.branchId && scopedConfig.schoolId) {
+    const { data: branch, error: branchError } = await context.value.dataSupabase
+      .from("branches")
+      .select("id")
+      .eq("id", scopedConfig.branchId)
+      .eq("school_id", scopedConfig.schoolId)
+      .maybeSingle();
+
+    if (branchError || !branch?.id) {
+      return jsonError("الفرع المحدد غير صالح لهذه المدرسة.", 400);
+    }
+  }
+
   try {
     const user = await updateSuperAdminUserProfile(context.value.dataSupabase, normalizedUserId, {
       full_name: typeof body?.full_name === "string" && body.full_name.trim() ? body.full_name.trim() : null,
       email: typeof body?.email === "string" && body.email.trim() ? body.email.trim().toLowerCase() : null,
       role,
-      school_id: role === "super_admin" ? null : schoolId,
+      school_id: scopedConfig.schoolId,
+      branch_id: scopedConfig.branchId,
+      default_branch_id: scopedConfig.defaultBranchId,
       phone: typeof body?.phone === "string" && body.phone.trim() ? body.phone.trim() : null,
       is_active: isActive,
       custom_permissions: customPermissions.length > 0 ? customPermissions : null,
+      scope_level: scopedConfig.scopeLevel,
+      allowed_module: scopedConfig.allowedModule,
+      is_single_page_user: scopedConfig.isSinglePageUser,
+      hierarchy_level: null,
+      permissions_version:
+        typeof body?.permissions_version === "number" && Number.isFinite(body.permissions_version)
+          ? body.permissions_version + 1
+          : 2,
+      allowed_pages: scopedConfig.allowedPages,
+      page_access_grants: scopedConfig.pageAccessGrants,
     });
 
     return NextResponse.json({ ok: true, user });
