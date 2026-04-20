@@ -1,19 +1,38 @@
 # school-app
 
-Next.js web admin application for school operations.
+**Multi-Branch School Management System**  
+Next.js web admin application for school operations with production-ready multi-branch architecture.
 
-This repository is intentionally limited to:
+## 🎯 What This Is
 
-- web admin UI
-- shared Supabase/backend/domain logic
-- database migrations, storage rules, and RLS SQL
+A complete, production-ready school management system featuring:
 
-This repository must not grow mobile runtime concerns such as:
+✅ **Multi-Branch Architecture** - Complete branch isolation at database level  
+✅ **JWT Authentication** - Secure token-based authentication with RBAC  
+✅ **Core API System** - 17 production endpoints for all school operations  
+✅ **Web Admin UI** - React/Next.js dashboard for administrators  
+✅ **Audit Trail** - Complete operation logging for compliance  
+✅ **Investor Dashboard** - Cross-branch aggregation and reporting  
 
-- Expo
-- React Native
-- iOS/Android projects
-- mobile screen implementations
+## 📚 Documentation
+
+Start here based on your role:
+
+- **Frontend Developers** → [CORE_API_DOCUMENTATION.md](./CORE_API_DOCUMENTATION.md)
+- **Backend Developers** → [SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md)
+- **DevOps/Deployment** → [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md)
+- **Project Overview** → [PROJECT_COMPLETION_SUMMARY.md](./PROJECT_COMPLETION_SUMMARY.md)
+
+## 🔐 Security & Isolation
+
+This repository features:
+
+- Multi-tenant branch isolation (Prisma proxy pattern)
+- JWT-based authentication (24-hour tokens)
+- Role-based access control (8-level hierarchy)
+- Automatic data filtering on all queries
+- Comprehensive audit logging
+- Database migrations and RLS SQL
 
 ## Repo Boundaries
 
@@ -29,18 +48,40 @@ Some migration filenames still include `mobile`. That label is legacy migration 
 - `docs/web-admin-handoff/README.md` contains web-only design handoff material.
 - `migrations/README.md` explains migration scope and the legacy naming.
 
-## Development
+## 🚀 Quick Start
 
-Run the development server:
+### Setup
 
 ```bash
-npm run dev
+# Install dependencies
+npm install
+
+# Setup environment
+cp .env.example .env
+# Edit .env with your database and JWT settings
+
+# Generate Prisma client
+npm run prisma:generate
+
+# Run database migrations
+npm run prisma:migrate
 ```
 
-Build the production bundle:
+### Development
+
+```bash
+# Run development server on http://localhost:3000
+npm run dev
+
+# Run tests
+bash scripts/test-core-api.sh
+```
+
+### Production Build
 
 ```bash
 npm run build
+npm start
 ```
 
 ## Deployment
