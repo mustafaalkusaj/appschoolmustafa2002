@@ -23,7 +23,7 @@ import {
   X,
   Loader2,
 } from "@/lib/icons";
-import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useToast } from "@/components/toast";
 import { ROLE_LABELS, type Permission } from "@/lib/auth";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -206,8 +206,12 @@ export default function SuperAdminPage() {
         const { response, payload: res } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(`/api/web/super-admin/users/${editing.id}`, { method: "PATCH", headers: withJsonHeaders(), body: JSON.stringify(payload) });
         if (!response.ok) throw new Error(res?.error?.message || "تعذر التحديث.");
       } else {
-        const res = await fetchWithAuthorizedSession("/api/users", { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ ...payload, password: f.password }) });
-        if (!res.ok) throw new Error("فشل إنشاء المستخدم.");
+        const { response, payload: res } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>("/api/users", {
+          method: "POST",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({ ...payload, password: f.password }),
+        });
+        if (!response.ok) throw new Error(res?.error?.message || "فشل إنشاء المستخدم.");
       }
       flashSuccess("تم حفظ المستخدم بنجاح ✓");
       setShowUserForm(false);
