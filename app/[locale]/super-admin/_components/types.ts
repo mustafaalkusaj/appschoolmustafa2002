@@ -62,6 +62,11 @@ export interface BranchOptionRecord {
   school_id: string;
   name: string;
   is_active: boolean;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  sidebar_color?: string | null;
+  accent_color?: string | null;
+  text_color?: string | null;
   schools?: SchoolRelation;
   created_at?: string | null;
 }

@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase";
 export type AppSchemaCompat = {
   schoolColors: boolean;
   schoolThemePreset: boolean;
+  branchColors: boolean;
+  branchUiColors: boolean;
   branchesIsMain: boolean;
   classFeesSchoolScope: boolean;
   classesNameColumn: boolean;
@@ -13,6 +15,8 @@ export type AppSchemaCompat = {
 export const DEFAULT_COMPAT: AppSchemaCompat = {
   schoolColors: false,
   schoolThemePreset: false,
+  branchColors: false,
+  branchUiColors: false,
   branchesIsMain: false,
   classFeesSchoolScope: false,
   classesNameColumn: false,
@@ -72,14 +76,27 @@ export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient
   return Promise.all([
     probeColumnWithClient(client, "schools", "primary_color"),
     probeColumnWithClient(client, "schools", "theme_preset"),
+    probeColumnWithClient(client, "branches", "primary_color"),
+    probeColumnWithClient(client, "branches", "sidebar_color"),
     probeColumnWithClient(client, "branches", "is_main"),
     probeColumnWithClient(client, "class_fees", "school_id"),
     probeColumnWithClient(client, "classes", "name"),
     probeColumnWithClient(client, "sections", "school_id"),
   ])
-    .then(([schoolColors, schoolThemePreset, branchesIsMain, classFeesSchoolScope, classesNameColumn, sectionsSchoolScope]) => ({
+    .then(([
       schoolColors,
       schoolThemePreset,
+      branchColors,
+      branchUiColors,
+      branchesIsMain,
+      classFeesSchoolScope,
+      classesNameColumn,
+      sectionsSchoolScope,
+    ]) => ({
+      schoolColors,
+      schoolThemePreset,
+      branchColors,
+      branchUiColors,
       branchesIsMain,
       classFeesSchoolScope,
       classesNameColumn,

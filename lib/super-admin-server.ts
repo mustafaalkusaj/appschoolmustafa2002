@@ -86,6 +86,11 @@ export type SuperAdminBranchRecord = {
   school_id: string;
   name: string;
   is_active: boolean;
+  primary_color: string | null;
+  secondary_color: string | null;
+  sidebar_color: string | null;
+  accent_color: string | null;
+  text_color: string | null;
   schools?: SuperAdminSchoolRelation;
   created_at?: string | null;
 };
@@ -105,6 +110,24 @@ function buildSuperAdminSchoolSelect(schemaCompat: AppSchemaCompat) {
   return schemaCompat.schoolColors
     ? "id, name, address, phone, owner_email, city, logo_url, primary_color, secondary_color, plan, is_active, created_at"
     : "id, name, address, phone, owner_email, city, logo_url, plan, is_active, created_at";
+}
+
+function buildSuperAdminBranchSelect(schemaCompat: AppSchemaCompat, includeSchoolRelation = true) {
+  const columns = ["id", "school_id", "name", "is_active", "created_at"];
+
+  if (schemaCompat.branchColors) {
+    columns.push("primary_color", "secondary_color");
+  }
+
+  if (schemaCompat.branchUiColors) {
+    columns.push("sidebar_color", "accent_color", "text_color");
+  }
+
+  if (includeSchoolRelation) {
+    columns.push("schools(name)");
+  }
+
+  return columns.join(", ");
 }
 
 type OverviewDatasetStatus = "loaded" | "fallback" | "failed";
@@ -330,9 +353,11 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
       }
 
       try {
+        const branchSelect = buildSuperAdminBranchSelect(schemaCompat);
+        const branchSelectWithoutRelation = buildSuperAdminBranchSelect(schemaCompat, false);
         const branchesQuery = infrastructure.softDeleteBranches
-          ? actorSupabase.from("branches").select("id, school_id, name, is_active, created_at, schools(name)").is("deleted_at", null)
-          : actorSupabase.from("branches").select("id, school_id, name, is_active, created_at, schools(name)");
+          ? actorSupabase.from("branches").select(branchSelect).is("deleted_at", null)
+          : actorSupabase.from("branches").select(branchSelect);
 
         let branchesResponse: unknown = await branchesQuery.order("created_at", { ascending: false });
         let useSchoolFallback = false;
@@ -345,12 +370,12 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
           branchesResponse = infrastructure.softDeleteBranches
             ? await actorSupabase
                 .from("branches")
-                .select("id, school_id, name, is_active, created_at")
+                .select(branchSelectWithoutRelation)
                 .is("deleted_at", null)
                 .order("created_at", { ascending: false })
             : await actorSupabase
                 .from("branches")
-                .select("id, school_id, name, is_active, created_at")
+                .select(branchSelectWithoutRelation)
                 .order("created_at", { ascending: false });
         }
 
@@ -372,6 +397,11 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
             school_id: String(branch.school_id),
             name: typeof branch.name === "string" ? branch.name : "—",
             is_active: branch.is_active !== false,
+            primary_color: typeof branch.primary_color === "string" ? branch.primary_color : null,
+            secondary_color: typeof branch.secondary_color === "string" ? branch.secondary_color : null,
+            sidebar_color: typeof branch.sidebar_color === "string" ? branch.sidebar_color : null,
+            accent_color: typeof branch.accent_color === "string" ? branch.accent_color : null,
+            text_color: typeof branch.text_color === "string" ? branch.text_color : null,
             schools: normalizeSchoolRelation(branch.schools),
             created_at: typeof branch.created_at === "string" ? branch.created_at : null,
           })),

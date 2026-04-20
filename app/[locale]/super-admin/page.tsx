@@ -467,7 +467,7 @@ export default function SuperAdminPage() {
                     {activeTab === "trash" && <TrashTab infrastructure={infrastructure} />}
                     {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
                     {activeTab === "monitoring" && <MonitoringTab infrastructure={infrastructure} />}
-                    {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} />}
+                    {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} />}
                   </div>
                 )}
               </div>

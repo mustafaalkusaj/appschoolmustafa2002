@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 
 import { useRole } from "@/hooks/useRole";
@@ -41,6 +42,14 @@ type SchoolBrandingRecord = {
   theme_preset?: string | null;
 };
 
+type BranchBrandingRecord = {
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  sidebar_color?: string | null;
+  accent_color?: string | null;
+  text_color?: string | null;
+};
+
 export const RUNTIME_BRANDING_REFRESH_EVENT = "runtime-branding-refresh";
 
 const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
@@ -53,6 +62,25 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   accentColor: null,
   textColor: null,
 });
+
+function createEmptyBrandingState(): RuntimeBrandingState {
+  return {
+    schoolName: null,
+    logoUrl: null,
+    primaryColor: null,
+    secondaryColor: null,
+    themePreset: null,
+    sidebarColor: null,
+    accentColor: null,
+    textColor: null,
+  };
+}
+
+function isGroupOverviewPath(pathname: string | null) {
+  if (!pathname) return false;
+  const localizedPath = pathname.replace(/^\/[a-z]{2}(?=\/|$)/, "");
+  return localizedPath === "/group" || localizedPath.startsWith("/group/");
+}
 
 function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean) {
   const root = document.documentElement;
@@ -95,22 +123,18 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean)
 }
 
 export function RuntimeBrandingProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const { profile } = useRole();
   const { resolvedTheme } = useTheme();
   const schoolScope = useSchoolScope(profile);
-  const [branding, setBranding] = useState<RuntimeBrandingState>({
-    schoolName: null,
-    logoUrl: null,
-    primaryColor: null,
-    secondaryColor: null,
-    themePreset: null,
-    sidebarColor: null,
-    accentColor: null,
-    textColor: null,
-  });
+  const [branding, setBranding] = useState<RuntimeBrandingState>(createEmptyBrandingState);
 
   const scopedSchoolId =
     profile?.role === "super_admin" ? schoolScope.selectedSchoolId : profile?.school_id ?? null;
+  const scopedBranchId =
+    profile?.role === "super_admin" || isGroupOverviewPath(pathname)
+      ? null
+      : profile?.branch_id ?? null;
 
   useEffect(() => {
     let active = true;
@@ -118,22 +142,23 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
     async function loadBranding() {
       if (!scopedSchoolId) {
         if (active) {
-          setBranding({
-            schoolName: null,
-            logoUrl: null,
-            primaryColor: null,
-            secondaryColor: null,
-            themePreset: null,
-            sidebarColor: null,
-            accentColor: null,
-            textColor: null,
-          });
+          setBranding(createEmptyBrandingState());
         }
         return;
       }
 
       const compat = await detectAppSchemaCompat();
       const storedBranding = getStoredSchoolBranding(scopedSchoolId);
+      const branchColumns: string[] = [];
+
+      if (compat.branchColors) {
+        branchColumns.push("primary_color", "secondary_color");
+      }
+
+      if (compat.branchUiColors) {
+        branchColumns.push("sidebar_color", "accent_color", "text_color");
+      }
+
       const schoolQuery = compat.schoolColors
         ? supabase
             .from("schools")
@@ -145,37 +170,83 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         : supabase
             .from("schools")
             .select(`name, logo_url${compat.schoolThemePreset ? ", theme_preset" : ""}`);
-      const { data, error } = await schoolQuery.eq("id", scopedSchoolId).maybeSingle();
+      const branchQuery =
+        scopedBranchId && branchColumns.length > 0
+          ? supabase.from("branches").select(branchColumns.join(", ")).eq("id", scopedBranchId).maybeSingle()
+          : Promise.resolve({ data: null, error: null });
+      const [{ data, error }, branchResult] = await Promise.all([
+        schoolQuery.eq("id", scopedSchoolId).maybeSingle(),
+        branchQuery,
+      ]);
 
       if (!active) return;
 
+      const branchRecord =
+        branchResult.data && typeof branchResult.data === "object"
+          ? (branchResult.data as BranchBrandingRecord)
+          : null;
+      const branchPrimaryColor =
+        compat.branchColors && typeof branchRecord?.primary_color === "string"
+          ? branchRecord.primary_color
+          : null;
+      const branchSecondaryColor =
+        compat.branchColors && typeof branchRecord?.secondary_color === "string"
+          ? branchRecord.secondary_color
+          : null;
+      const branchSidebarColor =
+        compat.branchUiColors && typeof branchRecord?.sidebar_color === "string"
+          ? branchRecord.sidebar_color
+          : null;
+      const branchAccentColor =
+        compat.branchUiColors && typeof branchRecord?.accent_color === "string"
+          ? branchRecord.accent_color
+          : null;
+      const branchTextColor =
+        compat.branchUiColors && typeof branchRecord?.text_color === "string"
+          ? branchRecord.text_color
+          : null;
+      const hasBranchOverride = Boolean(
+        branchPrimaryColor ||
+          branchSecondaryColor ||
+          branchSidebarColor ||
+          branchAccentColor ||
+          branchTextColor,
+      );
+
       if (error || !data) {
-        const derivedFallback = storedBranding
-          ? {
-              primaryColor: storedBranding.primaryColor,
-              secondaryColor: storedBranding.secondaryColor,
-              themePreset: storedBranding.themePreset ?? null,
-              sidebarColor: storedBranding.sidebarColor ?? null,
-              accentColor: storedBranding.accentColor ?? null,
-              textColor: storedBranding.textColor ?? null,
-            }
-          : {
-              primaryColor: null,
-              secondaryColor: null,
-              themePreset: null,
-              sidebarColor: null,
-              accentColor: null,
-              textColor: null,
-            };
+        let resolvedPrimaryColor = branchPrimaryColor ?? storedBranding?.primaryColor ?? null;
+        let resolvedSecondaryColor = branchSecondaryColor ?? storedBranding?.secondaryColor ?? null;
+
+        if (resolvedPrimaryColor && !resolvedSecondaryColor) {
+          resolvedSecondaryColor = mixColors(resolvedPrimaryColor, "#ffffff", 0.38);
+        }
+
+        if (!resolvedPrimaryColor && resolvedSecondaryColor) {
+          resolvedPrimaryColor = shiftColor(resolvedSecondaryColor, -0.2);
+        }
+
+        const fallbackSidebarColor =
+          branchSidebarColor ??
+          (hasBranchOverride ? null : storedBranding?.sidebarColor) ??
+          (resolvedPrimaryColor ? mixColors(resolvedPrimaryColor, "#ffffff", 0.62) : null);
+        const fallbackAccentColor =
+          branchAccentColor ??
+          (hasBranchOverride ? null : storedBranding?.accentColor) ??
+          resolvedPrimaryColor;
+        const fallbackTextColor =
+          branchTextColor ??
+          (hasBranchOverride ? null : storedBranding?.textColor) ??
+          (resolvedPrimaryColor ? shiftColor(resolvedPrimaryColor, -0.42) : null);
+
         setBranding({
           schoolName: null,
           logoUrl: null,
-          primaryColor: derivedFallback.primaryColor,
-          secondaryColor: derivedFallback.secondaryColor,
-          themePreset: derivedFallback.themePreset,
-          sidebarColor: derivedFallback.sidebarColor,
-          accentColor: derivedFallback.accentColor,
-          textColor: derivedFallback.textColor,
+          primaryColor: resolvedPrimaryColor,
+          secondaryColor: resolvedSecondaryColor,
+          themePreset: hasBranchOverride ? null : storedBranding?.themePreset ?? null,
+          sidebarColor: fallbackSidebarColor,
+          accentColor: fallbackAccentColor,
+          textColor: fallbackTextColor,
         });
         return;
       }
@@ -220,16 +291,43 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         }
       }
 
+      resolvedPrimaryColor = branchPrimaryColor ?? resolvedPrimaryColor;
+      resolvedSecondaryColor = branchSecondaryColor ?? resolvedSecondaryColor;
+
+      if (resolvedPrimaryColor && !resolvedSecondaryColor) {
+        resolvedSecondaryColor = mixColors(resolvedPrimaryColor, "#ffffff", 0.38);
+      }
+
+      if (!resolvedPrimaryColor && resolvedSecondaryColor) {
+        resolvedPrimaryColor = shiftColor(resolvedSecondaryColor, -0.2);
+      }
+
+      const resolvedThemePreset = hasBranchOverride
+        ? null
+        : storedBranding?.themePreset ?? dbThemePreset ?? null;
+      const runtimePrimaryColor = resolvedPrimaryColor || DEFAULT_PRIMARY;
+      const resolvedSidebarColor =
+        branchSidebarColor ??
+        (hasBranchOverride ? null : storedBranding?.sidebarColor) ??
+        mixColors(runtimePrimaryColor, "#ffffff", 0.62);
+      const resolvedAccentColor =
+        branchAccentColor ??
+        (hasBranchOverride ? null : storedBranding?.accentColor) ??
+        runtimePrimaryColor;
+      const resolvedTextColor =
+        branchTextColor ??
+        (hasBranchOverride ? null : storedBranding?.textColor) ??
+        shiftColor(runtimePrimaryColor, -0.42);
+
       setBranding({
         schoolName: typeof schoolRecord.name === "string" ? schoolRecord.name : null,
         logoUrl: safeLogoUrl,
         primaryColor: resolvedPrimaryColor,
         secondaryColor: resolvedSecondaryColor,
-        themePreset: storedBranding?.themePreset ?? dbThemePreset ?? null,
-        sidebarColor:
-          storedBranding?.sidebarColor ?? mixColors(resolvedPrimaryColor, "#ffffff", 0.62),
-        accentColor: storedBranding?.accentColor ?? resolvedPrimaryColor,
-        textColor: storedBranding?.textColor ?? shiftColor(resolvedPrimaryColor, -0.42),
+        themePreset: resolvedThemePreset,
+        sidebarColor: resolvedSidebarColor,
+        accentColor: resolvedAccentColor,
+        textColor: resolvedTextColor,
       });
     }
 
@@ -244,7 +342,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       active = false;
       window.removeEventListener(RUNTIME_BRANDING_REFRESH_EVENT, refreshListener);
     };
-  }, [scopedSchoolId]);
+  }, [scopedBranchId, scopedSchoolId]);
 
   useEffect(() => {
     applyBrandingToCssVars(branding, resolvedTheme === "dark");
