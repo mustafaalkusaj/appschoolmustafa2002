@@ -6,7 +6,7 @@ module.exports = {
       name: "school-app",
       cwd: __dirname,
       script: path.join(__dirname, "node_modules", "next", "dist", "bin", "next"),
-      args: "start --hostname 127.0.0.1 --port 3000",
+      args: "start --hostname 127.0.0.1 --port 3001",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
@@ -15,7 +15,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         HOSTNAME: "127.0.0.1",
-        PORT: "3000",
+        PORT: "3001",
         APP_URL: "https://app.school-iraq.com",
       },
     },

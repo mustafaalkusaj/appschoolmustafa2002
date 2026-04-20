@@ -141,9 +141,13 @@ export interface ResolvedWebProfile {
 
 const PROFILE_SELECTS = [
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
+  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id",
+  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id",
+  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions",
+  "id, full_name, email, phone, role, school_id, is_active, custom_permissions",
 ] as const;
 
 async function selectProfileCompat(
