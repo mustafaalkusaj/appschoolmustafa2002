@@ -4,6 +4,7 @@ import { expenseMutationSchema, schoolScopedDeleteSchema } from "@/lib/api-schem
 import { invalidateExpenseRelatedCaches } from "@/lib/expenses-server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 
 export async function PATCH(
@@ -35,6 +36,10 @@ export async function PATCH(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
+  if (!canAddExpenses) {
+    return jsonError("ليس لديك صلاحية تعديل المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expenses-update",
     windowMs: 60_000,
@@ -134,6 +139,10 @@ export async function DELETE(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canDeleteExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "delete_expenses");
+  if (!canDeleteExpenses) {
+    return jsonError("ليس لديك صلاحية حذف المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expenses-delete",
     windowMs: 60_000,
@@ -177,4 +186,3 @@ export async function DELETE(
     return jsonError("تعذر حذف المصروف حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
 }
-

@@ -163,6 +163,9 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     importSuccess: (count: number) =>
       isEnglish ? `${count} students imported successfully.` : `تم استيراد ${count} طالب مع إنشاء حسابات الدخول ✓`,
     importProcessError: isEnglish ? "Could not process the import file." : "تعذر معالجة ملف الاستيراد",
+    importDuplicateValidationError: isEnglish
+      ? "Could not validate duplicate student names before import."
+      : "تعذر فحص تكرار أسماء الطلاب قبل الاستيراد.",
     templateHeaders: isEnglish
       ? ["Student name", "Class", "Address", "Phone", "Total fees", "Paid"]
       : ["اسم الطالب", "الصف", "العنوان", "الهاتف", "إجمالي الرسوم", "المدفوع"],
@@ -436,6 +439,22 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         discount_value: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.discountValue) || 0), 10) || 0,
         status: "active",
       })}).filter((r) => r.full_name && r.class_name);
+
+      if (rows.length === 0) {
+        modals.setImportError(copy.emptyFile);
+        return;
+      }
+
+      const duplicateCheckResponse = await fetchWithAuthorizedSession("/api/students/import-check", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({ names: rows.map((row) => row.full_name) }),
+      });
+      const duplicateCheckPayload = await duplicateCheckResponse.json().catch(() => null);
+      if (!duplicateCheckResponse.ok) {
+        modals.setImportError(readApiError(duplicateCheckPayload, copy.importDuplicateValidationError));
+        return;
+      }
 
       let successCount = 0;
       const failures: string[] = [];

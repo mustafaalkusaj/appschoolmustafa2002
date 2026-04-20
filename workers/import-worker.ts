@@ -22,11 +22,12 @@ self.onmessage = function(e: MessageEvent) {
     const validRows: StudentImportRow[] = [];
     
     let processedRows = 0;
+    const seenNames = new Map<string, number>();
 
     for (let i = 0; i < totalRows; i++) {
       const row = rows[i];
       const mappedRow = mapColumns(row, columnMapping);
-      const rowErrors = validateRow(mappedRow, i + 1, availableClasses);
+      const rowErrors = validateRow(mappedRow, i + 1, availableClasses, seenNames);
 
       if (rowErrors.length > 0) {
         errors.push(...rowErrors);
@@ -77,7 +78,22 @@ function mapColumns(row: Record<string, unknown>, columnMapping: Record<string, 
   return mapped as StudentImportRow;
 }
 
-function validateRow(row: StudentImportRow, rowIndex: number, availableClasses: Class[]): ValidationError[] {
+function normalizeStudentName(value: string | number | boolean | null | undefined) {
+  return String(value || "")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("ar");
+}
+
+function validateRow(
+  row: StudentImportRow,
+  rowIndex: number,
+  availableClasses: Class[],
+  seenNames: Map<string, number>,
+): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Mandatory Fields
@@ -89,6 +105,22 @@ function validateRow(row: StudentImportRow, rowIndex: number, availableClasses: 
       value: row.fullName,
       severity: 'error',
     });
+  }
+
+  const normalizedStudentName = normalizeStudentName(row.fullName);
+  if (normalizedStudentName) {
+    const existingRow = seenNames.get(normalizedStudentName);
+    if (existingRow) {
+      errors.push({
+        row: rowIndex,
+        field: 'fullName',
+        error: `اسم الطالب مكرر داخل الملف. أول ظهور كان في الصف ${existingRow}.`,
+        value: row.fullName,
+        severity: 'error',
+      });
+    } else {
+      seenNames.set(normalizedStudentName, rowIndex);
+    }
   }
 
   if (!row.className || String(row.className).trim() === '') {

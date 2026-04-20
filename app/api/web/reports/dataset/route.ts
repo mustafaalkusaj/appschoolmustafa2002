@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 import { applyEffectiveSalaryDeductions, loadSchoolDeductionIndex } from "@/lib/salaries/effective-deductions";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
@@ -68,6 +69,10 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canViewReports = await routeUserHasPermission(actorSupabase, actorUserId, "view_reports");
+  if (!canViewReports) {
+    return jsonError("ليس لديك صلاحية فتح بيانات التقارير.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "reports-dataset",
     windowMs: 60_000,

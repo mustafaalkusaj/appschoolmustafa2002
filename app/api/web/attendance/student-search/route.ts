@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -40,6 +41,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, items: [] });
   }
 
+  const canViewAttendance = await routeUserHasPermission(
+    context.value.actorSupabase,
+    context.value.actorUserId,
+    "view_attendance",
+  );
+  if (!canViewAttendance) {
+    return jsonError("ليس لديك صلاحية البحث في بيانات الحضور.", 403);
+  }
+
   let query = context.value.actorSupabase
     .from("students")
     .select("id, full_name, class_name, section")
@@ -76,4 +86,3 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ ok: true, items });
 }
-

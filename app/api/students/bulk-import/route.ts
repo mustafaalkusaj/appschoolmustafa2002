@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildStudentInsertPayloads, getStudentImportValidationMessage, readStudentImportErrorMessage, studentImportRequestSchema } from "@/lib/api/student-import";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users/context";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import {
+  buildDuplicateStudentNameMessage,
+  collectDuplicateStudentNames,
+  findExistingDuplicateStudentNames,
+} from "@/lib/students/import-dedup";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -37,6 +42,32 @@ export async function POST(request: NextRequest) {
     }
 
     const { actorSupabase, targetSchoolId } = actorContext.value;
+    const fileDuplicates = collectDuplicateStudentNames(parsed.data.chunk);
+    if (fileDuplicates.length > 0) {
+      return jsonError(buildDuplicateStudentNameMessage({ fileDuplicates }), 409);
+    }
+
+    const { data: existingStudents, error: existingStudentsError } = await actorSupabase
+      .from("students")
+      .select("full_name, status")
+      .eq("school_id", targetSchoolId)
+      .neq("status", "deleted");
+
+    if (existingStudentsError) {
+      return jsonError(existingStudentsError.message || "تعذر فحص أسماء الطلاب قبل الاستيراد.", 500);
+    }
+
+    const existingDuplicates = findExistingDuplicateStudentNames(
+      parsed.data.chunk.map((row) => row.fullName),
+      ((existingStudents ?? []) as Array<Record<string, unknown>>).map((row) =>
+        typeof row.full_name === "string" ? row.full_name : null,
+      ),
+    );
+
+    if (existingDuplicates.length > 0) {
+      return jsonError(buildDuplicateStudentNameMessage({ existingDuplicates }), 409);
+    }
+
     const validated = buildStudentInsertPayloads(parsed.data.chunk, targetSchoolId);
     const { data, error } = await actorSupabase
       .from("students")

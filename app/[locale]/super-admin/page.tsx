@@ -23,7 +23,7 @@ import {
   X,
   Loader2,
 } from "@/lib/icons";
-import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useToast } from "@/components/toast";
 import { ROLE_LABELS, type Permission } from "@/lib/auth";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -110,6 +110,7 @@ export default function SuperAdminPage() {
   const [deleteSchoolTarget, setDeleteSchoolTarget] = useState<SchoolRecord | null>(null);
   const [permanentDeleteSchoolTarget, setPermanentDeleteSchoolTarget] = useState<SchoolRecord | null>(null);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserRecord | null>(null);
+  const [importingSchoolId, setImportingSchoolId] = useState<string | null>(null);
 
   const TAB_ITEMS: Array<{ id: ActiveTab; label: string; hint: string; icon: LucideIcon }> = useMemo(() => [
     { id: "overview", label: t("tabs.overview.label"), hint: t("tabs.overview.hint"), icon: LayoutDashboard },
@@ -301,6 +302,63 @@ export default function SuperAdminPage() {
     }
   }, [permanentDeleteSchoolTarget, flashError, flashSuccess, refreshDashboard]);
 
+  const downloadResponseFile = useCallback(async (response: Response, fallbackFileName: string) => {
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const disposition = response.headers.get("Content-Disposition") || response.headers.get("content-disposition") || "";
+    const matchedFileName = disposition.match(/filename=\"?([^\";]+)\"?/i);
+    anchor.href = url;
+    anchor.download = decodeURIComponent(matchedFileName?.[1] || fallbackFileName);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportSchool = useCallback(async (school: SchoolRecord) => {
+    try {
+      const response = await fetchWithAuthorizedSession(`/api/web/super-admin/schools/${school.id}/export`, {
+        method: "GET",
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error?.message || "تعذر تصدير بيانات المدرسة.");
+      }
+      await downloadResponseFile(response, `${school.name}-archive.json`);
+      flashSuccess(`تم تجهيز نسخة بيانات المدرسة ${school.name} ✓`);
+    } catch (exportError) {
+      flashError(getErrorMessage(exportError, "تعذر تصدير بيانات المدرسة."));
+    }
+  }, [downloadResponseFile, flashError, flashSuccess]);
+
+  const handleImportSchoolData = useCallback(async (school: SchoolRecord, file: File) => {
+    setImportingSchoolId(school.id);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const response = await fetchWithAuthorizedSession(`/api/web/super-admin/schools/${school.id}/import`, {
+        method: "POST",
+        body: formData,
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر استيراد ملف المدرسة.");
+      }
+      const warnings = Array.isArray(payload?.warnings) ? payload.warnings.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [];
+      flashSuccess(
+        warnings.length > 0
+          ? `تم استيراد بيانات ${school.name} مع ${warnings.length} تنبيه يحتاج مراجعة.`
+          : `تم استيراد بيانات ${school.name} بنجاح ✓`,
+      );
+      await refreshDashboard();
+    } catch (importError) {
+      flashError(getErrorMessage(importError, "تعذر استيراد ملف المدرسة."));
+    } finally {
+      setImportingSchoolId(null);
+    }
+  }, [flashError, flashSuccess, refreshDashboard]);
+
   const handleDeleteUser = useCallback(async () => {
     if (!deleteUserTarget) return;
     try {
@@ -459,7 +517,7 @@ export default function SuperAdminPage() {
                 ) : (
                   <div className="space-y-6">
                     {activeTab === "overview" && <OverviewTab schools={schools} users={users} subscriptions={subscriptions} loading={loading} overviewDiagnostics={overviewDiagnostics} spotlightFilter={spotlightFilter} onClearSpotlightFilter={clearSpotlightFilter} onFocusSpotlight={focusSpotlight} onOpenCreateSchool={openCreateSchool} onOpenCreateUser={openCreateUser} onSetActiveTab={setActiveTab} ROLE_LABELS={ROLE_LABELS} PLAN_LABELS={PLAN_LABELS} />}
-                    {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onPermanentlyDeleteSchool={setPermanentDeleteSchoolTarget} onRefresh={refreshDashboard} />}
+                    {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onPermanentlyDeleteSchool={setPermanentDeleteSchoolTarget} onExportSchool={handleExportSchool} onImportSchoolData={handleImportSchoolData} importingSchoolId={importingSchoolId} onRefresh={refreshDashboard} />}
                     {activeTab === "users" && <UsersTab users={users} schools={schools} branches={branches} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} />}
                     {activeTab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} filteredSubscriptions={filteredSubscriptions} onExtendSubscription={handleExtendSubscription} />}
                     {activeTab === "audit" && <AuditLogTab infrastructure={infrastructure} />}

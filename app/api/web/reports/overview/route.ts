@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 
 type ReportsMetrics = {
@@ -201,6 +202,10 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canViewReports = await routeUserHasPermission(actorSupabase, actorUserId, "view_reports");
+  if (!canViewReports) {
+    return jsonError("ليس لديك صلاحية عرض التقارير.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "reports-overview",
     windowMs: 60_000,

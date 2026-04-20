@@ -5,6 +5,7 @@ import { invalidateExpenseRelatedCaches } from "@/lib/expenses-server";
 import { createRouteSupabaseClient } from "@/lib/supabase-server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 
 type RouteSupabaseClient = Awaited<ReturnType<typeof createRouteSupabaseClient>>;
@@ -64,6 +65,10 @@ export async function PATCH(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
+  if (!canAddExpenses) {
+    return jsonError("ليس لديك صلاحية تعديل أنواع المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-update",
     windowMs: 60_000,
@@ -151,6 +156,10 @@ export async function DELETE(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canDeleteExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "delete_expenses");
+  if (!canDeleteExpenses) {
+    return jsonError("ليس لديك صلاحية حذف أنواع المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-delete",
     windowMs: 60_000,

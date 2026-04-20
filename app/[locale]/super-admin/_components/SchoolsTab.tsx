@@ -1,6 +1,6 @@
 "use client";
 
-import { School, Plus, RefreshCw, FileDown, PencilLine, Trash2, Ban, BadgeCheck } from "@/lib/icons";
+import { School, Plus, RefreshCw, FileDown, PencilLine, Trash2, Ban, BadgeCheck, Upload, Download } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { cx, formatDate, statusTone, calculateDaysLeft, isSubscriptionExpired } from "./utils";
 import type { SchoolRecord, SubscriptionRecord } from "./types";
@@ -17,6 +17,9 @@ interface SchoolsTabProps {
   onExtendSubscription: (schoolId: string) => void;
   onDeleteSchool: (school: SchoolRecord) => void;
   onPermanentlyDeleteSchool?: (school: SchoolRecord) => void;
+  onExportSchool: (school: SchoolRecord) => void;
+  onImportSchoolData: (school: SchoolRecord, file: File) => void;
+  importingSchoolId?: string | null;
   onRefresh: () => void;
 }
 
@@ -30,6 +33,9 @@ export function SchoolsTab({
   onExtendSubscription,
   onDeleteSchool,
   onPermanentlyDeleteSchool,
+  onExportSchool,
+  onImportSchoolData,
+  importingSchoolId,
   onRefresh,
 }: SchoolsTabProps) {
   return (
@@ -135,6 +141,27 @@ export function SchoolsTab({
                         <PencilLine size={16} />
                         تعديل
                       </button>
+                      <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onExportSchool(school)}>
+                        <Download size={16} />
+                        تحميل البيانات
+                      </button>
+                      <label className="ui-button ui-button--secondary inline-flex cursor-pointer items-center gap-2">
+                        <Upload size={16} />
+                        {importingSchoolId === school.id ? "جارٍ الاستيراد..." : "استيراد ملف"}
+                        <input
+                          type="file"
+                          accept="application/json,.json"
+                          className="hidden"
+                          disabled={importingSchoolId === school.id}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) {
+                              onImportSchoolData(school, file);
+                            }
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
                       <button type="button" className="ui-button ui-button--danger inline-flex items-center gap-2" onClick={() => onDeleteSchool(school)}>
                         <Trash2 size={16} />
                         أرشفة

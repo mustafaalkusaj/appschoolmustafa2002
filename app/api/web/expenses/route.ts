@@ -13,6 +13,7 @@ import {
   resolveSchoolScopedActorContext,
 } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 
 export async function GET(req: NextRequest) {
@@ -47,6 +48,10 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canViewExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "view_expenses");
+  if (!canViewExpenses) {
+    return jsonError("ليس لديك صلاحية عرض المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expenses-list",
     windowMs: 60_000,
@@ -113,6 +118,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
+  if (!canAddExpenses) {
+    return jsonError("ليس لديك صلاحية إضافة المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expenses-create",
     windowMs: 60_000,
@@ -170,4 +179,3 @@ export async function POST(req: NextRequest) {
     return jsonError("تعذر حفظ المصروف حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
 }
-

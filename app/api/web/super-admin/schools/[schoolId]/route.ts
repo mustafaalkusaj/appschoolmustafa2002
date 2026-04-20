@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 import { detectAdminInfrastructure } from "@/lib/admin-infrastructure";
 import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
+import {
+  buildSchoolArchivePayload,
+  persistSchoolArchiveSnapshot,
+} from "@/lib/school-archives";
 import { resolveSuperAdminActorContext } from "@/lib/super-admin-server";
 import { rateLimitMiddleware, RATE_LIMIT_CONFIG } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -191,6 +195,19 @@ export async function DELETE(
 
     // Check if this is a permanent delete request
     const hardDelete = req.nextUrl.searchParams.get("hardDelete") === "true";
+    const snapshot = await buildSchoolArchivePayload(context.value.dataSupabase, normalizedSchoolId);
+    const schoolName =
+      typeof snapshot.school.name === "string" && snapshot.school.name.trim()
+        ? snapshot.school.name.trim()
+        : "school";
+
+    const archiveRecord = await persistSchoolArchiveSnapshot(context.value.dataSupabase, {
+      schoolId: normalizedSchoolId,
+      schoolName,
+      actorUserId: context.value.actorUserId,
+      source: hardDelete ? "hard_delete" : "soft_delete",
+      payload: snapshot,
+    });
 
     if (hardDelete) {
       // Permanent delete — remove the record completely
@@ -226,6 +243,7 @@ export async function DELETE(
       return NextResponse.json({
         ok: true,
         school,
+        archiveId: archiveRecord.id,
       });
     } else {
       // Soft delete — archive the school
@@ -274,6 +292,7 @@ export async function DELETE(
       return NextResponse.json({
         ok: true,
         school,
+        archiveId: archiveRecord.id,
       });
     }
   } catch (error) {

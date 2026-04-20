@@ -8,7 +8,9 @@ import {
   Building2, 
   Users,
   GitBranch,
-  Search
+  Search,
+  Download,
+  Archive,
 } from "@/lib/icons";
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
@@ -16,6 +18,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SectionCard, EmptyState, MigrationNotice, formatDate, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
+import { fetchWithAuthorizedSession } from "@/lib/authorized-api";
 
 type TrashEntity = "schools" | "users" | "branches";
 
@@ -26,6 +29,14 @@ type TrashItem = {
   email?: string | null;
   deleted_at?: string | null;
   [key: string]: unknown;
+};
+
+type SchoolArchiveRow = {
+  id: string;
+  school_id: string | null;
+  school_name: string | null;
+  created_at: string | null;
+  archive_source: string | null;
 };
 
 export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructure }) {
@@ -48,6 +59,9 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [itemToRestore, setItemToRestore] = useState<TrashItem | null>(null);
+  const [itemToDeletePermanently, setItemToDeletePermanently] = useState<TrashItem | null>(null);
+  const [archiveToDelete, setArchiveToDelete] = useState<SchoolArchiveRow | null>(null);
+  const [archivesBySchoolId, setArchivesBySchoolId] = useState<Record<string, SchoolArchiveRow>>({});
 
   const fetchDeleted = useCallback(async () => {
     if (availableEntities.length === 0) {
@@ -78,6 +92,25 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
 
       if (error) throw error;
       setItems(data || []);
+
+      if (activeEntity === "schools") {
+        const archivesResult = await supabase
+          .from("school_data_archives")
+          .select("id, school_id, school_name, created_at, archive_source")
+          .order("created_at", { ascending: false });
+
+        if (!archivesResult.error) {
+          const nextArchives: Record<string, SchoolArchiveRow> = {};
+          for (const archive of (archivesResult.data ?? []) as SchoolArchiveRow[]) {
+            if (archive.school_id && !nextArchives[archive.school_id]) {
+              nextArchives[archive.school_id] = archive;
+            }
+          }
+          setArchivesBySchoolId(nextArchives);
+        }
+      } else {
+        setArchivesBySchoolId({});
+      }
     } catch (err) {
       console.error("Failed to fetch deleted items:", err);
     } finally {
@@ -125,6 +158,65 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
       setMessage("فشل في استعادة العنصر المطلوب.");
     }
   };
+
+  const downloadArchive = useCallback(async (archive: SchoolArchiveRow) => {
+    try {
+      const response = await fetchWithAuthorizedSession(`/api/web/super-admin/school-archives/${archive.id}`, {
+        method: "GET",
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error?.message || "تعذر تحميل نسخة الأرشيف.");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const fileName = `${archive.school_name || "school"}-archive-${archive.id}.json`;
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Archive download error:", err);
+      setMessage(err instanceof Error ? err.message : "تعذر تحميل نسخة الأرشيف.");
+    }
+  }, []);
+
+  const handlePermanentDeleteSchool = useCallback(async (id: string) => {
+    try {
+      const response = await fetchWithAuthorizedSession(`/api/web/super-admin/schools/${id}?hardDelete=true`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر حذف المدرسة نهائياً.");
+      }
+      setMessage("");
+      fetchDeleted();
+    } catch (err) {
+      console.error("Permanent delete error:", err);
+      setMessage(err instanceof Error ? err.message : "تعذر حذف المدرسة نهائياً.");
+    }
+  }, [fetchDeleted]);
+
+  const handleDeleteArchive = useCallback(async (archiveId: string) => {
+    try {
+      const response = await fetchWithAuthorizedSession(`/api/web/super-admin/school-archives/${archiveId}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر حذف نسخة الأرشيف.");
+      }
+      setMessage("");
+      fetchDeleted();
+    } catch (err) {
+      console.error("Archive delete error:", err);
+      setMessage(err instanceof Error ? err.message : "تعذر حذف نسخة الأرشيف.");
+    }
+  }, [fetchDeleted]);
 
   if (availableEntities.length === 0) {
     return (
@@ -216,6 +308,9 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
         ) : (
           <div className="grid gap-4">
             {items.map((item) => (
+              (() => {
+                const archive = activeEntity === "schools" ? archivesBySchoolId[item.id] ?? null : null;
+                return (
               <div key={item.id} className="ui-surface flex items-center justify-between rounded-[24px] p-4 border-dashed border-2">
                 <div className="flex items-center gap-4">
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--surface-muted)] text-[var(--text-tertiary)]">
@@ -232,16 +327,52 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
                     <p className="text-xs font-semibold text-[var(--text-tertiary)]">
                       تاريخ الحذف: {formatDate(item.deleted_at)}
                     </p>
+                    {archive ? (
+                      <p className="text-xs font-semibold text-[var(--primary)]">
+                        آخر نسخة أرشيف: {formatDate(archive.created_at)}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-                <button
-                  onClick={() => setItemToRestore(item)}
-                  className="ui-button ui-button--secondary inline-flex items-center gap-2"
-                >
-                  <RotateCcw size={16} />
-                  استعادة
-                </button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {archive ? (
+                    <>
+                      <button
+                        onClick={() => void downloadArchive(archive)}
+                        className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                      >
+                        <Download size={16} />
+                        تحميل النسخة
+                      </button>
+                      <button
+                        onClick={() => setArchiveToDelete(archive)}
+                        className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                      >
+                        <Archive size={16} />
+                        حذف نسخة الأرشيف
+                      </button>
+                    </>
+                  ) : null}
+                  {activeEntity === "schools" ? (
+                    <button
+                      onClick={() => setItemToDeletePermanently(item)}
+                      className="ui-button ui-button--danger inline-flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      حذف نهائي
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={() => setItemToRestore(item)}
+                    className="ui-button ui-button--secondary inline-flex items-center gap-2"
+                  >
+                    <RotateCcw size={16} />
+                    استعادة
+                  </button>
+                </div>
               </div>
+                );
+              })()
             ))}
           </div>
         )}
@@ -259,6 +390,46 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
           setItemToRestore(null);
           if (target?.id) {
             await handleRestore(target.id);
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(itemToDeletePermanently)}
+        title="حذف مدرسة نهائياً"
+        description={
+          itemToDeletePermanently
+            ? `سيتم حذف المدرسة "${itemToDeletePermanently.name}" نهائياً من السلة.`
+            : ""
+        }
+        confirmLabel="نعم، احذف نهائياً"
+        cancelLabel="إلغاء"
+        tone="danger"
+        onClose={() => setItemToDeletePermanently(null)}
+        onConfirm={async () => {
+          const target = itemToDeletePermanently;
+          setItemToDeletePermanently(null);
+          if (target?.id) {
+            await handlePermanentDeleteSchool(target.id);
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(archiveToDelete)}
+        title="حذف نسخة الأرشيف"
+        description={
+          archiveToDelete
+            ? `سيتم حذف نسخة الأرشيف الخاصة بالمدرسة "${archiveToDelete.school_name || "—"}".`
+            : ""
+        }
+        confirmLabel="نعم، احذف النسخة"
+        cancelLabel="إلغاء"
+        tone="danger"
+        onClose={() => setArchiveToDelete(null)}
+        onConfirm={async () => {
+          const target = archiveToDelete;
+          setArchiveToDelete(null);
+          if (target?.id) {
+            await handleDeleteArchive(target.id);
           }
         }}
       />

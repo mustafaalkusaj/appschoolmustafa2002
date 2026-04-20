@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { routeUserHasPermission } from "@/lib/route-permissions";
+import { buildStudentPromotionPlan } from "@/lib/students/promotion";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -69,6 +70,23 @@ export async function POST(req: NextRequest) {
   }
 
   const totalAmount = yearPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+  const { data: promotableStudents, error: promotableStudentsError } = await actorSupabase
+    .from("students")
+    .select("id, class_name, status")
+    .eq("school_id", targetSchoolId)
+    .not("status", "in", "(deleted,withdrawn,archived,graduated)");
+
+  if (promotableStudentsError) {
+    return jsonError(promotableStudentsError.message || "تعذر تجهيز خطة ترحيل الطلاب قبل الأرشفة.", 500);
+  }
+
+  const promotionPlan = buildStudentPromotionPlan(
+    ((promotableStudents ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      id: String(row.id ?? ""),
+      class_name: typeof row.class_name === "string" ? row.class_name : null,
+    })),
+  );
+
   const snapshot = {
     year: archiveYear,
     payments: yearPayments,
@@ -77,6 +95,7 @@ export async function POST(req: NextRequest) {
       total_students: studentIds.length,
       total_payments: yearPayments.length,
       total_amount: totalAmount,
+      student_promotion: promotionPlan.summary,
     },
   };
 
@@ -121,9 +140,34 @@ export async function POST(req: NextRequest) {
     return jsonError(writeResult.error?.message || "تعذر حفظ الأرشيف السنوي.", 500);
   }
 
+  if (promotionPlan.updates.length > 0) {
+    const groups = new Map<string, string[]>();
+    for (const update of promotionPlan.updates) {
+      const current = groups.get(update.toClassName) ?? [];
+      current.push(update.id);
+      groups.set(update.toClassName, current);
+    }
+
+    for (const [toClassName, studentIdsForClass] of Array.from(groups.entries())) {
+      const { error: promotionError } = await actorSupabase
+        .from("students")
+        .update({ class_name: toClassName })
+        .eq("school_id", targetSchoolId)
+        .in("id", studentIdsForClass);
+
+      if (promotionError) {
+        return jsonError("تم حفظ الأرشيف لكن تعذر ترحيل بعض الطلاب إلى الصف التالي.", 500);
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     archive: writeResult.data,
     created: !existingArchive?.id,
+    promotion: {
+      ...promotionPlan.summary,
+      preview: promotionPlan.updates.slice(0, 10),
+    },
   });
 }

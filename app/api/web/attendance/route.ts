@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
@@ -111,6 +112,10 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
+  const canViewAttendance = await routeUserHasPermission(actorSupabase, context.value.actorUserId, "view_attendance");
+  if (!canViewAttendance) {
+    return jsonError("ليس لديك صلاحية عرض الحضور.", 403);
+  }
   const fromDate = getLocalIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 14 * 24 * 60 * 60 * 1000));
 
   const [studentsResult, recordsResult, historyResult] = await Promise.all([
@@ -200,6 +205,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
+  const canSaveAttendance = await routeUserHasPermission(actorSupabase, context.value.actorUserId, "take_attendance");
+  if (!canSaveAttendance) {
+    return jsonError("ليس لديك صلاحية تسجيل الحضور.", 403);
+  }
   const studentIds = entries.map((entry) => entry.student_id);
   const { data: students, error: studentsError } = await actorSupabase
     .from("students")

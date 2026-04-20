@@ -79,6 +79,36 @@ function buildGrantForPage(pageCode: PageCode, permissions: Permission[]): PageA
         can_approve: false,
         can_export: allowAll,
       };
+    case "attendance":
+      return {
+        page_code: pageCode,
+        can_view: allowAll || hasPermission(permissions, "view_attendance"),
+        can_create: allowAll || hasPermission(permissions, "take_attendance"),
+        can_update: allowAll || hasPermission(permissions, "edit_attendance"),
+        can_delete: false,
+        can_approve: false,
+        can_export: allowAll || hasPermission(permissions, "export_attendance"),
+      };
+    case "teachers":
+      return {
+        page_code: pageCode,
+        can_view: allowAll || hasPermission(permissions, "view_teachers"),
+        can_create: allowAll || hasPermission(permissions, "manage_teachers"),
+        can_update: allowAll || hasPermission(permissions, "manage_teachers"),
+        can_delete: allowAll || hasPermission(permissions, "manage_teachers"),
+        can_approve: false,
+        can_export: allowAll,
+      };
+    case "expenses":
+      return {
+        page_code: pageCode,
+        can_view: allowAll || hasPermission(permissions, "view_expenses"),
+        can_create: allowAll || hasPermission(permissions, "add_expenses"),
+        can_update: allowAll || hasPermission(permissions, "add_expenses"),
+        can_delete: allowAll || hasPermission(permissions, "delete_expenses"),
+        can_approve: false,
+        can_export: allowAll,
+      };
     case "salaries":
       return {
         page_code: pageCode,
@@ -88,6 +118,16 @@ function buildGrantForPage(pageCode: PageCode, permissions: Permission[]): PageA
         can_delete: allowAll || hasPermission(permissions, "manage_salaries"),
         can_approve: allowAll || hasPermission(permissions, "manage_salaries"),
         can_export: allowAll || hasPermission(permissions, "manage_salaries"),
+      };
+    case "reports":
+      return {
+        page_code: pageCode,
+        can_view: allowAll || hasPermission(permissions, "view_reports"),
+        can_create: false,
+        can_update: false,
+        can_delete: false,
+        can_approve: false,
+        can_export: allowAll || hasPermission(permissions, "export_reports"),
       };
     case "monitoring":
       return {

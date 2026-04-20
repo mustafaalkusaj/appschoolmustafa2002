@@ -8,6 +8,7 @@ import { ROLE_LABELS } from "@/lib/auth";
 import { getPathForPageCode, PAGE_PATHS, type PageCode } from "@/lib/authorization/page-access";
 import { PERMISSION_GROUPS } from "@/types/roles";
 import { isRoleAllowedForPath } from "@/types/roles";
+import { buildTemplatePermissions } from "@/types/roles";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { useEffect, useMemo, useState } from "react";
 
@@ -101,6 +102,8 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
       }),
     [formData.role],
   );
+
+  const roleTemplatePermissions = useMemo(() => buildTemplatePermissions(formData.role), [formData.role]);
 
   useEffect(() => {
     if (isOpen) {
@@ -370,9 +373,31 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
             <h3 className="text-base font-black text-[var(--text-primary)]">الصلاحيات المخصصة</h3>
             <p className="text-sm leading-7 text-[var(--text-secondary)]">
               {infrastructure.customPermissions
-                ? "عند ترك كل العناصر غير محددة سيتم اعتماد الصلاحيات الافتراضية للدور."
+                ? `يمكنك تعديل صلاحيات ${ROLE_LABELS[formData.role]} لهذا الحساب. عند ترك كل العناصر غير محددة سيتم اعتماد الصلاحيات الافتراضية للدور.`
                 : "تم تعطيل الحفظ المخصص للصلاحيات لأن عمود custom_permissions غير موجود بعد في user_profiles."}
             </p>
+          </div>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="ui-button ui-button--secondary"
+              disabled={!infrastructure.customPermissions}
+              onClick={() => setFormData((current) => ({ ...current, permissions: [...roleTemplatePermissions] }))}
+            >
+              اعتماد صلاحيات الدور
+            </button>
+            <button
+              type="button"
+              className="ui-button ui-button--secondary"
+              disabled={!infrastructure.customPermissions}
+              onClick={() => setFormData((current) => ({ ...current, permissions: [] }))}
+            >
+              إزالة التخصيصات
+            </button>
+            <div className="flex min-h-10 items-center rounded-[18px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-xs font-bold text-[var(--text-secondary)]">
+              الصلاحيات الافتراضية للدور: {roleTemplatePermissions.length}
+            </div>
           </div>
 
           <div className="space-y-4">

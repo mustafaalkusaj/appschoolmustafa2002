@@ -11,6 +11,7 @@ import {
 import { createRouteSupabaseClient } from "@/lib/supabase-server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 
 type RouteSupabaseClient = Awaited<ReturnType<typeof createRouteSupabaseClient>>;
@@ -68,6 +69,10 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canViewExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "view_expenses");
+  if (!canViewExpenses) {
+    return jsonError("ليس لديك صلاحية عرض أنواع المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-list",
     windowMs: 60_000,
@@ -126,6 +131,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
+  if (!canAddExpenses) {
+    return jsonError("ليس لديك صلاحية إضافة أنواع المصروفات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-create",
     windowMs: 60_000,
