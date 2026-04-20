@@ -115,12 +115,29 @@ export function getDefaultRouteForRole(role: UserRole): string {
   return DEFAULT_PATH_BY_ROLE[role] ?? "/dashboard";
 }
 
-function isSchoolManagerRestrictedProfile(profile: UserProfile | null) {
-  return Boolean(profile && profile.role !== "super_admin" && profile.scope_level === "group_admin");
+export function hasAssignedPageScope(profile: UserProfile | null) {
+  return Boolean(profile && Array.isArray(profile.allowed_pages) && profile.allowed_pages.length > 0);
+}
+
+export function isGroupOverviewOnlyProfile(profile: UserProfile | null) {
+  return Boolean(
+    profile &&
+      profile.role === "admin" &&
+      profile.scope_level === "group_admin" &&
+      !hasAssignedPageScope(profile),
+  );
+}
+
+export function shouldUseSinglePageShell(profile: UserProfile | null) {
+  return Boolean(
+    profile &&
+      hasAssignedPageScope(profile) &&
+      (profile.allowed_pages?.length ?? 0) <= 1,
+  );
 }
 
 export function getDefaultRouteForProfile(profile: UserProfile | null) {
-  if (isSchoolManagerRestrictedProfile(profile)) {
+  if (isGroupOverviewOnlyProfile(profile)) {
     return "/group";
   }
 
@@ -132,7 +149,7 @@ export function getDefaultRouteForProfile(profile: UserProfile | null) {
 }
 
 function hasFocusedPageRestriction(profile: UserProfile) {
-  return Boolean(profile.is_single_page_user) && Array.isArray(profile.allowed_pages) && profile.allowed_pages.length > 0;
+  return hasAssignedPageScope(profile);
 }
 
 export function isSchoolAccessBlocked(profile: UserProfile): boolean {
@@ -152,7 +169,7 @@ export function getAccessDecision(profile: UserProfile | null, pathname: string)
   if (!profile) return { allowed: false, reason: "unauthenticated", readOnly: false };
   if (!profile.is_active) return { allowed: false, reason: "inactive_user", readOnly: false };
 
-  if (isSchoolManagerRestrictedProfile(profile)) {
+  if (isGroupOverviewOnlyProfile(profile)) {
     const pageCode = resolvePageCodeFromPath(pathname);
     if (pageCode !== "group") {
       return { allowed: false, reason: "forbidden", readOnly: false };

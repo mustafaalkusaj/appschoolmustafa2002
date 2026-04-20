@@ -185,7 +185,7 @@ export async function verifyRBACSession(token: string | undefined | null): Promi
       isSinglePageUser:
         typeof parsed.isSinglePageUser === "boolean"
           ? parsed.isSinglePageUser
-          : parsed.scopeLevel === "restricted",
+          : (Array.isArray(parsed.allowedPages) ? parsed.allowedPages.length === 1 : parsed.scopeLevel === "restricted"),
       hierarchyLevel:
         typeof parsed.hierarchyLevel === "number" && Number.isFinite(parsed.hierarchyLevel)
           ? parsed.hierarchyLevel

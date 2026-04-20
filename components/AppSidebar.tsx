@@ -13,6 +13,11 @@ import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { getSidebarItemsForRole, isPathMatch, type SidebarItem } from "@/types/roles";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import {
+  hasAssignedPageScope,
+  isGroupOverviewOnlyProfile,
+  shouldUseSinglePageShell,
+} from "@/lib/auth";
+import {
   SCHOOL_SCOPE_CHANGE_EVENT,
   buildPathWithSchoolScope,
   isSuperAdminSchoolScopedPath,
@@ -84,18 +89,18 @@ export function AppSidebar({
   const schoolLogoUrl = runtimeBranding.logoUrl;
 
   const navItems = useMemo(() => {
-    if (profile?.is_single_page_user) {
+    if (shouldUseSinglePageShell(profile) || isGroupOverviewOnlyProfile(profile)) {
       return [];
     }
 
     const baseItems = getSidebarItemsForRole(role);
-    const allowedPages = profile?.allowed_pages ?? [];
-    if (allowedPages.length === 0) {
+    if (!hasAssignedPageScope(profile)) {
       return baseItems;
     }
 
+    const allowedPages = profile?.allowed_pages ?? [];
     return baseItems.filter((item) => allowedPages.includes(item.id));
-  }, [profile?.allowed_pages, profile?.is_single_page_user, role]);
+  }, [profile, role]);
   
   const groupedItems = useMemo(() => {
     const groups: Record<string, SidebarItem[]> = {};
@@ -142,7 +147,7 @@ export function AppSidebar({
     window.localStorage.setItem(SIDEBAR_MODE_STORAGE_KEY, sidebarMode);
   }, [sidebarMode]);
 
-  if (profile?.is_single_page_user || profile?.scope_level === "group_admin") {
+  if (shouldUseSinglePageShell(profile) || isGroupOverviewOnlyProfile(profile)) {
     return null;
   }
 

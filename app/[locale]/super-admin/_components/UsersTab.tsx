@@ -77,9 +77,7 @@ export function UsersTab({
                     const accessMode =
                       user.role === "super_admin"
                         ? "عام"
-                        : user.scope_level === "restricted"
-                          ? "مقيّد"
-                          : user.scope_level === "branch_user"
+                        : user.scope_level === "branch_user"
                             ? "فرع"
                             : "مدرسة";
 
@@ -103,7 +101,7 @@ export function UsersTab({
                             <span className="ui-pill">{customPermissionsCount === 0 ? "افتراضي" : `${customPermissionsCount} مخصص`}</span>
                             <span className="ui-pill">{accessMode}</span>
                             {branchName ? <span className="ui-pill">{branchName}</span> : null}
-                            {user.scope_level === "restricted" && user.allowed_pages.length > 0 ? (
+                            {user.allowed_pages.length > 0 ? (
                               <span className="ui-pill">{`${user.allowed_pages.length} صفحات`}</span>
                             ) : null}
                           </div>
@@ -150,7 +148,7 @@ export function UsersTab({
                   <div className="mb-4 flex flex-wrap gap-2">
                     <span className="ui-pill">{relationName(user.schools) || "كل المدارس"}</span>
                     {branchName ? <span className="ui-pill">{branchName}</span> : null}
-                    {user.scope_level === "restricted" && user.allowed_pages.length > 0 ? (
+                    {user.allowed_pages.length > 0 ? (
                       <span className="ui-pill">{`${user.allowed_pages.length} صفحات`}</span>
                     ) : null}
                     <span className={user.is_active ? "ui-pill ui-pill--success" : "ui-pill ui-pill--danger"}>{user.is_active ? "نشط" : "موقوف"}</span>

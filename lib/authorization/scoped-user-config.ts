@@ -151,27 +151,23 @@ export function resolveScopedUserConfig(input: {
   }
 
   const requestedScope = (input.scopeLevel || "").trim().toLowerCase();
-  const requestedFocused =
-    input.isSinglePageUser === true ||
-    requestedScope === "restricted" ||
-    normalizedPages.length > 0;
-
-  const scopeLevel: EditableScopeLevel = requestedFocused
-    ? "restricted"
-    : requestedScope === "branch_user" || Boolean(input.branchId)
+  const scopeLevel: EditableScopeLevel =
+    requestedScope === "branch_user" || (requestedScope === "restricted" && Boolean(input.branchId))
       ? "branch_user"
-      : "group_admin";
+      : requestedScope === "super_admin"
+        ? "super_admin"
+        : "group_admin";
 
-  const branchId = scopeLevel === "group_admin" ? null : (input.branchId ?? null);
-  if ((scopeLevel === "branch_user" || scopeLevel === "restricted") && !branchId) {
-    throw new ScopedUserConfigError("يجب اختيار الفرع للمستخدمين المقيّدين أو على مستوى الفرع.");
+  const branchId = scopeLevel === "branch_user" ? (input.branchId ?? null) : null;
+  if (scopeLevel === "branch_user" && !branchId) {
+    throw new ScopedUserConfigError("يجب اختيار الفرع للمستخدمين على مستوى الفرع.");
   }
 
-  if (scopeLevel === "restricted" && normalizedPages.length === 0) {
-    throw new ScopedUserConfigError("يجب اختيار صفحة واحدة على الأقل للمستخدم المقيّد.");
+  if (requestedScope === "restricted" && normalizedPages.length === 0) {
+    throw new ScopedUserConfigError("يجب اختيار صفحة واحدة على الأقل عند استخدام النمط المقيّد القديم.");
   }
 
-  if (scopeLevel === "restricted") {
+  if (normalizedPages.length > 0) {
     const invalidPages = normalizedPages.filter((pageCode) => {
       if (FOCUSED_FORBIDDEN_PAGES.has(pageCode)) {
         return true;
@@ -186,14 +182,15 @@ export function resolveScopedUserConfig(input: {
     }
   }
 
-  const allowedPages = scopeLevel === "restricted" ? normalizedPages : [];
+  const allowedPages = normalizedPages;
+  const isSinglePageUser = allowedPages.length === 1;
 
   return {
     schoolId: input.schoolId,
     branchId,
     defaultBranchId: branchId,
     scopeLevel,
-    isSinglePageUser: scopeLevel === "restricted",
+    isSinglePageUser,
     allowedPages,
     allowedModule: allowedPages[0] ?? null,
     pageAccessGrants: allowedPages.map((pageCode) => buildGrantForPage(pageCode, input.permissions)),

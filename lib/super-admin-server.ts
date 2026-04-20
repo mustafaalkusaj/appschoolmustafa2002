@@ -464,9 +464,12 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
               scope_level:
                 user.scope_level === "super_admin" ||
                 user.scope_level === "group_admin" ||
-                user.scope_level === "branch_user" ||
-                user.scope_level === "restricted"
+                user.scope_level === "branch_user"
                   ? user.scope_level
+                  : user.scope_level === "restricted"
+                    ? typeof user.branch_id === "string" || typeof user.default_branch_id === "string"
+                      ? "branch_user"
+                      : "group_admin"
                   : null,
               allowed_module: typeof user.allowed_module === "string" ? user.allowed_module : null,
               is_single_page_user: user.is_single_page_user === true,
@@ -723,12 +726,18 @@ export async function updateSuperAdminUserProfile(
     scope_level:
       normalizedRecord.scope_level === "super_admin" ||
       normalizedRecord.scope_level === "group_admin" ||
-      normalizedRecord.scope_level === "branch_user" ||
-      normalizedRecord.scope_level === "restricted"
+      normalizedRecord.scope_level === "branch_user"
         ? normalizedRecord.scope_level
+        : normalizedRecord.scope_level === "restricted"
+          ? payload.branch_id
+            ? "branch_user"
+            : "group_admin"
         : payload.scope_level,
     allowed_module: typeof normalizedRecord.allowed_module === "string" ? normalizedRecord.allowed_module : payload.allowed_module,
-    is_single_page_user: normalizedRecord.is_single_page_user === true || payload.is_single_page_user,
+    is_single_page_user:
+      typeof normalizedRecord.is_single_page_user === "boolean"
+        ? normalizedRecord.is_single_page_user
+        : payload.is_single_page_user,
     hierarchy_level:
       typeof normalizedRecord.hierarchy_level === "number" ? normalizedRecord.hierarchy_level : payload.hierarchy_level,
     permissions_version:

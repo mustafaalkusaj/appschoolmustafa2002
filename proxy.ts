@@ -136,9 +136,11 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     return resolveGuardRedirect("forbidden", request);
   }
 
+  const hasAssignedPageScope = session.allowedPages.length > 0;
   const isSchoolManagerScope =
-    session.role !== "super_admin" &&
-    session.scopeLevel === "group_admin";
+    session.role === "admin" &&
+    session.scopeLevel === "group_admin" &&
+    !hasAssignedPageScope;
 
   if (!isApiRequest && !isRoleAllowedForPath(session.role, normalizedPath)) {
     return resolveGuardRedirect("forbidden", request);
@@ -172,7 +174,7 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
 
   // Group scope guard.
   if (!isApiRequest && normalizePath(request.nextUrl.pathname) === "/group" && session.role !== "super_admin") {
-    if (session.scopeLevel !== "group_admin") {
+    if (!isSchoolManagerScope) {
       return resolveGuardRedirect("forbidden", request);
     }
   }
@@ -186,15 +188,18 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
       normalizedCurrent === "/api/auth/me" ||
       normalizedCurrent === "/api/account/me" ||
       normalizedCurrent === "/api/health";
+    const isSharedUtilityEndpoint =
+      normalizedCurrent === "/api/web/schema-compat" ||
+      normalizedCurrent === "/api/web/dashboard/branding";
     const isSchoolManagerEndpoint =
       normalizedCurrent === "/api/web/group/export" ||
       normalizedCurrent.startsWith("/api/web/group/");
 
-    if (isSchoolManagerScope && !isSessionMaintenanceEndpoint && !isSchoolManagerEndpoint) {
+    if (isSchoolManagerScope && !isSessionMaintenanceEndpoint && !isSharedUtilityEndpoint && !isSchoolManagerEndpoint) {
       return buildApiGuardResponse(403, "This account can only access the school manager page APIs.");
     }
 
-    if (session.isSinglePageUser && session.allowedPages.length > 0 && !isSessionMaintenanceEndpoint) {
+    if (hasAssignedPageScope && !isSessionMaintenanceEndpoint && !isSharedUtilityEndpoint) {
       if (!apiPageCode || !session.allowedPages.includes(apiPageCode)) {
         return buildApiGuardResponse(403, "This account cannot access the requested API scope.");
       }
@@ -214,7 +219,7 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     }
   }
 
-  if (session.isSinglePageUser && session.allowedPages.length > 0) {
+  if (hasAssignedPageScope) {
     const normalizedCurrent = normalizePath(request.nextUrl.pathname);
     const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
     const defaultPath = session.defaultPath || "/dashboard";
@@ -380,9 +385,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       if (session) {
         const sessionWithScope = session as typeof session & { scopeLevel?: string | null };
         let layoutMode: string;
-        if (sessionWithScope.scopeLevel === "group_admin") {
+        const hasPageScope = Array.isArray(session.allowedPages) && session.allowedPages.length > 0;
+        const isGroupOverviewOnly =
+          session.role === "admin" &&
+          sessionWithScope.scopeLevel === "group_admin" &&
+          !hasPageScope;
+        const useSinglePageShell =
+          hasPageScope &&
+          session.allowedPages.length <= 1;
+
+        if (isGroupOverviewOnly) {
           layoutMode = "group-only";
-        } else if (sessionWithScope.scopeLevel === "restricted") {
+        } else if (useSinglePageShell) {
           layoutMode = "restricted";
         } else if ((session as { scope?: string }).scope === "focused") {
           layoutMode = "focused";

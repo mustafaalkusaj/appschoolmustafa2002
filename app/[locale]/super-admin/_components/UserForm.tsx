@@ -90,7 +90,7 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
     [branches, formData.school_id],
   );
 
-  const availableFocusedPages = useMemo(
+  const availableAssignablePages = useMemo(
     () =>
       FOCUSED_PAGE_CODES.filter((pageCode) => {
         const pagePath = getPathForPageCode(pageCode);
@@ -118,10 +118,12 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
           scope_level:
             editUser.role === "super_admin"
               ? "super_admin"
-              : editUser.scope_level === "branch_user" || editUser.scope_level === "restricted"
-                ? editUser.scope_level
+              : editUser.scope_level === "branch_user" ||
+                  (editUser.scope_level === "restricted" && Boolean(editUser.branch_id ?? editUser.default_branch_id))
+                ? "branch_user"
                 : "group_admin",
-          is_single_page_user: editUser.is_single_page_user,
+          is_single_page_user:
+            editUser.is_single_page_user || (Array.isArray(editUser.allowed_pages) && editUser.allowed_pages.length === 1),
           allowed_pages: Array.isArray(editUser.allowed_pages) ? (editUser.allowed_pages as PageCode[]) : [],
           permissions_version: editUser.permissions_version ?? 1,
         });
@@ -132,18 +134,23 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
   }, [isOpen, editUser]);
 
   useEffect(() => {
-    const allowedPageSet = new Set<PageCode>(availableFocusedPages);
-    setFormData((current) => {
-      const nextAllowedPages = current.allowed_pages.filter((pageCode) => allowedPageSet.has(pageCode));
-      if (nextAllowedPages.length === current.allowed_pages.length) {
-        return current;
-      }
-      return {
-        ...current,
-        allowed_pages: nextAllowedPages,
-      };
-    });
-  }, [availableFocusedPages]);
+      const allowedPageSet = new Set<PageCode>(availableAssignablePages);
+      setFormData((current) => {
+        const nextAllowedPages = current.allowed_pages.filter((pageCode) => allowedPageSet.has(pageCode));
+        const shouldBeSinglePage = nextAllowedPages.length === 1;
+        if (
+          nextAllowedPages.length === current.allowed_pages.length &&
+          shouldBeSinglePage === current.is_single_page_user
+        ) {
+          return current;
+        }
+        return {
+          ...current,
+          allowed_pages: nextAllowedPages,
+          is_single_page_user: shouldBeSinglePage,
+        };
+      });
+  }, [availableAssignablePages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +212,8 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
                       : current.scope_level === "super_admin"
                         ? "group_admin"
                         : current.scope_level,
-                  is_single_page_user: nextRole === "super_admin" ? false : current.is_single_page_user,
+                  is_single_page_user:
+                    nextRole === "super_admin" ? false : current.allowed_pages.length === 1,
                   allowed_pages: nextRole === "super_admin" ? [] : current.allowed_pages,
                 }));
               }}
@@ -250,20 +258,18 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
                 setFormData((current) => ({
                   ...current,
                   scope_level: nextScope,
-                  is_single_page_user: nextScope === "restricted",
-                  branch_id: nextScope === "group_admin" ? "" : current.branch_id,
-                  allowed_pages: nextScope === "restricted" ? current.allowed_pages : [],
+                  branch_id: nextScope === "branch_user" ? current.branch_id : "",
+                  is_single_page_user: current.allowed_pages.length === 1,
                 }));
               }}
             >
               {formData.role === "super_admin" ? <option value="super_admin">صلاحية عامة للمنصة</option> : null}
               <option value="group_admin">على مستوى المدرسة</option>
               <option value="branch_user">على مستوى فرع واحد</option>
-              <option value="restricted">مستخدم مقيّد بصفحة</option>
             </select>
           </div>
 
-          {formData.role !== "super_admin" && formData.scope_level !== "group_admin" ? (
+          {formData.role !== "super_admin" && formData.scope_level === "branch_user" ? (
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الفرع</label>
               <select
@@ -294,17 +300,18 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
           </div>
         </div>
 
-        {formData.role !== "super_admin" && formData.scope_level === "restricted" ? (
+        {formData.role !== "super_admin" ? (
           <div className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-muted)] p-4">
             <div className="mb-4 space-y-1">
-              <h3 className="text-base font-black text-[var(--text-primary)]">صفحات المستخدم المقيّد</h3>
+              <h3 className="text-base font-black text-[var(--text-primary)]">الصفحات المسموحة لهذا المستخدم</h3>
               <p className="text-sm leading-7 text-[var(--text-secondary)]">
-                هذا المستخدم لن يرى لوحة التحكم العامة أو القائمة الجانبية الكاملة. سيُعاد توجيهه مباشرة إلى أول صفحة مسموحة فقط.
+                إذا تركت هذا القسم فارغًا فسيعمل المستخدم وفق صفحات دوره المعتادة. إذا اخترت صفحة واحدة فقط فلن تظهر
+                القائمة الجانبية، وإذا اخترت صفحتين أو أكثر فستظهر قائمة جانبية مصغرة تحتوي فقط على هذه الصفحات.
               </p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {availableFocusedPages.map((pageCode) => {
+              {availableAssignablePages.map((pageCode) => {
                 const checked = formData.allowed_pages.includes(pageCode);
                 return (
                   <label
@@ -320,20 +327,26 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
                       type="checkbox"
                       checked={checked}
                       onChange={(e) => {
+                        const nextAllowedPages = e.target.checked
+                          ? Array.from(new Set([...formData.allowed_pages, pageCode]))
+                          : formData.allowed_pages.filter((item) => item !== pageCode);
+
                         if (e.target.checked) {
+                          setFormData((current) => {
+                            const checkedPages = Array.from(new Set([...current.allowed_pages, pageCode]));
+                            return {
+                              ...current,
+                              allowed_pages: checkedPages,
+                              is_single_page_user: checkedPages.length === 1,
+                            };
+                          });
+                        } else {
                           setFormData((current) => ({
                             ...current,
-                            allowed_pages: [...current.allowed_pages, pageCode],
-                            is_single_page_user: true,
-                            scope_level: "restricted",
+                            allowed_pages: current.allowed_pages.filter((item) => item !== pageCode),
+                            is_single_page_user: nextAllowedPages.length === 1,
                           }));
-                          return;
                         }
-
-                        setFormData((current) => ({
-                          ...current,
-                          allowed_pages: current.allowed_pages.filter((item) => item !== pageCode),
-                        }));
                       }}
                     />
                     <span>{PAGE_LABELS[pageCode]}</span>
@@ -344,8 +357,10 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
 
             <div className="mt-4 text-sm font-bold text-[var(--text-secondary)]">
               {formData.allowed_pages.length === 0
-                ? "لم يتم اختيار أي صفحة بعد."
-                : `${formData.allowed_pages.length} صفحة مسموحة لهذا المستخدم.`}
+                ? "لا توجد صفحات مخصصة حاليًا، وسيستخدم هذا الحساب صفحات الدور الافتراضية."
+                : formData.allowed_pages.length === 1
+                  ? "تم اختيار صفحة واحدة، وسيعمل هذا الحساب بدون قائمة جانبية."
+                  : `${formData.allowed_pages.length} صفحات مخصصة، وستظهر قائمة جانبية تحتوي فقط على هذه الصفحات.`}
             </div>
           </div>
         ) : null}

@@ -265,12 +265,16 @@ function normalizeScopeLevel(
     return "super_admin";
   }
 
-  if (rawScopeLevel === "super_admin" || rawScopeLevel === "group_admin" || rawScopeLevel === "branch_user" || rawScopeLevel === "restricted") {
+  if (rawScopeLevel === "super_admin" || rawScopeLevel === "group_admin" || rawScopeLevel === "branch_user") {
     return rawScopeLevel;
   }
 
-  if (isSinglePageUser) {
-    return "restricted";
+  if (rawScopeLevel === "restricted") {
+    return branchScoped ? "branch_user" : "group_admin";
+  }
+
+  if (isSinglePageUser && branchScoped) {
+    return "branch_user";
   }
 
   if (rawScope === "group") {
@@ -301,7 +305,7 @@ function buildDefaultPath(
   isSinglePageUser: boolean,
   scopeLevel?: AuthorizationScopeLevel | null,
 ) {
-  if (scopeLevel === "group_admin" && role !== "super_admin") {
+  if (scopeLevel === "group_admin" && role === "admin" && allowedPages.length === 0) {
     return "/group";
   }
 
@@ -417,13 +421,7 @@ export async function resolveWebUserProfile(
           .map((item) => item.hierarchy_level)
           .find((value): value is number => typeof value === "number") ?? null;
 
-  const explicitSinglePage = Boolean(profileRow.is_single_page_user) || profileRow.scope_level === "restricted";
-  const inferredFocused =
-    !hasAllModules &&
-    allowedPages.length > 0 &&
-    !allowedPages.includes("dashboard") &&
-    allowedPages.length <= 3;
-  const isSinglePageUser = explicitSinglePage || inferredFocused;
+  const isSinglePageUser = !hasAllModules && allowedPages.length === 1;
   const branchId =
     profileRow.branch_id ??
     profileRow.default_branch_id ??

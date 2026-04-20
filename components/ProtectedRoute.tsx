@@ -7,6 +7,8 @@ import {
   getAccessDecision,
   getDefaultRouteForProfile,
   hasPermission,
+  hasAssignedPageScope,
+  isGroupOverviewOnlyProfile,
   type Permission,
   type UserRole,
 } from "@/lib/auth";
@@ -75,7 +77,7 @@ export function ProtectedRoute({
   useEffect(() => {
     if (loading || !blockedReason) return;
     const focusedDefaultPath =
-      (profile?.is_single_page_user || profile?.scope_level === "group_admin") && blockedReason === "forbidden"
+      (isGroupOverviewOnlyProfile(profile) || hasAssignedPageScope(profile)) && blockedReason === "forbidden"
         ? getDefaultRouteForProfile(profile)
         : null;
     router.replace(resolveRedirect(blockedReason, pathname, focusedDefaultPath));

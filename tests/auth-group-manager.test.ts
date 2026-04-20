@@ -60,4 +60,25 @@ describe("school-level manager access", () => {
 
     expect(getDefaultRouteForProfile(profile)).toBe("/dashboard");
   });
+
+  it("uses the first assigned page for school-scoped staff with limited pages", () => {
+    const profile = buildProfile({
+      role: "employee",
+      permissions: ["view_payments"],
+      scope_level: "group_admin",
+      allowed_pages: ["payments", "attendance"],
+      default_path: "/payments",
+    });
+
+    expect(getDefaultRouteForProfile(profile)).toBe("/payments");
+    expect(getAccessDecision(profile, "/ar/payments")).toEqual({
+      allowed: true,
+      readOnly: false,
+    });
+    expect(getAccessDecision(profile, "/ar/students")).toEqual({
+      allowed: false,
+      reason: "forbidden",
+      readOnly: false,
+    });
+  });
 });

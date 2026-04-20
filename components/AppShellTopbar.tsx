@@ -11,6 +11,7 @@ import { getAcademicYearLabel } from "@/lib/academic-year";
 import { translateLegacyText } from "@/lib/legacy-locale";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { cn } from "@/lib/brand/brand-utils";
+import { isGroupOverviewOnlyProfile, shouldUseSinglePageShell } from "@/lib/auth";
 
 export function AppShellTopbar({
   title,
@@ -35,7 +36,7 @@ export function AppShellTopbar({
   const academicYearLabel = getAcademicYearLabel(new Date(), locale);
   const resolvedTitle = translateLegacyText(title, locale);
   const resolvedSubtitle = subtitle ? translateLegacyText(subtitle, locale) : subtitle;
-  const isFocusedUser = Boolean(profile?.is_single_page_user || profile?.scope_level === "group_admin");
+  const isFocusedUser = Boolean(shouldUseSinglePageShell(profile) || isGroupOverviewOnlyProfile(profile));
 
   
   const topbarRef = useRef<HTMLElement | null>(null);
