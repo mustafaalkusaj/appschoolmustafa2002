@@ -39,6 +39,7 @@ export interface SchoolRecord {
 export interface UserRecord {
   id: string;
   full_name: string | null;
+  job_title: string | null;
   email: string | null;
   role: "super_admin" | "admin" | "employee";
   school_id: string | null;

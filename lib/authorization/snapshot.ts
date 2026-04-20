@@ -24,6 +24,7 @@ type GenericSupabaseClient = SupabaseClient;
 type UserProfileRow = {
   id: string;
   full_name: string | null;
+  job_title?: string | null;
   email: string | null;
   phone: string | null;
   role: string | null;
@@ -79,6 +80,7 @@ export interface SubscriptionProfile {
 export interface ResolvedClientUserProfile {
   id: string;
   full_name: string | null;
+  job_title?: string | null;
   email: string | null;
   role: UserRole;
   permissions: Permission[];
@@ -140,13 +142,21 @@ export interface ResolvedWebProfile {
 }
 
 const PROFILE_SELECTS = [
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id",
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id",
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id",
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id",
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions",
+  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions",
 ] as const;
 
@@ -475,6 +485,7 @@ export async function resolveWebUserProfile(
   const profile: ResolvedClientUserProfile = {
     id: profileRow.id,
     full_name: profileRow.full_name ?? null,
+    job_title: typeof profileRow.job_title === "string" ? profileRow.job_title : null,
     email: profileRow.email ?? null,
     role,
     permissions,

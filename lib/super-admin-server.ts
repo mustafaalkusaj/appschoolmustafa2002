@@ -63,6 +63,7 @@ export type SuperAdminSchoolRelation = { name: string | null } | Array<{ name: s
 export type SuperAdminUserRecord = {
   id: string;
   full_name: string | null;
+  job_title: string | null;
   email: string | null;
   role: "super_admin" | "admin" | "employee";
   school_id: string | null;
@@ -333,13 +334,19 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
 
   const userColumnSelects = infrastructure.customPermissions
     ? [
+        "id, full_name, job_title, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, custom_permissions, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version",
         "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, custom_permissions, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version",
+        "id, full_name, job_title, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, custom_permissions",
         "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, custom_permissions",
+        "id, full_name, job_title, email, role, school_id, phone, is_active, created_at, custom_permissions",
         "id, full_name, email, role, school_id, phone, is_active, created_at, custom_permissions",
       ]
     : [
+        "id, full_name, job_title, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version",
         "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version",
+        "id, full_name, job_title, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at",
         "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at",
+        "id, full_name, job_title, email, role, school_id, phone, is_active, created_at",
         "id, full_name, email, role, school_id, phone, is_active, created_at",
       ];
 
@@ -476,6 +483,7 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
             return {
               id: String(user.id),
               full_name: typeof user.full_name === "string" ? user.full_name : null,
+              job_title: typeof user.job_title === "string" ? user.job_title : null,
               email: typeof user.email === "string" ? user.email : null,
               role:
                 normalizedRole === "super_admin"
@@ -636,6 +644,7 @@ export async function updateSuperAdminUserProfile(
   userId: string,
   payload: {
     full_name: string | null;
+    job_title: string | null;
     email: string | null;
     role: "super_admin" | "admin" | "employee";
     school_id: string | null;
@@ -662,9 +671,10 @@ export async function updateSuperAdminUserProfile(
   },
 ) {
   const baseSelect =
-    "id, full_name, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version";
+    "id, full_name, job_title, email, role, school_id, branch_id, default_branch_id, phone, is_active, created_at, scope_level, allowed_module, is_single_page_user, hierarchy_level, permissions_version";
   const updatePayload = {
     full_name: payload.full_name,
+    job_title: payload.job_title,
     email: payload.email,
     role: payload.role,
     school_id: payload.school_id,
@@ -698,6 +708,12 @@ export async function updateSuperAdminUserProfile(
     if (isMissingColumnError(responseResult.error, "user_profiles", "custom_permissions") && "custom_permissions" in updatePayload) {
       delete updatePayload.custom_permissions;
       select = select.replace(", custom_permissions", "");
+      continue;
+    }
+
+    if (isMissingColumnError(responseResult.error, "user_profiles", "job_title") && "job_title" in updatePayload) {
+      delete updatePayload.job_title;
+      select = select.replace("job_title, ", "");
       continue;
     }
 
@@ -748,6 +764,10 @@ export async function updateSuperAdminUserProfile(
 
   return {
     ...normalizedRecord,
+    job_title:
+      typeof normalizedRecord.job_title === "string"
+        ? normalizedRecord.job_title
+        : payload.job_title,
     branch_id: typeof normalizedRecord.branch_id === "string" ? normalizedRecord.branch_id : payload.branch_id,
     default_branch_id:
       typeof normalizedRecord.default_branch_id === "string"

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { detectAdminInfrastructure } from "@/lib/admin-infrastructure";
 import { resolveScopedUserConfig, ScopedUserConfigError } from "@/lib/authorization/scoped-user-config";
 import { resolveSuperAdminActorContext, updateSuperAdminUserProfile } from "@/lib/super-admin-server";
+import { normalizeJobTitle } from "@/lib/users/job-title";
 import { normalizePermissions, normalizeUserRole, type Permission } from "@/types/roles";
 
 function jsonError(message: string, status: number) {
@@ -11,6 +12,7 @@ function jsonError(message: string, status: number) {
 
 type UpdateUserBody = {
   full_name?: unknown;
+  job_title?: unknown;
   email?: unknown;
   role?: unknown;
   school_id?: unknown;
@@ -108,6 +110,7 @@ export async function PATCH(
   try {
     const user = await updateSuperAdminUserProfile(context.value.dataSupabase, normalizedUserId, {
       full_name: typeof body?.full_name === "string" && body.full_name.trim() ? body.full_name.trim() : null,
+      job_title: normalizeJobTitle(body?.job_title),
       email: typeof body?.email === "string" && body.email.trim() ? body.email.trim().toLowerCase() : null,
       role,
       school_id: scopedConfig.schoolId,

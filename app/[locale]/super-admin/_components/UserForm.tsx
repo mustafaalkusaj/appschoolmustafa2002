@@ -6,6 +6,7 @@ import type { BranchOptionRecord, UserRecord } from "./types";
 import type { Permission } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/auth";
 import { getPathForPageCode, PAGE_PATHS, type PageCode } from "@/lib/authorization/page-access";
+import { findJobTitlePresetById, JOB_TITLE_PRESETS } from "@/lib/users/job-title-presets";
 import { PERMISSION_GROUPS } from "@/types/roles";
 import { isRoleAllowedForPath } from "@/types/roles";
 import { buildTemplatePermissions } from "@/types/roles";
@@ -13,7 +14,9 @@ import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { useEffect, useMemo, useState } from "react";
 
 interface UserFormData {
+  preset_id: string;
   full_name: string;
+  job_title: string;
   email: string;
   role: "super_admin" | "admin" | "employee";
   school_id: string;
@@ -66,7 +69,9 @@ const FOCUSED_PAGE_CODES = (Object.keys(PAGE_PATHS) as PageCode[]).filter(
 
 function createInitialFormState(): UserFormData {
   return {
+    preset_id: "",
     full_name: "",
+    job_title: "",
     email: "",
     role: "employee",
     school_id: "",
@@ -109,7 +114,9 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
     if (isOpen) {
       if (editUser) {
         setFormData({
+          preset_id: "",
           full_name: editUser.full_name ?? "",
+          job_title: editUser.job_title ?? "",
           email: editUser.email ?? "",
           role: editUser.role,
           school_id: editUser.school_id ?? "",
@@ -176,8 +183,64 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">قالب صلاحيات جاهز</label>
+            <select
+              className="ui-input"
+              value={formData.preset_id}
+              onChange={(e) => {
+                const nextPresetId = e.target.value;
+                const preset = findJobTitlePresetById(nextPresetId);
+
+                if (!preset) {
+                  setFormData((current) => ({
+                    ...current,
+                    preset_id: "",
+                  }));
+                  return;
+                }
+
+                setFormData((current) => ({
+                  ...current,
+                  preset_id: preset.id,
+                  job_title: preset.jobTitle,
+                  role: preset.role,
+                  permissions: [...preset.permissions],
+                  allowed_pages: [...preset.allowedPages],
+                  is_single_page_user: preset.allowedPages.length === 1,
+                }));
+              }}
+            >
+              <option value="">بدون قالب جاهز</option>
+              {JOB_TITLE_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs font-bold text-[var(--text-tertiary)]">
+              يملأ القالب المسمى الوظيفي والدور والصلاحيات والصفحات المقترحة، ويمكنك تعديلها يدويًا قبل الحفظ.
+            </p>
+            {formData.preset_id ? (
+              <div className="mt-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-bold text-[var(--text-secondary)]">
+                {findJobTitlePresetById(formData.preset_id)?.description}
+              </div>
+            ) : null}
+          </div>
+          <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">الاسم الكامل</label>
             <input className="ui-input" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">المسمى الوظيفي</label>
+            <input
+              className="ui-input"
+              value={formData.job_title}
+              onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+              placeholder="مثال: محاسب، مسؤول حضور، شؤون الطلاب"
+            />
+            <p className="mt-2 text-xs font-bold text-[var(--text-tertiary)]">
+              هذا الحقل وصفي فقط ولا يغيّر الدور الأمني. الصلاحيات تبقى محكومة بالدور والصلاحيات المخصصة أدناه.
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">البريد الإلكتروني</label>
@@ -206,6 +269,7 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
                 const nextRole = e.target.value as "super_admin" | "admin" | "employee";
                 setFormData((current) => ({
                   ...current,
+                  preset_id: nextRole === current.role ? current.preset_id : "",
                   role: nextRole,
                   school_id: nextRole === "super_admin" ? "" : current.school_id,
                   branch_id: nextRole === "super_admin" ? "" : current.branch_id,

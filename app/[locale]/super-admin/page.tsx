@@ -141,6 +141,7 @@ export default function SuperAdminPage() {
       setBranches(payload?.branches ?? []);
       setUsers((payload?.users ?? []).map((u) => ({
         ...u,
+        job_title: typeof u.job_title === "string" ? u.job_title : null,
         branch_id: typeof u.branch_id === "string" ? u.branch_id : null,
         default_branch_id: typeof u.default_branch_id === "string" ? u.default_branch_id : null,
         custom_permissions: Array.isArray(u.custom_permissions) ? (u.custom_permissions as Permission[]) : null,
@@ -191,6 +192,7 @@ export default function SuperAdminPage() {
     try {
       const payload = {
         full_name: f.full_name,
+        job_title: f.job_title || null,
         email: f.email,
         role: f.role,
         school_id: f.school_id || null,
@@ -389,7 +391,19 @@ export default function SuperAdminPage() {
     return !query || s.name.toLowerCase().includes(query.toLowerCase());
   }), [schools, spotlightFilter, query]);
 
-  const filteredUsers = useMemo(() => users.filter(u => !query || (u.email ?? "").toLowerCase().includes(query.toLowerCase()) || u.full_name?.toLowerCase().includes(query.toLowerCase())), [users, query]);
+  const filteredUsers = useMemo(
+    () =>
+      users.filter((u) => {
+        if (!query) return true;
+        const normalizedQuery = query.toLowerCase();
+        return (
+          (u.email ?? "").toLowerCase().includes(normalizedQuery) ||
+          u.full_name?.toLowerCase().includes(normalizedQuery) ||
+          u.job_title?.toLowerCase().includes(normalizedQuery)
+        );
+      }),
+    [users, query],
+  );
   const filteredSubscriptions = useMemo(() => subscriptions.filter(s => !query || (Array.isArray(s.schools) ? s.schools[0]?.name : s.schools?.name)?.toLowerCase().includes(query.toLowerCase())), [subscriptions, query]);
 
   const dataHealthItems = useMemo(() => [

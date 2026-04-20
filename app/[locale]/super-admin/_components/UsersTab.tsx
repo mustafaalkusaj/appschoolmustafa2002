@@ -31,7 +31,7 @@ export function UsersTab({
   return (
     <SectionCard
       title={`إدارة المستخدمين (${filteredUsers.length})`}
-      description="إدارة المستخدمين مع إظهار المدرسة، الفرع، ونمط الوصول المقيّد للصفحات عندما يكون ذلك مطلوباً."
+      description="إدارة المستخدمين مع إظهار المدرسة، الفرع، المسمى الوظيفي، ونمط الوصول المقيّد للصفحات عندما يكون ذلك مطلوباً."
       actions={
         <div className="flex items-center gap-2">
           <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => exportToCSV(filteredUsers, "users")}>
@@ -86,6 +86,9 @@ export function UsersTab({
                         <td>
                           <div className="space-y-1">
                             <div className="font-black">{user.full_name || "—"}</div>
+                            {user.job_title ? (
+                              <div className="text-xs font-bold text-[var(--primary)]">{user.job_title}</div>
+                            ) : null}
                             <div className="text-xs font-bold text-[var(--text-tertiary)]">{formatDate(user.created_at)}</div>
                           </div>
                         </td>
@@ -139,6 +142,9 @@ export function UsersTab({
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <h3 className="text-base font-black text-[var(--text-primary)]">{user.full_name || "—"}</h3>
+                      {user.job_title ? (
+                        <p className="text-xs font-black text-[var(--primary)]">{user.job_title}</p>
+                      ) : null}
                       <p className="text-sm leading-7 text-[var(--text-secondary)]">{user.email}</p>
                     </div>
                     <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-black" style={{ background: roleColor.bg, color: roleColor.color }}>

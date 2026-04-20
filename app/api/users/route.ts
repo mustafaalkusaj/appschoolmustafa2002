@@ -3,6 +3,7 @@ import { isMissingColumnError } from "@/lib/admin-infrastructure";
 import { resolveScopedUserConfig, ScopedUserConfigError } from "@/lib/authorization/scoped-user-config";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { replaceSuperAdminUserPageAccess } from "@/lib/super-admin-server";
+import { normalizeJobTitle } from "@/lib/users/job-title";
 import { ALL_PERMISSIONS, normalizePermissions, normalizeUserRole } from "@/types/roles";
 import {
   createRouteSupabaseClient,
@@ -18,6 +19,7 @@ type CreateUserBody = {
   email: string;
   password: string;
   full_name?: string | null;
+  job_title?: string | null;
   role?: string | null;
   school_id?: string | null;
   branch_id?: string | null;
@@ -51,6 +53,7 @@ function validateCreateUserInput(body: unknown) {
   const branchId = typeof data.branch_id === "string" && data.branch_id.trim() ? data.branch_id.trim() : null;
 
   const fullName = typeof data.full_name === "string" ? data.full_name.trim() : "";
+  const jobTitle = normalizeJobTitle(data.job_title);
   const phone = typeof data.phone === "string" ? data.phone.trim() : "";
   const isActive = data.is_active ?? true;
   if (typeof isActive !== "boolean") {
@@ -76,6 +79,7 @@ function validateCreateUserInput(body: unknown) {
       school_id: schoolId,
       branch_id: branchId,
       full_name: fullName || null,
+      job_title: jobTitle,
       phone: phone || null,
       is_active: isActive,
       scope_level: typeof data.scope_level === "string" ? data.scope_level.trim().toLowerCase() : null,
@@ -207,6 +211,7 @@ export async function POST(req: NextRequest) {
     id: authData.user.id,
     email: validation.value.email,
     full_name: validation.value.full_name,
+    job_title: validation.value.job_title,
     role: validation.value.role,
     school_id: scopedConfig.schoolId,
     branch_id: scopedConfig.branchId,
@@ -222,11 +227,20 @@ export async function POST(req: NextRequest) {
 
   let { error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(profilePayload);
 
-  if (isMissingColumnError(insertProfileError, "user_profiles", "custom_permissions")) {
-    // Omit the custom_permissions column when the schema doesn't support it yet
-    const { custom_permissions: _omit, ...legacyPayload } = profilePayload;
-    void _omit;
-    ({ error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(legacyPayload));
+  for (let attempt = 0; insertProfileError && attempt < 2; attempt += 1) {
+    if (isMissingColumnError(insertProfileError, "user_profiles", "custom_permissions") && "custom_permissions" in profilePayload) {
+      delete (profilePayload as Record<string, unknown>).custom_permissions;
+      ({ error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(profilePayload));
+      continue;
+    }
+
+    if (isMissingColumnError(insertProfileError, "user_profiles", "job_title") && "job_title" in profilePayload) {
+      delete (profilePayload as Record<string, unknown>).job_title;
+      ({ error: insertProfileError } = await serviceSupabase.from("user_profiles").insert(profilePayload));
+      continue;
+    }
+
+    break;
   }
 
   if (isMissingColumnError(insertProfileError, "user_profiles", "branch_id")) {

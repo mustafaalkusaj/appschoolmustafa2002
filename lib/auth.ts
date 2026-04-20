@@ -33,6 +33,7 @@ export interface SubscriptionProfile {
 export interface UserProfile {
   id: string;
   full_name: string | null;
+  job_title?: string | null;
   email: string | null;
   avatar_url?: string | null;
   role: UserRole;
@@ -301,6 +302,7 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
   return {
     id: data.id,
     full_name: data.full_name ?? null,
+    job_title: typeof data.job_title === "string" ? data.job_title : null,
     email: data.email ?? null,
     avatar_url: null,
     role,
