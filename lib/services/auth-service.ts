@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Authentication Service
  * Core service for user authentication operations

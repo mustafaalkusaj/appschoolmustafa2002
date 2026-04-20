@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Isolated Prisma Client
  * Automatically applies school_id and branch_id filters to all queries

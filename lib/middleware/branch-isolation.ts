@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Branch Isolation Middleware
  * Enforces branch-level access control

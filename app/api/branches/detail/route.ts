@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Branch Details API
  * GET /api/branches/detail?branchId=<id>

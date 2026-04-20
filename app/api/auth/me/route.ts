@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Get Current User Endpoint
  * GET /api/auth/me

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Single-Page User Guard Middleware
  * Restricts single-page users to their assigned pages

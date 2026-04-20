@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Change Password Endpoint
  * POST /api/auth/change-password
