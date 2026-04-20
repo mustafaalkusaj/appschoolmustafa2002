@@ -326,7 +326,13 @@ export async function resolveWebUserProfile(
     return null;
   }
 
-  const serviceSupabase = createServiceSupabaseClient();
+  let authzLookupClient: GenericSupabaseClient = routeSupabase;
+  try {
+    authzLookupClient = createServiceSupabaseClient();
+  } catch {
+    authzLookupClient = routeSupabase;
+  }
+
   const schoolId = profileRow.school_id ?? null;
 
   const [
@@ -338,14 +344,14 @@ export async function resolveWebUserProfile(
   ] = await Promise.all([
     resolveSchoolContext(routeSupabase, schoolId),
     readOptionalList<UserPermissionRow>(
-      serviceSupabase
+      authzLookupClient
         .from("user_permissions")
         .select("module, branch_id")
         .eq("user_id", userId),
       { table: "user_permissions" },
     ),
     readOptionalList<UserPageAccessRow>(
-      serviceSupabase
+      authzLookupClient
         .from("user_page_access")
         .select("page_code, branch_id, can_view")
         .eq("user_id", userId),
@@ -353,7 +359,7 @@ export async function resolveWebUserProfile(
     ),
     schoolId
       ? readOptionalList<AdminBranchScopeRow>(
-          serviceSupabase
+          authzLookupClient
             .from("admin_branch_scopes")
             .select("branch_id")
             .eq("user_id", userId)
@@ -362,7 +368,7 @@ export async function resolveWebUserProfile(
         )
       : Promise.resolve([]),
     readOptionalList<UserRoleAssignmentRow>(
-      serviceSupabase
+      authzLookupClient
         .from("user_role_assignments")
         .select("branch_id, scope_level, hierarchy_level")
         .eq("user_id", userId),
