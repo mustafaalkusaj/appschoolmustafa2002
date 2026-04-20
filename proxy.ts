@@ -378,9 +378,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (rbacToken) {
       const session = await verifyRBACSession(rbacToken);
       if (session) {
-      const sessionWithScope = session as typeof session & { scopeLevel?: string | null };
+        const sessionWithScope = session as typeof session & { scopeLevel?: string | null };
         let layoutMode: string;
-        if (sessionWithScope.scopeLevel === 'restricted' || sessionWithScope.scopeLevel === 'group_admin') {
+        if (sessionWithScope.scopeLevel === "group_admin") {
+          layoutMode = "group-only";
+        } else if (sessionWithScope.scopeLevel === "restricted") {
           layoutMode = "restricted";
         } else if ((session as { scope?: string }).scope === "focused") {
           layoutMode = "focused";

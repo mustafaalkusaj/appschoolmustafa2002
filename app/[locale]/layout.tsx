@@ -44,15 +44,16 @@ export default async function LocaleLayout({
   const messages = (await import(`@/messages/${locale}.json`)).default;
   const cookieStore = await cookies();
   const layoutMode = cookieStore.get("lm")?.value ?? "full";
-  const isRestricted = layoutMode === "restricted";
+  const restrictedVariant =
+    layoutMode === "group-only" ? "group-only" : layoutMode === "restricted" ? "focused" : null;
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <LocaleHtmlAttributes />
       <div className="antialiased selection:bg-primary/10 selection:text-primary relative min-h-screen overflow-hidden bg-[var(--background)]" lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
         <div className="relative z-10">
-          {isRestricted ? (
-            <RestrictedLayout>{children}</RestrictedLayout>
+          {restrictedVariant ? (
+            <RestrictedLayout variant={restrictedVariant}>{children}</RestrictedLayout>
           ) : (
             children
           )}
