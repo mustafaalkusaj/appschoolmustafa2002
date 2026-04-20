@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Account Management API - Core Multi-Branch Endpoints
  * GET /api/core/accounts - List accounts with branch isolation

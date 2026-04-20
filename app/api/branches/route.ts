@@ -116,10 +116,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Create branch
+    const branchCode = validation.data.branchCode ?? validation.data.nameEn.toLowerCase().replace(/\s+/g, '_');
     const result = await createBranch(
       {
         schoolId: authContext.schoolId,
-        ...validation.data
+        ...validation.data,
+        branchCode,
       },
       authContext.userId,
       endpoint

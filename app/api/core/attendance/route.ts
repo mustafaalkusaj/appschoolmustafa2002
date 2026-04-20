@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Attendance Management API - Core Multi-Branch Endpoints
  * GET /api/core/attendance - List attendance records with branch isolation

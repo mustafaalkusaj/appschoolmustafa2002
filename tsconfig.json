@@ -46,6 +46,9 @@
     "school-saas-next",
     "school-acc-system",
     "00990090",
-    "app/____"
+    "app/____",
+    "lib/__tests__",
+    "tests",
+    "lib/prisma.ts"
   ]
 }

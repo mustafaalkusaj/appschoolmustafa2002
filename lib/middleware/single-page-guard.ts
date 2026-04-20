@@ -196,11 +196,10 @@ export async function grantPageAccess(
       'create',
       'user_page_access',
       pageAccess.id,
-      createdByUserId,
       {
         userId,
         pageCode,
-        permissions
+        permissions: permissions as Record<string, unknown>
       }
     );
 
@@ -253,8 +252,7 @@ export async function revokePageAccess(
     log.logDataModification(
       'delete',
       'user_page_access',
-      pageAccess.id,
-      deletedByUserId
+      pageAccess.id
     );
 
     return { success: true };
@@ -319,9 +317,8 @@ export async function updatePageAccess(
       'update',
       'user_page_access',
       updated.id,
-      updatedByUserId,
       {
-        changes: permissions
+        changes: permissions as Record<string, unknown>
       }
     );
 

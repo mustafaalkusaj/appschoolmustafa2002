@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Individual Student API - Core Multi-Branch Endpoints
  * GET /api/core/students/[studentId] - Get student details

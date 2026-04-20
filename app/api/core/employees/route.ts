@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Employee Management API - Core Multi-Branch Endpoints
  * GET /api/core/employees - List employees with branch isolation

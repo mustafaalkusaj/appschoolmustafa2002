@@ -63,7 +63,7 @@ export async function authenticateUser(
   });
 
   try {
-    log.logRequest('POST', req.email);
+    log.logRequest('POST');
 
     // Find user by email
     const user = await prisma.user.findUnique({
@@ -120,7 +120,7 @@ export async function authenticateUser(
     });
 
     log.logAuthEvent('login', `User ${user.email} logged in`);
-    log.logResponse(200, user.id);
+    log.logResponse(200);
 
     return {
       token,
@@ -160,7 +160,7 @@ export async function registerUser(
   });
 
   try {
-    log.logRequest('POST', req.email);
+    log.logRequest('POST');
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -243,7 +243,7 @@ export async function registerUser(
     });
 
     // Log data modification
-    log.logDataModification('create', 'users', newUser.id, req.email);
+    log.logDataModification('create', 'users', newUser.id);
 
     // Generate JWT token
     const token = generateToken({
@@ -256,7 +256,7 @@ export async function registerUser(
     });
 
     log.logAuthEvent('login', `New user ${newUser.email} registered and logged in`);
-    log.logResponse(201, newUser.id);
+    log.logResponse(201);
 
     return {
       token,
@@ -324,7 +324,7 @@ export async function getUserProfile(userId: string) {
       lastLoginAt: user.lastLoginAt,
       school: user.school,
       branch: user.branch,
-      permissions: user.role.permissions.map((rp) => rp.permission.code)
+      permissions: user.role.permissions.map((rp: { permission: { code: string } }) => rp.permission.code)
     };
   } catch (error) {
     console.error('Error fetching user profile:', error);

@@ -35,7 +35,6 @@ model School {
   transactions    Transaction[]
   salaries        Salary[]
   employees       Employee[]
-  classes         Class[]
   academicYears   AcademicYear[]
   attendances     Attendance[]
   auditLogs       AuditLog[]
@@ -211,6 +210,7 @@ model AcademicYear {
 model Class {
   id              String   @id @default(cuid())
   branchId        String
+  schoolId        String?
   academicYearId  String
   gradeLevel      Int
   nameAr          String
@@ -234,12 +234,13 @@ model Student {
   branchId           String
   classId            String?
   registrationNumber String   @unique
-  fullNameAr         String
-  fullNameEn         String
+  nameAr             String
+  nameEn             String
   dateOfBirth        DateTime?
   status             String   @default("active") // active, inactive, transferred, graduated
   parentName         String?
   parentPhone        String?
+  createdBy          String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   deletedAt          DateTime?
@@ -270,8 +271,10 @@ model Attendance {
   attendanceDate   DateTime
   status           String   // present, absent, excused, late
   notes            String?
+  createdBy        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
 
   // Relations
   school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -299,6 +302,7 @@ model Account {
   accountNameEn  String
   accountType    String   // student, expense, income, salary
   balance        Decimal  @default(0) @db.Decimal(15, 2)
+  createdBy      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   deletedAt      DateTime?
@@ -356,9 +360,12 @@ model Employee {
   fullNameAr   String
   fullNameEn   String
   position     String   // teacher, admin_staff, support
+  email        String?
+  phone        String?
   baseSalary   Decimal  @db.Decimal(15, 2)
   hireDate     DateTime
   isActive     Boolean  @default(true)
+  createdBy    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -388,8 +395,10 @@ model Salary {
   status        String   @default("pending") // pending, approved, paid
   paidDate      DateTime?
   notes         String?
+  createdBy     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
 
   // Relations
   school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)

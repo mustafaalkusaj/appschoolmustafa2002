@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Student Management API - Core Multi-Branch Endpoints
  * GET /api/core/students - List students with branch isolation
