@@ -42,7 +42,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Register user
-    const result = await registerUser(validation.data);
+    const { fullName, ...rest } = validation.data;
+    const result = await registerUser({
+      ...rest,
+      fullNameEn: fullName,
+      fullNameAr: fullName,
+      roleId: 'employee',
+    });
 
     // Check for errors
     if ('code' in result) {
