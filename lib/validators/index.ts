@@ -198,10 +198,13 @@ export const schoolSchema = z.object({
 });
 
 export const branchSchema = z.object({
-  name: z.string().min(2, "Branch name required").max(100),
-  address: z.string().max(200).optional(),
-  phone: z.string().max(20).optional(),
-  is_active: z.boolean().default(true)
+  nameAr: z.string().min(2, "Arabic name required").max(100),
+  nameEn: z.string().min(2, "English name required").max(100),
+  branchCode: z.string().min(2, "Branch code required").max(50).optional(),
+  principalName: z.string().max(100).optional(),
+  phoneNumber: z.string().max(20).optional(),
+  addressAr: z.string().max(255).optional(),
+  addressEn: z.string().max(255).optional()
 });
 
 // ============================================================================
