@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { routing } from "@/i18n/routing";
 import { SCHOOL_BRAND } from "@/lib/branding";
 import { LocaleHtmlAttributes } from "@/components/LocaleHtmlAttributes";
+import { RestrictedLayout } from "@/components/RestrictedLayout";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -40,13 +42,20 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   
   const messages = (await import(`@/messages/${locale}.json`)).default;
+  const cookieStore = await cookies();
+  const layoutMode = cookieStore.get("lm")?.value ?? "full";
+  const isRestricted = layoutMode === "restricted";
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <LocaleHtmlAttributes />
       <div className="antialiased selection:bg-primary/10 selection:text-primary relative min-h-screen overflow-hidden bg-[var(--background)]" lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
         <div className="relative z-10">
-          {children}
+          {isRestricted ? (
+            <RestrictedLayout>{children}</RestrictedLayout>
+          ) : (
+            children
+          )}
         </div>
       </div>
     </NextIntlClientProvider>

@@ -137,6 +137,20 @@ export async function POST(req: NextRequest) {
     schoolActive = false;
   }
 
+  const profileExtended = profile as typeof profile & {
+    scope_level?: string | null;
+    allowed_module?: string | null;
+    group_id?: string | null;
+  };
+
+  type ScopeLevel = 'super_admin' | 'group_admin' | 'branch_user' | 'restricted';
+  const rawScopeLevel = profileExtended.scope_level ?? null;
+  const scopeLevel: ScopeLevel | null =
+    rawScopeLevel === 'super_admin' || rawScopeLevel === 'group_admin' ||
+    rawScopeLevel === 'branch_user' || rawScopeLevel === 'restricted'
+      ? rawScopeLevel
+      : null;
+
   const payload = buildRBACSessionPayload({
     role,
     permissions,
@@ -145,6 +159,9 @@ export async function POST(req: NextRequest) {
     schoolActive,
     subscriptionStatus: subscription?.status ?? null,
     subscriptionEnd: subscription?.end_date ?? null,
+    scopeLevel,
+    allowedModule: profileExtended.allowed_module ?? null,
+    groupId: profileExtended.group_id ?? null,
   });
 
   const signed = await signRBACSession(payload);

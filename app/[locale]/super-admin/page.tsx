@@ -29,6 +29,7 @@ import { ROLE_LABELS, type Permission } from "@/lib/auth";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useRole } from "@/hooks/useRole";
 import { requestRuntimeBrandingRefresh } from "@/hooks/brand";
 import { setStoredSchoolBranding, getStoredSchoolBranding } from "@/lib/brand/palette";
@@ -105,6 +106,7 @@ export default function SuperAdminPage() {
   const [showUserForm, setShowUserForm] = useState(false);
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
   const [deleteSchoolTarget, setDeleteSchoolTarget] = useState<SchoolRecord | null>(null);
+  const [permanentDeleteSchoolTarget, setPermanentDeleteSchoolTarget] = useState<SchoolRecord | null>(null);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserRecord | null>(null);
 
   const TAB_ITEMS: Array<{ id: ActiveTab; label: string; hint: string; icon: LucideIcon }> = useMemo(() => [
@@ -249,6 +251,27 @@ export default function SuperAdminPage() {
       flashError(getErrorMessage(deleteError, "تعذر أرشفة المدرسة."));
     }
   }, [deleteSchoolTarget, flashError, flashSuccess, refreshDashboard]);
+
+  const handlePermanentlyDeleteSchool = useCallback(async () => {
+    if (!permanentDeleteSchoolTarget) return;
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(
+        `/api/web/super-admin/schools/${permanentDeleteSchoolTarget.id}?hardDelete=true`,
+        {
+          method: "DELETE",
+          headers: withJsonHeaders(),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر حذف المدرسة.");
+      }
+      flashSuccess(`تم حذف المدرسة ${permanentDeleteSchoolTarget.name} نهائياً ✓`);
+      setPermanentDeleteSchoolTarget(null);
+      await refreshDashboard();
+    } catch (deleteError) {
+      flashError(getErrorMessage(deleteError, "تعذر حذف المدرسة."));
+    }
+  }, [permanentDeleteSchoolTarget, flashError, flashSuccess, refreshDashboard]);
 
   const handleDeleteUser = useCallback(async () => {
     if (!deleteUserTarget) return;
@@ -408,7 +431,7 @@ export default function SuperAdminPage() {
                 ) : (
                   <div className="space-y-6">
                     {activeTab === "overview" && <OverviewTab schools={schools} users={users} subscriptions={subscriptions} loading={loading} overviewDiagnostics={overviewDiagnostics} spotlightFilter={spotlightFilter} onClearSpotlightFilter={clearSpotlightFilter} onFocusSpotlight={focusSpotlight} onOpenCreateSchool={openCreateSchool} onOpenCreateUser={openCreateUser} onSetActiveTab={setActiveTab} ROLE_LABELS={ROLE_LABELS} PLAN_LABELS={PLAN_LABELS} />}
-                    {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onRefresh={refreshDashboard} />}
+                    {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onPermanentlyDeleteSchool={setPermanentDeleteSchoolTarget} onRefresh={refreshDashboard} />}
                     {activeTab === "users" && <UsersTab users={users} schools={schools} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} />}
                     {activeTab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} filteredSubscriptions={filteredSubscriptions} onExtendSubscription={handleExtendSubscription} />}
                     {activeTab === "audit" && <AuditLogTab infrastructure={infrastructure} />}
@@ -427,6 +450,16 @@ export default function SuperAdminPage() {
         <SchoolForm isOpen={showSchoolForm} editSchool={editSchool} schemaCompat={schemaCompat} onClose={() => setShowSchoolForm(false)} onSave={handleSaveSchool} />
         <UserForm isOpen={showUserForm} editUser={editUser} schools={schools.map(s => ({ id: s.id, name: s.name }))} infrastructure={infrastructure} onClose={() => setShowUserForm(false)} onSave={handleSaveUser} />
         <DeleteSchoolDialog school={deleteSchoolTarget} onClose={() => setDeleteSchoolTarget(null)} onConfirm={() => void handleDeleteSchool()} />
+        <ConfirmDialog
+          open={!!permanentDeleteSchoolTarget}
+          title="حذف المدرسة نهائياً"
+          description={permanentDeleteSchoolTarget ? `هل أنت متأكد من حذف "${permanentDeleteSchoolTarget.name}" بشكل دائم؟ هذا الإجراء لا يمكن التراجع عنه.` : ""}
+          confirmLabel="حذف نهائياً"
+          cancelLabel="إلغاء"
+          tone="danger"
+          onClose={() => setPermanentDeleteSchoolTarget(null)}
+          onConfirm={() => void handlePermanentlyDeleteSchool()}
+        />
         <DeleteUserDialog user={deleteUserTarget} onClose={() => setDeleteUserTarget(null)} onConfirm={() => void handleDeleteUser()} />
       </div>
     </ProtectedRoute>

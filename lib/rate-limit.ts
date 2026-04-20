@@ -1,196 +1,211 @@
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+/**
+ * Rate Limiting Middleware
+ * Implements token bucket algorithm for API rate limiting
+ * Prevents abuse by limiting requests per IP/User
+ */
 
-type RateLimitRecord = {
-  count: number;
-  resetAt: number;
+import { NextRequest } from "next/server";
+
+interface RateLimitStore {
+  [key: string]: {
+    tokens: number;
+    lastRefill: number;
+  };
+}
+
+// In-memory store for rate limit tokens
+// In production, this should use Redis
+const store: RateLimitStore = {};
+
+/**
+ * Configuration for rate limiting
+ */
+export const RATE_LIMIT_CONFIG = {
+  // Global rate limits (per minute)
+  GLOBAL: {
+    requests: 1000,
+    window: 60, // seconds
+  },
+  // API endpoint limits
+  API_ENDPOINT: {
+    requests: 100,
+    window: 60, // requests per minute
+  },
+  // Super admin operations (more lenient)
+  SUPER_ADMIN: {
+    requests: 500,
+    window: 60,
+  },
+  // Auth endpoints (stricter)
+  AUTH: {
+    requests: 20,
+    window: 60,
+  },
+  // File upload limits
+  FILE_UPLOAD: {
+    requests: 10,
+    window: 300, // 5 minutes
+  },
 };
 
-type RateLimitOptions = {
+/**
+ * Extract client identifier (IP or user ID)
+ */
+function getClientId(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
+  const userId = req.headers.get("x-user-id") || "anonymous";
+  return `${ip}:${userId}`;
+}
+
+/**
+ * Check if request is within rate limit
+ * Uses token bucket algorithm
+ */
+export function isWithinRateLimit(
+  clientId: string,
+  config: { requests: number; window: number }
+): boolean {
+  const now = Date.now() / 1000;
+  const bucket = store[clientId];
+
+  // Initialize new bucket
+  if (!bucket) {
+    store[clientId] = {
+      tokens: config.requests,
+      lastRefill: now,
+    };
+    return true;
+  }
+
+  // Refill tokens based on elapsed time
+  const timePassed = now - bucket.lastRefill;
+  const tokensToAdd = (timePassed / config.window) * config.requests;
+
+  bucket.tokens = Math.min(
+    config.requests,
+    bucket.tokens + tokensToAdd
+  );
+  bucket.lastRefill = now;
+
+  // Check if we have tokens available
+  if (bucket.tokens >= 1) {
+    bucket.tokens -= 1;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Middleware for rate limiting
+ * Use this in API routes to enforce rate limits
+ */
+export async function rateLimitMiddleware(
+  req: NextRequest,
+  limits: typeof RATE_LIMIT_CONFIG[keyof typeof RATE_LIMIT_CONFIG] = RATE_LIMIT_CONFIG.API_ENDPOINT
+): Promise<{ ok: boolean; clientId: string; status?: number; message?: string }> {
+  const clientId = getClientId(req);
+
+  if (!isWithinRateLimit(clientId, limits)) {
+    return {
+      ok: false,
+      clientId,
+      status: 429, // Too Many Requests
+      message: "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً.",
+    };
+  }
+
+  return {
+    ok: true,
+    clientId,
+  };
+}
+
+/**
+ * Get current rate limit status for debugging
+ */
+export function getRateLimitStatus(clientId: string) {
+  return store[clientId] || null;
+}
+
+/**
+ * Reset rate limits for a specific client (admin only)
+ */
+export function resetRateLimit(clientId: string) {
+  delete store[clientId];
+}
+
+/**
+ * Cleanup old entries (call periodically)
+ * Prevents memory leaks in long-running processes
+ */
+export function cleanupRateLimits() {
+  const now = Date.now() / 1000;
+  const maxAge = 3600; // 1 hour
+
+  for (const clientId in store) {
+    if (now - store[clientId].lastRefill > maxAge) {
+      delete store[clientId];
+    }
+  }
+}
+
+// Run cleanup every 10 minutes
+if (typeof setInterval !== "undefined") {
+  setInterval(cleanupRateLimits, 10 * 60 * 1000);
+}
+
+/**
+ * Get client IP from request (for compatibility)
+ */
+export function getRateLimitClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
+}
+
+/**
+ * Type definitions for enforceRateLimit
+ */
+export type RateLimitOptions = {
   namespace: string;
   windowMs: number;
   maxHits: number;
   identifier?: string | null;
 };
 
-const rateLimitStore = new Map<string, RateLimitRecord>();
-const distributedLimiterStore = new Map<string, Ratelimit>();
-const STORE_CLEANUP_INTERVAL_MS = 60_000;
-let lastCleanupAt = 0;
-let distributedRedisClient: Redis | null | undefined;
-let distributedLimiterDisabled = false;
+/**
+ * Enforce rate limit (compatible with existing code)
+ * Returns null if request is allowed, or Response if rate limited
+ */
+export async function enforceRateLimit(
+  req: NextRequest,
+  options: RateLimitOptions
+): Promise<Response | null> {
+  const clientId = options.identifier || getRateLimitClientIp(req);
+  const config = { requests: options.maxHits, window: Math.ceil(options.windowMs / 1000) };
 
-function getClientIp(request: NextRequest) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0]?.trim() || "unknown";
+  if (!isWithinRateLimit(clientId, config)) {
+    const bucket = store[clientId];
+    const retryAfter = bucket ? Math.ceil(config.window - (Date.now() / 1000 - bucket.lastRefill)) : config.window;
+
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً.",
+        },
+      }),
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.max(1, retryAfter)),
+          "X-RateLimit-Limit": String(config.requests),
+          "X-RateLimit-Remaining": "0",
+          "Content-Type": "application/json",
+        },
+      }
+    );
   }
 
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) {
-    return realIp.trim();
-  }
-
-  return "unknown";
-}
-
-export function getRateLimitClientIp(request: NextRequest) {
-  return getClientIp(request);
-}
-
-function cleanupExpiredRecords(now: number) {
-  if (now - lastCleanupAt < STORE_CLEANUP_INTERVAL_MS) {
-    return;
-  }
-
-  lastCleanupAt = now;
-  rateLimitStore.forEach((value, key) => {
-    if (value.resetAt <= now) {
-      rateLimitStore.delete(key);
-    }
-  });
-}
-
-function buildRateLimitKey(request: NextRequest, options: RateLimitOptions) {
-  const identifier = options.identifier?.trim() || getClientIp(request);
-
-  return `${options.namespace}:${identifier}`;
-}
-
-function buildRateLimitHeaders(input: { limit: number; remaining: number; reset: number }) {
-  const retryAfterSeconds = Math.max(1, Math.ceil((input.reset - Date.now()) / 1000));
-
-  return {
-    "Retry-After": String(retryAfterSeconds),
-    "X-RateLimit-Limit": String(input.limit),
-    "X-RateLimit-Remaining": String(Math.max(0, input.remaining)),
-    "X-RateLimit-Reset": String(Math.ceil(input.reset / 1000)),
-  };
-}
-
-function getDistributedRedisClient() {
-  if (distributedRedisClient !== undefined) {
-    return distributedRedisClient;
-  }
-
-  const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
-
-  if (!url || !token) {
-    distributedRedisClient = null;
-    return distributedRedisClient;
-  }
-
-  distributedRedisClient = new Redis({
-    url,
-    token,
-  });
-
-  return distributedRedisClient;
-}
-
-function getDistributedRateLimiter(options: RateLimitOptions) {
-  if (distributedLimiterDisabled) {
-    return null;
-  }
-
-  const redis = getDistributedRedisClient();
-  if (!redis) {
-    return null;
-  }
-
-  const key = `${options.windowMs}:${options.maxHits}`;
-  const cached = distributedLimiterStore.get(key);
-  if (cached) {
-    return cached;
-  }
-
-  const limiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.fixedWindow(options.maxHits, `${options.windowMs} ms`),
-    analytics: false,
-    ephemeralCache: new Map<string, number>(),
-    prefix: "school-app:ratelimit",
-    timeout: 5_000,
-  });
-
-  distributedLimiterStore.set(key, limiter);
-  return limiter;
-}
-
-function buildRateLimitResponse(headersInput: { limit: number; remaining: number; reset: number }) {
-  const response = NextResponse.json(
-    {
-      error: {
-        message: "تم تجاوز الحد المسموح للطلبات. حاول مرة أخرى بعد قليل.",
-      },
-    },
-    { status: 429 },
-  );
-
-  const headers = buildRateLimitHeaders(headersInput);
-  Object.entries(headers).forEach(([name, value]) => {
-    response.headers.set(name, value);
-  });
-
-  return response;
-}
-
-function enforceLocalRateLimit(request: NextRequest, options: RateLimitOptions) {
-  const now = Date.now();
-  cleanupExpiredRecords(now);
-
-  const key = buildRateLimitKey(request, options);
-  const current = rateLimitStore.get(key);
-  const record =
-    current && current.resetAt > now
-      ? current
-      : {
-          count: 0,
-          resetAt: now + options.windowMs,
-        };
-
-  record.count += 1;
-  rateLimitStore.set(key, record);
-
-  if (record.count <= options.maxHits) {
-    return null;
-  }
-
-  return buildRateLimitResponse({
-    limit: options.maxHits,
-    remaining: Math.max(0, options.maxHits - record.count),
-    reset: record.resetAt,
-  });
-}
-
-export async function enforceRateLimit(request: NextRequest, options: RateLimitOptions) {
-  const distributedLimiter = getDistributedRateLimiter(options);
-  if (!distributedLimiter) {
-    return enforceLocalRateLimit(request, options);
-  }
-
-  try {
-    const key = buildRateLimitKey(request, options);
-    const result = await distributedLimiter.limit(key);
-    await result.pending.catch(() => undefined);
-
-    if (result.success) {
-      return null;
-    }
-
-    return buildRateLimitResponse({
-      limit: result.limit,
-      remaining: result.remaining,
-      reset: result.reset,
-    });
-  } catch (error) {
-    if (process.env.NODE_ENV === "production") {
-      console.error("[rate-limit] Falling back to local store after distributed limiter failure.", error);
-    }
-    distributedLimiterDisabled = true;
-    return enforceLocalRateLimit(request, options);
-  }
+  return null;
 }

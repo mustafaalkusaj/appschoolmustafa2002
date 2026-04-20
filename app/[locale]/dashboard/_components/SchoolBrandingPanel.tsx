@@ -1,13 +1,15 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Palette, Save, Pipette, Info, Check, RefreshCw } from "@/lib/icons";
+import { Palette, Save, Pipette, Info, Check, RefreshCw, Upload, X } from "@/lib/icons";
 import { BRAND_THEME_FAMILIES } from "@/lib/brand/themes";
 import { BrandingFormData } from "./types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/brand/brand-utils";
+import { supabase } from "@/lib/supabase";
 
 interface SchoolBrandingPanelProps {
   brandingForm: BrandingFormData;
@@ -33,6 +35,45 @@ export function SchoolBrandingPanel({
   onDeriveFromLogo,
 }: SchoolBrandingPanelProps) {
   const t = useTranslations("dashboard.branding");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 2 * 1024 * 1024; // 2 MB
+    if (file.size > maxSize) {
+      setUploadError("حجم الصورة كبير جداً (الحد الأقصى 2 ميغابايت).");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const fileName = `logo_${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("school-logos")
+        .upload(fileName, file, { upsert: true, contentType: file.type });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage
+        .from("school-logos")
+        .getPublicUrl(fileName);
+
+      setBrandingForm((prev) => ({ ...prev, logo_url: urlData.publicUrl }));
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "تعذر رفع الصورة.");
+    } finally {
+      setUploading(false);
+      // reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <Card>
@@ -60,15 +101,42 @@ export function SchoolBrandingPanel({
             <label className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5 block">
               {t("logoUrl")}
             </label>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              className="hidden"
+              onChange={(e) => void handleFileUpload(e)}
+            />
+
+            {/* Upload button + URL input row */}
             <div className="flex gap-2">
               <Input
                 placeholder={t("logoPlaceholder")}
                 value={brandingForm.logo_url}
-                onChange={(e) => setBrandingForm((prev) => ({ ...prev, logo_url: e.target.value }))}
-                className="flex-1"
+                onChange={(e) => { setUploadError(null); setBrandingForm((prev) => ({ ...prev, logo_url: e.target.value })); }}
+                className="flex-1 text-xs"
               />
-              <Button 
-                variant="secondary" 
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0 gap-1.5"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                title="رفع صورة من جهازك"
+              >
+                {uploading ? (
+                  <RefreshCw size={15} className="animate-spin" />
+                ) : (
+                  <Upload size={15} />
+                )}
+                <span className="text-xs hidden sm:inline">{uploading ? "جاري الرفع..." : "رفع"}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
                 className="shrink-0"
                 onClick={() => void onDeriveFromLogo()}
                 disabled={brandingDeriving || !brandingForm.logo_url}
@@ -80,7 +148,29 @@ export function SchoolBrandingPanel({
                   <Pipette size={16} />
                 )}
               </Button>
+              {brandingForm.logo_url && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="shrink-0 text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_8%,transparent)]"
+                  onClick={() => { setUploadError(null); setBrandingForm((prev) => ({ ...prev, logo_url: "" })); }}
+                  title="إزالة الشعار"
+                >
+                  <X size={15} />
+                </Button>
+              )}
             </div>
+
+            {uploadError && (
+              <p className="mt-1.5 text-xs text-[var(--danger)] font-semibold flex items-center gap-1">
+                <Info size={12} />
+                {uploadError}
+              </p>
+            )}
+
+            <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
+              يمكنك رفع صورة (PNG، JPG، WebP) حتى 2 ميغابايت، أو لصق رابط الصورة مباشرة.
+            </p>
           </div>
 
           <div className="sm:col-span-2 space-y-3">

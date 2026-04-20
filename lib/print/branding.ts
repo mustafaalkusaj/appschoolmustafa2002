@@ -196,17 +196,69 @@ export function wrapPrintDocument(input: {
             font-size:13px;
             border:1px solid rgba(16,35,58,.08);
           }
+          .print-footer{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            padding:14px 28px 16px;
+            border-top:1px solid rgba(16,35,58,.07);
+            background:#f9fbff;
+            font-size:11px;
+            color:var(--print-muted);
+          }
+          .print-footer-brand{
+            display:flex;
+            align-items:center;
+            gap:8px;
+            font-weight:700;
+            color:var(--print-primary);
+          }
           @media print{
-            @page{margin:1.1cm}
-            body{background:#fff;padding:0}
-            .print-shell{width:100%;max-width:none;border:none;border-radius:0;box-shadow:none}
-            .print-content{padding:18px 20px 24px}
-            .print-head{break-inside:avoid}
-            .print-panel{break-inside:avoid}
-            table{table-layout:auto}
+            @page{margin:1.5cm 1.2cm;size:A4}
+            body{background:#fff!important;padding:0!important}
+            .print-shell{width:100%!important;max-width:none!important;border:none!important;border-radius:0!important;box-shadow:none!important}
+            .print-content{padding:14px 18px 20px!important}
+            .print-head{
+              break-inside:avoid;
+              page-break-inside:avoid;
+              background:linear-gradient(135deg,var(--print-surface),#ffffff)!important;
+              -webkit-print-color-adjust:exact!important;
+              print-color-adjust:exact!important;
+              padding:16px 18px 14px!important;
+              border-bottom:2px solid var(--print-primary)!important;
+            }
+            .print-logo,.print-logo-fallback{
+              width:54px!important;
+              height:54px!important;
+              border-radius:14px!important;
+              -webkit-print-color-adjust:exact!important;
+              print-color-adjust:exact!important;
+            }
+            .print-head h1{font-size:20px!important}
+            .print-head p{font-size:12px!important}
+            .print-meta strong{font-size:15px!important}
+            .print-meta span{font-size:11px!important}
+            .print-panel{
+              break-inside:avoid;
+              page-break-inside:avoid;
+              -webkit-print-color-adjust:exact!important;
+              print-color-adjust:exact!important;
+              border:1px solid rgba(16,35,58,.12)!important;
+            }
+            table{table-layout:auto;page-break-inside:auto}
             thead{display:table-header-group}
             tr{break-inside:avoid;page-break-inside:avoid}
-            th,td{padding:10px 12px;font-size:12px}
+            th{
+              -webkit-print-color-adjust:exact!important;
+              print-color-adjust:exact!important;
+              background:linear-gradient(135deg,var(--print-primary-strong),var(--print-primary))!important;
+              color:#fff!important;
+              padding:9px 11px!important;
+              font-size:11px!important;
+            }
+            td{padding:9px 11px!important;font-size:11px!important}
+            tr:nth-child(even) td{background:#f7fbff!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
           }
           ${input.extraStyles || ""}
         </style>
@@ -237,6 +289,17 @@ export function wrapPrintDocument(input: {
           <main class="print-content">
             ${input.bodyHtml}
           </main>
+          <footer class="print-footer">
+            <div class="print-footer-brand">
+              ${logoUrl ? `<img src="${logoUrl}" alt="${schoolName}" style="width:22px;height:22px;border-radius:6px;object-fit:cover" onerror="this.style.display='none'" />` : ""}
+              <span>${schoolName}</span>
+            </div>
+            <span>${new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ar-IQ", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            }).format(new Date())}</span>
+          </footer>
         </div>
         ${
           input.autoPrint === false

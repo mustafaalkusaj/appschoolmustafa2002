@@ -170,10 +170,10 @@ export function AppSidebar({
               src={schoolLogoUrl}
               alt={schoolName}
               label={schoolName}
-              size={42}
-              className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-strong)] shadow-[var(--shadow-xs)]"
-              imageClassName="object-contain p-1.5 bg-[var(--surface-strong)]"
-              fallbackClassName="text-[0.95rem] font-black text-white"
+              size={48}
+              className="rounded-[18px]"
+              imageClassName=""
+              fallbackClassName="text-[1rem] font-black text-white"
             />
             <div className="flex min-w-0 flex-col leading-tight">
               <span className="truncate text-sm font-black text-[var(--text-primary)] tracking-tight">
@@ -299,9 +299,9 @@ export function AppSidebar({
                   src={schoolLogoUrl}
                   alt={schoolName}
                   label={schoolName}
-                  size={38}
-                  className="rounded-[14px] border border-[var(--border)] bg-[var(--surface-strong)]"
-                  imageClassName="object-contain p-1"
+                  size={40}
+                  className="rounded-[15px]"
+                  imageClassName=""
                 />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="text-xs font-semibold uppercase text-[var(--text-muted)] tracking-wider">

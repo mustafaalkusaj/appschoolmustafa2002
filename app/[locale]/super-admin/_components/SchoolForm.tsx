@@ -153,9 +153,58 @@ export function SchoolForm({ isOpen, editSchool, schemaCompat, onClose, onSave }
     initializeForm(null);
   }
 
+  // Simplified create form — group name only
+  if (isOpen && !editSchool) {
+    return (
+      <ModalFrame
+        title="إضافة مجموعة / مدرسة"
+        subtitle="أدخل اسم المجموعة أو المدرسة — الفروع هي الوحدات التشغيلية وتُضاف لاحقاً"
+        onClose={onClose}
+      >
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          <div>
+            <label className="mb-2 block text-sm font-black text-[var(--text-primary)]">
+              اسم المجموعة / المدرسة
+            </label>
+            <input
+              className="ui-input"
+              required
+              placeholder="مثال: مجموعة النور التعليمية"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+            <p className="mt-2 text-xs font-bold text-[var(--text-muted)]">
+              المدرسة تُدار عبر فروعها — أضف الفروع بعد إنشاء المجموعة
+            </p>
+          </div>
+
+          {notice ? (
+            <div
+              className={cx(
+                "rounded-[18px] border px-4 py-3 text-sm font-bold",
+                notice.includes("تعذر") ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              )}
+            >
+              {notice}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <button type="button" className="ui-button ui-button--secondary" onClick={onClose}>
+              {commonT("cancel")}
+            </button>
+            <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
+              {saving ? t("saving") : t("add")}
+            </button>
+          </div>
+        </form>
+      </ModalFrame>
+    );
+  }
+
   return (
     <ModalFrame
-      title={editSchool ? t("titleEdit") : t("titleCreate")}
+      title={t("titleEdit")}
       subtitle={t("subtitle")}
       onClose={onClose}
     >

@@ -160,6 +160,21 @@ async function getGuardRedirect(request: NextRequest) {
     }
   }
 
+  // Restricted user enforcement: lock to their allowed_module
+  const sessionWithScope = session as typeof session & {
+    scopeLevel?: string | null;
+    allowedModule?: string | null;
+  };
+  if (sessionWithScope.scopeLevel === 'restricted' && sessionWithScope.allowedModule) {
+    const allowedPath = `/${sessionWithScope.allowedModule}`;
+    const normalizedCurrent = normalizePath(request.nextUrl.pathname);
+    const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+
+    if (normalizedCurrent !== allowedPath) {
+      return new URL(localizePath(allowedPath, locale), request.url);
+    }
+  }
+
   return null;
 }
 
@@ -300,7 +315,15 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (rbacToken) {
       const session = await verifyRBACSession(rbacToken);
       if (session) {
-        const layoutMode = (session as { scope?: string }).scope === "focused" ? "focused" : "full";
+        const sessionWithScope = session as typeof session & { scopeLevel?: string | null };
+        let layoutMode: string;
+        if (sessionWithScope.scopeLevel === 'restricted') {
+          layoutMode = "restricted";
+        } else if ((session as { scope?: string }).scope === "focused") {
+          layoutMode = "focused";
+        } else {
+          layoutMode = "full";
+        }
         response.cookies.set("lm", layoutMode, { httpOnly: false, sameSite: "lax", path: "/" });
       }
     }

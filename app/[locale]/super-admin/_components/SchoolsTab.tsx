@@ -16,6 +16,7 @@ interface SchoolsTabProps {
   onToggleSchool: (id: string, current: boolean) => void;
   onExtendSubscription: (schoolId: string) => void;
   onDeleteSchool: (school: SchoolRecord) => void;
+  onPermanentlyDeleteSchool?: (school: SchoolRecord) => void;
   onRefresh: () => void;
 }
 
@@ -28,6 +29,7 @@ export function SchoolsTab({
   onToggleSchool,
   onExtendSubscription,
   onDeleteSchool,
+  onPermanentlyDeleteSchool,
   onRefresh,
 }: SchoolsTabProps) {
   return (
@@ -115,26 +117,42 @@ export function SchoolsTab({
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={cx("ui-button inline-flex items-center gap-2", school.is_active ? "ui-button--danger" : "ui-button--secondary")}
-                    onClick={() => onToggleSchool(school.id, school.is_active)}
-                  >
-                    {school.is_active ? <Ban size={16} /> : <BadgeCheck size={16} />}
-                    {school.is_active ? "إيقاف المدرسة" : "تفعيل المدرسة"}
-                  </button>
-                  <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onExtendSubscription(school.id)}>
-                    <RefreshCw size={16} />
-                    تجديد الاشتراك
-                  </button>
-                  <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onOpenEditSchool(school)}>
-                    <PencilLine size={16} />
-                    تعديل
-                  </button>
-                  <button type="button" className="ui-button ui-button--danger inline-flex items-center gap-2" onClick={() => onDeleteSchool(school)}>
-                    <Trash2 size={16} />
-                    أرشفة
-                  </button>
+                  {!school.deleted_at ? (
+                    <>
+                      <button
+                        type="button"
+                        className={cx("ui-button inline-flex items-center gap-2", school.is_active ? "ui-button--danger" : "ui-button--secondary")}
+                        onClick={() => onToggleSchool(school.id, school.is_active)}
+                      >
+                        {school.is_active ? <Ban size={16} /> : <BadgeCheck size={16} />}
+                        {school.is_active ? "إيقاف المدرسة" : "تفعيل المدرسة"}
+                      </button>
+                      <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onExtendSubscription(school.id)}>
+                        <RefreshCw size={16} />
+                        تجديد الاشتراك
+                      </button>
+                      <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onOpenEditSchool(school)}>
+                        <PencilLine size={16} />
+                        تعديل
+                      </button>
+                      <button type="button" className="ui-button ui-button--danger inline-flex items-center gap-2" onClick={() => onDeleteSchool(school)}>
+                        <Trash2 size={16} />
+                        أرشفة
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs font-bold text-[var(--danger)]">مؤرشفة في {formatDate(school.deleted_at)}</span>
+                      <button
+                        type="button"
+                        className="ui-button ui-button--danger inline-flex items-center gap-2"
+                        onClick={() => onPermanentlyDeleteSchool?.(school)}
+                      >
+                        <Trash2 size={16} />
+                        حذف نهائي
+                      </button>
+                    </>
+                  )}
                 </div>
               </article>
             );

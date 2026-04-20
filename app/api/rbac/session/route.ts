@@ -8,6 +8,7 @@ import {
   getRBACCookieOptions,
   hasRBACSecret,
   signRBACSession,
+  type RBACSessionPayload,
 } from "@/lib/rbac-session";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createRouteSupabaseClient, getRouteAuthenticatedUser } from "@/lib/supabase-server";
@@ -104,6 +105,19 @@ export async function POST(req: NextRequest) {
     schoolActive = false;
   }
 
+  const profileExtended = profile as typeof profile & {
+    scope_level?: string | null;
+    allowed_module?: string | null;
+    group_id?: string | null;
+  };
+
+  const rawScopeLevel = profileExtended.scope_level ?? null;
+  const scopeLevel: RBACSessionPayload['scopeLevel'] =
+    rawScopeLevel === 'super_admin' || rawScopeLevel === 'group_admin' ||
+    rawScopeLevel === 'branch_user' || rawScopeLevel === 'restricted'
+      ? rawScopeLevel
+      : null;
+
   const payload = buildRBACSessionPayload({
     role,
     permissions,
@@ -112,6 +126,9 @@ export async function POST(req: NextRequest) {
     schoolActive,
     subscriptionStatus,
     subscriptionEnd,
+    scopeLevel,
+    allowedModule: profileExtended.allowed_module ?? null,
+    groupId: profileExtended.group_id ?? null,
   });
 
   const signed = await signRBACSession(payload);

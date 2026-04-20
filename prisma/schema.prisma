@@ -1,0 +1,399 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
+
+model School {
+  id        String   @id @default(cuid())
+  nameAr    String
+  nameEn    String
+  currency  String   @default("IQD")
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  branches        Branch[]
+  users           User[]
+  roles           Role[]
+  permissions     Permission[]
+  students        Student[]
+  accounts        Account[]
+  transactions    Transaction[]
+  salaries        Salary[]
+  employees       Employee[]
+  classes         Class[]
+  academicYears   AcademicYear[]
+  attendances     Attendance[]
+  auditLogs       AuditLog[]
+
+  @@map("schools")
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  schoolId   String
+  nameAr     String
+  nameEn     String
+  branchCode String   @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  school       School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  users        User[]
+  students     Student[]
+  classes      Class[]
+  accounts     Account[]
+  transactions Transaction[]
+  salaries     Salary[]
+  employees    Employee[]
+  attendances  Attendance[]
+  auditLogs    AuditLog[]
+
+  @@index([schoolId])
+  @@map("branches")
+}
+
+// ============================================================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================================================
+
+model User {
+  id                   String   @id @default(cuid())
+  schoolId             String
+  branchId             String?
+  email                String   @unique
+  passwordHash         String
+  fullNameAr           String
+  fullNameEn           String
+  roleId               String
+  isSinglePageUser     Boolean  @default(false)
+  isActive             Boolean  @default(true)
+  lastLoginAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  school               School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch               Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  role                 Role              @relation(fields: [roleId], references: [id])
+  pageAccess           UserPageAccess[]
+  createdTransactions  Transaction[]     @relation("CreatedBy")
+  auditLogs            AuditLog[]
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([roleId])
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id              String   @id @default(cuid())
+  schoolId        String
+  code            String   // INVESTOR, BRANCH_MANAGER, ACCOUNTANT, etc
+  nameAr          String
+  nameEn          String
+  hierarchyLevel  Int      // 1 = highest, 10 = lowest
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  school          School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  users           User[]
+  permissions     RolePermission[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  schoolId    String
+  code        String   // students.view, accounts.create, etc
+  resource    String   // students, accounts, attendance, etc
+  action      String   // view, create, update, delete
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  school      School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  roles       RolePermission[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserPageAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  pageCode  String   // students, accounts, attendance, salaries
+  canView   Boolean  @default(false)
+  canCreate Boolean  @default(false)
+  canUpdate Boolean  @default(false)
+  canDelete Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pageCode])
+  @@index([userId])
+  @@map("user_page_access")
+}
+
+// ============================================================================
+// ACADEMIC DATA
+// ============================================================================
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  schoolId  String
+  year      Int
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Relations
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes   Class[]
+
+  @@unique([schoolId, year])
+  @@index([schoolId])
+  @@map("academic_years")
+}
+
+model Class {
+  id              String   @id @default(cuid())
+  branchId        String
+  academicYearId  String
+  gradeLevel      Int
+  nameAr          String
+  nameEn          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  academicYear    AcademicYear  @relation(fields: [academicYearId], references: [id])
+  students        Student[]
+
+  @@index([branchId])
+  @@index([academicYearId])
+  @@map("classes")
+}
+
+model Student {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  branchId           String
+  classId            String?
+  registrationNumber String   @unique
+  fullNameAr         String
+  fullNameEn         String
+  dateOfBirth        DateTime?
+  status             String   @default("active") // active, inactive, transferred, graduated
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  class        Class?       @relation(fields: [classId], references: [id])
+  attendances  Attendance[]
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([classId])
+  @@map("students")
+}
+
+// ============================================================================
+// ATTENDANCE
+// ============================================================================
+
+model Attendance {
+  id               String   @id @default(cuid())
+  branchId         String
+  studentId        String
+  attendanceDate   DateTime
+  status           String   // present, absent, excused, late
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, attendanceDate])
+  @@index([branchId])
+  @@index([studentId])
+  @@map("attendance")
+}
+
+// ============================================================================
+// FINANCIAL MANAGEMENT
+// ============================================================================
+
+model Account {
+  id             String   @id @default(cuid())
+  branchId       String
+  schoolId       String
+  accountCode    String
+  accountNameAr  String
+  accountNameEn  String
+  accountType    String   // student, expense, income, salary
+  balance        Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  school         School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+
+  @@unique([branchId, accountCode])
+  @@index([branchId])
+  @@index([schoolId])
+  @@map("accounts")
+}
+
+model Transaction {
+  id               String   @id @default(cuid())
+  accountId        String
+  branchId         String
+  transactionDate  DateTime
+  amount           Decimal  @db.Decimal(15, 2)
+  transactionType  String   // debit, credit
+  description      String?
+  referenceNumber  String?
+  createdBy        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  account          Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdByUser    User     @relation("CreatedBy", fields: [createdBy], references: [id])
+
+  @@index([accountId])
+  @@index([branchId])
+  @@index([createdBy])
+  @@map("transactions")
+}
+
+// ============================================================================
+// HR & PAYROLL
+// ============================================================================
+
+model Employee {
+  id           String   @id @default(cuid())
+  branchId     String
+  employeeCode String
+  fullNameAr   String
+  fullNameEn   String
+  position     String   // teacher, admin_staff, support
+  baseSalary   Decimal  @db.Decimal(15, 2)
+  hireDate     DateTime
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  salaries     Salary[]
+
+  @@unique([branchId, employeeCode])
+  @@index([branchId])
+  @@map("employees")
+}
+
+model Salary {
+  id            String   @id @default(cuid())
+  branchId      String
+  employeeId    String
+  month         Int
+  year          Int
+  baseSalary    Decimal  @db.Decimal(15, 2)
+  deductions    Decimal  @default(0) @db.Decimal(15, 2)
+  bonus         Decimal  @default(0) @db.Decimal(15, 2)
+  netSalary     Decimal  @db.Decimal(15, 2)
+  status        String   @default("pending") // pending, approved, paid
+  paidDate      DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  branch        Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month, year])
+  @@index([branchId])
+  @@index([employeeId])
+  @@map("salaries")
+}
+
+// ============================================================================
+// AUDIT LOGGING
+// ============================================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  schoolId    String
+  branchId    String?
+  userId      String
+  action      String   // CREATE, UPDATE, DELETE, LOGIN
+  resource    String   // students, accounts, etc
+  resourceId  String
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

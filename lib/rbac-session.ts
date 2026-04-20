@@ -18,6 +18,9 @@ export interface RBACSessionPayload {
   schoolActive: boolean;
   subscriptionStatus: string | null;
   subscriptionEnd: string | null;
+  scopeLevel: 'super_admin' | 'group_admin' | 'branch_user' | 'restricted' | null;
+  allowedModule: string | null;
+  groupId: string | null;
   iat: number;
   exp: number;
   version: 1;

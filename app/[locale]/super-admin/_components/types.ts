@@ -31,6 +31,8 @@ export interface SchoolRecord {
   secondary_color: string | null;
   plan: SchoolPlan;
   is_active: boolean;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
   created_at?: string | null;
 }
 
