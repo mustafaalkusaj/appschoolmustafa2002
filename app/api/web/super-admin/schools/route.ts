@@ -4,6 +4,8 @@ import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 import { detectAdminInfrastructure, isInfrastructureCompatError } from "@/lib/admin-infrastructure";
 import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
 import { resolveSuperAdminActorContext } from "@/lib/super-admin-server";
+import { rateLimitMiddleware, RATE_LIMIT_CONFIG } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -62,72 +64,144 @@ function normalizeLogoUrl(value: unknown) {
 }
 
 export async function GET(req: NextRequest) {
-  const context = await resolveSuperAdminActorContext(req.headers.get("authorization"));
-  if (!context.ok) {
-    return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(7);
+
+  // Rate limiting check
+  const rateLimitResult = await rateLimitMiddleware(req, RATE_LIMIT_CONFIG.SUPER_ADMIN);
+  if (!rateLimitResult.ok) {
+    logger.warn("Rate limit exceeded for GET /schools", {
+      ip: rateLimitResult.clientId,
+      requestId,
+    });
+    return jsonError(
+      rateLimitResult.message || "تم تجاوز حد الطلبات المسموح",
+      rateLimitResult.status || 429
+    );
   }
 
-  const { dataSupabase } = context.value;
-  const schemaCompat = await detectAppSchemaCompatWithClient(dataSupabase);
-  const schoolSelect = buildSchoolSelect(schemaCompat);
+  // Log API request
+  logger.logApiRequest("/api/web/super-admin/schools", "GET", undefined, rateLimitResult.clientId);
 
-  const [{ data: schoolsData, error: schoolsError }, { data: subscriptionsData, error: subscriptionsError }] =
-    await Promise.all([
-      dataSupabase.from("schools").select(schoolSelect).order("created_at", { ascending: false }),
-      dataSupabase
-        .from("subscriptions")
-        .select("id, school_id, plan, status, start_date, end_date, created_at")
-        .order("created_at", { ascending: false }),
-    ]);
-
-  if (schoolsError) {
-    return jsonError(schoolsError.message || "تعذر تحميل المدارس.", 500);
-  }
-
-  if (subscriptionsError) {
-    return jsonError(subscriptionsError.message || "تعذر تحميل الاشتراكات.", 500);
-  }
-
-  const schools = ((schoolsData ?? []) as unknown as SchoolRecord[]).map((school) => ({
-    ...school,
-    logo_url: normalizeLogoUrl(school.logo_url),
-  }));
-
-  const latestSubscriptionsBySchool = new Map<string, SubscriptionRecord>();
-  for (const subscription of (subscriptionsData ?? []) as SubscriptionRecord[]) {
-    if (!latestSubscriptionsBySchool.has(subscription.school_id)) {
-      latestSubscriptionsBySchool.set(subscription.school_id, subscription);
+  try {
+    const context = await resolveSuperAdminActorContext(req.headers.get("authorization"));
+    if (!context.ok) {
+      logger.warn("Authentication failed for GET /schools", {
+        requestId,
+        reason: "message" in context ? context.message : "Invalid credentials",
+      });
+      return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
     }
-  }
 
-  return NextResponse.json({
-    ok: true,
-    schools,
-    subscriptions: Array.from(latestSubscriptionsBySchool.values()),
-    schemaCompat,
-  });
+    const { dataSupabase } = context.value;
+    const schemaCompat = await detectAppSchemaCompatWithClient(dataSupabase);
+    const schoolSelect = buildSchoolSelect(schemaCompat);
+
+    const [{ data: schoolsData, error: schoolsError }, { data: subscriptionsData, error: subscriptionsError }] =
+      await Promise.all([
+        dataSupabase.from("schools").select(schoolSelect).order("created_at", { ascending: false }),
+        dataSupabase
+          .from("subscriptions")
+          .select("id, school_id, plan, status, start_date, end_date, created_at")
+          .order("created_at", { ascending: false }),
+      ]);
+
+    if (schoolsError) {
+      logger.error("Failed to fetch schools", new Error(schoolsError.message), { requestId });
+      return jsonError(schoolsError.message || "تعذر تحميل المدارس.", 500);
+    }
+
+    if (subscriptionsError) {
+      logger.error("Failed to fetch subscriptions", new Error(subscriptionsError.message), { requestId });
+      return jsonError(subscriptionsError.message || "تعذر تحميل الاشتراكات.", 500);
+    }
+
+    const schools = ((schoolsData ?? []) as unknown as SchoolRecord[]).map((school) => ({
+      ...school,
+      logo_url: normalizeLogoUrl(school.logo_url),
+    }));
+
+    const latestSubscriptionsBySchool = new Map<string, SubscriptionRecord>();
+    for (const subscription of (subscriptionsData ?? []) as SubscriptionRecord[]) {
+      if (!latestSubscriptionsBySchool.has(subscription.school_id)) {
+        latestSubscriptionsBySchool.set(subscription.school_id, subscription);
+      }
+    }
+
+    logger.logApiResponse("/api/web/super-admin/schools", 200, Date.now() - startTime, context.value.actorUserId);
+
+    return NextResponse.json({
+      ok: true,
+      schools,
+      subscriptions: Array.from(latestSubscriptionsBySchool.values()),
+      schemaCompat,
+    });
+  } catch (error) {
+    logger.error(
+      "Unexpected error in GET /schools",
+      error instanceof Error ? error : new Error(String(error)),
+      { requestId }
+    );
+    return jsonError("حدث خطأ غير متوقع. يرجى المحاولة لاحقاً.", 500);
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const context = await resolveSuperAdminActorContext(req.headers.get("authorization"));
-  if (!context.ok) {
-    return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(7);
+
+  // Rate limiting check
+  const rateLimitResult = await rateLimitMiddleware(req, RATE_LIMIT_CONFIG.SUPER_ADMIN);
+  if (!rateLimitResult.ok) {
+    logger.warn("Rate limit exceeded for POST /schools", {
+      ip: rateLimitResult.clientId,
+      requestId,
+    });
+    return jsonError(
+      rateLimitResult.message || "تم تجاوز حد الطلبات المسموح",
+      rateLimitResult.status || 429
+    );
   }
 
-  const body = (await req.json().catch(() => null)) as CreateSchoolBody | null;
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const plan = body?.plan === "premium" || body?.plan === "enterprise" ? body.plan : "basic";
+  // Log API request
+  logger.logApiRequest("/api/web/super-admin/schools", "POST", undefined, rateLimitResult.clientId);
 
-  if (!name) {
-    return jsonError("اسم المدرسة مطلوب.", 400);
-  }
+  try {
+    const context = await resolveSuperAdminActorContext(req.headers.get("authorization"));
+    if (!context.ok) {
+      logger.warn("Authentication failed for POST /schools", {
+        requestId,
+        reason: "message" in context ? context.message : "Invalid credentials",
+      });
+      return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
+    }
 
-  const { dataSupabase } = context.value;
+    const body = (await req.json().catch(() => null)) as CreateSchoolBody | null;
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const plan = body?.plan === "premium" || body?.plan === "enterprise" ? body.plan : "basic";
+
+    if (!name) {
+      logger.warn("Invalid request: school name is required", { requestId });
+      return jsonError("اسم المدرسة مطلوب.", 400);
+    }
+
+    const { dataSupabase } = context.value;
   const [infrastructure, schemaCompat] = await Promise.all([
     detectAdminInfrastructure(dataSupabase),
     detectAppSchemaCompatWithClient(dataSupabase),
   ]);
   const schoolSelect = buildSchoolSelect(schemaCompat);
+
+  // Create a school_group entry first (group = top-level entity, name only)
+  let groupId: string | null = null;
+  const { data: groupData, error: groupError } = await dataSupabase
+    .from("school_groups")
+    .insert({ name })
+    .select("id")
+    .single();
+  if (!groupError && groupData) {
+    groupId = (groupData as { id: string }).id;
+  }
 
   const schoolPayload = {
     name,
@@ -146,6 +220,7 @@ export async function POST(req: NextRequest) {
       : {}),
     plan,
     is_active: true,
+    ...(groupId ? { group_id: groupId } : {}),
   };
 
   const { data: school, error: schoolError } = await dataSupabase
@@ -155,6 +230,9 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (schoolError || !school) {
+    if (groupId) {
+      await dataSupabase.from("school_groups").delete().eq("id", groupId);
+    }
     return jsonError(schoolError?.message || "تعذر إنشاء المدرسة.", 500);
   }
   const createdSchool = school as unknown as SchoolRecord;
@@ -178,34 +256,52 @@ export async function POST(req: NextRequest) {
     return jsonError(subscriptionError?.message || "تعذر إنشاء اشتراك المدرسة.", 500);
   }
 
-  let branchSkipped = !infrastructure.branches;
-  if (!branchSkipped) {
-    const branchPayload = {
-      school_id: createdSchool.id,
-      name: "الفرع الرئيسي",
-      ...(schemaCompat.branchesIsMain ? { is_main: true } : {}),
-    };
+    let branchSkipped = !infrastructure.branches;
+    if (!branchSkipped) {
+      const branchPayload = {
+        school_id: createdSchool.id,
+        name: "الفرع الرئيسي",
+        ...(schemaCompat.branchesIsMain ? { is_main: true } : {}),
+      };
 
-    const { error: branchError } = await dataSupabase.from("branches").insert(branchPayload);
-    if (branchError) {
-      if (isInfrastructureCompatError(branchError)) {
-        branchSkipped = true;
-      } else {
-        await dataSupabase.from("subscriptions").delete().eq("id", subscription.id);
-        await dataSupabase.from("schools").delete().eq("id", createdSchool.id);
-        return jsonError(branchError.message || "تعذر إنشاء الفرع الرئيسي.", 500);
+      const { error: branchError } = await dataSupabase.from("branches").insert(branchPayload);
+      if (branchError) {
+        if (isInfrastructureCompatError(branchError)) {
+          branchSkipped = true;
+        } else {
+          logger.error("Failed to create main branch", new Error(branchError.message), { requestId, schoolId: createdSchool.id });
+          await dataSupabase.from("subscriptions").delete().eq("id", subscription.id);
+          await dataSupabase.from("schools").delete().eq("id", createdSchool.id);
+          return jsonError(branchError.message || "تعذر إنشاء الفرع الرئيسي.", 500);
+        }
       }
     }
-  }
 
-  return NextResponse.json(
-    {
-      ok: true,
-      school: createdSchool,
-      subscription,
-      schemaCompat,
-      branchSkipped,
-    },
-    { status: 201 },
-  );
+    // Log school creation
+    logger.logDataModification("create", "schools", createdSchool.id, context.value.actorUserId, {
+      name,
+      plan,
+      city: body?.city,
+    });
+
+    logger.logApiResponse("/api/web/super-admin/schools", 201, Date.now() - startTime, context.value.actorUserId);
+
+    return NextResponse.json(
+      {
+        ok: true,
+        school: createdSchool,
+        subscription,
+        schemaCompat,
+        branchSkipped,
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    logger.error(
+      "Unexpected error in POST /schools",
+      error instanceof Error ? error : new Error(String(error)),
+      { requestId }
+    );
+    return jsonError("حدث خطأ غير متوقع. يرجى المحاولة لاحقاً.", 500);
+  }
 }
