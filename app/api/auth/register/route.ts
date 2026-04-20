@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Success response
-    log.logResponse(201, result.user.id);
+    log.logResponse(201);
     return NextResponse.json(
       {
         ok: true,
