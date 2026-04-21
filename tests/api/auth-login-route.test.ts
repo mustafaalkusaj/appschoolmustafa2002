@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockState = vi.hoisted(() => ({
   createRouteSupabaseClient: vi.fn(),
+  resolveWebUserProfile: vi.fn(),
   enforceRateLimit: vi.fn(),
   getRateLimitClientIp: vi.fn(() => "127.0.0.1"),
   hasRBACSecret: vi.fn(() => true),
@@ -48,6 +49,10 @@ vi.mock("@/lib/supabase-server", () => ({
   createRouteSupabaseClient: mockState.createRouteSupabaseClient,
 }));
 
+vi.mock("@/lib/authorization/snapshot", () => ({
+  resolveWebUserProfile: mockState.resolveWebUserProfile,
+}));
+
 vi.mock("@/lib/route-utils", async () => {
   const actual = await vi.importActual<typeof import("@/lib/route-utils")>("@/lib/route-utils");
   return {
@@ -75,28 +80,13 @@ function createQueryBuilder(result: QueryResult) {
 
 function createSupabaseClientMock(input: {
   signInResult: QueryResult;
-  profileResult?: QueryResult;
-  schoolResult?: QueryResult;
-  subscriptionResult?: QueryResult;
 }) {
-  const builders = {
-    user_profiles: createQueryBuilder(input.profileResult ?? { data: null, error: null }),
-    schools: createQueryBuilder(input.schoolResult ?? { data: null, error: null }),
-    subscriptions: createQueryBuilder(input.subscriptionResult ?? { data: null, error: null }),
-  };
-
   return {
     auth: {
       signInWithPassword: vi.fn(async () => input.signInResult),
       signOut: vi.fn(async () => ({ error: null })),
     },
-    from: vi.fn((table: keyof typeof builders) => {
-      const builder = builders[table];
-      if (!builder) {
-        throw new Error(`Unexpected table ${table}`);
-      }
-      return builder;
-    }),
+    from: vi.fn(() => createQueryBuilder({ data: null, error: null })),
   };
 }
 
@@ -122,6 +112,7 @@ describe("POST /api/auth/login", () => {
     mockState.getRateLimitClientIp.mockReturnValue("127.0.0.1");
     mockState.hasRBACSecret.mockReturnValue(true);
     mockState.signRBACSession.mockResolvedValue("signed-cookie");
+    mockState.resolveWebUserProfile.mockResolvedValue(null);
   });
 
   it("rejects invalid payloads before hitting Supabase", async () => {
@@ -176,19 +167,49 @@ describe("POST /api/auth/login", () => {
         },
         error: null,
       },
-      profileResult: {
-        data: {
-          id: "auth-user-1",
-          full_name: "Inactive Admin",
-          email: "inactive@example.com",
-          role: "admin",
-          is_active: false,
-          school_id: "11111111-1111-4111-8111-111111111111",
-          custom_permissions: [],
-          permissions: [],
-          phone: null,
-        },
-        error: null,
+    });
+    mockState.resolveWebUserProfile.mockResolvedValue({
+      profile: {
+        id: "auth-user-1",
+        full_name: "Inactive Admin",
+        email: "inactive@example.com",
+        role: "admin",
+        is_active: false,
+        school_id: "11111111-1111-4111-8111-111111111111",
+        custom_permissions: [],
+        permissions: [],
+        phone: null,
+        school: null,
+        subscription: null,
+        branch_id: null,
+        allowed_branch_ids: [],
+        allowed_pages: ["dashboard"],
+        is_single_page_user: false,
+        default_path: "/dashboard",
+        scope_level: "group_admin",
+        permissions_version: 1,
+      },
+      snapshot: {
+        userId: "auth-user-1",
+        role: "admin",
+        roleCodes: ["admin"],
+        permissions: [],
+        schoolId: "11111111-1111-4111-8111-111111111111",
+        branchId: null,
+        allowedBranchIds: [],
+        scopeLevel: "group_admin",
+        allowedPages: ["dashboard"],
+        allowedModule: "dashboard",
+        allowedModules: ["dashboard"],
+        isSinglePageUser: false,
+        defaultPath: "/dashboard",
+        userActive: false,
+        hierarchyLevel: null,
+        permissionsVersion: 1,
+        groupId: null,
+        schoolActive: true,
+        subscriptionStatus: null,
+        subscriptionEnd: null,
       },
     });
     mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
@@ -223,36 +244,58 @@ describe("POST /api/auth/login", () => {
         },
         error: null,
       },
-      profileResult: {
-        data: {
-          id: "auth-user-1",
-          full_name: "Test Admin",
-          email: "user@example.com",
-          role: "admin",
-          is_active: true,
-          school_id: schoolId,
-          custom_permissions: ["view_students"],
-          permissions: [],
-          phone: "123456",
-        },
-        error: null,
-      },
-      schoolResult: {
-        data: {
+    });
+    mockState.resolveWebUserProfile.mockResolvedValue({
+      profile: {
+        id: "auth-user-1",
+        full_name: "Test Admin",
+        email: "user@example.com",
+        role: "admin",
+        is_active: true,
+        school_id: schoolId,
+        custom_permissions: ["view_students"],
+        permissions: ["view_students"],
+        phone: "123456",
+        school: {
           id: schoolId,
           name: "Alpha School",
           is_active: true,
         },
-        error: null,
-      },
-      subscriptionResult: {
-        data: {
+        subscription: {
           id: "sub-1",
           school_id: schoolId,
           status: "active",
           end_date: "2026-12-31",
         },
-        error: null,
+        branch_id: null,
+        allowed_branch_ids: [],
+        allowed_pages: ["dashboard"],
+        is_single_page_user: false,
+        default_path: "/dashboard",
+        scope_level: "group_admin",
+        permissions_version: 1,
+      },
+      snapshot: {
+        userId: "auth-user-1",
+        role: "admin",
+        roleCodes: ["admin"],
+        permissions: ["view_students"],
+        schoolId,
+        branchId: null,
+        allowedBranchIds: [],
+        scopeLevel: "group_admin",
+        allowedPages: ["dashboard"],
+        allowedModule: "dashboard",
+        allowedModules: ["dashboard"],
+        isSinglePageUser: false,
+        defaultPath: "/dashboard",
+        userActive: true,
+        hierarchyLevel: null,
+        permissionsVersion: 1,
+        groupId: null,
+        schoolActive: true,
+        subscriptionStatus: "active",
+        subscriptionEnd: "2026-12-31",
       },
     });
     mockState.createRouteSupabaseClient.mockResolvedValue(supabase);

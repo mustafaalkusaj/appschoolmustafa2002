@@ -24,6 +24,13 @@ import {
   mixColors,
   shiftColor,
 } from "@/lib/brand/palette";
+import {
+  BRAND_THEME_FAMILIES,
+  getBrandThemePreset,
+  type BrandThemeFamilyId,
+  type BrandThemePreset,
+  type BrandThemePresetId,
+} from "@/lib/brand/themes";
 import { DEFAULT_SCHOOL_BRANDING } from "../_components/types";
 import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
@@ -55,6 +62,8 @@ type BranchFormData = {
   address: string;
   phone: string;
   is_active: boolean;
+  family_id: BrandThemeFamilyId | "";
+  theme_preset_id: BrandThemePresetId | "";
   primary_color: string;
   secondary_color: string;
   sidebar_color: string;
@@ -69,6 +78,8 @@ function createInitialFormState(): BranchFormData {
     address: "",
     phone: "",
     is_active: true,
+    family_id: "",
+    theme_preset_id: "",
     primary_color: DEFAULT_SCHOOL_BRANDING.primary_color,
     secondary_color: DEFAULT_SCHOOL_BRANDING.secondary_color,
     sidebar_color: DEFAULT_SCHOOL_BRANDING.sidebar_color,
@@ -89,6 +100,52 @@ function buildSuggestedBranchBranding(primaryColor: string, secondaryColor: stri
     text_color: shiftColor(primary, -0.64),
   };
 }
+
+function buildBrandingFromPreset(preset: BrandThemePreset) {
+  return {
+    family_id: preset.familyId,
+    theme_preset_id: preset.id,
+    primary_color: preset.primaryColor,
+    secondary_color: preset.secondaryColor,
+    sidebar_color: preset.sidebarColor,
+    accent_color: preset.accentColor,
+    text_color: preset.textColor,
+  };
+}
+
+function findMatchingBranchPreset(branch: Pick<
+  BranchRecord,
+  "primary_color" | "secondary_color" | "sidebar_color" | "accent_color" | "text_color"
+>) {
+  const primary = branch.primary_color?.toLowerCase() ?? "";
+  const secondary = branch.secondary_color?.toLowerCase() ?? "";
+  const sidebar = branch.sidebar_color?.toLowerCase() ?? "";
+  const accent = branch.accent_color?.toLowerCase() ?? "";
+  const text = branch.text_color?.toLowerCase() ?? "";
+
+  for (const family of BRAND_THEME_FAMILIES) {
+    for (const preset of family.presets) {
+      if (
+        preset.primaryColor.toLowerCase() === primary &&
+        preset.secondaryColor.toLowerCase() === secondary &&
+        preset.sidebarColor.toLowerCase() === sidebar &&
+        preset.accentColor.toLowerCase() === accent &&
+        preset.textColor.toLowerCase() === text
+      ) {
+        return preset;
+      }
+    }
+  }
+
+  return null;
+}
+
+const BRANCH_COLOR_SUGGESTIONS: BrandThemePresetId[] = [
+  "blue-academic",
+  "green-growth",
+  "amber-classic",
+  "indigo-knowledge",
+];
 
 function getBranchSwatch(
   branch: Pick<BranchRecord, "primary_color" | "secondary_color" | "accent_color">,
@@ -127,8 +184,18 @@ export function BranchesTab({
     () => new Map(schools.map((school) => [school.id, school.name])),
     [schools],
   );
+  const quickSuggestions = useMemo(
+    () =>
+      BRANCH_COLOR_SUGGESTIONS.map((presetId) => getBrandThemePreset(presetId)).filter(
+        (preset): preset is BrandThemePreset => Boolean(preset),
+      ),
+    [],
+  );
 
   const selectedSchoolName = schoolNameById.get(formData.school_id) ?? "";
+  const activeFamily =
+    BRAND_THEME_FAMILIES.find((family) => family.id === formData.family_id) ?? null;
+  const selectedPreset = getBrandThemePreset(formData.theme_preset_id);
 
   const resetForm = useCallback(() => {
     setEditingBranch(null);
@@ -148,6 +215,7 @@ export function BranchesTab({
       branch.primary_color || DEFAULT_SCHOOL_BRANDING.primary_color,
       branch.secondary_color || DEFAULT_SCHOOL_BRANDING.secondary_color,
     );
+    const matchedPreset = findMatchingBranchPreset(branch);
 
     setFormData({
       name: branch.name,
@@ -155,6 +223,8 @@ export function BranchesTab({
       address: branch.address || "",
       phone: branch.phone || "",
       is_active: branch.is_active,
+      family_id: matchedPreset?.familyId ?? "",
+      theme_preset_id: matchedPreset?.id ?? "",
       primary_color: branch.primary_color || suggested.primary_color,
       secondary_color: branch.secondary_color || suggested.secondary_color,
       sidebar_color: branch.sidebar_color || suggested.sidebar_color,
@@ -245,6 +315,8 @@ export function BranchesTab({
       );
       setFormData((current) => ({
         ...current,
+        family_id: "",
+        theme_preset_id: "",
         ...buildSuggestedBranchBranding(palette.primaryColor, palette.secondaryColor),
       }));
       setFormNotice("تم توليد ألوان مبدئية للفرع ويمكنك تعديلها قبل الحفظ.");
@@ -255,6 +327,14 @@ export function BranchesTab({
     } finally {
       setPaletteBusy(false);
     }
+  };
+
+  const applyPreset = (preset: BrandThemePreset) => {
+    setFormData((current) => ({
+      ...current,
+      ...buildBrandingFromPreset(preset),
+    }));
+    setFormNotice(`تم تطبيق الثيم "${preset.label}" من ${preset.familyLabel}.`);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -661,6 +741,200 @@ export function BranchesTab({
                         </button>
                       </div>
 
+                      <div className="mb-4 space-y-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs font-black text-[var(--text-primary)]">
+                              اقتراحات سريعة
+                            </div>
+                            {selectedPreset ? (
+                              <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-[10px] font-black text-[var(--text-secondary)]">
+                                الثيم المختار: {selectedPreset.label}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-3 grid gap-2 xl:grid-cols-4 md:grid-cols-2">
+                            {quickSuggestions.map((preset) => {
+                              const isActive = preset.id === formData.theme_preset_id;
+
+                              return (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => applyPreset(preset)}
+                                  className={cx(
+                                    "rounded-[18px] border p-3 text-start transition hover:-translate-y-0.5",
+                                    isActive
+                                      ? "border-[var(--primary)] bg-[var(--surface-muted)] shadow-sm"
+                                      : "border-[var(--border)] bg-[var(--surface)]",
+                                  )}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                      <div className="text-xs font-black text-[var(--text-primary)]">
+                                        {preset.label}
+                                      </div>
+                                      <div className="mt-1 text-[10px] font-semibold text-[var(--text-secondary)]">
+                                        {preset.familyLabel}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {[preset.primaryColor, preset.secondaryColor, preset.accentColor].map(
+                                        (swatch) => (
+                                          <span
+                                            key={`${preset.id}-${swatch}`}
+                                            className="h-4 w-4 rounded-full border border-white/70 shadow-sm"
+                                            style={{ background: swatch }}
+                                          />
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div className="text-xs font-black text-[var(--text-primary)]">
+                                عوائل الألوان
+                              </div>
+                              <div className="mt-1 text-[11px] font-semibold text-[var(--text-secondary)]">
+                                اختر عائلة ثم طبّق أحد الثيمات الجاهزة أو عدّل الألوان يدويًا.
+                              </div>
+                            </div>
+                            {activeFamily ? (
+                              <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-[10px] font-black text-[var(--text-secondary)]">
+                                {activeFamily.label}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-3 grid gap-2 xl:grid-cols-3 md:grid-cols-2">
+                            {BRAND_THEME_FAMILIES.map((family) => {
+                              const isActive = family.id === formData.family_id;
+
+                              return (
+                                <button
+                                  key={family.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setFormData((current) => ({
+                                      ...current,
+                                      family_id: family.id,
+                                      theme_preset_id:
+                                        current.family_id === family.id ? current.theme_preset_id : "",
+                                    }))
+                                  }
+                                  className={cx(
+                                    "rounded-[18px] border p-3 text-start transition hover:-translate-y-0.5",
+                                    isActive
+                                      ? "border-[var(--primary)] bg-[var(--surface-muted)] shadow-sm"
+                                      : "border-[var(--border)] bg-[var(--surface)]",
+                                  )}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <div className="text-xs font-black text-[var(--text-primary)]">
+                                        {family.label}
+                                      </div>
+                                      <div className="mt-1 text-[10px] font-semibold leading-5 text-[var(--text-secondary)]">
+                                        {family.description}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {family.presets.slice(0, 3).map((preset) => (
+                                        <span
+                                          key={preset.id}
+                                          className="h-4 w-4 rounded-full border border-white/70 shadow-sm"
+                                          style={{ background: preset.primaryColor }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {activeFamily ? (
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <div className="text-xs font-black text-[var(--text-primary)]">
+                                  ثيمات {activeFamily.label}
+                                </div>
+                                <div className="mt-1 text-[11px] font-semibold text-[var(--text-secondary)]">
+                                  كل ثيم يملأ ألوان الهوية، القائمة، الأزرار، والنصوص تلقائيًا.
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setFormData((current) => ({
+                                    ...current,
+                                    family_id: "",
+                                    theme_preset_id: "",
+                                  }))
+                                }
+                                className="rounded-full border border-[var(--border)] px-3 py-1 text-[10px] font-black text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)]"
+                              >
+                                مسح الاختيار
+                              </button>
+                            </div>
+
+                            <div className="mt-3 grid gap-2 md:grid-cols-2">
+                              {activeFamily.presets.map((preset) => {
+                                const isActive = preset.id === formData.theme_preset_id;
+
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => applyPreset(preset)}
+                                    className={cx(
+                                      "rounded-[18px] border p-3 text-start transition hover:-translate-y-0.5",
+                                      isActive
+                                        ? "border-[var(--primary)] bg-[var(--surface-muted)] shadow-sm"
+                                        : "border-[var(--border)] bg-[var(--surface)]",
+                                    )}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <div className="text-xs font-black text-[var(--text-primary)]">
+                                          {preset.label}
+                                        </div>
+                                        <div className="mt-1 text-[10px] font-semibold leading-5 text-[var(--text-secondary)]">
+                                          {preset.description}
+                                        </div>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-1">
+                                        {[
+                                          preset.primaryColor,
+                                          preset.secondaryColor,
+                                          preset.sidebarColor,
+                                          preset.accentColor,
+                                        ].map((swatch) => (
+                                          <span
+                                            key={`${preset.id}-${swatch}`}
+                                            className="h-4 w-4 rounded-full border border-white/70 shadow-sm"
+                                            style={{ background: swatch }}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                           <label className="text-xs font-black">اللون الأساسي</label>
@@ -671,6 +945,7 @@ export function BranchesTab({
                             onChange={(event) =>
                               setFormData((current) => ({
                                 ...current,
+                                theme_preset_id: "",
                                 primary_color: event.target.value,
                               }))
                             }
@@ -685,6 +960,7 @@ export function BranchesTab({
                             onChange={(event) =>
                               setFormData((current) => ({
                                 ...current,
+                                theme_preset_id: "",
                                 secondary_color: event.target.value,
                               }))
                             }
@@ -702,6 +978,7 @@ export function BranchesTab({
                                 onChange={(event) =>
                                   setFormData((current) => ({
                                     ...current,
+                                    theme_preset_id: "",
                                     sidebar_color: event.target.value,
                                   }))
                                 }
@@ -716,6 +993,7 @@ export function BranchesTab({
                                 onChange={(event) =>
                                   setFormData((current) => ({
                                     ...current,
+                                    theme_preset_id: "",
                                     accent_color: event.target.value,
                                   }))
                                 }
@@ -730,6 +1008,7 @@ export function BranchesTab({
                                 onChange={(event) =>
                                   setFormData((current) => ({
                                     ...current,
+                                    theme_preset_id: "",
                                     text_color: event.target.value,
                                   }))
                                 }
@@ -749,6 +1028,17 @@ export function BranchesTab({
                   <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">
                     المعاينة هنا توضح كيف ستظهر هوية الفرع داخل النظام.
                   </p>
+                  {selectedPreset ? (
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--surface)] px-3 py-1 text-[10px] font-black text-[var(--text-secondary)]">
+                      <Palette size={12} />
+                      {selectedPreset.familyLabel} / {selectedPreset.label}
+                    </div>
+                  ) : activeFamily ? (
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--surface)] px-3 py-1 text-[10px] font-black text-[var(--text-secondary)]">
+                      <Palette size={12} />
+                      تخصيص من {activeFamily.label}
+                    </div>
+                  ) : null}
 
                   <div className="mt-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
                     <div className="flex items-center gap-3">

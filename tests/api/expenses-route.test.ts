@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const enforceRateLimit = vi.fn();
 const resolveSchoolScopedActorContext = vi.fn();
 const resolveExpensesPage = vi.fn();
+const routeUserHasPermission = vi.fn();
 
 vi.mock("@/lib/rate-limit", () => ({
   enforceRateLimit,
@@ -18,10 +19,15 @@ vi.mock("@/lib/expenses-server", () => ({
   resolveExpensesPage,
 }));
 
+vi.mock("@/lib/route-permissions", () => ({
+  routeUserHasPermission,
+}));
+
 describe("GET /api/web/expenses", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     enforceRateLimit.mockReturnValue(null);
+    routeUserHasPermission.mockResolvedValue(true);
   });
 
   it("rejects invalid query parameters", async () => {
@@ -83,4 +89,3 @@ describe("GET /api/web/expenses", () => {
     );
   });
 });
-
