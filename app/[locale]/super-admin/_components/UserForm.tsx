@@ -53,6 +53,7 @@ const PAGE_LABELS: Record<PageCode, string> = {
   monitoring: "المراقبة",
   "fee-notifications": "تنبيهات الأقساط",
   group: "لوحة المجموعة",
+  "branch-overview": "لوحة الفرع",
   schools: "المدارس",
   subscriptions: "الاشتراكات",
   "super-admin": "الإدارة العامة",
