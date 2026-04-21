@@ -76,6 +76,8 @@ const COPY = {
 
 type Locale = keyof typeof COPY;
 
+type MetricColor = "blue" | "green" | "amber" | "purple" | "red" | "default";
+
 function formatCurrency(value: number, _locale: Locale) {
   return `${value.toLocaleString("en-US")} IQD`;
 }
@@ -99,15 +101,28 @@ function buildExportHref(format: "excel" | "word" | "pdf", branchId?: string | n
   return `/api/web/group/export?${params.toString()}`;
 }
 
+const COLOR_CLASSES: Record<MetricColor, string> = {
+  blue: "border-l-[3px] border-l-blue-500 bg-blue-500/5",
+  green: "border-l-[3px] border-l-emerald-500 bg-emerald-500/5",
+  amber: "border-l-[3px] border-l-amber-500 bg-amber-500/5",
+  purple: "border-l-[3px] border-l-purple-500 bg-purple-500/5",
+  red: "border-l-[3px] border-l-red-500 bg-red-500/5",
+  default: "border-l-2 border-l-[var(--accent)] bg-[var(--surface-muted)]",
+};
+
 function MetricTile({
   label,
   value,
+  color = "default",
 }: {
   label: string;
   value: string;
+  color?: MetricColor;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] border-l-2 border-l-[var(--accent)] bg-[var(--surface-muted)] px-4 py-4 text-center">
+    <div
+      className={`rounded-[24px] border border-[var(--border)] px-4 py-4 text-center ${COLOR_CLASSES[color]}`}
+    >
       <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{label}</div>
       <div className="mt-2 text-xl font-black text-[var(--text-primary)]">{value}</div>
     </div>
@@ -124,7 +139,7 @@ function ExportButtons({
   const copy = COPY[locale];
   const disabled = !branchId && branchId !== undefined;
   const baseClassName =
-    "inline-flex min-w-[94px] items-center justify-center rounded-[18px] border px-4 py-2 text-sm font-black transition";
+    "inline-flex min-w-[94px] items-center justify-center rounded-[14px] border px-5 py-2.5 text-sm font-black shadow-sm transition";
 
   if (disabled) {
     return (
@@ -145,7 +160,7 @@ function ExportButtons({
     <div className="flex flex-wrap items-center justify-center gap-3">
       <a
         href={buildExportHref("excel", branchId)}
-        className={`${baseClassName} border-[#16a34a1f] bg-[#16a34a14] text-[#166534] hover:bg-[#16a34a22]`}
+        className={`${baseClassName} border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700`}
       >
         {copy.excel}
       </a>
@@ -153,7 +168,7 @@ function ExportButtons({
         href={buildExportHref("word", branchId)}
         target="_blank"
         rel="noreferrer"
-        className={`${baseClassName} border-[#2563eb1f] bg-[#2563eb14] text-[#1d4ed8] hover:bg-[#2563eb22]`}
+        className={`${baseClassName} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`}
       >
         {copy.word}
       </a>
@@ -161,7 +176,7 @@ function ExportButtons({
         href={buildExportHref("pdf", branchId)}
         target="_blank"
         rel="noreferrer"
-        className={`${baseClassName} border-[#7c3aed1f] bg-[#7c3aed14] text-[#6d28d9] hover:bg-[#7c3aed22]`}
+        className={`${baseClassName} border-red-500 bg-red-500 text-white hover:bg-red-600`}
       >
         {copy.pdf}
       </a>
@@ -178,50 +193,63 @@ function BranchCard({
 }) {
   const copy = COPY[locale];
 
+  const paidPctColor: MetricColor =
+    branch.paidPercentage >= 70 ? "green" : branch.paidPercentage >= 40 ? "amber" : "red";
+
   return (
     <section className="overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
-      <div className="border-t-4 border-t-blue-500 px-5 pt-5 pb-4 text-center">
-        <h2 className="text-xl font-black text-[var(--text-primary)]">{branch.branchName}</h2>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-5 text-center">
+        <h2 className="text-xl font-black text-white">{branch.branchName}</h2>
       </div>
-      <div className="p-5 pt-0">
+      <div className="p-5">
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <MetricTile label={copy.beforeDiscount} value={formatCurrency(branch.totalFeesBeforeDiscount, locale)} />
-        <MetricTile label={copy.afterDiscount} value={formatCurrency(branch.totalFeesAfterDiscount, locale)} />
-        <MetricTile label={copy.remaining} value={formatCurrency(branch.totalRemaining, locale)} />
-        <MetricTile label={copy.discount} value={formatCurrency(branch.totalDiscount, locale)} />
-        <MetricTile label={copy.paid} value={formatCurrency(branch.totalPaid, locale)} />
-        <MetricTile label={copy.expenses} value={formatCurrency(branch.totalExpenses, locale)} />
-      </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MetricTile label={copy.beforeDiscount} value={formatCurrency(branch.totalFeesBeforeDiscount, locale)} color="blue" />
+          <MetricTile label={copy.afterDiscount} value={formatCurrency(branch.totalFeesAfterDiscount, locale)} color="blue" />
+          <MetricTile label={copy.remaining} value={formatCurrency(branch.totalRemaining, locale)} color="amber" />
+          <MetricTile label={copy.discount} value={formatCurrency(branch.totalDiscount, locale)} color="purple" />
+          <MetricTile label={copy.paid} value={formatCurrency(branch.totalPaid, locale)} color="green" />
+          <MetricTile label={copy.expenses} value={formatCurrency(branch.totalExpenses, locale)} color="red" />
+        </div>
 
-      <div className="mx-auto mt-3 max-w-[280px]">
-        <MetricTile label={copy.students} value={formatNumber(branch.studentsCount, locale)} />
-      </div>
-      <div className="mx-auto mt-3 max-w-[280px]">
-        <MetricTile label={copy.paidPercentage} value={`${formatNumber(branch.paidPercentage, locale)}%`} />
-      </div>
+        <div className="mx-auto mt-3 max-w-[280px]">
+          <MetricTile label={copy.students} value={formatNumber(branch.studentsCount, locale)} color="default" />
+        </div>
+        <div className="mx-auto mt-3 max-w-[280px]">
+          <MetricTile label={copy.paidPercentage} value={`${formatNumber(branch.paidPercentage, locale)}%`} color={paidPctColor} />
+        </div>
 
-      <div className="mt-5 border-t border-[var(--border)] pt-4">
-        <ExportButtons locale={locale} branchId={branch.branchId} />
-      </div>
+        <div className="mt-5 border-t border-[var(--border)] pt-4">
+          <ExportButtons locale={locale} branchId={branch.branchId} />
+        </div>
       </div>
     </section>
   );
 }
+
+const ANALYSIS_BORDER: Record<string, string> = {
+  green: "border-l-[3px] border-l-emerald-500",
+  amber: "border-l-[3px] border-l-amber-500",
+  red: "border-l-[3px] border-l-red-500",
+};
 
 function AnalysisItem({
   title,
   branch,
   value,
   locale,
+  color,
 }: {
   title: string;
   branch: SchoolManagerBranchSummary | null;
   value: string;
   locale: Locale;
+  color: "green" | "amber" | "red";
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] px-5 py-5">
+    <div
+      className={`rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] px-5 py-5 ${ANALYSIS_BORDER[color]}`}
+    >
       <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{title}</div>
       <div className="mt-2 text-xl font-black text-[var(--text-primary)]">
         {branch?.branchName || COPY[locale].unassigned}
@@ -285,6 +313,13 @@ export default async function GroupDashboardPage({
     totalExpenses: branch.totalExpenses,
   }));
 
+  const totalsPaidPctColor: MetricColor =
+    overview.totals.paidPercentage >= 70
+      ? "green"
+      : overview.totals.paidPercentage >= 40
+        ? "amber"
+        : "red";
+
   return (
     <div className="space-y-8 pb-10">
       <section className="rounded-[36px] border border-[var(--border)] bg-[var(--surface)] px-6 py-8 text-center shadow-[var(--shadow-sm)] sm:px-10">
@@ -327,19 +362,19 @@ export default async function GroupDashboardPage({
 
         <div className="mx-auto mt-6 max-w-5xl">
           <div className="grid gap-4 md:grid-cols-2">
-            <MetricTile label={copy.beforeDiscount} value={formatCurrency(overview.totals.totalFeesBeforeDiscount, locale)} />
-            <MetricTile label={copy.afterDiscount} value={formatCurrency(overview.totals.totalFeesAfterDiscount, locale)} />
-            <MetricTile label={copy.remaining} value={formatCurrency(overview.totals.totalRemaining, locale)} />
-            <MetricTile label={copy.discount} value={formatCurrency(overview.totals.totalDiscount, locale)} />
-            <MetricTile label={copy.paid} value={formatCurrency(overview.totals.totalPaid, locale)} />
-            <MetricTile label={copy.expenses} value={formatCurrency(overview.totals.totalExpenses, locale)} />
+            <MetricTile label={copy.beforeDiscount} value={formatCurrency(overview.totals.totalFeesBeforeDiscount, locale)} color="blue" />
+            <MetricTile label={copy.afterDiscount} value={formatCurrency(overview.totals.totalFeesAfterDiscount, locale)} color="blue" />
+            <MetricTile label={copy.remaining} value={formatCurrency(overview.totals.totalRemaining, locale)} color="amber" />
+            <MetricTile label={copy.discount} value={formatCurrency(overview.totals.totalDiscount, locale)} color="purple" />
+            <MetricTile label={copy.paid} value={formatCurrency(overview.totals.totalPaid, locale)} color="green" />
+            <MetricTile label={copy.expenses} value={formatCurrency(overview.totals.totalExpenses, locale)} color="red" />
           </div>
 
           <div className="mx-auto mt-4 max-w-[340px]">
-            <MetricTile label={copy.students} value={formatNumber(overview.totals.studentsCount, locale)} />
+            <MetricTile label={copy.students} value={formatNumber(overview.totals.studentsCount, locale)} color="default" />
           </div>
           <div className="mx-auto mt-4 max-w-[340px]">
-            <MetricTile label={copy.paidPercentage} value={`${formatNumber(overview.totals.paidPercentage, locale)}%`} />
+            <MetricTile label={copy.paidPercentage} value={`${formatNumber(overview.totals.paidPercentage, locale)}%`} color={totalsPaidPctColor} />
           </div>
 
           <div className="mt-6">
@@ -364,6 +399,7 @@ export default async function GroupDashboardPage({
                 ? `${formatNumber(overview.analysis.strongestCollectionBranch.paidPercentage, locale)}%`
                 : "—"
             }
+            color="green"
           />
           <AnalysisItem
             locale={locale}
@@ -374,6 +410,7 @@ export default async function GroupDashboardPage({
                 ? formatCurrency(overview.analysis.highestRemainingBranch.totalRemaining, locale)
                 : "—"
             }
+            color="amber"
           />
           <AnalysisItem
             locale={locale}
@@ -384,6 +421,7 @@ export default async function GroupDashboardPage({
                 ? formatCurrency(overview.analysis.highestExpenseBranch.totalExpenses, locale)
                 : "—"
             }
+            color="red"
           />
         </div>
       </section>
