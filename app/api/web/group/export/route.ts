@@ -21,6 +21,10 @@ function findSelectedBranch(branches: SchoolManagerBranchSummary[], branchId: st
     return null;
   }
 
+  if (branchId === "__unassigned__") {
+    return branches.find((b) => b.branchId === null) ?? null;
+  }
+
   return branches.find((branch) => branch.branchId === branchId) ?? null;
 }
 
@@ -110,7 +114,7 @@ export async function GET(req: NextRequest) {
   }
 
   const selectedBranch = findSelectedBranch(overview.branches, branchId);
-  if (branchId && !selectedBranch) {
+  if (branchId && branchId !== "__unassigned__" && !selectedBranch) {
     return jsonError("الفرع المطلوب غير موجود ضمن هذه المدرسة.", 404);
   }
 

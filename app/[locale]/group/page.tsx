@@ -78,6 +78,13 @@ type Locale = keyof typeof COPY;
 
 type MetricColor = "blue" | "green" | "amber" | "purple" | "red" | "default";
 
+const GRADIENT_BARS = [
+  "bg-gradient-to-r from-blue-500 to-indigo-500",
+  "bg-gradient-to-r from-emerald-500 to-teal-500",
+  "bg-gradient-to-r from-violet-500 to-purple-500",
+  "bg-gradient-to-r from-orange-500 to-amber-500",
+] as const;
+
 function formatCurrency(value: number, _locale: Locale) {
   return `${value.toLocaleString("en-US")} IQD`;
 }
@@ -114,17 +121,32 @@ function MetricTile({
   label,
   value,
   color = "default",
+  accent,
 }: {
   label: string;
   value: string;
   color?: MetricColor;
+  accent?: string;
 }) {
   return (
     <div
       className={`rounded-[24px] border border-[var(--border)] px-4 py-4 text-center ${COLOR_CLASSES[color]}`}
     >
-      <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{label}</div>
-      <div className="mt-2 text-xl font-black text-[var(--text-primary)]">{value}</div>
+      <div className="flex items-center justify-center gap-1.5 text-xs font-black leading-6 text-[var(--text-secondary)]">
+        {accent && (
+          <span
+            className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: accent }}
+          />
+        )}
+        {label}
+      </div>
+      <div
+        className="mt-2 text-xl font-black"
+        style={accent ? { color: accent } : undefined}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -137,7 +159,7 @@ function ExportButtons({
   branchId?: string | null;
 }) {
   const copy = COPY[locale];
-  const disabled = !branchId && branchId !== undefined;
+  const disabled = false;
   const baseClassName =
     "inline-flex min-w-[94px] items-center justify-center rounded-[14px] border px-5 py-2.5 text-sm font-black shadow-sm transition";
 
@@ -187,17 +209,21 @@ function ExportButtons({
 function BranchCard({
   locale,
   branch,
+  index,
 }: {
   locale: Locale;
   branch: SchoolManagerBranchSummary;
+  index: number;
 }) {
   const copy = COPY[locale];
+  const gradientBar = GRADIENT_BARS[Math.min(index, GRADIENT_BARS.length - 1)];
 
   const paidPctColor: MetricColor =
     branch.paidPercentage >= 70 ? "green" : branch.paidPercentage >= 40 ? "amber" : "red";
 
   return (
     <section className="overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
+      <div className={`h-1.5 w-full ${gradientBar}`} />
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-5 text-center">
         <h2 className="text-xl font-black text-white">{branch.branchName}</h2>
       </div>
@@ -205,22 +231,22 @@ function BranchCard({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <MetricTile label={copy.beforeDiscount} value={formatCurrency(branch.totalFeesBeforeDiscount, locale)} color="blue" />
-          <MetricTile label={copy.afterDiscount} value={formatCurrency(branch.totalFeesAfterDiscount, locale)} color="blue" />
-          <MetricTile label={copy.remaining} value={formatCurrency(branch.totalRemaining, locale)} color="amber" />
-          <MetricTile label={copy.discount} value={formatCurrency(branch.totalDiscount, locale)} color="purple" />
-          <MetricTile label={copy.paid} value={formatCurrency(branch.totalPaid, locale)} color="green" />
-          <MetricTile label={copy.expenses} value={formatCurrency(branch.totalExpenses, locale)} color="red" />
+          <MetricTile label={copy.afterDiscount} value={formatCurrency(branch.totalFeesAfterDiscount, locale)} color="blue" accent="#3b82f6" />
+          <MetricTile label={copy.remaining} value={formatCurrency(branch.totalRemaining, locale)} color="amber" accent="#f59e0b" />
+          <MetricTile label={copy.discount} value={formatCurrency(branch.totalDiscount, locale)} color="purple" accent="#8b5cf6" />
+          <MetricTile label={copy.paid} value={formatCurrency(branch.totalPaid, locale)} color="green" accent="#10b981" />
+          <MetricTile label={copy.expenses} value={formatCurrency(branch.totalExpenses, locale)} color="red" accent="#ef4444" />
         </div>
 
         <div className="mx-auto mt-3 max-w-[280px]">
-          <MetricTile label={copy.students} value={formatNumber(branch.studentsCount, locale)} color="default" />
+          <MetricTile label={copy.students} value={formatNumber(branch.studentsCount, locale)} color="default" accent="#6366f1" />
         </div>
         <div className="mx-auto mt-3 max-w-[280px]">
-          <MetricTile label={copy.paidPercentage} value={`${formatNumber(branch.paidPercentage, locale)}%`} color={paidPctColor} />
+          <MetricTile label={copy.paidPercentage} value={`${formatNumber(branch.paidPercentage, locale)}%`} color={paidPctColor} accent="#14b8a6" />
         </div>
 
         <div className="mt-5 border-t border-[var(--border)] pt-4">
-          <ExportButtons locale={locale} branchId={branch.branchId} />
+          <ExportButtons locale={locale} branchId={branch.branchId ?? "__unassigned__"} />
         </div>
       </div>
     </section>
@@ -348,8 +374,8 @@ export default async function GroupDashboardPage({
           </div>
         ) : (
           <div className="grid gap-5 xl:grid-cols-3">
-            {overview.branches.map((branch) => (
-              <BranchCard key={`${branch.branchId ?? "unassigned"}-${branch.branchName}`} locale={locale} branch={branch} />
+            {overview.branches.map((branch, index) => (
+              <BranchCard key={`${branch.branchId ?? "unassigned"}-${branch.branchName}`} locale={locale} branch={branch} index={index} />
             ))}
           </div>
         )}
@@ -363,18 +389,18 @@ export default async function GroupDashboardPage({
         <div className="mx-auto mt-6 max-w-5xl">
           <div className="grid gap-4 md:grid-cols-2">
             <MetricTile label={copy.beforeDiscount} value={formatCurrency(overview.totals.totalFeesBeforeDiscount, locale)} color="blue" />
-            <MetricTile label={copy.afterDiscount} value={formatCurrency(overview.totals.totalFeesAfterDiscount, locale)} color="blue" />
-            <MetricTile label={copy.remaining} value={formatCurrency(overview.totals.totalRemaining, locale)} color="amber" />
-            <MetricTile label={copy.discount} value={formatCurrency(overview.totals.totalDiscount, locale)} color="purple" />
-            <MetricTile label={copy.paid} value={formatCurrency(overview.totals.totalPaid, locale)} color="green" />
-            <MetricTile label={copy.expenses} value={formatCurrency(overview.totals.totalExpenses, locale)} color="red" />
+            <MetricTile label={copy.afterDiscount} value={formatCurrency(overview.totals.totalFeesAfterDiscount, locale)} color="blue" accent="#3b82f6" />
+            <MetricTile label={copy.remaining} value={formatCurrency(overview.totals.totalRemaining, locale)} color="amber" accent="#f59e0b" />
+            <MetricTile label={copy.discount} value={formatCurrency(overview.totals.totalDiscount, locale)} color="purple" accent="#8b5cf6" />
+            <MetricTile label={copy.paid} value={formatCurrency(overview.totals.totalPaid, locale)} color="green" accent="#10b981" />
+            <MetricTile label={copy.expenses} value={formatCurrency(overview.totals.totalExpenses, locale)} color="red" accent="#ef4444" />
           </div>
 
           <div className="mx-auto mt-4 max-w-[340px]">
-            <MetricTile label={copy.students} value={formatNumber(overview.totals.studentsCount, locale)} color="default" />
+            <MetricTile label={copy.students} value={formatNumber(overview.totals.studentsCount, locale)} color="default" accent="#6366f1" />
           </div>
           <div className="mx-auto mt-4 max-w-[340px]">
-            <MetricTile label={copy.paidPercentage} value={`${formatNumber(overview.totals.paidPercentage, locale)}%`} color={totalsPaidPctColor} />
+            <MetricTile label={copy.paidPercentage} value={`${formatNumber(overview.totals.paidPercentage, locale)}%`} color={totalsPaidPctColor} accent="#14b8a6" />
           </div>
 
           <div className="mt-6">
