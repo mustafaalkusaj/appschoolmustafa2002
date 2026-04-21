@@ -82,12 +82,29 @@ export function AppSidebar({
     return stored === "wide" ? "wide" : "default";
   });
   const academicYearLabel = getAcademicYearLabel(new Date(), locale);
-  const schoolName =
+  const branchName = runtimeBranding.branchName;
+  const displayName =
+    branchName ||
     runtimeBranding.schoolName ||
     schoolScope.selectedSchool?.name ||
     profile?.school?.name ||
     (locale === "en" ? "Current school" : "المدرسة الحالية");
-  const schoolLogoUrl = runtimeBranding.logoUrl;
+  const displayLogoUrl = runtimeBranding.branchLogoUrl || runtimeBranding.logoUrl;
+  const isBranchBranding = Boolean(branchName);
+  const workspaceLabel = isBranchBranding
+    ? locale === "en"
+      ? "BRANCH WORKSPACE"
+      : "مساحة الفرع"
+    : locale === "en"
+      ? "SCHOOL WORKSPACE"
+      : "مساحة المدرسة";
+  const currentEntityLabel = isBranchBranding
+    ? locale === "en"
+      ? "Current Branch"
+      : "الفرع الحالي"
+    : locale === "en"
+      ? "Current School"
+      : "المدرسة الحالية";
 
   const navItems = useMemo(() => {
     if (shouldUseSinglePageShell(profile) || isGroupOverviewOnlyProfile(profile)) {
@@ -189,9 +206,9 @@ export function AppSidebar({
             className="flex min-w-0 items-center gap-3"
           >
             <SchoolLogo
-              src={schoolLogoUrl}
-              alt={schoolName}
-              label={schoolName}
+              src={displayLogoUrl}
+              alt={displayName}
+              label={displayName}
               size={48}
               className="rounded-[18px]"
               imageClassName=""
@@ -199,10 +216,10 @@ export function AppSidebar({
             />
             <div className="flex min-w-0 flex-col leading-tight">
               <span className="truncate text-sm font-black text-[var(--text-primary)] tracking-tight">
-                {schoolName}
+                {displayName}
               </span>
               <span className="text-[11px] font-bold text-[var(--text-tertiary)] tracking-[0.18em]">
-                {locale === "en" ? "SCHOOL WORKSPACE" : "مساحة المدرسة"}
+                {workspaceLabel}
               </span>
             </div>
           </Link>
@@ -318,19 +335,19 @@ export function AppSidebar({
             ) : (
               <div className="flex items-start gap-3 px-1 py-1">
                 <SchoolLogo
-                  src={schoolLogoUrl}
-                  alt={schoolName}
-                  label={schoolName}
+                  src={displayLogoUrl}
+                  alt={displayName}
+                  label={displayName}
                   size={40}
                   className="rounded-[15px]"
                   imageClassName=""
                 />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="text-xs font-semibold uppercase text-[var(--text-muted)] tracking-wider">
-                    {locale === "en" ? "Current School" : "المدرسة الحالية"}
+                    {currentEntityLabel}
                   </span>
                   <span className="text-sm font-semibold text-[var(--text-primary)] whitespace-normal leading-5 break-words">
-                    {schoolName}
+                    {displayName}
                   </span>
                 </div>
               </div>

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
-import { resolveSchoolIdForProfile, resolveSchoolBranchForProfile } from "@/lib/school/context";
+import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassItem, SectionItem } from "../_components/types";
 
@@ -11,35 +11,51 @@ interface UseClassesSectionsProps {
   profile: UserProfile | null;
   selectedSchoolId: string | null;
   scopeLoading: boolean;
+  branchScoped?: boolean;
 }
 
-export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: UseClassesSectionsProps) {
+export function useClassesSections({
+  profile,
+  selectedSchoolId,
+  scopeLoading,
+  branchScoped = false,
+}: UseClassesSectionsProps) {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [sections, setSections] = useState<SectionItem[]>([]);
 
   const fetchClasses = useCallback(async () => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     const compat = await detectAppSchemaCompat();
     if (!schoolId) {
       setClasses([]);
       return;
     }
     if (compat.classesNameColumn) {
-      const { data } = await supabase
+      let query = supabase
         .from("classes")
         .select("*")
         .eq("school_id", schoolId)
         .order("name", { ascending: true });
+      if (branchScoped && compat.classesBranchScope && branchId) {
+        query = query.eq("branch_id", branchId);
+      }
+      const { data } = await query;
       if (data) setClasses(data as ClassItem[]);
       return;
     }
 
-    const { data } = await supabase
+    let query = supabase
       .from("classes")
       .select("id, school_id, branch_id, grade, section")
       .eq("school_id", schoolId)
       .order("grade", { ascending: true })
       .order("section", { ascending: true });
+    if (branchScoped && branchId) {
+      query = query.eq("branch_id", branchId);
+    }
+    const { data } = await query;
 
     if (!data) return;
     const groups = new Map<string, { id: string; name: string; legacyClassIds: string[]; branch_id: string | null }>();
@@ -60,16 +76,34 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
     });
 
     setClasses(Array.from(groups.values()));
-  }, [profile, selectedSchoolId]);
+  }, [branchScoped, profile, selectedSchoolId]);
 
   const fetchSections = useCallback(async () => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     const compat = await detectAppSchemaCompat();
     if (!schoolId) {
       setSections([]);
       return;
     }
     if (compat.classesNameColumn) {
+      let classIds: string[] | null = null;
+      if (branchScoped && compat.classesBranchScope && branchId) {
+        const { data: scopedClasses } = await supabase
+          .from("classes")
+          .select("id")
+          .eq("school_id", schoolId)
+          .eq("branch_id", branchId);
+        const scopedClassRows = (scopedClasses ?? []) as Array<{ id?: string | null }>;
+        classIds = scopedClassRows
+          .map((row) => (typeof row.id === "string" ? row.id : null))
+          .filter((value): value is string => Boolean(value));
+        if (classIds.length === 0) {
+          setSections([]);
+          return;
+        }
+      }
       let query = supabase
         .from("sections")
         .select("*, classes(name)")
@@ -77,17 +111,24 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
       if (compat.sectionsSchoolScope) {
         query = query.eq("school_id", schoolId);
       }
+      if (classIds && classIds.length > 0) {
+        query = query.in("class_id", classIds);
+      }
       const { data } = await query;
       if (data) setSections(data as SectionItem[]);
       return;
     }
 
-    const { data } = await supabase
+    let query = supabase
       .from("classes")
-      .select("id, grade, section")
+      .select("id, grade, section, branch_id")
       .eq("school_id", schoolId)
       .order("grade", { ascending: true })
       .order("section", { ascending: true });
+    if (branchScoped && branchId) {
+      query = query.eq("branch_id", branchId);
+    }
+    const { data } = await query;
 
     if (!data) return;
     setSections(
@@ -99,15 +140,14 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
           name: String(row.section),
         }))
     );
-  }, [profile, selectedSchoolId]);
+  }, [branchScoped, profile, selectedSchoolId]);
 
   const handleSaveClass = useCallback(async (
     classForm: { name: string; sections: string[] },
     editingClass: ClassItem | null,
     onSuccess: () => void
   ) => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
-    const { branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
     const compat = await detectAppSchemaCompat();
@@ -115,7 +155,17 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
     const sectionsToAdd = classForm.sections.filter(s => s.trim());
     if (compat.classesNameColumn) {
       if (editingClass) {
-        await supabase.from("classes").update({ name: classForm.name.trim() }).eq("id", editingClass.id);
+        let classUpdate = supabase
+          .from("classes")
+          .update({ name: classForm.name.trim() })
+          .eq("id", editingClass.id);
+        if (schoolId) {
+          classUpdate = classUpdate.eq("school_id", schoolId);
+        }
+        if (branchScoped && compat.classesBranchScope && branchId) {
+          classUpdate = classUpdate.eq("branch_id", branchId);
+        }
+        await classUpdate;
         let sectionDelete = supabase.from("sections").delete().eq("class_id", editingClass.id);
         if (compat.sectionsSchoolScope) {
           sectionDelete = sectionDelete.eq("school_id", schoolId);
@@ -129,9 +179,16 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
           });
         }
       } else {
+        const classPayload: Record<string, unknown> = {
+          name: classForm.name.trim(),
+          school_id: schoolId,
+        };
+        if (branchScoped && compat.classesBranchScope && branchId) {
+          classPayload.branch_id = branchId;
+        }
         const { data: newClass } = await supabase
           .from("classes")
-          .insert({ name: classForm.name.trim(), school_id: schoolId })
+          .insert(classPayload)
           .select()
           .single();
         if (newClass) {
@@ -161,10 +218,12 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
     await fetchClasses();
     await fetchSections();
     onSuccess();
-  }, [profile, selectedSchoolId, fetchClasses, fetchSections]);
+  }, [branchScoped, profile, selectedSchoolId, fetchClasses, fetchSections]);
 
   const handleDeleteClass = useCallback(async (id: string) => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     const compat = await detectAppSchemaCompat();
     if (compat.classesNameColumn) {
       let classDelete = supabase.from("classes").delete().eq("id", id);
@@ -174,6 +233,9 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
         if (compat.sectionsSchoolScope) {
           sectionDelete = sectionDelete.eq("school_id", schoolId);
         }
+      }
+      if (branchScoped && compat.classesBranchScope && branchId) {
+        classDelete = classDelete.eq("branch_id", branchId);
       }
       await classDelete;
       await sectionDelete;
@@ -186,15 +248,14 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
     }
     await fetchClasses();
     await fetchSections();
-  }, [profile, selectedSchoolId, classes, fetchClasses, fetchSections]);
+  }, [branchScoped, profile, selectedSchoolId, classes, fetchClasses, fetchSections]);
 
   const handleSaveSection = useCallback(async (
     sectionForm: { class_id: string; name: string },
     editingSection: SectionItem | null,
     onSuccess: () => void
   ) => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
-    const { branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
     const compat = await detectAppSchemaCompat();
@@ -231,7 +292,9 @@ export function useClassesSections({ profile, selectedSchoolId, scopeLoading }: 
   }, [profile, selectedSchoolId, classes, fetchSections, fetchClasses]);
 
   const handleDeleteSection = useCallback(async (id: string) => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     const compat = await detectAppSchemaCompat();
     if (compat.classesNameColumn) {
       let query = supabase.from("sections").delete().eq("id", id);

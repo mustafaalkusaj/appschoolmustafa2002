@@ -3,7 +3,7 @@ import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { readSchoolScopeFromWindow } from "@/lib/school/scope";
 import { supabase } from "@/lib/supabase";
 
-type ScopedProfile = Pick<UserProfile, "role" | "school_id"> | null | undefined;
+type ScopedProfile = Pick<UserProfile, "role" | "school_id" | "branch_id" | "allowed_branch_ids"> | null | undefined;
 type SchoolScopeOptions = {
   selectedSchoolId?: string | null;
 };
@@ -53,9 +53,39 @@ export async function resolveBranchIdForSchool(schoolId: string | null): Promise
   return branchId;
 }
 
+export async function resolveBranchIdForProfile(
+  profile: ScopedProfile,
+  options?: SchoolScopeOptions,
+): Promise<string | null> {
+  if (profile?.role !== "super_admin") {
+    const assignedBranchId =
+      typeof profile?.branch_id === "string" && profile.branch_id.trim().length > 0
+        ? profile.branch_id.trim()
+        : null;
+
+    if (assignedBranchId) {
+      return assignedBranchId;
+    }
+
+    const allowedBranchId =
+      Array.isArray(profile?.allowed_branch_ids)
+        ? profile.allowed_branch_ids.find(
+            (value): value is string => typeof value === "string" && value.trim().length > 0,
+          ) ?? null
+        : null;
+
+    if (allowedBranchId) {
+      return allowedBranchId;
+    }
+  }
+
+  const schoolId = await resolveSchoolIdForProfile(profile, options);
+  return resolveBranchIdForSchool(schoolId);
+}
+
 export async function resolveSchoolBranchForProfile(profile: ScopedProfile, options?: SchoolScopeOptions) {
   const schoolId = await resolveSchoolIdForProfile(profile, options);
-  const branchId = await resolveBranchIdForSchool(schoolId);
+  const branchId = await resolveBranchIdForProfile(profile, options);
 
   return {
     school_id: schoolId,

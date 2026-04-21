@@ -164,6 +164,7 @@ export const salaryPaymentSchema = z
 
 export const dashboardOverviewQuerySchema = z.object({
   schoolId: entityIdSchema(),
+  branchId: entityIdSchema().optional().nullable(),
 });
 
 export const expensesListQuerySchema = z
@@ -209,4 +210,3 @@ export const expenseTypeMutationSchema = z.object({
   name: z.string().trim().min(1, "اسم النوع مطلوب.").max(120, "اسم النوع طويل جداً."),
   notes: optionalTrimmedString(1000),
 });
-

@@ -21,12 +21,13 @@ type DashboardStudentRow = {
 export async function GET(req: NextRequest) {
   const parsed = dashboardOverviewQuerySchema.safeParse({
     schoolId: req.nextUrl.searchParams.get("schoolId"),
+    branchId: req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id"),
   });
   if (!parsed.success) {
     return jsonValidationError(parsed.error, "معرّف المدرسة غير صالح.");
   }
 
-  const { schoolId } = parsed.data;
+  const { schoolId, branchId } = parsed.data;
   const context = await resolveSchoolScopedActorContext(
     schoolId,
     {
@@ -43,7 +44,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId, allowedBranchIds } = context.value;
+  const effectiveBranchId = branchId?.trim() || null;
+  if (effectiveBranchId && allowedBranchIds.length > 0 && !allowedBranchIds.includes(effectiveBranchId)) {
+    return jsonError("لا يمكنك الوصول إلى بيانات هذا الفرع.", 403);
+  }
+
   const rateLimited = await enforceRateLimit(req, {
     namespace: "dashboard-overview",
     windowMs: 60_000,
@@ -56,25 +62,45 @@ export async function GET(req: NextRequest) {
 
   try {
     const payload = await rememberWithTtl(
-      `dashboard-overview:${targetSchoolId}`,
+      `dashboard-overview:${targetSchoolId}:${effectiveBranchId ?? "all"}`,
       15_000,
       async () => {
-        const classFeesSchoolScope = await tableHasColumn(actorSupabase, "class_fees", "school_id").catch(() => false);
+        const [
+          studentsBranchScope,
+          paymentsBranchScope,
+          salariesBranchScope,
+          feeNotificationsBranchScope,
+          classFeesSchoolScope,
+          classFeesBranchScope,
+        ] = await Promise.all([
+          tableHasColumn(actorSupabase, "students", "branch_id").catch(() => false),
+          tableHasColumn(actorSupabase, "payments", "branch_id").catch(() => false),
+          tableHasColumn(actorSupabase, "salaries", "branch_id").catch(() => false),
+          tableHasColumn(actorSupabase, "fee_notifications", "branch_id").catch(() => false),
+          tableHasColumn(actorSupabase, "class_fees", "school_id").catch(() => false),
+          tableHasColumn(actorSupabase, "class_fees", "branch_id").catch(() => false),
+        ]);
 
         const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
-        const studentsPromise = actorSupabase
+        let studentsPromise = actorSupabase
           .from("students")
           .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
           .eq("school_id", targetSchoolId)
           .neq("status", "deleted");
+        if (effectiveBranchId && studentsBranchScope) {
+          studentsPromise = studentsPromise.eq("branch_id", effectiveBranchId);
+        }
 
-        const recentPaymentsPromise = actorSupabase
+        let recentPaymentsPromise = actorSupabase
           .from("payments")
           .select("id, amount, created_at, student_id, students(full_name,class_name)")
           .eq("school_id", targetSchoolId)
           .order("created_at", { ascending: false })
           .limit(5);
+        if (effectiveBranchId && paymentsBranchScope) {
+          recentPaymentsPromise = recentPaymentsPromise.eq("branch_id", effectiveBranchId);
+        }
 
         let classFeesPromise = actorSupabase
           .from("class_fees")
@@ -84,17 +110,26 @@ export async function GET(req: NextRequest) {
         if (classFeesSchoolScope) {
           classFeesPromise = classFeesPromise.eq("school_id", targetSchoolId);
         }
+        if (effectiveBranchId && classFeesBranchScope) {
+          classFeesPromise = classFeesPromise.eq("branch_id", effectiveBranchId);
+        }
 
-        const feeNotificationsCountPromise = actorSupabase
+        let feeNotificationsCountPromise = actorSupabase
           .from("fee_notifications")
           .select("id", { count: "exact", head: true })
           .eq("school_id", targetSchoolId);
+        if (effectiveBranchId && feeNotificationsBranchScope) {
+          feeNotificationsCountPromise = feeNotificationsCountPromise.eq("branch_id", effectiveBranchId);
+        }
 
-        const monthlySalariesPromise = actorSupabase
+        let monthlySalariesPromise = actorSupabase
           .from("salaries")
           .select("gross_salary, deductions")
           .eq("school_id", targetSchoolId)
           .eq("month", currentMonth);
+        if (effectiveBranchId && salariesBranchScope) {
+          monthlySalariesPromise = monthlySalariesPromise.eq("branch_id", effectiveBranchId);
+        }
 
         const [studentsResult, recentPaymentsResult, classFeesResult, feeNotificationsResult, monthlySalariesResult] = await Promise.allSettled([
           studentsPromise,
@@ -246,6 +281,7 @@ export async function GET(req: NextRequest) {
     logRouteError("dashboard-overview", error, {
       actorUserId,
       schoolId: targetSchoolId,
+      branchId: effectiveBranchId,
       requestId: req.headers.get("x-request-id"),
     });
     return jsonError("تعذر تحميل ملخص لوحة التحكم حالياً. حاول مرة أخرى بعد قليل.", 500);

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
-import { resolveSchoolIdForProfile } from "@/lib/school/context";
+import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import {
   DashboardTotals,
@@ -16,6 +16,7 @@ interface UseDashboardDataProps {
   profile: UserProfile | null;
   selectedSchoolId: string | null;
   scopeLoading: boolean;
+  branchScoped?: boolean;
 }
 
 interface DashboardOverviewResponse {
@@ -27,7 +28,12 @@ interface DashboardOverviewResponse {
   error?: { message?: string };
 }
 
-export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: UseDashboardDataProps) {
+export function useDashboardData({
+  profile,
+  selectedSchoolId,
+  scopeLoading,
+  branchScoped = false,
+}: UseDashboardDataProps) {
   const [dashboardTotals, setDashboardTotals] = useState<DashboardTotals>(EMPTY_DASHBOARD_TOTALS);
   const [recentPayments, setRecentPayments] = useState<DashboardRecentPayment[]>([]);
   const [overdueStudents, setOverdueStudents] = useState<DashboardOverdueStudent[]>([]);
@@ -37,7 +43,9 @@ export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: Us
   const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     setLoading(true);
     setError(null);
     if (!schoolId) {
@@ -52,8 +60,12 @@ export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: Us
     }
 
     try {
+      const searchParams = new URLSearchParams({ schoolId });
+      if (branchScoped && branchId) {
+        searchParams.set("branchId", branchId);
+      }
       const { response, payload } = await fetchJsonWithAuthorizedSession<DashboardOverviewResponse>(
-        `/api/web/dashboard/overview?schoolId=${encodeURIComponent(schoolId)}`
+        `/api/web/dashboard/overview?${searchParams.toString()}`
       );
 
       if (!response.ok) {
@@ -76,7 +88,7 @@ export function useDashboardData({ profile, selectedSchoolId, scopeLoading }: Us
     } finally {
       setLoading(false);
     }
-  }, [profile, selectedSchoolId]);
+  }, [branchScoped, profile, selectedSchoolId]);
 
   useEffect(() => {
     if (!profile || scopeLoading) return;

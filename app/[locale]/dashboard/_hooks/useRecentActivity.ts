@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
-import { resolveSchoolIdForProfile } from "@/lib/school-context";
+import { resolveSchoolBranchForProfile } from "@/lib/school-context";
 import type { UserProfile } from "@/lib/auth";
 
 export interface ActivityItem {
@@ -18,6 +18,7 @@ interface UseRecentActivityProps {
   profile: UserProfile | null;
   selectedSchoolId: string | null;
   scopeLoading: boolean;
+  branchScoped?: boolean;
 }
 
 interface ActivityApiItem {
@@ -29,13 +30,20 @@ interface ActivityApiItem {
   createdByName?: string;
 }
 
-export function useRecentActivity({ profile, selectedSchoolId, scopeLoading }: UseRecentActivityProps) {
+export function useRecentActivity({
+  profile,
+  selectedSchoolId,
+  scopeLoading,
+  branchScoped = false,
+}: UseRecentActivityProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchActivities = useCallback(async () => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     if (!schoolId) {
       setActivities([]);
       setError(null);
@@ -45,10 +53,18 @@ export function useRecentActivity({ profile, selectedSchoolId, scopeLoading }: U
     setLoading(true);
     setError(null);
     try {
+      const scopedSuffix =
+        branchScoped && branchId ? `&branchId=${encodeURIComponent(branchId)}` : "";
       const requests = await Promise.allSettled([
-        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(`/api/web/teacher-activity/messages?schoolId=${schoolId}&pageSize=3`),
-        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(`/api/web/teacher-activity/homework?schoolId=${schoolId}&pageSize=3`),
-        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(`/api/web/fee-notifications?schoolId=${schoolId}&pageSize=3`),
+        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
+          `/api/web/teacher-activity/messages?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+        ),
+        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
+          `/api/web/teacher-activity/homework?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+        ),
+        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
+          `/api/web/fee-notifications?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+        ),
       ]);
 
       const combined: ActivityItem[] = [];
@@ -110,7 +126,7 @@ export function useRecentActivity({ profile, selectedSchoolId, scopeLoading }: U
     } finally {
       setLoading(false);
     }
-  }, [profile, selectedSchoolId]);
+  }, [branchScoped, profile, selectedSchoolId]);
 
   useEffect(() => {
     if (!profile || scopeLoading) return;

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
-import { resolveSchoolIdForProfile } from "@/lib/school/context";
+import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassFee, FeeFormData } from "../_components/types";
 
@@ -13,9 +13,17 @@ interface UseFeeManagementProps {
   classFees: ClassFee[];
   studentCountByClass: Record<string, number>;
   onRefetch: () => Promise<void>;
+  branchScoped?: boolean;
 }
 
-export function useFeeManagement({ profile, selectedSchoolId, classFees, studentCountByClass, onRefetch }: UseFeeManagementProps) {
+export function useFeeManagement({
+  profile,
+  selectedSchoolId,
+  classFees,
+  studentCountByClass,
+  onRefetch,
+  branchScoped = false,
+}: UseFeeManagementProps) {
   const [showFeeModal, setShowFeeModal] = useState(false);
   const [feeForm, setFeeForm] = useState<FeeFormData>({
     class_name: "",
@@ -30,7 +38,9 @@ export function useFeeManagement({ profile, selectedSchoolId, classFees, student
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const handleSaveFee = useCallback(async () => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     const compat = await detectAppSchemaCompat();
     setFeeError("");
     setFeeSuccess("");
@@ -48,13 +58,20 @@ export function useFeeManagement({ profile, selectedSchoolId, classFees, student
 
     setFeeLoading(true);
     if (editingFee) {
-      const { error } = await supabase.from("class_fees").update({
+      let query = supabase.from("class_fees").update({
         class_name: feeForm.class_name.trim(),
         total_fee,
         installments,
         installment_amount,
         notes: feeForm.notes.trim(),
       }).eq("id", editingFee.id);
+      if (schoolId && compat.classFeesSchoolScope) {
+        query = query.eq("school_id", schoolId);
+      }
+      if (branchScoped && branchId && compat.classFeesBranchScope) {
+        query = query.eq("branch_id", branchId);
+      }
+      const { error } = await query;
       if (error) {
         setFeeError("حدث خطأ أثناء التعديل: " + error.message);
       } else {
@@ -72,14 +89,18 @@ export function useFeeManagement({ profile, selectedSchoolId, classFees, student
         setFeeLoading(false);
         return;
       }
-      const { error } = await supabase.from("class_fees").insert({
+      const payload: Record<string, unknown> = {
         ...(compat.classFeesSchoolScope ? { school_id: schoolId } : {}),
         class_name: feeForm.class_name.trim(),
         total_fee,
         installments,
         installment_amount,
         notes: feeForm.notes.trim(),
-      });
+      };
+      if (branchScoped && branchId && compat.classFeesBranchScope) {
+        payload.branch_id = branchId;
+      }
+      const { error } = await supabase.from("class_fees").insert(payload);
       if (error) {
         setFeeError("حدث خطأ أثناء الحفظ: " + error.message);
       } else {
@@ -96,19 +117,24 @@ export function useFeeManagement({ profile, selectedSchoolId, classFees, student
         setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
       }, 1200);
     }
-  }, [profile, selectedSchoolId, feeForm, editingFee, classFees, feeError, onRefetch]);
+  }, [branchScoped, profile, selectedSchoolId, feeForm, editingFee, classFees, feeError, onRefetch]);
 
   const handleDeleteFee = useCallback(async (id: string) => {
-    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+      selectedSchoolId,
+    });
     const compat = await detectAppSchemaCompat();
     let query = supabase.from("class_fees").delete().eq("id", id);
     if (schoolId && compat.classFeesSchoolScope) {
       query = query.eq("school_id", schoolId);
     }
+    if (branchScoped && branchId && compat.classFeesBranchScope) {
+      query = query.eq("branch_id", branchId);
+    }
     await query;
     setDeleteConfirm(null);
     await onRefetch();
-  }, [profile, selectedSchoolId, onRefetch]);
+  }, [branchScoped, profile, selectedSchoolId, onRefetch]);
 
   const openEditFee = useCallback((cf: ClassFee) => {
     setEditingFee(cf);

@@ -6,6 +6,9 @@ export type AppSchemaCompat = {
   schoolThemePreset: boolean;
   branchColors: boolean;
   branchUiColors: boolean;
+  branchLogo: boolean;
+  classFeesBranchScope: boolean;
+  classesBranchScope: boolean;
   branchesIsMain: boolean;
   classFeesSchoolScope: boolean;
   classesNameColumn: boolean;
@@ -17,6 +20,9 @@ export const DEFAULT_COMPAT: AppSchemaCompat = {
   schoolThemePreset: false,
   branchColors: false,
   branchUiColors: false,
+  branchLogo: false,
+  classFeesBranchScope: false,
+  classesBranchScope: false,
   branchesIsMain: false,
   classFeesSchoolScope: false,
   classesNameColumn: false,
@@ -78,6 +84,9 @@ export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient
     probeColumnWithClient(client, "schools", "theme_preset"),
     probeColumnWithClient(client, "branches", "primary_color"),
     probeColumnWithClient(client, "branches", "sidebar_color"),
+    probeColumnWithClient(client, "branches", "logo_url"),
+    probeColumnWithClient(client, "class_fees", "branch_id"),
+    probeColumnWithClient(client, "classes", "branch_id"),
     probeColumnWithClient(client, "branches", "is_main"),
     probeColumnWithClient(client, "class_fees", "school_id"),
     probeColumnWithClient(client, "classes", "name"),
@@ -88,6 +97,9 @@ export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient
       schoolThemePreset,
       branchColors,
       branchUiColors,
+      branchLogo,
+      classFeesBranchScope,
+      classesBranchScope,
       branchesIsMain,
       classFeesSchoolScope,
       classesNameColumn,
@@ -97,6 +109,9 @@ export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient
       schoolThemePreset,
       branchColors,
       branchUiColors,
+      branchLogo,
+      classFeesBranchScope,
+      classesBranchScope,
       branchesIsMain,
       classFeesSchoolScope,
       classesNameColumn,

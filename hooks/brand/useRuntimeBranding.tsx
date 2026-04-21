@@ -26,6 +26,8 @@ import { supabase } from "@/lib/supabase";
 type RuntimeBrandingState = {
   schoolName: string | null;
   logoUrl: string | null;
+  branchName: string | null;
+  branchLogoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
   themePreset: string | null;
@@ -43,6 +45,8 @@ type SchoolBrandingRecord = {
 };
 
 type BranchBrandingRecord = {
+  name?: string | null;
+  logo_url?: string | null;
   primary_color?: string | null;
   secondary_color?: string | null;
   sidebar_color?: string | null;
@@ -55,6 +59,8 @@ export const RUNTIME_BRANDING_REFRESH_EVENT = "runtime-branding-refresh";
 const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   schoolName: null,
   logoUrl: null,
+  branchName: null,
+  branchLogoUrl: null,
   primaryColor: null,
   secondaryColor: null,
   themePreset: null,
@@ -67,6 +73,8 @@ function createEmptyBrandingState(): RuntimeBrandingState {
   return {
     schoolName: null,
     logoUrl: null,
+    branchName: null,
+    branchLogoUrl: null,
     primaryColor: null,
     secondaryColor: null,
     themePreset: null,
@@ -149,7 +157,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
       const compat = await detectAppSchemaCompat();
       const storedBranding = getStoredSchoolBranding(scopedSchoolId);
-      const branchColumns: string[] = [];
+      const branchColumns = ["name"];
 
       if (compat.branchColors) {
         branchColumns.push("primary_color", "secondary_color");
@@ -157,6 +165,10 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
       if (compat.branchUiColors) {
         branchColumns.push("sidebar_color", "accent_color", "text_color");
+      }
+
+      if (compat.branchLogo) {
+        branchColumns.push("logo_url");
       }
 
       const schoolQuery = compat.schoolColors
@@ -171,7 +183,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
             .from("schools")
             .select(`name, logo_url${compat.schoolThemePreset ? ", theme_preset" : ""}`);
       const branchQuery =
-        scopedBranchId && branchColumns.length > 0
+        scopedBranchId
           ? supabase.from("branches").select(branchColumns.join(", ")).eq("id", scopedBranchId).maybeSingle()
           : Promise.resolve({ data: null, error: null });
       const [{ data, error }, branchResult] = await Promise.all([
@@ -185,6 +197,13 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         branchResult.data && typeof branchResult.data === "object"
           ? (branchResult.data as BranchBrandingRecord)
           : null;
+      const resolvedBranchName =
+        typeof branchRecord?.name === "string" && branchRecord.name.trim().length > 0
+          ? branchRecord.name.trim()
+          : null;
+      const resolvedBranchLogoUrl = sanitizeImageUrl(
+        compat.branchLogo && typeof branchRecord?.logo_url === "string" ? branchRecord.logo_url : null,
+      );
       const branchPrimaryColor =
         compat.branchColors && typeof branchRecord?.primary_color === "string"
           ? branchRecord.primary_color
@@ -241,6 +260,8 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         setBranding({
           schoolName: null,
           logoUrl: null,
+          branchName: resolvedBranchName,
+          branchLogoUrl: resolvedBranchLogoUrl,
           primaryColor: resolvedPrimaryColor,
           secondaryColor: resolvedSecondaryColor,
           themePreset: hasBranchOverride ? null : storedBranding?.themePreset ?? null,
@@ -322,6 +343,8 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       setBranding({
         schoolName: typeof schoolRecord.name === "string" ? schoolRecord.name : null,
         logoUrl: safeLogoUrl,
+        branchName: resolvedBranchName,
+        branchLogoUrl: resolvedBranchLogoUrl,
         primaryColor: resolvedPrimaryColor,
         secondaryColor: resolvedSecondaryColor,
         themePreset: resolvedThemePreset,
@@ -350,9 +373,12 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
   const value = useMemo(() => {
     const schoolName = branding.schoolName?.trim() || null;
+    const branchName = branding.branchName?.trim() || null;
     return {
       schoolName,
       logoUrl: branding.logoUrl,
+      branchName,
+      branchLogoUrl: branding.branchLogoUrl,
       primaryColor: branding.primaryColor,
       secondaryColor: branding.secondaryColor,
       themePreset: branding.themePreset,
@@ -375,6 +401,8 @@ export function useRuntimeBranding() {
   return {
     schoolName: context.schoolName || SCHOOL_BRAND.nameAr,
     logoUrl: context.logoUrl,
+    branchName: context.branchName,
+    branchLogoUrl: context.branchLogoUrl,
     primaryColor: context.primaryColor,
     secondaryColor: context.secondaryColor,
     themePreset: context.themePreset,
