@@ -328,7 +328,12 @@ export default function SuperAdminPage() {
         throw new Error(payload?.error?.message || "تعذر تصدير بيانات المدرسة.");
       }
       await downloadResponseFile(response, `${school.name}-archive.json`);
-      flashSuccess(`تم تجهيز نسخة بيانات المدرسة ${school.name} ✓`);
+      const warningsCount = Number(response.headers.get("X-School-Archive-Warnings-Count") || "0");
+      flashSuccess(
+        warningsCount > 0
+          ? `تم تجهيز نسخة بيانات المدرسة ${school.name} مع ${warningsCount} تنبيه توافق.`
+          : `تم تجهيز نسخة بيانات المدرسة ${school.name} ✓`,
+      );
     } catch (exportError) {
       flashError(getErrorMessage(exportError, "تعذر تصدير بيانات المدرسة."));
     }

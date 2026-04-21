@@ -1,4 +1,8 @@
-import { isMissingTableError } from "@/lib/admin-infrastructure";
+import {
+  isInfrastructureCompatError,
+  isMissingColumnError,
+  isMissingTableError,
+} from "@/lib/admin-infrastructure";
 import { chunkArray } from "@/lib/students/import-processor";
 import {
   createRouteSupabaseClient,
@@ -46,6 +50,7 @@ export type SchoolArchivePayload = {
   exported_at: string;
   school: Record<string, unknown>;
   datasets: SchoolArchiveDataset[];
+  warnings?: string[];
 };
 
 export type SchoolArchiveRecord = {
@@ -71,6 +76,17 @@ async function querySchoolScopedTable(
   definition: SchoolArchiveDefinition,
   schoolId: string,
 ) {
+  if (definition.schoolScoped !== false) {
+    const hasSchoolColumn = await tableHasColumnForArchive(client, definition.table, "school_id");
+    if (!hasSchoolColumn) {
+      return {
+        skipped: true as const,
+        rows: [] as Array<Record<string, unknown>>,
+        warning: `تم تخطي جدول ${definition.table} لأن عمود school_id غير متوفر في البيئة الحالية.`,
+      };
+    }
+  }
+
   let query = client.from(definition.table).select("*");
 
   if (definition.schoolScoped !== false) {
@@ -78,13 +94,37 @@ async function querySchoolScopedTable(
   }
 
   if (definition.orderBy) {
+    const hasOrderColumn = await tableHasColumnForArchive(client, definition.table, definition.orderBy);
+    if (!hasOrderColumn) {
+      const result = await query;
+      if (result.error) {
+        if (isMissingTableError(result.error, definition.table) || isInfrastructureCompatError(result.error)) {
+          return {
+            skipped: true as const,
+            rows: [] as Array<Record<string, unknown>>,
+            warning: `تم تخطي جدول ${definition.table} لأن بنيته الحالية غير متوافقة مع التصدير.`,
+          };
+        }
+        throw result.error;
+      }
+
+      return {
+        skipped: false as const,
+        rows: ((result.data ?? []) as Array<Record<string, unknown>>),
+        warning: `تم تصدير جدول ${definition.table} بدون ترتيب لأن عمود ${definition.orderBy} غير متاح.`,
+      };
+    }
     query = query.order(definition.orderBy, { ascending: true });
   }
 
   const result = await query;
   if (result.error) {
-    if (isMissingTableError(result.error, definition.table)) {
-      return { skipped: true as const, rows: [] as Array<Record<string, unknown>> };
+    if (isMissingTableError(result.error, definition.table) || isInfrastructureCompatError(result.error)) {
+      return {
+        skipped: true as const,
+        rows: [] as Array<Record<string, unknown>>,
+        warning: `تم تخطي جدول ${definition.table} لأن بنيته الحالية غير متوافقة مع التصدير.`,
+      };
     }
     throw result.error;
   }
@@ -92,7 +132,28 @@ async function querySchoolScopedTable(
   return {
     skipped: false as const,
     rows: ((result.data ?? []) as Array<Record<string, unknown>>),
+    warning: null as string | null,
   };
+}
+
+async function tableHasColumnForArchive(
+  client: SchoolArchiveSupabaseClient,
+  table: string,
+  column: string,
+) {
+  const result = await client.from(table).select(column).limit(1);
+  if (!result.error) {
+    return true;
+  }
+
+  if (
+    isMissingTableError(result.error, table) ||
+    isMissingColumnError(result.error, table, column)
+  ) {
+    return false;
+  }
+
+  throw result.error;
 }
 
 export async function buildSchoolArchivePayload(
@@ -113,9 +174,13 @@ export async function buildSchoolArchivePayload(
     throw new Error("المدرسة المطلوبة غير موجودة لإنشاء نسخة الأرشيف.");
   }
 
+  const warnings: string[] = [];
   const datasetResults = await Promise.all(
     SCHOOL_ARCHIVE_DEFINITIONS.map(async (definition) => {
       const result = await querySchoolScopedTable(client, definition, schoolId);
+      if (result.warning) {
+        warnings.push(result.warning);
+      }
       return result.skipped
         ? null
         : {
@@ -130,6 +195,7 @@ export async function buildSchoolArchivePayload(
     exported_at: new Date().toISOString(),
     school: school as Record<string, unknown>,
     datasets: datasetResults.filter((dataset): dataset is SchoolArchiveDataset => Boolean(dataset)),
+    warnings,
   };
 }
 
@@ -159,6 +225,50 @@ export async function persistSchoolArchiveSnapshot(
   }
 
   return insertResult.data as SchoolArchiveRecord;
+}
+
+export async function purgeSchoolArchiveData(
+  client: SchoolArchiveSupabaseClient,
+  schoolId: string,
+) {
+  const warnings: string[] = [];
+  const purgedTables: Array<{ table: string; deleted: number | null }> = [];
+
+  for (const definition of [...SCHOOL_ARCHIVE_DEFINITIONS].reverse()) {
+    if (definition.schoolScoped === false) {
+      continue;
+    }
+
+    const hasSchoolColumn = await tableHasColumnForArchive(client, definition.table, "school_id");
+    if (!hasSchoolColumn) {
+      warnings.push(`تم تخطي حذف بيانات ${definition.table} لأن عمود school_id غير موجود.`);
+      continue;
+    }
+
+    const deleteResult = await client
+      .from(definition.table)
+      .delete()
+      .eq("school_id", schoolId)
+      .select("id");
+
+    if (deleteResult.error) {
+      if (isMissingTableError(deleteResult.error, definition.table) || isInfrastructureCompatError(deleteResult.error)) {
+        warnings.push(`تم تخطي حذف جدول ${definition.table} لأن هذا الجدول غير متاح في البيئة الحالية.`);
+        continue;
+      }
+      throw deleteResult.error;
+    }
+
+    purgedTables.push({
+      table: definition.table,
+      deleted: Array.isArray(deleteResult.data) ? deleteResult.data.length : null,
+    });
+  }
+
+  return {
+    warnings,
+    purgedTables,
+  };
 }
 
 function resetArchiveRow(

@@ -184,16 +184,28 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
     }
   }, []);
 
-  const handlePermanentDeleteSchool = useCallback(async (id: string) => {
+  const handlePermanentDeleteSchool = useCallback(async (id: string, purgeArchive = false) => {
     try {
-      const response = await fetchWithAuthorizedSession(`/api/web/super-admin/schools/${id}?hardDelete=true`, {
+      const response = await fetchWithAuthorizedSession(
+        `/api/web/super-admin/schools/${id}?hardDelete=true${purgeArchive ? "&purgeArchive=true" : ""}`,
+        {
         method: "DELETE",
-      });
+        },
+      );
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(payload?.error?.message || "تعذر حذف المدرسة نهائياً.");
       }
-      setMessage("");
+      const warnings = Array.isArray(payload?.warnings)
+        ? payload.warnings.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
+        : [];
+      setMessage(
+        warnings.length > 0
+          ? `تم الحذف الكامل مع ${warnings.length} تنبيه يحتاج مراجعة.`
+          : purgeArchive
+            ? "تم حذف المدرسة نهائياً مع حذف نسخ الأرشيف المرتبطة بها."
+            : "",
+      );
       fetchDeleted();
     } catch (err) {
       console.error("Permanent delete error:", err);
@@ -359,7 +371,7 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
                       className="ui-button ui-button--danger inline-flex items-center gap-2"
                     >
                       <Trash2 size={16} />
-                      حذف نهائي
+                      حذف كامل
                     </button>
                   ) : null}
                   <button
@@ -395,13 +407,15 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
       />
       <ConfirmDialog
         open={Boolean(itemToDeletePermanently)}
-        title="حذف مدرسة نهائياً"
+        title="حذف كامل من السلة"
         description={
           itemToDeletePermanently
-            ? `سيتم حذف المدرسة "${itemToDeletePermanently.name}" نهائياً من السلة.`
+            ? archivesBySchoolId[itemToDeletePermanently.id]
+              ? `سيتم حذف المدرسة "${itemToDeletePermanently.name}" نهائياً من السلة مع حذف جميع نسخ الأرشيف المرتبطة بها. لا يمكن التراجع عن هذه العملية.`
+              : `سيتم حذف المدرسة "${itemToDeletePermanently.name}" نهائياً من السلة. لا يمكن التراجع عن هذه العملية.`
             : ""
         }
-        confirmLabel="نعم، احذف نهائياً"
+        confirmLabel="نعم، احذف بالكامل"
         cancelLabel="إلغاء"
         tone="danger"
         onClose={() => setItemToDeletePermanently(null)}
@@ -409,7 +423,7 @@ export function TrashTab({ infrastructure }: { infrastructure: AdminInfrastructu
           const target = itemToDeletePermanently;
           setItemToDeletePermanently(null);
           if (target?.id) {
-            await handlePermanentDeleteSchool(target.id);
+            await handlePermanentDeleteSchool(target.id, Boolean(archivesBySchoolId[target.id]));
           }
         }}
       />

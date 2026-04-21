@@ -34,13 +34,23 @@ export async function GET(
         ? payload.school.name.trim()
         : "school";
 
-    await persistSchoolArchiveSnapshot(dataSupabase, {
-      schoolId: normalizedSchoolId,
-      schoolName,
-      actorUserId,
-      source: "manual_export",
-      payload,
-    });
+    const warnings = [...(payload.warnings ?? [])];
+    try {
+      await persistSchoolArchiveSnapshot(dataSupabase, {
+        schoolId: normalizedSchoolId,
+        schoolName,
+        actorUserId,
+        source: "manual_export",
+        payload,
+      });
+    } catch (snapshotError) {
+      warnings.push(
+        snapshotError instanceof Error
+          ? snapshotError.message
+          : "تم تجاوز حفظ نسخة الأرشيف الداخلية، لكن ملف التصدير تم تجهيزه.",
+      );
+    }
+    payload.warnings = warnings;
 
     return new NextResponse(JSON.stringify(payload, null, 2), {
       status: 200,
@@ -48,6 +58,7 @@ export async function GET(
         "Content-Type": "application/json; charset=utf-8",
         "Content-Disposition": `attachment; filename="${encodeURIComponent(`${schoolName}-archive-${Date.now()}.json`)}"`,
         "Cache-Control": "no-store",
+        "X-School-Archive-Warnings-Count": String(warnings.length),
       },
     });
   } catch (error) {

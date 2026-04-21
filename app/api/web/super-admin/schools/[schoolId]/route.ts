@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { sanitizeImageUrl } from "@/lib/brand/asset-url";
-import { detectAdminInfrastructure } from "@/lib/admin-infrastructure";
+import { detectAdminInfrastructure, isMissingTableError } from "@/lib/admin-infrastructure";
 import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
 import {
   buildSchoolArchivePayload,
+  purgeSchoolArchiveData,
   persistSchoolArchiveSnapshot,
 } from "@/lib/school-archives";
 import { resolveSuperAdminActorContext } from "@/lib/super-admin-server";
@@ -195,19 +196,25 @@ export async function DELETE(
 
     // Check if this is a permanent delete request
     const hardDelete = req.nextUrl.searchParams.get("hardDelete") === "true";
-    const snapshot = await buildSchoolArchivePayload(context.value.dataSupabase, normalizedSchoolId);
+    const purgeArchive = req.nextUrl.searchParams.get("purgeArchive") === "true";
+    const snapshot =
+      hardDelete && purgeArchive
+        ? null
+        : await buildSchoolArchivePayload(context.value.dataSupabase, normalizedSchoolId);
     const schoolName =
-      typeof snapshot.school.name === "string" && snapshot.school.name.trim()
+      typeof snapshot?.school.name === "string" && snapshot.school.name.trim()
         ? snapshot.school.name.trim()
         : "school";
 
-    const archiveRecord = await persistSchoolArchiveSnapshot(context.value.dataSupabase, {
-      schoolId: normalizedSchoolId,
-      schoolName,
-      actorUserId: context.value.actorUserId,
-      source: hardDelete ? "hard_delete" : "soft_delete",
-      payload: snapshot,
-    });
+    const archiveRecord = snapshot
+      ? await persistSchoolArchiveSnapshot(context.value.dataSupabase, {
+          schoolId: normalizedSchoolId,
+          schoolName,
+          actorUserId: context.value.actorUserId,
+          source: hardDelete ? "hard_delete" : "soft_delete",
+          payload: snapshot,
+        })
+      : null;
 
     if (hardDelete) {
       // Permanent delete — remove the record completely
@@ -215,6 +222,24 @@ export async function DELETE(
         requestId,
         userId: context.value.actorUserId,
       });
+
+      const purgeResult = await purgeSchoolArchiveData(context.value.dataSupabase, normalizedSchoolId);
+
+      if (purgeArchive) {
+        const archiveDeleteResult = await context.value.dataSupabase
+          .from("school_data_archives")
+          .delete()
+          .eq("school_id", normalizedSchoolId)
+          .select("id");
+
+        if (archiveDeleteResult.error && !isMissingTableError(archiveDeleteResult.error, "school_data_archives")) {
+          logger.warn("Failed to purge linked school archives during hard delete", {
+            requestId,
+            schoolId: normalizedSchoolId,
+            error: archiveDeleteResult.error.message,
+          });
+        }
+      }
 
       const { data: school, error } = await context.value.dataSupabase
         .from("schools")
@@ -243,7 +268,9 @@ export async function DELETE(
       return NextResponse.json({
         ok: true,
         school,
-        archiveId: archiveRecord.id,
+        archiveId: archiveRecord?.id ?? null,
+        warnings: purgeResult.warnings,
+        purgedTables: purgeResult.purgedTables,
       });
     } else {
       // Soft delete — archive the school
@@ -292,7 +319,7 @@ export async function DELETE(
       return NextResponse.json({
         ok: true,
         school,
-        archiveId: archiveRecord.id,
+        archiveId: archiveRecord?.id ?? null,
       });
     }
   } catch (error) {
