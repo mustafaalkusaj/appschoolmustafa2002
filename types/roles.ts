@@ -253,6 +253,7 @@ export interface RoutePermissionRule {
 export const PUBLIC_PATHS = ["/login", "/forgot-password", "/access-denied", "/subscription-expired"] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
+  { pathPrefix: "/branch-overview", roles: ["admin", "employee"], requiresActiveSchool: true },
   { pathPrefix: "/group", roles: ["admin"], requiresActiveSchool: true },
   { pathPrefix: "/super-admin", roles: ["super_admin"], requiresActiveSchool: false },
   { pathPrefix: "/schools", roles: ["super_admin"], requiresActiveSchool: false },
@@ -448,6 +449,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     iconToken: "🧾",
     roles: ["super_admin"],
     group: "admin",
+  },
+  {
+    id: "branch-overview",
+    label: "لوحة الفرع",
+    href: "/branch-overview",
+    iconToken: "📊",
+    roles: ["admin", "employee"],
+    group: "general",
   },
 ];
 

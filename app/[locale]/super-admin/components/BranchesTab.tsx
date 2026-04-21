@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Building2,
@@ -12,7 +12,9 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  Upload,
 } from "@/lib/icons";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { isMissingRelationError } from "@/lib/admin-infrastructure";
@@ -52,6 +54,7 @@ type BranchRecord = {
   sidebar_color?: string | null;
   accent_color?: string | null;
   text_color?: string | null;
+  logo_url?: string | null;
   schools?: { name: string | null } | null;
   [key: string]: unknown;
 };
@@ -69,6 +72,7 @@ type BranchFormData = {
   sidebar_color: string;
   accent_color: string;
   text_color: string;
+  logo_url: string;
 };
 
 function createInitialFormState(): BranchFormData {
@@ -85,6 +89,7 @@ function createInitialFormState(): BranchFormData {
     sidebar_color: DEFAULT_SCHOOL_BRANDING.sidebar_color,
     accent_color: DEFAULT_SCHOOL_BRANDING.accent_color,
     text_color: DEFAULT_SCHOOL_BRANDING.text_color,
+    logo_url: "",
   };
 }
 
@@ -175,6 +180,9 @@ export function BranchesTab({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [formNotice, setFormNotice] = useState("");
   const [paletteBusy, setPaletteBusy] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<BranchFormData>(createInitialFormState());
 
@@ -230,6 +238,7 @@ export function BranchesTab({
       sidebar_color: branch.sidebar_color || suggested.sidebar_color,
       accent_color: branch.accent_color || suggested.accent_color,
       text_color: branch.text_color || suggested.text_color,
+      logo_url: branch.logo_url || "",
     });
     setFormNotice("");
   }, []);
@@ -329,6 +338,32 @@ export function BranchesTab({
     }
   };
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError("حجم الصورة كبير (الحد الأقصى 2 ميغابايت).");
+      return;
+    }
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const fileName = `branch_logo_${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("branch-logos")
+        .upload(fileName, file, { upsert: true, contentType: file.type });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from("branch-logos").getPublicUrl(fileName);
+      setFormData((current) => ({ ...current, logo_url: urlData.publicUrl }));
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : "تعذر رفع الشعار.");
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
   const applyPreset = (preset: BrandThemePreset) => {
     setFormData((current) => ({
       ...current,
@@ -349,6 +384,7 @@ export function BranchesTab({
         address: formData.address.trim() || null,
         phone: formData.phone.trim() || null,
         is_active: formData.is_active,
+        logo_url: formData.logo_url.trim() || null,
       };
 
       if (branchColorsEnabled) {
@@ -499,14 +535,24 @@ export function BranchesTab({
                 >
                   <div className="mb-4 flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] text-white shadow-sm"
-                        style={{
-                          background: `linear-gradient(135deg, ${swatch.primary}, ${swatch.secondary})`,
-                        }}
-                      >
-                        <GitBranch size={20} />
-                      </div>
+                      {branch.logo_url ? (
+                        <Image
+                          src={branch.logo_url}
+                          alt="شعار الفرع"
+                          width={44}
+                          height={44}
+                          className="rounded-[14px] border border-[var(--border)] bg-white object-contain p-1"
+                        />
+                      ) : (
+                        <div
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] text-white shadow-sm"
+                          style={{
+                            background: `linear-gradient(135deg, ${swatch.primary}, ${swatch.secondary})`,
+                          }}
+                        >
+                          <GitBranch size={20} />
+                        </div>
+                      )}
                       <div>
                         <h4 className="font-black text-[var(--text-primary)]">{branch.name}</h4>
                         <p className="flex items-center gap-1 text-[10px] font-bold text-[var(--text-tertiary)]">
@@ -716,6 +762,72 @@ export function BranchesTab({
                       <label htmlFor="branch_active" className="text-xs font-black">
                         تفعيل الفرع
                       </label>
+                    </div>
+
+                    {/* Logo upload */}
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-black">شعار الفرع (اختياري)</label>
+                      <div className="flex items-center gap-3">
+                        {formData.logo_url ? (
+                          <Image
+                            src={formData.logo_url}
+                            alt="شعار الفرع"
+                            width={48}
+                            height={48}
+                            className="rounded-[14px] border border-[var(--border)] bg-white object-contain p-1"
+                          />
+                        ) : (
+                          <div className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-tertiary)]">
+                            <GitBranch size={18} />
+                          </div>
+                        )}
+                        <div className="flex-1 space-y-1">
+                          <input
+                            type="text"
+                            className="ui-input text-xs"
+                            placeholder="رابط الشعار (URL) أو ارفع صورة"
+                            value={formData.logo_url}
+                            onChange={(event) =>
+                              setFormData((current) => ({
+                                ...current,
+                                logo_url: event.target.value,
+                              }))
+                            }
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => logoInputRef.current?.click()}
+                              disabled={logoUploading}
+                              className="ui-button ui-button--secondary h-7 px-3 text-[11px] inline-flex items-center gap-1"
+                            >
+                              <Upload size={12} />
+                              {logoUploading ? "جاري الرفع..." : "رفع صورة"}
+                            </button>
+                            {formData.logo_url && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setFormData((current) => ({ ...current, logo_url: "" }))
+                                }
+                                className="text-[11px] font-bold text-rose-500 hover:underline"
+                              >
+                                إزالة
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLogoUpload}
+                        />
+                      </div>
+                      {logoError && (
+                        <p className="text-[11px] font-bold text-rose-600">{logoError}</p>
+                      )}
                     </div>
                   </div>
 

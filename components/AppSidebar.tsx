@@ -61,6 +61,7 @@ const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   schools: { ar: "المدارس", en: "Schools" },
   subscriptions: { ar: "الاشتراكات", en: "Subscriptions" },
   group: { ar: "لوحة المجموعة", en: "Group Dashboard" },
+  "branch-overview": { ar: "لوحة الفرع", en: "Branch Dashboard" },
 };
 
 export function AppSidebar({
