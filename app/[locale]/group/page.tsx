@@ -76,12 +76,12 @@ const COPY = {
 
 type Locale = keyof typeof COPY;
 
-function formatCurrency(value: number, locale: Locale) {
-  return `${value.toLocaleString(locale === "ar" ? "ar-IQ" : "en-US")} ${locale === "ar" ? "د.ع" : "IQD"}`;
+function formatCurrency(value: number, _locale: Locale) {
+  return `${value.toLocaleString("en-US")} IQD`;
 }
 
-function formatNumber(value: number, locale: Locale) {
-  return value.toLocaleString(locale === "ar" ? "ar-IQ" : "en-US");
+function formatNumber(value: number, _locale: Locale) {
+  return value.toLocaleString("en-US");
 }
 
 function formatUpdatedAt(locale: Locale) {
@@ -107,9 +107,9 @@ function MetricTile({
   value: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-4 text-center">
+    <div className="rounded-[24px] border border-[var(--border)] border-l-2 border-l-[var(--accent)] bg-[var(--surface-muted)] px-4 py-4 text-center">
       <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{label}</div>
-      <div className="mt-2 text-lg font-black text-[var(--text-primary)]">{value}</div>
+      <div className="mt-2 text-xl font-black text-[var(--text-primary)]">{value}</div>
     </div>
   );
 }
@@ -179,10 +179,11 @@ function BranchCard({
   const copy = COPY[locale];
 
   return (
-    <section className="rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-      <div className="mb-5 text-center">
+    <section className="overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
+      <div className="border-t-4 border-t-blue-500 px-5 pt-5 pb-4 text-center">
         <h2 className="text-xl font-black text-[var(--text-primary)]">{branch.branchName}</h2>
       </div>
+      <div className="p-5 pt-0">
 
       <div className="grid gap-3 sm:grid-cols-2">
         <MetricTile label={copy.beforeDiscount} value={formatCurrency(branch.totalFeesBeforeDiscount, locale)} />
@@ -202,6 +203,7 @@ function BranchCard({
 
       <div className="mt-5 border-t border-[var(--border)] pt-4">
         <ExportButtons locale={locale} branchId={branch.branchId} />
+      </div>
       </div>
     </section>
   );
@@ -300,25 +302,6 @@ export default async function GroupDashboardPage({
         </div>
       </section>
 
-      <section className="rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
-        <h2 className="text-xl font-black text-[var(--text-primary)]">{copy.formulaIntro}</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {[copy.formulaBefore, copy.formulaAfter, copy.formulaRemaining, copy.formulaPaid, copy.formulaExpenses].map((item) => (
-            <div
-              key={item}
-              className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-4 text-sm font-bold leading-7 text-[var(--text-secondary)]"
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-        {overview.warnings.length > 0 ? (
-          <div className="mt-4 rounded-[22px] border border-[#f59e0b33] bg-[#f59e0b14] px-4 py-4 text-sm font-bold leading-7 text-[#92400e]">
-            {overview.warnings.join(" ")}
-          </div>
-        ) : null}
-      </section>
-
       <section className="space-y-5">
         <div className="text-center">
           <h2 className="text-2xl font-black text-[var(--text-primary)]">{copy.branchSection}</h2>
@@ -365,49 +348,47 @@ export default async function GroupDashboardPage({
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-        <div className="rounded-[32px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
-          <div className="mb-5">
-            <h2 className="text-2xl font-black text-[var(--text-primary)]">{copy.analysisTitle}</h2>
-            <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{copy.analysisSubtitle}</p>
-          </div>
-
-          <div className="space-y-4">
-            <AnalysisItem
-              locale={locale}
-              title={copy.strongestCollection}
-              branch={overview.analysis.strongestCollectionBranch}
-              value={
-                overview.analysis.strongestCollectionBranch
-                  ? `${formatNumber(overview.analysis.strongestCollectionBranch.paidPercentage, locale)}%`
-                  : "—"
-              }
-            />
-            <AnalysisItem
-              locale={locale}
-              title={copy.highestRemaining}
-              branch={overview.analysis.highestRemainingBranch}
-              value={
-                overview.analysis.highestRemainingBranch
-                  ? formatCurrency(overview.analysis.highestRemainingBranch.totalRemaining, locale)
-                  : "—"
-              }
-            />
-            <AnalysisItem
-              locale={locale}
-              title={copy.highestExpenses}
-              branch={overview.analysis.highestExpenseBranch}
-              value={
-                overview.analysis.highestExpenseBranch
-                  ? formatCurrency(overview.analysis.highestExpenseBranch.totalExpenses, locale)
-                  : "—"
-              }
-            />
-          </div>
+      <section className="rounded-[32px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
+        <div className="mb-5">
+          <h2 className="text-2xl font-black text-[var(--text-primary)]">{copy.analysisTitle}</h2>
+          <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{copy.analysisSubtitle}</p>
         </div>
 
-        <SchoolManagerComparisonChart points={chartPoints} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <AnalysisItem
+            locale={locale}
+            title={copy.strongestCollection}
+            branch={overview.analysis.strongestCollectionBranch}
+            value={
+              overview.analysis.strongestCollectionBranch
+                ? `${formatNumber(overview.analysis.strongestCollectionBranch.paidPercentage, locale)}%`
+                : "—"
+            }
+          />
+          <AnalysisItem
+            locale={locale}
+            title={copy.highestRemaining}
+            branch={overview.analysis.highestRemainingBranch}
+            value={
+              overview.analysis.highestRemainingBranch
+                ? formatCurrency(overview.analysis.highestRemainingBranch.totalRemaining, locale)
+                : "—"
+            }
+          />
+          <AnalysisItem
+            locale={locale}
+            title={copy.highestExpenses}
+            branch={overview.analysis.highestExpenseBranch}
+            value={
+              overview.analysis.highestExpenseBranch
+                ? formatCurrency(overview.analysis.highestExpenseBranch.totalExpenses, locale)
+                : "—"
+            }
+          />
+        </div>
       </section>
+
+      <SchoolManagerComparisonChart points={chartPoints} totals={overview.totals} />
 
       <div className="text-center text-xs font-bold text-[var(--text-tertiary)]">
         {copy.schoolTotalLabel}: {school.name}
