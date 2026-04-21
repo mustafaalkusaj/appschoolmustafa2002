@@ -10,8 +10,24 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  compress: true,
+  poweredByHeader: false,
   async headers() {
     return [
+      // Cache static assets for 1 year (immutable — filenames are hashed)
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      // Cache public images/fonts for 7 days
+      {
+        source: "/fonts/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
+        ],
+      },
       {
         source: "/:path*",
         headers: [
