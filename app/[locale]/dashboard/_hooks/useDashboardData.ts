@@ -69,8 +69,8 @@ export function useDashboardData({
       setOverdueStudents([]);
       setStudentCountByClass({});
       setClassFees([]);
-      setError("لم يتم العثور على فرع متاح. يرجى إضافة فرع للمدرسة.");
-      setWarning(null);
+      setError(null);
+      setWarning("degraded_dashboard_overview");
       setLoading(false);
       return;
     }
