@@ -14,6 +14,7 @@ jobs:
           host: 159.203.120.28
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
           script: |
             set -euo pipefail
             APP_DIR=/var/www/school-app
@@ -43,9 +44,12 @@ jobs:
             touch "$ENV_FILE"
             chmod 600 "$ENV_FILE"
             TMP_ENV_FILE=$(mktemp)
-            grep -Ev '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|RBAC_COOKIE_SECRET)=' "$ENV_FILE" > "$TMP_ENV_FILE" || true
+            grep -Ev '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|RBAC_COOKIE_SECRET|PORT|HOSTNAME|NODE_ENV)=' "$ENV_FILE" > "$TMP_ENV_FILE" || true
             {
               cat "$TMP_ENV_FILE"
+              printf '%s\n' "NODE_ENV=production"
+              printf '%s\n' "HOSTNAME=127.0.0.1"
+              printf '%s\n' "PORT=3001"
               printf '%s\n' "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"
               printf '%s\n' "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
               printf '%s\n' "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
