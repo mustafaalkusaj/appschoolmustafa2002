@@ -15,9 +15,31 @@ jobs:
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            cd /var/www/school-app
-            git pull origin main
+            set -euo pipefail
+            APP_DIR=/var/www/school-app
+            REPO_URL=https://github.com/${{ github.repository }}.git
+
+            mkdir -p "$APP_DIR"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              git clone --depth 1 "$REPO_URL" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin main --depth 1
+            git reset --hard origin/main
             npm ci
             npm run build
-            sudo -n systemctl restart pm2-deploy
+
+            if sudo -n systemctl restart pm2-deploy; then
+              echo "pm2-deploy systemd service restarted."
+            elif command -v pm2 >/dev/null 2>&1; then
+              PM2_HOME=/home/deploy/.pm2 pm2 restart school-app
+              PM2_HOME=/home/deploy/.pm2 pm2 save
+            else
+              echo "PM2 restart path unavailable." >&2
+              exit 1
+            fi
+
+            sleep 3
             curl -fsS http://127.0.0.1:3001/api/ping
