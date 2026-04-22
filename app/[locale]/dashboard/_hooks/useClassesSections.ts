@@ -7,6 +7,7 @@ import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassItem, SectionItem } from "../_components/types";
 import {
+  buildLegacyDashboardSections,
   hasDuplicateDashboardSection,
   normalizeDashboardEntityName,
 } from "./dashboardManagement";
@@ -261,13 +262,13 @@ export function useClassesSections({
           return;
         }
       }
-      const legacySections = sectionsToAdd.length > 0 ? sectionsToAdd : [""];
+      const legacySections = buildLegacyDashboardSections(classForm.sections);
       for (const sec of legacySections) {
         const { error: legacyInsertError } = await supabase.from("classes").insert({
           school_id: schoolId,
           branch_id: branchId || null,
           grade: normalizedClassName,
-          section: sec || null,
+          section: sec,
         });
         if (legacyInsertError) {
           mutationErrorMessage = legacyInsertError.message || "تعذر حفظ الصف.";

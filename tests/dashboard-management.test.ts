@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildLegacyDashboardSections,
   hasDuplicateDashboardFeeClass,
   hasDuplicateDashboardSection,
   normalizeDashboardEntityName,
@@ -81,5 +82,13 @@ describe("dashboardManagement helpers", () => {
         "أ",
       ),
     ).toBe(false);
+  });
+
+  it("keeps legacy section inserts non-null when sections are optional", () => {
+    expect(buildLegacyDashboardSections(["", "   "])).toEqual([""]);
+  });
+
+  it("normalizes and deduplicates legacy section inserts", () => {
+    expect(buildLegacyDashboardSections([" أ ", "ب", "أ", ""])).toEqual(["أ", "ب"]);
   });
 });

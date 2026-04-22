@@ -55,3 +55,13 @@ export function hasDuplicateDashboardSection(
     return section.class_id === classId && normalizeDashboardEntityKey(section.name) === normalizedTarget;
   });
 }
+
+export function buildLegacyDashboardSections(sectionNames: string[]) {
+  const normalizedSections = Array.from(
+    new Set(sectionNames.map((sectionName) => normalizeDashboardEntityName(sectionName)).filter(Boolean)),
+  );
+
+  // Legacy schemas store classes and sections in one table and some deployments
+  // still require the section column to be non-null.
+  return normalizedSections.length > 0 ? normalizedSections : [""];
+}
