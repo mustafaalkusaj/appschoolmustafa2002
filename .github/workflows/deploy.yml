@@ -12,10 +12,12 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: 159.203.120.28
-          username: root
+          username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd /var/www/school-app
             git pull origin main
+            npm ci
             npm run build
-            pm2 restart school-app
+            sudo -n systemctl restart pm2-deploy
+            curl -fsS http://127.0.0.1:3001/api/ping
