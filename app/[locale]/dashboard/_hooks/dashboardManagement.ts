@@ -4,13 +4,45 @@ function normalizeWhitespace(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function foldDashboardLookupValue(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/ـ/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي");
+}
+
 export function normalizeDashboardEntityName(value: string | null | undefined) {
   if (typeof value !== "string") return "";
   return normalizeWhitespace(value);
 }
 
 export function normalizeDashboardEntityKey(value: string | null | undefined) {
-  return normalizeDashboardEntityName(value).toLocaleLowerCase();
+  return foldDashboardLookupValue(normalizeDashboardEntityName(value)).toLocaleLowerCase();
+}
+
+export function getDashboardRecordValueByName<T>(
+  record: Record<string, T>,
+  rawName: string | null | undefined,
+): T | undefined {
+  const normalizedName = normalizeDashboardEntityName(rawName);
+  if (!normalizedName) return undefined;
+
+  if (Object.prototype.hasOwnProperty.call(record, normalizedName)) {
+    return record[normalizedName];
+  }
+
+  const normalizedKey = normalizeDashboardEntityKey(normalizedName);
+  for (const [name, value] of Object.entries(record)) {
+    if (normalizeDashboardEntityKey(name) === normalizedKey) {
+      return value;
+    }
+  }
+
+  return undefined;
 }
 
 export function resolveCanonicalDashboardClassName(

@@ -7,6 +7,7 @@ import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassFee, FeeFormData } from "../_components/types";
 import {
+  getDashboardRecordValueByName,
   hasDuplicateDashboardFeeClass,
   normalizeDashboardEntityKey,
   resolveCanonicalDashboardClassName,
@@ -232,7 +233,7 @@ export function useFeeManagement({
   const getClassStats = useCallback((cf: ClassFee) => {
     return (
       cf.stats ?? {
-        count: studentCountByClass[cf.class_name] ?? 0,
+        count: getDashboardRecordValueByName(studentCountByClass, cf.class_name) ?? 0,
         totalExpected: 0,
         totalPaid: 0,
         totalRemaining: 0,

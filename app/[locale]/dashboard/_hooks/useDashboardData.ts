@@ -25,6 +25,7 @@ interface DashboardOverviewResponse {
   overdueStudents?: DashboardOverdueStudent[];
   classFees?: ClassFee[];
   studentCountByClass?: Record<string, number>;
+  warning?: string;
   error?: { message?: string };
 }
 
@@ -41,6 +42,7 @@ export function useDashboardData({
   const [classFees, setClassFees] = useState<ClassFee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
@@ -48,6 +50,7 @@ export function useDashboardData({
     });
     setLoading(true);
     setError(null);
+    setWarning(null);
     if (!schoolId) {
       setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
       setRecentPayments([]);
@@ -55,6 +58,7 @@ export function useDashboardData({
       setStudentCountByClass({});
       setClassFees([]);
       setError(null);
+      setWarning(null);
       setLoading(false);
       return;
     }
@@ -79,6 +83,7 @@ export function useDashboardData({
       setStudentCountByClass(payload?.studentCountByClass ?? {});
       setClassFees(payload?.classFees ?? []);
       setError(null);
+      setWarning(typeof payload?.warning === "string" ? payload.warning : null);
     } catch (caughtError) {
       setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
       setRecentPayments([]);
@@ -86,6 +91,7 @@ export function useDashboardData({
       setStudentCountByClass({});
       setClassFees([]);
       setError(caughtError instanceof Error ? caughtError.message : "dashboard_overview_failed");
+      setWarning(null);
     } finally {
       setLoading(false);
     }
@@ -104,6 +110,7 @@ export function useDashboardData({
     classFees,
     loading,
     error,
+    warning,
     refetch: fetchAll,
     setClassFees,
   };

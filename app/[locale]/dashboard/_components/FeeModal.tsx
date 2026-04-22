@@ -3,6 +3,7 @@
 import { AppIcon } from "@/components/AppIcon";
 import { formatNumber } from "@/lib/formatting";
 import { ClassFee, FeeFormData } from "./types";
+import { getDashboardRecordValueByName } from "../_hooks/dashboardManagement";
 
 interface FeeModalProps {
   show: boolean;
@@ -33,7 +34,7 @@ export function FeeModal({
 }: FeeModalProps) {
   if (!show) return null;
 
-  const linkedCount = feeForm.class_name ? (studentCountByClass[feeForm.class_name.trim()] ?? 0) : 0;
+  const linkedCount = feeForm.class_name ? (getDashboardRecordValueByName(studentCountByClass, feeForm.class_name) ?? 0) : 0;
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>

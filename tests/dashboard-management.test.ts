@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildLegacyDashboardSections,
+  getDashboardRecordValueByName,
   hasDuplicateDashboardFeeClass,
   hasDuplicateDashboardSection,
   normalizeDashboardEntityName,
+  normalizeDashboardEntityKey,
   resolveCanonicalDashboardClassName,
 } from "@/app/[locale]/dashboard/_hooks/dashboardManagement";
 
@@ -17,6 +19,10 @@ describe("dashboardManagement helpers", () => {
     expect(
       resolveCanonicalDashboardClassName(" الصف الأول ", ["الصف الأول", "الصف الثاني"]),
     ).toBe("الصف الأول");
+  });
+
+  it("matches Arabic class variants using a folded lookup key", () => {
+    expect(normalizeDashboardEntityKey("الأول متوسط")).toBe(normalizeDashboardEntityKey("الاول  متوسط"));
   });
 
   it("detects duplicate fee classes after normalization", () => {
@@ -90,5 +96,17 @@ describe("dashboardManagement helpers", () => {
 
   it("normalizes and deduplicates legacy section inserts", () => {
     expect(buildLegacyDashboardSections([" أ ", "ب", "أ", ""])).toEqual(["أ", "ب"]);
+  });
+
+  it("reads record values using normalized class-name matching", () => {
+    expect(
+      getDashboardRecordValueByName(
+        {
+          "الاول متوسط": 3,
+          "الثاني المتوسط": 1,
+        },
+        "الأول   متوسط",
+      ),
+    ).toBe(3);
   });
 });

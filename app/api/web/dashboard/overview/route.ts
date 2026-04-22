@@ -18,6 +18,46 @@ type DashboardStudentRow = {
   status: string | null;
 };
 
+function normalizeDashboardOverviewName(value: string | null | undefined) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizeDashboardOverviewKey(value: string | null | undefined) {
+  return normalizeDashboardOverviewName(value)
+    .normalize("NFKD")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/ـ/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .toLocaleLowerCase();
+}
+
+function buildEmptyDashboardOverviewPayload(warning?: string | null) {
+  return {
+    totals: {
+      studentsCount: 0,
+      transferredCount: 0,
+      totalFees: 0,
+      totalPaid: 0,
+      totalDiscount: 0,
+      totalRemaining: 0,
+      feeNotificationsCount: 0,
+      monthlySalaries: 0,
+      afterDiscount: 0,
+      paidPct: 0,
+      remainingPct: 0,
+    },
+    recentPayments: [],
+    overdueStudents: [],
+    classFees: [],
+    studentCountByClass: {},
+    ...(warning ? { warning } : {}),
+  };
+}
+
 export async function GET(req: NextRequest) {
   const parsed = dashboardOverviewQuerySchema.safeParse({
     schoolId: req.nextUrl.searchParams.get("schoolId"),
@@ -137,26 +177,35 @@ export async function GET(req: NextRequest) {
         monthlySalariesPromise,
       ]);
 
-      if (studentsResult.status !== "fulfilled" || studentsResult.value.error) {
-        throw (
-          studentsResult.status === "fulfilled"
-            ? studentsResult.value.error ?? new Error("Students query failed")
-            : studentsResult.reason
-        );
-      }
+      const studentsFailed = studentsResult.status !== "fulfilled" || Boolean(studentsResult.value?.error);
+      const recentPaymentsFailed = recentPaymentsResult.status !== "fulfilled" || Boolean(recentPaymentsResult.value?.error);
+      const classFeesFailed = classFeesResult.status !== "fulfilled" || Boolean(classFeesResult.value?.error);
+      const feeNotificationsFailed =
+        feeNotificationsResult.status !== "fulfilled" || Boolean(feeNotificationsResult.value?.error);
+      const monthlySalariesFailed =
+        monthlySalariesResult.status !== "fulfilled" || Boolean(monthlySalariesResult.value?.error);
 
-      const students = (studentsResult.value.data ?? []) as DashboardStudentRow[];
+      const warning =
+        studentsFailed || recentPaymentsFailed || classFeesFailed || feeNotificationsFailed || monthlySalariesFailed
+          ? "degraded_dashboard_overview"
+          : undefined;
+
+      const students =
+        studentsResult.status === "fulfilled" && !studentsResult.value.error
+          ? ((studentsResult.value.data ?? []) as DashboardStudentRow[])
+          : [];
       const studentsById = new Map(students.map((student) => [student.id, student]));
-      const classStatsByName = Object.fromEntries(
+      const classStatsByKey = Object.fromEntries(
         Object.entries(
-          students.reduce<Record<string, { count: number; totalPaid: number; totalRemaining: number }>>((acc, student) => {
-            const className = (student.class_name || "").trim();
-            if (!className) return acc;
-            const current = acc[className] ?? { count: 0, totalPaid: 0, totalRemaining: 0 };
+          students.reduce<Record<string, { className: string; count: number; totalPaid: number; totalRemaining: number }>>((acc, student) => {
+            const className = normalizeDashboardOverviewName(student.class_name);
+            const classKey = normalizeDashboardOverviewKey(className);
+            if (!classKey) return acc;
+            const current = acc[classKey] ?? { className, count: 0, totalPaid: 0, totalRemaining: 0 };
             current.count += 1;
             current.totalPaid += Number(student.paid_fee ?? 0);
             current.totalRemaining += Number(student.remaining_fee ?? 0);
-            acc[className] = current;
+            acc[classKey] = current;
             return acc;
           }, {}),
         ).map(([className, stats]) => [className, stats]),
@@ -187,14 +236,21 @@ export async function GET(req: NextRequest) {
       const classFees =
         classFeesResult.status === "fulfilled" && !classFeesResult.value.error
           ? (classFeesResult.value.data ?? []).map((fee) => {
-              const className = String(fee.class_name ?? "");
-              const studentStats = classStatsByName[className] ?? { count: 0, totalPaid: 0, totalRemaining: 0 };
+              const className = normalizeDashboardOverviewName(String(fee.class_name ?? ""));
+              const studentStats =
+                classStatsByKey[normalizeDashboardOverviewKey(className)] ?? {
+                  className,
+                  count: 0,
+                  totalPaid: 0,
+                  totalRemaining: 0,
+                };
               const feeTotal = Number(fee.total_fee ?? 0);
               const totalExpected = studentStats.count * feeTotal;
               const paidPct = totalExpected > 0 ? Math.round((studentStats.totalPaid / totalExpected) * 100) : 0;
 
               return {
                 ...fee,
+                class_name: className,
                 total_fee: feeTotal,
                 installments: Number(fee.installments ?? 0),
                 installment_amount: Number(fee.installment_amount ?? 0),
@@ -257,13 +313,14 @@ export async function GET(req: NextRequest) {
           .map((student) => ({
             id: student.id,
             full_name: student.full_name,
-            class_name: student.class_name,
+            class_name: normalizeDashboardOverviewName(student.class_name),
             remaining_fee: Number(student.remaining_fee ?? 0),
           })),
         classFees,
         studentCountByClass: Object.fromEntries(
-          Object.entries(classStatsByName).map(([className, stats]) => [className, stats.count]),
+          Object.values(classStatsByKey).map((stats) => [stats.className, stats.count]),
         ),
+        ...(warning ? { warning } : {}),
       };
     };
 
@@ -289,6 +346,10 @@ export async function GET(req: NextRequest) {
       branchId: effectiveBranchId,
       requestId: req.headers.get("x-request-id"),
     });
-    return jsonError("تعذر تحميل ملخص لوحة التحكم حالياً. حاول مرة أخرى بعد قليل.", 500);
+
+    return NextResponse.json({
+      ok: true,
+      ...buildEmptyDashboardOverviewPayload("degraded_dashboard_overview"),
+    });
   }
 }

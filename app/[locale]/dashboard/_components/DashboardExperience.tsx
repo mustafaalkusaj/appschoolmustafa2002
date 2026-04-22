@@ -102,12 +102,6 @@ export function DashboardExperience({
 
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
   const canCustomizeBranding = profile?.role === "super_admin";
-  const hasOperationalData =
-    !dashboardData.error &&
-    (dashboardData.dashboardTotals.studentsCount > 0 ||
-      dashboardData.classFees.length > 0 ||
-      dashboardData.recentPayments.length > 0 ||
-      dashboardData.overdueStudents.length > 0);
 
   const dashboardSummary = schoolScope.shouldBlockContent
     ? t("summary.empty")
@@ -143,6 +137,16 @@ export function DashboardExperience({
               </Card>
             ) : (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {dashboardData.warning ? (
+                  <Card className="border-amber-200 bg-amber-50/80">
+                    <CardContent className="py-3 text-sm text-amber-900">
+                      {locale === "en"
+                        ? "Dashboard widgets were loaded in fallback mode and currently display zero values until branch data becomes available."
+                        : "تم تحميل بطاقات لوحة الفرع بوضع احتياطي، لذلك ستظهر القيم بصفر إلى أن تتوفر بيانات الفرع."}
+                    </CardContent>
+                  </Card>
+                ) : null}
+
                 <DashboardActions
                   canManageClasses={canManageClasses}
                   showFeesTable={showFeesTable}
@@ -220,57 +224,62 @@ export function DashboardExperience({
                   </div>
                 </div>
 
-                {dashboardData.loading || dashboardData.error || hasOperationalData ? (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-                    <ClassFeesTable
-                      classFees={dashboardData.classFees}
-                      showFeesTable={showFeesTable}
-                      canManageClasses={canManageClasses}
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+                  <ClassFeesTable
+                    classFees={dashboardData.classFees}
+                    showFeesTable={showFeesTable}
+                    canManageClasses={canManageClasses}
+                    loading={dashboardData.loading}
+                    error={dashboardData.error}
+                    onRetry={dashboardData.refetch}
+                    deleteConfirm={feeManagement.deleteConfirm}
+                    getClassStats={feeManagement.getClassStats}
+                    onOpenNewFee={() => {
+                      setShowFeesTable(true);
+                      feeManagement.openNewFee();
+                    }}
+                    onEditFee={feeManagement.openEditFee}
+                    onDeleteFee={(id) => feeManagement.setDeleteConfirm(id)}
+                    onCancelDelete={() => feeManagement.setDeleteConfirm(null)}
+                    onConfirmDelete={feeManagement.handleDeleteFee}
+                  />
+
+                  {!dashboardData.loading &&
+                  !dashboardData.error &&
+                  dashboardData.dashboardTotals.studentsCount === 0 &&
+                  dashboardData.classFees.length === 0 &&
+                  dashboardData.recentPayments.length === 0 &&
+                  dashboardData.overdueStudents.length === 0 ? (
+                    <EmptyState
+                      icon={
+                        <div className="h-16 w-16 flex items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]">
+                          <Database size={32} />
+                        </div>
+                      }
+                      title={t("emptyTitle")}
+                      description={t("emptyDescription")}
+                    />
+                  ) : null}
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <RecentPaymentsPanel
+                      recentPayments={dashboardData.recentPayments}
+                      paymentsPageHref={paymentsPageHref}
+                      locale={locale}
                       loading={dashboardData.loading}
                       error={dashboardData.error}
                       onRetry={dashboardData.refetch}
-                      deleteConfirm={feeManagement.deleteConfirm}
-                      getClassStats={feeManagement.getClassStats}
-                      onOpenNewFee={() => {
-                        setShowFeesTable(true);
-                        feeManagement.openNewFee();
-                      }}
-                      onEditFee={feeManagement.openEditFee}
-                      onDeleteFee={(id) => feeManagement.setDeleteConfirm(id)}
-                      onCancelDelete={() => feeManagement.setDeleteConfirm(null)}
-                      onConfirmDelete={feeManagement.handleDeleteFee}
                     />
-
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <RecentPaymentsPanel
-                        recentPayments={dashboardData.recentPayments}
-                        paymentsPageHref={paymentsPageHref}
-                        locale={locale}
-                        loading={dashboardData.loading}
-                        error={dashboardData.error}
-                        onRetry={dashboardData.refetch}
-                      />
-                      <OverdueStudentsPanel
-                        overdueStudents={dashboardData.overdueStudents}
-                        paymentsPageHref={paymentsPageHref}
-                        locale={locale}
-                        loading={dashboardData.loading}
-                        error={dashboardData.error}
-                        onRetry={dashboardData.refetch}
-                      />
-                    </div>
+                    <OverdueStudentsPanel
+                      overdueStudents={dashboardData.overdueStudents}
+                      paymentsPageHref={paymentsPageHref}
+                      locale={locale}
+                      loading={dashboardData.loading}
+                      error={dashboardData.error}
+                      onRetry={dashboardData.refetch}
+                    />
                   </div>
-                ) : (
-                  <EmptyState
-                    icon={
-                      <div className="h-16 w-16 flex items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]">
-                        <Database size={32} />
-                      </div>
-                    }
-                    title={t("emptyTitle")}
-                    description={t("emptyDescription")}
-                  />
-                )}
+                </div>
               </div>
             )}
           </div>
