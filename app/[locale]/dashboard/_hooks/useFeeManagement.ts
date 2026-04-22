@@ -143,7 +143,9 @@ export function useFeeManagement({
         installment_amount,
         notes: feeForm.notes.trim(),
       };
-      if (branchScoped && branchId && compat.classFeesBranchScope) {
+      if (branchScoped && branchId) {
+        payload.branch_id = branchId;
+      } else if (compat.classFeesBranchScope && branchId) {
         payload.branch_id = branchId;
       }
       const { error } = await supabase.from("class_fees").insert(payload);
