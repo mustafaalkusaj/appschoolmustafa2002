@@ -24,11 +24,15 @@ function decodeBase64Url(value: string): string {
   const padding = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
   const padded = normalized + "=".repeat(padding);
 
-  if (typeof atob !== "undefined") {
-    return atob(padded);
+  try {
+    return Buffer.from(padded, "base64").toString("utf-8");
+  } catch {
+    try {
+      return atob(padded);
+    } catch {
+      return "";
+    }
   }
-
-  return Buffer.from(padded, "base64").toString("utf-8");
 }
 
 function deriveSupabaseUrlFromServiceRoleKey(): string {
@@ -40,6 +44,8 @@ function deriveSupabaseUrlFromServiceRoleKey(): string {
 
   try {
     const payloadRaw = decodeBase64Url(parts[1]);
+    if (!payloadRaw) return "";
+
     const payload = JSON.parse(payloadRaw) as { iss?: unknown };
     const issuer = typeof payload.iss === "string" ? payload.iss.trim() : "";
     if (!issuer) return "";
