@@ -15,8 +15,7 @@ jobs:
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           command_timeout: 15m
-          envs: GITHUB_REPOSITORY
-          script_stop: true
+          request_pty: true
           script: |
             set -euo pipefail
             APP_DIR=/var/www/school-app
@@ -77,14 +76,16 @@ jobs:
             MAX_ATTEMPTS=30
             HEALTH_OK=0
             while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
-              if curl -fsS http://127.0.0.1:3001/api/ping >/dev/null 2>&1; then
+              echo "Health check attempt ${ATTEMPT}/${MAX_ATTEMPTS}..."
+              if curl -fsS --max-time 5 http://127.0.0.1:3001/api/ping >/dev/null 2>&1; then
                 HEALTH_OK=1
                 break
               fi
-              printf 'Health check %d/%d failed, waiting...\n' "$ATTEMPT" "$MAX_ATTEMPTS"
+              echo "  -> failed. Sleeping 3s..."
               ATTEMPT=$((ATTEMPT + 1))
-              for i in 1 2 3; do sleep 1 && printf '.'; done
-              echo ""
+              sleep 1; echo "  -> 1s"
+              sleep 1; echo "  -> 2s"
+              sleep 1; echo "  -> 3s"
             done
 
             if [ "$HEALTH_OK" -ne 1 ]; then
