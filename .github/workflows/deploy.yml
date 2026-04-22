@@ -55,11 +55,34 @@ jobs:
 
             ATTEMPT=1
             MAX_ATTEMPTS=20
-            until curl -fsS http://127.0.0.1:3001/api/ping >/dev/null; do
-              if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
-                echo "Health check failed after ${MAX_ATTEMPTS} attempts." >&2
-                exit 1
+            HEALTH_OK=0
+            while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+              if curl -fsS http://127.0.0.1:3001/api/ping >/dev/null; then
+                HEALTH_OK=1
+                break
               fi
+              echo "Health check attempt ${ATTEMPT}/${MAX_ATTEMPTS} failed."
               ATTEMPT=$((ATTEMPT + 1))
               sleep 3
             done
+
+            if [ "$HEALTH_OK" -ne 1 ]; then
+              echo "Health check failed after ${MAX_ATTEMPTS} attempts. Collecting diagnostics..." >&2
+              echo "---- curl /api/ping ----" >&2
+              curl -isS http://127.0.0.1:3001/api/ping || true
+              echo "---- curl /api/health ----" >&2
+              curl -isS http://127.0.0.1:3001/api/health || true
+              echo "---- systemctl status pm2-deploy ----" >&2
+              sudo -n systemctl status pm2-deploy --no-pager || true
+              echo "---- journalctl pm2-deploy ----" >&2
+              sudo -n journalctl -u pm2-deploy -n 200 --no-pager || true
+              if command -v pm2 >/dev/null 2>&1; then
+                echo "---- pm2 status ----" >&2
+                PM2_HOME=/home/deploy/.pm2 pm2 status || true
+                echo "---- pm2 logs (school-app) ----" >&2
+                PM2_HOME=/home/deploy/.pm2 pm2 logs school-app --lines 200 --nostream || true
+              fi
+              echo "---- listening sockets (3001) ----" >&2
+              sudo -n ss -ltnp | grep ':3001 ' || true
+              exit 1
+            fi
