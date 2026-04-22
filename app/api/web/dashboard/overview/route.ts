@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { schoolId, branchId } = parsed.data;
+  const bypassCache = req.nextUrl.searchParams.get("fresh") === "1";
   const context = await resolveSchoolScopedActorContext(
     schoolId,
     {
@@ -61,217 +62,221 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const payload = await rememberWithTtl(
-      `dashboard-overview:${targetSchoolId}:${effectiveBranchId ?? "all"}`,
-      15_000,
-      async () => {
-        const [
-          studentsBranchScope,
-          paymentsBranchScope,
-          salariesBranchScope,
-          feeNotificationsBranchScope,
-          classFeesSchoolScope,
-          classFeesBranchScope,
-        ] = await Promise.all([
-          tableHasColumn(actorSupabase, "students", "branch_id").catch(() => false),
-          tableHasColumn(actorSupabase, "payments", "branch_id").catch(() => false),
-          tableHasColumn(actorSupabase, "salaries", "branch_id").catch(() => false),
-          tableHasColumn(actorSupabase, "fee_notifications", "branch_id").catch(() => false),
-          tableHasColumn(actorSupabase, "class_fees", "school_id").catch(() => false),
-          tableHasColumn(actorSupabase, "class_fees", "branch_id").catch(() => false),
-        ]);
+    const loadDashboardOverview = async () => {
+      const [
+        studentsBranchScope,
+        paymentsBranchScope,
+        salariesBranchScope,
+        feeNotificationsBranchScope,
+        classFeesSchoolScope,
+        classFeesBranchScope,
+      ] = await Promise.all([
+        tableHasColumn(actorSupabase, "students", "branch_id").catch(() => false),
+        tableHasColumn(actorSupabase, "payments", "branch_id").catch(() => false),
+        tableHasColumn(actorSupabase, "salaries", "branch_id").catch(() => false),
+        tableHasColumn(actorSupabase, "fee_notifications", "branch_id").catch(() => false),
+        tableHasColumn(actorSupabase, "class_fees", "school_id").catch(() => false),
+        tableHasColumn(actorSupabase, "class_fees", "branch_id").catch(() => false),
+      ]);
 
-        const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+      const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
-        let studentsPromise = actorSupabase
-          .from("students")
-          .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
-          .eq("school_id", targetSchoolId)
-          .neq("status", "deleted");
-        if (effectiveBranchId && studentsBranchScope) {
-          studentsPromise = studentsPromise.eq("branch_id", effectiveBranchId);
-        }
+      let studentsPromise = actorSupabase
+        .from("students")
+        .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .eq("school_id", targetSchoolId)
+        .neq("status", "deleted");
+      if (effectiveBranchId && studentsBranchScope) {
+        studentsPromise = studentsPromise.eq("branch_id", effectiveBranchId);
+      }
 
-        let recentPaymentsPromise = actorSupabase
-          .from("payments")
-          .select("id, amount, created_at, student_id, students(full_name,class_name)")
-          .eq("school_id", targetSchoolId)
-          .order("created_at", { ascending: false })
-          .limit(5);
-        if (effectiveBranchId && paymentsBranchScope) {
-          recentPaymentsPromise = recentPaymentsPromise.eq("branch_id", effectiveBranchId);
-        }
+      let recentPaymentsPromise = actorSupabase
+        .from("payments")
+        .select("id, amount, created_at, student_id, students(full_name,class_name)")
+        .eq("school_id", targetSchoolId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (effectiveBranchId && paymentsBranchScope) {
+        recentPaymentsPromise = recentPaymentsPromise.eq("branch_id", effectiveBranchId);
+      }
 
-        let classFeesPromise = actorSupabase
-          .from("class_fees")
-          .select("id, class_name, total_fee, installments, installment_amount, notes, created_at")
-          .order("class_name", { ascending: true });
+      let classFeesPromise = actorSupabase
+        .from("class_fees")
+        .select("id, class_name, total_fee, installments, installment_amount, notes, created_at")
+        .order("class_name", { ascending: true });
 
-        if (classFeesSchoolScope) {
-          classFeesPromise = classFeesPromise.eq("school_id", targetSchoolId);
-        }
-        if (effectiveBranchId && classFeesBranchScope) {
-          classFeesPromise = classFeesPromise.eq("branch_id", effectiveBranchId);
-        }
+      if (classFeesSchoolScope) {
+        classFeesPromise = classFeesPromise.eq("school_id", targetSchoolId);
+      }
+      if (effectiveBranchId && classFeesBranchScope) {
+        classFeesPromise = classFeesPromise.eq("branch_id", effectiveBranchId);
+      }
 
-        let feeNotificationsCountPromise = actorSupabase
-          .from("fee_notifications")
-          .select("id", { count: "exact", head: true })
-          .eq("school_id", targetSchoolId);
-        if (effectiveBranchId && feeNotificationsBranchScope) {
-          feeNotificationsCountPromise = feeNotificationsCountPromise.eq("branch_id", effectiveBranchId);
-        }
+      let feeNotificationsCountPromise = actorSupabase
+        .from("fee_notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("school_id", targetSchoolId);
+      if (effectiveBranchId && feeNotificationsBranchScope) {
+        feeNotificationsCountPromise = feeNotificationsCountPromise.eq("branch_id", effectiveBranchId);
+      }
 
-        let monthlySalariesPromise = actorSupabase
-          .from("salaries")
-          .select("gross_salary, deductions")
-          .eq("school_id", targetSchoolId)
-          .eq("month", currentMonth);
-        if (effectiveBranchId && salariesBranchScope) {
-          monthlySalariesPromise = monthlySalariesPromise.eq("branch_id", effectiveBranchId);
-        }
+      let monthlySalariesPromise = actorSupabase
+        .from("salaries")
+        .select("gross_salary, deductions")
+        .eq("school_id", targetSchoolId)
+        .eq("month", currentMonth);
+      if (effectiveBranchId && salariesBranchScope) {
+        monthlySalariesPromise = monthlySalariesPromise.eq("branch_id", effectiveBranchId);
+      }
 
-        const [studentsResult, recentPaymentsResult, classFeesResult, feeNotificationsResult, monthlySalariesResult] = await Promise.allSettled([
-          studentsPromise,
-          recentPaymentsPromise,
-          classFeesPromise,
-          feeNotificationsCountPromise,
-          monthlySalariesPromise,
-        ]);
+      const [studentsResult, recentPaymentsResult, classFeesResult, feeNotificationsResult, monthlySalariesResult] = await Promise.allSettled([
+        studentsPromise,
+        recentPaymentsPromise,
+        classFeesPromise,
+        feeNotificationsCountPromise,
+        monthlySalariesPromise,
+      ]);
 
-        if (studentsResult.status !== "fulfilled" || studentsResult.value.error) {
-          throw (
-            studentsResult.status === "fulfilled"
-              ? studentsResult.value.error ?? new Error("Students query failed")
-              : studentsResult.reason
-          );
-        }
-
-        const students = (studentsResult.value.data ?? []) as DashboardStudentRow[];
-        const studentsById = new Map(students.map((student) => [student.id, student]));
-        const classStatsByName = Object.fromEntries(
-          Object.entries(
-            students.reduce<Record<string, { count: number; totalPaid: number; totalRemaining: number }>>((acc, student) => {
-              const className = (student.class_name || "").trim();
-              if (!className) return acc;
-              const current = acc[className] ?? { count: 0, totalPaid: 0, totalRemaining: 0 };
-              current.count += 1;
-              current.totalPaid += Number(student.paid_fee ?? 0);
-              current.totalRemaining += Number(student.remaining_fee ?? 0);
-              acc[className] = current;
-              return acc;
-            }, {}),
-          ).map(([className, stats]) => [className, stats]),
+      if (studentsResult.status !== "fulfilled" || studentsResult.value.error) {
+        throw (
+          studentsResult.status === "fulfilled"
+            ? studentsResult.value.error ?? new Error("Students query failed")
+            : studentsResult.reason
         );
+      }
 
-        const recentPayments =
-          recentPaymentsResult.status === "fulfilled" && !recentPaymentsResult.value.error
-            ? (recentPaymentsResult.value.data ?? []).map((payment) => {
-                const relation = Array.isArray(payment.students) ? payment.students[0] ?? null : payment.students ?? null;
-                const student = studentsById.get(String(payment.student_id)) ?? null;
-                return {
-                  id: payment.id,
-                  amount: payment.amount ?? 0,
-                  created_at: payment.created_at,
-                  student_id: payment.student_id,
-                  student_name:
-                    (relation && typeof relation.full_name === "string" ? relation.full_name : null) ??
-                    student?.full_name ??
-                    "—",
-                  class_name:
-                    (relation && typeof relation.class_name === "string" ? relation.class_name : null) ??
-                    student?.class_name ??
-                    "—",
-                };
-              })
-            : [];
+      const students = (studentsResult.value.data ?? []) as DashboardStudentRow[];
+      const studentsById = new Map(students.map((student) => [student.id, student]));
+      const classStatsByName = Object.fromEntries(
+        Object.entries(
+          students.reduce<Record<string, { count: number; totalPaid: number; totalRemaining: number }>>((acc, student) => {
+            const className = (student.class_name || "").trim();
+            if (!className) return acc;
+            const current = acc[className] ?? { count: 0, totalPaid: 0, totalRemaining: 0 };
+            current.count += 1;
+            current.totalPaid += Number(student.paid_fee ?? 0);
+            current.totalRemaining += Number(student.remaining_fee ?? 0);
+            acc[className] = current;
+            return acc;
+          }, {}),
+        ).map(([className, stats]) => [className, stats]),
+      );
 
-        const classFees =
-          classFeesResult.status === "fulfilled" && !classFeesResult.value.error
-            ? (classFeesResult.value.data ?? []).map((fee) => {
-                const className = String(fee.class_name ?? "");
-                const studentStats = classStatsByName[className] ?? { count: 0, totalPaid: 0, totalRemaining: 0 };
-                const feeTotal = Number(fee.total_fee ?? 0);
-                const totalExpected = studentStats.count * feeTotal;
-                const paidPct = totalExpected > 0 ? Math.round((studentStats.totalPaid / totalExpected) * 100) : 0;
+      const recentPayments =
+        recentPaymentsResult.status === "fulfilled" && !recentPaymentsResult.value.error
+          ? (recentPaymentsResult.value.data ?? []).map((payment) => {
+              const relation = Array.isArray(payment.students) ? payment.students[0] ?? null : payment.students ?? null;
+              const student = studentsById.get(String(payment.student_id)) ?? null;
+              return {
+                id: payment.id,
+                amount: payment.amount ?? 0,
+                created_at: payment.created_at,
+                student_id: payment.student_id,
+                student_name:
+                  (relation && typeof relation.full_name === "string" ? relation.full_name : null) ??
+                  student?.full_name ??
+                  "—",
+                class_name:
+                  (relation && typeof relation.class_name === "string" ? relation.class_name : null) ??
+                  student?.class_name ??
+                  "—",
+              };
+            })
+          : [];
 
-                return {
-                  ...fee,
-                  total_fee: feeTotal,
-                  installments: Number(fee.installments ?? 0),
-                  installment_amount: Number(fee.installment_amount ?? 0),
-                  stats: {
-                    count: studentStats.count,
-                    totalExpected,
-                    totalPaid: studentStats.totalPaid,
-                    totalRemaining: studentStats.totalRemaining,
-                    paidPct,
-                  },
-                };
-              })
-            : [];
+      const classFees =
+        classFeesResult.status === "fulfilled" && !classFeesResult.value.error
+          ? (classFeesResult.value.data ?? []).map((fee) => {
+              const className = String(fee.class_name ?? "");
+              const studentStats = classStatsByName[className] ?? { count: 0, totalPaid: 0, totalRemaining: 0 };
+              const feeTotal = Number(fee.total_fee ?? 0);
+              const totalExpected = studentStats.count * feeTotal;
+              const paidPct = totalExpected > 0 ? Math.round((studentStats.totalPaid / totalExpected) * 100) : 0;
 
-        const feeNotificationsCount =
-          feeNotificationsResult.status === "fulfilled" && !feeNotificationsResult.value.error
-            ? (feeNotificationsResult.value.count ?? 0)
-            : 0;
+              return {
+                ...fee,
+                total_fee: feeTotal,
+                installments: Number(fee.installments ?? 0),
+                installment_amount: Number(fee.installment_amount ?? 0),
+                stats: {
+                  count: studentStats.count,
+                  totalExpected,
+                  totalPaid: studentStats.totalPaid,
+                  totalRemaining: studentStats.totalRemaining,
+                  paidPct,
+                },
+              };
+            })
+          : [];
 
-        const monthlySalaryRows =
-          monthlySalariesResult.status === "fulfilled" && !monthlySalariesResult.value.error
-            ? (monthlySalariesResult.value.data ?? [])
-            : [];
+      const feeNotificationsCount =
+        feeNotificationsResult.status === "fulfilled" && !feeNotificationsResult.value.error
+          ? (feeNotificationsResult.value.count ?? 0)
+          : 0;
 
-        const monthlySalaries = monthlySalaryRows.reduce(
-          (sum, row) => sum + Number(row.gross_salary ?? 0) - Number(row.deductions ?? 0),
-          0,
-        );
+      const monthlySalaryRows =
+        monthlySalariesResult.status === "fulfilled" && !monthlySalariesResult.value.error
+          ? (monthlySalariesResult.value.data ?? [])
+          : [];
 
-        const totals = {
-          studentsCount: students.length,
-          transferredCount: students.filter((student) => student.status === "transferred").length,
-          totalFees: students.reduce((sum, student) => sum + Number(student.total_fee ?? 0), 0),
-          totalPaid: students.reduce((sum, student) => sum + Number(student.paid_fee ?? 0), 0),
-          totalDiscount: students.reduce((sum, student) => sum + Number(student.discount_value ?? 0), 0),
-          totalRemaining: students.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
-          feeNotificationsCount,
-          monthlySalaries,
-        };
+      const monthlySalaries = monthlySalaryRows.reduce(
+        (sum, row) => sum + Number(row.gross_salary ?? 0) - Number(row.deductions ?? 0),
+        0,
+      );
 
-        const afterDiscount = totals.totalFees - totals.totalDiscount;
-        const paidPct = calculateStudentPaidPercentage({
-          total_fee: totals.totalFees,
-          paid_fee: totals.totalPaid,
-          discount_value: totals.totalDiscount,
-        });
+      const totals = {
+        studentsCount: students.length,
+        transferredCount: students.filter((student) => student.status === "transferred").length,
+        totalFees: students.reduce((sum, student) => sum + Number(student.total_fee ?? 0), 0),
+        totalPaid: students.reduce((sum, student) => sum + Number(student.paid_fee ?? 0), 0),
+        totalDiscount: students.reduce((sum, student) => sum + Number(student.discount_value ?? 0), 0),
+        totalRemaining: students.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
+        feeNotificationsCount,
+        monthlySalaries,
+      };
 
-        return {
-          totals: {
-            ...totals,
-            afterDiscount,
-            paidPct,
-            remainingPct: Math.max(0, 100 - paidPct),
+      const afterDiscount = totals.totalFees - totals.totalDiscount;
+      const paidPct = calculateStudentPaidPercentage({
+        total_fee: totals.totalFees,
+        paid_fee: totals.totalPaid,
+        discount_value: totals.totalDiscount,
+      });
+
+      return {
+        totals: {
+          ...totals,
+          afterDiscount,
+          paidPct,
+          remainingPct: Math.max(0, 100 - paidPct),
+        },
+        recentPayments,
+        overdueStudents: [...students]
+          .filter((student) => Number(student.remaining_fee ?? 0) > 0)
+          .sort((left, right) => Number(right.remaining_fee ?? 0) - Number(left.remaining_fee ?? 0))
+          .slice(0, 3)
+          .map((student) => ({
+            id: student.id,
+            full_name: student.full_name,
+            class_name: student.class_name,
+            remaining_fee: Number(student.remaining_fee ?? 0),
+          })),
+        classFees,
+        studentCountByClass: Object.fromEntries(
+          Object.entries(classStatsByName).map(([className, stats]) => [className, stats.count]),
+        ),
+      };
+    };
+
+    const payload = bypassCache
+      ? await loadDashboardOverview()
+      : await rememberWithTtl(
+          `dashboard-overview:${targetSchoolId}:${effectiveBranchId ?? "all"}`,
+          15_000,
+          loadDashboardOverview,
+          {
+            tags: [buildSchoolCacheTag(targetSchoolId, "dashboard-overview")],
           },
-          recentPayments,
-          overdueStudents: [...students]
-            .filter((student) => Number(student.remaining_fee ?? 0) > 0)
-            .sort((left, right) => Number(right.remaining_fee ?? 0) - Number(left.remaining_fee ?? 0))
-            .slice(0, 3)
-            .map((student) => ({
-              id: student.id,
-              full_name: student.full_name,
-              class_name: student.class_name,
-              remaining_fee: Number(student.remaining_fee ?? 0),
-            })),
-          classFees,
-          studentCountByClass: Object.fromEntries(
-            Object.entries(classStatsByName).map(([className, stats]) => [className, stats.count]),
-          ),
-        };
-      },
-      {
-        tags: [buildSchoolCacheTag(targetSchoolId, "dashboard-overview")],
-      },
-    );
+        );
 
     return NextResponse.json({
       ok: true,

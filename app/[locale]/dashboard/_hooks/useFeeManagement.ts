@@ -8,6 +8,7 @@ import type { UserProfile } from "@/lib/auth";
 import { ClassFee, FeeFormData } from "../_components/types";
 import {
   hasDuplicateDashboardFeeClass,
+  normalizeDashboardEntityKey,
   resolveCanonicalDashboardClassName,
 } from "./dashboardManagement";
 
@@ -62,6 +63,27 @@ export function useFeeManagement({
     const installments = parseInt(feeForm.installments) || 1;
     const total_fee = parseFloat(feeForm.total_fee);
     const installment_amount = Math.round(total_fee / installments);
+    const loadExistingFee = async () => {
+      let query = supabase
+        .from("class_fees")
+        .select("id, class_name, total_fee, installments, installment_amount, notes, created_at")
+        .eq("class_name", canonicalClassName)
+        .limit(1);
+      if (schoolId && compat.classFeesSchoolScope) {
+        query = query.eq("school_id", schoolId);
+      }
+      if (branchScoped && branchId && compat.classFeesBranchScope) {
+        query = query.eq("branch_id", branchId);
+      }
+      if (editingFee) {
+        query = query.neq("id", editingFee.id);
+      }
+      const { data, error } = await query.maybeSingle();
+      if (error) {
+        return null;
+      }
+      return (data as ClassFee | null) ?? null;
+    };
 
     setFeeLoading(true);
     let mutationError = "";
@@ -95,8 +117,20 @@ export function useFeeManagement({
         setFeeLoading(false);
         return;
       }
-      if (hasDuplicateDashboardFeeClass(classFees, canonicalClassName)) {
-        setFeeError("هذا الصف موجود مسبقاً، يمكنك تعديله");
+      const existingFee =
+        hasDuplicateDashboardFeeClass(classFees, canonicalClassName)
+          ? classFees.find((fee) => normalizeDashboardEntityKey(fee.class_name) === normalizeDashboardEntityKey(canonicalClassName)) ?? null
+          : await loadExistingFee();
+      if (existingFee) {
+        await onRefetch().catch(() => undefined);
+        setEditingFee(existingFee);
+        setFeeForm({
+          class_name: existingFee.class_name,
+          total_fee: String(existingFee.total_fee),
+          installments: String(existingFee.installments),
+          notes: existingFee.notes || "",
+        });
+        setFeeError("هذا الصف لديه قسط محفوظ مسبقاً. تم فتح السجل الحالي للتعديل.");
         setFeeLoading(false);
         return;
       }
@@ -113,7 +147,22 @@ export function useFeeManagement({
       }
       const { error } = await supabase.from("class_fees").insert(payload);
       if (error) {
-        mutationError = "حدث خطأ أثناء الحفظ: " + error.message;
+        if (error.code === "23505") {
+          const duplicatedFee = await loadExistingFee();
+          await onRefetch().catch(() => undefined);
+          if (duplicatedFee) {
+            setEditingFee(duplicatedFee);
+            setFeeForm({
+              class_name: duplicatedFee.class_name,
+              total_fee: String(duplicatedFee.total_fee),
+              installments: String(duplicatedFee.installments),
+              notes: duplicatedFee.notes || "",
+            });
+          }
+          mutationError = "هذا الصف لديه قسط محفوظ مسبقاً. استخدم التعديل بدلاً من إضافة سجل جديد.";
+        } else {
+          mutationError = "حدث خطأ أثناء الحفظ: " + error.message;
+        }
       } else {
         setFeeSuccess("تم حفظ سعر القسط بنجاح ✓");
       }

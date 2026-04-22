@@ -61,6 +61,7 @@ export function useDashboardData({
 
     try {
       const searchParams = new URLSearchParams({ schoolId });
+      searchParams.set("fresh", "1");
       if (branchScoped && branchId) {
         searchParams.set("branchId", branchId);
       }
