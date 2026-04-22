@@ -17,17 +17,29 @@ jobs:
           script: |
             set -euo pipefail
             APP_DIR=/var/www/school-app
-            REPO_URL=https://github.com/${{ github.repository }}.git
-
             mkdir -p "$APP_DIR"
-            if [ ! -d "$APP_DIR/.git" ]; then
-              rm -rf "$APP_DIR"
-              git clone --depth 1 "$REPO_URL" "$APP_DIR"
+            REPO_ARCHIVE_URL=https://github.com/${{ github.repository }}/archive/refs/heads/main.tar.gz
+            TMP_DIR=$(mktemp -d)
+            trap 'rm -rf "$TMP_DIR"' EXIT
+            curl -fsSL "$REPO_ARCHIVE_URL" -o "$TMP_DIR/repo.tar.gz"
+            tar -xzf "$TMP_DIR/repo.tar.gz" -C "$TMP_DIR"
+            SRC_DIR=$(find "$TMP_DIR" -maxdepth 1 -type d -name '*-main' | head -n 1)
+            if [ -z "$SRC_DIR" ]; then
+              echo "Unable to locate extracted repository directory." >&2
+              exit 1
+            fi
+            if command -v rsync >/dev/null 2>&1; then
+              rsync -a --delete \
+                --exclude ".env" \
+                --exclude ".env.*" \
+                --exclude "node_modules" \
+                --exclude ".next" \
+                "$SRC_DIR"/ "$APP_DIR"/
+            else
+              cp -a "$SRC_DIR"/. "$APP_DIR"/
             fi
 
             cd "$APP_DIR"
-            git fetch origin main --depth 1
-            git reset --hard origin/main
             npm ci
             npm run build
 
