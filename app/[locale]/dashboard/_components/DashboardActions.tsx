@@ -20,18 +20,15 @@ export function DashboardActions({
   onOpenClassesModal,
 }: DashboardActionsProps) {
   const t = useTranslations("dashboard.actions");
-  
-  if (!canManageClasses) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Button 
-        onClick={onOpenNewFee}
-        className="gap-2"
-      >
-        <Plus size={18} strokeWidth={3} />
-        {t("addFee")}
-      </Button>
+      {canManageClasses ? (
+        <Button onClick={onOpenNewFee} className="gap-2">
+          <Plus size={18} strokeWidth={3} />
+          {t("addFee")}
+        </Button>
+      ) : null}
 
       <Button
         variant="secondary"
@@ -42,15 +39,12 @@ export function DashboardActions({
         {showFeesTable ? t("hideTable") : t("showTable")}
       </Button>
 
-      <Button
-        variant="secondary"
-        onClick={onOpenClassesModal}
-        className="gap-2"
-      >
-        <Layers size={16} />
-        {t("manageClasses")}
-      </Button>
+      {canManageClasses ? (
+        <Button variant="secondary" onClick={onOpenClassesModal} className="gap-2">
+          <Layers size={16} />
+          {t("manageClasses")}
+        </Button>
+      ) : null}
     </div>
   );
 }
-

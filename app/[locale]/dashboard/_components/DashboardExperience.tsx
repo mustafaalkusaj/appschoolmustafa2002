@@ -97,7 +97,7 @@ export function DashboardExperience({
     scopeLoading: schoolScope.scopeLoading,
   });
 
-  const [showFeesTable, setShowFeesTable] = useState(false);
+  const [showFeesTable, setShowFeesTable] = useState(branchScoped);
   const [showClassesModal, setShowClassesModal] = useState(false);
 
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);

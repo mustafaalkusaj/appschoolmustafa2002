@@ -50,8 +50,8 @@ export function ClassFeesTable({
   const t = useTranslations("dashboard.feesTable");
   const dashboardT = useTranslations("dashboard");
   const commonT = useTranslations("common");
-  
-  if (!canManageClasses || !showFeesTable) return null;
+
+  if (!showFeesTable) return null;
 
   return (
     <Card>
@@ -62,14 +62,12 @@ export function ClassFeesTable({
           </div>
           <CardTitle>{t("title")}</CardTitle>
         </div>
-        <Button 
-          size="sm"
-          onClick={onOpenNewFee} 
-          className="gap-2"
-        >
-          <Plus size={16} strokeWidth={3} />
-          <span>{t("addLabel")}</span>
-        </Button>
+        {canManageClasses ? (
+          <Button size="sm" onClick={onOpenNewFee} className="gap-2">
+            <Plus size={16} strokeWidth={3} />
+            <span>{t("addLabel")}</span>
+          </Button>
+        ) : null}
       </CardHeader>
 
       <CardContent className="p-0">
@@ -101,7 +99,9 @@ export function ClassFeesTable({
                   <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("installments")}</th>
                   <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("collected")}</th>
                   <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("remaining")}</th>
-                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("actions")}</th>
+                  {canManageClasses ? (
+                    <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("actions")}</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
@@ -141,48 +141,50 @@ export function ClassFeesTable({
                       <td className="px-4 py-3 font-semibold text-[var(--danger)] text-sm whitespace-nowrap">
                         {commonT("currency")} {formatNumber(stats.totalRemaining)}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button 
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => onEditFee(cf)}
-                          >
-                            <Pencil size={14} />
-                          </Button>
-                          
-                          {deleteConfirm === cf.id ? (
-                            <div className="flex gap-1 animate-in zoom-in-95 duration-200">
-                              <Button 
-                                variant="destructive"
-                                size="sm"
-                                className="h-7 w-7 p-0" 
-                                onClick={() => onConfirmDelete(cf.id)}
-                              >
-                                <Check size={14} />
-                              </Button>
-                              <Button 
-                                variant="outline"
-                                size="sm"
-                                className="h-7 w-7 p-0" 
-                                onClick={onCancelDelete}
-                              >
-                                <X size={14} />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button 
+                      {canManageClasses ? (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] opacity-0 group-hover:opacity-100 transition-opacity" 
-                              onClick={() => onDeleteFee(cf.id)}
+                              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => onEditFee(cf)}
                             >
-                              <Trash2 size={14} />
+                              <Pencil size={14} />
                             </Button>
-                          )}
-                        </div>
-                      </td>
+
+                            {deleteConfirm === cf.id ? (
+                              <div className="flex gap-1 animate-in zoom-in-95 duration-200">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => onConfirmDelete(cf.id)}
+                                >
+                                  <Check size={14} />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={onCancelDelete}
+                                >
+                                  <X size={14} />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => onDeleteFee(cf.id)}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}

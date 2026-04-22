@@ -109,17 +109,23 @@ export async function GET(req: NextRequest) {
   try {
     const loadDashboardOverview = async () => {
       const [
+        studentsStatusScope,
         studentsBranchScope,
         paymentsBranchScope,
         salariesBranchScope,
+        feeNotificationsTableExists,
         feeNotificationsBranchScope,
+        classFeesTableExists,
         classFeesSchoolScope,
         classFeesBranchScope,
       ] = await Promise.all([
+        tableHasColumn(actorSupabase, "students", "status").catch(() => false),
         tableHasColumn(actorSupabase, "students", "branch_id").catch(() => false),
         tableHasColumn(actorSupabase, "payments", "branch_id").catch(() => false),
         tableHasColumn(actorSupabase, "salaries", "branch_id").catch(() => false),
+        tableHasColumn(actorSupabase, "fee_notifications", "id").catch(() => false),
         tableHasColumn(actorSupabase, "fee_notifications", "branch_id").catch(() => false),
+        tableHasColumn(actorSupabase, "class_fees", "id").catch(() => false),
         tableHasColumn(actorSupabase, "class_fees", "school_id").catch(() => false),
         tableHasColumn(actorSupabase, "class_fees", "branch_id").catch(() => false),
       ]);
@@ -129,8 +135,10 @@ export async function GET(req: NextRequest) {
       let studentsPromise = actorSupabase
         .from("students")
         .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
-        .eq("school_id", targetSchoolId)
-        .neq("status", "deleted");
+        .eq("school_id", targetSchoolId);
+      if (studentsStatusScope) {
+        studentsPromise = studentsPromise.or("status.neq.deleted,status.is.null");
+      }
       if (effectiveBranchId && studentsBranchScope) {
         studentsPromise = studentsPromise.eq("branch_id", effectiveBranchId);
       }
@@ -145,25 +153,34 @@ export async function GET(req: NextRequest) {
         recentPaymentsPromise = recentPaymentsPromise.eq("branch_id", effectiveBranchId);
       }
 
-      let classFeesPromise = actorSupabase
-        .from("class_fees")
-        .select("id, class_name, total_fee, installments, installment_amount, notes, created_at")
-        .order("class_name", { ascending: true });
+      const classFeesPromise = classFeesTableExists
+        ? (() => {
+            let classFeesQuery = actorSupabase
+              .from("class_fees")
+              .select("id, class_name, total_fee, installments, installment_amount, notes, created_at")
+              .order("class_name", { ascending: true });
+            if (classFeesSchoolScope) {
+              classFeesQuery = classFeesQuery.eq("school_id", targetSchoolId);
+            }
+            if (effectiveBranchId && classFeesBranchScope) {
+              classFeesQuery = classFeesQuery.eq("branch_id", effectiveBranchId);
+            }
+            return classFeesQuery;
+          })()
+        : Promise.resolve({ data: [], error: null });
 
-      if (classFeesSchoolScope) {
-        classFeesPromise = classFeesPromise.eq("school_id", targetSchoolId);
-      }
-      if (effectiveBranchId && classFeesBranchScope) {
-        classFeesPromise = classFeesPromise.eq("branch_id", effectiveBranchId);
-      }
-
-      let feeNotificationsCountPromise = actorSupabase
-        .from("fee_notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("school_id", targetSchoolId);
-      if (effectiveBranchId && feeNotificationsBranchScope) {
-        feeNotificationsCountPromise = feeNotificationsCountPromise.eq("branch_id", effectiveBranchId);
-      }
+      const feeNotificationsCountPromise = feeNotificationsTableExists
+        ? (() => {
+            let feeNotificationsQuery = actorSupabase
+              .from("fee_notifications")
+              .select("id", { count: "exact", head: true })
+              .eq("school_id", targetSchoolId);
+            if (effectiveBranchId && feeNotificationsBranchScope) {
+              feeNotificationsQuery = feeNotificationsQuery.eq("branch_id", effectiveBranchId);
+            }
+            return feeNotificationsQuery;
+          })()
+        : Promise.resolve({ count: 0, error: null });
 
       let monthlySalariesPromise = actorSupabase
         .from("salaries")
