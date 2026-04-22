@@ -92,13 +92,17 @@ export function getPublicEnv(): PublicEnv {
     "";
 
   if (!supabaseUrl) {
-    throw new Error(
-      "Missing Supabase URL. Set NEXT_PUBLIC_SUPABASE_URL (or legacy SUPABASE_URL), or provide SUPABASE_SERVICE_ROLE_KEY.",
-    );
+    const msg = [
+      "Missing Supabase URL.",
+      `NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? "set" : "not set"}`,
+      `SUPABASE_URL: ${process.env.SUPABASE_URL ? "set" : "not set"}`,
+      `SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? "set" : "not set"}`,
+    ].join(" ");
+    throw new Error(msg);
   }
 
   if (!/^https?:\/\/.+$/.test(supabaseUrl)) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL must be a valid URL.");
+    throw new Error(`NEXT_PUBLIC_SUPABASE_URL must be a valid URL. Got: ${supabaseUrl}`);
   }
 
   const supabaseAnonKey =
@@ -109,9 +113,14 @@ export function getPublicEnv(): PublicEnv {
     "";
 
   if (!supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase public key. Set NEXT_PUBLIC_SUPABASE_ANON_KEY/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or legacy SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY).",
-    );
+    const msg = [
+      "Missing Supabase public key.",
+      `NEXT_PUBLIC_SUPABASE_ANON_KEY: ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "set" : "not set"}`,
+      `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? "set" : "not set"}`,
+      `SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY ? "set" : "not set"}`,
+      `SUPABASE_PUBLISHABLE_KEY: ${process.env.SUPABASE_PUBLISHABLE_KEY ? "set" : "not set"}`,
+    ].join(" ");
+    throw new Error(msg);
   }
 
   cachedPublicEnv = {
