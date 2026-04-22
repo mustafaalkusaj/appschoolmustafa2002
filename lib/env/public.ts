@@ -22,7 +22,13 @@ let cachedPublicEnv: PublicEnv | null = null;
 function decodeBase64Url(value: string): string {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padding = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
-  return atob(normalized + "=".repeat(padding));
+  const padded = normalized + "=".repeat(padding);
+
+  if (typeof atob !== "undefined") {
+    return atob(padded);
+  }
+
+  return Buffer.from(padded, "base64").toString("utf-8");
 }
 
 function deriveSupabaseUrlFromServiceRoleKey(): string {
