@@ -39,6 +39,20 @@ jobs:
               cp -a "$SRC_DIR"/. "$APP_DIR"/
             fi
 
+            ENV_FILE="$APP_DIR/.env.production"
+            touch "$ENV_FILE"
+            chmod 600 "$ENV_FILE"
+            TMP_ENV_FILE=$(mktemp)
+            grep -Ev '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|RBAC_COOKIE_SECRET)=' "$ENV_FILE" > "$TMP_ENV_FILE" || true
+            {
+              cat "$TMP_ENV_FILE"
+              printf '%s\n' "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"
+              printf '%s\n' "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
+              printf '%s\n' "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+              printf '%s\n' "RBAC_COOKIE_SECRET=${{ secrets.RBAC_COOKIE_SECRET }}"
+            } > "$ENV_FILE"
+            rm -f "$TMP_ENV_FILE"
+
             cd "$APP_DIR"
             npm ci
             npm run build
