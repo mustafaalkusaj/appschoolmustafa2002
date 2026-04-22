@@ -6,6 +6,10 @@ import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassItem, SectionItem } from "../_components/types";
+import {
+  hasDuplicateDashboardSection,
+  normalizeDashboardEntityName,
+} from "./dashboardManagement";
 
 interface UseClassesSectionsProps {
   profile: UserProfile | null;
@@ -22,6 +26,14 @@ export function useClassesSections({
 }: UseClassesSectionsProps) {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [sections, setSections] = useState<SectionItem[]>([]);
+  const [mutationError, setMutationError] = useState("");
+  const [mutationSuccess, setMutationSuccess] = useState("");
+  const [mutationLoading, setMutationLoading] = useState(false);
+
+  const clearMutationFeedback = useCallback(() => {
+    setMutationError("");
+    setMutationSuccess("");
+  }, []);
 
   const fetchClasses = useCallback(async () => {
     const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
@@ -151,13 +163,26 @@ export function useClassesSections({
       selectedSchoolId,
     });
     const compat = await detectAppSchemaCompat();
-    if (!classForm.name.trim() || !schoolId) return;
-    const sectionsToAdd = classForm.sections.filter(s => s.trim());
+    const normalizedClassName = normalizeDashboardEntityName(classForm.name);
+    if (!schoolId) {
+      setMutationError("لا يمكن تحديد المدرسة الحالية.");
+      return;
+    }
+    if (!normalizedClassName) {
+      setMutationError("يرجى إدخال اسم الصف.");
+      return;
+    }
+    clearMutationFeedback();
+    setMutationLoading(true);
+    let mutationErrorMessage = "";
+    const sectionsToAdd = Array.from(
+      new Set(classForm.sections.map((section) => normalizeDashboardEntityName(section)).filter(Boolean)),
+    );
     if (compat.classesNameColumn) {
       if (editingClass) {
         let classUpdate = supabase
           .from("classes")
-          .update({ name: classForm.name.trim() })
+          .update({ name: normalizedClassName })
           .eq("id", editingClass.id);
         if (schoolId) {
           classUpdate = classUpdate.eq("school_id", schoolId);
@@ -165,60 +190,102 @@ export function useClassesSections({
         if (branchScoped && compat.classesBranchScope && branchId) {
           classUpdate = classUpdate.eq("branch_id", branchId);
         }
-        await classUpdate;
+        const { error: classUpdateError } = await classUpdate;
+        if (classUpdateError) {
+          mutationErrorMessage = classUpdateError.message || "تعذر تحديث الصف.";
+        }
+        if (mutationErrorMessage) {
+          setMutationLoading(false);
+          setMutationError(mutationErrorMessage);
+          return;
+        }
         let sectionDelete = supabase.from("sections").delete().eq("class_id", editingClass.id);
         if (compat.sectionsSchoolScope) {
           sectionDelete = sectionDelete.eq("school_id", schoolId);
         }
-        await sectionDelete;
+        const { error: sectionDeleteError } = await sectionDelete;
+        if (sectionDeleteError) {
+          mutationErrorMessage = sectionDeleteError.message || "تعذر تحديث شعب الصف.";
+          setMutationLoading(false);
+          setMutationError(mutationErrorMessage);
+          return;
+        }
         for (const sec of sectionsToAdd) {
-          await supabase.from("sections").insert({
+          const { error: sectionInsertError } = await supabase.from("sections").insert({
             class_id: editingClass.id,
             ...(compat.sectionsSchoolScope ? { school_id: schoolId } : {}),
-            name: sec.trim(),
+            name: sec,
           });
+          if (sectionInsertError) {
+            mutationErrorMessage = sectionInsertError.message || "تعذر حفظ شعب الصف.";
+            break;
+          }
         }
       } else {
         const classPayload: Record<string, unknown> = {
-          name: classForm.name.trim(),
+          name: normalizedClassName,
           school_id: schoolId,
         };
         if (branchScoped && compat.classesBranchScope && branchId) {
           classPayload.branch_id = branchId;
         }
-        const { data: newClass } = await supabase
+        const { data: newClass, error: classInsertError } = await supabase
           .from("classes")
           .insert(classPayload)
           .select()
           .single();
+        if (classInsertError) {
+          mutationErrorMessage = classInsertError.message || "تعذر إضافة الصف.";
+        }
         if (newClass) {
           for (const sec of sectionsToAdd) {
-            await supabase.from("sections").insert({
+            const { error: sectionInsertError } = await supabase.from("sections").insert({
               class_id: newClass.id,
               ...(compat.sectionsSchoolScope ? { school_id: schoolId } : {}),
-              name: sec.trim(),
+              name: sec,
             });
+            if (sectionInsertError) {
+              mutationErrorMessage = sectionInsertError.message || "تعذر حفظ شعب الصف.";
+              break;
+            }
           }
         }
       }
     } else {
       if (editingClass?.legacyClassIds?.length) {
-        await supabase.from("classes").delete().in("id", editingClass.legacyClassIds);
+        const { error: deleteLegacyError } = await supabase.from("classes").delete().in("id", editingClass.legacyClassIds);
+        if (deleteLegacyError) {
+          mutationErrorMessage = deleteLegacyError.message || "تعذر تحديث الصف.";
+          setMutationLoading(false);
+          setMutationError(mutationErrorMessage);
+          return;
+        }
       }
       const legacySections = sectionsToAdd.length > 0 ? sectionsToAdd : [""];
       for (const sec of legacySections) {
-        await supabase.from("classes").insert({
+        const { error: legacyInsertError } = await supabase.from("classes").insert({
           school_id: schoolId,
           branch_id: branchId || null,
-          grade: classForm.name.trim(),
-          section: sec.trim() || null,
+          grade: normalizedClassName,
+          section: sec || null,
         });
+        if (legacyInsertError) {
+          mutationErrorMessage = legacyInsertError.message || "تعذر حفظ الصف.";
+          break;
+        }
       }
+    }
+    if (mutationErrorMessage) {
+      setMutationLoading(false);
+      setMutationError(mutationErrorMessage);
+      return;
     }
     await fetchClasses();
     await fetchSections();
+    setMutationLoading(false);
+    setMutationSuccess(editingClass ? "تم تحديث الصف بنجاح ✓" : "تمت إضافة الصف بنجاح ✓");
     onSuccess();
-  }, [branchScoped, profile, selectedSchoolId, fetchClasses, fetchSections]);
+  }, [branchScoped, clearMutationFeedback, profile, selectedSchoolId, fetchClasses, fetchSections]);
 
   const handleDeleteClass = useCallback(async (id: string) => {
     const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
@@ -259,37 +326,85 @@ export function useClassesSections({
       selectedSchoolId,
     });
     const compat = await detectAppSchemaCompat();
-    if (!sectionForm.class_id || !sectionForm.name.trim()) return;
+    const normalizedSectionName = normalizeDashboardEntityName(sectionForm.name);
+    if (!sectionForm.class_id) {
+      setMutationError("يرجى اختيار الصف أولاً.");
+      return;
+    }
+    if (!normalizedSectionName) {
+      setMutationError("يرجى إدخال اسم الشعبة.");
+      return;
+    }
+    if (hasDuplicateDashboardSection(sections, sectionForm.class_id, normalizedSectionName, editingSection?.id)) {
+      setMutationError("هذه الشعبة مضافة مسبقاً لهذا الصف.");
+      return;
+    }
+    clearMutationFeedback();
+    setMutationLoading(true);
+    let mutationErrorMessage = "";
     if (compat.classesNameColumn) {
       if (editingSection) {
-        await supabase.from("sections").update({ name: sectionForm.name.trim() }).eq("id", editingSection.id);
+        const { error } = await supabase
+          .from("sections")
+          .update({ name: normalizedSectionName })
+          .eq("id", editingSection.id);
+        if (error) {
+          mutationErrorMessage = error.message || "تعذر تحديث الشعبة.";
+        }
       } else {
-        if (!schoolId) return;
-        await supabase.from("sections").insert({
+        if (!schoolId) {
+          setMutationLoading(false);
+          setMutationError("لا يمكن تحديد المدرسة الحالية.");
+          return;
+        }
+        const { error } = await supabase.from("sections").insert({
           class_id: sectionForm.class_id,
           ...(compat.sectionsSchoolScope ? { school_id: schoolId } : {}),
-          name: sectionForm.name.trim(),
+          name: normalizedSectionName,
         });
+        if (error) {
+          mutationErrorMessage = error.message || "تعذر إضافة الشعبة.";
+        }
       }
     } else {
       const targetClass = classes.find((item) => item.id === sectionForm.class_id);
       const gradeName = typeof targetClass?.name === "string" ? targetClass.name : "";
-      if (!gradeName || !schoolId) return;
+      if (!gradeName || !schoolId) {
+        setMutationLoading(false);
+        setMutationError("تعذر تحديد الصف الحالي لهذه الشعبة.");
+        return;
+      }
       if (editingSection) {
-        await supabase.from("classes").update({ section: sectionForm.name.trim() }).eq("id", editingSection.id);
+        const { error } = await supabase
+          .from("classes")
+          .update({ section: normalizedSectionName })
+          .eq("id", editingSection.id);
+        if (error) {
+          mutationErrorMessage = error.message || "تعذر تحديث الشعبة.";
+        }
       } else {
-        await supabase.from("classes").insert({
+        const { error } = await supabase.from("classes").insert({
           school_id: schoolId,
           branch_id: branchId || null,
           grade: gradeName,
-          section: sectionForm.name.trim(),
+          section: normalizedSectionName,
         });
+        if (error) {
+          mutationErrorMessage = error.message || "تعذر إضافة الشعبة.";
+        }
       }
+    }
+    if (mutationErrorMessage) {
+      setMutationLoading(false);
+      setMutationError(mutationErrorMessage);
+      return;
     }
     await fetchSections();
     await fetchClasses();
+    setMutationLoading(false);
+    setMutationSuccess(editingSection ? "تم تحديث الشعبة بنجاح ✓" : "تمت إضافة الشعبة بنجاح ✓");
     onSuccess();
-  }, [profile, selectedSchoolId, classes, fetchSections, fetchClasses]);
+  }, [clearMutationFeedback, profile, selectedSchoolId, classes, sections, fetchSections, fetchClasses]);
 
   const handleDeleteSection = useCallback(async (id: string) => {
     const { school_id: schoolId } = await resolveSchoolBranchForProfile(profile, {
@@ -318,6 +433,10 @@ export function useClassesSections({
   return {
     classes,
     sections,
+    mutationError,
+    mutationSuccess,
+    mutationLoading,
+    clearMutationFeedback,
     fetchClasses,
     fetchSections,
     handleSaveClass,

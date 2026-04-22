@@ -6,12 +6,17 @@ import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassFee, FeeFormData } from "../_components/types";
+import {
+  hasDuplicateDashboardFeeClass,
+  resolveCanonicalDashboardClassName,
+} from "./dashboardManagement";
 
 interface UseFeeManagementProps {
   profile: UserProfile | null;
   selectedSchoolId: string | null;
   classFees: ClassFee[];
   studentCountByClass: Record<string, number>;
+  availableClassNames: string[];
   onRefetch: () => Promise<void>;
   branchScoped?: boolean;
 }
@@ -21,6 +26,7 @@ export function useFeeManagement({
   selectedSchoolId,
   classFees,
   studentCountByClass,
+  availableClassNames,
   onRefetch,
   branchScoped = false,
 }: UseFeeManagementProps) {
@@ -42,9 +48,10 @@ export function useFeeManagement({
       selectedSchoolId,
     });
     const compat = await detectAppSchemaCompat();
+    const canonicalClassName = resolveCanonicalDashboardClassName(feeForm.class_name, availableClassNames);
     setFeeError("");
     setFeeSuccess("");
-    if (!feeForm.class_name.trim()) {
+    if (!canonicalClassName) {
       setFeeError("يرجى إدخال اسم الصف");
       return;
     }
@@ -57,14 +64,19 @@ export function useFeeManagement({
     const installment_amount = Math.round(total_fee / installments);
 
     setFeeLoading(true);
+    let mutationError = "";
+
     if (editingFee) {
-      let query = supabase.from("class_fees").update({
-        class_name: feeForm.class_name.trim(),
-        total_fee,
-        installments,
-        installment_amount,
-        notes: feeForm.notes.trim(),
-      }).eq("id", editingFee.id);
+      let query = supabase
+        .from("class_fees")
+        .update({
+          class_name: canonicalClassName,
+          total_fee,
+          installments,
+          installment_amount,
+          notes: feeForm.notes.trim(),
+        })
+        .eq("id", editingFee.id);
       if (schoolId && compat.classFeesSchoolScope) {
         query = query.eq("school_id", schoolId);
       }
@@ -73,7 +85,7 @@ export function useFeeManagement({
       }
       const { error } = await query;
       if (error) {
-        setFeeError("حدث خطأ أثناء التعديل: " + error.message);
+        mutationError = "حدث خطأ أثناء التعديل: " + error.message;
       } else {
         setFeeSuccess("تم تعديل سعر القسط بنجاح ✓");
       }
@@ -83,15 +95,14 @@ export function useFeeManagement({
         setFeeLoading(false);
         return;
       }
-      const exists = classFees.find(cf => cf.class_name.trim() === feeForm.class_name.trim());
-      if (exists) {
+      if (hasDuplicateDashboardFeeClass(classFees, canonicalClassName)) {
         setFeeError("هذا الصف موجود مسبقاً، يمكنك تعديله");
         setFeeLoading(false);
         return;
       }
       const payload: Record<string, unknown> = {
         ...(compat.classFeesSchoolScope ? { school_id: schoolId } : {}),
-        class_name: feeForm.class_name.trim(),
+        class_name: canonicalClassName,
         total_fee,
         installments,
         installment_amount,
@@ -102,22 +113,26 @@ export function useFeeManagement({
       }
       const { error } = await supabase.from("class_fees").insert(payload);
       if (error) {
-        setFeeError("حدث خطأ أثناء الحفظ: " + error.message);
+        mutationError = "حدث خطأ أثناء الحفظ: " + error.message;
       } else {
         setFeeSuccess("تم حفظ سعر القسط بنجاح ✓");
       }
     }
     setFeeLoading(false);
-    if (!feeError) {
-      await onRefetch();
-      setTimeout(() => {
-        setFeeSuccess("");
-        setShowFeeModal(false);
-        setEditingFee(null);
-        setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
-      }, 1200);
+    if (mutationError) {
+      setFeeError(mutationError);
+      return;
     }
-  }, [branchScoped, profile, selectedSchoolId, feeForm, editingFee, classFees, feeError, onRefetch]);
+
+    await onRefetch();
+    setFeeForm((current) => ({ ...current, class_name: canonicalClassName }));
+    setTimeout(() => {
+      setFeeSuccess("");
+      setShowFeeModal(false);
+      setEditingFee(null);
+      setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
+    }, 1200);
+  }, [availableClassNames, branchScoped, profile, selectedSchoolId, feeForm, editingFee, classFees, onRefetch]);
 
   const handleDeleteFee = useCallback(async (id: string) => {
     const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
@@ -160,6 +175,7 @@ export function useFeeManagement({
   const closeFeeModal = useCallback(() => {
     setShowFeeModal(false);
     setEditingFee(null);
+    setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
     setFeeError("");
     setFeeSuccess("");
   }, []);

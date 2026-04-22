@@ -81,6 +81,7 @@ export function DashboardExperience({
     selectedSchoolId: schoolScope.selectedSchoolId,
     classFees: dashboardData.classFees,
     studentCountByClass: dashboardData.studentCountByClass,
+    availableClassNames: classesSections.classes.map((item) => item.name),
     onRefetch: dashboardData.refetch,
     branchScoped,
   });
@@ -146,7 +147,10 @@ export function DashboardExperience({
                   canManageClasses={canManageClasses}
                   showFeesTable={showFeesTable}
                   onToggleFeesTable={() => setShowFeesTable((value) => !value)}
-                  onOpenNewFee={feeManagement.openNewFee}
+                  onOpenNewFee={() => {
+                    setShowFeesTable(true);
+                    feeManagement.openNewFee();
+                  }}
                   onOpenClassesModal={() => setShowClassesModal(true)}
                 />
 
@@ -227,7 +231,10 @@ export function DashboardExperience({
                       onRetry={dashboardData.refetch}
                       deleteConfirm={feeManagement.deleteConfirm}
                       getClassStats={feeManagement.getClassStats}
-                      onOpenNewFee={feeManagement.openNewFee}
+                      onOpenNewFee={() => {
+                        setShowFeesTable(true);
+                        feeManagement.openNewFee();
+                      }}
                       onEditFee={feeManagement.openEditFee}
                       onDeleteFee={(id) => feeManagement.setDeleteConfirm(id)}
                       onCancelDelete={() => feeManagement.setDeleteConfirm(null)}
@@ -274,7 +281,11 @@ export function DashboardExperience({
         show={showClassesModal}
         classes={classesSections.classes}
         sections={classesSections.sections}
+        saveError={classesSections.mutationError}
+        saveSuccess={classesSections.mutationSuccess}
+        saving={classesSections.mutationLoading}
         onClose={() => setShowClassesModal(false)}
+        onClearFeedback={classesSections.clearMutationFeedback}
         onSaveClass={classesSections.handleSaveClass}
         onDeleteClass={classesSections.handleDeleteClass}
         onSaveSection={classesSections.handleSaveSection}
@@ -289,6 +300,7 @@ export function DashboardExperience({
         feeError={feeManagement.feeError}
         feeSuccess={feeManagement.feeSuccess}
         studentCountByClass={dashboardData.studentCountByClass}
+        availableClassNames={classesSections.classes.map((item) => item.name)}
         onClose={feeManagement.closeFeeModal}
         onSave={feeManagement.handleSaveFee}
         onFormChange={feeManagement.setFeeForm}

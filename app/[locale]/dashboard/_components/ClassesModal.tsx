@@ -8,7 +8,11 @@ interface ClassesModalProps {
   show: boolean;
   classes: ClassItem[];
   sections: SectionItem[];
+  saveError: string;
+  saveSuccess: string;
+  saving: boolean;
   onClose: () => void;
+  onClearFeedback: () => void;
   onSaveClass: (
     classForm: ClassForm,
     editingClass: ClassItem | null,
@@ -27,7 +31,11 @@ export function ClassesModal({
   show,
   classes,
   sections,
+  saveError,
+  saveSuccess,
+  saving,
   onClose,
+  onClearFeedback,
   onSaveClass,
   onDeleteClass,
   onSaveSection,
@@ -38,20 +46,22 @@ export function ClassesModal({
   const [showSectionForm, setShowSectionForm] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
   const [editingSection, setEditingSection] = useState<SectionItem | null>(null);
-  const [classForm, setClassForm] = useState<ClassForm>({ name: "", sections: [""] });
+  const [classForm, setClassForm] = useState<ClassForm>({ name: "", sections: [] });
   const [sectionForm, setSectionForm] = useState<SectionForm>({ class_id: "", name: "" });
 
   const resetClassForm = useCallback(() => {
+    onClearFeedback();
     setEditingClass(null);
-    setClassForm({ name: "", sections: [""] });
+    setClassForm({ name: "", sections: [] });
     setShowClassForm(false);
-  }, []);
+  }, [onClearFeedback]);
 
   const resetSectionForm = useCallback(() => {
+    onClearFeedback();
     setEditingSection(null);
-    setSectionForm({ class_id: "", name: "" });
+    setSectionForm({ class_id: classes[0]?.id ?? "", name: "" });
     setShowSectionForm(false);
-  }, []);
+  }, [classes, onClearFeedback]);
 
   const handleSaveClass = useCallback(async () => {
     await onSaveClass(classForm, editingClass, resetClassForm);
@@ -63,24 +73,27 @@ export function ClassesModal({
 
   const handleEditClass = useCallback((cls: ClassItem) => {
     const clsSections = sections.filter(s => s.class_id === cls.id);
+    onClearFeedback();
     setEditingClass(cls);
     setClassForm({ name: cls.name, sections: clsSections.map(s => s.name) });
     setShowClassForm(true);
     setShowSectionForm(false);
-  }, [sections]);
+  }, [onClearFeedback, sections]);
 
   const handleEditSection = useCallback((sec: SectionItem) => {
+    onClearFeedback();
     setEditingSection(sec);
     setSectionForm({ class_id: sec.class_id, name: sec.name });
     setShowSectionForm(true);
     setShowClassForm(false);
-  }, []);
+  }, [onClearFeedback]);
 
   const handleClose = useCallback(() => {
     onClose();
+    onClearFeedback();
     resetClassForm();
     resetSectionForm();
-  }, [onClose, resetClassForm, resetSectionForm]);
+  }, [onClose, onClearFeedback, resetClassForm, resetSectionForm]);
 
   if (!show) return null;
 
@@ -104,8 +117,9 @@ export function ClassesModal({
             <button
               className="fee-btn"
               onClick={() => {
+                onClearFeedback();
                 setEditingClass(null);
-                setClassForm({ name: "", sections: [""] });
+                setClassForm({ name: "", sections: [] });
                 setShowClassForm(true);
                 setShowSectionForm(false);
               }}
@@ -116,8 +130,9 @@ export function ClassesModal({
             <button
               className="fee-btn"
               onClick={() => {
+                onClearFeedback();
                 setEditingSection(null);
-                setSectionForm({ class_id: "", name: "" });
+                setSectionForm({ class_id: classes[0]?.id ?? "", name: "" });
                 setShowSectionForm(true);
                 setShowClassForm(false);
               }}
@@ -133,6 +148,13 @@ export function ClassesModal({
               {showSectionsTable ? "إخفاء الشعب" : "عرض الشعب"}
             </button>
           </div>
+
+          {saveError ? (
+            <div className="msg-error flex items-center gap-2">
+              <AppIcon token="⚠️" size={14} /> {saveError}
+            </div>
+          ) : null}
+          {saveSuccess ? <div className="msg-success">{saveSuccess}</div> : null}
 
           {(showClassForm || editingClass) && (
             <section className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] space-y-4">
@@ -152,7 +174,7 @@ export function ClassesModal({
                 <div className="form-group full">
                   <label className="form-label">
                     الشعب <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: ".7rem" }}>
-                      (كل شعبة في سطر — مثال: أ، ب، ج)
+                      (اختياري: كل شعبة في سطر — مثال: أ، ب، ج)
                     </span>
                   </label>
                   <textarea
@@ -160,15 +182,15 @@ export function ClassesModal({
                     rows={3}
                     value={classForm.sections.join('\n')}
                     onChange={e => setClassForm({ ...classForm, sections: e.target.value.split('\n') })}
-                    placeholder={"أ\nب\nج"}
+                    placeholder={"اتركه فارغاً إذا ماكو شعب\nأ\nب\nج"}
                     style={{ resize: "none" }}
                   />
                 </div>
               </div>
               <div className="modal-actions">
-                <button className="btn-cancel" onClick={resetClassForm}>إلغاء</button>
-                <button className="btn-save" onClick={() => void handleSaveClass()}>
-                  {editingClass ? "حفظ التعديلات" : "إضافة صف"}
+                <button className="btn-cancel" onClick={resetClassForm} disabled={saving}>إلغاء</button>
+                <button className="btn-save" onClick={() => void handleSaveClass()} disabled={saving}>
+                  {saving ? "جارٍ الحفظ..." : editingClass ? "حفظ التعديلات" : "إضافة صف"}
                 </button>
               </div>
             </section>
@@ -204,9 +226,9 @@ export function ClassesModal({
                 </div>
               </div>
               <div className="modal-actions">
-                <button className="btn-cancel" onClick={resetSectionForm}>إلغاء</button>
-                <button className="btn-save" onClick={() => void handleSaveSection()}>
-                  {editingSection ? "حفظ التعديلات" : "إضافة شعبة"}
+                <button className="btn-cancel" onClick={resetSectionForm} disabled={saving}>إلغاء</button>
+                <button className="btn-save" onClick={() => void handleSaveSection()} disabled={saving}>
+                  {saving ? "جارٍ الحفظ..." : editingSection ? "حفظ التعديلات" : "إضافة شعبة"}
                 </button>
               </div>
             </section>

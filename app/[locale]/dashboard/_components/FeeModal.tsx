@@ -12,6 +12,7 @@ interface FeeModalProps {
   feeError: string;
   feeSuccess: string;
   studentCountByClass: Record<string, number>;
+  availableClassNames: string[];
   onClose: () => void;
   onSave: () => void;
   onFormChange: React.Dispatch<React.SetStateAction<FeeFormData>>;
@@ -25,6 +26,7 @@ export function FeeModal({
   feeError,
   feeSuccess,
   studentCountByClass,
+  availableClassNames,
   onClose,
   onSave,
   onFormChange,
@@ -55,11 +57,24 @@ export function FeeModal({
                 <label className="form-label">اسم الصف الدراسي <span>*</span></label>
                 <input
                   className="form-input"
+                  list={editingFee || availableClassNames.length === 0 ? undefined : "dashboard-fee-class-options"}
                   placeholder="مثال: الصف الأول، الصف الثاني..."
                   value={feeForm.class_name}
                   onChange={e => onFormChange(f => ({ ...f, class_name: e.target.value }))}
                   disabled={!!editingFee}
                 />
+                {!editingFee && availableClassNames.length > 0 ? (
+                  <>
+                    <datalist id="dashboard-fee-class-options">
+                      {availableClassNames.map((className) => (
+                        <option key={className} value={className} />
+                      ))}
+                    </datalist>
+                    <span style={{ fontSize: ".67rem", color: "var(--text-muted)" }}>
+                      اختر من الصفوف الموجودة لضمان ربط القسط بالصف الصحيح.
+                    </span>
+                  </>
+                ) : null}
                 {editingFee && <span style={{ fontSize: ".67rem", color: "var(--text-muted)" }}>لا يمكن تغيير اسم الصف عند التعديل</span>}
               </div>
 
