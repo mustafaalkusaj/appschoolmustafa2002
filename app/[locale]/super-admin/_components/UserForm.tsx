@@ -323,12 +323,19 @@ export function UserForm({ isOpen, editUser, schools, branches, infrastructure, 
               disabled={formData.role === "super_admin"}
               onChange={(e) => {
                 const nextScope = e.target.value as UserFormData["scope_level"];
-                setFormData((current) => ({
-                  ...current,
-                  scope_level: nextScope,
-                  branch_id: nextScope === "branch_user" ? current.branch_id : "",
-                  is_single_page_user: current.allowed_pages.length === 1,
-                }));
+                setFormData((current) => {
+                  const nextAllowedPages =
+                    nextScope === "branch_user" && !current.allowed_pages.includes("branch-overview")
+                      ? (["branch-overview", ...current.allowed_pages] as UserFormData["allowed_pages"])
+                      : current.allowed_pages;
+                  return {
+                    ...current,
+                    scope_level: nextScope,
+                    branch_id: nextScope === "branch_user" ? current.branch_id : "",
+                    is_single_page_user: nextAllowedPages.length === 1,
+                    allowed_pages: nextAllowedPages,
+                  };
+                });
               }}
             >
               {formData.role === "super_admin" ? <option value="super_admin">صلاحية عامة للمنصة</option> : null}

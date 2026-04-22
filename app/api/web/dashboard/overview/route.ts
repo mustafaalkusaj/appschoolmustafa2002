@@ -85,9 +85,14 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, actorUserId, targetSchoolId, allowedBranchIds } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId, allowedBranchIds, actorBranchId } = context.value;
   const effectiveBranchId = branchId?.trim() || null;
-  if (effectiveBranchId && allowedBranchIds && allowedBranchIds.length > 0 && !allowedBranchIds.includes(effectiveBranchId)) {
+  if (
+    effectiveBranchId &&
+    effectiveBranchId !== actorBranchId &&
+    allowedBranchIds && allowedBranchIds.length > 0 &&
+    !allowedBranchIds.includes(effectiveBranchId)
+  ) {
     return jsonError("لا يمكنك الوصول إلى بيانات هذا الفرع.", 403);
   }
 

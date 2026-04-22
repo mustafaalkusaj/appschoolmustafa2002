@@ -212,7 +212,7 @@ async function resolveTeacherActivityScope(
     return { ok: false, status: scopedActor.status, message: scopedActor.message };
   }
 
-  const { actorSupabase, actorUserId, actorRole: scopedActorRole, targetSchoolId } = scopedActor.value;
+  const { actorSupabase, actorUserId, actorRole: scopedActorRole, targetSchoolId, actorBranchId } = scopedActor.value;
   if (scopedActorRole !== "super_admin" && scopedActorRole !== "admin") {
     return { ok: false, status: 403, message: "هذه الوحدة متاحة للمدير أو المدير العام فقط." };
   }
@@ -249,6 +249,11 @@ async function resolveTeacherActivityScope(
       allowedBranchIds = scopeRows
         .map((row) => asNullableString((row as JsonRecord).branch_id))
         .filter((value): value is string => Boolean(value));
+    }
+
+    // Fall back to actorBranchId from user profile if no admin_branch_scopes rows exist
+    if ((!allowedBranchIds || allowedBranchIds.length === 0) && actorBranchId) {
+      allowedBranchIds = [actorBranchId];
     }
   }
 
