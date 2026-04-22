@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope, type ResolvedBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
+import { calculateStudentRemainingFee } from "@/lib/students/financials";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { hasPermissionInList } from "@/types/roles";
 import type { StudentStatus } from "@/types/student";
@@ -20,6 +22,7 @@ type StudentRow = {
   total_fee: number | null;
   paid_fee: number | null;
   discount_value: number | null;
+  remaining_fee?: number | null;
   status: StudentStatus | null;
 };
 
@@ -82,6 +85,7 @@ async function resolveStudentContext(
   req: NextRequest,
   schoolId: string | null,
   permission: "edit_students" | "delete_students",
+  requestedBranchId?: string | null,
 ) {
   const permissionCheck = await requireStudentPermission(req, permission);
   if (!permissionCheck.ok) {
@@ -102,6 +106,19 @@ async function resolveStudentContext(
       ok: false as const,
       status: "status" in context ? context.status : 500,
       message: "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
+    };
+  }
+
+  const branchScope = resolveBranchScope(
+    context.value,
+    requestedBranchId,
+    "لا يمكنك الوصول إلى بيانات هذا الفرع.",
+  );
+  if (!branchScope.ok) {
+    return {
+      ok: false as const,
+      status: branchScope.status,
+      message: branchScope.message,
     };
   }
 
@@ -127,17 +144,25 @@ async function resolveStudentContext(
       targetSchoolId: context.value.targetSchoolId,
       serviceSupabase: createServiceSupabaseClient(),
       actorRole: permissionCheck.session.role,
+      branchScope: branchScope.value,
     },
   };
 }
 
-async function fetchStudent(serviceSupabase: ReturnType<typeof createServiceSupabaseClient>, studentId: string, schoolId: string) {
-  const { data, error } = await serviceSupabase
-    .from("students")
-    .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
-    .eq("id", studentId)
-    .eq("school_id", schoolId)
-    .maybeSingle<StudentRow>();
+async function fetchStudent(
+  serviceSupabase: ReturnType<typeof createServiceSupabaseClient>,
+  studentId: string,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+) {
+  const { data, error } = await applyBranchScopeToQuery(
+    serviceSupabase
+      .from("students")
+      .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
+      .eq("id", studentId)
+      .eq("school_id", schoolId),
+    branchScope,
+  ).maybeSingle<StudentRow>();
 
   if (error || !data?.id) {
     return null;
@@ -153,15 +178,16 @@ export async function PATCH(
   const { studentId } = await params;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
+  const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;
 
-  const context = await resolveStudentContext(req, schoolId, "edit_students");
+  const context = await resolveStudentContext(req, schoolId, "edit_students", requestedBranchId);
   if (!context.ok) {
     if ("response" in context && context.response) return context.response;
     return jsonError(context.message, context.status);
   }
 
-  const { serviceSupabase, targetSchoolId, actorRole } = context.value;
-  const currentStudent = await fetchStudent(serviceSupabase, studentId, targetSchoolId);
+  const { serviceSupabase, targetSchoolId, actorRole, branchScope } = context.value;
+  const currentStudent = await fetchStudent(serviceSupabase, studentId, targetSchoolId, branchScope);
   if (!currentStudent) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
@@ -225,8 +251,9 @@ export async function PATCH(
     return jsonError(error instanceof Error ? error.message : "تعذر التحقق من إجمالي دفعات الطالب الحالية.", 500);
   }
 
-  if (nextPaidFee > nextTotalFee) {
-    return jsonError("المدفوع الفعلي لا يمكن أن يكون أكبر من إجمالي الرسوم.", 400);
+  const netFeeAfterDiscount = Math.max(nextTotalFee - nextDiscount, 0);
+  if (nextPaidFee > netFeeAfterDiscount) {
+    return jsonError("المدفوع الفعلي لا يمكن أن يكون أكبر من الرسوم بعد الخصم.", 400);
   }
 
   const updatePayload: Partial<StudentRow> = {
@@ -241,11 +268,21 @@ export async function PATCH(
     status: nextStatus,
   };
 
-  const { data, error } = await serviceSupabase
-    .from("students")
-    .update(updatePayload)
-    .eq("id", studentId)
-    .eq("school_id", targetSchoolId)
+  const { data, error } = await applyBranchScopeToQuery(
+    serviceSupabase
+      .from("students")
+      .update({
+        ...updatePayload,
+        remaining_fee: calculateStudentRemainingFee({
+          total_fee: nextTotalFee,
+          paid_fee: nextPaidFee,
+          discount_value: nextDiscount,
+        }),
+      })
+      .eq("id", studentId)
+      .eq("school_id", targetSchoolId),
+    branchScope,
+  )
     .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
     .maybeSingle<StudentRow>();
 
@@ -265,30 +302,36 @@ export async function DELETE(
   const { studentId } = await params;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
+  const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;
 
-  const context = await resolveStudentContext(req, schoolId, "delete_students");
+  const context = await resolveStudentContext(req, schoolId, "delete_students", requestedBranchId);
   if (!context.ok) {
     if ("response" in context && context.response) return context.response;
     return jsonError(context.message, context.status);
   }
 
-  const { serviceSupabase, targetSchoolId } = context.value;
-  const currentStudent = await fetchStudent(serviceSupabase, studentId, targetSchoolId);
+  const { serviceSupabase, targetSchoolId, branchScope } = context.value;
+  const currentStudent = await fetchStudent(serviceSupabase, studentId, targetSchoolId, branchScope);
   if (!currentStudent) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  const { data, error } = await serviceSupabase
-    .from("students")
-    .update({ status: "deleted" satisfies StudentStatus })
-    .eq("id", studentId)
-    .eq("school_id", targetSchoolId)
+  const { data, error } = await applyBranchScopeToQuery(
+    serviceSupabase
+      .from("students")
+      .update({ status: "deleted" satisfies StudentStatus })
+      .eq("id", studentId)
+      .eq("school_id", targetSchoolId),
+    branchScope,
+  )
     .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
     .maybeSingle<StudentRow>();
 
   if (error || !data?.id) {
     return jsonError(error?.message || "تعذر حذف الطالب.", 500);
   }
+
+  invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
 
   return NextResponse.json({ ok: true, student: data });
 }

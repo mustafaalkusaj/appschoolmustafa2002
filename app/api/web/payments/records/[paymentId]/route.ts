@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { deletePaymentSchema } from "@/lib/api-schemas";
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
@@ -35,6 +36,11 @@ export async function DELETE(
     );
   }
 
+  const branchScope = resolveBranchScope(context.value);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const rateLimited = await enforceRateLimit(req, {
     namespace: "payments-records-delete",
@@ -50,22 +56,27 @@ export async function DELETE(
   if (!canDeletePayments) {
     return jsonError("ليس لديك صلاحية حذف الدفعات.", 403);
   }
-  const { data: payment, error: paymentError } = await actorSupabase
-    .from("payments")
-    .select("id, student_id")
-    .eq("id", paymentId)
-    .eq("school_id", targetSchoolId)
-    .maybeSingle();
+  const { data: payment, error: paymentError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("payments")
+      .select("id, student_id")
+      .eq("id", paymentId)
+      .eq("school_id", targetSchoolId),
+    branchScope.value,
+  ).maybeSingle();
 
   if (paymentError || !payment?.id || typeof payment.student_id !== "string") {
     return jsonError("تعذر العثور على الدفعة المطلوبة ضمن المدرسة الحالية.", 404);
   }
 
-  const { error: deleteError } = await actorSupabase
-    .from("payments")
-    .delete()
-    .eq("id", paymentId)
-    .eq("school_id", targetSchoolId);
+  const { error: deleteError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("payments")
+      .delete()
+      .eq("id", paymentId)
+      .eq("school_id", targetSchoolId),
+    branchScope.value,
+  );
 
   if (deleteError) {
     logRouteError("payments-records-delete", deleteError, {
@@ -76,12 +87,14 @@ export async function DELETE(
     return jsonError("تعذر حذف الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
 
-  const { data: refreshedStudent, error: refreshedStudentError } = await actorSupabase
-    .from("students")
-    .select("id, paid_fee, remaining_fee")
-    .eq("id", payment.student_id)
-    .eq("school_id", targetSchoolId)
-    .maybeSingle();
+  const { data: refreshedStudent, error: refreshedStudentError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("id, paid_fee, remaining_fee")
+      .eq("id", payment.student_id)
+      .eq("school_id", targetSchoolId),
+    branchScope.value,
+  ).maybeSingle();
 
   if (refreshedStudentError) {
     logRouteError("payments-records-delete-refresh-student", refreshedStudentError, {

@@ -1,4 +1,5 @@
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { applyBranchScopeToQuery, type ResolvedBranchScope } from "@/lib/branch-scope";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 
@@ -213,15 +214,19 @@ function applyStudentFilters<TQuery>(query: TQuery, filters: PaymentsListFilters
 async function fetchPaymentCountsByStudent(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   studentIds: string[],
 ) {
   if (studentIds.length === 0) return {};
 
-  const { data, error } = await actorSupabase
-    .from("payments")
-    .select("student_id")
-    .eq("school_id", schoolId)
-    .in("student_id", studentIds);
+  const { data, error } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("payments")
+      .select("student_id")
+      .eq("school_id", schoolId)
+      .in("student_id", studentIds),
+    branchScope,
+  );
 
   if (error) {
     throw new Error(error.message || "تعذر تحميل عدادات الدفعات.");
@@ -234,17 +239,24 @@ async function fetchPaymentCountsByStudent(
   }, {});
 }
 
-async function fetchSchoolPaymentStudentIds(actorSupabase: RouteSupabaseClient, schoolId: string) {
+async function fetchSchoolPaymentStudentIds(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+) {
   const results: string[] = [];
   let from = 0;
 
   while (true) {
-    const { data, error } = await actorSupabase
-      .from("payments")
-      .select("id, student_id")
-      .eq("school_id", schoolId)
-      .order("id", { ascending: true })
-      .range(from, from + QUERY_BATCH_SIZE - 1);
+    const { data, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("payments")
+        .select("id, student_id")
+        .eq("school_id", schoolId)
+        .order("id", { ascending: true })
+        .range(from, from + QUERY_BATCH_SIZE - 1),
+      branchScope,
+    );
 
     if (error) {
       throw new Error(error.message || "تعذر تحميل فهرس الدفعات.");
@@ -267,12 +279,19 @@ async function fetchSchoolPaymentStudentIds(actorSupabase: RouteSupabaseClient, 
   return Array.from(new Set(results));
 }
 
-async function fetchClassOptions(actorSupabase: RouteSupabaseClient, schoolId: string) {
-  const { data, error } = await actorSupabase
-    .from("classes")
-    .select("*")
-    .eq("school_id", schoolId)
-    .order("created_at", { ascending: true });
+async function fetchClassOptions(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+) {
+  const { data, error } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("classes")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("created_at", { ascending: true }),
+    branchScope,
+  );
 
   if (!error) {
     const values = Array.from(
@@ -285,12 +304,15 @@ async function fetchClassOptions(actorSupabase: RouteSupabaseClient, schoolId: s
     if (values.length > 0) return values;
   }
 
-  const fallback = await actorSupabase
-    .from("students")
-    .select("class_name")
-    .eq("school_id", schoolId)
-    .neq("status", "deleted")
-    .order("class_name", { ascending: true });
+  const fallback = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("class_name")
+      .eq("school_id", schoolId)
+      .neq("status", "deleted")
+      .order("class_name", { ascending: true }),
+    branchScope,
+  );
 
   if (fallback.error) {
     return [];
@@ -305,7 +327,11 @@ async function fetchClassOptions(actorSupabase: RouteSupabaseClient, schoolId: s
   );
 }
 
-async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string): Promise<PaymentsSummary> {
+async function fetchSummary(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+): Promise<PaymentsSummary> {
   const summary: PaymentsSummary = {
     totalStudents: 0,
     totalFee: 0,
@@ -316,12 +342,15 @@ async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string
   let from = 0;
 
   while (true) {
-    const { data, error } = await actorSupabase
-      .from("students")
-      .select("id, total_fee, paid_fee, remaining_fee, status")
-      .eq("school_id", schoolId)
-      .order("id", { ascending: true })
-      .range(from, from + QUERY_BATCH_SIZE - 1);
+    const { data, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("students")
+        .select("id, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .eq("school_id", schoolId)
+        .order("id", { ascending: true })
+        .range(from, from + QUERY_BATCH_SIZE - 1),
+      branchScope,
+    );
 
     if (error) {
       throw new Error(error.message || "تعذر تحميل ملخص المدفوعات.");
@@ -331,6 +360,7 @@ async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string
       total_fee?: number | null;
       paid_fee?: number | null;
       remaining_fee?: number | null;
+      discount_value?: number | null;
       status?: string | null;
     }>;
 
@@ -341,7 +371,10 @@ async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string
 
       const totalFee = Number(student.total_fee ?? 0);
       const paidFee = Number(student.paid_fee ?? 0);
-      const remainingFee = Number(student.remaining_fee ?? 0);
+      const remainingFee = Math.max(
+        totalFee - paidFee - Number(student.discount_value ?? 0),
+        0,
+      );
 
       summary.totalStudents += 1;
       summary.totalFee += totalFee;
@@ -362,20 +395,31 @@ async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string
   return summary;
 }
 
-async function fetchCollectedCount(actorSupabase: RouteSupabaseClient, schoolId: string) {
-  const { count, error } = await actorSupabase
-    .from("students")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", schoolId)
-    .neq("status", "deleted")
-    .lte("remaining_fee", 0)
-    .gt("total_fee", 0);
+async function fetchCollectedCount(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+) {
+  const { data, error } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("id, total_fee, paid_fee, discount_value, status")
+      .eq("school_id", schoolId)
+      .neq("status", "deleted"),
+    branchScope,
+  );
 
   if (error) {
     throw new Error(error.message || "تعذر تحميل عدد الفواتير المسددة.");
   }
 
-  return typeof count === "number" ? count : 0;
+  return ((data ?? []) as Array<Record<string, unknown>>).filter((student) => {
+    const totalFee = normalizeMetricNumber(student.total_fee);
+    const paidFee = normalizeMetricNumber(student.paid_fee);
+    const discountValue = normalizeMetricNumber(student.discount_value);
+    const remainingFee = Math.max(totalFee - paidFee - discountValue, 0);
+    return totalFee > 0 && remainingFee <= 0;
+  }).length;
 }
 
 async function fetchSummaryViaRpc(actorSupabase: RouteSupabaseClient, schoolId: string) {
@@ -450,7 +494,14 @@ function normalizeArchiveRows(rows: Array<Record<string, unknown>>): PaymentArch
   }));
 }
 
-async function fetchArchives(actorSupabase: RouteSupabaseClient, schoolId: string) {
+async function fetchArchives(actorSupabase: RouteSupabaseClient, schoolId: string, branchScope: ResolvedBranchScope) {
+  if (branchScope.branchIds.length > 0) {
+    return {
+      archives: [],
+      archiveNotice: "الأرشيف السنوي الكامل متاح على مستوى المدرسة فقط، لذلك تم إخفاؤه داخل نطاق الفرع.",
+    };
+  }
+
   const { data, error } = await actorSupabase
     .from("account_archives")
     .select("id, school_id, archive_year, total_students, total_payments, total_amount, data, archive_date")
@@ -473,19 +524,26 @@ async function fetchArchives(actorSupabase: RouteSupabaseClient, schoolId: strin
   };
 }
 
-async function fetchPaymentYears(actorSupabase: RouteSupabaseClient, schoolId: string) {
+async function fetchPaymentYears(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+) {
   const years = new Set<number>();
   let from = 0;
   let totalPaymentCount = 0;
   let counted = false;
 
   while (true) {
-    const { data, error, count } = await actorSupabase
-      .from("payments")
-      .select("id, created_at", { count: counted ? undefined : "exact" })
-      .eq("school_id", schoolId)
-      .order("id", { ascending: true })
-      .range(from, from + QUERY_BATCH_SIZE - 1);
+    const { data, error, count } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("payments")
+        .select("id, created_at", { count: counted ? undefined : "exact" })
+        .eq("school_id", schoolId)
+        .order("id", { ascending: true })
+        .range(from, from + QUERY_BATCH_SIZE - 1),
+      branchScope,
+    );
 
     if (error) {
       return {
@@ -592,13 +650,21 @@ function buildStudentRowsPayload(rows: Array<Record<string, unknown>>): PaymentS
   }));
 }
 
-async function fetchAllFilteredStudents(actorSupabase: RouteSupabaseClient, schoolId: string, filters: PaymentsListFilters) {
+async function fetchAllFilteredStudents(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+  filters: PaymentsListFilters,
+) {
   const rows: PaymentStudentRecord[] = [];
   let from = 0;
 
   while (true) {
     const query = applyStudentFilters(
-      actorSupabase.from("students").select(STUDENT_LIST_SELECT).eq("school_id", schoolId),
+      applyBranchScopeToQuery(
+        actorSupabase.from("students").select(STUDENT_LIST_SELECT).eq("school_id", schoolId),
+        branchScope,
+      ),
       filters,
     ).range(from, from + QUERY_BATCH_SIZE - 1);
 
@@ -635,64 +701,78 @@ export function parsePaymentsListFilters(searchParams: URLSearchParams): Payment
   };
 }
 
-export async function resolvePaymentsMeta(actorSupabase: RouteSupabaseClient, schoolId: string): Promise<PaymentsMetaPayload> {
-  try {
-    const rpcSummary = await fetchSummaryViaRpc(actorSupabase, schoolId);
-    if (rpcSummary) {
-      const [classOptions, archiveResult] = await Promise.all([
-        fetchClassOptions(actorSupabase, schoolId),
-        fetchArchives(actorSupabase, schoolId),
-      ]);
+export async function resolvePaymentsMeta(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+): Promise<PaymentsMetaPayload> {
+  if (branchScope.branchIds.length === 0) {
+    try {
+      const rpcSummary = await fetchSummaryViaRpc(actorSupabase, schoolId);
+      if (rpcSummary) {
+        const [classOptions, archiveResult] = await Promise.all([
+          fetchClassOptions(actorSupabase, schoolId, branchScope),
+          fetchArchives(actorSupabase, schoolId, branchScope),
+        ]);
 
-      return {
-        summary: rpcSummary.summary,
-        classOptions,
-        paymentYears: rpcSummary.paymentYears,
-        totalPaymentCount: rpcSummary.totalPaymentCount,
-        archives: archiveResult.archives,
-        archiveNotice: archiveResult.archiveNotice,
-      };
+        return {
+          summary: rpcSummary.summary,
+          classOptions,
+          paymentYears: rpcSummary.paymentYears,
+          totalPaymentCount: rpcSummary.totalPaymentCount,
+          archives: archiveResult.archives,
+          archiveNotice: archiveResult.archiveNotice,
+        };
+      }
+    } catch (error) {
+      if (!isMissingPaymentsSummaryFunction(error as { code?: string | null; message?: string | null })) {
+        throw new Error(error instanceof Error ? error.message : "تعذر تحميل ملخص المدفوعات.");
+      }
     }
-  } catch (error) {
-    if (!isMissingPaymentsSummaryFunction(error as { code?: string | null; message?: string | null })) {
-      throw new Error(error instanceof Error ? error.message : "تعذر تحميل ملخص المدفوعات.");
-    }
-  }
 
-  try {
-    const reportsSummary = await fetchSummaryViaReportsRpc(actorSupabase, schoolId);
-    if (reportsSummary) {
-      const [classOptions, archiveResult, paymentsResult, collectedCount] = await Promise.all([
-        fetchClassOptions(actorSupabase, schoolId),
-        fetchArchives(actorSupabase, schoolId),
-        fetchPaymentYears(actorSupabase, schoolId),
-        fetchCollectedCount(actorSupabase, schoolId),
-      ]);
+    try {
+      const reportsSummary = await fetchSummaryViaReportsRpc(actorSupabase, schoolId);
+      if (reportsSummary) {
+        const [classOptions, archiveResult, paymentsResult, collectedCount] = await Promise.all([
+          fetchClassOptions(actorSupabase, schoolId, branchScope),
+          fetchArchives(actorSupabase, schoolId, branchScope),
+          fetchPaymentYears(actorSupabase, schoolId, branchScope),
+          fetchCollectedCount(actorSupabase, schoolId, branchScope),
+        ]);
 
-      return {
-        summary: {
-          ...reportsSummary.summary,
-          collectedCount,
-        },
-        classOptions,
-        paymentYears: paymentsResult.paymentYears,
-        totalPaymentCount: paymentsResult.totalPaymentCount || reportsSummary.totalPaymentCount,
-        archives: archiveResult.archives,
-        archiveNotice: archiveResult.archiveNotice,
-      };
-    }
-  } catch (error) {
-    if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
-      throw new Error(error instanceof Error ? error.message : "تعذر تحميل ملخص المدفوعات.");
+        return {
+          summary: {
+            ...reportsSummary.summary,
+            collectedCount,
+          },
+          classOptions,
+          paymentYears: paymentsResult.paymentYears,
+          totalPaymentCount: paymentsResult.totalPaymentCount || reportsSummary.totalPaymentCount,
+          archives: archiveResult.archives,
+          archiveNotice: archiveResult.archiveNotice,
+        };
+      }
+    } catch (error) {
+      if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
+        throw new Error(error instanceof Error ? error.message : "تعذر تحميل ملخص المدفوعات.");
+      }
     }
   }
 
   const [summary, classOptions, archiveResult, paymentsResult] = await Promise.all([
-    fetchSummary(actorSupabase, schoolId),
-    fetchClassOptions(actorSupabase, schoolId),
-    fetchArchives(actorSupabase, schoolId),
-    fetchPaymentYears(actorSupabase, schoolId),
+    fetchSummary(actorSupabase, schoolId, branchScope),
+    fetchClassOptions(actorSupabase, schoolId, branchScope),
+    fetchArchives(actorSupabase, schoolId, branchScope),
+    fetchPaymentYears(actorSupabase, schoolId, branchScope),
   ]);
+
+  const compatibilityWarnings = [
+    branchScope.branchIds.length > 0
+      ? "تم تعطيل دوال المدرسة الواسعة تلقائياً داخل نطاق الفرع لمنع تسرب بيانات الفروع الأخرى."
+      : "ملخص المدفوعات يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدوال school_payments_summary و school_payment_students_page لتحسين الأداء.",
+    paymentsResult.paymentNotice,
+    archiveResult.archiveNotice,
+  ].filter(Boolean);
 
   return {
     summary,
@@ -700,32 +780,29 @@ export async function resolvePaymentsMeta(actorSupabase: RouteSupabaseClient, sc
     paymentYears: paymentsResult.paymentYears,
     totalPaymentCount: paymentsResult.totalPaymentCount,
     archives: archiveResult.archives,
-    archiveNotice: [
-      "ملخص المدفوعات يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدوال school_payments_summary و school_payment_students_page لتحسين الأداء.",
-      paymentsResult.paymentNotice,
-      archiveResult.archiveNotice,
-    ]
-      .filter(Boolean)
-      .join(" "),
+    archiveNotice: compatibilityWarnings.join(" "),
   };
 }
 
 export async function resolvePaymentsStudentsPage(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   filters: PaymentsListFilters,
 ) {
-  try {
-    return await fetchStudentsPageViaRpc(actorSupabase, schoolId, filters);
-  } catch (error) {
-    if (!isMissingPaymentsStudentsPageFunction(error as { code?: string | null; message?: string | null })) {
-      throw new Error(error instanceof Error ? error.message : "تعذر تحميل قائمة الطلاب.");
+  if (branchScope.branchIds.length === 0) {
+    try {
+      return await fetchStudentsPageViaRpc(actorSupabase, schoolId, filters);
+    } catch (error) {
+      if (!isMissingPaymentsStudentsPageFunction(error as { code?: string | null; message?: string | null })) {
+        throw new Error(error instanceof Error ? error.message : "تعذر تحميل قائمة الطلاب.");
+      }
     }
   }
 
   if (filters.quickFilter === "no_invoice") {
-    const paymentStudentIds = await fetchSchoolPaymentStudentIds(actorSupabase, schoolId);
-    const rows = (await fetchAllFilteredStudents(actorSupabase, schoolId, { ...filters, quickFilter: "all" })).filter(
+    const paymentStudentIds = await fetchSchoolPaymentStudentIds(actorSupabase, schoolId, branchScope);
+    const rows = (await fetchAllFilteredStudents(actorSupabase, schoolId, branchScope, { ...filters, quickFilter: "all" })).filter(
       (student) => !paymentStudentIds.includes(student.id),
     );
     const start = Math.max(0, (filters.page - 1) * filters.pageSize);
@@ -745,10 +822,13 @@ export async function resolvePaymentsStudentsPage(
   const from = Math.max(0, (filters.page - 1) * filters.pageSize);
   const to = from + filters.pageSize - 1;
   const query = applyStudentFilters(
-    actorSupabase
-      .from("students")
-      .select(STUDENT_LIST_SELECT, { count: "exact" })
-      .eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("students")
+        .select(STUDENT_LIST_SELECT, { count: "exact" })
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
     filters,
   ).range(from, to);
 
@@ -762,6 +842,7 @@ export async function resolvePaymentsStudentsPage(
   const paymentCountsByStudent = await fetchPaymentCountsByStudent(
     actorSupabase,
     schoolId,
+    branchScope,
     rows.map((student) => student.id),
   );
   const totalCount = typeof count === "number" ? count : rows.length;
@@ -776,15 +857,24 @@ export async function resolvePaymentsStudentsPage(
   };
 }
 
-export async function searchPaymentStudents(actorSupabase: RouteSupabaseClient, schoolId: string, search: string, limit = 8) {
+export async function searchPaymentStudents(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+  search: string,
+  limit = 8,
+) {
   const normalizedSearch = search.trim();
   if (!normalizedSearch) return [];
 
-  let query = actorSupabase
-    .from("students")
-    .select(STUDENT_LIST_SELECT)
-    .eq("school_id", schoolId)
-    .neq("status", "deleted")
+  let query = applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select(STUDENT_LIST_SELECT)
+      .eq("school_id", schoolId)
+      .neq("status", "deleted"),
+    branchScope,
+  )
     .order("full_name", { ascending: true })
     .limit(Math.max(1, Math.min(limit, 20)));
 
@@ -802,6 +892,7 @@ export async function searchPaymentStudents(actorSupabase: RouteSupabaseClient, 
 export async function exportPaymentStudents(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   filters: Omit<PaymentsListFilters, "page" | "pageSize">,
 ) {
   const exportFilters: PaymentsListFilters = {
@@ -811,10 +902,10 @@ export async function exportPaymentStudents(
   };
 
   if (filters.quickFilter === "no_invoice") {
-    const paymentStudentIds = await fetchSchoolPaymentStudentIds(actorSupabase, schoolId);
-    const rows = await fetchAllFilteredStudents(actorSupabase, schoolId, { ...exportFilters, quickFilter: "all" });
+    const paymentStudentIds = await fetchSchoolPaymentStudentIds(actorSupabase, schoolId, branchScope);
+    const rows = await fetchAllFilteredStudents(actorSupabase, schoolId, branchScope, { ...exportFilters, quickFilter: "all" });
     return rows.filter((student) => !paymentStudentIds.includes(student.id));
   }
 
-  return fetchAllFilteredStudents(actorSupabase, schoolId, exportFilters);
+  return fetchAllFilteredStudents(actorSupabase, schoolId, branchScope, exportFilters);
 }

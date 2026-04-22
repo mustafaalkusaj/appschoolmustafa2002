@@ -5,6 +5,7 @@ import {
   collectDuplicateStudentNames,
   findExistingDuplicateStudentNames,
 } from "@/lib/students/import-dedup";
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users/context";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     return jsonError(actorContext.message, actorContext.status);
   }
 
-  const body = (await request.json().catch(() => null)) as { names?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { names?: unknown; branch_id?: unknown; branchId?: unknown } | null;
   const names = Array.isArray(body?.names)
     ? body.names.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
@@ -57,12 +58,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const requestedBranchId =
+    typeof body?.branch_id === "string" ? body.branch_id : typeof body?.branchId === "string" ? body.branchId : null;
+  const branchScope = resolveBranchScope(
+    actorContext.value,
+    requestedBranchId,
+    "لا يمكنك فحص أسماء الطلاب داخل فرع غير مصرح لك به.",
+  );
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, targetSchoolId } = actorContext.value;
-  const { data, error } = await actorSupabase
+  let query = actorSupabase
     .from("students")
     .select("full_name, status")
     .eq("school_id", targetSchoolId)
     .neq("status", "deleted");
+  if (branchScope.value.branchIds.length > 0) {
+    query = query.in("branch_id", branchScope.value.branchIds);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return jsonError(error.message || "تعذر فحص تكرار أسماء الطلاب.", 500);

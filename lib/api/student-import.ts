@@ -27,6 +27,7 @@ export type StudentImportRow = z.infer<typeof studentImportRowSchema>;
 export type StudentInsertPayload = {
   full_name: string;
   school_id: string;
+  branch_id: string | null;
   class_name: string;
   section: string;
   total_fee: number;
@@ -42,6 +43,7 @@ export type StudentInsertPayload = {
 export function buildStudentInsertPayloads(
   rows: StudentImportRow[],
   schoolId: string,
+  branchId: string | null,
   now = new Date(),
 ): StudentInsertPayload[] {
   const timestamp = now.toISOString();
@@ -49,6 +51,7 @@ export function buildStudentInsertPayloads(
   return rows.map((row) => ({
     full_name: row.fullName,
     school_id: schoolId,
+    branch_id: branchId,
     class_name: row.className,
     section: row.sectionName,
     total_fee: 0,

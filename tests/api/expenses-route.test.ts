@@ -51,6 +51,8 @@ describe("GET /api/web/expenses", () => {
         actorSupabase: { mock: true },
         actorUserId: "actor-1",
         targetSchoolId: schoolId,
+        actorBranchId: null,
+        allowedBranchIds: [],
       },
     });
 
@@ -81,6 +83,10 @@ describe("GET /api/web/expenses", () => {
     expect(resolveExpensesPage).toHaveBeenCalledWith(
       { mock: true },
       schoolId,
+      expect.objectContaining({
+        branchId: null,
+        branchIds: [],
+      }),
       expect.objectContaining({
         page: 1,
         pageSize: 20,

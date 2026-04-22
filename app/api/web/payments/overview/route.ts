@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolvePaymentsMeta } from "@/lib/payments/overview";
 
@@ -25,10 +26,16 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, targetSchoolId } = context.value;
 
   try {
-    const payload = await resolvePaymentsMeta(actorSupabase, targetSchoolId);
+    const payload = await resolvePaymentsMeta(actorSupabase, targetSchoolId, branchScope.value);
     return NextResponse.json({
       ok: true,
       ...payload,

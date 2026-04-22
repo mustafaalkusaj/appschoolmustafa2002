@@ -4,6 +4,7 @@ import {
   expenseTypeMutationSchema,
   expenseTypesListQuerySchema,
 } from "@/lib/api-schemas";
+import { resolveBranchScope } from "@/lib/branch-scope";
 import {
   invalidateExpenseRelatedCaches,
   resolveExpenseTypesOverview,
@@ -68,6 +69,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const canViewExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "view_expenses");
   if (!canViewExpenses) {
@@ -84,7 +91,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const rows = await resolveExpenseTypesOverview(actorSupabase, targetSchoolId, parsed.data.search);
+    const rows = await resolveExpenseTypesOverview(actorSupabase, targetSchoolId, branchScope.value, parsed.data.search);
     return NextResponse.json(
       {
         ok: true,

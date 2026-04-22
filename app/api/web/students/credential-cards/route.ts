@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
@@ -29,11 +30,19 @@ export async function GET(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
-  let query = context.value.actorSupabase
-    .from("students")
-    .select("id, school_id, auth_user_id, full_name, class_name, section, status")
-    .eq("school_id", context.value.targetSchoolId)
-    .order("created_at", { ascending: false });
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
+  let query = applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("students")
+      .select("id, school_id, auth_user_id, full_name, class_name, section, status")
+      .eq("school_id", context.value.targetSchoolId),
+    branchScope.value,
+  ).order("created_at", { ascending: false });
 
   if (status === "active") {
     query = query.in("status", ACTIVE_CARD_STATUSES);

@@ -189,6 +189,7 @@ export const expensesListQuerySchema = z
 
 export const expenseMutationSchema = z.object({
   school_id: entityIdSchema(),
+  branch_id: entityIdSchema().optional().nullable(),
   expense_type_id: entityIdSchema(),
   amount: positiveMoney("المبلغ"),
   expense_date: z

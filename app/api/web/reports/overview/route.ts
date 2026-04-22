@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope, type ResolvedBranchScope } from "@/lib/branch-scope";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
@@ -52,27 +53,40 @@ function normalizeMetricNumber(value: unknown) {
 async function loadFallbackMetrics(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   currentMonth: string,
   todayKey: string,
 ) {
   const [studentsResult, paymentsResult, expensesResult, salariesResult] = await Promise.allSettled([
-    actorSupabase
-      .from("students")
-      .select("id, total_fee, paid_fee, remaining_fee, status")
-      .eq("school_id", schoolId)
-      .neq("status", "deleted"),
-    actorSupabase
-      .from("payments")
-      .select("id, amount, created_at")
-      .eq("school_id", schoolId),
-    actorSupabase
-      .from("expenses")
-      .select("id, amount, expense_types(name)")
-      .eq("school_id", schoolId),
-    actorSupabase
-      .from("salaries")
-      .select("id, gross_salary, deductions, month")
-      .eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("students")
+        .select("id, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .eq("school_id", schoolId)
+        .neq("status", "deleted"),
+      branchScope,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("payments")
+        .select("id, amount, created_at")
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .select("id, amount, expense_types(name)")
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("salaries")
+        .select("id, gross_salary, deductions, month")
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
   ]);
 
   const students =
@@ -111,7 +125,15 @@ async function loadFallbackMetrics(
     activeStudents: students.filter((item) => item.status === "active").length,
     totalFees: students.reduce((sum, item) => sum + Number(item.total_fee ?? 0), 0),
     totalPaid: students.reduce((sum, item) => sum + Number(item.paid_fee ?? 0), 0),
-    totalRemaining: students.reduce((sum, item) => sum + Number(item.remaining_fee ?? 0), 0),
+    totalRemaining: students.reduce(
+      (sum, item) =>
+        sum
+        + Math.max(
+          Number(item.total_fee ?? 0) - Number(item.paid_fee ?? 0) - Number(item.discount_value ?? 0),
+          0,
+        ),
+      0,
+    ),
     paymentsCount: payments.length,
     paymentVolume: payments.reduce((sum, item) => sum + Number(item.amount ?? 0), 0),
     todayPayments: payments.filter((item) => new Date(String(item.created_at ?? "")).toDateString() === todayKey).length,
@@ -201,6 +223,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const canViewReports = await routeUserHasPermission(actorSupabase, actorUserId, "view_reports");
   if (!canViewReports) {
@@ -222,28 +250,32 @@ export async function GET(req: NextRequest) {
 
   try {
     const payload = await rememberWithTtl(
-      `reports-overview:${targetSchoolId}`,
+      `reports-overview:${targetSchoolId}:${branchScope.value.cacheKeySuffix}`,
       30_000,
       async () => {
-        try {
-          const metrics = await loadSummaryMetrics(actorSupabase, targetSchoolId, currentMonth, todayDate);
-          if (metrics) {
-            return {
-              metrics,
-              warnings: [],
-            };
-          }
-        } catch (error) {
-          if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
-            throw error;
+        if (branchScope.value.branchIds.length === 0) {
+          try {
+            const metrics = await loadSummaryMetrics(actorSupabase, targetSchoolId, currentMonth, todayDate);
+            if (metrics) {
+              return {
+                metrics,
+                warnings: [],
+              };
+            }
+          } catch (error) {
+            if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
+              throw error;
+            }
           }
         }
 
-        const fallback = await loadFallbackMetrics(actorSupabase, targetSchoolId, currentMonth, todayKey);
+        const fallback = await loadFallbackMetrics(actorSupabase, targetSchoolId, branchScope.value, currentMonth, todayKey);
         return {
           metrics: fallback.metrics,
           warnings: [
-            "ملخص التقارير يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدالة school_reports_summary لتحسين الأداء.",
+            branchScope.value.branchIds.length > 0
+              ? "تم تعطيل دالة ملخص المدرسة الواسعة تلقائياً داخل نطاق الفرع لمنع خلط بيانات الفروع."
+              : "ملخص التقارير يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدالة school_reports_summary لتحسين الأداء.",
             ...fallback.warnings,
           ],
         };

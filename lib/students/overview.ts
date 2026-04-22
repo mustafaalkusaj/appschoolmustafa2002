@@ -1,3 +1,4 @@
+import { applyBranchScopeToQuery, type ResolvedBranchScope } from "@/lib/branch-scope";
 import type { StudentStatus } from "@/types/student";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
@@ -120,15 +121,11 @@ function normalizeStudentRows(rows: Array<Record<string, unknown>>): StudentList
     const paidFee = normalizeNumber(row.paid_fee);
     const discountValue = normalizeNumber(row.discount_value);
 
-    // Use stored value if exists, otherwise calculate using shared logic
-    const remainingFee =
-      row.remaining_fee !== null && row.remaining_fee !== undefined
-        ? normalizeNumber(row.remaining_fee)
-        : calculateStudentRemainingFee({
-            total_fee: totalFee,
-            paid_fee: paidFee,
-            discount_value: discountValue,
-          });
+    const remainingFee = calculateStudentRemainingFee({
+      total_fee: totalFee,
+      paid_fee: paidFee,
+      discount_value: discountValue,
+    });
 
     return {
       id: String(row.id),
@@ -153,11 +150,15 @@ function normalizeStudentRows(rows: Array<Record<string, unknown>>): StudentList
 async function countStudentsForTab(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   filters: StudentsListFilters,
   status: StudentsStatusTab,
 ) {
   const { count, error } = await applyStudentFilters(
-    actorSupabase.from("students").select("id", { count: "exact", head: true }).eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase.from("students").select("id", { count: "exact", head: true }).eq("school_id", schoolId),
+      branchScope,
+    ),
     filters,
     { statusOverride: status },
   );
@@ -169,12 +170,20 @@ async function countStudentsForTab(
   return typeof count === "number" ? count : 0;
 }
 
-async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters): Promise<StudentsSummary> {
+async function fetchSummary(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+  filters: StudentsListFilters,
+): Promise<StudentsSummary> {
   const { data, error } = await applyStudentFilters(
-    actorSupabase
-      .from("students")
-      .select("id, total_fee, paid_fee, remaining_fee, discount_value, status")
-      .eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("students")
+        .select("id, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
     filters,
   );
 
@@ -201,9 +210,17 @@ async function fetchSummary(actorSupabase: RouteSupabaseClient, schoolId: string
   );
 }
 
-async function fetchSectionOptions(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters) {
+async function fetchSectionOptions(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+  filters: StudentsListFilters,
+) {
   const { data, error } = await applyStudentFilters(
-    actorSupabase.from("students").select("section").eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase.from("students").select("section").eq("school_id", schoolId),
+      branchScope,
+    ),
     filters,
     { includeSection: false },
   );
@@ -238,18 +255,26 @@ export function parseStudentsListFilters(searchParams: URLSearchParams): Student
   };
 }
 
-export async function resolveStudentsListPage(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters) {
+export async function resolveStudentsListPage(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+  filters: StudentsListFilters,
+) {
   const from = Math.max(0, (filters.page - 1) * filters.pageSize);
   const to = from + filters.pageSize - 1;
 
   const { data, count, error } = await applyStudentFilters(
-    actorSupabase
-      .from("students")
-      .select(
-        "id, school_id, auth_user_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, remaining_fee, status, created_at",
-        { count: "exact" },
-      )
-      .eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("students")
+        .select(
+          "id, school_id, auth_user_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, remaining_fee, status, created_at",
+          { count: "exact" },
+        )
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
     filters,
   )
     .order("created_at", { ascending: false })
@@ -271,14 +296,19 @@ export async function resolveStudentsListPage(actorSupabase: RouteSupabaseClient
   };
 }
 
-export async function resolveStudentsMeta(actorSupabase: RouteSupabaseClient, schoolId: string, filters: StudentsListFilters): Promise<StudentsMetaPayload> {
+export async function resolveStudentsMeta(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+  filters: StudentsListFilters,
+): Promise<StudentsMetaPayload> {
   const [summary, sectionOptions, activeCount, transferredCount, suspendedCount, deletedCount] = await Promise.all([
-    fetchSummary(actorSupabase, schoolId, filters),
-    fetchSectionOptions(actorSupabase, schoolId, filters),
-    countStudentsForTab(actorSupabase, schoolId, filters, "active"),
-    countStudentsForTab(actorSupabase, schoolId, filters, "transferred"),
-    countStudentsForTab(actorSupabase, schoolId, filters, "suspended"),
-    countStudentsForTab(actorSupabase, schoolId, filters, "deleted"),
+    fetchSummary(actorSupabase, schoolId, branchScope, filters),
+    fetchSectionOptions(actorSupabase, schoolId, branchScope, filters),
+    countStudentsForTab(actorSupabase, schoolId, branchScope, filters, "active"),
+    countStudentsForTab(actorSupabase, schoolId, branchScope, filters, "transferred"),
+    countStudentsForTab(actorSupabase, schoolId, branchScope, filters, "suspended"),
+    countStudentsForTab(actorSupabase, schoolId, branchScope, filters, "deleted"),
   ]);
 
   return {

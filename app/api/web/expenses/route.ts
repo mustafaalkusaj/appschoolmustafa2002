@@ -4,6 +4,7 @@ import {
   expenseMutationSchema,
   expensesListQuerySchema,
 } from "@/lib/api-schemas";
+import { resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import {
   invalidateExpenseRelatedCaches,
   resolveExpensesPage,
@@ -47,6 +48,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const canViewExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "view_expenses");
   if (!canViewExpenses) {
@@ -63,7 +70,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const payload = await resolveExpensesPage(actorSupabase, targetSchoolId, {
+    const payload = await resolveExpensesPage(actorSupabase, targetSchoolId, branchScope.value, {
       page: parsed.data.page,
       pageSize: parsed.data.pageSize,
       search: parsed.data.search,
@@ -117,6 +124,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const branchScope = resolveBranchScope(context.value, parsed.data.branch_id ?? null);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
   if (!canAddExpenses) {
@@ -144,7 +156,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const branchId = await resolveSchoolBranchId(actorSupabase, targetSchoolId);
+    const writeBranch = resolveBranchIdForWrite(branchScope.value, parsed.data.branch_id ?? null);
+    if (!writeBranch.ok) {
+      return jsonError(writeBranch.message, writeBranch.status);
+    }
+
+    const branchId = writeBranch.value ?? (await resolveSchoolBranchId(actorSupabase, targetSchoolId));
     const { data: createdExpense, error } = await actorSupabase
       .from("expenses")
       .insert({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -68,6 +69,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const canViewReports = await routeUserHasPermission(actorSupabase, actorUserId, "view_reports");
   if (!canViewReports) {
@@ -87,8 +94,9 @@ export async function GET(req: NextRequest) {
     let query = actorSupabase
       .from("students")
       .select("id, full_name, class_name, section, phone, address, total_fee, paid_fee, remaining_fee, discount_value, status, created_at")
-      .eq("school_id", targetSchoolId)
-      .order("created_at", { ascending: false });
+      .eq("school_id", targetSchoolId);
+
+    query = applyBranchScopeToQuery(query, branchScope.value).order("created_at", { ascending: false });
 
     if (studentStatus === "active") {
       query = query.in("status", ["active", "graduated", "archived", "withdrawn"]);
@@ -114,11 +122,14 @@ export async function GET(req: NextRequest) {
   };
 
   const loadPayments = async () => {
-    const { data, error } = await actorSupabase
-      .from("payments")
-      .select("id, amount, created_at, payment_method, receipt_number, notes, students(full_name,class_name)")
-      .eq("school_id", targetSchoolId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("payments")
+        .select("id, amount, created_at, payment_method, receipt_number, notes, students(full_name,class_name)")
+        .eq("school_id", targetSchoolId)
+        .order("created_at", { ascending: false }),
+      branchScope.value,
+    );
     if (error) throw error;
     return (data ?? []).map((item) => ({
       ...item,
@@ -127,11 +138,14 @@ export async function GET(req: NextRequest) {
   };
 
   const loadExpenses = async () => {
-    const { data, error } = await actorSupabase
-      .from("expenses")
-      .select("id, amount, expense_date, recipient, receipt_number, notes, expense_types(name)")
-      .eq("school_id", targetSchoolId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .select("id, amount, expense_date, recipient, receipt_number, notes, expense_types(name)")
+        .eq("school_id", targetSchoolId)
+        .order("created_at", { ascending: false }),
+      branchScope.value,
+    );
     if (error) throw error;
     return (data ?? []).map((item) => ({
       ...item,
@@ -140,11 +154,14 @@ export async function GET(req: NextRequest) {
   };
 
   const loadSalaries = async () => {
-    const { data, error } = await actorSupabase
-      .from("salaries")
-      .select("id, gross_salary, deductions, month, paid_at, is_paid, teachers(full_name,subject)")
-      .eq("school_id", targetSchoolId)
-      .order("paid_at", { ascending: false });
+    const { data, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("salaries")
+        .select("id, gross_salary, deductions, month, paid_at, is_paid, teachers(full_name,subject)")
+        .eq("school_id", targetSchoolId)
+        .order("paid_at", { ascending: false }),
+      branchScope.value,
+    );
     if (error) throw error;
     const normalized = (data ?? []).map((item) => ({
       ...item,

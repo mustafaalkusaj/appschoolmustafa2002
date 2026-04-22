@@ -1,3 +1,4 @@
+import { applyBranchScopeToQuery, type ResolvedBranchScope } from "@/lib/branch-scope";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 import {
   buildSchoolCacheTag,
@@ -170,19 +171,26 @@ async function fetchExpenseSummaryViaRpc(
 async function fetchExpenseSummaryFallback(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   filters: Pick<ExpensesListFilters, "search" | "expenseTypeId" | "fromDate" | "toDate">,
 ) {
   const today = new Date().toISOString().slice(0, 10);
-  const schoolRowsPromise = actorSupabase
-    .from("expenses")
-    .select("amount, expense_date")
-    .eq("school_id", schoolId);
-
-  const filteredRowsPromise = applyExpensesFilters(
+  const schoolRowsPromise = applyBranchScopeToQuery(
     actorSupabase
       .from("expenses")
-      .select("amount, expense_date", { count: "exact" })
+      .select("amount, expense_date")
       .eq("school_id", schoolId),
+    branchScope,
+  );
+
+  const filteredRowsPromise = applyExpensesFilters(
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .select("amount, expense_date", { count: "exact" })
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
     filters,
   );
 
@@ -214,48 +222,56 @@ async function fetchExpenseSummaryFallback(
 export async function resolveExpensesPage(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   filters: ExpensesListFilters,
 ) {
   const from = Math.max(0, (filters.page - 1) * filters.pageSize);
   const to = from + filters.pageSize - 1;
 
   const pagedRowsPromise = applyExpensesFilters(
-    actorSupabase
-      .from("expenses")
-      .select(EXPENSE_SELECT, { count: "exact" })
-      .eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .select(EXPENSE_SELECT, { count: "exact" })
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
     filters,
   ).range(from, to);
 
   const summaryPromise = (async () => {
-    try {
-      const rpcSummary = await fetchExpenseSummaryViaRpc(actorSupabase, schoolId, filters);
-      if (rpcSummary) {
-        return rpcSummary;
-      }
-      return fetchExpenseSummaryFallback(actorSupabase, schoolId, filters);
-    } catch (error) {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        typeof error.message === "string" &&
-        error.message.includes("school_expenses_summary")
-      ) {
-        return fetchExpenseSummaryFallback(actorSupabase, schoolId, filters);
-      }
+    if (branchScope.branchIds.length === 0) {
+      try {
+        const rpcSummary = await fetchExpenseSummaryViaRpc(actorSupabase, schoolId, filters);
+        if (rpcSummary) {
+          return rpcSummary;
+        }
+        return fetchExpenseSummaryFallback(actorSupabase, schoolId, branchScope, filters);
+      } catch (error) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof error.message === "string" &&
+          error.message.includes("school_expenses_summary")
+        ) {
+          return fetchExpenseSummaryFallback(actorSupabase, schoolId, branchScope, filters);
+        }
 
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        error.code === "42883"
-      ) {
-        return fetchExpenseSummaryFallback(actorSupabase, schoolId, filters);
-      }
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          error.code === "42883"
+        ) {
+          return fetchExpenseSummaryFallback(actorSupabase, schoolId, branchScope, filters);
+        }
 
-      throw error;
+        throw error;
+      }
     }
+
+    return fetchExpenseSummaryFallback(actorSupabase, schoolId, branchScope, filters);
   })();
 
   const [{ data, error, count }, summary] = await Promise.all([pagedRowsPromise, summaryPromise]);
@@ -306,6 +322,7 @@ async function fetchExpenseTypesOverviewViaRpc(
 async function fetchExpenseTypesOverviewFallback(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   search: string,
 ) {
   const { data: types, error: typesError } = await actorSupabase
@@ -318,10 +335,13 @@ async function fetchExpenseTypesOverviewFallback(
     throw typesError;
   }
 
-  const { data: expenses, error: expensesError } = await actorSupabase
-    .from("expenses")
-    .select("expense_type_id, amount")
-    .eq("school_id", schoolId);
+  const { data: expenses, error: expensesError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("expenses")
+      .select("expense_type_id, amount")
+      .eq("school_id", schoolId),
+    branchScope,
+  );
 
   if (expensesError) {
     throw expensesError;
@@ -367,37 +387,42 @@ async function fetchExpenseTypesOverviewFallback(
 export async function resolveExpenseTypesOverview(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
+  branchScope: ResolvedBranchScope,
   search: string,
 ) {
-  const cacheKey = `expenses-types:${schoolId}:${search.trim().toLowerCase()}`;
+  const cacheKey = `expenses-types:${schoolId}:${branchScope.cacheKeySuffix}:${search.trim().toLowerCase()}`;
   return rememberWithTtl(
     cacheKey,
     30_000,
     async () => {
-      try {
-        return await fetchExpenseTypesOverviewViaRpc(actorSupabase, schoolId, search);
-      } catch (error) {
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          error.code === "42883"
-        ) {
-          return fetchExpenseTypesOverviewFallback(actorSupabase, schoolId, search);
-        }
+      if (branchScope.branchIds.length === 0) {
+        try {
+          return await fetchExpenseTypesOverviewViaRpc(actorSupabase, schoolId, search);
+        } catch (error) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "42883"
+          ) {
+            return fetchExpenseTypesOverviewFallback(actorSupabase, schoolId, branchScope, search);
+          }
 
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof error.message === "string" &&
-          error.message.includes("school_expense_types_overview")
-        ) {
-          return fetchExpenseTypesOverviewFallback(actorSupabase, schoolId, search);
-        }
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "message" in error &&
+            typeof error.message === "string" &&
+            error.message.includes("school_expense_types_overview")
+          ) {
+            return fetchExpenseTypesOverviewFallback(actorSupabase, schoolId, branchScope, search);
+          }
 
-        throw error;
+          throw error;
+        }
       }
+
+      return fetchExpenseTypesOverviewFallback(actorSupabase, schoolId, branchScope, search);
     },
     {
       tags: [buildSchoolCacheTag(schoolId, "expenses-types")],

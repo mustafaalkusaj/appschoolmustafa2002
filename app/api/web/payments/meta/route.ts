@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolvePaymentsMeta } from "@/lib/payments/overview";
@@ -27,6 +28,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const rateLimited = await enforceRateLimit(req, {
     namespace: "payments-meta",
@@ -40,9 +47,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const payload = await rememberWithTtl(
-      `payments-meta:${targetSchoolId}`,
+      `payments-meta:${targetSchoolId}:${branchScope.value.cacheKeySuffix}`,
       30_000,
-      () => resolvePaymentsMeta(actorSupabase, targetSchoolId),
+      () => resolvePaymentsMeta(actorSupabase, targetSchoolId, branchScope.value),
       {
         tags: [buildSchoolCacheTag(targetSchoolId, "payments-meta")],
       },

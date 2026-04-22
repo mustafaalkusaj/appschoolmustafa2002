@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 
 function jsonError(message: string, status: number) {
@@ -28,24 +29,35 @@ export async function GET(
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, targetSchoolId } = context.value;
-  const { data: student, error: studentError } = await actorSupabase
-    .from("students")
-    .select("id")
-    .eq("id", studentId)
-    .eq("school_id", targetSchoolId)
-    .maybeSingle();
+  const { data: student, error: studentError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("id")
+      .eq("id", studentId)
+      .eq("school_id", targetSchoolId),
+    branchScope.value,
+  ).maybeSingle();
 
   if (studentError || !student?.id) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  const { data, error } = await actorSupabase
-    .from("payments")
-    .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
-    .eq("school_id", targetSchoolId)
-    .eq("student_id", studentId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("payments")
+      .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
+      .eq("school_id", targetSchoolId)
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
+    branchScope.value,
+  );
 
   if (error) {
     return jsonError(error.message || "تعذر تحميل سجل دفعات الطالب.", 500);

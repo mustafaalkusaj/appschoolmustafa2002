@@ -1,58 +1,93 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import ExcelJS from "exceljs";
-import { jsonError } from "@/lib/route-utils";
+import { NextRequest, NextResponse } from "next/server";
 
-function getService() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { jsonError } from "@/lib/route-utils";
+import { resolveSchoolManagerOverview } from "@/lib/school-manager/overview";
+
+function fmtIQD(value: number) {
+  return `${value.toLocaleString("ar-IQ")} د.ع`;
 }
 
-function fmtIQD(n: number) {
-  return n.toLocaleString("ar-IQ") + " د.ع";
+async function resolveAuthorizedSchool(req: NextRequest, requestedGroupId: string | null) {
+  if (!requestedGroupId) {
+    return { ok: false as const, status: 400, message: "groupId مطلوب" };
+  }
+
+  const context = await resolveSchoolScopedActorContext(
+    null,
+    {
+      allowedRoles: ["admin"],
+      roleDeniedMessage: "هذه الواجهة مخصصة لمدير المدرسة على مستوى المدرسة فقط.",
+    },
+    req.headers.get("authorization"),
+  );
+
+  if (!context.ok) {
+    return {
+      ok: false as const,
+      status: "status" in context ? context.status : 500,
+      message: "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
+    };
+  }
+
+  if (context.value.scopeLevel !== "group_admin") {
+    return { ok: false as const, status: 403, message: "لا تملك صلاحية تصدير هذه المجموعة." };
+  }
+
+  const { data: school, error } = await context.value.actorSupabase
+    .from("schools")
+    .select("id, name, group_id")
+    .eq("id", context.value.targetSchoolId)
+    .maybeSingle();
+
+  if (error || !school?.id || !school.group_id) {
+    return { ok: false as const, status: 404, message: "المجموعة الحالية غير متاحة لهذا المستخدم." };
+  }
+
+  if (school.group_id !== requestedGroupId) {
+    return { ok: false as const, status: 403, message: "لا يمكنك تصدير مجموعة أخرى." };
+  }
+
+  return {
+    ok: true as const,
+    actorSupabase: context.value.actorSupabase,
+    schoolId: school.id,
+    schoolName: school.name ?? "المدرسة الحالية",
+  };
 }
 
 export async function GET(req: NextRequest) {
-  const service = getService();
-  const groupId = req.nextUrl.searchParams.get("groupId");
-  const format = req.nextUrl.searchParams.get("format") ?? "excel";
-  if (!groupId) return jsonError("groupId مطلوب", 400);
+  const auth = await resolveAuthorizedSchool(req, req.nextUrl.searchParams.get("groupId"));
+  if (!auth.ok) {
+    return jsonError(auth.message, auth.status);
+  }
 
-  const { data: group } = await service.from("school_groups").select("id,name").eq("id", groupId).single();
-  if (!group) return jsonError("المجموعة غير موجودة", 404);
+  const format = req.nextUrl.searchParams.get("format")?.toLowerCase() ?? "excel";
+  const overview = await resolveSchoolManagerOverview(auth.actorSupabase, auth.schoolId);
+  const branchStats = overview.branches.map((branch) => {
+    const expected = branch.totalFeesAfterDiscount;
+    const collected = branch.totalPaid;
+    const expenses = branch.totalExpenses;
+    const collectionRate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
 
-  const { data: branches } = await service.from("branches").select("id,name").eq("group_id", groupId).eq("is_active", true);
-
-  const branchStats = await Promise.all(
-    (branches ?? []).map(async (branch) => {
-      const [studentsRes, paymentsRes, expensesRes, feesRes] = await Promise.all([
-        service.from("students").select("id", { count: "exact", head: true }).eq("branch_id", branch.id).neq("status", "deleted"),
-        service.from("payments").select("amount").eq("branch_id", branch.id),
-        service.from("expenses").select("amount").eq("branch_id", branch.id),
-        service.from("students").select("total_fee").eq("branch_id", branch.id).neq("status", "deleted"),
-      ]);
-      const collected = (paymentsRes.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
-      const expenses = (expensesRes.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
-      const expected = (feesRes.data ?? []).reduce((s, r) => s + Number(r.total_fee ?? 0), 0);
-      const collectionRate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
-      return { id: branch.id, name: branch.name, students: studentsRes.count ?? 0, collected, expenses, net: collected - expenses, collectionRate };
-    })
-  );
-
-  const totals = branchStats.reduce(
-    (acc, b) => ({ students: acc.students + b.students, collected: acc.collected + b.collected, expenses: acc.expenses + b.expenses, net: acc.net + b.net }),
-    { students: 0, collected: 0, expenses: 0, net: 0 }
-  );
+    return {
+      id: branch.branchId,
+      name: branch.branchName,
+      students: branch.studentsCount,
+      collected,
+      expenses,
+      net: collected - expenses,
+      collectionRate,
+    };
+  });
 
   if (format === "excel") {
     const wb = new ExcelJS.Workbook();
     wb.creator = "منظومة المدارس";
     wb.created = new Date();
 
-    // Summary sheet
-    const ws = wb.addWorksheet("ملخص المجموعة", { views: [{ rightToLeft: true }] });
+    const ws = wb.addWorksheet("ملخص المدرسة", { views: [{ rightToLeft: true }] });
     ws.columns = [
       { header: "الفرع", key: "name", width: 25 },
       { header: "الطلاب", key: "students", width: 12 },
@@ -62,32 +97,33 @@ export async function GET(req: NextRequest) {
       { header: "نسبة التحصيل", key: "collectionRate", width: 18 },
     ];
 
-    // Purple header
     ws.getRow(1).eachCell((cell) => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF7C3AED" } };
       cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
       cell.alignment = { horizontal: "center" };
     });
 
-    branchStats.forEach((b) => {
-      ws.addRow({ name: b.name, students: b.students, collected: fmtIQD(b.collected), expenses: fmtIQD(b.expenses), net: fmtIQD(b.net), collectionRate: `${b.collectionRate}%` });
+    branchStats.forEach((branch) => {
+      ws.addRow({
+        name: branch.name,
+        students: branch.students,
+        collected: fmtIQD(branch.collected),
+        expenses: fmtIQD(branch.expenses),
+        net: fmtIQD(branch.net),
+        collectionRate: `${branch.collectionRate}%`,
+      });
     });
 
-    // Totals row
-    const totalRow = ws.addRow({ name: "المجموع الكلي", students: totals.students, collected: fmtIQD(totals.collected), expenses: fmtIQD(totals.expenses), net: fmtIQD(totals.net), collectionRate: "" });
+    const totalRow = ws.addRow({
+      name: "المجموع الكلي",
+      students: overview.totals.studentsCount,
+      collected: fmtIQD(overview.totals.totalPaid),
+      expenses: fmtIQD(overview.totals.totalExpenses),
+      net: fmtIQD(overview.totals.totalPaid - overview.totals.totalExpenses),
+      collectionRate: "",
+    });
     totalRow.font = { bold: true };
     totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDE9FE" } };
-
-    // Per-branch sheets
-    for (const b of branchStats) {
-      const bs = wb.addWorksheet(b.name, { views: [{ rightToLeft: true }] });
-      bs.addRow(["الفرع", b.name]);
-      bs.addRow(["الطلاب", b.students]);
-      bs.addRow(["الإيرادات", fmtIQD(b.collected)]);
-      bs.addRow(["المصاريف", fmtIQD(b.expenses)]);
-      bs.addRow(["الصافي", fmtIQD(b.net)]);
-      bs.addRow(["نسبة التحصيل", `${b.collectionRate}%`]);
-    }
 
     const buf = await wb.xlsx.writeBuffer();
     return new NextResponse(buf as ArrayBuffer, {
@@ -98,14 +134,23 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // PDF format — simple HTML-based table response that can be printed
-  const rows = branchStats.map((b) => `<tr><td>${b.name}</td><td>${b.students}</td><td>${fmtIQD(b.collected)}</td><td>${fmtIQD(b.expenses)}</td><td>${fmtIQD(b.net)}</td><td>${b.collectionRate}%</td></tr>`).join("");
-  const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير ${group.name}</title>
+  const rows = branchStats
+    .map(
+      (branch) =>
+        `<tr><td>${branch.name}</td><td>${branch.students}</td><td>${fmtIQD(branch.collected)}</td><td>${fmtIQD(branch.expenses)}</td><td>${fmtIQD(branch.net)}</td><td>${branch.collectionRate}%</td></tr>`,
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير ${auth.schoolName}</title>
   <style>body{font-family:Arial,sans-serif;direction:rtl}table{width:100%;border-collapse:collapse}th{background:#7C3AED;color:#fff;padding:8px}td{border:1px solid #ccc;padding:8px}tfoot td{font-weight:bold;background:#EDE9FE}</style></head>
-  <body><h1>${group.name}</h1><p>تاريخ التصدير: ${new Date().toLocaleDateString("ar-IQ")}</p>
+  <body><h1>${auth.schoolName}</h1><p>تاريخ التصدير: ${new Date().toLocaleDateString("ar-IQ")}</p>
   <table><thead><tr><th>الفرع</th><th>الطلاب</th><th>الإيرادات</th><th>المصاريف</th><th>الصافي</th><th>نسبة التحصيل</th></tr></thead>
   <tbody>${rows}</tbody>
-  <tfoot><tr><td>المجموع</td><td>${totals.students}</td><td>${fmtIQD(totals.collected)}</td><td>${fmtIQD(totals.expenses)}</td><td>${fmtIQD(totals.net)}</td><td></td></tr></tfoot>
+  <tfoot><tr><td>المجموع</td><td>${overview.totals.studentsCount}</td><td>${fmtIQD(overview.totals.totalPaid)}</td><td>${fmtIQD(overview.totals.totalExpenses)}</td><td>${fmtIQD(overview.totals.totalPaid - overview.totals.totalExpenses)}</td><td></td></tr></tfoot>
   </table></body></html>`;
-  return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+
+  return new NextResponse(html, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 }
+

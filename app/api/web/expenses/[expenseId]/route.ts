@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { expenseMutationSchema, schoolScopedDeleteSchema } from "@/lib/api-schemas";
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { invalidateExpenseRelatedCaches } from "@/lib/expenses-server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -35,6 +36,11 @@ export async function PATCH(
     );
   }
 
+  const branchScope = resolveBranchScope(context.value, parsed.data.branch_id ?? null);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
   if (!canAddExpenses) {
@@ -51,12 +57,14 @@ export async function PATCH(
   }
 
   const [expenseResult, expenseTypeResult] = await Promise.all([
-    actorSupabase
-      .from("expenses")
-      .select("id")
-      .eq("id", expenseId)
-      .eq("school_id", targetSchoolId)
-      .maybeSingle(),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .select("id")
+        .eq("id", expenseId)
+        .eq("school_id", targetSchoolId),
+      branchScope.value,
+    ).maybeSingle(),
     actorSupabase
       .from("expense_types")
       .select("id")
@@ -74,18 +82,21 @@ export async function PATCH(
   }
 
   try {
-    const { data: updatedExpense, error } = await actorSupabase
-      .from("expenses")
-      .update({
-        expense_type_id: parsed.data.expense_type_id,
-        amount: parsed.data.amount,
-        expense_date: parsed.data.expense_date,
-        recipient: parsed.data.recipient,
-        receipt_number: parsed.data.receipt_number,
-        notes: parsed.data.notes,
-      })
-      .eq("id", expenseId)
-      .eq("school_id", targetSchoolId)
+    const { data: updatedExpense, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .update({
+          expense_type_id: parsed.data.expense_type_id,
+          amount: parsed.data.amount,
+          expense_date: parsed.data.expense_date,
+          recipient: parsed.data.recipient,
+          receipt_number: parsed.data.receipt_number,
+          notes: parsed.data.notes,
+        })
+        .eq("id", expenseId)
+        .eq("school_id", targetSchoolId),
+      branchScope.value,
+    )
       .select("id, school_id, expense_type_id, amount, expense_date, recipient, receipt_number, notes, created_at, expense_types(name)")
       .single();
 
@@ -138,6 +149,11 @@ export async function DELETE(
     );
   }
 
+  const branchScope = resolveBranchScope(context.value);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const canDeleteExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "delete_expenses");
   if (!canDeleteExpenses) {
@@ -154,11 +170,14 @@ export async function DELETE(
   }
 
   try {
-    const { data: deletedExpense, error } = await actorSupabase
-      .from("expenses")
-      .delete()
-      .eq("id", expenseId)
-      .eq("school_id", targetSchoolId)
+    const { data: deletedExpense, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .delete()
+        .eq("id", expenseId)
+        .eq("school_id", targetSchoolId),
+      branchScope.value,
+    )
       .select("id")
       .maybeSingle();
 

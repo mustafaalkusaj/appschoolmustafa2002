@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { searchPaymentStudents } from "@/lib/payments/overview";
@@ -30,6 +31,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const rateLimited = await enforceRateLimit(req, {
     namespace: "payments-student-search",
@@ -42,7 +49,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const students = await searchPaymentStudents(actorSupabase, targetSchoolId, query, limit);
+    const students = await searchPaymentStudents(actorSupabase, targetSchoolId, branchScope.value, query, limit);
     return NextResponse.json(
       { ok: true, students },
       {

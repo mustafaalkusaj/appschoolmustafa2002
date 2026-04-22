@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readStudentImportErrorMessage } from "@/lib/api/student-import";
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users/context";
+import { tableHasColumn } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 function jsonError(message: string, status: number) {
@@ -31,9 +33,21 @@ export async function GET(request: NextRequest) {
       return jsonError(actorContext.message, actorContext.status);
     }
 
-    const { actorSupabase, targetSchoolId } = actorContext.value;
+    const requestedBranchId =
+      request.nextUrl.searchParams.get("branchId") ?? request.nextUrl.searchParams.get("branch_id");
+    const branchScope = resolveBranchScope(
+      actorContext.value,
+      requestedBranchId,
+      "لا يمكنك تحميل صفوف فرع غير مصرح لك به.",
+    );
+    if (!branchScope.ok) {
+      return jsonError(branchScope.message, branchScope.status);
+    }
 
-    const { data: classesData, error: classesError } = await actorSupabase
+    const { actorSupabase, targetSchoolId } = actorContext.value;
+    const classesHasBranchScope = await tableHasColumn(actorSupabase, "classes", "branch_id").catch(() => false);
+
+    let classesQuery = actorSupabase
       .from("classes")
       .select(`
         id,
@@ -44,6 +58,13 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq("school_id", targetSchoolId);
+    if (classesHasBranchScope && branchScope.value.branchIds.length > 0) {
+      classesQuery = branchScope.value.branchId
+        ? classesQuery.eq("branch_id", branchScope.value.branchId)
+        : classesQuery.in("branch_id", branchScope.value.branchIds);
+    }
+
+    const { data: classesData, error: classesError } = await classesQuery;
 
     if (classesError) throw classesError;
 
