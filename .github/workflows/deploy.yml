@@ -53,5 +53,13 @@ jobs:
               exit 1
             fi
 
-            sleep 3
-            curl -fsS http://127.0.0.1:3001/api/ping
+            ATTEMPT=1
+            MAX_ATTEMPTS=20
+            until curl -fsS http://127.0.0.1:3001/api/ping >/dev/null; do
+              if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+                echo "Health check failed after ${MAX_ATTEMPTS} attempts." >&2
+                exit 1
+              fi
+              ATTEMPT=$((ATTEMPT + 1))
+              sleep 3
+            done
