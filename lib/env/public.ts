@@ -19,6 +19,39 @@ export type PublicEnv = {
 
 let cachedPublicEnv: PublicEnv | null = null;
 
+function decodeBase64Url(value: string): string {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
+  return atob(normalized + "=".repeat(padding));
+}
+
+function deriveSupabaseUrlFromServiceRoleKey(): string {
+  const token = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
+  if (!token) return "";
+
+  const parts = token.split(".");
+  if (parts.length < 2) return "";
+
+  try {
+    const payloadRaw = decodeBase64Url(parts[1]);
+    const payload = JSON.parse(payloadRaw) as { iss?: unknown };
+    const issuer = typeof payload.iss === "string" ? payload.iss.trim() : "";
+    if (!issuer) return "";
+
+    if (/^https?:\/\/.+\/auth\/v1\/?$/.test(issuer)) {
+      return issuer.replace(/\/auth\/v1\/?$/, "");
+    }
+
+    if (/^https?:\/\/.+$/.test(issuer)) {
+      return new URL(issuer).origin;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 export function getPublicEnv(): PublicEnv {
   if (cachedPublicEnv) {
     return cachedPublicEnv;
@@ -43,11 +76,12 @@ export function getPublicEnv(): PublicEnv {
   const supabaseUrl =
     parsed.data.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     parsed.data.SUPABASE_URL?.trim() ||
+    deriveSupabaseUrlFromServiceRoleKey() ||
     "";
 
   if (!supabaseUrl) {
     throw new Error(
-      "Missing Supabase URL. Set NEXT_PUBLIC_SUPABASE_URL (or legacy SUPABASE_URL).",
+      "Missing Supabase URL. Set NEXT_PUBLIC_SUPABASE_URL (or legacy SUPABASE_URL), or provide SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
 
