@@ -15,7 +15,7 @@ interface FeeModalProps {
   studentCountByClass: Record<string, number>;
   availableClassNames: string[];
   onClose: () => void;
-  onSave: () => void;
+  onSave: () => Promise<void>;
   onFormChange: React.Dispatch<React.SetStateAction<FeeFormData>>;
 }
 
@@ -147,7 +147,7 @@ export function FeeModal({
 
           <div className="modal-actions">
             <button className="btn-cancel" onClick={onClose}>إلغاء</button>
-            <button className="btn-save" onClick={onSave} disabled={feeLoading}>
+            <button className="btn-save" onClick={() => onSave().catch(err => console.error("Fee save failed:", err))} disabled={feeLoading}>
               {feeLoading ? "جارٍ الحفظ..." : editingFee ? "حفظ التعديلات" : "إضافة القسط"}
             </button>
           </div>

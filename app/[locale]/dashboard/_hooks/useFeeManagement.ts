@@ -174,7 +174,11 @@ export function useFeeManagement({
       return;
     }
 
-    await onRefetch();
+    try {
+      await onRefetch();
+    } catch (refetchError) {
+      console.error("Failed to refetch dashboard data:", refetchError);
+    }
     setFeeForm((current) => ({ ...current, class_name: canonicalClassName }));
     setTimeout(() => {
       setFeeSuccess("");
