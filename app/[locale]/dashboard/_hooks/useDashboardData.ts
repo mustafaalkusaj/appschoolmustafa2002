@@ -63,6 +63,18 @@ export function useDashboardData({
       return;
     }
 
+    if (branchScoped && !branchId) {
+      setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
+      setRecentPayments([]);
+      setOverdueStudents([]);
+      setStudentCountByClass({});
+      setClassFees([]);
+      setError("لم يتم العثور على فرع متاح. يرجى إضافة فرع للمدرسة.");
+      setWarning(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       const searchParams = new URLSearchParams({ schoolId });
       searchParams.set("fresh", "1");
