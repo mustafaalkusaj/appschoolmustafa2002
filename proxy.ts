@@ -108,6 +108,7 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     normalizedPath === "/api/auth/register" ||
     normalizedPath === "/api/rbac/session" ||
     normalizedPath === "/api/account/me" ||
+    normalizedPath === "/api/ping" ||
     normalizedPath === "/api/health";
 
   if ((!isApiRequest && isPublicPath) || (isApiRequest && isPublicApiPath)) {
