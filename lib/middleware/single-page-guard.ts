@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 /**
  * Single-Page User Guard Middleware
@@ -5,7 +6,7 @@
  * Enforces the isSinglePageUser and pageAccess restrictions
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createApiLogger } from '@/lib/api-logger';
 import type { AuthContext } from './auth-middleware';
@@ -149,7 +150,7 @@ export async function grantPageAccess(
     canUpdate?: boolean;
     canDelete?: boolean;
   },
-  createdByUserId: string
+  _createdByUserId: string
 ): Promise<{ success: boolean; error?: string }> {
   const log = createApiLogger({
     endpoint: '/api/admin/users/page-access'
@@ -221,7 +222,7 @@ export async function grantPageAccess(
 export async function revokePageAccess(
   userId: string,
   pageCode: string,
-  deletedByUserId: string
+  _deletedByUserId: string
 ): Promise<{ success: boolean; error?: string }> {
   const log = createApiLogger({
     endpoint: '/api/admin/users/page-access'
@@ -279,7 +280,7 @@ export async function updatePageAccess(
     canUpdate?: boolean;
     canDelete?: boolean;
   },
-  updatedByUserId: string
+  _updatedByUserId: string
 ): Promise<{ success: boolean; error?: string }> {
   const log = createApiLogger({
     endpoint: '/api/admin/users/page-access'

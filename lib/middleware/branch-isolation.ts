@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 /**
  * Branch Isolation Middleware
@@ -5,7 +6,7 @@
  * Ensures users can only access data within their assigned branch/school
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createApiLogger } from '@/lib/api-logger';
 import type { AuthContext } from './auth-middleware';

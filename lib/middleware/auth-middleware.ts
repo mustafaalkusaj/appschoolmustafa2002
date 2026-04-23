@@ -160,8 +160,8 @@ export function requireBranchAccess(
  */
 export function requirePermission(
   authContext: AuthContext,
-  requiredPermission: string,
-  endpoint: string
+  _requiredPermission: string,
+  _endpoint: string
 ): { allowed: true; response: null } | { allowed: false; response: NextResponse } {
   // Super admin has all permissions
   if (authContext.role === 'SUPER_ADMIN') {

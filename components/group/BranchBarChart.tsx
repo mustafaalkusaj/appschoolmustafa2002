@@ -1,6 +1,6 @@
 "use client";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, type TooltipProps } from "recharts";
-import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import type { ValueType } from "recharts/types/component/DefaultTooltipContent";
 
 interface BranchData {
   name: string;

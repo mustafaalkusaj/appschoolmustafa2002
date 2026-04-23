@@ -46,12 +46,12 @@ type AttendanceRow = {
   updated_at: string | null;
 };
 
-type AttendanceHistoryRow = {
+type _AttendanceHistoryRow = {
   attendance_date: string;
   status: string;
 };
 
-type AttendanceStatusCounts = {
+type _AttendanceStatusCounts = {
   present: number;
   absent: number;
   late: number;

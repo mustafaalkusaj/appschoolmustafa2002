@@ -2,6 +2,28 @@
 import { useState } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
+interface ThProps {
+  k: keyof BranchStat;
+  label: string;
+  sortKey: keyof BranchStat;
+  asc: boolean;
+  onToggle: (key: keyof BranchStat) => void;
+}
+
+function Th({ k, label, sortKey, asc, onToggle }: ThProps) {
+  return (
+    <th
+      className="p-3 text-right text-xs font-semibold text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-primary)] transition-colors select-none"
+      onClick={() => onToggle(k)}
+    >
+      <span className="flex items-center justify-end gap-1">
+        {label}
+        {sortKey === k ? (asc ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : null}
+      </span>
+    </th>
+  );
+}
+
 interface BranchStat {
   id: string;
   name: string;
@@ -31,18 +53,6 @@ export function BranchRankingTable({ branches }: { branches: BranchStat[] }) {
     else { setSortKey(key); setAsc(false); }
   };
 
-  const Th = ({ k, label }: { k: keyof BranchStat; label: string }) => (
-    <th
-      className="p-3 text-right text-xs font-semibold text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-primary)] transition-colors select-none"
-      onClick={() => toggleSort(k)}
-    >
-      <span className="flex items-center justify-end gap-1">
-        {label}
-        {sortKey === k ? (asc ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : null}
-      </span>
-    </th>
-  );
-
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] overflow-hidden print:border-0">
       <div className="p-4 border-b border-[var(--border)]">
@@ -54,11 +64,11 @@ export function BranchRankingTable({ branches }: { branches: BranchStat[] }) {
             <tr>
               <th className="p-3 text-right text-xs font-semibold text-[var(--text-muted)]">الترتيب</th>
               <th className="p-3 text-right text-xs font-semibold text-[var(--text-muted)]">الفرع</th>
-              <Th k="students" label="الطلاب" />
-              <Th k="collected" label="الإيرادات" />
-              <Th k="expenses" label="المصاريف" />
-              <Th k="net" label="الصافي" />
-              <Th k="collectionRate" label="نسبة التحصيل" />
+              <Th k="students" label="الطلاب" sortKey={sortKey} asc={asc} onToggle={toggleSort} />
+              <Th k="collected" label="الإيرادات" sortKey={sortKey} asc={asc} onToggle={toggleSort} />
+              <Th k="expenses" label="المصاريف" sortKey={sortKey} asc={asc} onToggle={toggleSort} />
+              <Th k="net" label="الصافي" sortKey={sortKey} asc={asc} onToggle={toggleSort} />
+              <Th k="collectionRate" label="نسبة التحصيل" sortKey={sortKey} asc={asc} onToggle={toggleSort} />
             </tr>
           </thead>
           <tbody>

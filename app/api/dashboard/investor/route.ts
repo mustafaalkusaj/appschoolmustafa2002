@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 /**
  * Investor Dashboard API
@@ -10,7 +11,6 @@ import { requireAuth, requireRole } from '@/lib/middleware/auth-middleware';
 import {
   getBranchesForSchool,
   getBranchWithStats,
-  getSchoolBranchStats
 } from '@/lib/services/branch-service';
 import { createApiLogger } from '@/lib/api-logger';
 import { prisma } from '@/lib/prisma';

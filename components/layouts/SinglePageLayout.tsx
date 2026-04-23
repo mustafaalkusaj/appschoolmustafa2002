@@ -14,7 +14,6 @@
 
 import React, { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 interface SinglePageLayoutProps {
   children: ReactNode;
@@ -25,7 +24,7 @@ interface SinglePageLayoutProps {
 export function SinglePageLayout({
   children,
   pageTitle,
-  pageCode
+  pageCode: _pageCode
 }: SinglePageLayoutProps) {
   const router = useRouter();
 

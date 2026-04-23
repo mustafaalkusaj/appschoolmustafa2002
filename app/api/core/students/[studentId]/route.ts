@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 /**
  * Individual Student API - Core Multi-Branch Endpoints
@@ -216,7 +217,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     }
 
     // Soft delete
-    const deletedStudent = await prisma.student.update({
+    const _deletedStudent = await prisma.student.update({
       where: { id: studentId },
       data: { deletedAt: new Date() },
       include: {

@@ -5,7 +5,7 @@
  * Built with Node.js crypto for zero-dependency JWT handling
  */
 
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac } from 'crypto';
 
 export interface JWTPayload {
   userId: string;
@@ -112,7 +112,7 @@ function decodeJwtPayload(token: string): any | null {
 
     const payloadBuffer = base64UrlDecode(parts[1]);
     return JSON.parse(payloadBuffer.toString('utf-8'));
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -148,7 +148,7 @@ export function verifyToken(token: string): JWTPayload | null {
     }
 
     return payload;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -160,7 +160,7 @@ export function verifyToken(token: string): JWTPayload | null {
 export function decodeToken(token: string): JWTPayload | null {
   try {
     return decodeJwtPayload(token) as JWTPayload | null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -196,6 +196,6 @@ export function refreshToken(token: string): string | null {
   const payload = verifyToken(token);
   if (!payload) return null;
 
-  const { iat, exp, ...rest } = payload;
+  const { iat: _iat, exp: _exp, ...rest } = payload;
   return generateToken(rest);
 }

@@ -4,7 +4,7 @@ import { AlertTriangle, X } from "lucide-react";
 
 interface Alert { id: string; branch_id: string; type: string; message: string; is_read: boolean; created_at: string; }
 
-export function AlertsPanel({ alerts: initial, branchMap, groupId }: { alerts: Alert[]; branchMap: Record<string, string>; groupId: string }) {
+export function AlertsPanel({ alerts: initial, branchMap, groupId: _groupId }: { alerts: Alert[]; branchMap: Record<string, string>; groupId: string }) {
   const [alerts, setAlerts] = useState(initial);
 
   const dismiss = async (id: string) => {
