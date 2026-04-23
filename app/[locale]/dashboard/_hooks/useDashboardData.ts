@@ -80,6 +80,17 @@ export function useDashboardData({
       );
 
       if (!response.ok) {
+        if (branchScoped) {
+          // In branch-scoped mode, treat API failures as degraded — show zeros rather than an error block.
+          setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
+          setRecentPayments([]);
+          setOverdueStudents([]);
+          setStudentCountByClass({});
+          setClassFees([]);
+          setError(null);
+          setWarning("degraded_dashboard_overview");
+          return;
+        }
         throw new Error(payload?.error?.message || "تعذر تحميل لوحة التحكم.");
       }
 
@@ -96,8 +107,14 @@ export function useDashboardData({
       setOverdueStudents([]);
       setStudentCountByClass({});
       setClassFees([]);
-      setError(caughtError instanceof Error ? caughtError.message : "dashboard_overview_failed");
-      setWarning(null);
+      if (branchScoped) {
+        // In branch-scoped mode, network/parse errors also show as degraded rather than blocking.
+        setError(null);
+        setWarning("degraded_dashboard_overview");
+      } else {
+        setError(caughtError instanceof Error ? caughtError.message : "dashboard_overview_failed");
+        setWarning(null);
+      }
     } finally {
       setLoading(false);
     }

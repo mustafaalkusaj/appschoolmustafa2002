@@ -1,5 +1,5 @@
-import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { cookies } from "next/headers";
+import { resolveWebUserProfile } from "@/lib/authorization/snapshot";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import {
   createRouteSupabaseClient,
@@ -21,17 +21,13 @@ function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
 }
 
 async function readValidatedRbacSession(authHeader?: string | null) {
-  if (authHeader?.trim()) {
-    return null;
-  }
-
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(RBAC_COOKIE_NAME)?.value;
     if (!token) {
       return null;
     }
-    return verifyRBACSession(token);
+    return await verifyRBACSession(token);
   } catch {
     return null;
   }
@@ -60,7 +56,7 @@ export async function resolveSchoolScopedActorContext(
   }
 
   const rbacSession = await readValidatedRbacSession(authHeader);
-  if (rbacSession) {
+  if (rbacSession && rbacSession.userId === user.id) {
     const actorRole = resolveKnownUserRole(rbacSession.role);
     if (!actorRole) {
       return { ok: false, status: 403, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." };
@@ -123,20 +119,13 @@ export async function resolveSchoolScopedActorContext(
     };
   }
 
-  const { data: actorProfile, error: actorProfileError } = await actorSupabase
-    .from("user_profiles")
-    .select("role, school_id, is_active, branch_id, scope_level, permissions_version")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (actorProfileError || !actorProfile || actorProfile.is_active === false) {
+  const resolvedProfile = await resolveWebUserProfile(actorSupabase, user.id).catch(() => null);
+  if (!resolvedProfile || !resolvedProfile.snapshot.userActive) {
     return { ok: false, status: 403, message: "ليس لديك صلاحية لاستخدام هذه الواجهة." };
   }
 
-  const actorRole = resolveKnownUserRole(actorProfile.role);
-  if (!actorRole) {
-    return { ok: false, status: 403, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." };
-  }
+  const { snapshot } = resolvedProfile;
+  const actorRole = snapshot.role;
 
   if (!options.allowedRoles.includes(actorRole)) {
     return { ok: false, status: 403, message: options.roleDeniedMessage };
@@ -146,52 +135,29 @@ export async function resolveSchoolScopedActorContext(
   let targetSchoolId = requested;
 
   if (actorRole !== "super_admin") {
-    if (!actorProfile.school_id) {
+    if (!snapshot.schoolId) {
       return { ok: false, status: 403, message: "الحساب الحالي غير مرتبط بمدرسة صالحة." };
     }
 
-    if (requested && requested !== actorProfile.school_id) {
+    if (requested && requested !== snapshot.schoolId) {
       return { ok: false, status: 403, message: "لا يمكنك تنفيذ هذا الإجراء خارج مدرسة حسابك الحالية." };
     }
 
-    targetSchoolId = actorProfile.school_id;
+    targetSchoolId = snapshot.schoolId;
   }
 
   if (!targetSchoolId) {
     return { ok: false, status: 400, message: "يجب تحديد مدرسة قبل متابعة هذا الإجراء." };
   }
 
-  const [{ data: school, error: schoolError }, { data: subscription, error: subscriptionError }] = await Promise.all([
-    actorSupabase
-      .from("schools")
-      .select("id, is_active")
-      .eq("id", targetSchoolId)
-      .maybeSingle(),
-    actorSupabase
-      .from("subscriptions")
-      .select("status, end_date")
-      .eq("school_id", targetSchoolId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (schoolError || !school?.id) {
-    return { ok: false, status: 400, message: "المدرسة المحددة غير متاحة لهذا المستخدم." };
-  }
-
-  if (subscriptionError && !isMissingTableError(subscriptionError, "subscriptions")) {
-    return { ok: false, status: 500, message: "تعذر التحقق من حالة اشتراك المدرسة الحالية." };
-  }
-
   if (actorRole !== "super_admin") {
-    if (school.is_active === false) {
+    if (!snapshot.schoolActive) {
       return { ok: false, status: 403, message: "المدرسة الحالية غير مفعلة، لذلك تم حظر هذا الإجراء." };
     }
 
-    const status = (subscription?.status || "").toLowerCase();
+    const status = (snapshot.subscriptionStatus || "").toLowerCase();
     const blockedByStatus = status === "suspended" || status === "inactive" || status === "stopped";
-    const blockedByExpiry = status === "expired" || isSchoolSubscriptionExpired(subscription?.end_date);
+    const blockedByExpiry = status === "expired" || isSchoolSubscriptionExpired(snapshot.subscriptionEnd);
 
     if (blockedByStatus || blockedByExpiry) {
       return { ok: false, status: 403, message: "اشتراك المدرسة الحالية غير صالح، لذلك تم حظر هذا الإجراء." };
@@ -205,31 +171,11 @@ export async function resolveSchoolScopedActorContext(
       actorUserId: user.id,
       actorRole,
       targetSchoolId,
-      actorBranchId:
-        actorProfile && "branch_id" in actorProfile && typeof actorProfile.branch_id === "string"
-          ? actorProfile.branch_id
-          : null,
-      allowedBranchIds:
-        actorProfile && "branch_id" in actorProfile && typeof actorProfile.branch_id === "string"
-          ? [actorProfile.branch_id]
-          : [],
-      scopeLevel:
-        actorProfile && "scope_level" in actorProfile &&
-        (actorProfile.scope_level === "super_admin" ||
-          actorProfile.scope_level === "group_admin" ||
-          actorProfile.scope_level === "branch_user" ||
-          actorProfile.scope_level === "restricted")
-          ? actorProfile.scope_level
-          : actorRole === "super_admin"
-            ? "super_admin"
-            : null,
-      isSinglePageUser:
-        Boolean(actorProfile && "scope_level" in actorProfile && actorProfile.scope_level === "restricted"),
-      permissionsVersion:
-        actorProfile && "permissions_version" in actorProfile &&
-        typeof actorProfile.permissions_version === "number"
-          ? actorProfile.permissions_version
-          : 1,
+      actorBranchId: snapshot.branchId,
+      allowedBranchIds: snapshot.allowedBranchIds,
+      scopeLevel: snapshot.scopeLevel,
+      isSinglePageUser: snapshot.isSinglePageUser,
+      permissionsVersion: snapshot.permissionsVersion,
     },
   };
 }

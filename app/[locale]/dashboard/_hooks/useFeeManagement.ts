@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
-import { detectAppSchemaCompat } from "@/lib/schema-compat";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassFee, FeeFormData } from "../_components/types";
@@ -21,6 +20,18 @@ interface UseFeeManagementProps {
   availableClassNames: string[];
   onRefetch: () => Promise<void>;
   branchScoped?: boolean;
+}
+
+interface FeeMutationResponse {
+  existingFee?: ClassFee | null;
+  error?: { message?: string };
+}
+
+function resolveApiErrorMessage(
+  payload: FeeMutationResponse | null,
+  fallback: string,
+) {
+  return payload?.error?.message || fallback;
 }
 
 export function useFeeManagement({
@@ -49,163 +60,145 @@ export function useFeeManagement({
     const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
-    const compat = await detectAppSchemaCompat();
     const canonicalClassName = resolveCanonicalDashboardClassName(feeForm.class_name, availableClassNames);
+
     setFeeError("");
     setFeeSuccess("");
+
     if (!canonicalClassName) {
       setFeeError("يرجى إدخال اسم الصف");
       return;
     }
+
     if (!feeForm.total_fee || isNaN(Number(feeForm.total_fee)) || Number(feeForm.total_fee) <= 0) {
       setFeeError("يرجى إدخال المبلغ الكلي بشكل صحيح");
       return;
     }
-    const installments = parseInt(feeForm.installments) || 1;
-    const total_fee = parseFloat(feeForm.total_fee);
-    const installment_amount = Math.round(total_fee / installments);
-    const loadExistingFee = async () => {
-      let query = supabase
-        .from("class_fees")
-        .select("id, class_name, total_fee, installments, installment_amount, notes, created_at")
-        .eq("class_name", canonicalClassName)
-        .limit(1);
-      if (schoolId && compat.classFeesSchoolScope) {
-        query = query.eq("school_id", schoolId);
-      }
-      if (branchScoped && branchId && compat.classFeesBranchScope) {
-        query = query.eq("branch_id", branchId);
-      }
-      if (editingFee) {
-        query = query.neq("id", editingFee.id);
-      }
-      const { data, error } = await query.maybeSingle();
-      if (error) {
-        return null;
-      }
-      return (data as ClassFee | null) ?? null;
-    };
 
-    setFeeLoading(true);
-    let mutationError = "";
-
-    if (editingFee) {
-      let query = supabase
-        .from("class_fees")
-        .update({
-          class_name: canonicalClassName,
-          total_fee,
-          installments,
-          installment_amount,
-          notes: feeForm.notes.trim(),
-        })
-        .eq("id", editingFee.id);
-      if (schoolId && compat.classFeesSchoolScope) {
-        query = query.eq("school_id", schoolId);
-      }
-      if (branchScoped && branchId && compat.classFeesBranchScope) {
-        query = query.eq("branch_id", branchId);
-      }
-      const { error } = await query;
-      if (error) {
-        mutationError = "حدث خطأ أثناء التعديل: " + error.message;
-      } else {
-        setFeeSuccess("تم تعديل سعر القسط بنجاح ✓");
-      }
-    } else {
-      if (!schoolId) {
-        setFeeError("لا يمكن تحديد المدرسة الحالية");
-        setFeeLoading(false);
-        return;
-      }
-      const existingFee =
-        hasDuplicateDashboardFeeClass(classFees, canonicalClassName)
-          ? classFees.find((fee) => normalizeDashboardEntityKey(fee.class_name) === normalizeDashboardEntityKey(canonicalClassName)) ?? null
-          : await loadExistingFee();
-      if (existingFee) {
-        await onRefetch().catch(() => undefined);
-        setEditingFee(existingFee);
-        setFeeForm({
-          class_name: existingFee.class_name,
-          total_fee: String(existingFee.total_fee),
-          installments: String(existingFee.installments),
-          notes: existingFee.notes || "",
-        });
-        setFeeError("هذا الصف لديه قسط محفوظ مسبقاً. تم فتح السجل الحالي للتعديل.");
-        setFeeLoading(false);
-        return;
-      }
-      const payload: Record<string, unknown> = {
-        ...(compat.classFeesSchoolScope ? { school_id: schoolId } : {}),
-        class_name: canonicalClassName,
-        total_fee,
-        installments,
-        installment_amount,
-        notes: feeForm.notes.trim(),
-      };
-      if (branchScoped && branchId) {
-        payload.branch_id = branchId;
-      } else if (compat.classFeesBranchScope && branchId) {
-        payload.branch_id = branchId;
-      }
-      const { error } = await supabase.from("class_fees").insert(payload);
-      if (error) {
-        if (error.code === "23505") {
-          const duplicatedFee = await loadExistingFee();
-          await onRefetch().catch(() => undefined);
-          if (duplicatedFee) {
-            setEditingFee(duplicatedFee);
-            setFeeForm({
-              class_name: duplicatedFee.class_name,
-              total_fee: String(duplicatedFee.total_fee),
-              installments: String(duplicatedFee.installments),
-              notes: duplicatedFee.notes || "",
-            });
-          }
-          mutationError = "هذا الصف لديه قسط محفوظ مسبقاً. استخدم التعديل بدلاً من إضافة سجل جديد.";
-        } else {
-          mutationError = "حدث خطأ أثناء الحفظ: " + error.message;
-        }
-      } else {
-        setFeeSuccess("تم حفظ سعر القسط بنجاح ✓");
-      }
-    }
-    setFeeLoading(false);
-    if (mutationError) {
-      setFeeError(mutationError);
+    if (!schoolId) {
+      setFeeError("لا يمكن تحديد المدرسة الحالية");
       return;
     }
 
+    const installments = parseInt(feeForm.installments, 10) || 1;
+    const totalFee = parseFloat(feeForm.total_fee);
+
+    setFeeLoading(true);
+
     try {
+      if (!editingFee && hasDuplicateDashboardFeeClass(classFees, canonicalClassName)) {
+        const duplicatedFee =
+          classFees.find((fee) => normalizeDashboardEntityKey(fee.class_name) === normalizeDashboardEntityKey(canonicalClassName)) ?? null;
+
+        if (duplicatedFee) {
+          setEditingFee(duplicatedFee);
+          setFeeForm({
+            class_name: duplicatedFee.class_name,
+            total_fee: String(duplicatedFee.total_fee),
+            installments: String(duplicatedFee.installments),
+            notes: duplicatedFee.notes || "",
+          });
+          setFeeError("هذا الصف لديه قسط محفوظ مسبقاً. تم فتح السجل الحالي للتعديل.");
+          return;
+        }
+      }
+
+      const { response, payload } = await fetchJsonWithAuthorizedSession<FeeMutationResponse>(
+        "/api/web/dashboard/class-fees",
+        {
+          method: "POST",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({
+            action: "save",
+            school_id: schoolId,
+            branch_id: branchId,
+            branch_scoped: branchScoped,
+            fee_id: editingFee?.id ?? null,
+            class_name: canonicalClassName,
+            total_fee: totalFee,
+            installments,
+            notes: feeForm.notes.trim(),
+          }),
+        },
+      );
+
+      if (response.status === 409) {
+        const duplicatedFee = payload?.existingFee ?? null;
+        await onRefetch().catch(() => undefined);
+        if (duplicatedFee) {
+          setEditingFee(duplicatedFee);
+          setFeeForm({
+            class_name: duplicatedFee.class_name,
+            total_fee: String(duplicatedFee.total_fee),
+            installments: String(duplicatedFee.installments),
+            notes: duplicatedFee.notes || "",
+          });
+        }
+        setFeeError(resolveApiErrorMessage(payload ?? null, "هذا الصف لديه قسط محفوظ مسبقاً."));
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(resolveApiErrorMessage(payload ?? null, "حدث خطأ أثناء الحفظ."));
+      }
+
+      setFeeSuccess(editingFee ? "تم تعديل سعر القسط بنجاح ✓" : "تم حفظ سعر القسط بنجاح ✓");
       await onRefetch();
-    } catch (refetchError) {
-      console.error("Failed to refetch dashboard data:", refetchError);
+      setFeeForm((current) => ({ ...current, class_name: canonicalClassName }));
+      setTimeout(() => {
+        setFeeSuccess("");
+        setShowFeeModal(false);
+        setEditingFee(null);
+        setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
+      }, 1200);
+    } catch (error) {
+      setFeeError(error instanceof Error ? error.message : "حدث خطأ أثناء الحفظ.");
+    } finally {
+      setFeeLoading(false);
     }
-    setFeeForm((current) => ({ ...current, class_name: canonicalClassName }));
-    setTimeout(() => {
-      setFeeSuccess("");
-      setShowFeeModal(false);
-      setEditingFee(null);
-      setFeeForm({ class_name: "", total_fee: "", installments: "4", notes: "" });
-    }, 1200);
-  }, [availableClassNames, branchScoped, profile, selectedSchoolId, feeForm, editingFee, classFees, onRefetch]);
+  }, [availableClassNames, branchScoped, classFees, editingFee, feeForm, onRefetch, profile, selectedSchoolId]);
 
   const handleDeleteFee = useCallback(async (id: string) => {
     const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
-    const compat = await detectAppSchemaCompat();
-    let query = supabase.from("class_fees").delete().eq("id", id);
-    if (schoolId && compat.classFeesSchoolScope) {
-      query = query.eq("school_id", schoolId);
+
+    if (!schoolId) {
+      setFeeError("لا يمكن تحديد المدرسة الحالية");
+      return;
     }
-    if (branchScoped && branchId && compat.classFeesBranchScope) {
-      query = query.eq("branch_id", branchId);
+
+    setFeeError("");
+    setFeeLoading(true);
+
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<FeeMutationResponse>(
+        "/api/web/dashboard/class-fees",
+        {
+          method: "POST",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({
+            action: "delete",
+            school_id: schoolId,
+            branch_id: branchId,
+            branch_scoped: branchScoped,
+            fee_id: id,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(resolveApiErrorMessage(payload ?? null, "تعذر حذف القسط الدراسي."));
+      }
+
+      setDeleteConfirm(null);
+      await onRefetch();
+    } catch (error) {
+      setFeeError(error instanceof Error ? error.message : "تعذر حذف القسط الدراسي.");
+    } finally {
+      setFeeLoading(false);
     }
-    await query;
-    setDeleteConfirm(null);
-    await onRefetch();
-  }, [branchScoped, profile, selectedSchoolId, onRefetch]);
+  }, [branchScoped, onRefetch, profile, selectedSchoolId]);
 
   const openEditFee = useCallback((cf: ClassFee) => {
     setEditingFee(cf);
