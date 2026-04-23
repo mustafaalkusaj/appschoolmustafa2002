@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
 /**
  * Branch Management API
  * GET /api/branches - List all branches (investor) or current branch (branch manager)
