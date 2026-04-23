@@ -207,10 +207,16 @@ export async function GET(req: NextRequest) {
       const monthlySalariesFailed =
         monthlySalariesResult.status !== "fulfilled" || Boolean(monthlySalariesResult.value?.error);
 
-      const warning =
-        studentsFailed || recentPaymentsFailed || classFeesFailed || feeNotificationsFailed || monthlySalariesFailed
-          ? "degraded_dashboard_overview"
-          : undefined;
+      const degradedSources = [
+        studentsFailed && "students",
+        recentPaymentsFailed && "payments",
+        classFeesFailed && "class_fees",
+        feeNotificationsFailed && "fee_notifications",
+        monthlySalariesFailed && "salaries",
+      ].filter(Boolean) as string[];
+
+      const warning = degradedSources.length > 0 ? "degraded_dashboard_overview" : undefined;
+      const degradedDetails = degradedSources.length > 0 ? degradedSources : undefined;
 
       const students =
         studentsResult.status === "fulfilled" && !studentsResult.value.error
@@ -343,6 +349,7 @@ export async function GET(req: NextRequest) {
           Object.values(classStatsByKey).map((stats) => [stats.className, stats.count]),
         ),
         ...(warning ? { warning } : {}),
+        ...(degradedDetails ? { degradedSources: degradedDetails } : {}),
       };
     };
 
@@ -369,9 +376,12 @@ export async function GET(req: NextRequest) {
       requestId: req.headers.get("x-request-id"),
     });
 
+    const errorMessage = error instanceof Error ? error.message : "unknown_error";
     return NextResponse.json({
       ok: true,
       ...buildEmptyDashboardOverviewPayload("degraded_dashboard_overview"),
+      degradedSources: ["fatal"],
+      degradedError: process.env.NODE_ENV !== "production" ? errorMessage : undefined,
     });
   }
 }

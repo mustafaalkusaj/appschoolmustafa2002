@@ -61,3 +61,33 @@ CREATE POLICY IF NOT EXISTS "branch_users_see_own_branch" ON branches
       )
     )
   );
+
+CREATE POLICY IF NOT EXISTS "branch_insert_by_privileged" ON branches
+  FOR INSERT WITH CHECK (
+    auth.uid() IS NOT NULL AND EXISTS (
+      SELECT 1 FROM user_profiles up
+      WHERE up.id = auth.uid() AND (
+        up.role = 'super_admin'
+        OR (up.group_id = branches.group_id AND up.role IN ('admin', 'branch_manager'))
+      )
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "branch_update_by_privileged" ON branches
+  FOR UPDATE USING (
+    auth.uid() IS NOT NULL AND EXISTS (
+      SELECT 1 FROM user_profiles up
+      WHERE up.id = auth.uid() AND (
+        up.role = 'super_admin'
+        OR (up.group_id = branches.group_id AND up.role IN ('admin', 'branch_manager'))
+      )
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "branch_delete_by_super_admin" ON branches
+  FOR DELETE USING (
+    auth.uid() IS NOT NULL AND EXISTS (
+      SELECT 1 FROM user_profiles up
+      WHERE up.id = auth.uid() AND up.role = 'super_admin'
+    )
+  );
