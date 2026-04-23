@@ -156,12 +156,7 @@ jobs:
             fi
 
             ENV_FILE="$APP_DIR/.env.production"
-            touch "$ENV_FILE"
-            chmod 600 "$ENV_FILE"
-            TMP_ENV_FILE=$(mktemp)
-            grep -Ev '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|RBAC_COOKIE_SECRET|HEALTHCHECK_TOKEN|SESSION_COOKIE_SECURE|APP_URL|PORT|HOSTNAME|NODE_ENV)=' "$ENV_FILE" > "$TMP_ENV_FILE" || true
             {
-              cat "$TMP_ENV_FILE"
               printf '%s\n' "NODE_ENV=production"
               printf '%s\n' "HOSTNAME=127.0.0.1"
               printf '%s\n' "PORT=3001"
@@ -173,7 +168,7 @@ jobs:
               printf 'RBAC_COOKIE_SECRET=%s\n' "$SECRET_RBAC_COOKIE"
               printf 'HEALTHCHECK_TOKEN=%s\n' "$SECRET_HEALTH_TOKEN"
             } > "$ENV_FILE"
-            rm -f "$TMP_ENV_FILE"
+            chmod 600 "$ENV_FILE"
 
             cd "$APP_DIR"
             echo "Running pre-deploy environment check..."
