@@ -18,8 +18,14 @@ jobs:
           request_pty: true
           script: |
             set -euo pipefail
+            REMOTE_OWNER="$(id -un):$(id -gn)"
             APP_DIR=/var/www/school-app
             mkdir -p "$APP_DIR"
+            if sudo -n chown -R "$REMOTE_OWNER" "$APP_DIR" >/dev/null 2>&1; then
+              echo "Normalized deployment ownership for $APP_DIR."
+            else
+              echo "WARN: Unable to normalize $APP_DIR ownership via sudo; continuing with rsync-safe mode."
+            fi
             REPO_ARCHIVE_URL=https://github.com/${{ github.repository }}/archive/refs/heads/main.tar.gz
             TMP_DIR=$(mktemp -d)
             trap 'rm -rf "$TMP_DIR"' EXIT
@@ -30,15 +36,115 @@ jobs:
               echo "Unable to locate extracted repository directory." >&2
               exit 1
             fi
+            sync_repo() {
+              if [ "$#" -gt 0 ]; then
+                "$@" rsync \
+                  -rlptDz \
+                  --omit-dir-times \
+                  --no-owner \
+                  --no-group \
+                  --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
+                  --exclude ".env" \
+                  --exclude ".env.*" \
+                  --exclude ".git" \
+                  --exclude ".github" \
+                  --exclude "node_modules" \
+                  --exclude ".next*" \
+                  --exclude ".playwright-cli" \
+                  --exclude ".augment" \
+                  --exclude ".claude" \
+                  --exclude ".codex" \
+                  --exclude ".continue" \
+                  --exclude ".qoder" \
+                  --exclude ".vscode" \
+                  --exclude "00990090" \
+                  --exclude "artifacts" \
+                  --exclude "deploy" \
+                  --exclude "docs" \
+                  --exclude "figma-handoff" \
+                  --exclude "figma-handoff-backup-*" \
+                  --exclude "logs" \
+                  --exclude "output" \
+                  --exclude "school-acc-system" \
+                  --exclude "school-saas-next" \
+                  --exclude "scripts" \
+                  --exclude "skills" \
+                  --exclude "tests" \
+                  --exclude "*.md" \
+                  --exclude "*.txt" \
+                  --exclude "clean_warnings.json" \
+                  --exclude "full-lint-report.txt" \
+                  --exclude "lint-output.json" \
+                  --exclude "lint-output.txt" \
+                  --exclude "next-env.d.ts" \
+                  --exclude "playwright.config.ts" \
+                  --exclude "server.log" \
+                  --exclude "vitest.config.ts" \
+                  --exclude "warnings_report.json" \
+                  "$SRC_DIR"/ "$APP_DIR"/
+              else
+                rsync \
+                  -rlptDz \
+                  --omit-dir-times \
+                  --no-owner \
+                  --no-group \
+                  --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
+                  --exclude ".env" \
+                  --exclude ".env.*" \
+                  --exclude ".git" \
+                  --exclude ".github" \
+                  --exclude "node_modules" \
+                  --exclude ".next*" \
+                  --exclude ".playwright-cli" \
+                  --exclude ".augment" \
+                  --exclude ".claude" \
+                  --exclude ".codex" \
+                  --exclude ".continue" \
+                  --exclude ".qoder" \
+                  --exclude ".vscode" \
+                  --exclude "00990090" \
+                  --exclude "artifacts" \
+                  --exclude "deploy" \
+                  --exclude "docs" \
+                  --exclude "figma-handoff" \
+                  --exclude "figma-handoff-backup-*" \
+                  --exclude "logs" \
+                  --exclude "output" \
+                  --exclude "school-acc-system" \
+                  --exclude "school-saas-next" \
+                  --exclude "scripts" \
+                  --exclude "skills" \
+                  --exclude "tests" \
+                  --exclude "*.md" \
+                  --exclude "*.txt" \
+                  --exclude "clean_warnings.json" \
+                  --exclude "full-lint-report.txt" \
+                  --exclude "lint-output.json" \
+                  --exclude "lint-output.txt" \
+                  --exclude "next-env.d.ts" \
+                  --exclude "playwright.config.ts" \
+                  --exclude "server.log" \
+                  --exclude "vitest.config.ts" \
+                  --exclude "warnings_report.json" \
+                  "$SRC_DIR"/ "$APP_DIR"/
+              fi
+            }
             if command -v rsync >/dev/null 2>&1; then
-              rsync -a --delete \
-                --exclude ".env" \
-                --exclude ".env.*" \
-                --exclude "node_modules" \
-                --exclude ".next" \
-                "$SRC_DIR"/ "$APP_DIR"/
+              if ! sync_repo; then
+                echo "WARN: deploy-user rsync failed; retrying via sudo."
+                if ! sync_repo sudo -n; then
+                  echo "Repository sync failed even with sudo rsync." >&2
+                  exit 1
+                fi
+                sudo -n chown -R "$REMOTE_OWNER" "$APP_DIR" >/dev/null 2>&1 || true
+              fi
             else
               cp -a "$SRC_DIR"/. "$APP_DIR"/
+            fi
+            if [ ! -w "$APP_DIR" ]; then
+              echo "$APP_DIR is not writable after sync." >&2
+              sudo -n ls -ld "$APP_DIR" || true
+              exit 1
             fi
 
             ENV_FILE="$APP_DIR/.env.production"
