@@ -70,7 +70,6 @@ jobs:
                   --exclude "output" \
                   --exclude "school-acc-system" \
                   --exclude "school-saas-next" \
-                  --exclude "scripts" \
                   --exclude "skills" \
                   --exclude "tests" \
                   --exclude "*.md" \
@@ -115,7 +114,6 @@ jobs:
                   --exclude "output" \
                   --exclude "school-acc-system" \
                   --exclude "school-saas-next" \
-                  --exclude "scripts" \
                   --exclude "skills" \
                   --exclude "tests" \
                   --exclude "*.md" \
@@ -170,6 +168,8 @@ jobs:
             rm -f "$TMP_ENV_FILE"
 
             cd "$APP_DIR"
+            echo "Running pre-deploy environment check..."
+            (set -a; . "$ENV_FILE"; set +a; node "$APP_DIR/scripts/predeploy-check.mjs")
             npm ci
             npm run build
 
