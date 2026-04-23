@@ -6,6 +6,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 import { calculateStudentPaidPercentage } from "@/lib/students/financials";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 type DashboardStudentRow = {
   id: string;
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, actorUserId, targetSchoolId, allowedBranchIds, actorBranchId } = context.value;
+  const { actorUserId, targetSchoolId, allowedBranchIds, actorBranchId } = context.value;
   const effectiveBranchId = branchId?.trim() || null;
   if (
     effectiveBranchId &&
@@ -107,6 +108,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const serviceSupabase = createServiceSupabaseClient();
     const loadDashboardOverview = async () => {
       const [
         studentsStatusScope,
@@ -119,20 +121,20 @@ export async function GET(req: NextRequest) {
         classFeesSchoolScope,
         classFeesBranchScope,
       ] = await Promise.all([
-        tableHasColumn(actorSupabase, "students", "status").catch(() => false),
-        tableHasColumn(actorSupabase, "students", "branch_id").catch(() => false),
-        tableHasColumn(actorSupabase, "payments", "branch_id").catch(() => false),
-        tableHasColumn(actorSupabase, "salaries", "branch_id").catch(() => false),
-        tableHasColumn(actorSupabase, "fee_notifications", "id").catch(() => false),
-        tableHasColumn(actorSupabase, "fee_notifications", "branch_id").catch(() => false),
-        tableHasColumn(actorSupabase, "class_fees", "id").catch(() => false),
-        tableHasColumn(actorSupabase, "class_fees", "school_id").catch(() => false),
-        tableHasColumn(actorSupabase, "class_fees", "branch_id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "students", "status").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "students", "branch_id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "payments", "branch_id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "salaries", "branch_id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "fee_notifications", "id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "fee_notifications", "branch_id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "class_fees", "id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "class_fees", "school_id").catch(() => false),
+        tableHasColumn(serviceSupabase as never, "class_fees", "branch_id").catch(() => false),
       ]);
 
       const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
-      let studentsPromise = actorSupabase
+      let studentsPromise = serviceSupabase
         .from("students")
         .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
         .eq("school_id", targetSchoolId);
@@ -143,7 +145,7 @@ export async function GET(req: NextRequest) {
         studentsPromise = studentsPromise.eq("branch_id", effectiveBranchId);
       }
 
-      let recentPaymentsPromise = actorSupabase
+      let recentPaymentsPromise = serviceSupabase
         .from("payments")
         .select("id, amount, created_at, student_id, students(full_name,class_name)")
         .eq("school_id", targetSchoolId)
@@ -155,7 +157,7 @@ export async function GET(req: NextRequest) {
 
       const classFeesPromise = classFeesTableExists
         ? (() => {
-            let classFeesQuery = actorSupabase
+            let classFeesQuery = serviceSupabase
               .from("class_fees")
               .select("id, class_name, total_fee, installments, installment_amount, notes, created_at")
               .order("class_name", { ascending: true });
@@ -171,7 +173,7 @@ export async function GET(req: NextRequest) {
 
       const feeNotificationsCountPromise = feeNotificationsTableExists
         ? (() => {
-            let feeNotificationsQuery = actorSupabase
+            let feeNotificationsQuery = serviceSupabase
               .from("fee_notifications")
               .select("id", { count: "exact", head: true })
               .eq("school_id", targetSchoolId);
@@ -182,7 +184,7 @@ export async function GET(req: NextRequest) {
           })()
         : Promise.resolve({ count: 0, error: null });
 
-      let monthlySalariesPromise = actorSupabase
+      let monthlySalariesPromise = serviceSupabase
         .from("salaries")
         .select("gross_salary, deductions")
         .eq("school_id", targetSchoolId)

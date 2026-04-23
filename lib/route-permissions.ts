@@ -1,8 +1,7 @@
+import { resolveWebUserProfile } from "@/lib/authorization/snapshot";
 import { createRouteSupabaseClient } from "@/lib/supabase-server";
 import {
   hasPermissionInList,
-  normalizePermissions,
-  resolveKnownUserRole,
   type Permission,
 } from "@/types/roles";
 
@@ -13,27 +12,10 @@ export async function routeUserHasPermission(
   actorUserId: string,
   permission: Permission,
 ) {
-  const { data: actorProfile, error } = await actorSupabase
-    .from("user_profiles")
-    .select("role, custom_permissions")
-    .eq("id", actorUserId)
-    .maybeSingle();
-
-  if (error || !actorProfile) {
+  const actorProfile = await resolveWebUserProfile(actorSupabase, actorUserId).catch(() => null);
+  if (!actorProfile) {
     return false;
   }
 
-  const role = resolveKnownUserRole(actorProfile.role);
-  if (!role) {
-    return false;
-  }
-
-  const profileWithPermissions = actorProfile as {
-    custom_permissions?: unknown;
-  };
-  const rawPermissions = Array.isArray(profileWithPermissions.custom_permissions)
-    ? profileWithPermissions.custom_permissions
-    : undefined;
-
-  return hasPermissionInList(normalizePermissions(rawPermissions, role), permission);
+  return hasPermissionInList(actorProfile.snapshot.permissions, permission);
 }

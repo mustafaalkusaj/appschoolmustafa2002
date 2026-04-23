@@ -339,7 +339,14 @@ export async function resolveWebUserProfile(
   routeSupabase: GenericSupabaseClient,
   userId: string,
 ): Promise<ResolvedWebProfile | null> {
-  const profileRow = await selectProfileCompat(routeSupabase, userId);
+  let authzLookupClient: GenericSupabaseClient = routeSupabase;
+  try {
+    authzLookupClient = createServiceSupabaseClient();
+  } catch {
+    authzLookupClient = routeSupabase;
+  }
+
+  const profileRow = await selectProfileCompat(authzLookupClient, userId);
   if (!profileRow) {
     return null;
   }
@@ -347,13 +354,6 @@ export async function resolveWebUserProfile(
   const role = resolveKnownUserRole(profileRow.role);
   if (!role) {
     return null;
-  }
-
-  let authzLookupClient: GenericSupabaseClient = routeSupabase;
-  try {
-    authzLookupClient = createServiceSupabaseClient();
-  } catch {
-    authzLookupClient = routeSupabase;
   }
 
   const schoolId = profileRow.school_id ?? null;
@@ -365,7 +365,7 @@ export async function resolveWebUserProfile(
     branchScopes,
     scopedRoles,
   ] = await Promise.all([
-    resolveSchoolContext(routeSupabase, schoolId),
+    resolveSchoolContext(authzLookupClient, schoolId),
     readOptionalList<UserPermissionRow>(
       authzLookupClient
         .from("user_permissions")
