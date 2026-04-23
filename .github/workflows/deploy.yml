@@ -172,7 +172,17 @@ jobs:
 
             cd "$APP_DIR"
             echo "Running pre-deploy environment check..."
-            (set -a; . "$ENV_FILE"; set +a; node "$APP_DIR/scripts/predeploy-check.mjs")
+            NODE_ENV=production \
+            HOSTNAME=127.0.0.1 \
+            PORT=3001 \
+            APP_URL=https://app.school-iraq.com \
+            SESSION_COOKIE_SECURE=true \
+            NEXT_PUBLIC_SUPABASE_URL="$SECRET_SUPABASE_URL" \
+            NEXT_PUBLIC_SUPABASE_ANON_KEY="$SECRET_SUPABASE_ANON_KEY" \
+            SUPABASE_SERVICE_ROLE_KEY="$SECRET_SERVICE_ROLE_KEY" \
+            RBAC_COOKIE_SECRET="$SECRET_RBAC_COOKIE" \
+            HEALTHCHECK_TOKEN="$SECRET_HEALTH_TOKEN" \
+            node "$APP_DIR/scripts/predeploy-check.mjs"
             npm ci
             npm run build
 
@@ -204,7 +214,10 @@ jobs:
 
             if [ "$HEALTH_OK" -eq 1 ]; then
               echo "Health check passed. Running post-deploy smoke tests..."
-              (set -a; . "$ENV_FILE"; set +a; node "$APP_DIR/scripts/postdeploy-smoke.mjs") || {
+              NODE_ENV=production \
+              APP_URL=https://app.school-iraq.com \
+              HEALTHCHECK_TOKEN="$SECRET_HEALTH_TOKEN" \
+              node "$APP_DIR/scripts/postdeploy-smoke.mjs" || {
                 echo "WARN: Post-deploy smoke tests failed. Site is up but route validation did not pass."
                 echo "---- pm2 logs (school-app, last 50 lines) ----"
                 PM2_HOME=/home/deploy/.pm2 pm2 logs school-app --lines 50 --nostream 2>/dev/null || true
