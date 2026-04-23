@@ -367,7 +367,7 @@ export default function AttendancePage() {
     setHistoryRows(payload.history ?? []);
     setLoadingStudents(false);
     setLoadingAttendance(false);
-  }, [profile, schoolScope.selectedSchoolId]);
+  }, [profile, schoolScope.selectedSchoolId, copy]);
 
   useEffect(() => {
     if (schoolScope.scopeLoading) return;
