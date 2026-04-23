@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 
-async function resolveAccessToken(timeoutMs = 1_000) {
+async function resolveAccessToken(timeoutMs = 5_000) {
   type SessionResult = Awaited<ReturnType<typeof supabase.auth.getSession>>;
   let timeoutId: number | null = null;
   const timeoutPromise = new Promise<null>((resolve) => {

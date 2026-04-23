@@ -14,7 +14,8 @@ export default function BranchOverviewPage() {
       <DashboardExperience
         currentPath="/branch-overview"
         branchScoped
-        titleOverride={locale === "en" ? "Branch Dashboard" : "لوحة الفرع"}
+        titleOverride={locale === "en" ? "Branch Control Panel" : "لوحة التحكم الرئيسية"}
+        subtitleOverride={locale === "en" ? "Branch overview — students, fees, and financials" : "نظرة شاملة على الفرع — الطلاب والأقساط والمالية"}
       />
     </ProtectedRoute>
   );

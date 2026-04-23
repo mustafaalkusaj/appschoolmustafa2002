@@ -45,32 +45,26 @@ export function useDashboardData({
   const [warning, setWarning] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
-    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
-      selectedSchoolId,
-    });
     setLoading(true);
     setError(null);
     setWarning(null);
+
+    let schoolId: string | null = null;
+    let branchId: string | null = null;
+    try {
+      const resolved = await resolveSchoolBranchForProfile(profile, { selectedSchoolId });
+      schoolId = resolved.school_id;
+      branchId = resolved.branch_id;
+    } catch {
+      // fall through with null ids — API will handle auth
+    }
+
     if (!schoolId) {
       setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
       setRecentPayments([]);
       setOverdueStudents([]);
       setStudentCountByClass({});
       setClassFees([]);
-      setError(null);
-      setWarning(null);
-      setLoading(false);
-      return;
-    }
-
-    if (branchScoped && !branchId) {
-      setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
-      setRecentPayments([]);
-      setOverdueStudents([]);
-      setStudentCountByClass({});
-      setClassFees([]);
-      setError(null);
-      setWarning("degraded_dashboard_overview");
       setLoading(false);
       return;
     }
