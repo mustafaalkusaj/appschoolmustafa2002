@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_HOST="${APP_HOST:-159.203.120.28}"
+APP_USER="${APP_USER:-deploy}"
+APP_DIR="${APP_DIR:-/var/www/school-app}"
+APP_URL="${APP_URL:-https://school-iraq.com}"
+APP_PORT="${APP_PORT:-3001}"
+SSH_KEY="${SSH_KEY:-}"
+REMOTE="${APP_USER}@${APP_HOST}"
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "[deploy:direct] Missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+require_cmd node
+require_cmd npm
+require_cmd rsync
+require_cmd ssh
+require_cmd scp
+require_cmd curl
+
+SSH_ARGS=(
+  -o BatchMode=yes
+  -o StrictHostKeyChecking=accept-new
+  -o ConnectTimeout=10
+)
+
+if [[ -n "$SSH_KEY" ]]; then
+  SSH_ARGS+=(-i "$SSH_KEY")
+fi
+
+RSYNC_SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+if [[ -n "$SSH_KEY" ]]; then
+  RSYNC_SSH="$RSYNC_SSH -i $SSH_KEY"
+fi
+
+TMP_ENV_FILE="$(mktemp)"
+GENERATED_ENV=0
+
+cleanup() {
+  rm -f "$TMP_ENV_FILE"
+}
+
+trap cleanup EXIT
+
+if node "$ROOT_DIR/scripts/render-production-env.mjs" "$TMP_ENV_FILE" >/dev/null 2>&1; then
+  GENERATED_ENV=1
+  echo "[deploy:direct] Prepared local production env payload."
+else
+  : > "$TMP_ENV_FILE"
+  echo "[deploy:direct] WARN local production env is incomplete; will preserve existing remote secrets."
+fi
+
+echo "[deploy:direct] Checking SSH reachability for $REMOTE..."
+ssh "${SSH_ARGS[@]}" "$REMOTE" "printf '%s\n' connected" >/dev/null
+
+echo "[deploy:direct] Ensuring remote app directory exists..."
+ssh "${SSH_ARGS[@]}" "$REMOTE" "mkdir -p '$APP_DIR'"
+
+echo "[deploy:direct] Syncing repository to $APP_DIR..."
+rsync -az --delete \
+  -e "$RSYNC_SSH" \
+  --exclude ".env" \
+  --exclude ".env.*" \
+  --exclude ".git" \
+  --exclude ".github" \
+  --exclude ".next" \
+  --exclude ".next*" \
+  --exclude "node_modules" \
+  --exclude ".playwright-cli" \
+  --exclude ".augment" \
+  --exclude ".claude" \
+  --exclude ".codex" \
+  --exclude ".continue" \
+  --exclude ".qoder" \
+  --exclude ".vscode" \
+  --exclude ".DS_Store" \
+  --exclude "00990090" \
+  --exclude "artifacts" \
+  --exclude "logs" \
+  --exclude "output" \
+  --exclude "school-acc-system" \
+  --exclude "school-saas-next" \
+  "$ROOT_DIR"/ "$REMOTE:$APP_DIR"/
+
+if [[ "$GENERATED_ENV" -eq 1 ]]; then
+  echo "[deploy:direct] Uploading regenerated production env file..."
+  scp "${SSH_ARGS[@]}" "$TMP_ENV_FILE" "$REMOTE:$APP_DIR/.env.production.tmp" >/dev/null
+  ssh "${SSH_ARGS[@]}" "$REMOTE" "chmod 600 '$APP_DIR/.env.production.tmp' && mv '$APP_DIR/.env.production.tmp' '$APP_DIR/.env.production'"
+else
+  echo "[deploy:direct] Rewriting runtime keys in the existing remote env file..."
+  ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
+    ENV_FILE='$APP_DIR/.env.production'
+    mkdir -p '$APP_DIR'
+    touch \"\$ENV_FILE\"
+    chmod 600 \"\$ENV_FILE\"
+    TMP_ENV_FILE=\$(mktemp)
+    grep -Ev '^(NODE_ENV|HOSTNAME|PORT|APP_URL|SESSION_COOKIE_SECURE)=' \"\$ENV_FILE\" > \"\$TMP_ENV_FILE\" || true
+    {
+      cat \"\$TMP_ENV_FILE\"
+      printf '%s\n' 'NODE_ENV=production'
+      printf '%s\n' 'HOSTNAME=127.0.0.1'
+      printf '%s\n' 'PORT=$APP_PORT'
+      printf '%s\n' 'APP_URL=$APP_URL'
+      printf '%s\n' 'SESSION_COOKIE_SECURE=true'
+    } > \"\$ENV_FILE\"
+    rm -f \"\$TMP_ENV_FILE\""
+fi
+
+echo "[deploy:direct] Installing dependencies and building remotely..."
+ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
+  cd '$APP_DIR'
+  npm ci
+  npm run build"
+
+echo "[deploy:direct] Restarting the application..."
+ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
+  if sudo -n systemctl restart pm2-deploy; then
+    exit 0
+  fi
+
+  if command -v pm2 >/dev/null 2>&1; then
+    PM2_HOME=/home/deploy/.pm2 pm2 restart school-app
+    PM2_HOME=/home/deploy/.pm2 pm2 save
+    exit 0
+  fi
+
+  echo 'PM2 restart path unavailable.' >&2
+  exit 1"
+
+echo "[deploy:direct] Waiting for local runtime health..."
+ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
+  ATTEMPT=1
+  MAX_ATTEMPTS=30
+  while [ \"\$ATTEMPT\" -le \"\$MAX_ATTEMPTS\" ]; do
+    if curl -fsS --max-time 5 'http://127.0.0.1:$APP_PORT/api/ping' >/dev/null 2>&1; then
+      exit 0
+    fi
+    ATTEMPT=\$((ATTEMPT + 1))
+    sleep 2
+  done
+
+  echo 'Health check failed. Collecting diagnostics...' >&2
+  sudo -n ss -ltnp | grep ':$APP_PORT ' || true
+  sudo -u deploy -H env PM2_HOME=/home/deploy/.pm2 pm2 logs school-app --lines 100 --nostream || true
+  sudo -n journalctl -u pm2-deploy -n 100 --no-pager || true
+  exit 1"
+
+if [[ "$GENERATED_ENV" -eq 1 ]]; then
+  export HEALTHCHECK_TOKEN
+  HEALTHCHECK_TOKEN="$(awk -F= '/^HEALTHCHECK_TOKEN=/{sub(/^HEALTHCHECK_TOKEN=/, ""); print}' "$TMP_ENV_FILE")"
+fi
+
+echo "[deploy:direct] Running post-deploy smoke checks against $APP_URL..."
+APP_URL="$APP_URL" node "$ROOT_DIR/scripts/postdeploy-smoke.mjs" "$APP_URL"
+APP_URL="$APP_URL" node "$ROOT_DIR/scripts/uptime-check.mjs" "$APP_URL"
+
+echo "[deploy:direct] Deployment completed successfully."
