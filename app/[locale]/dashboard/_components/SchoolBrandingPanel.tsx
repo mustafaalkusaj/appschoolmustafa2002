@@ -12,6 +12,7 @@ import { cn } from "@/lib/brand/brand-utils";
 import { supabase } from "@/lib/supabase";
 
 interface SchoolBrandingPanelProps {
+  brandingSchoolId: string | null;
   brandingForm: BrandingFormData;
   setBrandingForm: React.Dispatch<React.SetStateAction<BrandingFormData>>;
   brandingSaving: boolean;
@@ -24,6 +25,7 @@ interface SchoolBrandingPanelProps {
 }
 
 export function SchoolBrandingPanel({
+  brandingSchoolId,
   brandingForm,
   setBrandingForm,
   brandingSaving,
@@ -54,7 +56,11 @@ export function SchoolBrandingPanel({
 
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const fileName = `logo_${Date.now()}.${ext}`;
+      const schoolScope = brandingSchoolId?.trim();
+      if (!schoolScope) {
+        throw new Error("تعذر تحديد المدرسة الحالية لرفع الشعار.");
+      }
+      const fileName = `${schoolScope}/logo_${Date.now()}.${ext}`;
       const { error: uploadErr } = await supabase.storage
         .from("school-logos")
         .upload(fileName, file, { upsert: true, contentType: file.type });

@@ -20,7 +20,7 @@ function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
   return Date.now() > parsed.getTime();
 }
 
-async function readValidatedRbacSession(authHeader?: string | null) {
+async function readValidatedRbacSession() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(RBAC_COOKIE_NAME)?.value;
@@ -55,7 +55,7 @@ export async function resolveSchoolScopedActorContext(
     return { ok: false, status: 401, message: "يجب تسجيل الدخول أولاً." };
   }
 
-  const rbacSession = await readValidatedRbacSession(authHeader);
+  const rbacSession = await readValidatedRbacSession();
   if (rbacSession && rbacSession.userId === user.id) {
     const actorRole = resolveKnownUserRole(rbacSession.role);
     if (!actorRole) {

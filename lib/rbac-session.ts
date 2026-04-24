@@ -64,7 +64,11 @@ function getSecretKeyMaterial(): string {
 }
 
 export function hasRBACSecret() {
-  return getSecretKeyMaterial().length > 0;
+  try {
+    return getSecretKeyMaterial().length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function compactPermissionsForPayload(role: UserRole, permissions: Permission[]) {
@@ -140,7 +144,12 @@ async function verifyValue(value: string, signature: string, secret: string): Pr
 }
 
 export async function signRBACSession(payload: RBACSessionPayload): Promise<string | null> {
-  const secret = getSecretKeyMaterial();
+  let secret: string;
+  try {
+    secret = getSecretKeyMaterial();
+  } catch {
+    return null;
+  }
   if (!secret) return null;
 
   const encodedPayload = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -149,7 +158,12 @@ export async function signRBACSession(payload: RBACSessionPayload): Promise<stri
 }
 
 export async function verifyRBACSession(token: string | undefined | null): Promise<RBACSessionPayload | null> {
-  const secret = getSecretKeyMaterial();
+  let secret: string;
+  try {
+    secret = getSecretKeyMaterial();
+  } catch {
+    return null;
+  }
   if (!secret || !token) return null;
 
   const [payloadPart, signaturePart] = token.split(".");

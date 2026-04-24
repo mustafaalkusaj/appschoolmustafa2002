@@ -349,7 +349,11 @@ export function BranchesTab({
     setLogoError(null);
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const fileName = `branch_logo_${Date.now()}.${ext}`;
+      const schoolScope = formData.school_id.trim();
+      if (!schoolScope) {
+        throw new Error("اختر المدرسة أولاً قبل رفع شعار الفرع.");
+      }
+      const fileName = `${schoolScope}/branch_logo_${Date.now()}.${ext}`;
       const { error: uploadErr } = await supabase.storage
         .from("branch-logos")
         .upload(fileName, file, { upsert: true, contentType: file.type });

@@ -22,6 +22,7 @@
     "deploy:direct": "bash scripts/direct-deploy.sh",
     "audit:prod": "npm audit --omit=dev",
     "seed:users": "node scripts/create-default-users.mjs",
+    "qa:seed:e2e": "npx tsx scripts/qa-seed-e2e-accounts.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev"
