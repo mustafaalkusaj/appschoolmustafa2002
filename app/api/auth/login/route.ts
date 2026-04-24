@@ -78,6 +78,14 @@ export async function POST(req: NextRequest) {
     return buildFailureResponse("invalid_credentials", 401);
   }
 
+  if (!data.session) {
+    logRouteError("auth-login-session", new Error("Session not returned from signInWithPassword"), {
+      userId: data.user.id,
+      email: parsed.data.email,
+    });
+    return buildFailureResponse("server_config", 500);
+  }
+
   let profileResolutionFailed = false;
   const resolved = await resolveWebUserProfile(supabase, data.user.id).catch((error) => {
     profileResolutionFailed = true;

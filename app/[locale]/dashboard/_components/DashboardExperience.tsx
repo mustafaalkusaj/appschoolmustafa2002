@@ -101,7 +101,9 @@ export function DashboardExperience({
   const [showClassesModal, setShowClassesModal] = useState(false);
 
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
-  const canCustomizeBranding = profile?.role === "super_admin";
+  const canCustomizeBranding =
+    profile?.role === "super_admin" ||
+    (profile?.role === "admin" && profile?.school_id === schoolScope.selectedSchoolId);
 
   const dashboardSummary = schoolScope.shouldBlockContent
     ? t("summary.empty")
