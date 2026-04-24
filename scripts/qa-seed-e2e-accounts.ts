@@ -200,11 +200,16 @@ function ensureRequiredEnv(env: EnvMap) {
 
 function generateStrongPassword() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*-_+=";
-  const bytes = randomBytes(24);
+  const alphabetLength = alphabet.length;
+  const maxUnbiasedByte = Math.floor(256 / alphabetLength) * alphabetLength;
   let value = "Qa!";
-  for (let index = 0; index < 24; index += 1) {
-    value += alphabet[bytes[index] % alphabet.length];
+
+  while (value.length < 27) {
+    const byte = randomBytes(1)[0];
+    if (byte >= maxUnbiasedByte) continue;
+    value += alphabet[byte % alphabetLength];
   }
+
   return value;
 }
 
