@@ -164,6 +164,10 @@ describe("POST /api/auth/login", () => {
             id: "auth-user-1",
             user_metadata: {},
           },
+          session: {
+            access_token: "token",
+            refresh_token: "refresh",
+          },
         },
         error: null,
       },
@@ -240,6 +244,10 @@ describe("POST /api/auth/login", () => {
             user_metadata: {
               avatar_url: "https://cdn.example.com/avatar.png",
             },
+          },
+          session: {
+            access_token: "token",
+            refresh_token: "refresh",
           },
         },
         error: null,
