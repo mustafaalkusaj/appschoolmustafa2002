@@ -176,6 +176,26 @@ export async function POST(req: NextRequest) {
     },
   );
 
+  if (data.session) {
+    response.cookies.set("sb-access-token", data.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24,
+    });
+
+    if (data.session.refresh_token) {
+      response.cookies.set("sb-refresh-token", data.session.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+    }
+  }
+
   response.cookies.set(RBAC_COOKIE_NAME, signed, getRBACCookieOptions());
   return response;
 }
