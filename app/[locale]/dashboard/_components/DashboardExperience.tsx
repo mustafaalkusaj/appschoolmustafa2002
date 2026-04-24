@@ -189,6 +189,7 @@ export function DashboardExperience({
                       <Card>
                         <CardContent className="p-6">
                           <SchoolBrandingPanel
+                            brandingSchoolId={branding.brandingSchoolId}
                             brandingForm={branding.brandingForm}
                             setBrandingForm={branding.setBrandingForm}
                             brandingSaving={branding.brandingSaving}

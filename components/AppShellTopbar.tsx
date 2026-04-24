@@ -1,17 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { CalendarDays, Menu } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { useRole } from "@/hooks/useRole";
 import { getAcademicYearLabel } from "@/lib/academic-year";
 import { translateLegacyText } from "@/lib/legacy-locale";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { cn } from "@/lib/brand/brand-utils";
 import { isGroupOverviewOnlyProfile, shouldUseSinglePageShell } from "@/lib/auth";
+
+const ThemeModeToggle = dynamic(
+  () => import("@/components/ThemeModeToggle").then((mod) => mod.ThemeModeToggle),
+  { ssr: false },
+);
 
 export function AppShellTopbar({
   title,

@@ -141,6 +141,20 @@ export interface ResolvedWebProfile {
   snapshot: AuthorizationSnapshot;
 }
 
+export type ResolveWebUserProfileResult =
+  | {
+      status: "resolved";
+      profile: ResolvedClientUserProfile;
+      snapshot: AuthorizationSnapshot;
+    }
+  | {
+      status: "profile_missing";
+    }
+  | {
+      status: "unknown_role";
+      role: string | null;
+    };
+
 const PROFILE_SELECTS = [
   "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
   "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
@@ -335,10 +349,10 @@ function buildPermissions(profile: UserProfileRow, role: UserRole) {
   return normalizePermissions(rawPermissions, role);
 }
 
-export async function resolveWebUserProfile(
+export async function resolveWebUserProfileWithStatus(
   routeSupabase: GenericSupabaseClient,
   userId: string,
-): Promise<ResolvedWebProfile | null> {
+): Promise<ResolveWebUserProfileResult> {
   // Always use the service-role client for profile lookups so that RLS
   // policies on user_profiles (which reference the same table) are bypassed.
   // Falling back to the anon/user client triggers infinite recursion in the
@@ -348,17 +362,20 @@ export async function resolveWebUserProfile(
     authzLookupClient = createServiceSupabaseClient();
   } catch (err) {
     console.error("[resolveWebUserProfile] Service client unavailable — cannot read user_profiles safely:", err);
-    return null;
+    throw err;
   }
 
   const profileRow = await selectProfileCompat(authzLookupClient, userId);
   if (!profileRow) {
-    return null;
+    return { status: "profile_missing" };
   }
 
   const role = resolveKnownUserRole(profileRow.role);
   if (!role) {
-    return null;
+    return {
+      status: "unknown_role",
+      role: typeof profileRow.role === "string" ? profileRow.role : null,
+    };
   }
 
   const schoolId = profileRow.school_id ?? null;
@@ -512,8 +529,24 @@ export async function resolveWebUserProfile(
   };
 
   return {
+    status: "resolved",
     profile,
     snapshot,
+  };
+}
+
+export async function resolveWebUserProfile(
+  routeSupabase: GenericSupabaseClient,
+  userId: string,
+): Promise<ResolvedWebProfile | null> {
+  const resolved = await resolveWebUserProfileWithStatus(routeSupabase, userId);
+  if (resolved.status !== "resolved") {
+    return null;
+  }
+
+  return {
+    profile: resolved.profile,
+    snapshot: resolved.snapshot,
   };
 }
 

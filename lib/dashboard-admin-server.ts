@@ -1,3 +1,5 @@
+import "server-only";
+
 import { isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
@@ -40,18 +42,6 @@ function normalizeDashboardEntityName(value: string | null | undefined) {
   }
 
   return value.trim().replace(/\s+/g, " ");
-}
-
-function normalizeDashboardEntityKey(value: string | null | undefined) {
-  return normalizeDashboardEntityName(value)
-    .normalize("NFKD")
-    .replace(/[\u064B-\u065F\u0670]/g, "")
-    .replace(/ـ/g, "")
-    .replace(/[أإآٱ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/ؤ/g, "و")
-    .replace(/ئ/g, "ي")
-    .toLocaleLowerCase();
 }
 
 function uniqueNormalizedSections(sectionNames: string[]) {

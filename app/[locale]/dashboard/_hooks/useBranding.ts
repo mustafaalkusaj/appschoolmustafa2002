@@ -20,6 +20,7 @@ interface UseBrandingProps {
 }
 
 export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBrandingProps) {
+  const [brandingSchoolId, setBrandingSchoolId] = useState<string | null>(null);
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingDeriving, setBrandingDeriving] = useState(false);
   const [brandingNotice, setBrandingNotice] = useState("");
@@ -36,6 +37,7 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
   const fetchSchoolBranding = useCallback(async () => {
     if (profile?.role !== "super_admin") return;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    setBrandingSchoolId(schoolId);
     if (!schoolId) {
       setBrandingForm((prev) => ({
         ...prev,
@@ -104,6 +106,7 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
   const saveBrandingFromDashboard = useCallback(async () => {
     if (profile?.role !== "super_admin") return;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    setBrandingSchoolId(schoolId);
     if (!schoolId) {
       setBrandingNotice("اختر مدرسة أولاً لتخصيص الهوية البصرية.");
       return;
@@ -204,6 +207,7 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
   }, [profile, scopeLoading, fetchSchoolBranding]);
 
   return {
+    brandingSchoolId,
     brandingForm,
     setBrandingForm,
     brandingSaving,

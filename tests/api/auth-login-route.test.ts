@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockState = vi.hoisted(() => ({
   createRouteSupabaseClient: vi.fn(),
-  resolveWebUserProfile: vi.fn(),
+  resolveWebUserProfileWithStatus: vi.fn(),
   enforceRateLimit: vi.fn(),
   getRateLimitClientIp: vi.fn(() => "127.0.0.1"),
   hasRBACSecret: vi.fn(() => true),
@@ -50,7 +50,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 vi.mock("@/lib/authorization/snapshot", () => ({
-  resolveWebUserProfile: mockState.resolveWebUserProfile,
+  resolveWebUserProfileWithStatus: mockState.resolveWebUserProfileWithStatus,
 }));
 
 vi.mock("@/lib/route-utils", async () => {
@@ -112,7 +112,9 @@ describe("POST /api/auth/login", () => {
     mockState.getRateLimitClientIp.mockReturnValue("127.0.0.1");
     mockState.hasRBACSecret.mockReturnValue(true);
     mockState.signRBACSession.mockResolvedValue("signed-cookie");
-    mockState.resolveWebUserProfile.mockResolvedValue(null);
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
+      status: "profile_missing",
+    });
   });
 
   it("rejects invalid payloads before hitting Supabase", async () => {
@@ -168,7 +170,8 @@ describe("POST /api/auth/login", () => {
         error: null,
       },
     });
-    mockState.resolveWebUserProfile.mockResolvedValue({
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
+      status: "resolved",
       profile: {
         id: "auth-user-1",
         full_name: "Inactive Admin",
@@ -224,6 +227,8 @@ describe("POST /api/auth/login", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(403);
+    expect(payload.error).toBe("login_failed");
+    expect(payload.code).toBe("AUTH_LOGIN_PROFILE_INACTIVE");
     expect(payload.reason).toBe("inactive_account");
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
     expect(response.headers.get("set-cookie")).toContain("school_rbac=");
@@ -245,7 +250,8 @@ describe("POST /api/auth/login", () => {
         error: null,
       },
     });
-    mockState.resolveWebUserProfile.mockResolvedValue({
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
+      status: "resolved",
       profile: {
         id: "auth-user-1",
         full_name: "Test Admin",
@@ -336,5 +342,130 @@ describe("POST /api/auth/login", () => {
       password: "12345678",
     });
     expect(mockState.signRBACSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 401 for invalid credentials without throwing 500", async () => {
+    const supabase = createSupabaseClientMock({
+      signInResult: {
+        data: {
+          user: null,
+        },
+        error: new Error("Invalid login credentials"),
+      },
+    });
+    mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
+
+    const { POST } = await importRoute();
+    const response = await POST(
+      createLoginRequest({
+        email: "user@example.com",
+        password: "wrong-password",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(payload).toMatchObject({
+      ok: false,
+      error: "login_failed",
+      code: "AUTH_LOGIN_INVALID_CREDENTIALS",
+      reason: "invalid_credentials",
+    });
+  });
+
+  it("returns 403 when the authenticated user has no web profile", async () => {
+    const supabase = createSupabaseClientMock({
+      signInResult: {
+        data: {
+          user: {
+            id: "auth-user-2",
+            user_metadata: {},
+          },
+        },
+        error: null,
+      },
+    });
+    mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
+      status: "profile_missing",
+    });
+
+    const { POST } = await importRoute();
+    const response = await POST(
+      createLoginRequest({
+        email: "user@example.com",
+        password: "12345678",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(payload).toMatchObject({
+      ok: false,
+      error: "login_failed",
+      code: "AUTH_LOGIN_PROFILE_MISSING",
+      reason: "profile_missing",
+    });
+    expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+  });
+
+  it("returns 403 when the authenticated user role is unknown", async () => {
+    const supabase = createSupabaseClientMock({
+      signInResult: {
+        data: {
+          user: {
+            id: "auth-user-3",
+            user_metadata: {},
+          },
+        },
+        error: null,
+      },
+    });
+    mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
+      status: "unknown_role",
+      role: "teacher",
+    });
+
+    const { POST } = await importRoute();
+    const response = await POST(
+      createLoginRequest({
+        email: "user@example.com",
+        password: "12345678",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(payload).toMatchObject({
+      ok: false,
+      error: "login_failed",
+      code: "AUTH_LOGIN_UNKNOWN_ROLE",
+      reason: "unknown_role",
+    });
+    expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails safely when RBAC session configuration is missing", async () => {
+    mockState.hasRBACSecret.mockReturnValue(false);
+
+    const { POST } = await importRoute();
+    const response = await POST(
+      createLoginRequest({
+        email: "user@example.com",
+        password: "12345678",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload).toMatchObject({
+      ok: false,
+      error: "login_failed",
+      code: "AUTH_LOGIN_SERVER_CONFIG",
+      reason: "server_config",
+    });
+    expect(mockState.createRouteSupabaseClient).not.toHaveBeenCalled();
   });
 });
