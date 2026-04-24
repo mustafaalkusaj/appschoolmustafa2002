@@ -71,7 +71,6 @@ test.describe("QA Auth RBAC", () => {
 
     if (await schoolLogoInput.isVisible() || await page.locator("button:has-text('رفع')").first().isVisible()) {
       // File input exists - upload test
-      const filePath = "/tmp/test-logo.png";
       await schoolLogoInput.setInputFiles({
         name: "test-logo.png",
         mimeType: "image/png",
