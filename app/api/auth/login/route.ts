@@ -78,12 +78,29 @@ export async function POST(req: NextRequest) {
     return buildFailureResponse("invalid_credentials", 401);
   }
 
+  let profileResolutionFailed = false;
   const resolved = await resolveWebUserProfile(supabase, data.user.id).catch((error) => {
+    profileResolutionFailed = true;
     logRouteError("auth-login-profile", error, {
       userId: data.user.id,
     });
     return null;
   });
+
+  if (profileResolutionFailed) {
+    await supabase.auth.signOut();
+    return NextResponse.json(
+      {
+        ok: false,
+      },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
 
   if (!resolved) {
     await supabase.auth.signOut();

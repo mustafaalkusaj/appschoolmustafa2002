@@ -339,11 +339,16 @@ export async function resolveWebUserProfile(
   routeSupabase: GenericSupabaseClient,
   userId: string,
 ): Promise<ResolvedWebProfile | null> {
-  let authzLookupClient: GenericSupabaseClient = routeSupabase;
+  // Always use the service-role client for profile lookups so that RLS
+  // policies on user_profiles (which reference the same table) are bypassed.
+  // Falling back to the anon/user client triggers infinite recursion in the
+  // RLS policy and causes every write operation to return an error.
+  let authzLookupClient: GenericSupabaseClient;
   try {
     authzLookupClient = createServiceSupabaseClient();
-  } catch {
-    authzLookupClient = routeSupabase;
+  } catch (err) {
+    console.error("[resolveWebUserProfile] Service client unavailable — cannot read user_profiles safely:", err);
+    return null;
   }
 
   const profileRow = await selectProfileCompat(authzLookupClient, userId);

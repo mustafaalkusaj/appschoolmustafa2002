@@ -1,3 +1,5 @@
+import { loadProductionEnv } from "./env-utils.mjs";
+
 const requiredEnvKeys = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -12,8 +14,10 @@ const recommendedEnvKeys = [
   "UPSTASH_REDIS_REST_TOKEN",
 ];
 
+const { env, loadedFiles } = loadProductionEnv();
+
 function hasValue(key) {
-  return typeof process.env[key] === "string" && process.env[key].trim().length > 0;
+  return typeof env[key] === "string" && env[key].trim().length > 0;
 }
 
 function fail(message) {
@@ -46,8 +50,8 @@ function validateSecrets() {
 }
 
 function validateSecuritySettings() {
-  const rbacSecret = process.env.RBAC_COOKIE_SECRET?.trim() ?? "";
-  const healthToken = process.env.HEALTHCHECK_TOKEN?.trim() ?? "";
+  const rbacSecret = env.RBAC_COOKIE_SECRET?.trim() ?? "";
+  const healthToken = env.HEALTHCHECK_TOKEN?.trim() ?? "";
 
   if (rbacSecret.length > 0 && rbacSecret.length < 32) {
     fail("RBAC_COOKIE_SECRET must be at least 32 characters.");
@@ -73,12 +77,27 @@ function validateSecuritySettings() {
 }
 
 function validateRuntimeHints() {
-  const nodeEnv = process.env.NODE_ENV?.trim() ?? "";
+  const nodeEnv = env.NODE_ENV?.trim() ?? "";
   if (nodeEnv && nodeEnv !== "production") {
     warn(`NODE_ENV is '${nodeEnv}'. Production deployments should use NODE_ENV=production.`);
   } else {
     ok("NODE_ENV is production or unset for build tooling.");
   }
+
+  const appUrl = env.APP_URL?.trim() || env.NEXT_PUBLIC_APP_URL?.trim() || "";
+  if (!appUrl) {
+    warn("APP_URL is not configured. Post-deploy smoke tests should pass APP_URL explicitly.");
+  } else if (!/^https?:\/\//.test(appUrl)) {
+    warn(`APP_URL '${appUrl}' is missing an http/https scheme.`);
+  } else {
+    ok("APP_URL is configured.");
+  }
+}
+
+if (loadedFiles.length > 0) {
+  console.log(`[predeploy-check] Loaded env files: ${loadedFiles.join(", ")}`);
+} else {
+  console.log("[predeploy-check] Loaded env values from process.env only.");
 }
 
 validateSecrets();

@@ -18,13 +18,19 @@ export async function GET(req: NextRequest) {
     return jsonError("Unauthorized", 401);
   }
 
+  let profileResolutionFailed = false;
   const resolved = await resolveWebUserProfile(supabase, user.id).catch((resolveError) => {
+    profileResolutionFailed = true;
     console.error("[auth/me] failed to resolve web user profile", {
       userId: user.id,
       error: resolveError,
     });
     return null;
   });
+
+  if (profileResolutionFailed) {
+    return jsonError("Failed to resolve profile", 500);
+  }
 
   if (!resolved) {
     return jsonError("Profile not found", 404);

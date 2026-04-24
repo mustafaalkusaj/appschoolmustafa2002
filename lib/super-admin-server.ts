@@ -5,6 +5,7 @@ import {
   isMissingRelationError,
   isMissingTableError,
 } from "@/lib/admin-infrastructure";
+import { resolveWebUserProfile } from "@/lib/authorization/snapshot";
 import { filterAllowedPageCodes, type PageCode } from "@/lib/authorization/page-access";
 import { detectAppSchemaCompatWithClient, type AppSchemaCompat } from "@/lib/schema-compat";
 import {
@@ -269,17 +270,13 @@ export async function resolveSuperAdminActorContext(
     return { ok: false, status: 401, message: "يجب تسجيل الدخول أولاً." };
   }
 
-  const { data: actorProfile, error: actorProfileError } = await actorSupabase
-    .from("user_profiles")
-    .select("role, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
+  const actorProfile = await resolveWebUserProfile(actorSupabase, user.id).catch(() => null);
 
-  if (actorProfileError || !actorProfile || actorProfile.is_active === false) {
+  if (!actorProfile || actorProfile.profile.is_active === false) {
     return { ok: false, status: 403, message: "ليس لديك صلاحية استخدام واجهة المدير العام." };
   }
 
-  if (resolveKnownUserRole(actorProfile.role) !== "super_admin") {
+  if (resolveKnownUserRole(actorProfile.profile.role) !== "super_admin") {
     return { ok: false, status: 403, message: "هذه الواجهة متاحة للمدير العام فقط." };
   }
 
