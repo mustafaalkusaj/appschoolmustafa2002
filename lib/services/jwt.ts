@@ -5,7 +5,7 @@
  * Built with Node.js crypto for zero-dependency JWT handling
  */
 
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 export interface JWTPayload {
   userId: string;
@@ -18,7 +18,34 @@ export interface JWTPayload {
   exp?: number;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+let cachedJwtSecret: string | null = null;
+
+function getJWTSecret(): string {
+  if (cachedJwtSecret) {
+    return cachedJwtSecret;
+  }
+
+  const secret = process.env.JWT_SECRET?.trim();
+
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+      throw new Error(
+        'FATAL: JWT_SECRET is not configured. Production requires a secure JWT secret. ' +
+        'Set JWT_SECRET environment variable to a strong random string (minimum 32 characters).'
+      );
+    }
+    // Development fallback (not secure for production)
+    cachedJwtSecret = 'dev-only-insecure-jwt-secret-change-in-production';
+  } else {
+    if (secret.length < 32) {
+      console.warn('[JWT] WARNING: JWT_SECRET is shorter than recommended 32 characters.');
+    }
+    cachedJwtSecret = secret;
+  }
+
+  return cachedJwtSecret;
+}
+
 const JWT_EXPIRES_IN_MS = parseInt(process.env.JWT_EXPIRES_IN_MS || '86400000', 10); // 24 hours default
 
 /**
@@ -95,8 +122,16 @@ function verifyJwtSignature(token: string, secret: string): boolean {
   const signature = createHmac('sha256', secret).update(message).digest();
   const expectedSignatureEncoded = base64UrlEncode(signature);
 
-  // Timing-safe comparison
-  return expectedSignatureEncoded === signatureEncoded;
+  try {
+    // Timing-safe comparison using Node.js crypto.timingSafeEqual
+    const expectedBuffer = Buffer.from(expectedSignatureEncoded, 'utf-8');
+    const providedBuffer = Buffer.from(signatureEncoded, 'utf-8');
+
+    return timingSafeEqual(expectedBuffer, providedBuffer);
+  } catch {
+    // Buffer lengths don't match - use constant-time comparison
+    return false;
+  }
 }
 
 /**
@@ -121,7 +156,7 @@ function decodeJwtPayload(token: string): any | null {
  * Generate a new JWT token
  */
 export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-  return signJwt(payload as JWTPayload, JWT_SECRET);
+  return signJwt(payload as JWTPayload, getJWTSecret());
 }
 
 /**
@@ -130,7 +165,7 @@ export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string 
 export function verifyToken(token: string): JWTPayload | null {
   try {
     // Verify signature
-    if (!verifyJwtSignature(token, JWT_SECRET)) {
+    if (!verifyJwtSignature(token, getJWTSecret())) {
       return null;
     }
 

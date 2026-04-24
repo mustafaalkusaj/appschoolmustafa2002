@@ -20,7 +20,7 @@ function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
   return Date.now() > parsed.getTime();
 }
 
-async function readValidatedRbacSession(authHeader?: string | null) {
+async function readValidatedRbacSession(_authHeader?: string | null) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(RBAC_COOKIE_NAME)?.value;

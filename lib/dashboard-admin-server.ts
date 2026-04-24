@@ -42,7 +42,7 @@ function normalizeDashboardEntityName(value: string | null | undefined) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-function normalizeDashboardEntityKey(value: string | null | undefined) {
+function _normalizeDashboardEntityKey(value: string | null | undefined) {
   return normalizeDashboardEntityName(value)
     .normalize("NFKD")
     .replace(/[\u064B-\u065F\u0670]/g, "")

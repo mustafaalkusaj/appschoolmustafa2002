@@ -156,27 +156,30 @@ export function requireBranchAccess(
 }
 
 /**
- * Middleware to check permission on resource
+ * DEPRECATED: Permission checking should be done via RBAC session and database queries.
+ * This function is not used. Do not call it.
+ * Instead, use requireRole() or query the database for granular permission checks.
  */
 export function requirePermission(
   authContext: AuthContext,
   _requiredPermission: string,
-  _endpoint: string
-): { allowed: true; response: null } | { allowed: false; response: NextResponse } {
-  // Super admin has all permissions
-  if (authContext.role === 'SUPER_ADMIN') {
-    return {
-      allowed: true,
-      response: null
-    };
-  }
+  endpoint: string
+): { allowed: false; response: NextResponse } {
+  const log = createApiLogger({
+    endpoint,
+    userId: authContext.userId
+  });
 
-  // In a real app, you would check the permission against the database
-  // For now, we'll assume the permission check happens in the service layer
+  log.logAuthEvent('permission_denied', 'Attempted to use deprecated requirePermission function');
 
   return {
-    allowed: true,
-    response: null
+    allowed: false,
+    response: NextResponse.json(
+      {
+        error: 'Permission check not implemented. Use database queries or RBAC session instead.'
+      },
+      { status: 501 }
+    )
   };
 }
 
