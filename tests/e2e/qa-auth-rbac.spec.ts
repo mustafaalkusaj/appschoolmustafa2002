@@ -63,7 +63,11 @@ async function login(page: Page, email: string, password: string, expectedPath: 
 }
 
 async function logout(page: Page) {
+  // Navigate to dashboard if current page has no profile menu (e.g. access-denied)
   const menuTrigger = page.locator(".profile-menu__trigger").first();
+  if (!await menuTrigger.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await page.goto("/ar/dashboard", { waitUntil: "domcontentloaded" });
+  }
   await expect(menuTrigger).toBeVisible({ timeout: 15_000 });
   await menuTrigger.click();
   await page.getByRole("menuitem", { name: "تسجيل الخروج" }).click();
@@ -145,7 +149,8 @@ test.describe("QA Auth and RBAC", () => {
     await page.goto("/ar/schools", { waitUntil: "networkidle" });
     await expect(page).toHaveURL(/\/ar\/schools(?:\?.*)?$/);
     await page.goto("/ar/users", { waitUntil: "networkidle" });
-    await expect(page).toHaveURL(/\/ar\/users(?:\?.*)?$/);
+    // /ar/users redirects to /ar/teachers — intentional product behaviour (users list is under teachers)
+    await expect(page).toHaveURL(/\/ar\/(users|teachers)(?:\?.*)?$/);
     await page.goto("/ar/dashboard", { waitUntil: "networkidle" });
     await expect(page).toHaveURL(/\/ar\/dashboard(?:\?.*)?$/);
     await logout(page);
@@ -252,11 +257,12 @@ test.describe("QA Auth and RBAC", () => {
   });
 
   test("school logo upload works for admin and invalid file is rejected", async ({ page }) => {
-    await login(page, schoolAdminA.email, schoolAdminA.password, /\/ar\/(dashboard|group)(?:\?.*)?$/);
+    // SchoolBrandingPanel only renders for super_admin on dashboard
+    await login(page, superAdmin.email, superAdmin.password, /\/ar\/super-admin(?:\?.*)?$/);
     await page.goto("/ar/dashboard", { waitUntil: "networkidle" });
 
-    const schoolLogoInput = page.locator('input[type="file"][accept*="image/jpeg"]').first();
-    await expect(schoolLogoInput).toBeAttached();
+    const schoolLogoInput = page.getByTestId("school-logo-input");
+    await expect(schoolLogoInput).toBeAttached({ timeout: 20_000 });
     await schoolLogoInput.setInputFiles({
       name: "QA_TEST_school_logo.png",
       mimeType: "image/png",
@@ -280,12 +286,17 @@ test.describe("QA Auth and RBAC", () => {
     await page.goto("/ar/super-admin", { waitUntil: "networkidle" });
 
     const branchesTabButton = page.getByRole("button", { name: /الفروع|Branches/i }).first();
-    if (await branchesTabButton.isVisible().catch(() => false)) {
+    if (await branchesTabButton.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await branchesTabButton.click();
     }
 
-    const branchLogoInput = page.locator('input[type="file"][accept="image/*"]').last();
-    await expect(branchLogoInput).toBeAttached();
+    // branch-logo-input is inside the branch edit modal — click تعديل on first branch
+    const editButton = page.getByRole("button", { name: /تعديل/i }).first();
+    await expect(editButton).toBeVisible({ timeout: 15_000 });
+    await editButton.click();
+
+    const branchLogoInput = page.getByTestId("branch-logo-input");
+    await expect(branchLogoInput).toBeAttached({ timeout: 10_000 });
     await branchLogoInput.setInputFiles({
       name: "QA_TEST_branch_logo.png",
       mimeType: "image/png",

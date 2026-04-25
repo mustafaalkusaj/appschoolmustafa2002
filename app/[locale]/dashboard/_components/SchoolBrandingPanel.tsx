@@ -114,6 +114,7 @@ export function SchoolBrandingPanel({
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
               className="hidden"
+              data-testid="school-logo-input"
               onChange={(e) => void handleFileUpload(e)}
             />
 

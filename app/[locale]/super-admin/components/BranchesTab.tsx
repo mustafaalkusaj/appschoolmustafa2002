@@ -826,6 +826,7 @@ export function BranchesTab({
                           type="file"
                           accept="image/*"
                           className="hidden"
+                          data-testid="branch-logo-input"
                           onChange={handleLogoUpload}
                         />
                       </div>
