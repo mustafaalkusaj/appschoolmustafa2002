@@ -132,6 +132,10 @@ export async function GET(req: NextRequest) {
         tableHasColumn(serviceSupabase as never, "class_fees", "branch_id").catch(() => false),
       ]);
 
+      if (effectiveBranchId && !studentsBranchScope) {
+        return buildEmptyDashboardOverviewPayload("degraded_dashboard_overview");
+      }
+
       const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
       let studentsPromise = serviceSupabase
