@@ -30,6 +30,12 @@ vi.mock("@/lib/ops/telegram", () => ({
 
 vi.mock("server-only", () => ({}));
 
+// Mock telegram-secret as identity — route hashing logic is tested separately.
+// This keeps test secret values readable without computing SHA256 in test helpers.
+vi.mock("@/lib/ops/telegram-secret", () => ({
+  getTelegramSecretToken: (s: string) => s,
+}));
+
 const TEST_WEBHOOK_SECRET = "test-webhook-secret-abc123";
 
 function makeWebhookRequest(

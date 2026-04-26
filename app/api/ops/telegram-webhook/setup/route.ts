@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isOpsTokenAuthorized } from "@/lib/ops/security";
+import { getTelegramSecretToken } from "@/lib/ops/telegram-secret";
 
 function notFound() {
   return NextResponse.json(
@@ -46,7 +47,9 @@ export async function POST(request: NextRequest) {
     drop_pending_updates: true,
   };
   if (webhookSecret) {
-    setWebhookBody.secret_token = webhookSecret;
+    // Telegram only allows A-Z, a-z, 0-9, _ and - in secret_token.
+    // Hash to hex (0-9, a-f) so any raw secret value works.
+    setWebhookBody.secret_token = getTelegramSecretToken(webhookSecret);
   }
 
   try {

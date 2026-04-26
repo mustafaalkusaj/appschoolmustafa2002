@@ -6,6 +6,7 @@ import {
   parseTelegramUpdate,
 } from "@/lib/ops/telegram-commands";
 import { maskChatId, sendTelegramBotReply } from "@/lib/ops/telegram";
+import { getTelegramSecretToken } from "@/lib/ops/telegram-secret";
 
 // Always return 200 — Telegram retries on non-200 responses
 function ok() {
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     return ok();
   }
   const provided = request.headers.get("x-telegram-bot-api-secret-token")?.trim() ?? "";
-  if (provided !== webhookSecret) {
+  if (provided !== getTelegramSecretToken(webhookSecret)) {
     console.log("[telegram-webhook] rejected: wrong secret");
     return ok();
   }
