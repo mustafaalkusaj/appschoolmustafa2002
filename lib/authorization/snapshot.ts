@@ -1,4 +1,5 @@
 import type { PostgrestSingleResponse, SupabaseClient } from "@supabase/supabase-js";
+import { endOfDayBaghdad } from "@/lib/tz";
 
 import {
   isMissingColumnError,
@@ -577,6 +578,5 @@ export function isSchoolAccessRestricted(snapshot: AuthorizationSnapshot) {
     return false;
   }
 
-  parsed.setHours(23, 59, 59, 999);
-  return Date.now() > parsed.getTime();
+  return Date.now() > endOfDayBaghdad(parsed).getTime();
 }

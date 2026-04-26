@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { endOfDayBaghdad } from "@/lib/tz";
 import createIntlMiddleware from 'next-intl/middleware';
 import {
   isPagePathAllowed,
@@ -43,9 +44,7 @@ function isSubscriptionExpired(endDate: string | null | undefined, now = new Dat
   if (!endDate) return false;
   const parsed = new Date(endDate);
   if (Number.isNaN(parsed.getTime())) return false;
-  const endOfDay = new Date(parsed);
-  endOfDay.setHours(23, 59, 59, 999);
-  return now.getTime() > endOfDay.getTime();
+  return now.getTime() > endOfDayBaghdad(parsed).getTime();
 }
 
 function getLocaleFromRequestPath(pathname: string) {
@@ -97,6 +96,74 @@ function buildApiGuardResponse(status: 401 | 403, message: string) {
   );
 }
 
+function readBearerOrQueryToken(request: NextRequest) {
+  const authorization = request.headers.get("authorization");
+  if (authorization?.toLowerCase().startsWith("bearer ")) {
+    const token = authorization.slice(7).trim();
+    if (token) {
+      return token;
+    }
+  }
+
+  return request.nextUrl.searchParams.get("token")?.trim() || null;
+}
+
+function isAuthorizedOpsProbe(request: NextRequest, normalizedPath: string) {
+  const providedToken = readBearerOrQueryToken(request);
+  if (!providedToken) {
+    return false;
+  }
+
+  if (normalizedPath === "/api/ops/health") {
+    return [process.env.OPS_ALERT_TOKEN, process.env.HEALTHCHECK_TOKEN].some((token) => token && token === providedToken);
+  }
+
+  if (normalizedPath === "/api/ops/daily-report") {
+    return process.env.OPS_REPORT_CRON_SECRET === providedToken;
+  }
+
+  if (
+    normalizedPath === "/api/ops/whatsapp-test" ||
+    normalizedPath === "/api/ops/latest" ||
+    normalizedPath === "/api/ops/notification-test"
+  ) {
+    return process.env.OPS_ALERT_TOKEN === providedToken;
+  }
+
+  // Telegram webhook management — protected by OPS_ALERT_TOKEN
+  if (
+    normalizedPath === "/api/ops/telegram-webhook/setup" ||
+    normalizedPath === "/api/ops/telegram-webhook/delete"
+  ) {
+    return process.env.OPS_ALERT_TOKEN === providedToken;
+  }
+
+  // Error capture API — protected by OPS_ALERT_TOKEN
+  if (
+    normalizedPath === "/api/ops/errors" ||
+    normalizedPath.startsWith("/api/ops/errors/")
+  ) {
+    return process.env.OPS_ALERT_TOKEN === providedToken;
+  }
+
+  // Audit logs — protected by OPS_ALERT_TOKEN
+  if (normalizedPath === "/api/ops/audit-logs") {
+    return process.env.OPS_ALERT_TOKEN === providedToken;
+  }
+
+  // Deep check — protected by OPS_ALERT_TOKEN
+  if (normalizedPath === "/api/ops/deepcheck") {
+    return process.env.OPS_ALERT_TOKEN === providedToken;
+  }
+
+  // Pending actions management — protected by OPS_ALERT_TOKEN
+  if (normalizedPath === "/api/ops/pending-actions") {
+    return process.env.OPS_ALERT_TOKEN === providedToken;
+  }
+
+  return false;
+}
+
 async function getGuardRedirect(request: NextRequest): Promise<URL | NextResponse | null> {
   const normalizedPath = normalizePath(request.nextUrl.pathname);
   const isApiRequest = normalizedPath.startsWith("/api/");
@@ -109,9 +176,17 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     normalizedPath === "/api/rbac/session" ||
     normalizedPath === "/api/account/me" ||
     normalizedPath === "/api/ping" ||
-    normalizedPath === "/api/health";
+    normalizedPath === "/api/health" ||
+    // Telegram webhook receiver — Telegram posts here; route handles ?secret auth
+    normalizedPath === "/api/ops/telegram-webhook" ||
+    // Client error reporting — called from frontend without ops token
+    normalizedPath === "/api/ops/client-error";
 
   if ((!isApiRequest && isPublicPath) || (isApiRequest && isPublicApiPath)) {
+    return null;
+  }
+
+  if (isApiRequest && normalizedPath.startsWith("/api/ops/") && isAuthorizedOpsProbe(request, normalizedPath)) {
     return null;
   }
 
@@ -171,6 +246,12 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     if (subscriptionStatus === "expired" || isSubscriptionExpired(session.subscriptionEnd)) {
       return resolveGuardRedirect("subscription_expired", request);
     }
+  }
+
+  // Branch user scope guard — branch_user admins go to /branch-overview, not /dashboard.
+  if (!isApiRequest && normalizedPath === "/dashboard" && session.scopeLevel === "branch_user") {
+    const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+    return new URL(localizePath("/branch-overview", locale), request.url);
   }
 
   // Group scope guard.

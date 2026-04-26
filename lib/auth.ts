@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { endOfDayBaghdad } from "@/lib/tz";
 import { resolvePageCodeFromPath } from "@/lib/authorization/page-access";
 import {
   DEFAULT_PATH_BY_ROLE,
@@ -97,8 +98,9 @@ function normalizeDate(value: string | null | undefined): Date | null {
 export function isSubscriptionExpired(endDate: string | null | undefined, now = new Date()): boolean {
   const parsed = normalizeDate(endDate);
   if (!parsed) return false;
-  const endOfDay = new Date(parsed);
-  endOfDay.setHours(23, 59, 59, 999);
+  // Use Baghdad end-of-day (UTC+3, no DST). Vercel runs UTC; setHours() would
+  // set 23:59 UTC = 02:59 Baghdad next day — 3 hours too late.
+  const endOfDay = endOfDayBaghdad(parsed);
   return now.getTime() > endOfDay.getTime();
 }
 
@@ -129,6 +131,10 @@ export function isGroupOverviewOnlyProfile(profile: UserProfile | null) {
   );
 }
 
+export function isBranchUserProfile(profile: UserProfile | null) {
+  return Boolean(profile && profile.scope_level === "branch_user");
+}
+
 export function shouldUseSinglePageShell(profile: UserProfile | null) {
   return Boolean(
     profile &&
@@ -140,6 +146,10 @@ export function shouldUseSinglePageShell(profile: UserProfile | null) {
 export function getDefaultRouteForProfile(profile: UserProfile | null) {
   if (isGroupOverviewOnlyProfile(profile)) {
     return "/group";
+  }
+
+  if (isBranchUserProfile(profile)) {
+    return "/branch-overview";
   }
 
   if (profile?.default_path && profile.default_path.startsWith("/")) {
@@ -173,6 +183,13 @@ export function getAccessDecision(profile: UserProfile | null, pathname: string)
   if (isGroupOverviewOnlyProfile(profile)) {
     const pageCode = resolvePageCodeFromPath(pathname);
     if (pageCode !== "group") {
+      return { allowed: false, reason: "forbidden", readOnly: false };
+    }
+  }
+
+  if (isBranchUserProfile(profile)) {
+    const pageCode = resolvePageCodeFromPath(pathname);
+    if (pageCode === "dashboard") {
       return { allowed: false, reason: "forbidden", readOnly: false };
     }
   }
