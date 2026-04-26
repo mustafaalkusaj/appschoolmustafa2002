@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/brand/brand-utils";
 import { supabase } from "@/lib/supabase";
+import { validateLogoUpload, sanitizeStorageFilename } from "@/lib/upload-validation";
 
 interface SchoolBrandingPanelProps {
   brandingSchoolId: string | null;
@@ -45,9 +46,10 @@ export function SchoolBrandingPanel({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 2 * 1024 * 1024; // 2 MB
-    if (file.size > maxSize) {
-      setUploadError("حجم الصورة كبير جداً (الحد الأقصى 2 ميغابايت).");
+    const validation = await validateLogoUpload(file, file.type);
+    if (!validation.ok) {
+      setUploadError(validation.message);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -55,7 +57,8 @@ export function SchoolBrandingPanel({
     setUploadError(null);
 
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeName = sanitizeStorageFilename(file.name);
+      const ext = safeName.split(".").pop()?.toLowerCase() || "jpg";
       const schoolScope = brandingSchoolId?.trim();
       if (!schoolScope) {
         throw new Error("تعذر تحديد المدرسة الحالية لرفع الشعار.");

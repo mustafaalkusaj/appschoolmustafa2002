@@ -16,6 +16,7 @@ import {
 } from "@/lib/icons";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { validateLogoUpload, sanitizeStorageFilename } from "@/lib/upload-validation";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { isMissingRelationError } from "@/lib/admin-infrastructure";
 import type { AppSchemaCompat } from "@/lib/schema-compat";
@@ -341,14 +342,19 @@ export function BranchesTab({
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setLogoError("حجم الصورة كبير (الحد الأقصى 2 ميغابايت).");
+
+    const validation = await validateLogoUpload(file, file.type);
+    if (!validation.ok) {
+      setLogoError(validation.message);
+      if (logoInputRef.current) logoInputRef.current.value = "";
       return;
     }
+
     setLogoUploading(true);
     setLogoError(null);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeName = sanitizeStorageFilename(file.name);
+      const ext = safeName.split(".").pop()?.toLowerCase() || "jpg";
       const schoolScope = formData.school_id.trim();
       if (!schoolScope) {
         throw new Error("اختر المدرسة أولاً قبل رفع شعار الفرع.");
