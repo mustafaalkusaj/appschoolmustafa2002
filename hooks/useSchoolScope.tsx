@@ -123,7 +123,9 @@ export function useSchoolScope(profile: UserProfile | null): SchoolScopeState {
     return schools.find((school) => school.id === requestedSchoolId) ?? null;
   }, [isSuperAdminScope, requestedSchoolId, schools]);
 
-  const selectedSchoolId = isSuperAdminScope ? selectedSchool?.id ?? null : profile?.school_id ?? null;
+  const selectedSchoolId = isSuperAdminScope
+    ? selectedSchool?.id ?? null
+    : profile?.school_id ?? null;
   const hasInvalidSelection = isSuperAdminScope && !scopeLoading && Boolean(requestedSchoolId) && !selectedSchool;
   const needsSelection = isSuperAdminScope && !scopeLoading && !requestedSchoolId;
   const shouldBlockContent = isSuperAdminScope && !scopeLoading && !selectedSchoolId;

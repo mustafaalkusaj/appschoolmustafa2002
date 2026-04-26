@@ -103,7 +103,7 @@ export function DashboardExperience({
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
   const canCustomizeBranding = profile?.role === "super_admin";
 
-  const dashboardSummary = schoolScope.shouldBlockContent
+  const dashboardSummary = !branchScoped && schoolScope.shouldBlockContent
     ? t("summary.empty")
     : schoolScope.isSuperAdminScope
       ? t("summary.superAdmin")
@@ -125,7 +125,7 @@ export function DashboardExperience({
           <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
             <SchoolScopeBanner scope={schoolScope} showSelector={false} />
 
-            {schoolScope.shouldBlockContent ? (
+            {!branchScoped && schoolScope.shouldBlockContent ? (
               <Card className="text-center">
                 <CardContent className="py-12">
                   <SchoolScopeEmptyState
