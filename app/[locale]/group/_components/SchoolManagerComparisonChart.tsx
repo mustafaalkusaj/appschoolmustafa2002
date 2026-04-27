@@ -41,9 +41,8 @@ const RED = "#ef4444";
 const PURPLE = "#8b5cf6";
 
 function fmtCurrency(value: number) {
-  return `${value.toLocaleString("en-US")} IQD`;
+  return value.toLocaleString("en-US") + " IQD";
 }
-
 function fmtNum(value: number) {
   return value.toLocaleString("en-US");
 }

@@ -12,3 +12,11 @@ export const formatDateTime = (d: string | Date) => {
     minute: "2-digit",
   });
 };
+export const formatCurrency = (amount: number, locale?: string): string => {
+  const displayLocale = locale || "ar";
+  const formatted = formatNumber(amount);
+  if (displayLocale === "ar") {
+    return `د.ع ${formatted}`;
+  }
+  return `${formatted} IQD`;
+};

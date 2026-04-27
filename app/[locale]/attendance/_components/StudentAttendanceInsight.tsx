@@ -243,6 +243,7 @@ export function StudentAttendanceInsight(props: {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<StudentSearchItem[]>([]);
+  const [searchError, setSearchError] = useState("");
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StudentSearchItem | null>(null);
   const [rangeFrom, setRangeFrom] = useState(() => {
@@ -338,6 +339,7 @@ export function StudentAttendanceInsight(props: {
   }, [labels.all, locale]);
 
   useEffect(() => {
+    setSearchError("");
     if (!resolvedSchoolId) {
       setItems([]);
       setLoading(false);
@@ -346,6 +348,7 @@ export function StudentAttendanceInsight(props: {
 
     const q = normalizeQuery(query);
     if (q.length < 2) {
+      setSearchError("");
       setItems([]);
       setLoading(false);
       return;
@@ -363,9 +366,14 @@ export function StudentAttendanceInsight(props: {
         url.searchParams.set("q", q);
         const response = await fetch(url.toString(), { credentials: "include" });
         const payload = (await response.json().catch(() => null)) as { items?: StudentSearchItem[] } | null;
+        if (!response.ok || !payload) {
+          setSearchError(locale === "ar" ? "خطأ في البحث. الرجاء المحاولة مجدداً." : "Search failed. Please try again.");
+          setItems([]);
+          return;
+        }
         setItems(Array.isArray(payload?.items) ? payload!.items : []);
       } catch {
-        setItems([]);
+        setSearchError(locale === "ar" ? "خطأ في تحميل البيانات." : "Failed to load data."); setItems([]);
       } finally {
         setLoading(false);
       }
@@ -536,6 +544,7 @@ export function StudentAttendanceInsight(props: {
               )}
             </div>
 
+            {searchError && (              <div data-testid="attendance-search-error" className="mt-2 rounded-2xl border border-[color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] p-4 text-sm text-[var(--danger)] font-semibold">                {searchError}              </div>            )}
             {items.length > 0 && (
               <div
                 data-testid="attendance-student-search-results"
