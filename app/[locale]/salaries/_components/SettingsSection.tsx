@@ -56,7 +56,7 @@ export function SettingsSection({ classes, onExport }: SettingsSectionProps) {
             <AppIcon token="📤" size={14} />
             تصدير ملف
           </Button>
-          <Button variant="secondary" className="flex-1">
+          <Button variant="secondary" className="flex-1" disabled title="الميزة قيد التطوير">
             <AppIcon token="📥" size={14} />
             استيراد ملف
           </Button>

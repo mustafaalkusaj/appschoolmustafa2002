@@ -551,7 +551,7 @@ export default function AttendancePage() {
                     </div>
                     <button
                       className={cn(
-                        "h-full px-6 py-4 rounded-2xl font-black transition-all shadow-lg flex flex-col items-center justify-center gap-1 min-w-[180px] border",
+                        "h-full px-6 py-4 rounded-2xl font-black transition-all shadow-lg flex flex-col items-center justify-center gap-1 md:min-w-[180px] border",
                         changedCount > 0
                           ? "bg-[var(--primary)] text-white border-transparent shadow-[0_16px_30px_color-mix(in_srgb,var(--primary)_24%,transparent)] hover:-translate-y-0.5 active:translate-y-0"
                           : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] cursor-not-allowed opacity-60"
@@ -726,7 +726,7 @@ export default function AttendancePage() {
                                       </div>
                                     </td>
                                     <td className="p-4">
-                                      <div className="flex flex-wrap gap-2 min-w-[260px]">
+                                      <div className="flex flex-wrap gap-2 sm:min-w-[260px]">
                                         {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => {
                                           const isActive = draft.status === status;
                                           return (
