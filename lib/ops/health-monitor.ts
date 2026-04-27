@@ -375,7 +375,7 @@ export async function checkUpstash(): Promise<OpsCheckResult> {
       ok: false,
       status: "degraded",
       reason: "missing_env",
-      message: "Upstash غير مهيأ. الـ rate limiting يعمل حالياً بوضع fail-open.",
+      message: "Upstash غير مهيأ. auth login سيعمل مؤقتاً عبر memory fallback.",
       details: opsSnapshot,
     };
   }
@@ -398,7 +398,7 @@ export async function checkUpstash(): Promise<OpsCheckResult> {
       ok: false,
       status: "degraded",
       reason: "ping_failed",
-      message: "تعذر فحص Upstash. الـ rate limiting يبقى fail-open مؤقتاً.",
+      message: "تعذر فحص Upstash. auth login قد يتحول مؤقتاً إلى memory fallback.",
       latencyMs: Date.now() - startedAt,
       details: {
         ...opsSnapshot,

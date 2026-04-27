@@ -188,6 +188,16 @@ export default function StudentsPage() {
     setTimeout(() => modals.setSuccess(""), 3000);
   }, [loadStudentsDataset, locale, modals, operations]);
 
+  const printAllStudentCards = useCallback(async () => {
+    const fullDataset = await loadStudentsDataset();
+    if (fullDataset.length === 0) {
+      modals.setError(locale === "en" ? "Could not load the students for printing." : "تعذر تحميل بيانات الطلاب للطباعة");
+      return;
+    }
+    modals.setError("");
+    print.printFilteredStudents(fullDataset);
+  }, [loadStudentsDataset, locale, modals, print]);
+
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
       <div className="flex min-h-screen bg-[var(--surface-soft)]">
@@ -291,7 +301,7 @@ export default function StudentsPage() {
                         onExportCurrentPage={() => operations.exportExcel(filtered)}
                         onExportAll={exportAllStudentsExcel}
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
-                        onPrintAllCards={() => {}}
+                        onPrintAllCards={printAllStudentCards}
                         onAddStudent={() => modals.setShowModal(true)}
                         onBulkImport={() => setShowBulkImport(true)}
                       />

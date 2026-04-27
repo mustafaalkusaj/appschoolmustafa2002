@@ -44,6 +44,7 @@ import { TrashTab } from "./components/TrashTab";
 import { NotificationsTab } from "./components/NotificationsTab";
 import { MonitoringTab } from "./components/MonitoringTab";
 import { BranchesTab } from "./components/BranchesTab";
+import { ErrorsTab } from "./components/ErrorsTab";
 
 import {
   OverviewTab,
@@ -123,6 +124,7 @@ export default function SuperAdminPage() {
     { id: "notifications", label: t("tabs.notifications.label"), hint: t("tabs.notifications.hint"), icon: Bell },
     { id: "monitoring", label: t("tabs.monitoring.label"), hint: t("tabs.monitoring.hint"), icon: Activity },
     { id: "branches", label: t("tabs.branches.label"), hint: t("tabs.branches.hint"), icon: GitBranch },
+    { id: "errors", label: "أخطاء الإنتاج", hint: "Error Capture + Fix Prompt", icon: AlertTriangle },
   ], [t]);
 
   const flashSuccess = useCallback((m: string) => { setSuccess(m); toast.success(m); window.setTimeout(() => setSuccess(""), 2600); }, [toast]);
@@ -545,6 +547,7 @@ export default function SuperAdminPage() {
                     {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
                     {activeTab === "monitoring" && <MonitoringTab infrastructure={infrastructure} />}
                     {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} />}
+                    {activeTab === "errors" && <ErrorsTab />}
                   </div>
                 )}
               </div>

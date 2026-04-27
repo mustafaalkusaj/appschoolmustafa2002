@@ -11,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/brand/brand-utils";
 import { validateLogoUpload } from "@/lib/upload-validation";
 
+function buildUploadErrorMessage(reason?: string | null) {
+  const normalizedReason = reason?.trim();
+  return normalizedReason
+    ? `تعذر رفع الصورة: ${normalizedReason}`
+    : "تعذر رفع الصورة: نوع الملف غير مدعوم. الرجاء رفع صورة PNG أو JPEG أو WebP.";
+}
+
 interface SchoolBrandingPanelProps {
   brandingSchoolId: string | null;
   brandingForm: BrandingFormData;
@@ -47,7 +54,7 @@ export function SchoolBrandingPanel({
 
     const validation = await validateLogoUpload(file, file.type);
     if (!validation.ok) {
-      setUploadError(validation.message);
+      setUploadError(buildUploadErrorMessage(validation.message));
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -74,12 +81,16 @@ export function SchoolBrandingPanel({
       const uploadedUrl = payload?.url;
 
       if (!response.ok || typeof uploadedUrl !== "string" || !uploadedUrl) {
-        throw new Error(payload?.error?.message || "تعذر رفع الصورة.");
+        throw new Error(buildUploadErrorMessage(payload?.error?.message));
       }
 
       setBrandingForm((prev) => ({ ...prev, logo_url: uploadedUrl }));
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "تعذر رفع الصورة.");
+      setUploadError(
+        err instanceof Error
+          ? buildUploadErrorMessage(err.message.replace(/^تعذر رفع الصورة:\s*/, ""))
+          : buildUploadErrorMessage(),
+      );
     } finally {
       setUploading(false);
       // reset input so same file can be re-selected
@@ -175,7 +186,11 @@ export function SchoolBrandingPanel({
             </div>
 
             {uploadError && (
-              <p className="mt-1.5 text-xs text-[var(--danger)] font-semibold flex items-center gap-1">
+              <p
+                role="alert"
+                data-testid="school-logo-upload-error"
+                className="mt-1.5 text-xs text-[var(--danger)] font-semibold flex items-center gap-1"
+              >
                 <Info size={12} />
                 {uploadError}
               </p>

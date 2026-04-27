@@ -242,7 +242,6 @@ export function usePaymentOperations(
         setPayStudent(null);
         setStudentSearch("");
         setStudentSearchResults([]);
-        onMetaRefresh();
       } catch (payError) {
         onError?.(payError instanceof Error ? payError.message : "تعذر تسجيل الدفعة.");
       } finally {

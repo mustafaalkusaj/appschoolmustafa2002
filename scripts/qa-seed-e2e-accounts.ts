@@ -139,6 +139,14 @@ const ACCOUNT_DEFINITIONS: Array<{
   },
 ];
 
+const LEGACY_E2E_KEY_MAP: Partial<Record<SupportedAccountKey, string>> = {
+  super_admin: "E2E_SUPER_ADMIN",
+  school_admin_a: "E2E_SCHOOL_ADMIN_A",
+  branch_admin_a: "E2E_BRANCH_ADMIN_A",
+  branch_admin_b: "E2E_BRANCH_ADMIN_B",
+  normal_user_a: "E2E_NORMAL_USER",
+};
+
 function loadEnvFile(fileName: string): EnvMap {
   const filePath = path.join(process.cwd(), fileName);
   if (!fs.existsSync(filePath)) return {};
@@ -758,6 +766,12 @@ async function main() {
     const envKeyPrefix = `QA_E2E_${definition.key.toUpperCase()}`;
     envLines.push(`${envKeyPrefix}_EMAIL=${escapeEnvValue(definition.email)}`);
     envLines.push(`${envKeyPrefix}_PASSWORD=${escapeEnvValue(password)}`);
+
+    const legacyKeyPrefix = LEGACY_E2E_KEY_MAP[definition.key];
+    if (legacyKeyPrefix) {
+      envLines.push(`${legacyKeyPrefix}_EMAIL=${escapeEnvValue(definition.email)}`);
+      envLines.push(`${legacyKeyPrefix}_PASSWORD=${escapeEnvValue(password)}`);
+    }
   }
 
   fs.writeFileSync(path.join(process.cwd(), OUTPUT_ENV_FILE), `${envLines.join("\n")}\n`, "utf8");

@@ -14,6 +14,7 @@ import { getSidebarItemsForRole, isPathMatch, type SidebarItem } from "@/types/r
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import {
   hasAssignedPageScope,
+  isBranchUserProfile,
   isGroupOverviewOnlyProfile,
   shouldUseSinglePageShell,
 } from "@/lib/auth";
@@ -112,12 +113,18 @@ export function AppSidebar({
     }
 
     const baseItems = getSidebarItemsForRole(role);
+
+    // branch_user admins must not see the school-wide dashboard link
+    const scopedItems = isBranchUserProfile(profile)
+      ? baseItems.filter((item) => item.id !== "dashboard")
+      : baseItems;
+
     if (!hasAssignedPageScope(profile)) {
-      return baseItems;
+      return scopedItems;
     }
 
     const allowedPages = profile?.allowed_pages ?? [];
-    return baseItems.filter((item) => allowedPages.includes(item.id));
+    return scopedItems.filter((item) => allowedPages.includes(item.id));
   }, [profile, role]);
   
   const groupedItems = useMemo(() => {

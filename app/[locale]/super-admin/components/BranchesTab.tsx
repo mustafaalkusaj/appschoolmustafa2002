@@ -38,6 +38,13 @@ import { DEFAULT_SCHOOL_BRANDING } from "../_components/types";
 import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 
+function buildUploadErrorMessage(reason?: string | null) {
+  const normalizedReason = reason?.trim();
+  return normalizedReason
+    ? `تعذر رفع الصورة: ${normalizedReason}`
+    : "تعذر رفع الصورة: نوع الملف غير مدعوم. الرجاء رفع صورة PNG أو JPEG أو WebP.";
+}
+
 type BranchSchool = {
   id: string;
   name: string;
@@ -345,7 +352,7 @@ export function BranchesTab({
 
     const validation = await validateLogoUpload(file, file.type);
     if (!validation.ok) {
-      setLogoError(validation.message);
+      setLogoError(buildUploadErrorMessage(validation.message));
       if (logoInputRef.current) logoInputRef.current.value = "";
       return;
     }
@@ -371,12 +378,16 @@ export function BranchesTab({
       const uploadedUrl = payload?.url;
 
       if (!response.ok || typeof uploadedUrl !== "string" || !uploadedUrl) {
-        throw new Error(payload?.error?.message || "تعذر رفع الشعار.");
+        throw new Error(buildUploadErrorMessage(payload?.error?.message));
       }
 
       setFormData((current) => ({ ...current, logo_url: uploadedUrl }));
     } catch (err) {
-      setLogoError(err instanceof Error ? err.message : "تعذر رفع الشعار.");
+      setLogoError(
+        err instanceof Error
+          ? buildUploadErrorMessage(err.message.replace(/^تعذر رفع الصورة:\s*/, ""))
+          : buildUploadErrorMessage(),
+      );
     } finally {
       setLogoUploading(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
@@ -833,10 +844,10 @@ export function BranchesTab({
                               >
                                 إزالة
                               </button>
-                            )}
-                          </div>
-                        </div>
-                        <input
+                      )}
+                    </div>
+                  </div>
+                  <input
                           ref={logoInputRef}
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -846,7 +857,13 @@ export function BranchesTab({
                         />
                       </div>
                       {logoError && (
-                        <p className="text-[11px] font-bold text-rose-600">{logoError}</p>
+                        <p
+                          role="alert"
+                          data-testid="branch-logo-upload-error"
+                          className="text-[11px] font-bold text-rose-600"
+                        >
+                          {logoError}
+                        </p>
                       )}
                     </div>
                   </div>

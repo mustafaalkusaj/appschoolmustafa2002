@@ -48,6 +48,9 @@ test("QA safe public routes and health probe work without touching real data", a
   await expect(page.getByRole("heading", { name: "Reset password" })).toBeVisible();
   await expect(page.locator("#forgot-password-email")).toBeVisible();
 
+  const anonymousHealthResponse = await request.get("/api/health");
+  expect([401, 404]).toContain(anonymousHealthResponse.status());
+
   const healthResponse = await request.get("/api/health", {
     headers: {
       "x-health-token": healthToken!,

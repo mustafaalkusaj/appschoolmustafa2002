@@ -5,7 +5,8 @@ const mockState = vi.hoisted(() => ({
   createRouteSupabaseClient: vi.fn(),
   resolveWebUserProfileWithStatus: vi.fn(),
   enforceRateLimit: vi.fn(),
-  getRateLimitClientIp: vi.fn(() => "127.0.0.1"),
+  buildAuthRateLimitIdentifier: vi.fn(() => "127.0.0.1:rate-limit-hash"),
+  normalizeRateLimitEmail: vi.fn((email: string) => email.trim().toLowerCase()),
   hasRBACSecret: vi.fn(() => true),
   signRBACSession: vi.fn(async () => "signed-cookie"),
   buildRBACSessionPayload: vi.fn((input) => ({
@@ -33,7 +34,8 @@ const mockState = vi.hoisted(() => ({
 
 vi.mock("@/lib/rate-limit", () => ({
   enforceRateLimit: mockState.enforceRateLimit,
-  getRateLimitClientIp: mockState.getRateLimitClientIp,
+  buildAuthRateLimitIdentifier: mockState.buildAuthRateLimitIdentifier,
+  normalizeRateLimitEmail: mockState.normalizeRateLimitEmail,
 }));
 
 vi.mock("@/lib/rbac-session", () => ({
@@ -109,7 +111,8 @@ describe("POST /api/auth/login", () => {
     vi.clearAllMocks();
     vi.resetModules();
     mockState.enforceRateLimit.mockReturnValue(null);
-    mockState.getRateLimitClientIp.mockReturnValue("127.0.0.1");
+    mockState.buildAuthRateLimitIdentifier.mockReturnValue("127.0.0.1:rate-limit-hash");
+    mockState.normalizeRateLimitEmail.mockImplementation((email: string) => email.trim().toLowerCase());
     mockState.hasRBACSecret.mockReturnValue(true);
     mockState.signRBACSession.mockResolvedValue("signed-cookie");
     mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
@@ -138,9 +141,8 @@ describe("POST /api/auth/login", () => {
     mockState.enforceRateLimit.mockReturnValue(
       NextResponse.json(
         {
-          error: {
-            message: "rate limited",
-          },
+          error: "too_many_attempts",
+          message: "محاولات كثيرة، حاول لاحقاً",
         },
         { status: 429 },
       ),
@@ -156,6 +158,10 @@ describe("POST /api/auth/login", () => {
 
     expect(response.status).toBe(429);
     expect(mockState.createRouteSupabaseClient).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      error: "too_many_attempts",
+      message: "محاولات كثيرة، حاول لاحقاً",
+    });
   });
 
   it("clears the RBAC cookie for inactive accounts", async () => {
@@ -333,9 +339,22 @@ describe("POST /api/auth/login", () => {
     expect(response.headers.get("set-cookie")).toContain("school_rbac=signed-cookie");
     expect(mockState.enforceRateLimit).toHaveBeenCalledWith(
       expect.any(NextRequest),
-      expect.objectContaining({
-        identifier: "127.0.0.1:user@example.com",
-      }),
+      {
+        namespace: "auth-login",
+        windowMs: 10 * 60_000,
+        maxHits: 5,
+        identifier: "127.0.0.1:rate-limit-hash",
+        productionFailureMode: "memory-fallback",
+        onRateLimited: {
+          error: "too_many_attempts",
+          message: "محاولات كثيرة، حاول لاحقاً",
+        },
+      },
+    );
+    expect(mockState.normalizeRateLimitEmail).toHaveBeenCalledWith("user@example.com");
+    expect(mockState.buildAuthRateLimitIdentifier).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      "user@example.com",
     );
     expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
       email: "user@example.com",
@@ -371,6 +390,7 @@ describe("POST /api/auth/login", () => {
       code: "AUTH_LOGIN_INVALID_CREDENTIALS",
       reason: "invalid_credentials",
     });
+    expect(JSON.stringify(payload)).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
   });
 
   it("returns 403 when the authenticated user has no web profile", async () => {

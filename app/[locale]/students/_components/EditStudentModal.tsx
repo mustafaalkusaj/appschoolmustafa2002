@@ -112,7 +112,7 @@ export function EditStudentModal({
               />
             </FormField>
 
-            <FormField label={t("form.address")} htmlFor="edit_address">
+            <FormField label={t("form.address")} htmlFor="edit_address" helpText={t("form.optional")}>
               <Input
                 id="edit_address"
                 value={editForm.address}
@@ -120,7 +120,7 @@ export function EditStudentModal({
               />
             </FormField>
 
-            <FormField label={t("form.phone")} htmlFor="edit_phone">
+            <FormField label={t("form.phone")} htmlFor="edit_phone" helpText={t("form.optional")}>
               <Input
                 id="edit_phone"
                 value={editForm.phone}

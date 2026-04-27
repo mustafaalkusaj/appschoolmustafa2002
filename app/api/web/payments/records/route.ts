@@ -65,29 +65,36 @@ export async function POST(req: NextRequest) {
   if (!canRecordPayments) {
     return jsonError("ليس لديك صلاحية تسجيل دفعات جديدة.", 403);
   }
-  const { data: student, error: studentError } = await applyBranchScopeToQuery(
-    actorSupabase
-      .from("students")
-      .select("id, school_id, paid_fee, total_fee, discount_value, remaining_fee")
-      .eq("id", studentId)
-      .eq("school_id", targetSchoolId),
-    branchScope.value,
-  ).maybeSingle();
+  // Parallelize student fetch and authoritative fee calculation
+  let student: any;
+  let studentError: any;
+  let authoritativePaidFee: number;
+  try {
+    const [studentResult, authFeeResult] = await Promise.all([
+      applyBranchScopeToQuery(
+        actorSupabase
+          .from("students")
+          .select("id, school_id, paid_fee, total_fee, discount_value, remaining_fee")
+          .eq("id", studentId)
+          .eq("school_id", targetSchoolId),
+        branchScope.value,
+      ).maybeSingle(),
+      resolveAuthoritativeStudentPaidFee(
+        actorSupabase,
+        targetSchoolId,
+        studentId,
+        undefined,
+      ),
+    ]);
+
+    ({ data: student, error: studentError } = studentResult);
+    authoritativePaidFee = authFeeResult;
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
+  }
 
   if (studentError || !student?.id) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
-  }
-
-  let authoritativePaidFee = Number(student.paid_fee ?? 0);
-  try {
-    authoritativePaidFee = await resolveAuthoritativeStudentPaidFee(
-      actorSupabase,
-      targetSchoolId,
-      studentId,
-      student.paid_fee,
-    );
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر التحقق من رصيد الطالب الحالي.", 500);
   }
 
   const remainingBeforePayment = calculateStudentRemainingFee({
@@ -130,30 +137,13 @@ export async function POST(req: NextRequest) {
     return jsonError("تعذر تسجيل الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
 
-  const { data: refreshedStudent, error: refreshedStudentError } = await applyBranchScopeToQuery(
-    actorSupabase
-      .from("students")
-      .select("id, paid_fee, remaining_fee")
-      .eq("id", studentId)
-      .eq("school_id", targetSchoolId),
-    branchScope.value,
-  ).maybeSingle();
-
-  if (refreshedStudentError) {
-    logRouteError("payments-records-refresh-student", refreshedStudentError, {
-      actorUserId,
-      schoolId: targetSchoolId,
-      studentId,
-    });
-    return NextResponse.json(
-      {
-        ok: true,
-        payment: createdPayment,
-        warning: "تم تسجيل الدفعة لكن تعذر تحميل الرصيد المحدث للطالب.",
-      },
-      { status: 202 },
-    );
-  }
+  // Calculate updated student values from payment insertion
+  const newPaidFee = authoritativePaidFee + amount;
+  const newRemainingFee = calculateStudentRemainingFee({
+    total_fee: Number(student.total_fee ?? 0),
+    paid_fee: newPaidFee,
+    discount_value: Number(student.discount_value ?? 0),
+  });
 
   invalidateSchoolCacheDomains(targetSchoolId, [
     "dashboard-overview",
@@ -164,12 +154,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     payment: createdPayment,
-    studentUpdate: refreshedStudent
-      ? {
-          id: refreshedStudent.id,
-          paid_fee: Number(refreshedStudent.paid_fee ?? 0),
-          remaining_fee: Number(refreshedStudent.remaining_fee ?? 0),
-        }
-      : null,
+    studentUpdate: {
+      id: studentId,
+      paid_fee: newPaidFee,
+      remaining_fee: newRemainingFee,
+    },
   });
 }

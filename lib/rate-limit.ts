@@ -6,9 +6,9 @@
  * is not safe for Vercel, Lambda, or horizontally scaled deployments.
  */
 
-import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextRequest } from "next/server";
+import { createHash } from "node:crypto";
 
 interface RateLimitStore {
   [key: string]: {
@@ -25,12 +25,16 @@ type RateLimitDecision = {
   retryAfter: number;
 };
 
+type ProductionFailureReason = "missing-config" | "init-error" | "runtime-error";
+type ProductionFailureMode = "fail-open" | "fail-closed" | "memory-fallback";
+
 // Development-only memory store. It is not shared across serverless instances.
 const store: RateLimitStore = {};
-const redisRateLimiters = new Map<string, Ratelimit>();
 let redisClient: Redis | null = null;
 let hasLoggedMissingProductionConfig = false;
-let hasLoggedRedisError = false;
+const rateLimitFailureLogKeys = new Set<string>();
+export const RATE_LIMIT_FAIL_OPEN_TODO = "Replace fail-open with alert-backed resilient limiter before high traffic";
+const DEFAULT_RATE_LIMIT_ERROR_MESSAGE = "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً.";
 
 /**
  * Configuration for rate limiting
@@ -68,7 +72,13 @@ function isProduction() {
 }
 
 function hasUpstashConfig() {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim() && process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
+}
+
+function getUpstashConfig() {
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim() || "";
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim() || "";
+  return { url, token };
 }
 
 function getRedisClient() {
@@ -76,34 +86,14 @@ function getRedisClient() {
     return null;
   }
 
+  const { url, token } = getUpstashConfig();
+
   redisClient ??= new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    url,
+    token,
   });
 
   return redisClient;
-}
-
-function getRedisRateLimiter(namespace: string, config: RateLimitConfig) {
-  const redis = getRedisClient();
-  if (!redis) {
-    return null;
-  }
-
-  const cacheKey = `${namespace}:${config.requests}:${config.window}`;
-  let limiter = redisRateLimiters.get(cacheKey);
-
-  if (!limiter) {
-    limiter = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(config.requests, `${config.window} s`),
-      prefix: `school-app:rate-limit:${namespace}`,
-      analytics: false,
-    });
-    redisRateLimiters.set(cacheKey, limiter);
-  }
-
-  return limiter;
 }
 
 function logMissingProductionConfig() {
@@ -115,6 +105,23 @@ function logMissingProductionConfig() {
   console.error(
     "Production rate limiting requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
   );
+}
+
+function logProductionRateLimitBackendFailure(namespace: string, reason: ProductionFailureReason, error?: unknown) {
+  const logKey = `${namespace}:${reason}`;
+  if (rateLimitFailureLogKeys.has(logKey)) {
+    return;
+  }
+
+  rateLimitFailureLogKeys.add(logKey);
+
+  const baseMessage = `Production rate limiting backend failed for namespace="${namespace}" reason="${reason}". TODO: ${RATE_LIMIT_FAIL_OPEN_TODO}.`;
+  if (error) {
+    console.error(baseMessage, error);
+    return;
+  }
+
+  console.error(baseMessage);
 }
 
 function productionConfigurationResponse() {
@@ -140,7 +147,7 @@ function rateLimitedResponse(decision: RateLimitDecision) {
   return new Response(
     JSON.stringify({
       error: {
-        message: "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً.",
+        message: DEFAULT_RATE_LIMIT_ERROR_MESSAGE,
       },
     }),
     {
@@ -214,48 +221,47 @@ async function checkRateLimit(
   namespace: string,
   clientId: string,
   config: RateLimitConfig,
-): Promise<RateLimitDecision | "production-config-missing"> {
-  let limiter: Ratelimit | null = null;
+): Promise<RateLimitDecision | { productionFailure: ProductionFailureReason }> {
+  let redis: Redis | null = null;
   try {
-    limiter = getRedisRateLimiter(namespace, config);
+    redis = getRedisClient();
   } catch (error) {
-    if (!hasLoggedRedisError) {
-      hasLoggedRedisError = true;
-      console.error("Redis rate limiter init failed.", error);
-    }
     if (isProduction()) {
-      return { allowed: true, limit: config.requests, remaining: config.requests - 1, retryAfter: config.window };
+      logProductionRateLimitBackendFailure(namespace, "init-error", error);
+      return { productionFailure: "init-error" };
     }
   }
 
-  if (limiter) {
+  if (redis) {
     try {
-      const result = await limiter.limit(clientId);
-      return {
-        allowed: result.success,
-        limit: result.limit,
-        remaining: result.remaining,
-        retryAfter: Math.ceil(Math.max(0, result.reset - Date.now()) / 1000),
-      };
-    } catch (error) {
-      if (!hasLoggedRedisError) {
-        hasLoggedRedisError = true;
-        console.error("Redis-backed rate limiting failed.", error);
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const windowBucket = Math.floor(nowSeconds / config.window);
+      const key = `school-app:rate-limit:${namespace}:${windowBucket}:${clientId}`;
+      const current = await redis.incr(key);
+
+      if (current === 1) {
+        await redis.expire(key, config.window);
       }
 
+      const ttl = await redis.ttl(key);
+      const retryAfter = typeof ttl === "number" && ttl > 0 ? ttl : config.window;
+
+      return {
+        allowed: current <= config.requests,
+        limit: config.requests,
+        remaining: Math.max(0, config.requests - current),
+        retryAfter,
+      };
+    } catch (error) {
       if (isProduction()) {
-        return {
-          allowed: true,
-          limit: config.requests,
-          remaining: config.requests - 1,
-          retryAfter: config.window,
-        };
+        logProductionRateLimitBackendFailure(namespace, "runtime-error", error);
+        return { productionFailure: "runtime-error" };
       }
     }
   }
 
   if (isProduction()) {
-    return "production-config-missing";
+    return { productionFailure: "missing-config" };
   }
 
   return isWithinMemoryRateLimit(clientId, config);
@@ -289,7 +295,7 @@ export async function rateLimitMiddleware(
   const clientId = getClientId(req);
   const decision = await checkRateLimit("middleware", clientId, limits);
 
-  if (decision === "production-config-missing") {
+  if ("productionFailure" in decision) {
     return {
       ok: false,
       clientId,
@@ -353,6 +359,31 @@ export function getRateLimitClientIp(req: NextRequest): string {
   return forwarded ? forwarded.split(",")[0].trim() : "unknown";
 }
 
+export function normalizeRateLimitEmail(email: string | null | undefined) {
+  return email?.trim().toLowerCase() || null;
+}
+
+function hashRateLimitValue(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function buildAuthRateLimitIdentifier(req: NextRequest, email: string | null | undefined) {
+  const normalizedEmail = normalizeRateLimitEmail(email);
+  const ip = getRateLimitClientIp(req) || "unknown";
+  const emailHash = normalizedEmail ? hashRateLimitValue(normalizedEmail).slice(0, 24) : "anon";
+  return `${ip}:${emailHash}`;
+}
+
+export function getRateLimitOpsSnapshot() {
+  return {
+    production: isProduction(),
+    upstashConfigured: hasUpstashConfig(),
+    failOpenEnabled: true,
+    memoryFallbackNamespaces: ["auth-login"],
+    todo: RATE_LIMIT_FAIL_OPEN_TODO,
+  };
+}
+
 /**
  * Type definitions for enforceRateLimit
  */
@@ -361,12 +392,43 @@ export type RateLimitOptions = {
   windowMs: number;
   maxHits: number;
   identifier?: string | null;
+  onRateLimited?: {
+    error: string;
+    message: string;
+  };
+  productionFailureMode?: ProductionFailureMode;
 };
+
+function buildCustomRateLimitedResponse(
+  decision: RateLimitDecision,
+  payload?: RateLimitOptions["onRateLimited"],
+) {
+  if (!payload) {
+    return rateLimitedResponse(decision);
+  }
+
+  return new Response(
+    JSON.stringify({
+      error: payload.error,
+      message: payload.message,
+    }),
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(Math.max(1, decision.retryAfter)),
+        "X-RateLimit-Limit": String(decision.limit),
+        "X-RateLimit-Remaining": String(Math.max(0, decision.remaining)),
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
 
 /**
  * Enforce rate limit (compatible with existing code)
  * Returns null if request is allowed, or Response if rate limited.
- * Never throws — fails open in production to avoid blocking auth endpoints.
+ * Never throws — production currently fails open to avoid blocking login if Redis is unavailable.
  */
 export async function enforceRateLimit(
   req: NextRequest,
@@ -376,22 +438,54 @@ export async function enforceRateLimit(
     const clientId = options.identifier || getRateLimitClientIp(req);
     const config = { requests: options.maxHits, window: Math.ceil(options.windowMs / 1000) };
     const decision = await checkRateLimit(options.namespace, clientId, config);
+    const productionFailureMode = options.productionFailureMode ?? "fail-open";
 
-    if (decision === "production-config-missing") {
+    if ("productionFailure" in decision) {
       if (isProduction()) {
-        console.error("Rate limiting not configured in production. Failing open.");
+        if (decision.productionFailure === "missing-config") {
+          logProductionRateLimitBackendFailure(options.namespace, decision.productionFailure);
+        }
+        if (productionFailureMode === "memory-fallback") {
+          const memoryDecision = isWithinMemoryRateLimit(clientId, config);
+          if (!memoryDecision.allowed) {
+            return buildCustomRateLimitedResponse(memoryDecision, options.onRateLimited);
+          }
+          return null;
+        }
+        if (productionFailureMode === "fail-closed") {
+          return buildCustomRateLimitedResponse(
+            {
+              allowed: false,
+              limit: config.requests,
+              remaining: 0,
+              retryAfter: config.window,
+            },
+            options.onRateLimited,
+          );
+        }
         return null;
       }
       return productionConfigurationResponse();
     }
 
     if (!decision.allowed) {
-      return rateLimitedResponse(decision);
+      return buildCustomRateLimitedResponse(decision, options.onRateLimited);
     }
 
     return null;
   } catch (error) {
-    console.error("enforceRateLimit threw unexpectedly. Failing open.", error);
+    console.error(`enforceRateLimit threw unexpectedly for namespace="${options.namespace}".`, error);
+    if (isProduction() && (options.productionFailureMode ?? "fail-open") === "fail-closed") {
+      return buildCustomRateLimitedResponse(
+        {
+          allowed: false,
+          limit: options.maxHits,
+          remaining: 0,
+          retryAfter: Math.ceil(options.windowMs / 1000),
+        },
+        options.onRateLimited,
+      );
+    }
     return null;
   }
 }

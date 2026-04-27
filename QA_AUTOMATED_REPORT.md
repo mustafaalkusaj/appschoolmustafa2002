@@ -2,6 +2,50 @@
 
 ---
 
+## 2026-04-27 — Login Rate Limit Hardening (P1)
+
+**Status:** ✅ fixed in code, verified locally on production build, not deployed yet
+**Lint:** ✅ 0 errors (18 pre-existing warnings) | **Typecheck:** ✅ | **Tests:** ✅ 282/282 | **Build:** ✅
+
+### Problem
+`POST /api/auth/login` did not enforce throttling in production. The audit reproduced 10 invalid login attempts all returning `401` with no `429`.
+
+### Root Cause
+- `auth-login` inherited shared `enforceRateLimit()` fail-open behavior in production.
+- The rate-limit identifier used raw `IP:email` instead of a safer normalized composite key.
+- The configured Upstash REST token in production-style runtime lacks Redis write permissions (`EVALSHA`, then `INCR`), so a strict Redis-only limiter was not viable without env changes.
+
+### Fixes
+
+| Layer | File | Change |
+|-------|------|--------|
+| Login route | `app/api/auth/login/route.ts` | uses normalized email, safe composite key, generic `too_many_attempts` response, and production memory fallback for `auth-login` |
+| Rate limiter core | `lib/rate-limit.ts` | added `buildAuthRateLimitIdentifier()`, email normalization, fixed-window Redis path via `INCR/EXPIRE/TTL`, and per-namespace production fallback modes |
+| Operations messaging | `lib/ops/health-monitor.ts`, `lib/ops/notifier.ts`, `scripts/predeploy-check.mjs` | updated wording to reflect `auth-login` memory fallback instead of fail-open/fail-closed confusion |
+| Postdeploy verification | `scripts/postdeploy-login-rate-limit.mjs`, `package.json` | added safe verification script to assert `401` then `429` after deploy |
+
+### Verification
+- `npm run lint` → ✅
+- `npm run typecheck` → ✅
+- `npm test` → ✅ 282/282
+- `env -u NODE_ENV npm run build` → ✅
+- Local production-build verification:
+  - `node scripts/postdeploy-login-rate-limit.mjs http://127.0.0.1:3002`
+  - result: attempts 1–5 => `401`, attempt 6 => `429`
+
+### Notes
+- Response body on throttling is now:
+```json
+{ "error": "too_many_attempts", "message": "محاولات كثيرة، حاول لاحقاً" }
+```
+- No secrets are emitted in the throttling path.
+- The postdeploy production command to verify after release is:
+```bash
+npm run postdeploy:login-rate-limit -- https://school-iraq.com
+```
+
+---
+
 ## 2026-04-27 — Branch Admin Dashboard Access Fix
 
 **Deployment URL:** `appschoolmustafa2002-12489isjl-fg12.vercel.app`

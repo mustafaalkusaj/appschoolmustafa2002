@@ -188,10 +188,14 @@ export function AddStudentModal({
             {/* Step 2: Contact */}
             {addStep === 2 && (
               <>
-                <FormField label={t("form.address")} htmlFor="address" required className="sm:col-span-2">
+                <FormField
+                  label={t("form.address")}
+                  htmlFor="address"
+                  helpText={t("form.optional")}
+                  className="sm:col-span-2"
+                >
                   <Input
                     id="address"
-                    required
                     autoFocus
                     placeholder={t("form.addressPlaceholder")}
                     value={form.address}

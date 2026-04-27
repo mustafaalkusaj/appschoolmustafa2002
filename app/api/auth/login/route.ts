@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { UserProfile } from "@/lib/auth";
 import { resolveWebUserProfileWithStatus } from "@/lib/authorization/snapshot";
 import { loginRequestSchema } from "@/lib/api-schemas";
-import { enforceRateLimit, getRateLimitClientIp } from "@/lib/rate-limit";
+import { buildAuthRateLimitIdentifier, enforceRateLimit, normalizeRateLimitEmail } from "@/lib/rate-limit";
 import {
   RBAC_COOKIE_NAME,
   buildRBACSessionPayload,
@@ -31,6 +31,8 @@ type LoginFailureCode =
   | "AUTH_LOGIN_SERVER_CONFIG"
   | "AUTH_LOGIN_PROFILE_LOOKUP_FAILED"
   | "AUTH_LOGIN_UNEXPECTED";
+
+const LOGIN_RATE_LIMIT_MESSAGE = "محاولات كثيرة، حاول لاحقاً";
 
 function buildFailureResponse(
   reason: LoginFailureReason,
@@ -68,11 +70,17 @@ export async function POST(req: NextRequest) {
     }
 
     _step = "rate_limit";
+    const normalizedEmail = normalizeRateLimitEmail(parsed.data.email);
     const rateLimited = await enforceRateLimit(req, {
       namespace: "auth-login",
       windowMs: 10 * 60_000,
       maxHits: 5,
-      identifier: `${getRateLimitClientIp(req)}:${parsed.data.email}`,
+      identifier: buildAuthRateLimitIdentifier(req, normalizedEmail),
+      productionFailureMode: "memory-fallback",
+      onRateLimited: {
+        error: "too_many_attempts",
+        message: LOGIN_RATE_LIMIT_MESSAGE,
+      },
     });
     if (rateLimited) {
       return rateLimited;
@@ -88,7 +96,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createRouteSupabaseClient();
     _step = "supabase_signin";
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: parsed.data.email,
+      email: normalizedEmail || parsed.data.email,
       password: parsed.data.password,
     });
 
@@ -204,7 +212,7 @@ export async function POST(req: NextRequest) {
           ...profile,
           id: profile.id,
           full_name: profile.full_name ?? null,
-          email: profile.email ?? parsed.data.email,
+          email: profile.email ?? normalizedEmail ?? parsed.data.email,
           avatar_url:
             typeof data.user.user_metadata?.avatar_url === "string"
               ? data.user.user_metadata.avatar_url

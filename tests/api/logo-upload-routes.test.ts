@@ -72,6 +72,21 @@ describe("logo upload routes", () => {
     expect(mockState.uploadLogoToStorage).not.toHaveBeenCalled();
   });
 
+  it("rejects unsupported school logo mime types with HTTP 400 instead of 500", async () => {
+    const { POST } = await import("@/app/api/web/dashboard/branding/logo/route");
+    const textFile = new File([new TextEncoder().encode("plain-text")], "bad.txt", {
+      type: "text/plain",
+    });
+
+    const response = await POST(makeRequest("/api/web/dashboard/branding/logo", textFile));
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error.code).toBe("BAD_MIME");
+    expect(payload.error.message).toMatch(/نوع الملف غير مدعوم|PNG|JPEG|WebP/i);
+    expect(mockState.uploadLogoToStorage).not.toHaveBeenCalled();
+  });
+
   it("accepts valid school logo uploads and returns the uploaded URL", async () => {
     const { POST } = await import("@/app/api/web/dashboard/branding/logo/route");
     const png = new File([VALID_PNG_BYTES], "logo.png", { type: "image/png" });

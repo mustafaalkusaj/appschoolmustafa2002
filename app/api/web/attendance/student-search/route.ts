@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
@@ -35,6 +36,16 @@ export async function GET(req: NextRequest) {
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
       "status" in context ? context.status : 500,
     );
+  }
+
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "attendance-student-search",
+    windowMs: 60_000,
+    maxHits: 120,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
   }
 
   if (!q || q.length < 2) {
