@@ -79,7 +79,7 @@ describe("POST /api/ops/telegram-webhook", () => {
     mockState.sendTelegramBotReply.mockResolvedValue({ provider: "telegram", status: "sent" });
   });
 
-  it("always returns 200", async () => {
+  it("returns 200 for invalid Telegram payload after secret passes", async () => {
     const { POST } = await import("@/app/api/ops/telegram-webhook/route");
     const res = await POST(makeWebhookRequest({ invalid: true }));
     expect(res.status).toBe(200);
@@ -146,12 +146,12 @@ describe("POST /api/ops/telegram-webhook", () => {
     expect(mockState.handleTelegramCommand).not.toHaveBeenCalled();
   });
 
-  it("rejects wrong webhook secret (still returns 200)", async () => {
+  it("rejects wrong webhook secret with 401", async () => {
     const { POST } = await import("@/app/api/ops/telegram-webhook/route");
     const res = await POST(
       makeWebhookRequest(makeUpdate(123456789, "/status"), { secret: "wrong-secret" }),
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
     expect(mockState.handleTelegramCommand).not.toHaveBeenCalled();
   });
 
@@ -170,7 +170,7 @@ describe("POST /api/ops/telegram-webhook", () => {
     const res = await POST(
       makeWebhookRequest(makeUpdate(123456789, "/test"), { secret: TEST_WEBHOOK_SECRET }),
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
     expect(mockState.handleTelegramCommand).not.toHaveBeenCalled();
   });
 

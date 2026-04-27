@@ -16,6 +16,13 @@ function ok() {
   );
 }
 
+function unauthorized() {
+  return NextResponse.json(
+    { ok: false, error: "unauthorized" },
+    { status: 401, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 export async function POST(request: NextRequest) {
   // ── 1. Verify webhook secret ────────────────────────────────────────────────
   // Secret is read from X-Telegram-Bot-Api-Secret-Token header (set via Telegram
@@ -25,12 +32,12 @@ export async function POST(request: NextRequest) {
   const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
   if (!webhookSecret) {
     console.log("[telegram-webhook] rejected: TELEGRAM_WEBHOOK_SECRET not configured");
-    return ok();
+    return unauthorized();
   }
   const provided = request.headers.get("x-telegram-bot-api-secret-token")?.trim() ?? "";
   if (provided !== getTelegramSecretToken(webhookSecret)) {
     console.log("[telegram-webhook] rejected: wrong secret");
-    return ok();
+    return unauthorized();
   }
 
   // ── 2. Parse body ───────────────────────────────────────────────────────────
