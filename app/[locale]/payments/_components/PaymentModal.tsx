@@ -68,9 +68,10 @@ export function PaymentModal({
           )}
 
           {/* Student Search */}
-          <FormField label={t("studentName")} required>
+          <FormField label={t("studentName")} htmlFor="student-search" required>
             <div className="relative" ref={searchRef}>
               <Input
+                id="student-search"
                 placeholder={t("studentSearchPlaceholder")}
                 value={studentSearch}
                 onChange={(e) => {
@@ -138,8 +139,9 @@ export function PaymentModal({
 
           {/* Form Fields Grid */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={t("receiptDate")} required>
+            <FormField label={t("receiptDate")} htmlFor="receipt-date" required>
               <Input
+                id="receipt-date"
                 type="date"
                 required
                 value={payForm.receipt_date}
@@ -147,8 +149,9 @@ export function PaymentModal({
               />
             </FormField>
 
-            <FormField label={t("amount") + " (" + t("currency") + ")"} required>
+            <FormField label={t("amount") + " (" + t("currency") + ")"} htmlFor="payment-amount" required>
               <Input
+                id="payment-amount"
                 type="number"
                 required
                 placeholder={t("amount")}
@@ -157,8 +160,9 @@ export function PaymentModal({
               />
             </FormField>
 
-            <FormField label={t("paperReceiptNumber")} helpText={t("optional")}>
+            <FormField label={t("paperReceiptNumber")} htmlFor="manual-receipt" helpText={t("optional")}>
               <Input
+                id="manual-receipt"
                 placeholder={t("exampleReceipt")}
                 value={payForm.manual_receipt_number}
                 onChange={(e) => setPayForm({ ...payForm, manual_receipt_number: e.target.value })}
@@ -171,8 +175,9 @@ export function PaymentModal({
               </div>
             </FormField>
 
-            <FormField label={t("paymentMethod")}>
+            <FormField label={t("paymentMethod")} htmlFor="payment-method">
               <Select
+                id="payment-method"
                 value={payForm.payment_method}
                 onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}
               >
@@ -182,8 +187,9 @@ export function PaymentModal({
               </Select>
             </FormField>
 
-            <FormField label={t("notes")} helpText={t("optional")}>
+            <FormField label={t("notes")} htmlFor="payment-notes" helpText={t("optional")}>
               <Input
+                id="payment-notes"
                 placeholder={t("notesPlaceholder")}
                 value={payForm.notes}
                 onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}

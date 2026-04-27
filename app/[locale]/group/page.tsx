@@ -124,7 +124,7 @@ function ExportButtons({
   const copy = COPY[locale];
   const disabled = !branchId && branchId !== undefined;
   const baseClassName =
-    "inline-flex min-w-[94px] items-center justify-center rounded-[18px] border px-4 py-2 text-sm font-black transition";
+    "inline-flex md:min-w-[94px] items-center justify-center rounded-[18px] border px-4 py-2 text-sm font-black transition";
 
   if (disabled) {
     return (

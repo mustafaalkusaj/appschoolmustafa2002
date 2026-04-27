@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+// Test credentials from environment or use defaults for test environment
+const TEST_USER_DOMAIN = process.env.TEST_USER_DOMAIN || "test.school.com";
+const TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || "test1234";
+
 const PAGES = [
   { path: "/ar/dashboard", role: "admin" },
   { path: "/ar/students", role: "admin" },
@@ -29,8 +33,8 @@ for (const { path, role } of PAGES) {
   test(`buttons inventory: ${path} [${role}]`, async ({ page }) => {
     // Login as role
     await page.goto("/ar/login");
-    await page.fill('input[type="email"]', `${role}@test.school.com`);
-    await page.fill('input[type="password"]', "test1234");
+    await page.fill('input[type="email"]', `${role}@${TEST_USER_DOMAIN}`);
+    await page.fill('input[type="password"]', TEST_USER_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL("**/dashboard**", { timeout: 10000 }).catch(() => null);
 
