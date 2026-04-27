@@ -140,8 +140,8 @@ export function StudentDetailPanel({
           </div>
 
           {paymentsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+            <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" aria-label="Loading payments" />
             </div>
           ) : payments.length === 0 ? (
             <EmptyState
