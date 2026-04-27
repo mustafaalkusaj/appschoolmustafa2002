@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
 type AttendanceStatusFilter = AttendanceStatus | "all";
@@ -83,6 +85,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
       "status" in context ? context.status : 500,
     );
+  }
+
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "attendance-student-details",
+    windowMs: 60_000,
+    maxHits: 120,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
+
+  const canViewAttendance = await routeUserHasPermission(
+    context.value.actorSupabase,
+    context.value.actorUserId,
+    "view_attendance",
+  );
+  if (!canViewAttendance) {
+    return jsonError("ليس لديك صلاحية عرض بيانات الحضور.", 403);
   }
 
   const status = normalizeStatus(req.nextUrl.searchParams.get("status"));

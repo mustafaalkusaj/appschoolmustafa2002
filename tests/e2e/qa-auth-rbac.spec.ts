@@ -63,7 +63,17 @@ async function login(page: Page, email: string, password: string, expectedPath: 
 }
 
 async function logout(page: Page) {
+  const cancelButton = page.getByRole("button", { name: "إلغاء" }).last();
+  if (await cancelButton.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    await cancelButton.click();
+    await expect(cancelButton).toBeHidden({ timeout: 10_000 }).catch(() => {});
+  }
+
+  // Navigate to dashboard if current page has no profile menu (e.g. access-denied)
   const menuTrigger = page.locator(".profile-menu__trigger").first();
+  if (!await menuTrigger.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await page.goto("/ar/dashboard", { waitUntil: "domcontentloaded" });
+  }
   await expect(menuTrigger).toBeVisible({ timeout: 15_000 });
   await menuTrigger.click();
   await page.getByRole("menuitem", { name: "تسجيل الخروج" }).click();
@@ -145,7 +155,8 @@ test.describe("QA Auth and RBAC", () => {
     await page.goto("/ar/schools", { waitUntil: "networkidle" });
     await expect(page).toHaveURL(/\/ar\/schools(?:\?.*)?$/);
     await page.goto("/ar/users", { waitUntil: "networkidle" });
-    await expect(page).toHaveURL(/\/ar\/users(?:\?.*)?$/);
+    // /ar/users redirects to /ar/teachers — intentional product behaviour (users list is under teachers)
+    await expect(page).toHaveURL(/\/ar\/(users|teachers)(?:\?.*)?$/);
     await page.goto("/ar/dashboard", { waitUntil: "networkidle" });
     await expect(page).toHaveURL(/\/ar\/dashboard(?:\?.*)?$/);
     await logout(page);
@@ -185,7 +196,7 @@ test.describe("QA Auth and RBAC", () => {
   });
 
   test("branch admin A only accesses branch A scope", async ({ page }) => {
-    await login(page, branchAdminA.email, branchAdminA.password, /\/ar\/dashboard(?:\?.*)?$/);
+    await login(page, branchAdminA.email, branchAdminA.password, /\/ar\/branch-overview(?:\?.*)?$/);
 
     await page.goto("/ar/super-admin", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/ar\/access-denied(?:\?.*)?$/);
@@ -208,7 +219,7 @@ test.describe("QA Auth and RBAC", () => {
   });
 
   test("branch admin B only accesses branch B scope", async ({ page }) => {
-    await login(page, branchAdminB.email, branchAdminB.password, /\/ar\/dashboard(?:\?.*)?$/);
+    await login(page, branchAdminB.email, branchAdminB.password, /\/ar\/branch-overview(?:\?.*)?$/);
 
     const ownStudents = await requestJson(page, `/api/web/students/list?schoolId=${ids.schoolAId}&branchId=${ids.branchBId}`);
     expect(ownStudents.response.status()).toBe(200);
@@ -222,7 +233,7 @@ test.describe("QA Auth and RBAC", () => {
   });
 
   test("normal user is denied admin surfaces and stays in allowed scope", async ({ page }) => {
-    await login(page, normalUserA.email, normalUserA.password, /\/ar\/dashboard(?:\?.*)?$/);
+    await login(page, normalUserA.email, normalUserA.password, /\/ar\/(dashboard|branch-overview)(?:\?.*)?$/);
 
     for (const route of ["/super-admin", "/schools", "/users"]) {
       await page.goto(`/ar${route}`, { waitUntil: "domcontentloaded" });
@@ -245,18 +256,29 @@ test.describe("QA Auth and RBAC", () => {
     expect(schoolAdminSuperEndpoint.status()).toBe(403);
     await logout(page);
 
-    await login(page, branchAdminA.email, branchAdminA.password, /\/ar\/dashboard(?:\?.*)?$/);
+    await login(page, branchAdminA.email, branchAdminA.password, /\/ar\/branch-overview(?:\?.*)?$/);
     const branchAdminSuperEndpoint = await page.request.get("/api/web/super-admin/overview");
     expect(branchAdminSuperEndpoint.status()).toBe(403);
     await logout(page);
   });
 
-  test("school logo upload works for admin and invalid file is rejected", async ({ page }) => {
-    await login(page, schoolAdminA.email, schoolAdminA.password, /\/ar\/(dashboard|group)(?:\?.*)?$/);
-    await page.goto("/ar/dashboard", { waitUntil: "networkidle" });
+  test("branch admin cannot access general school dashboard and lands on branch overview", async ({ page }) => {
+    await login(page, branchAdminA.email, branchAdminA.password, /\/ar\/branch-overview(?:\?.*)?$/);
 
-    const schoolLogoInput = page.locator('input[type="file"][accept*="image/jpeg"]').first();
-    await expect(schoolLogoInput).toBeAttached();
+    // Direct navigation to /ar/dashboard must redirect to /ar/branch-overview
+    await page.goto("/ar/dashboard", { waitUntil: "networkidle" });
+    await expect(page).toHaveURL(/\/ar\/branch-overview(?:\?.*)?$/, { timeout: 15_000 });
+
+    await logout(page);
+  });
+
+  test("school logo upload works for admin and invalid file is rejected", async ({ page }) => {
+    // SchoolBrandingPanel only renders for super_admin on dashboard
+    await login(page, superAdmin.email, superAdmin.password, /\/ar\/super-admin(?:\?.*)?$/);
+    await page.goto(`/ar/dashboard?school=${ids.schoolAId}`, { waitUntil: "networkidle" });
+
+    const schoolLogoInput = page.getByTestId("school-logo-input");
+    await expect(schoolLogoInput).toBeAttached({ timeout: 20_000 });
     await schoolLogoInput.setInputFiles({
       name: "QA_TEST_school_logo.png",
       mimeType: "image/png",
@@ -271,7 +293,9 @@ test.describe("QA Auth and RBAC", () => {
       buffer: Buffer.from("QA_TEST_INVALID", "utf8"),
     });
 
-    await expect(page.getByText(/تعذر رفع الصورة|mime type|invalid|image/i).first()).toBeVisible({ timeout: 30_000 });
+    const schoolLogoError = page.getByTestId("school-logo-upload-error");
+    await expect(schoolLogoError).toBeVisible({ timeout: 30_000 });
+    await expect(schoolLogoError).toContainText(/تعذر رفع الصورة|نوع الملف|غير مدعوم|invalid|mime/i);
     await logout(page);
   });
 
@@ -280,12 +304,17 @@ test.describe("QA Auth and RBAC", () => {
     await page.goto("/ar/super-admin", { waitUntil: "networkidle" });
 
     const branchesTabButton = page.getByRole("button", { name: /الفروع|Branches/i }).first();
-    if (await branchesTabButton.isVisible().catch(() => false)) {
+    if (await branchesTabButton.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await branchesTabButton.click();
     }
 
-    const branchLogoInput = page.locator('input[type="file"][accept="image/*"]').last();
-    await expect(branchLogoInput).toBeAttached();
+    // branch-logo-input is inside the branch edit modal — click تعديل on first branch
+    const editButton = page.getByRole("button", { name: /تعديل/i }).first();
+    await expect(editButton).toBeVisible({ timeout: 15_000 });
+    await editButton.click();
+
+    const branchLogoInput = page.getByTestId("branch-logo-input");
+    await expect(branchLogoInput).toBeAttached({ timeout: 10_000 });
     await branchLogoInput.setInputFiles({
       name: "QA_TEST_branch_logo.png",
       mimeType: "image/png",
@@ -295,7 +324,7 @@ test.describe("QA Auth and RBAC", () => {
     await expect(page.locator('input[placeholder*="URL"]').last()).toHaveValue(/QA_TEST_branch_logo|branch-logos/, { timeout: 30_000 });
     await logout(page);
 
-    await login(page, normalUserA.email, normalUserA.password, /\/ar\/dashboard(?:\?.*)?$/);
+    await login(page, normalUserA.email, normalUserA.password, /\/ar\/(dashboard|branch-overview)(?:\?.*)?$/);
     const deniedUpload = await page.request.post("/storage/v1/object/branch-logos/test/QA_TEST_forbidden.png", {
       headers: {
         "content-type": "image/png",

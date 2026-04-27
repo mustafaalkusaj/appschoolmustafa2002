@@ -72,7 +72,7 @@ function validateSecuritySettings() {
   } else if (upstashUrl && upstashToken) {
     ok("Distributed rate limiting is configured.");
   } else {
-    warn("Distributed rate limiting is not configured; production will fall back to per-instance memory limits.");
+    warn("Distributed rate limiting is not configured; auth login will fall back to per-instance memory throttling in production.");
   }
 }
 

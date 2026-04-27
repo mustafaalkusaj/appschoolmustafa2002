@@ -27,6 +27,9 @@ export function isAuthorizedHealthRequest(
     return false;
   }
 
-  const providedToken = request.headers.get("x-health-token")?.trim();
+  const providedToken =
+    request.headers.get("x-health-token")?.trim() ||
+    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+
   return Boolean(providedToken && healthcheckToken && providedToken === healthcheckToken);
 }

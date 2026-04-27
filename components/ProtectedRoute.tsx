@@ -8,6 +8,7 @@ import {
   getDefaultRouteForProfile,
   hasPermission,
   hasAssignedPageScope,
+  isBranchUserProfile,
   isGroupOverviewOnlyProfile,
   type Permission,
   type UserRole,
@@ -77,7 +78,8 @@ export function ProtectedRoute({
   useEffect(() => {
     if (loading || !blockedReason) return;
     const focusedDefaultPath =
-      (isGroupOverviewOnlyProfile(profile) || hasAssignedPageScope(profile)) && blockedReason === "forbidden"
+      (isGroupOverviewOnlyProfile(profile) || isBranchUserProfile(profile) || hasAssignedPageScope(profile)) &&
+      blockedReason === "forbidden"
         ? getDefaultRouteForProfile(profile)
         : null;
     router.replace(resolveRedirect(blockedReason, pathname, focusedDefaultPath));

@@ -1,6 +1,7 @@
 "use client";
 
 import { DAY_IN_MS, type SchoolRelation, type OverviewDatasetStatus } from "./types";
+import { endOfDayBaghdad } from "@/lib/tz";
 
 export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -52,7 +53,7 @@ export function calculateDaysLeft(value: string | null | undefined) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
 
-  return Math.ceil((parsed.getTime() - Date.now()) / DAY_IN_MS);
+  return Math.ceil((endOfDayBaghdad(parsed).getTime() - Date.now()) / DAY_IN_MS);
 }
 
 export function isSubscriptionExpired(subscription: { status: string; end_date: string | null } | null | undefined) {

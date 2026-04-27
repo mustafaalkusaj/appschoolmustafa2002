@@ -19,6 +19,7 @@
     "check": "npm run lint && npm run typecheck && npm run build",
     "predeploy:check": "node scripts/predeploy-check.mjs",
     "postdeploy:smoke": "node scripts/postdeploy-smoke.mjs",
+    "postdeploy:login-rate-limit": "node scripts/postdeploy-login-rate-limit.mjs",
     "deploy:direct": "bash scripts/direct-deploy.sh",
     "audit:prod": "npm audit --omit=dev",
     "seed:users": "node scripts/create-default-users.mjs",

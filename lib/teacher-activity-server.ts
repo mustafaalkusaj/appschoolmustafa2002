@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { escapeFilterValue } from "@/lib/supabase-query-helpers";
@@ -215,6 +216,16 @@ async function resolveTeacherActivityScope(
   const { actorSupabase, actorUserId, actorRole: scopedActorRole, targetSchoolId, actorBranchId } = scopedActor.value;
   if (scopedActorRole !== "super_admin" && scopedActorRole !== "admin") {
     return { ok: false, status: 403, message: "هذه الوحدة متاحة للمدير أو المدير العام فقط." };
+  }
+
+  const rateLimited = await enforceRateLimit(request, {
+    namespace: "teacher-activity",
+    windowMs: 60_000,
+    maxHits: 120,
+    identifier: actorUserId,
+  });
+  if (rateLimited !== null) {
+    return { ok: false, status: 429, message: "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً." };
   }
 
   const actorRole: TeacherActivityScope["actorRole"] = scopedActorRole;

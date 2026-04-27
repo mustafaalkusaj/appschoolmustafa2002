@@ -11,13 +11,14 @@ import type {
   SchoolScopedActorContext,
 } from "./types";
 
+import { endOfDayBaghdad } from "@/lib/tz";
+
 // Check if school subscription is expired
 function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
   if (!endDate) return false;
   const parsed = new Date(endDate);
   if (Number.isNaN(parsed.getTime())) return false;
-  parsed.setHours(23, 59, 59, 999);
-  return Date.now() > parsed.getTime();
+  return Date.now() > endOfDayBaghdad(parsed).getTime();
 }
 
 async function readValidatedRbacSession() {

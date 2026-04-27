@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolManagerOverview, type SchoolManagerBranchSummary } from "@/lib/school-manager/overview";
 
 function jsonError(message: string, status: number) {
@@ -37,11 +38,19 @@ function buildRows(branch: SchoolManagerBranchSummary): Array<[string, string]> 
   ];
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function buildHtmlDocument(title: string, rows: Array<[string, string]>, autoPrint = false) {
   const tableRows = rows
     .map(
       ([label, value]) =>
-        `<tr><td style="padding:12px;border:1px solid #d9d9df;font-weight:700;background:#f7f8fb;">${label}</td><td style="padding:12px;border:1px solid #d9d9df;">${value}</td></tr>`,
+        `<tr><td style="padding:12px;border:1px solid #d9d9df;font-weight:700;background:#f7f8fb;">${escapeHtml(label)}</td><td style="padding:12px;border:1px solid #d9d9df;">${escapeHtml(value)}</td></tr>`,
     )
     .join("");
 
@@ -61,7 +70,7 @@ function buildHtmlDocument(title: string, rows: Array<[string, string]>, autoPri
     </head>
     <body>
       <div class="sheet">
-        <h1>${title}</h1>
+        <h1>${escapeHtml(title)}</h1>
         <p>تم التوليد من صفحة مدير المدرسة على مستوى المدرسة.</p>
         <table>${tableRows}</table>
         <div class="footer">${new Date().toLocaleString("ar-IQ")}</div>
@@ -90,6 +99,16 @@ export async function GET(req: NextRequest) {
 
   if (context.value.scopeLevel !== "group_admin") {
     return jsonError("هذا التصدير مخصص لمدير المدرسة على مستوى المدرسة فقط.", 403);
+  }
+
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "group-export",
+    windowMs: 60_000,
+    maxHits: 20,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
   }
 
   const branchId = req.nextUrl.searchParams.get("branchId");

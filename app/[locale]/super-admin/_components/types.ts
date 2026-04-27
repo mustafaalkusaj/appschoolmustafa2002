@@ -12,7 +12,8 @@ export type ActiveTab =
   | "trash"
   | "notifications"
   | "monitoring"
-  | "branches";
+  | "branches"
+  | "errors";
 
 export type SchoolPlan = "basic" | "premium" | "enterprise";
 export type SubscriptionStatus = "active" | "suspended" | "inactive" | "expired";

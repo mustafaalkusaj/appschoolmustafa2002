@@ -9,7 +9,14 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/brand/brand-utils";
-import { supabase } from "@/lib/supabase";
+import { validateLogoUpload } from "@/lib/upload-validation";
+
+function buildUploadErrorMessage(reason?: string | null) {
+  const normalizedReason = reason?.trim();
+  return normalizedReason
+    ? `تعذر رفع الصورة: ${normalizedReason}`
+    : "تعذر رفع الصورة: نوع الملف غير مدعوم. الرجاء رفع صورة PNG أو JPEG أو WebP.";
+}
 
 interface SchoolBrandingPanelProps {
   brandingSchoolId: string | null;
@@ -45,9 +52,10 @@ export function SchoolBrandingPanel({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 2 * 1024 * 1024; // 2 MB
-    if (file.size > maxSize) {
-      setUploadError("حجم الصورة كبير جداً (الحد الأقصى 2 ميغابايت).");
+    const validation = await validateLogoUpload(file, file.type);
+    if (!validation.ok) {
+      setUploadError(buildUploadErrorMessage(validation.message));
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -55,25 +63,34 @@ export function SchoolBrandingPanel({
     setUploadError(null);
 
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const schoolScope = brandingSchoolId?.trim();
       if (!schoolScope) {
         throw new Error("تعذر تحديد المدرسة الحالية لرفع الشعار.");
       }
-      const fileName = `${schoolScope}/logo_${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("school-logos")
-        .upload(fileName, file, { upsert: true, contentType: file.type });
+      const uploadForm = new FormData();
+      uploadForm.set("school_id", schoolScope);
+      uploadForm.set("file", file);
 
-      if (uploadErr) throw uploadErr;
+      const response = await fetch("/api/web/dashboard/branding/logo", {
+        method: "POST",
+        body: uploadForm,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { url?: string; error?: { message?: string } }
+        | null;
+      const uploadedUrl = payload?.url;
 
-      const { data: urlData } = supabase.storage
-        .from("school-logos")
-        .getPublicUrl(fileName);
+      if (!response.ok || typeof uploadedUrl !== "string" || !uploadedUrl) {
+        throw new Error(buildUploadErrorMessage(payload?.error?.message));
+      }
 
-      setBrandingForm((prev) => ({ ...prev, logo_url: urlData.publicUrl }));
+      setBrandingForm((prev) => ({ ...prev, logo_url: uploadedUrl }));
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "تعذر رفع الصورة.");
+      setUploadError(
+        err instanceof Error
+          ? buildUploadErrorMessage(err.message.replace(/^تعذر رفع الصورة:\s*/, ""))
+          : buildUploadErrorMessage(),
+      );
     } finally {
       setUploading(false);
       // reset input so same file can be re-selected
@@ -112,8 +129,9 @@ export function SchoolBrandingPanel({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              accept="image/jpeg,image/png,image/webp"
               className="hidden"
+              data-testid="school-logo-input"
               onChange={(e) => void handleFileUpload(e)}
             />
 
@@ -168,7 +186,11 @@ export function SchoolBrandingPanel({
             </div>
 
             {uploadError && (
-              <p className="mt-1.5 text-xs text-[var(--danger)] font-semibold flex items-center gap-1">
+              <p
+                role="alert"
+                data-testid="school-logo-upload-error"
+                className="mt-1.5 text-xs text-[var(--danger)] font-semibold flex items-center gap-1"
+              >
                 <Info size={12} />
                 {uploadError}
               </p>

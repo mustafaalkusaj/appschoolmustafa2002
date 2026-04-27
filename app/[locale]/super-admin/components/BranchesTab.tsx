@@ -16,6 +16,7 @@ import {
 } from "@/lib/icons";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { validateLogoUpload } from "@/lib/upload-validation";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { isMissingRelationError } from "@/lib/admin-infrastructure";
 import type { AppSchemaCompat } from "@/lib/schema-compat";
@@ -36,6 +37,13 @@ import {
 import { DEFAULT_SCHOOL_BRANDING } from "../_components/types";
 import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
+
+function buildUploadErrorMessage(reason?: string | null) {
+  const normalizedReason = reason?.trim();
+  return normalizedReason
+    ? `تعذر رفع الصورة: ${normalizedReason}`
+    : "تعذر رفع الصورة: نوع الملف غير مدعوم. الرجاء رفع صورة PNG أو JPEG أو WebP.";
+}
 
 type BranchSchool = {
   id: string;
@@ -341,27 +349,45 @@ export function BranchesTab({
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setLogoError("حجم الصورة كبير (الحد الأقصى 2 ميغابايت).");
+
+    const validation = await validateLogoUpload(file, file.type);
+    if (!validation.ok) {
+      setLogoError(buildUploadErrorMessage(validation.message));
+      if (logoInputRef.current) logoInputRef.current.value = "";
       return;
     }
+
     setLogoUploading(true);
     setLogoError(null);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const schoolScope = formData.school_id.trim();
       if (!schoolScope) {
         throw new Error("اختر المدرسة أولاً قبل رفع شعار الفرع.");
       }
-      const fileName = `${schoolScope}/branch_logo_${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("branch-logos")
-        .upload(fileName, file, { upsert: true, contentType: file.type });
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("branch-logos").getPublicUrl(fileName);
-      setFormData((current) => ({ ...current, logo_url: urlData.publicUrl }));
+      const uploadForm = new FormData();
+      uploadForm.set("school_id", schoolScope);
+      uploadForm.set("file", file);
+
+      const response = await fetch("/api/web/super-admin/branches/logo", {
+        method: "POST",
+        body: uploadForm,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { url?: string; error?: { message?: string } }
+        | null;
+      const uploadedUrl = payload?.url;
+
+      if (!response.ok || typeof uploadedUrl !== "string" || !uploadedUrl) {
+        throw new Error(buildUploadErrorMessage(payload?.error?.message));
+      }
+
+      setFormData((current) => ({ ...current, logo_url: uploadedUrl }));
     } catch (err) {
-      setLogoError(err instanceof Error ? err.message : "تعذر رفع الشعار.");
+      setLogoError(
+        err instanceof Error
+          ? buildUploadErrorMessage(err.message.replace(/^تعذر رفع الصورة:\s*/, ""))
+          : buildUploadErrorMessage(),
+      );
     } finally {
       setLogoUploading(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
@@ -818,19 +844,26 @@ export function BranchesTab({
                               >
                                 إزالة
                               </button>
-                            )}
-                          </div>
-                        </div>
-                        <input
+                      )}
+                    </div>
+                  </div>
+                  <input
                           ref={logoInputRef}
                           type="file"
-                          accept="image/*"
+                          accept="image/jpeg,image/png,image/webp"
                           className="hidden"
+                          data-testid="branch-logo-input"
                           onChange={handleLogoUpload}
                         />
                       </div>
                       {logoError && (
-                        <p className="text-[11px] font-bold text-rose-600">{logoError}</p>
+                        <p
+                          role="alert"
+                          data-testid="branch-logo-upload-error"
+                          className="text-[11px] font-bold text-rose-600"
+                        >
+                          {logoError}
+                        </p>
                       )}
                     </div>
                   </div>

@@ -52,13 +52,27 @@ describe("school-level manager access", () => {
     });
   });
 
-  it("does not force branch-scoped managers into the group page", () => {
+  it("redirects branch-scoped admins to /branch-overview, ignoring default_path", () => {
     const profile = buildProfile({
       scope_level: "branch_user",
       default_path: "/dashboard",
     });
 
-    expect(getDefaultRouteForProfile(profile)).toBe("/dashboard");
+    expect(getDefaultRouteForProfile(profile)).toBe("/branch-overview");
+  });
+
+  it("blocks branch-scoped admins from /dashboard and allows /branch-overview", () => {
+    const profile = buildProfile({ scope_level: "branch_user" });
+
+    expect(getAccessDecision(profile, "/ar/dashboard")).toEqual({
+      allowed: false,
+      reason: "forbidden",
+      readOnly: false,
+    });
+    expect(getAccessDecision(profile, "/ar/branch-overview")).toEqual({
+      allowed: true,
+      readOnly: false,
+    });
   });
 
   it("uses the first assigned page for school-scoped staff with limited pages", () => {

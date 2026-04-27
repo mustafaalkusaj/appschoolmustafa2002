@@ -19,51 +19,6 @@ export type PublicEnv = {
 
 let cachedPublicEnv: PublicEnv | null = null;
 
-function decodeBase64Url(value: string): string {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padding = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
-  const padded = normalized + "=".repeat(padding);
-
-  try {
-    return Buffer.from(padded, "base64").toString("utf-8");
-  } catch {
-    try {
-      return atob(padded);
-    } catch {
-      return "";
-    }
-  }
-}
-
-function deriveSupabaseUrlFromServiceRoleKey(): string {
-  const token = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
-  if (!token) return "";
-
-  const parts = token.split(".");
-  if (parts.length < 2) return "";
-
-  try {
-    const payloadRaw = decodeBase64Url(parts[1]);
-    if (!payloadRaw) return "";
-
-    const payload = JSON.parse(payloadRaw) as { iss?: unknown };
-    const issuer = typeof payload.iss === "string" ? payload.iss.trim() : "";
-    if (!issuer) return "";
-
-    if (/^https?:\/\/.+\/auth\/v1\/?$/.test(issuer)) {
-      return issuer.replace(/\/auth\/v1\/?$/, "");
-    }
-
-    if (/^https?:\/\/.+$/.test(issuer)) {
-      return new URL(issuer).origin;
-    }
-  } catch {
-    return "";
-  }
-
-  return "";
-}
-
 export function getPublicEnv(): PublicEnv {
   if (cachedPublicEnv) {
     return cachedPublicEnv;
@@ -88,7 +43,6 @@ export function getPublicEnv(): PublicEnv {
   const supabaseUrl =
     parsed.data.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     parsed.data.SUPABASE_URL?.trim() ||
-    deriveSupabaseUrlFromServiceRoleKey() ||
     "";
 
   if (!supabaseUrl) {
@@ -96,7 +50,6 @@ export function getPublicEnv(): PublicEnv {
       "Missing Supabase URL.",
       `NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? "set" : "not set"}`,
       `SUPABASE_URL: ${process.env.SUPABASE_URL ? "set" : "not set"}`,
-      `SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? "set" : "not set"}`,
     ].join(" ");
     throw new Error(msg);
   }
