@@ -276,10 +276,27 @@ function isAttendanceStatus(value: string): value is AttendanceStatus {
   return value === "present" || value === "absent" || value === "late" || value === "excused";
 }
 
-function mapAttendanceDbError(message: string, copy: AttendanceCopy) {
+function mapAttendanceDbError(message: string, copy: AttendanceCopy, locale: "ar" | "en" = "ar") {
   if (message.includes('relation "attendance_records" does not exist')) {
     return copy.dbTableMissing;
   }
+  // Map common database errors to localized messages
+  if (message.includes("unique_violation") || message.includes("duplicate key")) {
+    return locale === "ar"
+      ? "تم تسجيل هذا الطالب مسبقاً لهذا التاريخ."
+      : "This student has already been recorded for this date.";
+  }
+  if (message.includes("foreign_key_violation")) {
+    return locale === "ar"
+      ? "لا يمكن العثور على الطالب المطلوب."
+      : "The requested student could not be found.";
+  }
+  if (message.includes("check_violation")) {
+    return locale === "ar"
+      ? "البيانات المدخلة غير صحيحة."
+      : "The provided data is invalid.";
+  }
+  // Fallback: return raw message as-is (likely from API error response)
   return message;
 }
 
@@ -330,7 +347,7 @@ export default function AttendancePage() {
 
     if (!response.ok || !payload?.ok) {
       const message = payload?.error?.message || copy.loadStudentsFailed;
-      setError(`${copy.loadAttendanceFailedPrefix} ${mapAttendanceDbError(message, copy)}`);
+      setError(`${copy.loadAttendanceFailedPrefix} ${mapAttendanceDbError(message, copy, locale)}`);
       setStudents([]);
       setAttendanceDrafts({});
       setHistoryRows([]);
@@ -462,7 +479,7 @@ export default function AttendancePage() {
 
     if (!response.ok || !result?.ok) {
       const message = result?.error?.message || copy.saveFailedPrefix;
-      setError(`${copy.saveFailedPrefix} ${mapAttendanceDbError(message, copy)}`);
+      setError(`${copy.saveFailedPrefix} ${mapAttendanceDbError(message, copy, locale)}`);
       setSaving(false);
       return;
     }
