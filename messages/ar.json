@@ -162,6 +162,32 @@
       "recentTitle": "آخر التحصيلات",
       "viewAll": "عرض الكل",
       "noPayments": "لا توجد دفعات مسجلة حتى الآن"
+,
+      "modal": {
+        "title": "تسجيل دفعة جديدة",
+        "studentName": "اسم الطالب",
+        "studentSearchPlaceholder": "ابحث باسم الطالب...",
+        "searching": "جارٍ البحث...",
+        "noResults": "لا توجد نتائج",
+        "total": "الكلي",
+        "paid": "المدفوع",
+        "remaining": "المتبقي",
+        "receiptDate": "تاريخ الإيصال",
+        "amount": "المبلغ",
+        "paperReceiptNumber": "رقم الإيصال الورقي",
+        "optional": "اختياري",
+        "exampleReceipt": "مثال: 1042",
+        "electronicReceiptNumber": "رقم الإيصال الإلكتروني",
+        "paymentMethod": "طريقة الدفع",
+        "methodCash": "نقداً",
+        "methodBankTransfer": "تحويل بنكي",
+        "methodCheck": "شيك",
+        "notes": "ملاحظات",
+        "notesPlaceholder": "أي ملاحظات...",
+        "recordButton": "تسجيل الدفعة",
+        "cancelButton": "إلغاء",
+        "currency": "د.ع"
+      }
     },
     "overdue": {
       "title": "طلاب متأخرون عن السداد",

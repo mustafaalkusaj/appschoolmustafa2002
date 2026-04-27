@@ -1,6 +1,7 @@
 "use client";
 
 import { formatNumber } from "@/lib/formatting";
+import { useTranslations } from "next-intl";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,11 +51,12 @@ export function PaymentModal({
   searchRef,
   onSelectStudent,
 }: PaymentModalProps) {
+  const t = useTranslations("payments.modal");
   const nextReceiptNum = `REC-${(totalPaymentCount + 1001).toString()}`;
 
   return (
     <Modal open={show} onClose={onClose} size="lg">
-      <ModalHeader title="تسجيل دفعة جديدة" onClose={onClose} />
+      <ModalHeader title={t("title")} onClose={onClose} />
 
       <form onSubmit={onSubmit}>
         <ModalBody className="space-y-6">
@@ -66,10 +68,10 @@ export function PaymentModal({
           )}
 
           {/* Student Search */}
-          <FormField label="اسم الطالب" required>
+          <FormField label={t("studentName")} required>
             <div className="relative" ref={searchRef}>
               <Input
-                placeholder="ابحث باسم الطالب..."
+                placeholder={t("studentSearchPlaceholder")}
                 value={studentSearch}
                 onChange={(e) => {
                   setStudentSearch(e.target.value);
@@ -88,9 +90,9 @@ export function PaymentModal({
               {showDropdown && !payStudent && studentSearch && (
                 <div className="absolute top-full start-0 end-0 mt-1 bg-[var(--card-bg)] border border-[var(--border)] rounded-[var(--radius-md)] shadow-lg z-10 max-h-60 overflow-y-auto">
                   {studentSearchLoading ? (
-                    <div className="p-4 text-center text-sm text-[var(--text-muted)]">جارٍ البحث...</div>
+                    <div className="p-4 text-center text-sm text-[var(--text-muted)]">{t("searching")}</div>
                   ) : studentSearchResults.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-[var(--text-muted)]">لا توجد نتائج</div>
+                    <div className="p-4 text-center text-sm text-[var(--text-muted)]">{t("noResults")}</div>
                   ) : (
                     studentSearchResults.map((s) => (
                       <button
@@ -119,15 +121,15 @@ export function PaymentModal({
             <Card className="p-4">
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="text-[var(--text-muted)]">الكلي:</span>
+                  <span className="text-[var(--text-muted)]">{t("total")}:</span>
                   <p className="font-semibold text-[var(--text-primary)]">د.ع {formatNumber(payStudent.total_fee)}</p>
                 </div>
                 <div>
-                  <span className="text-[var(--text-muted)]">المدفوع:</span>
+                  <span className="text-[var(--text-muted)]">{t("paid")}:</span>
                   <p className="font-semibold text-[var(--success)]">د.ع {formatNumber(payStudent.paid_fee)}</p>
                 </div>
                 <div>
-                  <span className="text-[var(--text-muted)]">المتبقي:</span>
+                  <span className="text-[var(--text-muted)]">{t("remaining")}:</span>
                   <p className="font-semibold text-[var(--danger)]">د.ع {formatNumber(payStudent.remaining_fee)}</p>
                 </div>
               </div>
@@ -136,7 +138,7 @@ export function PaymentModal({
 
           {/* Form Fields Grid */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="تاريخ الإيصال" required>
+            <FormField label={t("receiptDate")} required>
               <Input
                 type="date"
                 required
@@ -145,44 +147,44 @@ export function PaymentModal({
               />
             </FormField>
 
-            <FormField label="المبلغ (د.ع)" required>
+            <FormField label={t("amount") + " (" + t("currency") + ")"} required>
               <Input
                 type="number"
                 required
-                placeholder="500000"
+                placeholder={t("amount")}
                 value={payForm.amount}
                 onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
               />
             </FormField>
 
-            <FormField label="رقم الإيصال الورقي" helpText="اختياري">
+            <FormField label={t("paperReceiptNumber")} helpText={t("optional")}>
               <Input
-                placeholder="مثال: 1042"
+                placeholder={t("exampleReceipt")}
                 value={payForm.manual_receipt_number}
                 onChange={(e) => setPayForm({ ...payForm, manual_receipt_number: e.target.value })}
               />
             </FormField>
 
-            <FormField label="رقم الإيصال الإلكتروني">
+            <FormField label={t("electronicReceiptNumber")}>
               <div className="rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] p-3 text-center">
                 <span className="block break-all text-sm font-bold text-[var(--primary)]">{nextReceiptNum}</span>
               </div>
             </FormField>
 
-            <FormField label="طريقة الدفع">
+            <FormField label={t("paymentMethod")}>
               <Select
                 value={payForm.payment_method}
                 onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}
               >
-                <option value="cash">نقداً</option>
-                <option value="bank_transfer">تحويل بنكي</option>
-                <option value="check">شيك</option>
+                <option value="cash">{t("methodCash")}</option>
+                <option value="bank_transfer">{t("methodBankTransfer")}</option>
+                <option value="check">{t("methodCheck")}</option>
               </Select>
             </FormField>
 
-            <FormField label="ملاحظات" helpText="اختياري">
+            <FormField label={t("notes")} helpText={t("optional")}>
               <Input
-                placeholder="أي ملاحظات..."
+                placeholder={t("notesPlaceholder")}
                 value={payForm.notes}
                 onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
               />

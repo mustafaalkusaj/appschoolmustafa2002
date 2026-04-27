@@ -162,6 +162,32 @@
       "recentTitle": "Recent Collections",
       "viewAll": "View All",
       "noPayments": "No payments recorded yet"
+,
+      "modal": {
+        "title": "Record New Payment",
+        "studentName": "Student Name",
+        "studentSearchPlaceholder": "Search by student name...",
+        "searching": "Searching...",
+        "noResults": "No results",
+        "total": "Total",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "receiptDate": "Receipt Date",
+        "amount": "Amount",
+        "paperReceiptNumber": "Paper Receipt Number",
+        "optional": "Optional",
+        "exampleReceipt": "Example: 1042",
+        "electronicReceiptNumber": "Electronic Receipt Number",
+        "paymentMethod": "Payment Method",
+        "methodCash": "Cash",
+        "methodBankTransfer": "Bank Transfer",
+        "methodCheck": "Check",
+        "notes": "Notes",
+        "notesPlaceholder": "Any notes...",
+        "recordButton": "Record Payment",
+        "cancelButton": "Cancel",
+        "currency": "IQD"
+      }
     },
     "overdue": {
       "title": "Overdue Students",
