@@ -16,7 +16,7 @@ import {
 } from "@/lib/icons";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-import { validateLogoUpload, sanitizeStorageFilename } from "@/lib/upload-validation";
+import { validateLogoUpload } from "@/lib/upload-validation";
 import type { AdminInfrastructure } from "@/lib/admin-infrastructure";
 import { isMissingRelationError } from "@/lib/admin-infrastructure";
 import type { AppSchemaCompat } from "@/lib/schema-compat";
@@ -353,19 +353,28 @@ export function BranchesTab({
     setLogoUploading(true);
     setLogoError(null);
     try {
-      const safeName = sanitizeStorageFilename(file.name);
-      const ext = safeName.split(".").pop()?.toLowerCase() || "jpg";
       const schoolScope = formData.school_id.trim();
       if (!schoolScope) {
         throw new Error("اختر المدرسة أولاً قبل رفع شعار الفرع.");
       }
-      const fileName = `${schoolScope}/branch_logo_${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("branch-logos")
-        .upload(fileName, file, { upsert: true, contentType: file.type });
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("branch-logos").getPublicUrl(fileName);
-      setFormData((current) => ({ ...current, logo_url: urlData.publicUrl }));
+      const uploadForm = new FormData();
+      uploadForm.set("school_id", schoolScope);
+      uploadForm.set("file", file);
+
+      const response = await fetch("/api/web/super-admin/branches/logo", {
+        method: "POST",
+        body: uploadForm,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { url?: string; error?: { message?: string } }
+        | null;
+      const uploadedUrl = payload?.url;
+
+      if (!response.ok || typeof uploadedUrl !== "string" || !uploadedUrl) {
+        throw new Error(payload?.error?.message || "تعذر رفع الشعار.");
+      }
+
+      setFormData((current) => ({ ...current, logo_url: uploadedUrl }));
     } catch (err) {
       setLogoError(err instanceof Error ? err.message : "تعذر رفع الشعار.");
     } finally {
@@ -830,7 +839,7 @@ export function BranchesTab({
                         <input
                           ref={logoInputRef}
                           type="file"
-                          accept="image/*"
+                          accept="image/jpeg,image/png,image/webp"
                           className="hidden"
                           data-testid="branch-logo-input"
                           onChange={handleLogoUpload}
