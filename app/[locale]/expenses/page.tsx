@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useDeferredValue, useEffect, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { translateLegacyText } from "@/lib/legacy-locale";
@@ -641,7 +641,7 @@ export default function ExpensesPage() {
     await XLSX.writeFile(wb, copy.exportTypesFile);
   }
 
-  const filteredTypes = expenseTypes.filter((t) => !typeSearch || t.name.includes(typeSearch));
+  const filteredTypes = useMemo(() => expenseTypes.filter((t) => !typeSearch || t.name.includes(typeSearch)), [expenseTypes, typeSearch]);
   const totalFiltered = expenseSummary.filteredTotalAmount;
   const totalAll = expenseSummary.schoolTotalAmount;
 
