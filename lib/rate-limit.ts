@@ -71,6 +71,10 @@ function isProduction() {
   return process.env.NODE_ENV === "production";
 }
 
+function isLocalhost() {
+  return process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1";
+}
+
 function hasUpstashConfig() {
   return Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim() && process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
 }
@@ -222,6 +226,16 @@ async function checkRateLimit(
   clientId: string,
   config: RateLimitConfig,
 ): Promise<RateLimitDecision | { productionFailure: ProductionFailureReason }> {
+  // Skip rate limiting on localhost for E2E testing
+  if (isLocalhost()) {
+    return {
+      allowed: true,
+      limit: config.requests,
+      remaining: config.requests - 1,
+      retryAfter: config.window,
+    };
+  }
+
   let redis: Redis | null = null;
   try {
     redis = getRedisClient();

@@ -40,6 +40,9 @@ loadEnvFile(".env.e2e.local");
 const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim() || process.env.PW_BASE_URL?.trim();
 const baseURL = configuredBaseUrl || "http://127.0.0.1:3000";
 const remoteBaseUrl = /^https?:\/\//i.test(baseURL) && !baseURL.includes("127.0.0.1:3000") && !baseURL.includes("localhost:3000");
+const artifactsDir = ".playwright-state";
+const adminStoragePath = path.join(artifactsDir, "admin-storage-state.json");
+const superAdminStoragePath = path.join(artifactsDir, "super-admin-storage-state.json");
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -71,11 +74,29 @@ export default defineConfig({
       },
     },
     {
-      name: "chromium",
+      name: "public",
       dependencies: skipAuthSetup ? [] : ["setup"],
-      testIgnore: /auth\.setup\.ts/,
+      testMatch: /auth-and-public/,
       use: {
         ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "super-admin",
+      dependencies: skipAuthSetup ? [] : ["setup"],
+      testMatch: /super-admin/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: skipAuthSetup ? undefined : (fs.existsSync(superAdminStoragePath) ? superAdminStoragePath : undefined),
+      },
+    },
+    {
+      name: "chromium",
+      dependencies: skipAuthSetup ? [] : ["setup"],
+      testIgnore: /auth\.setup\.ts|auth-and-public|super-admin/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: skipAuthSetup ? undefined : (fs.existsSync(adminStoragePath) ? adminStoragePath : undefined),
       },
     },
   ],
