@@ -739,16 +739,16 @@ export default function ExpensesPage() {
                       {activeTab === "invoices" && (
                         <div className="grid gap-4 sm:grid-cols-3 p-4 rounded-2xl bg-[var(--surface-muted)] border border-[var(--border)]">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("من تاريخ", locale)}</label>
-                            <input type="date" className={inputClasses} value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
+                            <label htmlFor="filter-from" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("من تاريخ", locale)}</label>
+                            <input id="filter-from" type="date" className={inputClasses} value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("إلى تاريخ", locale)}</label>
-                            <input type="date" className={inputClasses} value={filterTo} onChange={e => setFilterTo(e.target.value)} />
+                            <label htmlFor="filter-to" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("إلى تاريخ", locale)}</label>
+                            <input id="filter-to" type="date" className={inputClasses} value={filterTo} onChange={e => setFilterTo(e.target.value)} />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("نوع المصروف", locale)}</label>
-                            <select className={inputClasses} value={expenseTypeFilter} onChange={e => setExpenseTypeFilter(e.target.value)}>
+                            <label htmlFor="expense-type-filter" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("نوع المصروف", locale)}</label>
+                            <select id="expense-type-filter" className={inputClasses} value={expenseTypeFilter} onChange={e => setExpenseTypeFilter(e.target.value)}>
                               <option value="">{tx("كل الأنواع", locale)}</option>
                               {expenseTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
@@ -935,35 +935,35 @@ export default function ExpensesPage() {
             </div>
             <form onSubmit={handleSaveExpense} className="p-8 space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("نوع المصروف", locale)} *</label>
-                <select className={inputClasses} required value={form.expense_type_id} onChange={e => setForm({ ...form, expense_type_id: e.target.value })}>
+                <label htmlFor="form-expense-type" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("نوع المصروف", locale)} *</label>
+                <select id="form-expense-type" className={inputClasses} required value={form.expense_type_id} onChange={e => setForm({ ...form, expense_type_id: e.target.value })}>
                   <option value="">{copy.selectType}</option>
                   {expenseTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("المبلغ (د.ع) *", locale)}</label>
-                  <input className={inputClasses} type="number" required placeholder="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                  <label htmlFor="form-amount" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("المبلغ (د.ع) *", locale)}</label>
+                  <input id="form-amount" className={inputClasses} type="number" required placeholder="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("التاريخ", locale)} *</label>
-                  <input className={inputClasses} type="date" required value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} />
+                  <label htmlFor="form-date" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("التاريخ", locale)} *</label>
+                  <input id="form-date" className={inputClasses} type="date" required value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("مستلم الفاتورة", locale)}</label>
-                  <input className={inputClasses} placeholder={tx("اسم المستلم...", locale)} value={form.recipient} onChange={e => setForm({ ...form, recipient: e.target.value })} />
+                  <label htmlFor="form-recipient" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("مستلم الفاتورة", locale)}</label>
+                  <input id="form-recipient" className={inputClasses} placeholder={tx("اسم المستلم...", locale)} value={form.recipient} onChange={e => setForm({ ...form, recipient: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("رقم الإيصال", locale)}</label>
-                  <input className={inputClasses} placeholder={tx("رقم الإيصال...", locale)} value={form.receipt_number} onChange={e => setForm({ ...form, receipt_number: e.target.value })} />
+                  <label htmlFor="form-receipt" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("رقم الإيصال", locale)}</label>
+                  <input id="form-receipt" className={inputClasses} placeholder={tx("رقم الإيصال...", locale)} value={form.receipt_number} onChange={e => setForm({ ...form, receipt_number: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("ملاحظات إضافية", locale)}</label>
-                <textarea className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("أي ملاحظات...", locale)} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+                <label htmlFor="form-notes" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("ملاحظات إضافية", locale)}</label>
+                <textarea id="form-notes" className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("أي ملاحظات...", locale)} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 h-12 bg-[var(--primary)] text-white rounded-2xl font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={saving}>
@@ -992,12 +992,12 @@ export default function ExpensesPage() {
             </div>
             <form onSubmit={handleSaveType} className="p-8 space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("اسم التصنيف *", locale)}</label>
-                <input className={inputClasses} required placeholder={tx("مثال: صيانة، قرطاسية...", locale)} value={typeForm.name} onChange={e => setTypeForm({ ...typeForm, name: e.target.value })} />
+                <label htmlFor="form-type-name" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("اسم التصنيف *", locale)}</label>
+                <input id="form-type-name" className={inputClasses} required placeholder={tx("مثال: صيانة، قرطاسية...", locale)} value={typeForm.name} onChange={e => setTypeForm({ ...typeForm, name: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("وصف أو ملاحظات", locale)}</label>
-                <textarea className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("اختياري...", locale)} value={typeForm.notes} onChange={e => setTypeForm({ ...typeForm, notes: e.target.value })} />
+                <label htmlFor="form-type-notes" className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{tx("وصف أو ملاحظات", locale)}</label>
+                <textarea id="form-type-notes" className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("اختياري...", locale)} value={typeForm.notes} onChange={e => setTypeForm({ ...typeForm, notes: e.target.value })} />
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 h-12 bg-[var(--success)] text-white rounded-2xl font-black shadow-lg shadow-[var(--success)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={savingType}>
