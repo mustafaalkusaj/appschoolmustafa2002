@@ -76,12 +76,16 @@ export function DashboardExperience({
     branchScoped,
   });
 
+  const availableClassNames = Array.isArray(classesSections.classes)
+    ? classesSections.classes.map((item) => item?.name).filter(Boolean)
+    : [];
+
   const feeManagement = useFeeManagement({
     profile,
     selectedSchoolId: schoolScope.selectedSchoolId,
-    classFees: dashboardData.classFees,
-    studentCountByClass: dashboardData.studentCountByClass,
-    availableClassNames: classesSections.classes.map((item) => item.name),
+    classFees: dashboardData.classFees || [],
+    studentCountByClass: dashboardData.studentCountByClass || {},
+    availableClassNames,
     onRefetch: dashboardData.refetch,
     branchScoped,
   });
