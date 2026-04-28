@@ -148,14 +148,15 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
     let active = true;
 
     async function loadBranding() {
-      if (!scopedSchoolId) {
-        if (active) {
-          setBranding(createEmptyBrandingState());
+      try {
+        if (!scopedSchoolId) {
+          if (active) {
+            setBranding(createEmptyBrandingState());
+          }
+          return;
         }
-        return;
-      }
 
-      const compat = await detectAppSchemaCompat();
+        const compat = await detectAppSchemaCompat();
       const storedBranding = getStoredSchoolBranding(scopedSchoolId);
       const branchColumns = ["name"];
 
@@ -352,6 +353,12 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         accentColor: resolvedAccentColor,
         textColor: resolvedTextColor,
       });
+      } catch (err) {
+        if (active) {
+          console.error("[RuntimeBranding] loadBranding error:", err);
+          setBranding(createEmptyBrandingState());
+        }
+      }
     }
 
     void loadBranding();

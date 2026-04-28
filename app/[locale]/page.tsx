@@ -19,6 +19,7 @@ export default function Home() {
   const commonT = useTranslations("common");
 
   const cards = useMemo(() => {
+    if (!role) return [];
     const allCards: Array<{ href: string; title: string; desc: string; icon: string; roles: UserRole[] }> = [
       {
         href: "/dashboard",
@@ -91,7 +92,6 @@ export default function Home() {
         roles: ["super_admin"],
       },
     ];
-    if (!role) return [];
     const allowedPages = profile?.allowed_pages ?? [];
     return allCards.filter((card) => {
       if (!card.roles.includes(role)) return false;
