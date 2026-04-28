@@ -161,8 +161,7 @@
     "payments": {
       "recentTitle": "Recent Collections",
       "viewAll": "View All",
-      "noPayments": "No payments recorded yet"
-,
+      "noPayments": "No payments recorded yet",
       "modal": {
         "title": "Record New Payment",
         "studentName": "Student Name",
@@ -316,16 +315,46 @@
       "brandingHint": "Language, appearance, and logout are in the account menu in the header to keep the dashboard clean."
     },
     "tabs": {
-      "overview": { "label": "Overview", "hint": "Performance summary" },
-      "schools": { "label": "Schools", "hint": "Manage schools" },
-      "users": { "label": "Users", "hint": "Roles & permissions" },
-      "subscriptions": { "label": "Subscriptions", "hint": "Tracking & renewal" },
-      "audit": { "label": "Audit Log", "hint": "Action monitoring" },
-      "roles": { "label": "Roles", "hint": "Permission management" },
-      "trash": { "label": "Trash", "hint": "Data recovery" },
-      "notifications": { "label": "Notifications", "hint": "System alerts" },
-      "monitoring": { "label": "Monitoring", "hint": "Health & operation" },
-      "branches": { "label": "Branches", "hint": "School branch management" }
+      "overview": {
+        "label": "Overview",
+        "hint": "Performance summary"
+      },
+      "schools": {
+        "label": "Schools",
+        "hint": "Manage schools"
+      },
+      "users": {
+        "label": "Users",
+        "hint": "Roles & permissions"
+      },
+      "subscriptions": {
+        "label": "Subscriptions",
+        "hint": "Tracking & renewal"
+      },
+      "audit": {
+        "label": "Audit Log",
+        "hint": "Action monitoring"
+      },
+      "roles": {
+        "label": "Roles",
+        "hint": "Permission management"
+      },
+      "trash": {
+        "label": "Trash",
+        "hint": "Data recovery"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "hint": "System alerts"
+      },
+      "monitoring": {
+        "label": "Monitoring",
+        "hint": "Health & operation"
+      },
+      "branches": {
+        "label": "Branches",
+        "hint": "School branch management"
+      }
     },
     "header": {
       "searchPlaceholder": {
@@ -344,9 +373,18 @@
       "title": "Data Loading Warning",
       "description": "The main issue was that the page treated every update as an initial load, and with any fallback in database relationships, a general alert would appear without explanation. Now you have a clearer diagnosis for each dataset and background updates without clearing the screen.",
       "healthItems": {
-        "schools": { "label": "Schools", "hint": "Primary board data" },
-        "users": { "label": "Users", "hint": "Permissions & school links" },
-        "subscriptions": { "label": "Subscriptions", "hint": "Renewals & current status" }
+        "schools": {
+          "label": "Schools",
+          "hint": "Primary board data"
+        },
+        "users": {
+          "label": "Users",
+          "hint": "Permissions & school links"
+        },
+        "subscriptions": {
+          "label": "Subscriptions",
+          "hint": "Renewals & current status"
+        }
       }
     },
     "schoolForm": {
@@ -432,16 +470,46 @@
   "home": {
     "welcomeBack": "Welcome back",
     "cards": {
-      "dashboard": { "title": "Dashboard", "desc": "Track metrics, analytics and daily operations" },
-      "schools": { "title": "Schools", "desc": "Manage schools, subscriptions and plans" },
-      "students": { "title": "Students", "desc": "Manage student data, classes and sections" },
-      "teachers": { "title": "Teachers", "desc": "Manage teacher accounts, subjects and classes" },
-      "payments": { "title": "Finance", "desc": "Track collections and student balances" },
-      "expenses": { "title": "Expenses", "desc": "Record and track operating expenses" },
-      "attendance": { "title": "Attendance", "desc": "Record daily student attendance" },
-      "reports": { "title": "Reports", "desc": "Generate detailed operational and financial reports" },
-      "subscriptions": { "title": "Subscriptions", "desc": "Manage subscription plans and activation status" },
-      "superAdmin": { "title": "Super Admin", "desc": "Manage schools, users, subscriptions and platform" }
+      "dashboard": {
+        "title": "Dashboard",
+        "desc": "Track metrics, analytics and daily operations"
+      },
+      "schools": {
+        "title": "Schools",
+        "desc": "Manage schools, subscriptions and plans"
+      },
+      "students": {
+        "title": "Students",
+        "desc": "Manage student data, classes and sections"
+      },
+      "teachers": {
+        "title": "Teachers",
+        "desc": "Manage teacher accounts, subjects and classes"
+      },
+      "payments": {
+        "title": "Finance",
+        "desc": "Track collections and student balances"
+      },
+      "expenses": {
+        "title": "Expenses",
+        "desc": "Record and track operating expenses"
+      },
+      "attendance": {
+        "title": "Attendance",
+        "desc": "Record daily student attendance"
+      },
+      "reports": {
+        "title": "Reports",
+        "desc": "Generate detailed operational and financial reports"
+      },
+      "subscriptions": {
+        "title": "Subscriptions",
+        "desc": "Manage subscription plans and activation status"
+      },
+      "superAdmin": {
+        "title": "Super Admin",
+        "desc": "Manage schools, users, subscriptions and platform"
+      }
     }
   },
   "teachers": {
@@ -860,5 +928,30 @@
     "speedFast": "Fast",
     "speedMedium": "Medium",
     "speedSlow": "Slow"
+  },
+  "attendance": {
+    "recordTitle": "Student Attendance Record",
+    "studentLabel": "Student",
+    "classLabel": "Class",
+    "sectionLabel": "Section",
+    "classSectionLabel": "Class/Section",
+    "searchStudent": "Search for student",
+    "dateRangeLabel": "Date Range",
+    "fromDate": "From",
+    "toDate": "To",
+    "statusPresent": "Present",
+    "statusAbsent": "Absent",
+    "statusLate": "Late",
+    "statusExcused": "Excused",
+    "totalAttendance": "Total",
+    "presentCount": "Present",
+    "absentCount": "Absent",
+    "lateCount": "Late",
+    "excusedCount": "Excused",
+    "dateColumn": "Date",
+    "statusColumn": "Status",
+    "noteColumn": "Note",
+    "noResults": "No matching results.",
+    "noRecords": "No records in range."
   }
 }
