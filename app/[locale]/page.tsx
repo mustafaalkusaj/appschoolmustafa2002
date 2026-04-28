@@ -12,7 +12,30 @@ import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import type { UserRole } from "@/types/roles";
 
 export default function Home() {
-  const { profile, role } = useRole();
+  let profile, role;
+  try {
+    const result = useRole();
+    profile = result.profile;
+    role = result.role;
+  } catch (err) {
+    console.error("[Home] useRole failed:", err);
+    return (
+      <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
+        <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">خطأ في تحميل البيانات</h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">يرجى إعادة تحميل الصفحة</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              إعادة تحميل
+            </button>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const t = useTranslations("home");

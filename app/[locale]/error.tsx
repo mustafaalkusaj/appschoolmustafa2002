@@ -17,6 +17,8 @@ export default function Error({
   const locale = getLocaleFromPath(pathname);
 
   useEffect(() => {
+    console.error("[LocaleError] Route error:", error?.message || error);
+    console.error("[LocaleError] Stack:", error?.stack);
     Sentry.captureException(error);
   }, [error]);
 

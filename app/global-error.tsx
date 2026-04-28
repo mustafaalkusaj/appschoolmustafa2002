@@ -11,6 +11,8 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    console.error("[GlobalError] Critical error:", error?.message || error);
+    console.error("[GlobalError] Stack:", error?.stack);
     Sentry.captureException(error);
   }, [error]);
 
