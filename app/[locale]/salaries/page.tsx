@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { supabase } from "@/lib/supabase";
@@ -196,13 +196,13 @@ export default function SalariesPage() {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   // Derived data
-  const monthSalaries = salaries.filter((s) => s.month === currentMonth);
-  const paidTeacherIds = monthSalaries.map((s) => s.teacher_id);
-  const unpaidTeachers = teachers.filter((t) => !paidTeacherIds.includes(t.id) && t.status === "active");
-  const totalBaseSalaries = teachers.filter((t) => t.status === "active").reduce((a, t) => a + t.base_salary, 0);
-  const totalPaidThisMonth = monthSalaries.reduce((a, s) => a + ((s.gross_salary || 0) - (s.deductions || 0)), 0);
-  const activeTeachers = teachers.filter((t) => t.status === "active").length;
-  const gradeOptions = Array.from(new Set(classes.map((c) => c.grade))) as string[];
+  const monthSalaries = useMemo(() => salaries.filter((s) => s.month === currentMonth), [salaries, currentMonth]);
+  const paidTeacherIds = useMemo(() => monthSalaries.map((s) => s.teacher_id), [monthSalaries]);
+  const unpaidTeachers = useMemo(() => teachers.filter((t) => !paidTeacherIds.includes(t.id) && t.status === "active"), [teachers, paidTeacherIds]);
+  const totalBaseSalaries = useMemo(() => teachers.filter((t) => t.status === "active").reduce((a, t) => a + t.base_salary, 0), [teachers]);
+  const totalPaidThisMonth = useMemo(() => monthSalaries.reduce((a, s) => a + ((s.gross_salary || 0) - (s.deductions || 0)), 0), [monthSalaries]);
+  const activeTeachers = useMemo(() => teachers.filter((t) => t.status === "active").length, [teachers]);
+  const gradeOptions = useMemo(() => Array.from(new Set(classes.map((c) => c.grade))) as string[], [classes]);
   const isMainSection = activeSection === "main";
 
   const handleResponsiveSectionChange = (section: string) => {
