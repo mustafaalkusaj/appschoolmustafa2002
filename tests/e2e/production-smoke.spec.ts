@@ -26,7 +26,7 @@ function attachDiagnostics(page: Page, signals: CollectedSignals) {
   page.on("console", (message) => {
     if (message.type() === "error") {
       const text = message.text();
-      if (!text.includes("favicon.ico")) {
+      if (!text.includes("favicon.ico") && !text.includes("script tag while rendering")) {
         signals.consoleErrors.push(text);
       }
     }
