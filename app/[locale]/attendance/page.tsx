@@ -496,17 +496,19 @@ export default function AttendancePage() {
     return Array.from(new Set(source.map((s) => s.section).filter(Boolean))) as string[];
   }, [students, filterClass]);
 
-  const filteredStudents = students.filter((student) => {
-    const draft = attendanceDrafts[student.id];
-    const status = draft?.status || "";
-    const matchSearch = student.full_name?.includes(search) || student.class_name?.includes(search) || (student.section || "").includes(search);
-    const matchClass = filterClass ? student.class_name === filterClass : true;
-    const matchSection = filterSection ? (student.section || "") === filterSection : true;
-    const matchStatus = filterStatus === "all" ? true : filterStatus === "unrecorded" ? !status : status === filterStatus;
-    return matchSearch && matchClass && matchSection && matchStatus;
-  });
+  const filteredStudents = useMemo(() => {
+    return students.filter((student) => {
+      const draft = attendanceDrafts[student.id];
+      const status = draft?.status || "";
+      const matchSearch = student.full_name?.includes(search) || student.class_name?.includes(search) || (student.section || "").includes(search);
+      const matchClass = filterClass ? student.class_name === filterClass : true;
+      const matchSection = filterSection ? (student.section || "") === filterSection : true;
+      const matchStatus = filterStatus === "all" ? true : filterStatus === "unrecorded" ? !status : status === filterStatus;
+      return matchSearch && matchClass && matchSection && matchStatus;
+    });
+  }, [students, attendanceDrafts, search, filterClass, filterSection, filterStatus]);
 
-  const stats = (() => {
+  const stats = useMemo(() => {
     const count = { present: 0, absent: 0, late: 0, excused: 0, unrecorded: 0 };
     filteredStudents.forEach((student) => {
       const status = attendanceDrafts[student.id]?.status || "";
@@ -519,7 +521,7 @@ export default function AttendancePage() {
     const total = filteredStudents.length;
     const attendanceRate = total ? Math.round(((count.present + count.late) / total) * 100) : 0;
     return { ...count, total, attendanceRate };
-  })();
+  }, [filteredStudents, attendanceDrafts]);
 
   const changedCount = useMemo(() => Object.values(attendanceDrafts).filter((draft) => draft.touched && draft.status).length, [attendanceDrafts]);
   const heroDateLabel = useMemo(
