@@ -39,13 +39,16 @@ test.describe("Students CRUD", () => {
     page.on("pageerror", (err) => {
       pageErrors.push(err.message);
     });
-    await page.goto("/ar/students", { waitUntil: "load" });
+    await page.goto(`/ar/students?school=${ids.schoolAId}`, { waitUntil: "load" });
 
     // Wait for page to hydrate and render buttons (React hydration takes time)
     await page.waitForFunction(() => {
       const button = document.querySelector("button");
       return button && document.body.innerText.length > 100;
     }, { timeout: 10000 });
+
+    // Wait for class data to load (API call for students meta)
+    await page.waitForLoadState("networkidle", { timeout: 5000 });
 
     // Open modal
     const addButton = page.getByRole("button", { name: "+ إضافة طالب" });
@@ -65,12 +68,19 @@ test.describe("Students CRUD", () => {
     const classOptions = await classSelect.locator("option").count();
     console.log("Class options available:", classOptions);
 
-    if (classOptions > 1) {
+    if (classOptions > 2) {
+      // Real classes available - select first one
       await classSelect.selectOption({ index: 1 });
       const selectedClass = await classSelect.inputValue();
       console.log("Selected class:", selectedClass);
     } else {
-      console.log("No class options available!");
+      // Only manual entry available - select it and fill the input
+      await classSelect.selectOption({ value: "__manual__" });
+      // Wait for the manual input to appear and fill it
+      const manualInput = page.locator("div").filter({ has: classSelect }).locator("input").last();
+      await manualInput.waitFor({ timeout: 2000 });
+      await manualInput.fill("E2E_TEST_CLASS");
+      console.log("Selected manual class");
     }
 
     // Optional section
@@ -91,7 +101,9 @@ test.describe("Students CRUD", () => {
     // Save
     const saveButton = page.getByRole("button", { name: /حفظ الطالب/ });
     await expect(saveButton).toBeVisible({ timeout: 3000 });
+    console.log("Save button found, clicking...");
     await saveButton.click();
+    console.log("Save button clicked");
 
     // Wait for success message or navigate back to list
     const successMessage = page.getByText(/تم إضافة الطالب|طالب مصدر|successfully/i);
@@ -120,7 +132,7 @@ test.describe("Students CRUD", () => {
     }
 
     // Navigate back to students list to verify
-    await page.goto("/ar/students", { waitUntil: "load" });
+    await page.goto(`/ar/students?school=${ids.schoolAId}`, { waitUntil: "load" });
 
     // Verify student in list
     const studentInList = page.getByText(createdStudentName).first();
@@ -130,13 +142,16 @@ test.describe("Students CRUD", () => {
   test("delete student from list", async ({ page }) => {
     createdStudentName = e2eTag("Student");
 
-    await page.goto("/ar/students", { waitUntil: "load" });
+    await page.goto(`/ar/students?school=${ids.schoolAId}`, { waitUntil: "load" });
 
     // Wait for page to hydrate and render buttons
     await page.waitForFunction(() => {
       const button = document.querySelector("button");
       return button && document.body.innerText.length > 100;
     }, { timeout: 10000 });
+
+    // Wait for class data to load
+    await page.waitForLoadState("networkidle", { timeout: 5000 });
 
     // Create a student first
     const addButton = page.getByRole("button", { name: "+ إضافة طالب" });
@@ -148,7 +163,15 @@ test.describe("Students CRUD", () => {
     // Fill and save
     await page.locator("#full_name").fill(createdStudentName);
     const classSelect = page.locator("#class_name");
-    await classSelect.selectOption({ index: 1 });
+    const classOptions = await classSelect.locator("option").count();
+    if (classOptions > 2) {
+      await classSelect.selectOption({ index: 1 });
+    } else {
+      await classSelect.selectOption({ value: "__manual__" });
+      const manualInput = page.locator("div").filter({ has: classSelect }).locator("input").last();
+      await manualInput.waitFor({ timeout: 2000 });
+      await manualInput.fill("E2E_TEST_CLASS");
+    }
 
     await page.getByRole("button", { name: "التالي" }).click();
     await page.waitForTimeout(300);
@@ -164,7 +187,7 @@ test.describe("Students CRUD", () => {
     await page.waitForTimeout(500);
 
     // Find student in list and delete
-    await page.goto("/ar/students", { waitUntil: "load" });
+    await page.goto(`/ar/students?school=${ids.schoolAId}`, { waitUntil: "load" });
     const studentText = page.getByText(createdStudentName).first();
     await expect(studentText).toBeVisible({ timeout: 5000 });
 

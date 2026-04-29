@@ -115,14 +115,31 @@ export async function POST(request: NextRequest) {
               schoolId: classRow.school_id || targetSchoolId,
               branchId: classRow.branch_id || branchScope.value.branchId || "",
               academicYearId: classRow.academic_year_id,
-              sections: [],
-              sectionsCount: 0,
+              sections: Array.isArray(classRow.sections) ? classRow.sections : [],
+              sectionsCount: Array.isArray(classRow.sections) ? classRow.sections.length : 0,
             };
           })
           .sort((left, right) => String(left.nameAr || "").localeCompare(String(right.nameAr || ""), "ar"))
       : [];
 
     console.log(`[ParseImport] Loaded ${classes.length} classes`);
+    console.log("[ParseImport] Classes detail:", classes.map(c => ({
+      id: c.id,
+      nameAr: c.nameAr,
+      nameEn: c.nameEn,
+      sections: c.sections.map((s: any) => s.name || s),
+    })));
+
+    // Extract unique classes/sections from Excel
+    const excelClasses = new Set(rows.map((r: any) => r['الصف'] || r['class'] || r['Class']));
+    const excelSections = new Set(rows.map((r: any) => r['الشعبة'] || r['section'] || r['Section']));
+
+    console.log("[ParseImport] Excel data summary:", {
+      totalRows: rows.length,
+      headers: Object.keys(rows[0] || {}),
+      uniqueClasses: Array.from(excelClasses),
+      uniqueSections: Array.from(excelSections),
+    });
 
     // Generate import preview
     const preview = generateImportPreview(
@@ -141,6 +158,10 @@ export async function POST(request: NextRequest) {
     console.log(
       `[ParseImport] Preview: ${preview.validRows.length} valid, ${preview.invalidRows.length} invalid`,
     );
+
+    if (preview.invalidRows.length > 0) {
+      console.log("[ParseImport] First invalid row:", JSON.stringify(preview.invalidRows[0]));
+    }
 
     return NextResponse.json({
       success: true,
