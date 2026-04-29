@@ -45,7 +45,10 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
           if (!res.ok) {
             throw new Error(payload?.error?.message || payload?.error || 'تعذر تحميل بيانات الصفوف والشعب');
           }
-          setAvailableClasses(payload?.classes || []);
+          const classes = payload?.classes || [];
+          console.log(`[Modal] Loaded ${classes.length} classes:`,
+            classes.map((c: any) => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn, sections: c.sections?.length || 0 })));
+          setAvailableClasses(classes);
         })
         .catch((err) => {
           console.error('Failed to fetch validation data', err);
@@ -126,6 +129,12 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
           successCount: data.successCount,
         }));
       } else if (action === 'COMPLETED') {
+        console.log(`[Modal] Worker completed:`, {
+          totalRows: data.totalRows,
+          validRows: data.validRows.length,
+          errors: data.errors.length,
+          firstErrors: data.errors.slice(0, 5)
+        });
         setProgress(prev => ({
           ...prev,
           status: 'importing',

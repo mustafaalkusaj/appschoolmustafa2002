@@ -20,9 +20,13 @@ self.onmessage = function(e: MessageEvent) {
     const totalRows = rows.length;
     const errors: ValidationError[] = [];
     const validRows: StudentImportRow[] = [];
-    
+
     let processedRows = 0;
     const seenNames = new Map<string, number>();
+
+    // Log available classes
+    console.log(`[Worker] Available classes (${availableClasses.length}):`,
+      availableClasses.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn, gradeLevel: c.gradeLevel })));
 
     for (let i = 0; i < totalRows; i++) {
       const row = rows[i];
@@ -31,8 +35,23 @@ self.onmessage = function(e: MessageEvent) {
 
       if (rowErrors.length > 0) {
         errors.push(...rowErrors);
+        if (i < 5) {
+          console.log(`[Worker] Row ${i + 1} failed:`, {
+            fullName: mappedRow.fullName,
+            className: mappedRow.className,
+            sectionName: mappedRow.sectionName,
+            errors: rowErrors
+          });
+        }
       } else {
         validRows.push(mappedRow);
+        if (i < 5) {
+          console.log(`[Worker] Row ${i + 1} valid:`, {
+            fullName: mappedRow.fullName,
+            className: mappedRow.className,
+            sectionName: mappedRow.sectionName
+          });
+        }
       }
 
       processedRows++;
