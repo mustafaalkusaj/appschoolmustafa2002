@@ -61,6 +61,15 @@ export function normalizeClassName(text: string): string {
   return normalized || text.trim();
 }
 
+export function normalizeSectionName(text: string): string {
+  if (!text) return '';
+
+  const trimmed = String(text).trim();
+  const withoutPrefix = trimmed.replace(/^(الشعبة|section|division|group)\s*[:\-]?\s*/i, '');
+
+  return normalizeArabicText(withoutPrefix);
+}
+
 
 // ============================================================================
 // COLUMN MAPPING & HEADER DETECTION
@@ -255,9 +264,11 @@ export function matchClass(
   const normalized = normalizeClassName(className);
 
   // Filter by school/branch context
-  const contextClasses = availableClasses.filter(
-    c => c.schoolId === schoolId && c.branchId === branchId
-  );
+  const contextClasses = availableClasses.filter((c) => {
+    if (c.schoolId !== schoolId) return false;
+    if (!branchId) return true;
+    return c.branchId === branchId;
+  });
 
   // Try exact match on normalized names
   for (const cls of contextClasses) {
@@ -407,29 +418,46 @@ export function generateImportPreview(
       continue;
     }
 
-    mapped.classId = matchedClass.id;
-    matchedClasses.set(mapped.className!, matchedClass.id);
+    const normalizedExcelSection = normalizeSectionName(mapped.sectionName!);
+    const classSectionValue = normalizeSectionName(String((matchedClass as any).section || ""));
+    const sectionAlignedClass =
+      normalizedExcelSection && classSectionValue !== normalizedExcelSection
+        ? availableClasses.find((cls) => {
+            if (cls.id === matchedClass.id) return false;
+            if (cls.schoolId !== schoolId) return false;
+            if (branchId && cls.branchId !== branchId) return false;
+            if (normalizeClassName(cls.nameAr) !== normalizeClassName(matchedClass.nameAr)) return false;
+            return normalizeSectionName(String((cls as any).section || "")) === normalizedExcelSection;
+          }) ?? matchedClass
+        : matchedClass;
 
-    // Required: Section must exist in matched class
-    const classDbSections = matchedClass.sections || [];
-    const sectionExists = classDbSections.some(
-      (s: any) => {
-        const dbSec = String(s.name || s).trim().toLowerCase();
-        const excelSec = mapped.sectionName!.trim().toLowerCase();
-        return dbSec === excelSec;
-      }
-    );
+    mapped.classId = sectionAlignedClass.id;
+    matchedClasses.set(mapped.className!, sectionAlignedClass.id);
 
-    if (!sectionExists) {
-      // Debug: log why section failed
+    // Section validation: if class has defined sections, section must match one of them
+    // If class has no sections defined, allow any section value (will be null in DB if empty)
+    const classDbSections = sectionAlignedClass.sections || [];
+    const excelSection = normalizeSectionName(mapped.sectionName!);
+    const classSection = normalizeSectionName(String((sectionAlignedClass as any).section || ""));
+
+    const hasSectionsConfigured = classDbSections.length > 0 || (classSection && classSection.length > 0);
+
+    const sectionExists = !hasSectionsConfigured ||
+      classDbSections.some((s: any) => {
+        const dbSec = normalizeSectionName(String(s.name || s));
+        return dbSec === excelSection || dbSec.includes(excelSection) || excelSection.includes(dbSec);
+      }) || (classSection && classSection === excelSection);
+
+    if (!sectionExists && hasSectionsConfigured) {
+      // Debug: log why section failed (only if class has sections configured)
       const dbSectionNames = classDbSections.map((s: any) => s.name || s);
       console.log(`[ImportEngine] Row ${i + 1} section mismatch:`, {
         excelSection: mapped.sectionName,
         className: mapped.className,
-        classId: matchedClass.id,
+        classId: sectionAlignedClass.id,
         availableSections: dbSectionNames,
-        normalizedExcel: mapped.sectionName!.trim().toLowerCase(),
-        normalizedDb: dbSectionNames.map((s: any) => String(s).trim().toLowerCase()),
+        normalizedExcel: excelSection,
+        normalizedDb: dbSectionNames.map((s: any) => normalizeSectionName(String(s))),
       });
 
       invalidRows.push({
