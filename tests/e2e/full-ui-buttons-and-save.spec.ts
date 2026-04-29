@@ -633,12 +633,13 @@ async function openAndCancelFlow(page: Page, input: {
   }
 }
 
+// Disable trace/video for this describe — the crawl runs 25+ min and generates massive
+// trace data that exhausts browser memory and corrupts trace files on cleanup.
+// This suite writes its own JSON report so traces are not needed.
+test.use({ trace: "off", video: "off", screenshot: "only-on-failure" });
+
 test.describe.serial("full ui buttons and save audit", () => {
   test.setTimeout(30 * 60_000);
-  // Disable trace/video for this describe — the crawl runs 25+ min and generates massive
-  // trace data that exhausts browser memory and corrupts trace files on cleanup.
-  // This suite writes its own JSON report so traces are not needed.
-  test.use({ trace: "off", video: "off", screenshot: "only-on-failure" });
 
   test.beforeAll(async ({ baseURL }) => {
     report.baseUrl = baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
