@@ -1,7 +1,7 @@
 // This is a Web Worker for processing large import files
 // It runs in a separate thread to keep the UI responsive
 
-import { StudentImportRow, ValidationError, Class } from "../lib/students/import-types";
+import { StudentImportRow, ValidationError, Class, RowLevelDebugInfo } from "../lib/students/import-types";
 
 // Since we cannot easily import modules here without complex setup,
 // we'll define essential logic or use importScripts if needed.
@@ -28,6 +28,8 @@ self.onmessage = function(e: MessageEvent) {
     console.log(`[Worker] Available classes (${availableClasses.length}):`,
       availableClasses.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn, gradeLevel: c.gradeLevel })));
 
+    const debugInfo: RowLevelDebugInfo[] = [];
+
     for (let i = 0; i < totalRows; i++) {
       const row = rows[i];
       const mappedRow = mapColumns(row, columnMapping);
@@ -35,11 +37,32 @@ self.onmessage = function(e: MessageEvent) {
 
       if (rowErrors.length > 0) {
         errors.push(...rowErrors);
+
+        // Capture debug info for first 10 failed rows
+        if (debugInfo.length < 10) {
+          const failureReason = rowErrors
+            .map(e => `${e.field}: ${e.error}`)
+            .join('; ');
+          debugInfo.push({
+            rowNumber: i + 1,
+            fullName: mappedRow.fullName || null,
+            rawClassName: row[Object.keys(row).find(k => k.toLowerCase().includes('class')) || 'className'] as string || null,
+            normalizedClassName: mappedRow.className || null,
+            matchedClassId: mappedRow.classId || null,
+            rawSectionName: row[Object.keys(row).find(k => k.toLowerCase().includes('section')) || 'sectionName'] as string || null,
+            normalizedSectionName: mappedRow.sectionName || null,
+            matchedSectionId: mappedRow.sectionId || null,
+            failureReason,
+          });
+        }
+
         if (i < 5) {
           console.log(`[Worker] Row ${i + 1} failed:`, {
             fullName: mappedRow.fullName,
             className: mappedRow.className,
             sectionName: mappedRow.sectionName,
+            classId: mappedRow.classId,
+            sectionId: mappedRow.sectionId,
             errors: rowErrors
           });
         }
@@ -49,7 +72,9 @@ self.onmessage = function(e: MessageEvent) {
           console.log(`[Worker] Row ${i + 1} valid:`, {
             fullName: mappedRow.fullName,
             className: mappedRow.className,
-            sectionName: mappedRow.sectionName
+            sectionName: mappedRow.sectionName,
+            classId: mappedRow.classId,
+            sectionId: mappedRow.sectionId
           });
         }
       }
@@ -75,7 +100,8 @@ self.onmessage = function(e: MessageEvent) {
       data: {
         validRows,
         errors,
-        totalRows
+        totalRows,
+        debugInfo: debugInfo.slice(0, 10)
       }
     });
   }
@@ -174,8 +200,8 @@ function validateRow(
   }
 
   // Log classId assignment for debugging
-  if (i < 3 && row.classId) {
-    console.log(`[Worker] Row ${i + 1}: Matched class ${row.className} to classId ${row.classId}`);
+  if (rowIndex < 4 && row.classId) {
+    console.log(`[Worker] Row ${rowIndex}: Matched class ${row.className} to classId ${row.classId}`);
   }
 
   if (!row.sectionName || String(row.sectionName).trim() === '') {

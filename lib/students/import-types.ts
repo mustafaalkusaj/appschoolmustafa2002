@@ -29,6 +29,18 @@ export interface ValidationError {
   severity: 'error' | 'warning';
 }
 
+export interface RowLevelDebugInfo {
+  rowNumber: number;
+  fullName: string | null;
+  rawClassName: string | null;
+  normalizedClassName: string | null;
+  matchedClassId: string | null;
+  rawSectionName: string | null;
+  normalizedSectionName: string | null;
+  matchedSectionId: string | null;
+  failureReason: string;
+}
+
 export interface Class {
   id: string;
   nameAr: string;

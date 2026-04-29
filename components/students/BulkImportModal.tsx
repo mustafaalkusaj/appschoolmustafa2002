@@ -33,6 +33,8 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
 
   const [availableClasses, setAvailableClasses] = useState<Class[]>([]);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any[]>([]);
+  const [showDebugDetails, setShowDebugDetails] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
   // 1. Fetch validation data (Classes & Sections)
@@ -133,6 +135,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
           totalRows: data.totalRows,
           validRows: data.validRows.length,
           errors: data.errors.length,
+          debugInfo: data.debugInfo?.slice(0, 5),
           firstErrors: data.errors.slice(0, 5)
         });
         setProgress(prev => ({
@@ -141,6 +144,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
           errors: data.errors,
           errorCount: data.errors.length,
         }));
+        setDebugInfo(data.debugInfo || []);
         startBulkImport(data.validRows);
       }
     };
@@ -198,6 +202,8 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
       status: 'idle',
       errors: [],
     });
+    setDebugInfo([]);
+    setShowDebugDetails(false);
   };
 
   return (
@@ -247,12 +253,50 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
         )}
 
         {step === 'summary' && (
-          <ImportSummary 
-            success={progress.successCount}
-            errors={progress.errorCount}
-            onClose={onClose}
-            onReset={handleReset}
-          />
+          <div className="space-y-6">
+            <ImportSummary
+              success={progress.successCount}
+              errors={progress.errorCount}
+              onClose={onClose}
+              onReset={handleReset}
+            />
+
+            {debugInfo.length > 0 && (
+              <div className="border border-[var(--border)] rounded-lg p-4">
+                <button
+                  onClick={() => setShowDebugDetails(!showDebugDetails)}
+                  className="flex items-center justify-between w-full text-left font-medium hover:bg-[var(--background-secondary)] p-2 rounded transition-colors"
+                >
+                  <span>تفاصيل الأخطاء ({debugInfo.length} صف)</span>
+                  <span className="text-xs text-[var(--text-secondary)]">
+                    {showDebugDetails ? '▼' : '▶'}
+                  </span>
+                </button>
+
+                {showDebugDetails && (
+                  <div className="mt-4 space-y-4 max-h-96 overflow-y-auto">
+                    {debugInfo.map((item, idx) => (
+                      <div key={idx} className="p-3 bg-[var(--background-secondary)] rounded border border-[var(--border)] text-sm">
+                        <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+                          <div><span className="font-semibold">الصف:</span> {item.rowNumber}</div>
+                          <div><span className="font-semibold">الاسم:</span> {item.fullName || '—'}</div>
+                          <div><span className="font-semibold">الصف (خام):</span> {item.rawClassName || '—'}</div>
+                          <div><span className="font-semibold">الصف (معياري):</span> {item.normalizedClassName || '—'}</div>
+                          <div><span className="font-semibold">معرف الصف:</span> {item.matchedClassId || '—'}</div>
+                          <div><span className="font-semibold">الشعبة (خام):</span> {item.rawSectionName || '—'}</div>
+                          <div><span className="font-semibold">الشعبة (معياري):</span> {item.normalizedSectionName || '—'}</div>
+                          <div><span className="font-semibold">معرف الشعبة:</span> {item.matchedSectionId || '—'}</div>
+                        </div>
+                        <div className="mt-2 p-2 bg-[var(--danger-soft)] rounded border border-[var(--danger)]/20 text-[var(--danger)] text-xs">
+                          <span className="font-semibold">السبب:</span> {item.failureReason}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </ModalBody>
 

@@ -80,33 +80,47 @@ export async function GET(request: NextRequest) {
 
     const classCount = Array.isArray(classesData) ? classesData.length : 0;
     console.log(`[Validate] Loaded ${classCount} classes for school ${targetSchoolId}`);
+
+    const classes = Array.isArray(classesData)
+      ? classesData
+          .map((classRow: any) => {
+            const sections = Array.isArray(classRow.sections)
+              ? [...classRow.sections].sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "ar"))
+              : [];
+            return {
+              id: classRow.id,
+              nameAr: classRow.nameAr,
+              nameEn: classRow.nameEn,
+              gradeLevel: classRow.gradeLevel,
+              branchId: classRow.branch_id || null,
+              schoolId: classRow.school_id || targetSchoolId,
+              academicYearId: classRow.academic_year_id || null,
+              name: classRow.nameAr, // Backward compatibility
+              sections,
+              sectionsCount: sections.length,
+            };
+          })
+          .sort((left, right) => String(left.nameAr || "").localeCompare(String(right.nameAr || ""), "ar"))
+      : [];
+
     if (classCount > 0) {
-      console.log('[Validate] First 3 classes:', classesData.slice(0, 3).map((c: any) => ({
+      console.log('[Validate] First 3 classes:', classes.slice(0, 3).map((c: any) => ({
         id: c.id,
         nameAr: c.nameAr,
         nameEn: c.nameEn,
         gradeLevel: c.gradeLevel,
-        sections: c.sections?.map((s: any) => s.name) || []
+        branchId: c.branchId,
+        schoolId: c.schoolId,
+        academicYearId: c.academicYearId,
+        sectionsCount: c.sectionsCount
       })));
     }
 
-    const classes = Array.isArray(classesData)
-      ? classesData
-          .map((classRow) => ({
-            id: classRow.id,
-            nameAr: classRow.nameAr,
-            nameEn: classRow.nameEn,
-            gradeLevel: classRow.gradeLevel,
-            // Provide 'name' for backward compatibility (use Arabic name)
-            name: classRow.nameAr,
-            sections: Array.isArray(classRow.sections)
-              ? [...classRow.sections].sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "ar"))
-              : [],
-          }))
-          .sort((left, right) => String(left.nameAr || "").localeCompare(String(right.nameAr || ""), "ar"))
-      : [];
-
     return NextResponse.json({
+      debug: {
+        classesLoaded: classCount,
+        timestamp: new Date().toISOString(),
+      },
       classes,
     }, {
       headers: {

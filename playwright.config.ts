@@ -84,16 +84,24 @@ export default defineConfig({
     {
       name: "super-admin",
       dependencies: skipAuthSetup ? [] : ["setup"],
-      testMatch: /super-admin/,
+      testMatch: /flows\/super-admin/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: skipAuthSetup ? undefined : (fs.existsSync(superAdminStoragePath) ? superAdminStoragePath : undefined),
       },
     },
     {
+      name: "rbac",
+      dependencies: skipAuthSetup ? [] : ["setup"],
+      testMatch: /rbac\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
       name: "chromium",
       dependencies: skipAuthSetup ? [] : ["setup"],
-      testIgnore: /auth\.setup\.ts|auth-and-public|super-admin|\/crud\//,
+      testIgnore: /auth\.setup\.ts|auth-and-public|flows\/super-admin|\/crud\/|rbac\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: skipAuthSetup ? undefined : (fs.existsSync(adminStoragePath) ? adminStoragePath : undefined),
@@ -101,11 +109,12 @@ export default defineConfig({
     },
     {
       name: "crud",
-      dependencies: skipAuthSetup ? [] : ["setup"],
+      dependencies: [],
       testMatch: /\/crud\//,
+      testIgnore: /rbac\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
-        storageState: skipAuthSetup ? undefined : (fs.existsSync(adminStoragePath) ? adminStoragePath : undefined),
+        storageState: fs.existsSync(superAdminStoragePath) ? superAdminStoragePath : undefined,
       },
     },
   ],

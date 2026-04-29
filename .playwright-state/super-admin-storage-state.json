@@ -1,0 +1,45 @@
+{
+  "cookies": [
+    {
+      "name": "NEXT_LOCALE",
+      "value": "ar",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "school_rbac",
+      "value": "eyJ1c2VySWQiOiI1MjAxZDdkOC03YTNiLTQ1NDYtODFjNC05MGM1YjQyMzM3NTgiLCJyb2xlIjoic3VwZXJfYWRtaW4iLCJwZXJtaXNzaW9ucyI6W10sInNjaG9vbElkIjpudWxsLCJicmFuY2hJZCI6bnVsbCwiYWxsb3dlZEJyYW5jaElkcyI6W10sInVzZXJBY3RpdmUiOnRydWUsInNjaG9vbEFjdGl2ZSI6dHJ1ZSwic3Vic2NyaXB0aW9uU3RhdHVzIjpudWxsLCJzdWJzY3JpcHRpb25FbmQiOm51bGwsInNjb3BlTGV2ZWwiOiJzdXBlcl9hZG1pbiIsImFsbG93ZWRNb2R1bGUiOm51bGwsImFsbG93ZWRNb2R1bGVzIjpbXSwiYWxsb3dlZFBhZ2VzIjpbXSwiZGVmYXVsdFBhdGgiOiIvc3VwZXItYWRtaW4iLCJpc1NpbmdsZVBhZ2VVc2VyIjpmYWxzZSwiaGllcmFyY2h5TGV2ZWwiOm51bGwsInBlcm1pc3Npb25zVmVyc2lvbiI6MSwiZ3JvdXBJZCI6bnVsbCwiaWF0IjoxNzc3NDQ3NjQ2LCJleHAiOjE3Nzc0NzY0NDYsInZlcnNpb24iOjJ9.1lzdpIzy2Yc4zJVrXv52RvCMiYe-tzvtyDfva7gF-Ng",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1777476446.403051,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sb-mofuglmmhbjrggcwzoky-auth-token",
+      "value": "base64-eyJhY2Nlc3NfdG9rZW4iOiJleUpoYkdjaU9pSkZVekkxTmlJc0ltdHBaQ0k2SWpFNFkyVXpaRGd5TFRNeE5EUXRORGRpTWkxaE5tSXdMVEpsT0dKbE0yUmpObVk0WVNJc0luUjVjQ0k2SWtwWFZDSjkuZXlKcGMzTWlPaUpvZEhSd2N6b3ZMMjF2Wm5WbmJHMXRhR0pxY21kblkzZDZiMnQ1TG5OMWNHRmlZWE5sTG1OdkwyRjFkR2d2ZGpFaUxDSnpkV0lpT2lJMU1qQXhaRGRrT0MwM1lUTmlMVFExTkRZdE9ERmpOQzA1TUdNMVlqUXlNek0zTlRnaUxDSmhkV1FpT2lKaGRYUm9aVzUwYVdOaGRHVmtJaXdpWlhod0lqb3hOemMzTkRVeE1qUTFMQ0pwWVhRaU9qRTNOemMwTkRjMk5EVXNJbVZ0WVdsc0lqb2ljV0V1YzNWd1pYSmhaRzFwYmtCbGVHRnRjR3hsTG5SbGMzUWlMQ0p3YUc5dVpTSTZJaUlzSW1Gd2NGOXRaWFJoWkdGMFlTSTZleUp3Y205MmFXUmxjaUk2SW1WdFlXbHNJaXdpY0hKdmRtbGtaWEp6SWpwYkltVnRZV2xzSWwxOUxDSjFjMlZ5WDIxbGRHRmtZWFJoSWpwN0ltVnRZV2xzWDNabGNtbG1hV1ZrSWpwMGNuVmxMQ0p4WVY5elpXVmtYMnRsZVNJNkluTjFjR1Z5WDJGa2JXbHVJaXdpY1dGZmMyVmxaRjl6WTI5d1pTSTZJbVV5WlNJc0luRmhYM05sWldSbFpDSTZkSEoxWlgwc0luSnZiR1VpT2lKaGRYUm9aVzUwYVdOaGRHVmtJaXdpWVdGc0lqb2lZV0ZzTVNJc0ltRnRjaUk2VzNzaWJXVjBhRzlrSWpvaWNHRnpjM2R2Y21RaUxDSjBhVzFsYzNSaGJYQWlPakUzTnpjME5EYzJORFY5WFN3aWMyVnpjMmx2Ymw5cFpDSTZJamN5WlRNMVpHVmxMVEkxTldFdE5HVTNaQzFoWkRsbUxUZGxZVGcxWkdKbU9ETmlOU0lzSW1selgyRnViMjU1Ylc5MWN5STZabUZzYzJWOS5qTS0wWVZSYnN0enh4WGV1T0lfUVV3SEVmZDZHaXl2eHpfejJNNjRXMVFBRy00TWd1MjRpTnlqTUlGTGFEZDhxbC1OTFVkVXNXQWJMaDVfYm0xWjRaZyIsInRva2VuX3R5cGUiOiJiZWFyZXIiLCJleHBpcmVzX2luIjozNjAwLCJleHBpcmVzX2F0IjoxNzc3NDUxMjQ1LCJyZWZyZXNoX3Rva2VuIjoiZDZnZ3BuY3FkNnp2IiwidXNlciI6eyJpZCI6IjUyMDFkN2Q4LTdhM2ItNDU0Ni04MWM0LTkwYzViNDIzMzc1OCIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImVtYWlsIjoicWEuc3VwZXJhZG1pbkBleGFtcGxlLnRlc3QiLCJlbWFpbF9jb25maXJtZWRfYXQiOiIyMDI2LTA0LTI3VDIwOjM1OjQ3Ljc0NzE3M1oiLCJwaG9uZSI6IiIsImNvbmZpcm1lZF9hdCI6IjIwMjYtMDQtMjdUMjA6MzU6NDcuNzQ3MTczWiIsImxhc3Rfc2lnbl9pbl9hdCI6IjIwMjYtMDQtMjlUMDc6Mjc6MjUuNjkyNTc2MTY3WiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJxYV9zZWVkX2tleSI6InN1cGVyX2FkbWluIiwicWFfc2VlZF9zY29wZSI6ImUyZSIsInFhX3NlZWRlZCI6dHJ1ZX0sImlkZW50aXRpZXMiOlt7ImlkZW50aXR5X2lkIjoiOGRjYWI5ZGYtMTQ4My00NjU1LWI4ZjAtMWIzYTgxMTEwMzUwIiwiaWQiOiI1MjAxZDdkOC03YTNiLTQ1NDYtODFjNC05MGM1YjQyMzM3NTgiLCJ1c2VyX2lkIjoiNTIwMWQ3ZDgtN2EzYi00NTQ2LTgxYzQtOTBjNWI0MjMzNzU4IiwiaWRlbnRpdHlfZGF0YSI6eyJlbWFpbCI6InFhLnN1cGVyYWRtaW5AZXhhbXBsZS50ZXN0IiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwic3ViIjoiNTIwMWQ3ZDgtN2EzYi00NTQ2LTgxYzQtOTBjNWI0MjMzNzU4In0sInByb3ZpZGVyIjoiZW1haWwiLCJsYXN0X3NpZ25faW5fYXQiOiIyMDI2LTA0LTI0VDE0OjA3OjI0LjM5MzYzOFoiLCJjcmVhdGVkX2F0IjoiMjAyNi0wNC0yNFQxNDowNzoyNC4zOTM2OTNaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDQtMjRUMTQ6MDc6MjQuMzkzNjkzWiIsImVtYWlsIjoicWEuc3VwZXJhZG1pbkBleGFtcGxlLnRlc3QifV0sImNyZWF0ZWRfYXQiOiIyMDI2LTA0LTI0VDE0OjA3OjI0LjM3Mzg5MVoiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wNC0yOVQwNzoyNzoyNS43MTE4MTdaIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0sIndlYWtfcGFzc3dvcmQiOm51bGx9",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1812007646.403117,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "lm",
+      "value": "full",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

@@ -96,10 +96,22 @@ export async function POST(request: NextRequest) {
     const validated = buildStudentInsertPayloads(
       parsed.data.chunk,
       targetSchoolId,
-      writeBranch.value,
+      writeBranch.value as string,
     );
 
     console.log(`[BulkImport] Processing ${validated.length} students for school ${targetSchoolId}`);
+
+    // Debug: Check payload structure
+    if (validated.length > 0) {
+      const firstPayload = validated[0];
+      console.log('[BulkImport] Payload structure (first row):', {
+        hasClassId: 'classId' in firstPayload,
+        classIdValue: (firstPayload as any).classId,
+        hasClassName: 'className' in firstPayload,
+        hasSection: 'section' in firstPayload,
+        payloadKeys: Object.keys(firstPayload),
+      });
+    }
 
     const { data, error } = await actorSupabase
       .from("students")
@@ -127,6 +139,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       imported: importedCount,
+      debug: {
+        payloadStructure: validated.length > 0 ? {
+          hasClassId: 'classId' in validated[0],
+          classIdValue: (validated[0] as any).classId,
+          payloadKeys: Object.keys(validated[0]),
+        } : null,
+      },
     });
   } catch (error) {
     console.error("Bulk import server error:", error);
