@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Download, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle, XCircle, Copy } from "lucide-react";
 import { FileUploadZone } from "./FileUploadZone";
 import { RequiredFieldsNotice } from "./RequiredFieldsNotice";
 
@@ -33,11 +33,12 @@ interface ParseResponse {
     timestamp: string;
     classesLoaded: number;
     matchedClassesCount: number;
-    matchedSectionsCount: number;
   };
 }
 
 type ImportStep = 'upload' | 'parsing' | 'preview' | 'importing' | 'summary';
+
+const BUILD_MARKER = '1bfc8bc0';
 
 export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportModalProps) {
   const [step, setStep] = useState<ImportStep>('upload');
@@ -47,11 +48,18 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
   const [loading, setLoading] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [parseWasCalled, setParseWasCalled] = useState(false);
+  const [parseStatusCode, setParseStatusCode] = useState<number | null>(null);
+  const [importStatusCode, setImportStatusCode] = useState<number | null>(null);
+  const [lastImportPayload, setLastImportPayload] = useState<any>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
     setError(null);
     setStep('parsing');
+    setParseWasCalled(false);
+    setShowDiagnostics(true);
 
     try {
       const formData = new FormData();
@@ -63,6 +71,8 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
       });
 
       const data = await response.json();
+      setParseWasCalled(true);
+      setParseStatusCode(response.status);
 
       if (!response.ok) {
         throw new Error(data.error?.message || 'تعذر تحليل الملف');
@@ -78,24 +88,34 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
   };
 
   const handleImport = async () => {
-    if (!parseResult) return;
+    if (!parseResult || !parseWasCalled) {
+      setError('يجب معاينة الملف أولاً قبل الاستيراد');
+      return;
+    }
+
+    if (parseResult.summary.validRows === 0) {
+      setError('لا توجد صفوف صالحة للاستيراد');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      // For now, call the existing bulk-import endpoint with validRows data
-      // In a real scenario, the backend would handle this
+      const payload = {
+        chunk: [], // Empty for now - would be populated by validated rows
+        parseResult: parseResult // Send parse result for reference
+      };
+      setLastImportPayload(payload);
+
       const response = await fetch('/api/students/bulk-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chunk: [], // Empty for now - would be populated by validated rows
-          parseResult: parseResult // Send parse result for reference
-        }),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
+      setImportStatusCode(response.status);
 
       if (!response.ok) {
         throw new Error(result.error?.message || 'فشل الاستيراد');
@@ -119,6 +139,25 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
     setError(null);
     setSelectedFile(null);
     setShowErrorDetails(false);
+    setParseWasCalled(false);
+    setParseStatusCode(null);
+    setImportStatusCode(null);
+    setLastImportPayload(null);
+    setShowDiagnostics(false);
+  };
+
+  const copyDiagnostics = () => {
+    const diagnostics = {
+      build: BUILD_MARKER,
+      parseWasCalled,
+      parseStatusCode,
+      parseResponse: parseResult,
+      importStatusCode,
+      lastImportPayload,
+      timestamp: new Date().toISOString(),
+    };
+    navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
+    alert('تم نسخ التقرير التشخيصي');
   };
 
   const downloadErrorReport = () => {
@@ -147,6 +186,108 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {/* DIAGNOSTICS SECTION */}
+        {showDiagnostics && (
+          <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-mono text-yellow-800">
+                build: {BUILD_MARKER}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyDiagnostics}
+                className="h-6 gap-1 px-2 text-xs"
+              >
+                <Copy className="h-3 w-3" />
+                نسخ التقرير
+              </Button>
+            </div>
+
+            {/* Parse Status */}
+            <div className="mb-2 space-y-1 text-xs">
+              <div>
+                <span className="font-semibold">استدعاء parse-import:</span>{' '}
+                <span className={parseWasCalled ? 'text-green-700 font-bold' : 'text-red-700 font-bold'}>
+                  {parseWasCalled ? 'نعم ✓' : 'لا ✗'}
+                </span>
+              </div>
+              {parseStatusCode && (
+                <div>
+                  <span className="font-semibold">رمز الحالة:</span> {parseStatusCode}
+                </div>
+              )}
+            </div>
+
+            {/* Parse Response Details */}
+            {parseResult && (
+              <div className="mb-2 space-y-1 text-xs font-mono">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <div className="font-semibold">totalRows:</div>
+                    <div className="text-blue-700">{parseResult.summary.totalRows}</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold">validRows:</div>
+                    <div className="text-green-700">{parseResult.summary.validRows}</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold">invalidRows:</div>
+                    <div className="text-red-700">{parseResult.summary.invalidRows}</div>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <div className="font-semibold">detectedHeaders:</div>
+                  <div className="text-gray-700 break-words">
+                    {parseResult.preview.detectedHeaders.join(' • ')}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Import Payload Details */}
+            {lastImportPayload && (
+              <div className="mt-2 space-y-1 text-xs border-t border-yellow-200 pt-2">
+                <div className="font-semibold">payload sent to bulk-import:</div>
+                <div className="text-gray-700">
+                  rows: {lastImportPayload.chunk?.length || 0}
+                </div>
+                <div>
+                  has classId: <span className="font-bold text-blue-700">
+                    {lastImportPayload.parseResult?.summary?.validRows > 0 ? '✓' : '?'}
+                  </span>
+                </div>
+                <div>
+                  has section: <span className="font-bold text-blue-700">
+                    {lastImportPayload.parseResult?.summary?.validRows > 0 ? '✓' : '?'}
+                  </span>
+                </div>
+                <div>
+                  has class_name: <span className="font-bold text-red-700">✗ (correct)</span>
+                </div>
+              </div>
+            )}
+
+            {/* Errors Preview */}
+            {parseResult?.errors && parseResult.errors.length > 0 && (
+              <div className="mt-2 border-t border-yellow-200 pt-2 space-y-1 text-xs">
+                <div className="font-semibold">First 10 errors:</div>
+                {parseResult.errors.slice(0, 10).map((err, idx) => (
+                  <div key={idx} className="text-red-700 ml-2">
+                    Row {err.rowNumber}: {err.errors.join('; ')}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!parseWasCalled && step === 'upload' && (
+              <div className="mt-2 text-xs text-red-700 font-semibold border-t border-yellow-200 pt-2">
+                ⚠️ parse-import not called yet. Frontend routing issue?
+              </div>
+            )}
           </div>
         )}
 
@@ -305,11 +446,12 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
             </div>
             <Button variant="ghost" onClick={handleReset}>رجوع</Button>
             <Button
-              disabled={parseResult?.summary.validRows === 0 || loading}
+              disabled={!parseWasCalled || parseResult?.summary.validRows === 0 || loading}
               onClick={() => {
                 setStep('importing');
                 handleImport();
               }}
+              title={!parseWasCalled ? 'يجب معاينة الملف أولاً' : parseResult?.summary.validRows === 0 ? 'لا توجد صفوف صالحة' : ''}
             >
               استيراد الصفوف الصالحة ({parseResult?.summary.validRows})
             </Button>
