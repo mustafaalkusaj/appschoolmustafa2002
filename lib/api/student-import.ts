@@ -31,7 +31,8 @@ export type StudentInsertPayload = {
   nameAr: string;
   schoolId: string;
   branchId: string;
-  classId?: string | null; // UUID foreign key (not string class_name)
+  classId?: string | null; // UUID foreign key
+  section?: string | null; // TEXT field - section/division name
   registrationNumber?: string;
   status: "active";
   createdAt: string;
@@ -50,10 +51,11 @@ export function buildStudentInsertPayloads(
   const timestamp = now.toISOString();
 
   return rows.map((row) => ({
-    nameAr: row.fullName, // Use fullName as Arabic name
+    nameAr: row.fullName,
     schoolId,
     branchId,
-    classId: row.classId || null, // Use classId (UUID), not class_name
+    classId: row.classId || null,
+    section: row.sectionName || null,
     status: "active" as const,
     createdAt: timestamp,
     updatedAt: timestamp,

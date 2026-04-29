@@ -98,7 +98,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error?.message || 'فشل الاستيراج');
+        throw new Error(result.error?.message || 'فشل الاستيراد');
       }
 
       setImportResult({ imported: parseResult.summary.validRows, failed: 0 });
@@ -106,7 +106,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error('Import error:', err);
-      setError(err instanceof Error ? err.message : 'فشل الاستيراج');
+      setError(err instanceof Error ? err.message : 'فشل الاستيراد');
     } finally {
       setLoading(false);
     }
@@ -139,7 +139,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
   return (
     <Modal open={show} onClose={onClose} size="xl">
       <ModalHeader
-        title="استيراج جماعي للطلاب"
+        title="استيراد جماعي للطلاب"
         onClose={onClose}
       />
 
@@ -235,7 +235,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
             {parseResult.summary.validRows === 0 && (
               <div className="rounded-lg border border-red-300 bg-red-100 p-4 text-center">
                 <XCircle className="mx-auto mb-2 h-6 w-6 text-red-600" />
-                <p className="font-semibold text-red-900">لا توجد صفوف صالحة للاستيراج</p>
+                <p className="font-semibold text-red-900">لا توجد صفوف صالحة للاستيراد</p>
                 <p className="text-xs text-red-700 mt-1">جميع الصفوف تحتوي على أخطاء</p>
               </div>
             )}
@@ -245,7 +245,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
               <div className="rounded-lg border border-green-300 bg-green-100 p-4 text-center">
                 <CheckCircle className="mx-auto mb-2 h-6 w-6 text-green-600" />
                 <p className="font-semibold text-green-900">
-                  {parseResult.summary.validRows} طالب جاهز للاستيراج
+                  {parseResult.summary.validRows} طالب جاهز للاستيراد
                 </p>
                 {parseResult.summary.invalidRows > 0 && (
                   <p className="text-xs text-green-700 mt-1">
@@ -261,7 +261,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
         {step === 'importing' && (
           <div className="flex flex-col items-center justify-center space-y-4 py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            <p className="text-sm text-gray-600">جاري الاستيراج...</p>
+            <p className="text-sm text-gray-600">جاري الاستيراد...</p>
           </div>
         )}
 
@@ -269,7 +269,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
         {step === 'summary' && importResult && (
           <div className="rounded-lg border border-green-300 bg-green-50 p-6 text-center">
             <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-600" />
-            <h3 className="text-lg font-bold text-green-900">تم الاستيراج بنجاح</h3>
+            <h3 className="text-lg font-bold text-green-900">تم الاستيراد بنجاح</h3>
             <p className="text-sm text-green-700 mt-2">
               تم استيراد {importResult.imported} طالب بنجاح
             </p>
@@ -311,7 +311,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
                 handleImport();
               }}
             >
-              استيراج الصفوف الصالحة ({parseResult?.summary.validRows})
+              استيراد الصفوف الصالحة ({parseResult?.summary.validRows})
             </Button>
           </>
         )}
@@ -319,7 +319,7 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
         {step === 'summary' && (
           <>
             <Button variant="ghost" onClick={onClose}>إغلاق</Button>
-            <Button onClick={handleReset}>استيراج ملف جديد</Button>
+            <Button onClick={handleReset}>استيراد ملف جديد</Button>
           </>
         )}
       </ModalFooter>

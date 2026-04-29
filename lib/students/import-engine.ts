@@ -367,6 +367,21 @@ export function generateImportPreview(
     mapped.classId = matchedClass.id;
     matchedClasses.set(mapped.className!, matchedClass.id);
 
+    // Validate section if provided
+    if (mapped.sectionName) {
+      const sectionExists = matchedClass.sections.some(
+        (s) => s.name.trim().toLowerCase() === mapped.sectionName!.trim().toLowerCase()
+      );
+      if (!sectionExists) {
+        invalidRows.push({
+          rowIndex: i + 1,
+          rawData: rawRow,
+          errors: [`الشعبة "${mapped.sectionName}" غير موجودة في الصف "${mapped.className}"`],
+        });
+        continue;
+      }
+    }
+
     validRows.push(mapped as StudentImportRow);
   }
 
