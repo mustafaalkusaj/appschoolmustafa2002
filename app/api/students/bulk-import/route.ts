@@ -38,7 +38,23 @@ export async function POST(request: NextRequest) {
     }
 
     const rawBody = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    const parsed = studentImportRequestSchema.safeParse(rawBody);
+
+    // Extract rows from chunk OR from parseResult.validRows
+    let rowsToImport: any[] = [];
+    if (rawBody && typeof rawBody === 'object') {
+      if (Array.isArray((rawBody as any).chunk) && (rawBody as any).chunk.length > 0) {
+        rowsToImport = (rawBody as any).chunk;
+      } else if ((rawBody as any).parseResult?.validRows && Array.isArray((rawBody as any).parseResult.validRows)) {
+        rowsToImport = (rawBody as any).parseResult.validRows;
+      }
+    }
+
+    if (rowsToImport.length === 0) {
+      return jsonError("لا توجد صفوف صالحة للاستيراد", 400);
+    }
+
+    // Validate using the schema
+    const parsed = studentImportRequestSchema.safeParse({ chunk: rowsToImport });
     if (!parsed.success) {
       return jsonError(getStudentImportValidationMessage(parsed.error), 400);
     }
@@ -139,12 +155,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       imported: importedCount,
+      total: validated.length,
+      message: `تم استيراد ${importedCount} من ${validated.length} طالب بنجاح`,
       debug: {
         payloadStructure: validated.length > 0 ? {
           hasClassId: 'classId' in validated[0],
           classIdValue: (validated[0] as any).classId,
           payloadKeys: Object.keys(validated[0]),
         } : null,
+        rowsSent: validated.length,
+        rowsImported: importedCount,
       },
     });
   } catch (error) {

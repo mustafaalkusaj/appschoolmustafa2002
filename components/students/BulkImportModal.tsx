@@ -121,7 +121,10 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
         throw new Error(result.error?.message || 'فشل الاستيراد');
       }
 
-      setImportResult({ imported: parseResult.summary.validRows, failed: 0 });
+      // Use actual import result from server
+      const importedCount = typeof result.imported === 'number' ? result.imported : parseResult.summary.validRows;
+      const failedCount = (parseResult.summary.validRows || 0) - importedCount;
+      setImportResult({ imported: importedCount, failed: failedCount });
       setStep('summary');
       if (onImportComplete) onImportComplete();
     } catch (err) {
