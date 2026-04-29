@@ -339,13 +339,16 @@ async function fetchSummary(
     totalRemaining: 0,
     collectedCount: 0,
   };
+
+  // First, fetch all students to resolve class fees
+  const allStudents: Array<Record<string, unknown>> = [];
   let from = 0;
 
   while (true) {
     const { data, error } = await applyBranchScopeToQuery(
       actorSupabase
         .from("students")
-        .select("id, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .select("id, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
         .eq("school_id", schoolId)
         .order("id", { ascending: true })
         .range(from, from + QUERY_BATCH_SIZE - 1),
@@ -356,41 +359,42 @@ async function fetchSummary(
       throw new Error(error.message || "تعذر تحميل ملخص المدفوعات.");
     }
 
-    const batch = (data ?? []) as Array<{
-      total_fee?: number | null;
-      paid_fee?: number | null;
-      remaining_fee?: number | null;
-      discount_value?: number | null;
-      status?: string | null;
-    }>;
+    allStudents.push(...((data ?? []) as Array<Record<string, unknown>>));
 
-    batch.forEach((student) => {
-      if (student.status === "deleted") {
-        return;
-      }
-
-      const totalFee = Number(student.total_fee ?? 0);
-      const paidFee = Number(student.paid_fee ?? 0);
-      const remainingFee = Math.max(
-        totalFee - paidFee - Number(student.discount_value ?? 0),
-        0,
-      );
-
-      summary.totalStudents += 1;
-      summary.totalFee += totalFee;
-      summary.totalPaid += paidFee;
-      summary.totalRemaining += remainingFee;
-      if (remainingFee <= 0 && totalFee > 0) {
-        summary.collectedCount += 1;
-      }
-    });
-
-    if (batch.length < QUERY_BATCH_SIZE) {
+    if ((data ?? []).length < QUERY_BATCH_SIZE) {
       break;
     }
 
     from += QUERY_BATCH_SIZE;
   }
+
+  // Resolve class fees for all students
+  const classFeeMap = await resolvePaymentFeesFromClassFees(actorSupabase, allStudents, schoolId);
+
+  // Calculate summary with resolved fees
+  allStudents.forEach((student: any) => {
+    if (student.status === "deleted") {
+      return;
+    }
+
+    const className = student.class_name;
+    const classFeeTotal = className ? classFeeMap.get(className) : undefined;
+    const studentTotal = Number(student.total_fee ?? 0);
+    const totalFee = classFeeTotal ?? (studentTotal > 0 ? studentTotal : 0);
+    const paidFee = Number(student.paid_fee ?? 0);
+    const remainingFee = Math.max(
+      totalFee - paidFee - Number(student.discount_value ?? 0),
+      0,
+    );
+
+    summary.totalStudents += 1;
+    summary.totalFee += totalFee;
+    summary.totalPaid += paidFee;
+    summary.totalRemaining += remainingFee;
+    if (remainingFee <= 0 && totalFee > 0) {
+      summary.collectedCount += 1;
+    }
+  });
 
   return summary;
 }
@@ -403,7 +407,7 @@ async function fetchCollectedCount(
   const { data, error } = await applyBranchScopeToQuery(
     actorSupabase
       .from("students")
-      .select("id, total_fee, paid_fee, discount_value, status")
+      .select("id, class_name, total_fee, paid_fee, discount_value, status")
       .eq("school_id", schoolId)
       .neq("status", "deleted"),
     branchScope,
@@ -413,8 +417,14 @@ async function fetchCollectedCount(
     throw new Error(error.message || "تعذر تحميل عدد الفواتير المسددة.");
   }
 
-  return ((data ?? []) as Array<Record<string, unknown>>).filter((student) => {
-    const totalFee = normalizeMetricNumber(student.total_fee);
+  const students = (data ?? []) as Array<Record<string, unknown>>;
+  const classFeeMap = await resolvePaymentFeesFromClassFees(actorSupabase, students, schoolId);
+
+  return students.filter((student) => {
+    const className = typeof student.class_name === "string" ? student.class_name : null;
+    const classFeeTotal = className ? classFeeMap.get(className) : undefined;
+    const studentTotal = normalizeMetricNumber(student.total_fee);
+    const totalFee = classFeeTotal ?? (studentTotal > 0 ? studentTotal : 0);
     const paidFee = normalizeMetricNumber(student.paid_fee);
     const discountValue = normalizeMetricNumber(student.discount_value);
     const remainingFee = Math.max(totalFee - paidFee - discountValue, 0);
@@ -633,21 +643,75 @@ async function fetchStudentsPageViaRpc(actorSupabase: RouteSupabaseClient, schoo
   };
 }
 
-function buildStudentRowsPayload(rows: Array<Record<string, unknown>>): PaymentStudentRecord[] {
-  return (rows ?? []).map((row) => ({
-    id: String(row.id),
-    school_id: String(row.school_id ?? ""),
-    full_name: String(row.full_name ?? ""),
-    class_name: typeof row.class_name === "string" ? row.class_name : null,
-    section: typeof row.section === "string" ? row.section : null,
-    phone: typeof row.phone === "string" ? row.phone : null,
-    address: typeof row.address === "string" ? row.address : null,
-    total_fee: normalizeMetricNumber(row.total_fee),
-    paid_fee: normalizeMetricNumber(row.paid_fee),
-    discount_value: normalizeMetricNumber(row.discount_value),
-    remaining_fee: normalizeMetricNumber(row.remaining_fee),
-    status: typeof row.status === "string" ? row.status : null,
-  }));
+async function resolvePaymentFeesFromClassFees(
+  actorSupabase: RouteSupabaseClient,
+  students: Array<Record<string, unknown>>,
+  schoolId: string,
+): Promise<Map<string, number>> {
+  // Get unique class names from students
+  const classNames = Array.from(
+    new Set(
+      students
+        .map((s) => {
+          const cn = s.class_name;
+          return typeof cn === "string" ? cn : "";
+        })
+        .filter((c) => c.length > 0)
+    )
+  );
+
+  if (classNames.length === 0) {
+    return new Map();
+  }
+
+  // Fetch class_fees for these classes
+  const { data: classFees } = await actorSupabase
+    .from("class_fees")
+    .select("class_name, total_fee")
+    .eq("school_id", schoolId)
+    .in("class_name", classNames);
+
+  // Build map of class_name -> total_fee
+  const feeMap = new Map<string, number>();
+  (classFees ?? []).forEach((cf: any) => {
+    if (cf.class_name && typeof cf.total_fee === "number") {
+      feeMap.set(String(cf.class_name), cf.total_fee);
+    }
+  });
+
+  return feeMap;
+}
+
+function buildStudentRowsPayload(
+  rows: Array<Record<string, unknown>>,
+  classFeesByClassName?: Map<string, number>
+): PaymentStudentRecord[] {
+  return (rows ?? []).map((row) => {
+    const className = typeof row.class_name === "string" ? row.class_name : null;
+    // Resolve fee: prefer class_fees, fallback to row.total_fee if > 0, else 0
+    const classFeeTotal = className ? classFeesByClassName?.get(className) : undefined;
+    const rowTotal = normalizeMetricNumber(row.total_fee);
+    const totalFee = classFeeTotal ?? (rowTotal > 0 ? rowTotal : 0);
+
+    const paidFee = normalizeMetricNumber(row.paid_fee);
+    const discountValue = normalizeMetricNumber(row.discount_value);
+    const calculatedRemaining = Math.max(totalFee - paidFee - discountValue, 0);
+
+    return {
+      id: String(row.id),
+      school_id: String(row.school_id ?? ""),
+      full_name: String(row.full_name ?? ""),
+      class_name: className,
+      section: typeof row.section === "string" ? row.section : null,
+      phone: typeof row.phone === "string" ? row.phone : null,
+      address: typeof row.address === "string" ? row.address : null,
+      total_fee: totalFee,
+      paid_fee: paidFee,
+      discount_value: discountValue,
+      remaining_fee: calculatedRemaining,
+      status: typeof row.status === "string" ? row.status : null,
+    };
+  });
 }
 
 async function fetchAllFilteredStudents(
@@ -656,9 +720,10 @@ async function fetchAllFilteredStudents(
   branchScope: ResolvedBranchScope,
   filters: PaymentsListFilters,
 ) {
-  const rows: PaymentStudentRecord[] = [];
+  const rawRows: Array<Record<string, unknown>> = [];
   let from = 0;
 
+  // Fetch all rows
   while (true) {
     const query = applyStudentFilters(
       applyBranchScopeToQuery(
@@ -673,17 +738,19 @@ async function fetchAllFilteredStudents(
       throw new Error(error.message || "تعذر تحميل قائمة الطلاب.");
     }
 
-    const batch = buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>);
-    rows.push(...batch);
+    rawRows.push(...((data ?? []) as Array<Record<string, unknown>>));
 
-    if (batch.length < QUERY_BATCH_SIZE) {
+    if ((data ?? []).length < QUERY_BATCH_SIZE) {
       break;
     }
 
     from += QUERY_BATCH_SIZE;
   }
 
-  return rows;
+  // Resolve class fees for all fetched students
+  const classFeeMap = await resolvePaymentFeesFromClassFees(actorSupabase, rawRows, schoolId);
+
+  return buildStudentRowsPayload(rawRows, classFeeMap);
 }
 
 export function parsePaymentsListFilters(searchParams: URLSearchParams): PaymentsListFilters {
@@ -838,7 +905,10 @@ export async function resolvePaymentsStudentsPage(
     throw new Error(error.message || "تعذر تحميل قائمة الطلاب.");
   }
 
-  const rows = buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>);
+  // Resolve class fees for the fetched students
+  const classFeeMap = await resolvePaymentFeesFromClassFees(actorSupabase, data ?? [], schoolId);
+
+  const rows = buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>, classFeeMap);
   const paymentCountsByStudent = await fetchPaymentCountsByStudent(
     actorSupabase,
     schoolId,
@@ -886,7 +956,10 @@ export async function searchPaymentStudents(
     throw new Error(error.message || "تعذر تحميل نتائج البحث.");
   }
 
-  return buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>);
+  // Resolve class fees for search results
+  const classFeeMap = await resolvePaymentFeesFromClassFees(actorSupabase, (data ?? []) as Array<Record<string, unknown>>, schoolId);
+
+  return buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>, classFeeMap);
 }
 
 export async function exportPaymentStudents(

@@ -115,9 +115,53 @@ function applyStudentFilters<TQuery>(query: TQuery, filters: StudentsListFilters
   return nextQuery as unknown as TQuery;
 }
 
-function normalizeStudentRows(rows: Array<Record<string, unknown>>): StudentListRow[] {
+async function resolveStudentFeesFromClassFees(
+  actorSupabase: RouteSupabaseClient,
+  students: Array<Record<string, unknown>>,
+  schoolId: string,
+): Promise<Map<string, number>> {
+  // Get unique class names from students
+  const classNames = Array.from(
+    new Set(
+      students
+        .map((s) => String(s.class_name ?? ""))
+        .filter((c) => c.length > 0)
+    )
+  );
+
+  if (classNames.length === 0) {
+    return new Map();
+  }
+
+  // Fetch class_fees for these classes
+  const { data: classFees } = await actorSupabase
+    .from("class_fees")
+    .select("class_name, total_fee")
+    .eq("school_id", schoolId)
+    .in("class_name", classNames);
+
+  // Build map of class_name -> total_fee
+  const feeMap = new Map<string, number>();
+  (classFees ?? []).forEach((cf: any) => {
+    if (cf.class_name && typeof cf.total_fee === "number") {
+      feeMap.set(String(cf.class_name), cf.total_fee);
+    }
+  });
+
+  return feeMap;
+}
+
+function normalizeStudentRows(
+  rows: Array<Record<string, unknown>>,
+  classFeesByClassName?: Map<string, number>
+): StudentListRow[] {
   return (rows ?? []).map((row) => {
-    const totalFee = normalizeNumber(row.total_fee);
+    const className = String(row.class_name ?? "");
+    // Resolve fee: prefer class_fees, fallback to student.total_fee if > 0, else 0
+    const classFeeTotal = classFeesByClassName?.get(className);
+    const studentTotal = normalizeNumber(row.total_fee);
+    const totalFee = classFeeTotal ?? (studentTotal > 0 ? studentTotal : 0);
+
     const paidFee = normalizeNumber(row.paid_fee);
     const discountValue = normalizeNumber(row.discount_value);
 
@@ -132,7 +176,7 @@ function normalizeStudentRows(rows: Array<Record<string, unknown>>): StudentList
       school_id: String(row.school_id ?? ""),
       auth_user_id: typeof row.auth_user_id === "string" ? row.auth_user_id : null,
       full_name: String(row.full_name ?? ""),
-      class_name: String(row.class_name ?? ""),
+      class_name: className,
       section: typeof row.section === "string" && row.section.trim() ? row.section : null,
       phone: typeof row.phone === "string" && row.phone.trim() ? row.phone : null,
       address: typeof row.address === "string" && row.address.trim() ? row.address : null,
@@ -180,7 +224,7 @@ async function fetchSummary(
     applyBranchScopeToQuery(
       actorSupabase
         .from("students")
-        .select("id, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .select("id, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
         .eq("school_id", schoolId),
       branchScope,
     ),
@@ -191,7 +235,10 @@ async function fetchSummary(
     throw new Error(error.message || "تعذر تحميل ملخص الطلاب.");
   }
 
-  return normalizeStudentRows(data ?? []).reduce<StudentsSummary>(
+  // Resolve class fees for accurate total calculation
+  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, data ?? [], schoolId);
+
+  return normalizeStudentRows(data ?? [], classFeeMap).reduce<StudentsSummary>(
     (acc, student) => {
       acc.totalStudents += 1;
       acc.totalFee += student.total_fee;
@@ -284,7 +331,10 @@ export async function resolveStudentsListPage(
     throw new Error(error.message || "تعذر تحميل قائمة الطلاب.");
   }
 
-  const rows = normalizeStudentRows(data ?? []);
+  // Resolve class fees for the fetched students
+  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, data ?? [], schoolId);
+
+  const rows = normalizeStudentRows(data ?? [], classFeeMap);
   const totalCount = typeof count === "number" ? count : rows.length;
 
   return {
