@@ -335,7 +335,7 @@ export function generateImportPreview(
   const invalidRows: ImportPreview['invalidRows'] = [];
   const matchedClasses = new Map<string, string>();
 
-  // Skip header row, process data rows with lenient validation
+  // Skip header row, process data rows with strict validation
   for (let i = headerRowIndex + 1; i < rows.length; i++) {
     const rawRow = rows[i];
     if (!rawRow || typeof rawRow !== 'object' || Object.keys(rawRow).length === 0) {
@@ -344,52 +344,75 @@ export function generateImportPreview(
 
     const { mapped, errors } = mapExcelRow(rawRow as Record<string, unknown>, detectedHeaders, i + 1);
 
-    // LENIENT: Accept rows even with mapping errors - try partial data
-    let rowErrors = errors.length > 0 ? [...errors] : [];
-
-    // If required fields missing, mark but still try to use what we have
-    if (!mapped.fullName || !mapped.className) {
-      if (!mapped.fullName) {
-        mapped.fullName = `طالب ${i + 1}`;
-        rowErrors.push('اسم الطالب مفقود - استخدام القيمة الافتراضية');
-      }
-      if (!mapped.className) {
-        mapped.className = `صف ${i + 1}`;
-        rowErrors.push('اسم الصف مفقود - استخدام القيمة الافتراضية');
-      }
-    }
-
-    // Try to match class, but don't reject if not found
-    const matchedClass = matchClass(mapped.className!, availableClasses, schoolId, branchId);
-    if (matchedClass) {
-      mapped.classId = matchedClass.id;
-      matchedClasses.set(mapped.className!, matchedClass.id);
-
-      // Validate section if provided, but accept anyway
-      if (mapped.sectionName) {
-        const sectionExists = matchedClass.sections.some(
-          (s) => s.name.trim().toLowerCase() === mapped.sectionName!.trim().toLowerCase()
-        );
-        if (!sectionExists) {
-          rowErrors.push(`⚠️ الشعبة "${mapped.sectionName}" غير موجودة في النظام`);
-        }
-      }
-    } else {
-      // Class not found but still accept the row
-      rowErrors.push(`⚠️ الصف "${mapped.className}" غير موجود في هذا الفرع - سيتم استيراد بدون ربط الصف`);
-    }
-
-    // Add row to validRows regardless of errors (lenient import)
-    validRows.push(mapped as StudentImportRow);
-
-    // Also track in invalidRows for information but still importing
-    if (rowErrors.length > 0) {
+    // STRICT: Reject rows with mapping errors (missing required fields)
+    if (errors.length > 0) {
       invalidRows.push({
         rowIndex: i + 1,
         rawData: rawRow,
-        errors: rowErrors,
+        errors,
       });
+      continue;
     }
+
+    // Required: Student name
+    if (!mapped.fullName || !mapped.fullName.trim()) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: ['اسم الطالب مطلوب'],
+      });
+      continue;
+    }
+
+    // Required: Class
+    if (!mapped.className || !mapped.className.trim()) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: ['الصف مطلوب'],
+      });
+      continue;
+    }
+
+    // Required: Section
+    if (!mapped.sectionName || !mapped.sectionName.trim()) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: ['الشعبة مطلوبة'],
+      });
+      continue;
+    }
+
+    // Try to match class
+    const matchedClass = matchClass(mapped.className!, availableClasses, schoolId, branchId);
+    if (!matchedClass) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: ['الصف غير موجود في هذا الفرع أو السنة الدراسية'],
+      });
+      continue;
+    }
+
+    mapped.classId = matchedClass.id;
+    matchedClasses.set(mapped.className!, matchedClass.id);
+
+    // Required: Section must exist in matched class
+    const sectionExists = matchedClass.sections.some(
+      (s) => s.name.trim().toLowerCase() === mapped.sectionName!.trim().toLowerCase()
+    );
+    if (!sectionExists) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: ['الشعبة غير موجودة داخل الصف المحدد'],
+      });
+      continue;
+    }
+
+    // Row passed all validation
+    validRows.push(mapped as StudentImportRow);
   }
 
   return {

@@ -421,3 +421,107 @@ describe('generateImportPreview', () => {
     expect(preview.validRows.length).toBeGreaterThan(140);
   });
 });
+
+// ============================================================================
+// STRICT VALIDATION TESTS (Required Fields)
+// ============================================================================
+
+describe('generateImportPreview - Strict Validation', () => {
+  it('rejects rows with missing student name', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
+      { 'الاسم الكامل': '', 'الصف': 'الأول متوسط', 'الشعبة': 'أ' },
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(0);
+    expect(preview.invalidRows.length).toBe(1);
+    expect(preview.invalidRows[0].errors[0]).toContain('اسم الطالب مطلوب');
+  });
+
+  it('rejects rows with missing class', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
+      { 'الاسم الكامل': 'أحمد', 'الصف': '', 'الشعبة': 'أ' },
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(0);
+    expect(preview.invalidRows.length).toBe(1);
+    expect(preview.invalidRows[0].errors[0]).toContain('الصف مطلوب');
+  });
+
+  it('rejects rows with unmatched class', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
+      { 'الاسم الكامل': 'أحمد', 'الصف': 'الصف العاشر', 'الشعبة': 'أ' },
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(0);
+    expect(preview.invalidRows.length).toBe(1);
+    expect(preview.invalidRows[0].errors[0]).toContain('غير موجود في هذا الفرع');
+  });
+
+  it('rejects rows with missing section', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
+      { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': '' },
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(0);
+    expect(preview.invalidRows.length).toBe(1);
+    expect(preview.invalidRows[0].errors[0]).toContain('الشعبة مطلوبة');
+  });
+
+  it('rejects rows with invalid section in matched class', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
+      { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': 'د' }, // Section د doesn't exist
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(0);
+    expect(preview.invalidRows.length).toBe(1);
+    expect(preview.invalidRows[0].errors[0]).toContain('الشعبة غير موجودة داخل الصف');
+  });
+
+  it('accepts rows with valid name, class, and section', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
+      { 'الاسم الكامل': 'أحمد علي', 'الصف': 'الأول متوسط', 'الشعبة': 'أ' },
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(1);
+    expect(preview.invalidRows.length).toBe(0);
+    expect(preview.validRows[0].fullName).toBe('أحمد علي');
+    expect(preview.validRows[0].classId).toBe('class-1');
+  });
+
+  it('handles mixed valid and invalid rows', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
+      { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': 'أ' }, // Valid
+      { 'الاسم الكامل': '', 'الصف': 'الأول متوسط', 'الشعبة': 'ب' }, // Missing name
+      { 'الاسم الكامل': 'محمد', 'الصف': 'الثاني متوسط', 'الشعبة': 'أ' }, // Valid
+      { 'الاسم الكامل': 'علي', 'الصف': 'الصف الخامس', 'الشعبة': 'ب' }, // Unmatched class
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(2);
+    expect(preview.invalidRows.length).toBe(2);
+  });
+
+  it('allows optional fields to be empty (phone, parentName, dateOfBirth)', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة', 'الهاتف': 'هاتف' }, // Header
+      { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': 'أ', 'الهاتف': '' }, // Empty optional field
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(1);
+    expect(preview.invalidRows.length).toBe(0);
+  });
+});

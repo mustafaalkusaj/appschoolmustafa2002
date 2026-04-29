@@ -50,24 +50,19 @@ export function buildStudentInsertPayloads(
 ): StudentInsertPayload[] {
   const timestamp = now.toISOString();
 
-  return rows.map((row) => {
-    // Ensure required fields have values
-    const nameAr = row.fullName && row.fullName.trim() ? row.fullName.trim() : `طالب_${Date.now()}`;
-
-    return {
-      nameAr,
-      schoolId,
-      branchId,
-      classId: row.classId || null,
-      section: row.sectionName && row.sectionName.trim() ? row.sectionName.trim() : null,
-      status: "active" as const,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      ...(row.parentName && row.parentName.trim() ? { parentName: row.parentName.trim() } : {}),
-      ...(row.parentPhone && row.parentPhone.trim() ? { parentPhone: row.parentPhone.trim() } : {}),
-      ...(row.dateOfBirth && row.dateOfBirth.trim() ? { dateOfBirth: row.dateOfBirth.trim() } : {}),
-    };
-  });
+  return rows.map((row) => ({
+    nameAr: row.fullName,
+    schoolId,
+    branchId,
+    classId: row.classId || null,
+    section: row.sectionName || null,
+    status: "active" as const,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    ...(row.parentName ? { parentName: row.parentName } : {}),
+    ...(row.parentPhone ? { parentPhone: row.parentPhone } : {}),
+    ...(row.dateOfBirth ? { dateOfBirth: row.dateOfBirth } : {}),
+  }));
 }
 
 export function getStudentImportValidationMessage(error: z.ZodError) {

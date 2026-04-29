@@ -98,8 +98,8 @@ test.describe("Students CRUD", () => {
     const successExists = await successMessage.isVisible({ timeout: 5000 }).catch(() => false);
 
     // Check for error message
-    const errorMessage = page.getByRole("alert").first();
-    const errorText = await errorMessage.innerText().catch(() => "");
+    const errorAlert = page.getByRole("alert").first();
+    const errorText = await errorAlert.innerText({ timeout: 2000 }).catch(() => "");
 
     // Check for saving state
     const savingButton = page.getByRole("button", { name: /جاري|saving|saving/i });

@@ -122,8 +122,8 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
       }
 
       // Use actual import result from server
-      const importedCount = typeof result.imported === 'number' ? result.imported : parseResult.summary.validRows;
-      const failedCount = (parseResult.summary.validRows || 0) - importedCount;
+      const importedCount = typeof result.imported === 'number' ? result.imported : 0;
+      const failedCount = typeof result.failed === 'number' ? result.failed : 0;
       setImportResult({ imported: importedCount, failed: failedCount });
       setStep('summary');
       if (onImportComplete) onImportComplete();

@@ -150,13 +150,17 @@ export async function POST(request: NextRequest) {
     }
 
     const importedCount = data?.length ?? validated.length;
-    console.log(`[BulkImport] Successfully imported ${importedCount}/${validated.length} students`);
+    const failedCount = validated.length - importedCount;
+    console.log(`[BulkImport] Successfully imported ${importedCount}/${validated.length} students (${failedCount} failed)`);
 
     return NextResponse.json({
       success: true,
       imported: importedCount,
+      failed: failedCount,
       total: validated.length,
-      message: `تم استيراد ${importedCount} من ${validated.length} طالب بنجاح`,
+      message: importedCount > 0
+        ? `تم استيراد ${importedCount} من ${validated.length} طالب بنجاح${failedCount > 0 ? ` (فشل ${failedCount})` : ''}`
+        : 'فشل الاستيراد',
       debug: {
         payloadStructure: validated.length > 0 ? {
           hasClassId: 'classId' in validated[0],
@@ -165,6 +169,7 @@ export async function POST(request: NextRequest) {
         } : null,
         rowsSent: validated.length,
         rowsImported: importedCount,
+        rowsFailed: failedCount,
       },
     });
   } catch (error) {
