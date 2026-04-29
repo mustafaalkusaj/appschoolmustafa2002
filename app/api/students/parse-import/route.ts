@@ -84,7 +84,8 @@ export async function POST(request: NextRequest) {
         gradeLevel,
         branch_id,
         school_id,
-        academic_year_id
+        academic_year_id,
+        sections (id, name)
       `)
       .eq("school_id", targetSchoolId);
 
