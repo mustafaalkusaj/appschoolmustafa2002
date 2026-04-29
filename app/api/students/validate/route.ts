@@ -78,7 +78,17 @@ export async function GET(request: NextRequest) {
       throw new Error("تعذر تحميل قائمة الصفوف. يرجى مراجعة مسؤول النظام.");
     }
 
-    console.log(`[Validate] Loaded ${Array.isArray(classesData) ? classesData.length : 0} classes for school ${targetSchoolId}`);
+    const classCount = Array.isArray(classesData) ? classesData.length : 0;
+    console.log(`[Validate] Loaded ${classCount} classes for school ${targetSchoolId}`);
+    if (classCount > 0) {
+      console.log('[Validate] First 3 classes:', classesData.slice(0, 3).map((c: any) => ({
+        id: c.id,
+        nameAr: c.nameAr,
+        nameEn: c.nameEn,
+        gradeLevel: c.gradeLevel,
+        sections: c.sections?.map((s: any) => s.name) || []
+      })));
+    }
 
     const classes = Array.isArray(classesData)
       ? classesData

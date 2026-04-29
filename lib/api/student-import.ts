@@ -22,46 +22,43 @@ export const studentImportRequestSchema = z.object({
   chunk: z.array(studentImportRowSchema).min(1).max(1000),
 });
 
-export type StudentImportRow = z.infer<typeof studentImportRowSchema>;
+export type StudentImportRow = z.infer<typeof studentImportRowSchema> & {
+  classId?: string; // UUID of matched class (added by validator)
+  sectionId?: string; // UUID of matched section (added by validator)
+};
 
 export type StudentInsertPayload = {
-  full_name: string;
-  school_id: string;
-  branch_id: string | null;
-  class_name: string;
-  section: string;
-  total_fee: number;
-  paid_fee: number;
-  discount_value: number;
+  nameAr: string;
+  schoolId: string;
+  branchId: string;
+  classId?: string | null; // UUID foreign key (not string class_name)
+  registrationNumber?: string;
   status: "active";
-  created_at: string;
-  updated_at: string;
-  phone?: string | null;
-  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  parentName?: string | null;
+  parentPhone?: string | null;
+  dateOfBirth?: string;
 };
 
 export function buildStudentInsertPayloads(
   rows: StudentImportRow[],
   schoolId: string,
-  branchId: string | null,
+  branchId: string,
   now = new Date(),
 ): StudentInsertPayload[] {
   const timestamp = now.toISOString();
 
   return rows.map((row) => ({
-    full_name: row.fullName,
-    school_id: schoolId,
-    branch_id: branchId,
-    class_name: row.className,
-    section: row.sectionName,
-    total_fee: 0,
-    paid_fee: 0,
-    discount_value: 0,
-    status: "active",
-    created_at: timestamp,
-    updated_at: timestamp,
-    ...(row.phoneNumber ? { phone: row.phoneNumber } : {}),
-    ...(row.address ? { address: row.address } : {}),
+    nameAr: row.fullName, // Use fullName as Arabic name
+    schoolId,
+    branchId,
+    classId: row.classId || null, // Use classId (UUID), not class_name
+    status: "active" as const,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    ...(row.parentName ? { parentName: row.parentName } : {}),
+    ...(row.parentPhone ? { parentPhone: row.parentPhone } : {}),
   }));
 }
 

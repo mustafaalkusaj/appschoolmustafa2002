@@ -169,8 +169,13 @@ function validateRow(
         severity: 'error',
       });
     } else {
-      row.classId = classExists.id;
+      row.classId = classExists.id; // Store UUID for backend
     }
+  }
+
+  // Log classId assignment for debugging
+  if (i < 3 && row.classId) {
+    console.log(`[Worker] Row ${i + 1}: Matched class ${row.className} to classId ${row.classId}`);
   }
 
   if (!row.sectionName || String(row.sectionName).trim() === '') {
