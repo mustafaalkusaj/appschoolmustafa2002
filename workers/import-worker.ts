@@ -38,8 +38,8 @@ self.onmessage = function(e: MessageEvent) {
       if (rowErrors.length > 0) {
         errors.push(...rowErrors);
 
-        // Capture debug info for first 10 failed rows
-        if (debugInfo.length < 10) {
+        // Capture debug info for failed rows (collect up to 100 for reporting)
+        if (debugInfo.length < 100) {
           const failureReason = rowErrors
             .map(e => `${e.field}: ${e.error}`)
             .join('; ');
