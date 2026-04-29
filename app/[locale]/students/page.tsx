@@ -30,6 +30,7 @@ import { StudentDropdownMenu } from "./_components/StudentDropdownMenu";
 import { AddStudentModal } from "./_components/AddStudentModal";
 import { EditStudentModal } from "./_components/EditStudentModal";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
+import { TransferStudentModal } from "./_components/TransferStudentModal";
 import { ImportExcelModal } from "./_components/ImportExcelModal";
 import { AccountCardModal } from "./_components/AccountCardModal";
 import { BulkImportModal } from "@/components/students/BulkImportModal";
@@ -99,6 +100,7 @@ export default function StudentsPage() {
   const operations = useStudentsOperations({
     profile,
     selectedSchoolId: schoolScope.selectedSchoolId,
+    classFees,
     canEditStudents,
     canDeleteStudents,
     canManageStudentAccounts,
@@ -116,6 +118,7 @@ export default function StudentsPage() {
       setShowModal: modals.setShowModal,
       setShowEdit: modals.setShowEdit,
       setShowDeleteConfirm: modals.setShowDeleteConfirm,
+      setShowTransferConfirm: modals.setShowTransferConfirm,
       setShowImport: modals.setShowImport,
       setAddStep: modals.setAddStep,
       setForm: modals.setForm,
@@ -161,7 +164,8 @@ export default function StudentsPage() {
         canDeleteStudents,
         canManageStudentAccounts,
         onPrint: print.handlePrint,
-        onChangeStatus: operations.changeStatus,
+        onInitTransfer: operations.initTransfer,
+        onInitSuspend: operations.initSuspend,
         onOpenEdit: modals.openEdit,
         onOpenCredentials: operations.openStudentCredentialsCard,
         onInitDelete: (student) => {
@@ -374,6 +378,19 @@ export default function StudentsPage() {
             modals.setShowDeleteConfirm(false);
             modals.setSelectedStudent(null);
           }}
+        />
+        <TransferStudentModal
+          show={modals.showTransferConfirm}
+          isReadOnlyView={isReadOnlyView}
+          canEditStudents={canEditStudents}
+          selectedStudent={modals.selectedStudent}
+          classFees={classFees}
+          onConfirm={operations.confirmTransfer}
+          onCancel={() => {
+            modals.setShowTransferConfirm(false);
+            modals.setSelectedStudent(null);
+          }}
+          loading={modals.saving}
         />
         <ImportExcelModal
           show={modals.showImport}

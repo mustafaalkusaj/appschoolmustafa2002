@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { StudentWithFees, StudentStatus, ManagedUserAccountCard, StudentFormData } from "../_types";
+import type { StudentWithFees, StudentStatus, ManagedUserAccountCard, StudentFormData, ClassFee } from "../_types";
 import { STATUS_MAP, DEFAULT_STUDENT_FORM } from "../_constants";
 import { formatDate } from "@/lib/formatting";
 import { loadXLSX } from "@/lib/xlsx-loader";
@@ -13,6 +13,7 @@ import { readApiError, validateStudentImportFile } from "../_utils";
 export interface UseStudentsOperationsOptions {
   profile: UserProfile | null;
   selectedSchoolId: string | null;
+  classFees: ClassFee[];
   canEditStudents: boolean;
   canDeleteStudents: boolean;
   canManageStudentAccounts: boolean;
@@ -35,6 +36,7 @@ export interface UseStudentsOperationsOptions {
     setShowModal: (show: boolean) => void;
     setShowEdit: (show: boolean) => void;
     setShowDeleteConfirm: (show: boolean) => void;
+    setShowTransferConfirm: (show: boolean) => void;
     setShowImport: (show: boolean) => void;
     setAddStep: (step: number) => void;
     setForm: (form: StudentFormData) => void;
@@ -85,6 +87,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
   const {
     profile,
     selectedSchoolId,
+    classFees,
     canEditStudents,
     canDeleteStudents,
     canManageStudentAccounts,
@@ -185,6 +188,16 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       isEnglish ? `Could not create a credential card for ${name}.` : `تعذر إنشاء بطاقة دخول للطالب ${name}.`,
     openCardError: isEnglish ? "Could not open the credential card." : "تعذر فتح بطاقة الدخول.",
   }), [activeTab, isEnglish]);
+
+  const classFeeByName = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const fee of classFees) {
+      const key = String(fee.class_name || "").trim();
+      if (!key) continue;
+      map.set(key, Number(fee.total_fee ?? 0));
+    }
+    return map;
+  }, [classFees]);
 
   const getSchoolBranch = useCallback(async () => {
     return resolveSchoolBranchForProfile(profile, { selectedSchoolId });
@@ -327,6 +340,119 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     setTimeout(() => modals.setSuccess(""), 3000);
   }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, reload, setActiveTab]);
 
+  const initTransfer = useCallback((student: StudentWithFees) => {
+    modals.setSelectedStudent(student);
+    modals.setShowTransferConfirm(true);
+  }, [modals]);
+
+  const confirmTransfer = useCallback(async (transferType: "class" | "section" | "transferred", targetClass?: string, targetSection?: string) => {
+    if (!modals.selectedStudent) return;
+    modals.setSaving(true);
+    modals.setError("");
+    const { school_id } = await getSchoolBranch();
+    if (!school_id) {
+      modals.setError(copy.selectSchoolBeforeEdit);
+      modals.setSaving(false);
+      return;
+    }
+
+    const payload: Record<string, unknown> = { school_id, transfer_type: transferType };
+    if (targetClass) payload.target_class_name = targetClass;
+    if (targetSection) payload.target_section = targetSection;
+
+    const response = await fetchWithAuthorizedSession(`/api/web/students/${modals.selectedStudent.id}`, {
+      method: "PATCH",
+      headers: withJsonHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const respPayload = await response.json().catch(() => null);
+    modals.setSaving(false);
+
+    if (!response.ok) {
+      modals.setError(readApiError(respPayload, isEnglish ? "Failed to transfer student." : "تعذر نقل الطالب."));
+      return;
+    }
+
+    modals.setShowTransferConfirm(false);
+    const messages: Record<string, string> = {
+      class: isEnglish ? "Student class transferred successfully." : "تم نقل الطالب إلى صف جديد ✓",
+      section: isEnglish ? "Student section transferred successfully." : "تم نقل الطالب إلى شعبة جديدة ✓",
+      transferred: isEnglish ? "Student moved to transferred records." : "تم نقل الطالب إلى المنقولين ✓",
+    };
+    modals.setSuccess(messages[transferType]);
+
+    if (transferType === "transferred") {
+      setActiveTab("transferred");
+    }
+
+    reload();
+    setTimeout(() => modals.setSuccess(""), 3000);
+  }, [modals, copy, getSchoolBranch, isEnglish, reload, setActiveTab]);
+
+  const initSuspend = useCallback((student: StudentWithFees) => {
+    modals.setSelectedStudent(student);
+    // Handle suspend/reactivate/restore for all status types
+    let newStatus: StudentStatus;
+    let nextTab: string;
+    let successMsg: string;
+
+    const currentStatus = student.status;
+
+    if (currentStatus === "active") {
+      // Suspend active student
+      newStatus = "suspended";
+      nextTab = "suspended";
+      successMsg = isEnglish ? "Student suspended successfully." : "تم توقيف الطالب ✓";
+    } else if (currentStatus === "suspended") {
+      // Reactivate suspended student
+      newStatus = "active";
+      nextTab = "active";
+      successMsg = isEnglish ? "Student reactivated successfully." : "تم تفعيل الطالب ✓";
+    } else if (currentStatus === "transferred") {
+      // Restore student from transferred
+      newStatus = "active";
+      nextTab = "active";
+      successMsg = isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓";
+    } else if (currentStatus === "deleted") {
+      // Restore student from deleted
+      newStatus = "active";
+      nextTab = "active";
+      successMsg = isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓";
+    } else {
+      // Unknown status - default to active
+      newStatus = "active";
+      nextTab = "active";
+      successMsg = isEnglish ? "Student status updated." : "تم تحديث حالة الطالب.";
+    }
+
+    void (async () => {
+      modals.setSaving(true);
+      const { school_id } = await getSchoolBranch();
+      if (!school_id) {
+        modals.setError(copy.selectSchoolBeforeEdit);
+        modals.setSaving(false);
+        return;
+      }
+      const response = await fetchWithAuthorizedSession(`/api/web/students/${student.id}`, {
+        method: "PATCH",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({ school_id, status: newStatus }),
+      });
+      const payload = await response.json().catch(() => null);
+      modals.setSaving(false);
+
+      if (!response.ok) {
+        modals.setError(readApiError(payload, isEnglish ? "Could not update student status." : "تعذر تحديث حالة الطالب."));
+        return;
+      }
+
+      setActiveTab(nextTab);
+      modals.setSuccess(successMsg);
+      reload();
+      setTimeout(() => modals.setSuccess(""), 3000);
+    })();
+  }, [modals, copy, getSchoolBranch, isEnglish, reload, setActiveTab]);
+
   const handleDeleteConfirmed = useCallback(async () => {
     if (!canDeleteStudents || !modals.selectedStudent) return;
     modals.setError("");
@@ -335,10 +461,11 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       modals.setError(copy.selectSchoolBeforeEdit);
       return;
     }
+    const forceDelete = modals.selectedStudent.status === "deleted";
     const response = await fetchWithAuthorizedSession(`/api/web/students/${modals.selectedStudent.id}`, {
       method: "DELETE",
       headers: withJsonHeaders(),
-      body: JSON.stringify({ school_id }),
+      body: JSON.stringify({ school_id, force_delete: forceDelete }),
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
@@ -426,15 +553,18 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       const data: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
       const rows = data.map((row) => {
         const source = row as Record<string, string | number | null | undefined>;
+        const className = String(getImportCell(source, IMPORT_COLUMN_ALIASES.className) || "");
+        const importedTotalFee = parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.totalFee) || 0), 10) || 0;
+        const classFee = classFeeByName.get(className.trim()) ?? 0;
         return ({
         school_id,
         branch_id,
         full_name: String(getImportCell(source, IMPORT_COLUMN_ALIASES.fullName) || ""),
-        class_name: String(getImportCell(source, IMPORT_COLUMN_ALIASES.className) || ""),
+        class_name: className,
         section: String(getImportCell(source, IMPORT_COLUMN_ALIASES.section) || ""),
         phone: getImportCell(source, IMPORT_COLUMN_ALIASES.phone) != null ? String(getImportCell(source, IMPORT_COLUMN_ALIASES.phone)) : null,
         address: typeof getImportCell(source, IMPORT_COLUMN_ALIASES.address) === "string" ? String(getImportCell(source, IMPORT_COLUMN_ALIASES.address)) : null,
-        total_fee: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.totalFee) || 0), 10) || 0,
+        total_fee: importedTotalFee > 0 ? importedTotalFee : classFee,
         paid_fee: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.paidFee) || 0), 10) || 0,
         discount_value: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.discountValue) || 0), 10) || 0,
         status: "active",
@@ -507,7 +637,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     } finally {
       modals.setImporting(false);
     }
-  }, [canManageStudentAccounts, copy, getSchoolBranch, modals, reload]);
+  }, [canManageStudentAccounts, classFeeByName, copy, getSchoolBranch, modals, reload]);
 
   const downloadTemplate = useCallback(async () => {
     const XLSX = await loadXLSX();
@@ -571,6 +701,9 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     handleAdd,
     handleEdit,
     changeStatus,
+    initTransfer,
+    confirmTransfer,
+    initSuspend,
     handleDeleteConfirmed,
     exportExcel,
     handleFileChange,

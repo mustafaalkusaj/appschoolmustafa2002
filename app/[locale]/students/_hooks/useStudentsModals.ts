@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { StudentWithFees, StudentFormData, ManagedUserAccountCard } from "../_types";
+import type { StudentWithFees, StudentFormData, ManagedUserAccountCard, StudentStatus } from "../_types";
 import { DEFAULT_STUDENT_FORM } from "../_constants";
 
 const STUDENT_MENU_WIDTH = 216;
@@ -19,7 +19,9 @@ export interface UseStudentsModalsReturn {
   setShowEdit: (show: boolean) => void;
   showDeleteConfirm: boolean;
   setShowDeleteConfirm: (show: boolean) => void;
-  
+  showTransferConfirm: boolean;
+  setShowTransferConfirm: (show: boolean) => void;
+
   // Selected student
   selectedStudent: StudentWithFees | null;
   setSelectedStudent: (student: StudentWithFees | null) => void;
@@ -79,7 +81,8 @@ export function useStudentsModals(): UseStudentsModalsReturn {
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  
+  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
+
   const [selectedStudent, setSelectedStudent] = useState<StudentWithFees | null>(null);
   
   const [form, setForm] = useState<StudentFormData>(DEFAULT_STUDENT_FORM);
@@ -166,6 +169,7 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     setShowImport(false);
     setShowEdit(false);
     setShowDeleteConfirm(false);
+    setShowTransferConfirm(false);
     setImportPreview([]);
     setImportError("");
     setAddStep(1);
@@ -182,6 +186,8 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     setShowEdit,
     showDeleteConfirm,
     setShowDeleteConfirm,
+    showTransferConfirm,
+    setShowTransferConfirm,
     selectedStudent,
     setSelectedStudent,
     form,

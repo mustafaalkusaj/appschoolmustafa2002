@@ -9,7 +9,8 @@ interface GetStudentActionsOptions {
   canDeleteStudents: boolean;
   canManageStudentAccounts: boolean;
   onPrint: (s: StudentWithFees) => void;
-  onChangeStatus: (s: StudentWithFees, status: StudentWithFees["status"], msg: string) => void;
+  onInitTransfer: (s: StudentWithFees) => void;
+  onInitSuspend: (s: StudentWithFees) => void;
   onOpenEdit: (s: StudentWithFees) => void;
   onOpenCredentials: (s: StudentWithFees) => void;
   onInitDelete: (s: StudentWithFees) => void;
@@ -26,7 +27,8 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
     canDeleteStudents,
     canManageStudentAccounts,
     onPrint,
-    onChangeStatus,
+    onInitTransfer,
+    onInitSuspend,
     onOpenEdit,
     onOpenCredentials,
     onInitDelete,
@@ -98,7 +100,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
               icon: "📦",
               label: copy.transfer,
               fn: () => {
-                onChangeStatus(student, "transferred", copy.transferSuccess);
+                onInitTransfer(student);
                 setActiveMenu(null);
               },
             },
@@ -106,7 +108,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
               icon: "⏸️",
               label: copy.suspend,
               fn: () => {
-                onChangeStatus(student, "suspended", copy.suspendSuccess);
+                onInitSuspend(student);
                 setActiveMenu(null);
               },
             },
@@ -144,7 +146,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
               icon: "↩️",
               label: copy.restore,
               fn: () => {
-                onChangeStatus(student, "active", copy.restoreSuccess);
+                onInitSuspend(student);
                 setActiveMenu(null);
               },
             },
@@ -168,7 +170,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
               icon: "↩️",
               label: copy.reactivate,
               fn: () => {
-                onChangeStatus(student, "active", copy.reactivateSuccess);
+                onInitSuspend(student);
                 setActiveMenu(null);
               },
             },
@@ -188,10 +190,23 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
         icon: "↩️",
         label: copy.restore,
         fn: () => {
-          onChangeStatus(student, "active", copy.restoreSuccess);
+          onInitSuspend(student);
           setActiveMenu(null);
         },
       },
+      ...(canDeleteStudents
+        ? [
+            {
+              icon: "🗑️",
+              label: locale === "en" ? "Delete permanently" : "حذف نهائي",
+              danger: true,
+              fn: () => {
+                onInitDelete(student);
+                setActiveMenu(null);
+              },
+            },
+          ]
+        : []),
     ];
   }
 

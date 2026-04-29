@@ -26,6 +26,8 @@ type StudentRow = {
   status: StudentStatus | null;
 };
 
+type TransferType = "class" | "section" | "transferred";
+
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
@@ -62,6 +64,13 @@ function normalizeStatus(value: unknown): StudentStatus | null {
 function parseNonNegativeNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function normalizeTransferType(value: unknown): TransferType | null {
+  if (value === "class" || value === "section" || value === "transferred") {
+    return value;
+  }
+  return null;
 }
 
 async function requireStudentPermission(req: NextRequest, permission: "edit_students" | "delete_students") {
@@ -171,6 +180,24 @@ async function fetchStudent(
   return data;
 }
 
+async function validateClassExists(
+  serviceSupabase: ReturnType<typeof createServiceSupabaseClient>,
+  className: string,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+): Promise<boolean> {
+  const { data, error } = await applyBranchScopeToQuery(
+    serviceSupabase
+      .from("class_fees")
+      .select("class_name")
+      .eq("class_name", className)
+      .eq("school_id", schoolId),
+    branchScope,
+  ).maybeSingle<{ class_name: string }>();
+
+  return !error && !!data;
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> },
@@ -192,6 +219,117 @@ export async function PATCH(
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
+  // Check if this is a transfer operation
+  const transferType = normalizeTransferType(body?.transfer_type);
+  if (transferType) {
+    // Handle transfer operations
+    if (transferType === "class") {
+      const targetClassName = normalizeRequiredText(body?.target_class_name);
+      if (!targetClassName) {
+        return jsonError("اسم الصف المستهدف مطلوب للنقل بين الصفوف.", 400);
+      }
+
+      // Validate target class exists in branch
+      const classExists = await validateClassExists(serviceSupabase, targetClassName, targetSchoolId, branchScope);
+      if (!classExists) {
+        return jsonError("الصف المستهدف غير موجود أو غير متاح ضمن فرعك.", 400);
+      }
+
+      const targetSection = normalizeOptionalText(body?.target_section);
+
+      const { data, error } = await applyBranchScopeToQuery(
+        serviceSupabase
+          .from("students")
+          .update({
+            class_name: targetClassName,
+            section: targetSection,
+            status: "active" satisfies StudentStatus,
+          })
+          .eq("id", studentId)
+          .eq("school_id", targetSchoolId),
+        branchScope,
+      )
+        .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
+        .maybeSingle<StudentRow>();
+
+      if (error || !data?.id) {
+        return jsonError(error?.message || "تعذر نقل الطالب إلى الصف الجديد.", 500);
+      }
+
+      invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
+      return NextResponse.json({ ok: true, student: data });
+    }
+
+    if (transferType === "section") {
+      const targetSection = normalizeRequiredText(body?.target_section);
+      if (!targetSection) {
+        return jsonError("اسم الشعبة المستهدفة مطلوب للنقل بين الشعب.", 400);
+      }
+
+      const { data, error } = await applyBranchScopeToQuery(
+        serviceSupabase
+          .from("students")
+          .update({
+            section: targetSection,
+            status: "active" satisfies StudentStatus,
+          })
+          .eq("id", studentId)
+          .eq("school_id", targetSchoolId),
+        branchScope,
+      )
+        .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
+        .maybeSingle<StudentRow>();
+
+      if (error || !data?.id) {
+        return jsonError(error?.message || "تعذر نقل الطالب إلى الشعبة الجديدة.", 500);
+      }
+
+      invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
+      return NextResponse.json({ ok: true, student: data });
+    }
+
+    if (transferType === "transferred") {
+      // Mark student as transferred, optionally update class/section if provided
+      const targetClassName = normalizeOptionalText(body?.target_class_name);
+      const targetSection = normalizeOptionalText(body?.target_section);
+
+      const updatePayload: Partial<StudentRow> = {
+        status: "transferred" satisfies StudentStatus,
+      };
+
+      if (targetClassName) {
+        const classExists = await validateClassExists(serviceSupabase, targetClassName, targetSchoolId, branchScope);
+        if (!classExists) {
+          return jsonError("الصف المستهدف غير موجود أو غير متاح ضمن فرعك.", 400);
+        }
+        updatePayload.class_name = targetClassName;
+      }
+
+      if (targetSection) {
+        updatePayload.section = targetSection;
+      }
+
+      const { data, error } = await applyBranchScopeToQuery(
+        serviceSupabase
+          .from("students")
+          .update(updatePayload)
+          .eq("id", studentId)
+          .eq("school_id", targetSchoolId),
+        branchScope,
+      )
+        .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
+        .maybeSingle<StudentRow>();
+
+      if (error || !data?.id) {
+        return jsonError(error?.message || "تعذر نقل الطالب إلى المنقولون.", 500);
+      }
+
+      invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
+      return NextResponse.json({ ok: true, student: data });
+    }
+  }
+
+  // Standard edit operation (non-transfer)
   const nextFullName = hasOwn(body, "full_name") ? normalizeRequiredText(body?.full_name) : currentStudent.full_name;
   const nextClassName = hasOwn(body, "class_name") ? normalizeRequiredText(body?.class_name) : currentStudent.class_name;
   const nextSection = hasOwn(body, "section") ? normalizeOptionalText(body?.section) : currentStudent.section;
@@ -303,6 +441,7 @@ export async function DELETE(
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
   const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;
+  const forceDelete = body?.force_delete === true;
 
   const context = await resolveStudentContext(req, schoolId, "delete_students", requestedBranchId);
   if (!context.ok) {
@@ -316,14 +455,25 @@ export async function DELETE(
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  const { data, error } = await applyBranchScopeToQuery(
-    serviceSupabase
-      .from("students")
-      .update({ status: "deleted" satisfies StudentStatus })
-      .eq("id", studentId)
-      .eq("school_id", targetSchoolId),
-    branchScope,
-  )
+  const deleteQuery = forceDelete || currentStudent.status === "deleted"
+    ? applyBranchScopeToQuery(
+        serviceSupabase
+          .from("students")
+          .delete()
+          .eq("id", studentId)
+          .eq("school_id", targetSchoolId),
+        branchScope,
+      )
+    : applyBranchScopeToQuery(
+        serviceSupabase
+          .from("students")
+          .update({ status: "deleted" satisfies StudentStatus })
+          .eq("id", studentId)
+          .eq("school_id", targetSchoolId),
+        branchScope,
+      );
+
+  const { data, error } = await deleteQuery
     .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
     .maybeSingle<StudentRow>();
 
@@ -333,5 +483,5 @@ export async function DELETE(
 
   invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
 
-  return NextResponse.json({ ok: true, student: data });
+  return NextResponse.json({ ok: true, student: data, hardDeleted: forceDelete || currentStudent.status === "deleted" });
 }
