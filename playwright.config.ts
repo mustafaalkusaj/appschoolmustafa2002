@@ -93,7 +93,16 @@ export default defineConfig({
     {
       name: "chromium",
       dependencies: skipAuthSetup ? [] : ["setup"],
-      testIgnore: /auth\.setup\.ts|auth-and-public|super-admin/,
+      testIgnore: /auth\.setup\.ts|auth-and-public|super-admin|\/crud\//,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: skipAuthSetup ? undefined : (fs.existsSync(adminStoragePath) ? adminStoragePath : undefined),
+      },
+    },
+    {
+      name: "crud",
+      dependencies: skipAuthSetup ? [] : ["setup"],
+      testMatch: /\/crud\//,
       use: {
         ...devices["Desktop Chrome"],
         storageState: skipAuthSetup ? undefined : (fs.existsSync(adminStoragePath) ? adminStoragePath : undefined),
