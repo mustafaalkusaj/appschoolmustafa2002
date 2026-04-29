@@ -46,7 +46,11 @@ export interface Class {
   nameAr: string;
   nameEn: string;
   gradeLevel: number;
+  schoolId: string;
+  branchId: string;
+  academicYearId?: string;
   name?: string; // Backward compatibility
+  sectionsCount?: number;
   sections: {
     id: string;
     name: string;
