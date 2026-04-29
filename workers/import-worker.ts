@@ -133,7 +133,13 @@ function validateRow(
     });
   } else {
     const classExists = availableClasses.find(
-      (c) => c.name.trim().toLowerCase() === String(row.className).trim().toLowerCase()
+      (c) => {
+        const classNameInput = String(row.className).trim().toLowerCase();
+        // Match against either Arabic or English name
+        return c.nameAr.trim().toLowerCase() === classNameInput ||
+               c.nameEn.trim().toLowerCase() === classNameInput ||
+               c.name?.trim().toLowerCase() === classNameInput; // Fallback for backward compat
+      }
     );
     if (!classExists) {
       errors.push({

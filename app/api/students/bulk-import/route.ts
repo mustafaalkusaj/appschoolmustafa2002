@@ -98,19 +98,35 @@ export async function POST(request: NextRequest) {
       targetSchoolId,
       writeBranch.value,
     );
+
+    console.log(`[BulkImport] Processing ${validated.length} students for school ${targetSchoolId}`);
+
     const { data, error } = await actorSupabase
       .from("students")
       .insert(validated)
       .select("id");
 
     if (error) {
-      console.error("Bulk import insert error:", error);
-      return jsonError(error.message, 500);
+      console.error("[BulkImport] Insert error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+
+      // Hide database details from user
+      const userMessage = error.message?.includes("column")
+        ? "خطأ في إعدادات النظام. يرجى مراجعة مسؤول النظام."
+        : error.message || "فشل استيراد الطلاب";
+      return jsonError(userMessage, 500);
     }
+
+    const importedCount = data?.length ?? validated.length;
+    console.log(`[BulkImport] Successfully imported ${importedCount}/${validated.length} students`);
 
     return NextResponse.json({
       success: true,
-      imported: data?.length ?? validated.length,
+      imported: importedCount,
     });
   } catch (error) {
     console.error("Bulk import server error:", error);

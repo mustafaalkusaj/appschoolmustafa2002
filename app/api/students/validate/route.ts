@@ -51,7 +51,9 @@ export async function GET(request: NextRequest) {
       .from("classes")
       .select(`
         id,
-        name,
+        nameAr,
+        nameEn,
+        gradeLevel,
         sections (
           id,
           name
@@ -66,17 +68,32 @@ export async function GET(request: NextRequest) {
 
     const { data: classesData, error: classesError } = await classesQuery;
 
-    if (classesError) throw classesError;
+    if (classesError) {
+      console.error("[Validate] Classes query error:", {
+        code: classesError.code,
+        message: classesError.message,
+        details: classesError.details,
+        hint: classesError.hint,
+      });
+      throw new Error("تعذر تحميل قائمة الصفوف. يرجى مراجعة مسؤول النظام.");
+    }
+
+    console.log(`[Validate] Loaded ${Array.isArray(classesData) ? classesData.length : 0} classes for school ${targetSchoolId}`);
 
     const classes = Array.isArray(classesData)
       ? classesData
           .map((classRow) => ({
-            ...classRow,
+            id: classRow.id,
+            nameAr: classRow.nameAr,
+            nameEn: classRow.nameEn,
+            gradeLevel: classRow.gradeLevel,
+            // Provide 'name' for backward compatibility (use Arabic name)
+            name: classRow.nameAr,
             sections: Array.isArray(classRow.sections)
               ? [...classRow.sections].sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "ar"))
               : [],
           }))
-          .sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "ar"))
+          .sort((left, right) => String(left.nameAr || "").localeCompare(String(right.nameAr || ""), "ar"))
       : [];
 
     return NextResponse.json({

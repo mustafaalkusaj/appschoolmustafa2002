@@ -31,7 +31,10 @@ export interface ValidationError {
 
 export interface Class {
   id: string;
-  name: string;
+  nameAr: string;
+  nameEn: string;
+  gradeLevel: number;
+  name?: string; // Backward compatibility
   sections: {
     id: string;
     name: string;
