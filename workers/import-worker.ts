@@ -49,9 +49,6 @@ self.onmessage = function(e: MessageEvent) {
             rawClassName: row[Object.keys(row).find(k => k.toLowerCase().includes('class')) || 'className'] as string || null,
             normalizedClassName: mappedRow.className || null,
             matchedClassId: mappedRow.classId || null,
-            rawSectionName: row[Object.keys(row).find(k => k.toLowerCase().includes('section')) || 'sectionName'] as string || null,
-            normalizedSectionName: mappedRow.sectionName || null,
-            matchedSectionId: mappedRow.sectionId || null,
             failureReason,
           });
         }
@@ -60,9 +57,7 @@ self.onmessage = function(e: MessageEvent) {
           console.log(`[Worker] Row ${i + 1} failed:`, {
             fullName: mappedRow.fullName,
             className: mappedRow.className,
-            sectionName: mappedRow.sectionName,
             classId: mappedRow.classId,
-            sectionId: mappedRow.sectionId,
             errors: rowErrors
           });
         }
@@ -72,9 +67,7 @@ self.onmessage = function(e: MessageEvent) {
           console.log(`[Worker] Row ${i + 1} valid:`, {
             fullName: mappedRow.fullName,
             className: mappedRow.className,
-            sectionName: mappedRow.sectionName,
-            classId: mappedRow.classId,
-            sectionId: mappedRow.sectionId
+            classId: mappedRow.classId
           });
         }
       }
@@ -204,33 +197,6 @@ function validateRow(
     console.log(`[Worker] Row ${rowIndex}: Matched class ${row.className} to classId ${row.classId}`);
   }
 
-  if (!row.sectionName || String(row.sectionName).trim() === '') {
-    errors.push({
-      row: rowIndex,
-      field: 'sectionName',
-      error: 'الشعبة مطلوبة',
-      value: row.sectionName,
-      severity: 'error',
-    });
-  } else if (row.classId) {
-    const classData = availableClasses.find((c) => c.id === row.classId);
-    if (classData) {
-      const sectionExists = classData.sections.find(
-        (s) => s.name.trim().toLowerCase() === String(row.sectionName).trim().toLowerCase()
-      );
-      if (!sectionExists) {
-        errors.push({
-          row: rowIndex,
-          field: 'sectionName',
-          error: 'الشعبة غير موجودة للصف المحدد',
-          value: row.sectionName,
-          severity: 'error',
-        });
-      } else {
-        row.sectionId = sectionExists.id;
-      }
-    }
-  }
 
   // Iraqi phone validation helper
   const isValidIraqiPhone = (phone: string | number | null | undefined) => {

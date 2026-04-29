@@ -61,22 +61,6 @@ export function normalizeClassName(text: string): string {
   return normalized || text.trim();
 }
 
-/**
- * Normalize section/division name
- * Supports: "أ" "A" "الشعبة أ" "section A" "قسم أ"
- */
-export function normalizeSectionName(text: string): string {
-  if (!text) return '';
-
-  // Remove prefixes BEFORE normalization (so ة doesn't interfere with matching)
-  const withoutPrefix = text
-    .replace(/^(الشعبة|الشعبه|القسم|الفرع|القطاع|section|division|group)\s+/i, '')
-    .trim();
-
-  // Then normalize
-  const normalized = normalizeArabicText(withoutPrefix);
-  return normalized || text.trim();
-}
 
 // ============================================================================
 // COLUMN MAPPING & HEADER DETECTION
@@ -230,9 +214,8 @@ export function mapExcelRow(
   if (sectionIdx >= 0) {
     const headerKey = headers[sectionIdx];
     mapped.sectionName = String(row[headerKey] || '').trim();
-  } else {
-    errors.push('لم يتم العثور على عمود الشعبة');
   }
+  // sectionName is optional - students are linked only to classes
 
   // Map optional fields
   const optionalFields = ['phoneNumber', 'dateOfBirth', 'gender', 'address', 'parentName', 'parentPhone', 'notes'];
@@ -255,7 +238,7 @@ export function mapExcelRow(
 }
 
 // ============================================================================
-// CLASS & SECTION MATCHING
+// CLASS MATCHING
 // ============================================================================
 
 /**
@@ -295,55 +278,6 @@ export function matchClass(
   return null;
 }
 
-/**
- * Match section within a class
- */
-export function matchSection(
-  sectionName: string,
-  classObj: Class
-): { id: string; name: string } | null {
-  if (!sectionName || !classObj.sections) return null;
-
-  const normalized = normalizeSectionName(sectionName).trim();
-
-  // Try exact match with all sections
-  for (const section of classObj.sections) {
-    const sectionNorm = normalizeSectionName(section.name).trim();
-    if (sectionNorm === normalized) {
-      return section;
-    }
-  }
-
-  // Try as single letter (English or Arabic)
-  if (normalized.length <= 1) {
-    const inputLetter = normalized.toLowerCase();
-
-    for (const section of classObj.sections) {
-      const sectionName = normalizeSectionName(section.name).trim().toLowerCase();
-
-      // Direct match
-      if (sectionName === inputLetter) {
-        return section;
-      }
-
-      // English to Arabic letter mapping
-      const englishArabicMap: Record<string, string[]> = {
-        'a': ['ا'],
-        'b': ['ب'],
-        'c': ['ج'],
-        'd': ['د'],
-        'h': ['ه'],
-      };
-
-      const equivalents = englishArabicMap[inputLetter] || [];
-      if (equivalents.includes(sectionName)) {
-        return section;
-      }
-    }
-  }
-
-  return null;
-}
 
 // ============================================================================
 // IMPORT PREVIEW
@@ -361,7 +295,6 @@ export interface ImportPreview {
     errors: string[];
   }>;
   matchedClasses: Map<string, string>; // className → classId
-  matchedSections: Map<string, string>; // "${classId}:${sectionName}" → sectionId
 }
 
 /**
@@ -387,14 +320,13 @@ export function generateImportPreview(
         errors: ['لم يتم اكتشاف رؤوس الأعمدة'],
       })),
       matchedClasses: new Map(),
-      matchedSections: new Map(),
     };
   }
 
   const { headerRowIndex, detectedHeaders } = headerDetection;
   const columnMapping: Record<string, number> = {};
 
-  ['fullName', 'className', 'sectionName'].forEach(field => {
+  ['fullName', 'className'].forEach(field => {
     const idx = findColumnIndex(detectedHeaders, field);
     if (idx >= 0) columnMapping[field] = idx;
   });
@@ -402,7 +334,6 @@ export function generateImportPreview(
   const validRows: StudentImportRow[] = [];
   const invalidRows: ImportPreview['invalidRows'] = [];
   const matchedClasses = new Map<string, string>();
-  const matchedSections = new Map<string, string>();
 
   // Skip header row, process data rows
   for (let i = headerRowIndex + 1; i < rows.length; i++) {
@@ -436,20 +367,6 @@ export function generateImportPreview(
     mapped.classId = matchedClass.id;
     matchedClasses.set(mapped.className!, matchedClass.id);
 
-    // Try to match section
-    const matchedSection = matchSection(mapped.sectionName!, matchedClass);
-    if (!matchedSection) {
-      invalidRows.push({
-        rowIndex: i + 1,
-        rawData: rawRow,
-        errors: [`الشعبة "${mapped.sectionName}" غير موجودة في الصف "${mapped.className}"`],
-      });
-      continue;
-    }
-
-    mapped.sectionId = matchedSection.id;
-    matchedSections.set(`${matchedClass.id}:${mapped.sectionName}`, matchedSection.id);
-
     validRows.push(mapped as StudentImportRow);
   }
 
@@ -461,6 +378,5 @@ export function generateImportPreview(
     validRows,
     invalidRows,
     matchedClasses,
-    matchedSections,
   };
 }

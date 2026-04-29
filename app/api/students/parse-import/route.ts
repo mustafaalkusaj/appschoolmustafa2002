@@ -84,11 +84,7 @@ export async function POST(request: NextRequest) {
         gradeLevel,
         branch_id,
         school_id,
-        academic_year_id,
-        sections (
-          id,
-          name
-        )
+        academic_year_id
       `)
       .eq("school_id", targetSchoolId);
 
@@ -111,11 +107,6 @@ export async function POST(request: NextRequest) {
     const classes = Array.isArray(classesData)
       ? classesData
           .map((classRow: any) => {
-            const sections = Array.isArray(classRow.sections)
-              ? [...classRow.sections].sort((left, right) =>
-                  String(left.name || "").localeCompare(String(right.name || ""), "ar"),
-                )
-              : [];
             return {
               id: classRow.id,
               nameAr: classRow.nameAr,
@@ -124,8 +115,8 @@ export async function POST(request: NextRequest) {
               schoolId: classRow.school_id || targetSchoolId,
               branchId: classRow.branch_id || branchScope.value.branchId || "",
               academicYearId: classRow.academic_year_id,
-              sections,
-              sectionsCount: sections.length,
+              sections: [],
+              sectionsCount: 0,
             };
           })
           .sort((left, right) => String(left.nameAr || "").localeCompare(String(right.nameAr || ""), "ar"))
@@ -168,7 +159,6 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
         classesLoaded: classes.length,
         matchedClassesCount: preview.matchedClasses.size,
-        matchedSectionsCount: preview.matchedSections.size,
       },
     });
   } catch (error) {

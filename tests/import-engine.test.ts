@@ -2,12 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   normalizeArabicText,
   normalizeClassName,
-  normalizeSectionName,
   findColumnIndex,
   detectHeaderRow,
   mapExcelRow,
   matchClass,
-  matchSection,
   generateImportPreview,
   COLUMN_ALIASES,
 } from '@/lib/students/import-engine';
@@ -106,25 +104,6 @@ describe('normalizeClassName', () => {
   it('handles pure class names', () => {
     expect(normalizeClassName('متوسط')).toBe('متوسط');
     expect(normalizeClassName('Intermediate')).toBe('intermediate');
-  });
-});
-
-describe('normalizeSectionName', () => {
-  it('removes section prefix words', () => {
-    expect(normalizeSectionName('الشعبة أ')).toBe('ا');
-    expect(normalizeSectionName('القسم ب')).toBe('ب');
-    expect(normalizeSectionName('section A')).toBe('a');
-    expect(normalizeSectionName('division 1')).toBe('1');
-  });
-
-  it('handles single letter sections', () => {
-    expect(normalizeSectionName('A')).toBe('a');
-    expect(normalizeSectionName('أ')).toBe('ا');
-    expect(normalizeSectionName('ب')).toBe('ب');
-  });
-
-  it('handles complex names', () => {
-    expect(normalizeSectionName('الشعبة A1')).toBe('a1');
   });
 });
 
@@ -303,7 +282,7 @@ describe('mapExcelRow', () => {
 });
 
 // ============================================================================
-// CLASS & SECTION MATCHING TESTS
+// CLASS MATCHING TESTS
 // ============================================================================
 
 describe('matchClass', () => {
@@ -353,51 +332,6 @@ describe('matchClass', () => {
   });
 });
 
-describe('matchSection', () => {
-  const class1 = mockClasses[0];
-
-  it('matches section by name', () => {
-    const matched = matchSection('أ', class1);
-    expect(matched?.id).toBe('section-1a');
-  });
-
-  it('matches section case-insensitive', () => {
-    const matched = matchSection('A', class1);
-    expect(matched?.id).toBe('section-1a');
-  });
-
-  it('matches with prefix removal', () => {
-    const matched = matchSection('الشعبة أ', class1);
-    expect(matched?.id).toBe('section-1a');
-  });
-
-  it('matches section b', () => {
-    const matched = matchSection('ب', class1);
-    expect(matched?.id).toBe('section-1b');
-  });
-
-  it('matches section c', () => {
-    const matched = matchSection('ج', class1);
-    expect(matched?.id).toBe('section-1c');
-  });
-
-  it('returns null for non-existent section', () => {
-    const matched = matchSection('د', class1);
-    expect(matched).toBeNull();
-  });
-
-  it('returns null for empty name', () => {
-    const matched = matchSection('', class1);
-    expect(matched).toBeNull();
-  });
-
-  it('only matches within same class', () => {
-    const class2 = mockClasses[1];
-    const matched = matchSection('ج', class2); // ج doesn't exist in class2
-    expect(matched).toBeNull();
-  });
-});
-
 // ============================================================================
 // PREVIEW GENERATION TESTS
 // ============================================================================
@@ -414,7 +348,6 @@ describe('generateImportPreview', () => {
     expect(preview.validRows.length).toBe(2);
     expect(preview.invalidRows.length).toBe(0);
     expect(preview.validRows[0].classId).toBe('class-1');
-    expect(preview.validRows[0].sectionId).toBe('section-1b');
   });
 
   it('handles partial valid/invalid rows', () => {
@@ -422,12 +355,11 @@ describe('generateImportPreview', () => {
       { 'الاسم الكامل': 'الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
       { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': 'أ' }, // Valid
       { 'الاسم الكامل': 'محمد', 'الصف': 'الصف الخامس', 'الشعبة': 'أ' }, // Invalid class
-      { 'الاسم الكامل': 'علي', 'الصف': 'الثاني متوسط', 'الشعبة': 'ج' }, // Invalid section (class2 has no ج)
     ];
     const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
 
     expect(preview.validRows.length).toBe(1);
-    expect(preview.invalidRows.length).toBe(2);
+    expect(preview.invalidRows.length).toBe(1);
   });
 
   it('detects headers correctly', () => {
@@ -464,7 +396,7 @@ describe('generateImportPreview', () => {
     expect(preview.invalidRows[0].errors[0]).toMatch(/غير موجود/);
   });
 
-  it('tracks matched classes and sections', () => {
+  it('tracks matched classes', () => {
     const rows: Record<string, unknown>[] = [
       { 'الاسم الكامل': 'الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
       { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': 'أ' },

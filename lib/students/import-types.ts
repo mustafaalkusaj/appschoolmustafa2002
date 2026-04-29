@@ -16,7 +16,6 @@ export interface OptionalStudentFields {
 
 export interface StudentImportRow extends RequiredStudentFields, OptionalStudentFields {
   classId?: string;
-  sectionId?: string;
   [key: string]: string | number | boolean | null | undefined; // Better than any
 }
 
@@ -35,9 +34,6 @@ export interface RowLevelDebugInfo {
   rawClassName: string | null;
   normalizedClassName: string | null;
   matchedClassId: string | null;
-  rawSectionName: string | null;
-  normalizedSectionName: string | null;
-  matchedSectionId: string | null;
   failureReason: string;
 }
 
