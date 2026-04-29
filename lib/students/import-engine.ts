@@ -387,6 +387,18 @@ export function generateImportPreview(
     // Try to match class
     const matchedClass = matchClass(mapped.className!, availableClasses, schoolId, branchId);
     if (!matchedClass) {
+      // Debug: log why class match failed
+      const availableClassNames = availableClasses
+        .filter(c => c.schoolId === schoolId && c.branchId === branchId)
+        .map(c => ({ nameAr: c.nameAr, nameEn: c.nameEn }));
+
+      console.log(`[ImportEngine] Row ${i + 1} class not found:`, {
+        excelClassName: mapped.className,
+        normalized: normalizeClassName(mapped.className!),
+        availableClassesCount: availableClasses.length,
+        filteredByScope: availableClassNames,
+      });
+
       invalidRows.push({
         rowIndex: i + 1,
         rawData: rawRow,
@@ -399,10 +411,27 @@ export function generateImportPreview(
     matchedClasses.set(mapped.className!, matchedClass.id);
 
     // Required: Section must exist in matched class
-    const sectionExists = matchedClass.sections.some(
-      (s) => s.name.trim().toLowerCase() === mapped.sectionName!.trim().toLowerCase()
+    const classDbSections = matchedClass.sections || [];
+    const sectionExists = classDbSections.some(
+      (s: any) => {
+        const dbSec = String(s.name || s).trim().toLowerCase();
+        const excelSec = mapped.sectionName!.trim().toLowerCase();
+        return dbSec === excelSec;
+      }
     );
+
     if (!sectionExists) {
+      // Debug: log why section failed
+      const dbSectionNames = classDbSections.map((s: any) => s.name || s);
+      console.log(`[ImportEngine] Row ${i + 1} section mismatch:`, {
+        excelSection: mapped.sectionName,
+        className: mapped.className,
+        classId: matchedClass.id,
+        availableSections: dbSectionNames,
+        normalizedExcel: mapped.sectionName!.trim().toLowerCase(),
+        normalizedDb: dbSectionNames.map((s: any) => String(s).trim().toLowerCase()),
+      });
+
       invalidRows.push({
         rowIndex: i + 1,
         rawData: rawRow,
