@@ -312,10 +312,10 @@ export default async function GroupDashboardPage({
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), color: "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" },
-            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), color: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" },
-            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), color: "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300" },
-            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), color: "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300" },
+            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), bgLight: "#dbeafe", bgDark: "rgba(30, 58, 138, 0.4)", iconColor: "#1e3a8a" },
+            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), bgLight: "#d1fae5", bgDark: "rgba(5, 150, 105, 0.4)", iconColor: "#065f46" },
+            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), bgLight: "#fed7aa", bgDark: "rgba(180, 83, 9, 0.4)", iconColor: "#92400e" },
+            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#e0e7ff", bgDark: "rgba(55, 48, 163, 0.4)", iconColor: "#312e81" },
           ].map((metric) => (
             <div key={metric.label} className="rounded-2xl border shadow-sm p-5 transition-colors" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between gap-4">
@@ -327,7 +327,7 @@ export default async function GroupDashboardPage({
                     {metric.value}
                   </p>
                 </div>
-                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${metric.color}`}>
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-colors" style={{ background: `light-dark(${metric.bgLight}, ${metric.bgDark})`, color: metric.iconColor }}>
                   <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
                     {metric.label.includes("طلاب") && <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.667 0-8 1.337-8 4v2h16v-2c0-2.663-5.333-4-8-4z" />}
                     {metric.label.includes("المدفوع") && <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />}
