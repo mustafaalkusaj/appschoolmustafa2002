@@ -166,6 +166,7 @@ export default function StudentsPage() {
         onPrint: print.handlePrint,
         onInitTransfer: operations.initTransfer,
         onInitSuspend: operations.initSuspend,
+        onInitRestore: operations.initRestore,
         onOpenEdit: modals.openEdit,
         onOpenCredentials: operations.openStudentCredentialsCard,
         onInitDelete: (student) => {

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   normalizeArabicText,
   normalizeClassName,
+  normalizeSectionName,
   findColumnIndex,
   detectHeaderRow,
   mapExcelRow,
@@ -104,6 +105,14 @@ describe('normalizeClassName', () => {
   it('handles pure class names', () => {
     expect(normalizeClassName('متوسط')).toBe('متوسط');
     expect(normalizeClassName('Intermediate')).toBe('intermediate');
+  });
+});
+
+describe('normalizeSectionName', () => {
+  it('removes section prefixes and normalizes Arabic text', () => {
+    expect(normalizeSectionName('الشعبة أ')).toBe('ا');
+    expect(normalizeSectionName('الشعبة: ب')).toBe('ب');
+    expect(normalizeSectionName('Section A')).toBe('a');
   });
 });
 
@@ -405,6 +414,17 @@ describe('generateImportPreview', () => {
 
     expect(preview.matchedClasses.has('الأول متوسط')).toBe(true);
     expect(preview.matchedClasses.get('الأول متوسط')).toBe('class-1');
+  });
+
+  it('accepts prefixed section labels', () => {
+    const rows: Record<string, unknown>[] = [
+      { 'الاسم الكامل': 'الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' },
+      { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': 'الشعبة أ' },
+    ];
+    const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
+
+    expect(preview.validRows.length).toBe(1);
+    expect(preview.invalidRows.length).toBe(0);
   });
 
   it('handles 100+ rows', () => {

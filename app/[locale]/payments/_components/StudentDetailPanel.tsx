@@ -63,7 +63,7 @@ export function StudentDetailPanel({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <span className="text-[var(--text-muted)]">{t("payments.detailPanel.studentName")}:</span>
-              <p className="font-semibold text-[var(--text-primary)]">{student.full_name}</p>
+              <p className="!text-[1.1rem] !font-black leading-none text-[var(--text-primary)]">{student.full_name}</p>
             </div>
             <div>
               <span className="text-[var(--text-muted)]">{t("payments.detailPanel.className")}:</span>

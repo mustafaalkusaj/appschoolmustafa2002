@@ -139,4 +139,102 @@ describe("resolveSchoolScopedActorContext", () => {
       },
     });
   });
+
+  it("rejects admin user attempting to access different school", async () => {
+    verifyRBACSessionMock.mockResolvedValue({
+      userId: "user-1",
+      role: "admin",
+      schoolId: "11111111-1111-1111-1111-111111111111", // User's school
+      branchId: null,
+      allowedBranchIds: [],
+      userActive: true,
+      schoolActive: true,
+      subscriptionStatus: "active",
+      subscriptionEnd: "2027-12-31",
+      scopeLevel: "group_admin",
+      isSinglePageUser: false,
+      permissionsVersion: 1,
+    });
+
+    const { resolveSchoolScopedActorContext } = await import("@/lib/managed-users/context");
+    const result = await resolveSchoolScopedActorContext(
+      "99999999-9999-9999-9999-999999999999", // Different school
+      {
+        allowedRoles: ["admin"],
+        roleDeniedMessage: "denied",
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 403,
+      message: expect.stringContaining("خارج مدرسة حسابك"), // Cross-school message
+    });
+  });
+
+  it("allows admin to access own school when explicitly passed", async () => {
+    verifyRBACSessionMock.mockResolvedValue({
+      userId: "user-1",
+      role: "admin",
+      schoolId: "11111111-1111-1111-1111-111111111111",
+      branchId: null,
+      allowedBranchIds: ["22222222-2222-2222-2222-222222222222"],
+      userActive: true,
+      schoolActive: true,
+      subscriptionStatus: "active",
+      subscriptionEnd: "2027-12-31",
+      scopeLevel: "group_admin",
+      isSinglePageUser: false,
+      permissionsVersion: 1,
+    });
+
+    const { resolveSchoolScopedActorContext } = await import("@/lib/managed-users/context");
+    const result = await resolveSchoolScopedActorContext(
+      "11111111-1111-1111-1111-111111111111", // Same school
+      {
+        allowedRoles: ["admin"],
+        roleDeniedMessage: "denied",
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        targetSchoolId: "11111111-1111-1111-1111-111111111111",
+        actorRole: "admin",
+      },
+    });
+  });
+
+  it("rejects request when user school is inactive", async () => {
+    verifyRBACSessionMock.mockResolvedValue({
+      userId: "user-1",
+      role: "admin",
+      schoolId: "11111111-1111-1111-1111-111111111111",
+      branchId: null,
+      allowedBranchIds: [],
+      userActive: true,
+      schoolActive: false, // School inactive
+      subscriptionStatus: "active",
+      subscriptionEnd: "2027-12-31",
+      scopeLevel: "group_admin",
+      isSinglePageUser: false,
+      permissionsVersion: 1,
+    });
+
+    const { resolveSchoolScopedActorContext } = await import("@/lib/managed-users/context");
+    const result = await resolveSchoolScopedActorContext(
+      "11111111-1111-1111-1111-111111111111",
+      {
+        allowedRoles: ["admin"],
+        roleDeniedMessage: "denied",
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 403,
+      message: expect.stringContaining("غير مفعلة"),
+    });
+  });
 });

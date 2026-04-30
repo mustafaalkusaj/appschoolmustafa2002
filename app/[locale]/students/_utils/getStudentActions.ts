@@ -11,6 +11,7 @@ interface GetStudentActionsOptions {
   onPrint: (s: StudentWithFees) => void;
   onInitTransfer: (s: StudentWithFees) => void;
   onInitSuspend: (s: StudentWithFees) => void;
+  onInitRestore: (s: StudentWithFees) => void;
   onOpenEdit: (s: StudentWithFees) => void;
   onOpenCredentials: (s: StudentWithFees) => void;
   onInitDelete: (s: StudentWithFees) => void;
@@ -29,6 +30,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
     onPrint,
     onInitTransfer,
     onInitSuspend,
+    onInitRestore,
     onOpenEdit,
     onOpenCredentials,
     onInitDelete,
@@ -142,14 +144,14 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
       printAction,
       ...(canEditStudents
         ? [
-            {
-              icon: "↩️",
-              label: copy.restore,
-              fn: () => {
-                onInitSuspend(student);
-                setActiveMenu(null);
-              },
+          {
+            icon: "↩️",
+            label: copy.restore,
+            fn: () => {
+              onInitRestore(student);
+              setActiveMenu(null);
             },
+          },
             {
               icon: "✏️",
               label: copy.edit,
@@ -166,14 +168,14 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
       printAction,
       ...(canEditStudents
         ? [
-            {
-              icon: "↩️",
-              label: copy.reactivate,
-              fn: () => {
-                onInitSuspend(student);
-                setActiveMenu(null);
-              },
+          {
+            icon: "↩️",
+            label: copy.reactivate,
+            fn: () => {
+              onInitRestore(student);
+              setActiveMenu(null);
             },
+          },
             {
               icon: "✏️",
               label: copy.edit,
@@ -190,7 +192,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
         icon: "↩️",
         label: copy.restore,
         fn: () => {
-          onInitSuspend(student);
+          onInitRestore(student);
           setActiveMenu(null);
         },
       },

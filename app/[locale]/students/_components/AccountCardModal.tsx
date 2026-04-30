@@ -37,7 +37,7 @@ export function AccountCardModal({ accountCard, revealedPassword, onPrint, onCop
             <p className="text-xs font-bold uppercase text-[var(--text-muted)] mb-1">
               {t("fullName")}
             </p>
-            <p className="text-lg font-bold text-[var(--primary)]">
+            <p className="!text-[1.1rem] !font-black leading-none text-[var(--primary)]">
               {accountCard.full_name}
             </p>
           </div>
@@ -46,7 +46,7 @@ export function AccountCardModal({ accountCard, revealedPassword, onPrint, onCop
             <p className="text-xs font-bold uppercase text-[var(--text-muted)] mb-1">
               {t("classSection")}
             </p>
-            <p className="text-lg font-bold text-[var(--primary)]">
+            <p className="!text-[1.1rem] !font-black leading-none text-[var(--primary)]">
               {[accountCard.class_name, accountCard.section ? t("section", { name: accountCard.section }) : null]
                 .filter(Boolean)
                 .join(" • ") || "—"}

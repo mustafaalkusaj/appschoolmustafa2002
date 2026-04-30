@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       applyBranchScopeToQuery(
         actorSupabase
           .from("students")
-          .select("id, school_id, paid_fee, total_fee, discount_value, remaining_fee")
+          .select("id, school_id, paid_fee, total_fee, discount_value")
           .eq("id", studentId)
           .eq("school_id", targetSchoolId),
         branchScope.value,

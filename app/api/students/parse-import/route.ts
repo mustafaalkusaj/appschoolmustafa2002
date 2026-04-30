@@ -6,6 +6,7 @@ import { tableHasColumn } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { generateImportPreview } from "@/lib/students/import-engine";
 import { loadXLSX } from "@/lib/xlsx-loader";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const actorContext = await resolveSchoolScopedActorContext(
-      null,
+      request.nextUrl.searchParams.get("school") ?? request.nextUrl.searchParams.get("schoolId"),
       {
         allowedRoles: ["admin", "super_admin"],
         roleDeniedMessage: "استيراد الطلاب متاح لمدير المدرسة فقط.",
@@ -72,21 +73,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Load classes for current school/branch
-    const { actorSupabase, targetSchoolId } = actorContext.value;
-    const classesHasBranchScope = await tableHasColumn(actorSupabase, "classes", "branch_id").catch(() => false);
+    const { targetSchoolId } = actorContext.value;
+    const adminSupabase = createServiceSupabaseClient();
+    const classesHasBranchScope = await tableHasColumn(adminSupabase, "classes", "branch_id").catch(() => false);
 
-    let classesQuery = actorSupabase
+    let classesQuery = adminSupabase
       .from("classes")
-      .select(`
-        id,
-        nameAr,
-        nameEn,
-        gradeLevel,
-        branch_id,
-        school_id,
-        academic_year_id,
-        sections (id, name)
-      `)
+      .select(`id, grade, section, school_id, branch_id`)
       .eq("school_id", targetSchoolId);
 
     if (classesHasBranchScope && branchScope.value.branchIds.length > 0) {
@@ -108,27 +101,92 @@ export async function POST(request: NextRequest) {
     const classes = Array.isArray(classesData)
       ? classesData
           .map((classRow: any) => {
+            let parsedSections: Array<{ id: string; name: string }> = [];
+            const sectionRaw = classRow.section;
+            if (sectionRaw) {
+              if (typeof sectionRaw === 'string') {
+                try {
+                  const parsed = JSON.parse(sectionRaw);
+                  if (Array.isArray(parsed)) {
+                    parsedSections = parsed.map((s: any, i: number) => ({
+                      id: s.id || s.name || String(i),
+                      name: s.name || String(s)
+                    }));
+                  }
+                } catch {
+                  parsedSections = sectionRaw.split(',').map((s, i) => ({
+                    id: `${classRow.id}_${i}`,
+                    name: s.trim()
+                  }));
+                }
+              } else if (Array.isArray(sectionRaw)) {
+                parsedSections = sectionRaw.map((s: any, i: number) => ({
+                  id: s.id || s.name || String(i),
+                  name: s.name || String(s)
+                }));
+              }
+            }
+            const displayName =
+              String(classRow.grade || "").trim() ||
+              `الصف ${classRow.id}`;
             return {
               id: classRow.id,
-              nameAr: classRow.nameAr,
-              nameEn: classRow.nameEn,
-              gradeLevel: classRow.gradeLevel,
+              nameAr: displayName,
+              nameEn: `Grade ${classRow.grade || ''}`,
+              gradeLevel: classRow.grade || 0,
               schoolId: classRow.school_id || targetSchoolId,
               branchId: classRow.branch_id || branchScope.value.branchId || "",
-              academicYearId: classRow.academic_year_id,
-              sections: Array.isArray(classRow.sections) ? classRow.sections : [],
-              sectionsCount: Array.isArray(classRow.sections) ? classRow.sections.length : 0,
+              academicYearId: undefined,
+              section: String(classRow.section || "").trim(),
+              sections: parsedSections,
+              sectionsCount: parsedSections.length,
             };
           })
           .sort((left, right) => String(left.nameAr || "").localeCompare(String(right.nameAr || ""), "ar"))
       : [];
 
-    console.log(`[ParseImport] Loaded ${classes.length} classes`);
+    const classIds = classes.map((cls) => cls.id);
+    let sectionsByClassId = new Map<string, Array<{ id: string; name: string }>>();
+    if (classIds.length > 0) {
+      const { data: sectionsData, error: sectionsError } = await adminSupabase
+        .from("sections")
+        .select("id, class_id, name")
+        .in("class_id", classIds);
+
+      if (!sectionsError && Array.isArray(sectionsData)) {
+        sectionsByClassId = new Map();
+        sectionsData.forEach((sectionRow: any) => {
+          const classId = String(sectionRow.class_id || "");
+          const section = {
+            id: String(sectionRow.id || ""),
+            name: String(sectionRow.name || "").trim(),
+          };
+          if (!sectionsByClassId.has(classId)) {
+            sectionsByClassId.set(classId, []);
+          }
+          sectionsByClassId.get(classId)!.push(section);
+        });
+      }
+    }
+
+    const enrichedClasses = classes.map((cls) => {
+      const dbSections = sectionsByClassId.get(cls.id) ?? [];
+      return {
+        ...cls,
+        sections: dbSections.length > 0 ? dbSections : cls.sections,
+        sectionsCount: dbSections.length > 0 ? dbSections.length : cls.sections.length,
+      };
+    });
+
+    console.log(`[ParseImport] Loaded ${enrichedClasses.length} classes`);
     console.log("[ParseImport] Classes detail:", classes.map(c => ({
       id: c.id,
       nameAr: c.nameAr,
       nameEn: c.nameEn,
-      sections: c.sections.map((s: any) => s.name || s),
+      rawSectionFromDb: classesData.find((row: any) => row.id === c.id)?.section,
+      sections: (sectionsByClassId.get(c.id) ?? c.sections).map((s: any) => s.name || s),
+      sectionsCount: (sectionsByClassId.get(c.id) ?? c.sections).length,
+      classSection: (c as any).section,
     })));
 
     // Extract unique classes/sections from Excel
@@ -145,7 +203,7 @@ export async function POST(request: NextRequest) {
     // Generate import preview
     const preview = generateImportPreview(
       rows as Record<string, unknown>[],
-      classes,
+      enrichedClasses,
       targetSchoolId,
       branchScope.value.branchId || "",
     );
@@ -176,10 +234,11 @@ export async function POST(request: NextRequest) {
         detectedHeaders: preview.detectedHeaders,
         columnMapping: preview.columnMapping,
       },
+      validRows: preview.validRows,
       errors: invalidRowsPreview,
       debug: {
         timestamp: new Date().toISOString(),
-        classesLoaded: classes.length,
+        classesLoaded: enrichedClasses.length,
         matchedClassesCount: preview.matchedClasses.size,
       },
     });

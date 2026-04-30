@@ -6,7 +6,6 @@ import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
-import { calculateStudentRemainingFee } from "@/lib/students/financials";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { hasPermissionInList } from "@/types/roles";
 import type { StudentStatus } from "@/types/student";
@@ -409,14 +408,7 @@ export async function PATCH(
   const { data, error } = await applyBranchScopeToQuery(
     serviceSupabase
       .from("students")
-      .update({
-        ...updatePayload,
-        remaining_fee: calculateStudentRemainingFee({
-          total_fee: nextTotalFee,
-          paid_fee: nextPaidFee,
-          discount_value: nextDiscount,
-        }),
-      })
+      .update(updatePayload)
       .eq("id", studentId)
       .eq("school_id", targetSchoolId),
     branchScope,

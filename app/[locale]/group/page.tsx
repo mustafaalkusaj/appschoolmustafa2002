@@ -1,9 +1,19 @@
+import dynamicImport from "next/dynamic";
 import { redirect } from "next/navigation";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { localizeAppPath } from "@/lib/locale-routing";
 import { resolveSchoolManagerOverview, type SchoolManagerBranchSummary } from "@/lib/school-manager/overview";
-import { SchoolManagerComparisonChart } from "./_components/SchoolManagerComparisonChart";
+import { BudgetSummary } from "./_components/BudgetSummary";
+
+const SchoolManagerComparisonChart = dynamicImport(
+  () => import("./_components/SchoolManagerComparisonChart").then((mod) => mod.SchoolManagerComparisonChart),
+  {
+    loading: () => (
+      <div className="h-[400px] w-full animate-pulse rounded-lg bg-[var(--surface-muted)]" />
+    ),
+  }
+);
 
 export const dynamic = "force-dynamic";
 
@@ -177,6 +187,7 @@ function BranchCard({
   branch: SchoolManagerBranchSummary;
 }) {
   const copy = COPY[locale];
+  const hasData = branch.studentsCount > 0 || branch.totalExpenses > 0 || branch.totalPaid > 0;
 
   return (
     <section className="overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
@@ -184,26 +195,33 @@ function BranchCard({
         <h2 className="text-xl font-black text-[var(--text-primary)]">{branch.branchName}</h2>
       </div>
       <div className="p-5 pt-0">
+        {!hasData && (
+          <div className="mb-4 rounded-[18px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--info)_10%,transparent)] px-4 py-3 text-center text-sm text-[var(--text-secondary)]">
+            {locale === "ar"
+              ? "لا توجد معاملات مالية بعد، لكن الفرع نشط وسيظهر في التقارير."
+              : "No transactions yet, but the branch is active and will appear in reports."}
+          </div>
+        )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <MetricTile label={copy.beforeDiscount} value={formatCurrency(branch.totalFeesBeforeDiscount, locale)} />
-        <MetricTile label={copy.afterDiscount} value={formatCurrency(branch.totalFeesAfterDiscount, locale)} />
-        <MetricTile label={copy.remaining} value={formatCurrency(branch.totalRemaining, locale)} />
-        <MetricTile label={copy.discount} value={formatCurrency(branch.totalDiscount, locale)} />
-        <MetricTile label={copy.paid} value={formatCurrency(branch.totalPaid, locale)} />
-        <MetricTile label={copy.expenses} value={formatCurrency(branch.totalExpenses, locale)} />
-      </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MetricTile label={copy.beforeDiscount} value={formatCurrency(branch.totalFeesBeforeDiscount, locale)} />
+          <MetricTile label={copy.afterDiscount} value={formatCurrency(branch.totalFeesAfterDiscount, locale)} />
+          <MetricTile label={copy.remaining} value={formatCurrency(branch.totalRemaining, locale)} />
+          <MetricTile label={copy.discount} value={formatCurrency(branch.totalDiscount, locale)} />
+          <MetricTile label={copy.paid} value={formatCurrency(branch.totalPaid, locale)} />
+          <MetricTile label={copy.expenses} value={formatCurrency(branch.totalExpenses, locale)} />
+        </div>
 
-      <div className="mx-auto mt-3 max-w-[280px]">
-        <MetricTile label={copy.students} value={formatNumber(branch.studentsCount, locale)} />
-      </div>
-      <div className="mx-auto mt-3 max-w-[280px]">
-        <MetricTile label={copy.paidPercentage} value={`${formatNumber(branch.paidPercentage, locale)}%`} />
-      </div>
+        <div className="mx-auto mt-3 max-w-[280px]">
+          <MetricTile label={copy.students} value={formatNumber(branch.studentsCount, locale)} />
+        </div>
+        <div className="mx-auto mt-3 max-w-[280px]">
+          <MetricTile label={copy.paidPercentage} value={`${formatNumber(branch.paidPercentage, locale)}%`} />
+        </div>
 
-      <div className="mt-5 border-t border-[var(--border)] pt-4">
-        <ExportButtons locale={locale} branchId={branch.branchId} />
-      </div>
+        <div className="mt-5 border-t border-[var(--border)] pt-4">
+          <ExportButtons locale={locale} branchId={branch.branchId} />
+        </div>
       </div>
     </section>
   );
@@ -387,6 +405,8 @@ export default async function GroupDashboardPage({
           />
         </div>
       </section>
+
+      <BudgetSummary locale={locale} />
 
       <SchoolManagerComparisonChart points={chartPoints} totals={overview.totals} />
 

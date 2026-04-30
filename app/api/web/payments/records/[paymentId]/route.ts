@@ -7,6 +7,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
+import { calculateStudentRemainingFee } from "@/lib/students/financials";
 
 export async function DELETE(
   req: NextRequest,
@@ -90,7 +91,7 @@ export async function DELETE(
   const { data: refreshedStudent, error: refreshedStudentError } = await applyBranchScopeToQuery(
     actorSupabase
       .from("students")
-      .select("id, paid_fee, remaining_fee")
+      .select("id, paid_fee, total_fee, discount_value")
       .eq("id", payment.student_id)
       .eq("school_id", targetSchoolId),
     branchScope.value,
@@ -126,7 +127,11 @@ export async function DELETE(
       ? {
           id: refreshedStudent.id,
           paid_fee: Number(refreshedStudent.paid_fee ?? 0),
-          remaining_fee: Number(refreshedStudent.remaining_fee ?? 0),
+          remaining_fee: calculateStudentRemainingFee({
+            total_fee: Number(refreshedStudent.total_fee ?? 0),
+            paid_fee: Number(refreshedStudent.paid_fee ?? 0),
+            discount_value: Number(refreshedStudent.discount_value ?? 0),
+          }),
         }
       : null,
   });

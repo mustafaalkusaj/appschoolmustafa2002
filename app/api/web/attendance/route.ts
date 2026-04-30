@@ -125,7 +125,8 @@ export async function GET(req: NextRequest) {
       .eq("school_id", targetSchoolId)
       .neq("status", "deleted")
       .order("class_name", { ascending: true })
-      .order("full_name", { ascending: true }),
+      .order("full_name", { ascending: true })
+      .limit(5000),  // Prevent loading excessive students
     actorSupabase
       .from("attendance_records")
       .select("id, student_id, status, note, updated_at")

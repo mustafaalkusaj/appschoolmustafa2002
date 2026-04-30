@@ -20,11 +20,7 @@ BEGIN
 
         UPDATE public.students
         SET
-          paid_fee = next_paid_fee,
-          remaining_fee = GREATEST(
-            COALESCE(total_fee, 0) - COALESCE(discount_value, 0) - next_paid_fee,
-            0
-          )
+          paid_fee = next_paid_fee
         WHERE id = target_student_id;
       END;
       $body$;
@@ -60,11 +56,7 @@ BEGIN
 
     UPDATE public.students AS s
     SET
-      paid_fee = COALESCE(p.total_paid, 0),
-      remaining_fee = GREATEST(
-        COALESCE(s.total_fee, 0) - COALESCE(s.discount_value, 0) - COALESCE(p.total_paid, 0),
-        0
-      )
+      paid_fee = COALESCE(p.total_paid, 0)
     FROM (
       SELECT st.id AS student_id, COALESCE(SUM(pay.amount), 0) AS total_paid
       FROM public.students AS st

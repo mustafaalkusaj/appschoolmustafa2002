@@ -213,7 +213,6 @@ export async function resolveSchoolManagerOverview(
         .from("branches")
         .select("id, name")
         .eq("school_id", schoolId)
-        .eq("is_active", true)
         .order("name", { ascending: true }),
       actorSupabase
         .from("students")

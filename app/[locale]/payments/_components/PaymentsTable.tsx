@@ -84,7 +84,7 @@ export function PaymentsTable({
                 <div>
                   <button
                     type="button"
-                    className="text-base font-bold text-[var(--primary)] hover:underline"
+                    className="!text-[1.1rem] !font-black leading-none text-[var(--primary)] hover:underline"
                     onClick={() => onStudentClick(s)}
                   >
                     {s.full_name}
@@ -211,7 +211,7 @@ export function PaymentsTable({
                   </td>
                   <td className="p-3 border-b border-[var(--border)]">
                     <button
-                      className="font-bold text-[var(--primary)] hover:underline text-start"
+                      className="!text-[1.1rem] !font-black leading-none text-[var(--primary)] hover:underline text-start"
                       onClick={() => onStudentClick(s)}
                     >
                       {s.full_name}

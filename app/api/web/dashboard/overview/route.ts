@@ -5,7 +5,7 @@ import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-u
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
-import { calculateStudentPaidPercentage } from "@/lib/students/financials";
+import { buildResolvedStudentFinancials, calculateStudentPaidPercentage } from "@/lib/students/financials";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 type DashboardStudentRow = {
@@ -17,6 +17,10 @@ type DashboardStudentRow = {
   remaining_fee: number | null;
   discount_value: number | null;
   status: string | null;
+};
+
+type ResolvedDashboardStudentRow = DashboardStudentRow & {
+  resolved_total_fee: number;
 };
 
 function normalizeDashboardOverviewName(value: string | null | undefined) {
@@ -132,10 +136,6 @@ export async function GET(req: NextRequest) {
         tableHasColumn(serviceSupabase as never, "class_fees", "branch_id").catch(() => false),
       ]);
 
-      if (effectiveBranchId && !studentsBranchScope) {
-        return buildEmptyDashboardOverviewPayload("degraded_dashboard_overview");
-      }
-
       const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
       let studentsPromise = serviceSupabase
@@ -145,6 +145,8 @@ export async function GET(req: NextRequest) {
       if (studentsStatusScope) {
         studentsPromise = studentsPromise.or("status.neq.deleted,status.is.null");
       }
+      // Apply branch_id filter if branchId is requested and column detection says it exists
+      // If detection is wrong (false positive/negative), the query will fail and return degraded
       if (effectiveBranchId && studentsBranchScope) {
         studentsPromise = studentsPromise.eq("branch_id", effectiveBranchId);
       }
@@ -222,10 +224,49 @@ export async function GET(req: NextRequest) {
         studentsResult.status === "fulfilled" && !studentsResult.value.error
           ? ((studentsResult.value.data ?? []) as DashboardStudentRow[])
           : [];
-      const studentsById = new Map(students.map((student) => [student.id, student]));
+
+      // SAFETY: If branch scope was requested but studentsBranchScope=false,
+      // we cannot safely apply branch filtering. Return degraded to prevent data leakage.
+      if (effectiveBranchId && !studentsBranchScope) {
+        return buildEmptyDashboardOverviewPayload("degraded_dashboard_overview");
+      }
+      const classFeeMap = new Map<string, number>();
+      (classFeesResult.status === "fulfilled" && !classFeesResult.value.error
+        ? (classFeesResult.value.data ?? [])
+        : []
+      ).forEach((fee: Record<string, unknown>) => {
+        const className = normalizeDashboardOverviewName(String(fee.class_name ?? ""));
+        const totalFee = Number(fee.total_fee ?? 0);
+        if (className && Number.isFinite(totalFee) && totalFee > 0) {
+          classFeeMap.set(className, totalFee);
+        }
+      });
+
+      const resolvedStudents: ResolvedDashboardStudentRow[] = students.map((student) => {
+        const className = normalizeDashboardOverviewName(student.class_name);
+        const classFeeTotal = classFeeMap.get(className);
+        const resolved = buildResolvedStudentFinancials(
+          {
+            total_fee: student.total_fee,
+            paid_fee: student.paid_fee,
+            discount_value: student.discount_value,
+          },
+          classFeeTotal,
+        );
+
+        return {
+          ...student,
+          total_fee: resolved.total_fee,
+          paid_fee: resolved.paid_fee,
+          discount_value: resolved.discount_value,
+          remaining_fee: resolved.remaining_fee,
+          resolved_total_fee: resolved.resolved_total_fee,
+        };
+      });
+      const studentsById = new Map(resolvedStudents.map((student) => [student.id, student]));
       const classStatsByKey = Object.fromEntries(
         Object.entries(
-          students.reduce<Record<string, { className: string; count: number; totalPaid: number; totalRemaining: number }>>((acc, student) => {
+          resolvedStudents.reduce<Record<string, { className: string; count: number; totalPaid: number; totalRemaining: number }>>((acc, student) => {
             const className = normalizeDashboardOverviewName(student.class_name);
             const classKey = normalizeDashboardOverviewKey(className);
             if (!classKey) return acc;
@@ -264,9 +305,9 @@ export async function GET(req: NextRequest) {
       const classFees =
         classFeesResult.status === "fulfilled" && !classFeesResult.value.error
           ? (classFeesResult.value.data ?? []).map((fee) => {
-              const className = normalizeDashboardOverviewName(String(fee.class_name ?? ""));
-              const studentStats =
-                classStatsByKey[normalizeDashboardOverviewKey(className)] ?? {
+                const className = normalizeDashboardOverviewName(String(fee.class_name ?? ""));
+                const studentStats =
+                  classStatsByKey[normalizeDashboardOverviewKey(className)] ?? {
                   className,
                   count: 0,
                   totalPaid: 0,
@@ -309,12 +350,12 @@ export async function GET(req: NextRequest) {
       );
 
       const totals = {
-        studentsCount: students.length,
-        transferredCount: students.filter((student) => student.status === "transferred").length,
-        totalFees: students.reduce((sum, student) => sum + Number(student.total_fee ?? 0), 0),
-        totalPaid: students.reduce((sum, student) => sum + Number(student.paid_fee ?? 0), 0),
-        totalDiscount: students.reduce((sum, student) => sum + Number(student.discount_value ?? 0), 0),
-        totalRemaining: students.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
+        studentsCount: resolvedStudents.length,
+        transferredCount: resolvedStudents.filter((student) => student.status === "transferred").length,
+        totalFees: resolvedStudents.reduce((sum, student) => sum + Number(student.total_fee ?? 0), 0),
+        totalPaid: resolvedStudents.reduce((sum, student) => sum + Number(student.paid_fee ?? 0), 0),
+        totalDiscount: resolvedStudents.reduce((sum, student) => sum + Number(student.discount_value ?? 0), 0),
+        totalRemaining: resolvedStudents.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
         feeNotificationsCount,
         monthlySalaries,
       };
@@ -334,7 +375,7 @@ export async function GET(req: NextRequest) {
           remainingPct: Math.max(0, 100 - paidPct),
         },
         recentPayments,
-        overdueStudents: [...students]
+        overdueStudents: [...resolvedStudents]
           .filter((student) => Number(student.remaining_fee ?? 0) > 0)
           .sort((left, right) => Number(right.remaining_fee ?? 0) - Number(left.remaining_fee ?? 0))
           .slice(0, 3)

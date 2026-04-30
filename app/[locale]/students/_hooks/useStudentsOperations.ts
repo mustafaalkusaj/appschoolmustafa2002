@@ -391,7 +391,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
 
   const initSuspend = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
-    // Handle suspend/reactivate/restore for all status types
+    // Handle only suspension here; restores/reactivation use a dedicated handler.
     let newStatus: StudentStatus;
     let nextTab: string;
     let successMsg: string;
@@ -452,6 +452,39 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       setTimeout(() => modals.setSuccess(""), 3000);
     })();
   }, [modals, copy, getSchoolBranch, isEnglish, reload, setActiveTab]);
+
+  const initRestore = useCallback((student: StudentWithFees) => {
+    modals.setSelectedStudent(student);
+
+    void (async () => {
+      modals.setSaving(true);
+      modals.setError("");
+      const { school_id } = await getSchoolBranch();
+      if (!school_id) {
+        modals.setError(copy.selectSchoolBeforeEdit);
+        modals.setSaving(false);
+        return;
+      }
+
+      const response = await fetchWithAuthorizedSession(`/api/web/students/${student.id}`, {
+        method: "PATCH",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({ school_id, status: "active" satisfies StudentStatus }),
+      });
+      const payload = await response.json().catch(() => null);
+      modals.setSaving(false);
+
+      if (!response.ok) {
+        modals.setError(readApiError(payload, isEnglish ? "Could not restore the student." : "تعذر استعادة الطالب."));
+        return;
+      }
+
+      setActiveTab("active");
+      modals.setSuccess(isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓");
+      reload();
+      setTimeout(() => modals.setSuccess(""), 3000);
+    })();
+  }, [copy.selectSchoolBeforeEdit, getSchoolBranch, isEnglish, modals, reload, setActiveTab]);
 
   const handleDeleteConfirmed = useCallback(async () => {
     if (!canDeleteStudents || !modals.selectedStudent) return;
@@ -704,6 +737,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     initTransfer,
     confirmTransfer,
     initSuspend,
+    initRestore,
     handleDeleteConfirmed,
     exportExcel,
     handleFileChange,

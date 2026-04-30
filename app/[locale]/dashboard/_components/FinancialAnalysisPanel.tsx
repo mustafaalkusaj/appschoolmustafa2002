@@ -73,19 +73,19 @@ export function FinancialAnalysisPanel({ dashboardTotals }: FinancialAnalysisPan
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         {finCards.map((card, i) => (
-          <div key={i} className="group relative p-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-bg)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5">
-            <div className="flex flex-col gap-3">
+          <div key={i} className="group relative p-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-bg)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 h-full">
+            <div className="flex flex-col gap-3 h-full">
               <div className={cn(
-                "h-9 w-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",
+                "h-9 w-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 flex-shrink-0",
                 variantStyles[card.variant]
               )}>
                 <card.icon size={18} />
               </div>
-              <div>
+              <div className="min-w-0 flex-1 flex flex-col">
                 <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">{card.label}</div>
-                <div className="text-base font-bold text-[var(--text-primary)] truncate">
+                <div className="text-xs sm:text-sm font-bold text-[var(--text-primary)] whitespace-normal break-words overflow-visible" title={`${commonT("currency")} ${formatNumber(card.value)}`}>
                   {commonT("currency")} {formatNumber(card.value)}
                 </div>
               </div>

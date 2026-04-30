@@ -821,6 +821,31 @@
       "deletePaymentDescriptionWithStudent": "سيتم حذف دفعة الطالب {student} وإعادة احتساب الرصيد المتبقي.",
       "deletePaymentDescription": "سيتم حذف الدفعة المحددة وإعادة احتساب الرصيد المتبقي.",
       "deletePaymentConfirm": "نعم، احذف الدفعة"
+    },
+    "modal": {
+      "title": "تسجيل دفعة جديدة",
+      "studentName": "اسم الطالب",
+      "studentSearchPlaceholder": "ابحث باسم الطالب...",
+      "searching": "جارٍ البحث...",
+      "noResults": "لا توجد نتائج",
+      "total": "الإجمالي",
+      "paid": "المدفوع",
+      "remaining": "المتبقي",
+      "receiptDate": "تاريخ الوصل",
+      "amount": "المبلغ",
+      "paperReceiptNumber": "رقم الوصل الورقي",
+      "optional": "اختياري",
+      "exampleReceipt": "مثال: 1042",
+      "electronicReceiptNumber": "رقم الوصل الإلكتروني",
+      "paymentMethod": "طريقة الدفع",
+      "methodCash": "نقداً",
+      "methodBankTransfer": "تحويل بنكي",
+      "methodCheck": "شيك",
+      "notes": "الملاحظات",
+      "notesPlaceholder": "اكتب أي ملاحظات...",
+      "recordButton": "تسجيل الدفعة",
+      "cancelButton": "إلغاء",
+      "currency": "د.ع"
     }
   },
   "salaries": {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildStudentInsertPayloads, getStudentImportValidationMessage, readStudentImportErrorMessage, studentImportRequestSchema } from "@/lib/api/student-import";
 import { resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users/context";
+import { resolveSchoolBranchId } from "@/lib/managed-users/queries";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import {
   buildDuplicateStudentNameMessage,
@@ -24,8 +25,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const rawBody = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+
     const actorContext = await resolveSchoolScopedActorContext(
-      null,
+      typeof rawBody?.school === "string"
+        ? rawBody.school
+        : typeof rawBody?.schoolId === "string"
+          ? rawBody.schoolId
+          : null,
       {
         allowedRoles: ["admin", "super_admin"],
         roleDeniedMessage: "استيراد الطلاب متاح لمدير المدرسة فقط.",
@@ -36,8 +43,6 @@ export async function POST(request: NextRequest) {
     if (!actorContext.ok) {
       return jsonError(actorContext.message, actorContext.status);
     }
-
-    const rawBody = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 
     // Extract rows from chunk OR from parseResult.validRows
     let rowsToImport: any[] = [];
@@ -109,10 +114,15 @@ export async function POST(request: NextRequest) {
       return jsonError(buildDuplicateStudentNameMessage({ existingDuplicates }), 409);
     }
 
+    const resolvedBranchId = writeBranch.value ?? (await resolveSchoolBranchId(actorSupabase, targetSchoolId));
+    if (!resolvedBranchId) {
+      return jsonError("تعذر تحديد الفرع الخاص بالمدرسة الحالية.", 400);
+    }
+
     const validated = buildStudentInsertPayloads(
       parsed.data.chunk,
       targetSchoolId,
-      writeBranch.value as string,
+      resolvedBranchId,
     );
 
     console.log(`[BulkImport] Processing ${validated.length} students for school ${targetSchoolId}`);
@@ -121,9 +131,8 @@ export async function POST(request: NextRequest) {
     if (validated.length > 0) {
       const firstPayload = validated[0];
       console.log('[BulkImport] Payload structure (first row):', {
-        hasClassId: 'classId' in firstPayload,
-        classIdValue: (firstPayload as any).classId,
-        hasClassName: 'className' in firstPayload,
+        hasClassName: 'class_name' in firstPayload,
+        classNameValue: (firstPayload as any).class_name,
         hasSection: 'section' in firstPayload,
         payloadKeys: Object.keys(firstPayload),
       });
@@ -141,12 +150,25 @@ export async function POST(request: NextRequest) {
         details: error.details,
         hint: error.hint,
       });
+      const userMessage = [
+        error.message,
+        error.details,
+        error.hint,
+      ]
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .join(" | ") || "فشل استيراد الطلاب";
 
-      // Hide database details from user
-      const userMessage = error.message?.includes("column")
-        ? "خطأ في إعدادات النظام. يرجى مراجعة مسؤول النظام."
-        : error.message || "فشل استيراد الطلاب";
-      return jsonError(userMessage, 500);
+      return NextResponse.json(
+        {
+          error: {
+            message: userMessage,
+            code: error.code ?? null,
+            details: error.details ?? null,
+            hint: error.hint ?? null,
+          },
+        },
+        { status: 500 },
+      );
     }
 
     const importedCount = data?.length ?? validated.length;
@@ -163,8 +185,8 @@ export async function POST(request: NextRequest) {
         : 'فشل الاستيراد',
       debug: {
         payloadStructure: validated.length > 0 ? {
-          hasClassId: 'classId' in validated[0],
-          classIdValue: (validated[0] as any).classId,
+          hasClassName: 'class_name' in validated[0],
+          classNameValue: (validated[0] as any).class_name,
           payloadKeys: Object.keys(validated[0]),
         } : null,
         rowsSent: validated.length,

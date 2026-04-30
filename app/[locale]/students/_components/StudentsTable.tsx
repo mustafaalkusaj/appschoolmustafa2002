@@ -102,7 +102,7 @@ export function StudentsTable({
                     <button
                       type="button"
                       data-student-menu-trigger
-                      className="text-base font-bold text-[var(--primary)] hover:underline text-start truncate"
+                      className="!text-[1.1rem] !font-black leading-none tracking-tight text-[var(--text-primary)] hover:text-[var(--primary)] hover:underline text-start truncate"
                       onClick={(e) => openMenu(e, s)}
                     >
                       {s.full_name}
@@ -220,7 +220,7 @@ export function StudentsTable({
                     <button
                       type="button"
                       data-student-menu-trigger
-                      className="text-sm font-semibold text-[var(--primary)] hover:underline text-start"
+                      className="!text-[1.1rem] !font-black leading-none tracking-tight text-[var(--text-primary)] hover:text-[var(--primary)] hover:underline text-start"
                       onClick={(e) => openMenu(e, s)}
                     >
                       {s.full_name}

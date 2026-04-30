@@ -26,14 +26,12 @@ describe("student import payloads", () => {
 
     expect(payloads).toHaveLength(1);
     expect(payloads[0]).toMatchObject({
-      schoolId: "school-1",
-      branchId: "branch-a",
-      nameAr: "أحمد علي",
-      classId: null, // Will be set by worker during validation
+      school_id: "school-1",
+      branch_id: "branch-a",
+      full_name: "أحمد علي",
+      class_name: "الأول متوسط",
       status: "active",
-      createdAt: "2026-04-22T06:00:00.000Z",
-      updatedAt: "2026-04-22T06:00:00.000Z",
+      created_at: "2026-04-22T06:00:00.000Z",
     });
   });
 });
-

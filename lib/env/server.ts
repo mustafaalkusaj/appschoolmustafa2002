@@ -59,9 +59,12 @@ export function getServerEnv() {
 
 export function shouldUseSecureCookies() {
   const env = getServerEnv();
+  if (process.env.NODE_ENV !== "production") {
+    return false;
+  }
   if (typeof env.sessionCookieSecureOverride === "boolean") {
     return env.sessionCookieSecureOverride;
   }
 
-  return process.env.NODE_ENV === "production";
+  return true;
 }

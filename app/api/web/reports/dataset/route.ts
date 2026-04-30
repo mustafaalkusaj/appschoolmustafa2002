@@ -118,7 +118,49 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data ?? [];
+    const students = data ?? [];
+
+    // Resolve fees from class_fees table
+    const classNames = Array.from(
+      new Set(
+        students
+          .map((s) => String(s.class_name ?? ""))
+          .filter((c) => c.length > 0)
+      )
+    );
+
+    const classFeeMap = new Map<string, number>();
+    if (classNames.length > 0) {
+      const { data: classFees } = await actorSupabase
+        .from("class_fees")
+        .select("class_name, total_fee")
+        .eq("school_id", targetSchoolId)
+        .in("class_name", classNames);
+
+      (classFees ?? []).forEach((cf: any) => {
+        if (cf.class_name && typeof cf.total_fee === "number") {
+          classFeeMap.set(String(cf.class_name), cf.total_fee);
+        }
+      });
+    }
+
+    // Apply fee resolution: prefer class_fees, fallback to student.total_fee if > 0, else 0
+    return students.map((student) => {
+      const className = String(student.class_name ?? "");
+      const classFeeTotal = classFeeMap.get(className);
+      const studentTotal = Number(student.total_fee ?? 0);
+      const totalFee = classFeeTotal ?? (studentTotal > 0 ? studentTotal : 0);
+
+      const paidFee = Number(student.paid_fee ?? 0);
+      const discountValue = Number(student.discount_value ?? 0);
+      const remainingFee = Math.max(totalFee - paidFee - discountValue, 0);
+
+      return {
+        ...student,
+        total_fee: totalFee,
+        remaining_fee: remainingFee,
+      };
+    });
   };
 
   const loadPayments = async () => {

@@ -156,7 +156,16 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           return;
         }
 
-        const compat = await detectAppSchemaCompat();
+        let compat;
+        try {
+          compat = await detectAppSchemaCompat();
+        } catch (err) {
+          console.warn("[RuntimeBranding] detectAppSchemaCompat failed, using defaults:", err);
+          if (active) {
+            setBranding(createEmptyBrandingState());
+          }
+          return;
+        }
       const storedBranding = getStoredSchoolBranding(scopedSchoolId);
       const branchColumns = ["name"];
 
@@ -405,6 +414,20 @@ export function requestRuntimeBrandingRefresh() {
 
 export function useRuntimeBranding() {
   const context = useContext(RuntimeBrandingContext);
+  if (!context) {
+    return {
+      schoolName: SCHOOL_BRAND.nameAr,
+      logoUrl: null,
+      branchName: null,
+      branchLogoUrl: null,
+      primaryColor: null,
+      secondaryColor: null,
+      themePreset: null,
+      sidebarColor: null,
+      accentColor: null,
+      textColor: null,
+    };
+  }
   return {
     schoolName: context.schoolName || SCHOOL_BRAND.nameAr,
     logoUrl: context.logoUrl,

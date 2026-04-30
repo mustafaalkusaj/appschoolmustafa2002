@@ -25,6 +25,7 @@ interface ParseResponse {
     detectedHeaders: string[];
     columnMapping: Record<string, number>;
   };
+  validRows?: Array<Record<string, unknown>>;
   errors: Array<{
     rowNumber: number;
     errors: string[];
@@ -53,6 +54,9 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
   const [importStatusCode, setImportStatusCode] = useState<number | null>(null);
   const [lastImportPayload, setLastImportPayload] = useState<any>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const selectedSchoolId = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("school")
+    : null;
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
@@ -65,7 +69,8 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/students/parse-import', {
+      const parseUrl = selectedSchoolId ? `/api/students/parse-import?school=${encodeURIComponent(selectedSchoolId)}` : '/api/students/parse-import';
+      const response = await fetch(parseUrl, {
         method: 'POST',
         body: formData,
       });
@@ -103,8 +108,9 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
 
     try {
       const payload = {
-        chunk: [], // Empty for now - would be populated by validated rows
-        parseResult: parseResult // Send parse result for reference
+        chunk: parseResult.validRows ?? [],
+        parseResult: parseResult,
+        ...(selectedSchoolId ? { school: selectedSchoolId } : {}),
       };
       setLastImportPayload(payload);
 

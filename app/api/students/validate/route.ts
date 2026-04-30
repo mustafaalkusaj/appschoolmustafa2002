@@ -49,16 +49,7 @@ export async function GET(request: NextRequest) {
 
     let classesQuery = actorSupabase
       .from("classes")
-      .select(`
-        id,
-        nameAr,
-        nameEn,
-        gradeLevel,
-        sections (
-          id,
-          name
-        )
-      `)
+      .select(`id, grade, section, school_id, branch_id`)
       .eq("school_id", targetSchoolId);
     if (classesHasBranchScope && branchScope.value.branchIds.length > 0) {
       classesQuery = branchScope.value.branchId
@@ -84,18 +75,42 @@ export async function GET(request: NextRequest) {
     const classes = Array.isArray(classesData)
       ? classesData
           .map((classRow: any) => {
-            const sections = Array.isArray(classRow.sections)
-              ? [...classRow.sections].sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "ar"))
-              : [];
+            let parsedSections: Array<{ id: string; name: string }> = [];
+            const sectionRaw = classRow.section;
+            if (sectionRaw) {
+              if (typeof sectionRaw === 'string') {
+                try {
+                  const parsed = JSON.parse(sectionRaw);
+                  if (Array.isArray(parsed)) {
+                    parsedSections = parsed.map((s: any, i: number) => ({
+                      id: s.id || s.name || String(i),
+                      name: s.name || String(s)
+                    }));
+                  }
+                } catch {
+                  parsedSections = sectionRaw.split(',').map((s, i) => ({
+                    id: `${classRow.id}_${i}`,
+                    name: s.trim()
+                  }));
+                }
+              } else if (Array.isArray(sectionRaw)) {
+                parsedSections = sectionRaw.map((s: any, i: number) => ({
+                  id: s.id || s.name || String(i),
+                  name: s.name || String(s)
+                }));
+              }
+            }
+            const sections = parsedSections.sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "ar"));
+            const displayName = `الصف ${classRow.grade || ''}`;
             return {
               id: classRow.id,
-              nameAr: classRow.nameAr,
-              nameEn: classRow.nameEn,
-              gradeLevel: classRow.gradeLevel,
+              nameAr: displayName,
+              nameEn: `Grade ${classRow.grade || ''}`,
+              gradeLevel: classRow.grade || 0,
               branchId: classRow.branch_id || null,
               schoolId: classRow.school_id || targetSchoolId,
-              academicYearId: classRow.academic_year_id || null,
-              name: classRow.nameAr, // Backward compatibility
+              academicYearId: null,
+              name: displayName,
               sections,
               sectionsCount: sections.length,
             };

@@ -2,6 +2,7 @@ import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { applyBranchScopeToQuery, type ResolvedBranchScope } from "@/lib/branch-scope";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
+import { buildResolvedStudentFinancials } from "@/lib/students/financials";
 
 export type PaymentsQuickFilter =
   | "all"
@@ -688,14 +689,15 @@ function buildStudentRowsPayload(
 ): PaymentStudentRecord[] {
   return (rows ?? []).map((row) => {
     const className = typeof row.class_name === "string" ? row.class_name : null;
-    // Resolve fee: prefer class_fees, fallback to row.total_fee if > 0, else 0
     const classFeeTotal = className ? classFeesByClassName?.get(className) : undefined;
-    const rowTotal = normalizeMetricNumber(row.total_fee);
-    const totalFee = classFeeTotal ?? (rowTotal > 0 ? rowTotal : 0);
-
-    const paidFee = normalizeMetricNumber(row.paid_fee);
-    const discountValue = normalizeMetricNumber(row.discount_value);
-    const calculatedRemaining = Math.max(totalFee - paidFee - discountValue, 0);
+    const resolved = buildResolvedStudentFinancials(
+      {
+        total_fee: normalizeMetricNumber(row.total_fee),
+        paid_fee: normalizeMetricNumber(row.paid_fee),
+        discount_value: normalizeMetricNumber(row.discount_value),
+      },
+      classFeeTotal,
+    );
 
     return {
       id: String(row.id),
@@ -705,10 +707,10 @@ function buildStudentRowsPayload(
       section: typeof row.section === "string" ? row.section : null,
       phone: typeof row.phone === "string" ? row.phone : null,
       address: typeof row.address === "string" ? row.address : null,
-      total_fee: totalFee,
-      paid_fee: paidFee,
-      discount_value: discountValue,
-      remaining_fee: calculatedRemaining,
+      total_fee: resolved.total_fee,
+      paid_fee: resolved.paid_fee,
+      discount_value: resolved.discount_value,
+      remaining_fee: resolved.remaining_fee,
       status: typeof row.status === "string" ? row.status : null,
     };
   });

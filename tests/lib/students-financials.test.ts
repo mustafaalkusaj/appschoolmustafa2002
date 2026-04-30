@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateStudentPaidPercentage, calculateStudentRemainingFee } from "@/lib/students/financials";
+import {
+  buildResolvedStudentFinancials,
+  calculateStudentPaidPercentage,
+  calculateStudentRemainingFee,
+  resolveStudentFeeTotal,
+} from "@/lib/students/financials";
 
 describe("student financials", () => {
   it("calculates remaining fees after discount", () => {
@@ -31,5 +36,32 @@ describe("student financials", () => {
         discount_value: 1000,
       }),
     ).toBe(0);
+  });
+
+  it("prefers class fee totals over stored student totals", () => {
+    expect(resolveStudentFeeTotal(0, 1_250_000)).toBe(1_250_000);
+  });
+
+  it("falls back to the student total fee when no class fee is configured", () => {
+    expect(resolveStudentFeeTotal(900_000, 0)).toBe(900_000);
+  });
+
+  it("builds resolved financials using the shared fee resolution logic", () => {
+    expect(
+      buildResolvedStudentFinancials(
+        {
+          total_fee: 0,
+          paid_fee: 250_000,
+          discount_value: 0,
+        },
+        1_250_000,
+      ),
+    ).toMatchObject({
+      total_fee: 1_250_000,
+      paid_fee: 250_000,
+      discount_value: 0,
+      resolved_total_fee: 1_250_000,
+      remaining_fee: 1_000_000,
+    });
   });
 });

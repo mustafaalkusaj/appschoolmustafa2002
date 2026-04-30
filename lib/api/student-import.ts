@@ -28,18 +28,17 @@ export type StudentImportRow = z.infer<typeof studentImportRowSchema> & {
 };
 
 export type StudentInsertPayload = {
-  nameAr: string;
-  schoolId: string;
-  branchId: string;
-  classId?: string | null; // UUID foreign key
+  full_name: string;
+  school_id: string;
+  branch_id: string;
+  class_name: string;
   section?: string | null; // TEXT field - section/division name
-  registrationNumber?: string;
+  registration_number?: string;
   status: "active";
-  createdAt: string;
-  updatedAt: string;
-  parentName?: string | null;
-  parentPhone?: string | null;
-  dateOfBirth?: string;
+  created_at: string;
+  parent_name?: string | null;
+  parent_phone?: string | null;
+  date_of_birth?: string;
 };
 
 export function buildStudentInsertPayloads(
@@ -51,17 +50,16 @@ export function buildStudentInsertPayloads(
   const timestamp = now.toISOString();
 
   return rows.map((row) => ({
-    nameAr: row.fullName,
-    schoolId,
-    branchId,
-    classId: row.classId || null,
+    full_name: row.fullName,
+    school_id: schoolId,
+    branch_id: branchId,
+    class_name: row.className,
     section: row.sectionName || null,
     status: "active" as const,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    ...(row.parentName ? { parentName: row.parentName } : {}),
-    ...(row.parentPhone ? { parentPhone: row.parentPhone } : {}),
-    ...(row.dateOfBirth ? { dateOfBirth: row.dateOfBirth } : {}),
+    created_at: timestamp,
+    ...(row.parentName ? { parent_name: row.parentName } : {}),
+    ...(row.parentPhone ? { parent_phone: row.parentPhone } : {}),
+    ...(row.dateOfBirth ? { date_of_birth: row.dateOfBirth } : {}),
   }));
 }
 
