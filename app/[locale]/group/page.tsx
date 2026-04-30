@@ -312,10 +312,10 @@ export default async function GroupDashboardPage({
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), color: "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300" },
-            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), color: "bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-300" },
-            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), color: "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300" },
-            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), color: "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300" },
+            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), color: "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" },
+            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), color: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" },
+            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), color: "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300" },
+            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), color: "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300" },
           ].map((metric) => (
             <div key={metric.label} className="rounded-2xl border shadow-sm p-5 transition-colors" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between gap-4">
@@ -328,11 +328,11 @@ export default async function GroupDashboardPage({
                   </p>
                 </div>
                 <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${metric.color}`}>
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {metric.label.includes("طلاب") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-2a6 6 0 0112 0v2zm0 0h6v-2a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />}
-                    {metric.label.includes("المدفوع") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />}
-                    {metric.label.includes("الخصومات") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
-                    {metric.label.includes("الرسوم قبل") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
+                  <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                    {metric.label.includes("طلاب") && <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.667 0-8 1.337-8 4v2h16v-2c0-2.663-5.333-4-8-4z" />}
+                    {metric.label.includes("المدفوع") && <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />}
+                    {metric.label.includes("الخصومات") && <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6h1.5zm0 8H11v1.5h1.5z" />}
+                    {metric.label.includes("الرسوم قبل") && <path d="M12 1.5C6.25 1.5 1.5 6.25 1.5 12S6.25 22.5 12 22.5 22.5 17.75 22.5 12 17.75 1.5 12 1.5zm0 20C7.0725 21.5 3 17.4275 3 12.5C3 7.5725 7.0725 3.5 12 3.5C16.9275 3.5 21 7.5725 21 12.5C21 17.4275 16.9275 21.5 12 21.5z M12 6.5C9.51 6.5 7.5 8.51 7.5 11C7.5 12.16 8.01 13.18 8.81 13.86L12 17.05L15.19 13.86C15.99 13.18 16.5 12.16 16.5 11C16.5 8.51 14.49 6.5 12 6.5zm0 3C13.38 9.5 14.5 10.62 14.5 11C14.5 12.1 13.6 13 12.5 13C11.4 13 10.5 12.1 10.5 11C10.5 10.62 11.62 9.5 12 9.5z" />}
                   </svg>
                 </div>
               </div>
