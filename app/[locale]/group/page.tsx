@@ -50,8 +50,8 @@ function buildExportUrl(format: "excel" | "word" | "pdf", branchId?: string | nu
 function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <h2 className="text-lg font-black text-gray-800">{title}</h2>
-      <div className="w-5 h-5 text-gray-400 flex items-center justify-center">{icon}</div>
+      <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">{title}</h2>
+      <div className="w-5 h-5 text-gray-400 dark:text-slate-500 flex items-center justify-center">{icon}</div>
     </div>
   );
 }
@@ -64,7 +64,7 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
         {["PDF", "Word", "Excel"].map((label) => (
           <span
             key={label}
-            className="text-xs font-black px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed"
+            className="text-xs font-black px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 text-gray-300 dark:text-slate-500 cursor-not-allowed"
           >
             {label}
           </span>
@@ -78,7 +78,7 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
         href={buildExportUrl("pdf", branchId)}
         target="_blank"
         rel="noreferrer"
-        className="text-xs font-black px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 hover:border-red-400 transition shadow-sm hover:shadow-md"
+        className="text-xs font-black px-4 py-2 rounded-lg border border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 hover:border-red-400 dark:hover:border-red-700 transition shadow-sm hover:shadow-md"
       >
         📄 PDF
       </a>
@@ -86,13 +86,13 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
         href={buildExportUrl("word", branchId)}
         target="_blank"
         rel="noreferrer"
-        className="text-xs font-black px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-400 transition shadow-sm hover:shadow-md"
+        className="text-xs font-black px-4 py-2 rounded-lg border border-blue-300 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:border-blue-400 dark:hover:border-blue-700 transition shadow-sm hover:shadow-md"
       >
         📘 Word
       </a>
       <a
         href={buildExportUrl("excel", branchId)}
-        className="text-xs font-black px-4 py-2 rounded-lg border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-400 transition shadow-sm hover:shadow-md"
+        className="text-xs font-black px-4 py-2 rounded-lg border border-green-300 dark:border-green-900/50 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 hover:border-green-400 dark:hover:border-green-700 transition shadow-sm hover:shadow-md"
       >
         📊 Excel
       </a>
@@ -108,7 +108,7 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
 
   return (
     <article
-      className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden border-t-4 ${accent.top} flex flex-col`}
+      className={`bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 overflow-hidden border-t-4 ${accent.top} flex flex-col`}
     >
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between gap-3">
@@ -117,50 +117,50 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
         >
           🎓
         </div>
-        <h3 className="text-base font-black text-gray-900 text-right flex-1">{branch.branchName}</h3>
+        <h3 className="text-base font-black text-gray-900 dark:text-slate-100 text-right flex-1">{branch.branchName}</h3>
       </div>
 
-      <div className="border-t border-gray-50 mx-6" />
+      <div className="border-t border-gray-50 dark:border-slate-700 mx-6" />
 
       {/* Metrics grid */}
       <div className="px-6 py-5 grid grid-cols-2 gap-x-5 gap-y-5 flex-1">
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 mb-1.5">الرسوم قبل الخصم</p>
-          <p className="text-sm font-black text-gray-900">{fmt(branch.totalFeesBeforeDiscount)}</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">الرسوم قبل الخصم</p>
+          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmt(branch.totalFeesBeforeDiscount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 mb-1.5">الرسوم بعد الخصم</p>
-          <p className="text-sm font-black text-gray-900">{fmt(branch.totalFeesAfterDiscount)}</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">الرسوم بعد الخصم</p>
+          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmt(branch.totalFeesAfterDiscount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 mb-1.5">المدفوع</p>
-          <p className="text-sm font-black text-green-600">{fmt(branch.totalPaid)}</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">المدفوع</p>
+          <p className="text-sm font-black text-green-600 dark:text-green-400">{fmt(branch.totalPaid)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 mb-1.5">المتبقي</p>
-          <p className="text-sm font-black text-amber-600">{fmt(branch.totalRemaining)}</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">المتبقي</p>
+          <p className="text-sm font-black text-amber-600 dark:text-amber-400">{fmt(branch.totalRemaining)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 mb-1.5">عدد الطلاب</p>
-          <p className="text-sm font-black text-gray-900">{fmtN(branch.studentsCount)}</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">عدد الطلاب</p>
+          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmtN(branch.studentsCount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 mb-1.5">المصروفات</p>
-          <p className="text-sm font-black text-red-600">{fmt(branch.totalExpenses)}</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">المصروفات</p>
+          <p className="text-sm font-black text-red-600 dark:text-red-400">{fmt(branch.totalExpenses)}</p>
         </div>
         <div className="col-span-2 text-right">
-          <p className="text-xs font-bold text-gray-500 mb-1.5">الخصم</p>
-          <p className="text-sm font-black text-gray-900">{fmt(branch.totalDiscount)}</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">الخصم</p>
+          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmt(branch.totalDiscount)}</p>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+      <div className="px-6 py-4 bg-gray-50 dark:bg-slate-700/50 border-t border-gray-100 dark:border-slate-700">
         <div className="flex justify-between items-center mb-2">
           <p className={`text-sm font-black ${accent.pctColor}`}>{fmtN(pct)}%</p>
-          <p className="text-xs font-bold text-gray-500">نسبة السداد</p>
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400">نسبة السداد</p>
         </div>
-        <div className="h-3 rounded-full bg-gray-200 overflow-hidden shadow-sm">
+        <div className="h-3 rounded-full bg-gray-200 dark:bg-slate-600 overflow-hidden shadow-sm">
           <div
             className={`h-full rounded-full ${accent.bar} transition-all`}
             style={{ width: `${pct}%` }}
@@ -169,7 +169,7 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
       </div>
 
       {/* Export buttons */}
-      <div className="px-6 py-3.5 border-t border-gray-100">
+      <div className="px-6 py-3.5 border-t border-gray-100 dark:border-slate-700">
         <ExportButtons branchId={branch.branchId} disabled={disabled} />
       </div>
     </article>
@@ -268,37 +268,37 @@ export default async function GroupDashboardPage({
   const schoolInitial = school.name.charAt(0) || "م";
 
   return (
-    <div dir="rtl" className="bg-[#F8FAFC] min-h-screen">
+    <div dir="rtl" className="bg-white dark:bg-slate-950 min-h-screen transition-colors duration-200">
       {/* ── Top header bar ─────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-gray-100 shadow-sm">
+      <header className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 shadow-sm dark:shadow-slate-900/50">
         <div className="px-6 py-3.5 flex items-center justify-between">
           {/* Left side: icons + user */}
           <div className="flex items-center gap-2.5">
             {/* Notification */}
-            <button className="w-9 h-9 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+            <button className="w-9 h-9 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-600 dark:hover:text-slate-400 transition">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
             </button>
             {/* Settings */}
-            <button className="w-9 h-9 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+            <button className="w-9 h-9 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-600 dark:hover:text-slate-400 transition">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </button>
             {/* Calendar */}
-            <button className="w-9 h-9 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+            <button className="w-9 h-9 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-600 dark:hover:text-slate-400 transition">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </button>
-            <div className="w-px h-7 bg-gray-200 mx-1" />
+            <div className="w-px h-7 bg-gray-200 dark:bg-slate-700 mx-1" />
             {/* User info */}
             <div className="flex items-center gap-2.5">
               <div className="text-left">
-                <p className="text-sm font-bold text-gray-900 leading-tight">{userName}</p>
-                <p className="text-[11px] text-gray-400 leading-tight">مدير المجموعة</p>
+                <p className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-tight">{userName}</p>
+                <p className="text-[11px] text-gray-400 dark:text-slate-500 leading-tight">مدير المجموعة</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm shadow-blue-200">
                 {userInitial}
@@ -309,8 +309,8 @@ export default async function GroupDashboardPage({
           {/* Right side: school info */}
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="font-black text-gray-900 text-[15px] leading-tight">{school.name}</p>
-              <p className="text-[11px] text-gray-400 leading-tight">النظام المالي</p>
+              <p className="font-black text-gray-900 dark:text-slate-100 text-[15px] leading-tight">{school.name}</p>
+              <p className="text-[11px] text-gray-400 dark:text-slate-500 leading-tight">النظام المالي</p>
             </div>
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-black text-xl shrink-0 shadow-md shadow-blue-200">
               {schoolInitial}
@@ -320,18 +320,18 @@ export default async function GroupDashboardPage({
       </header>
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
-      <div className="px-6 py-6 space-y-6 max-w-screen-2xl mx-auto">
+      <div className="px-4 sm:px-6 py-6 space-y-6 max-w-screen-2xl mx-auto">
 
         {/* Breadcrumb + page title */}
         <div>
-          <p className="text-xs text-gray-400 mb-2">الرئيسية &gt; المجموعة</p>
-          <h1 className="text-3xl font-black text-gray-900 leading-tight">اللوحة المالية للمجموعة</h1>
-          <p className="text-sm text-gray-500 mt-1.5">نظرة شاملة على الأداء المالي لجميع فروع المدرسة</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500 mb-2">الرئيسية &gt; المجموعة</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-slate-100 leading-tight">اللوحة المالية للمجموعة</h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1.5">نظرة شاملة على الأداء المالي لجميع فروع المدرسة</p>
         </div>
 
         {/* Error / warnings */}
         {overviewError && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 font-medium">
+          <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-5 py-4 text-sm text-red-700 dark:text-red-400 font-medium">
             {overviewError}
           </div>
         )}
@@ -340,61 +340,61 @@ export default async function GroupDashboardPage({
           .map((w) => (
             <div
               key={w}
-              className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-700 font-medium"
+              className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-5 py-3 text-xs text-amber-700 dark:text-amber-400 font-medium"
             >
               {w}
             </div>
           ))}
 
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5">
           {/* Students */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-amber-600 mb-2 uppercase tracking-wide">إجمالي الطلاب</p>
-              <p className="text-3xl font-black text-gray-900">{fmtN(totals.studentsCount)}</p>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
+              <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1 sm:mb-2 uppercase tracking-wide">إجمالي الطلاب</p>
+              <p className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-slate-100">{fmtN(totals.studentsCount)}</p>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center shrink-0 border border-amber-100">
-              <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-100 dark:from-amber-900/30 to-amber-50 dark:to-amber-900/10 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-900/50">
+              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
           </div>
 
           {/* Total paid */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-green-600 mb-2 uppercase tracking-wide">إجمالي المدفوع</p>
-              <p className="text-xl font-black text-gray-900 truncate">{fmt(totals.totalPaid)}</p>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
+              <p className="text-xs font-bold text-green-600 dark:text-green-400 mb-1 sm:mb-2 uppercase tracking-wide">إجمالي المدفوع</p>
+              <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalPaid)}</p>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center shrink-0 border border-green-100">
-              <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-50 dark:to-green-900/10 flex items-center justify-center shrink-0 border border-green-100 dark:border-green-900/50">
+              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
           </div>
 
           {/* Discounts */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-blue-600 mb-2 uppercase tracking-wide">إجمالي الخصومات</p>
-              <p className="text-xl font-black text-gray-900 truncate">{fmt(totals.totalDiscount)}</p>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
+              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1 sm:mb-2 uppercase tracking-wide">إجمالي الخصومات</p>
+              <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalDiscount)}</p>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center shrink-0 border border-blue-100">
-              <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-100 dark:from-blue-900/30 to-blue-50 dark:to-blue-900/10 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/50">
+              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
               </svg>
             </div>
           </div>
 
           {/* Fees before discount */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-purple-600 mb-2 uppercase tracking-wide">الرسوم قبل الخصم</p>
-              <p className="text-xl font-black text-gray-900 truncate">{fmt(totals.totalFeesBeforeDiscount)}</p>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
+              <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mb-1 sm:mb-2 uppercase tracking-wide">الرسوم قبل الخصم</p>
+              <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalFeesBeforeDiscount)}</p>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center shrink-0 border border-purple-100">
-              <svg className="w-7 h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-purple-100 dark:from-purple-900/30 to-purple-50 dark:to-purple-900/10 flex items-center justify-center shrink-0 border border-purple-100 dark:border-purple-900/50">
+              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
               </svg>
             </div>
@@ -413,16 +413,16 @@ export default async function GroupDashboardPage({
           />
 
           {overview.branches.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-300 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <p className="text-sm font-semibold text-gray-400">لا توجد فروع نشطة لهذه المدرسة</p>
+              <p className="text-sm font-semibold text-gray-400 dark:text-slate-500">لا توجد فروع نشطة لهذه المدرسة</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
               {overview.branches.map((branch, idx) => (
                 <BranchCard
                   key={branch.branchId ?? `branch-${idx}`}
@@ -445,44 +445,44 @@ export default async function GroupDashboardPage({
             }
           />
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
             {/* Metrics grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-6">
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">الرسوم قبل الخصم</p>
-                <p className="text-sm font-black text-gray-900 truncate">{fmt(totals.totalFeesBeforeDiscount)}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">الرسوم قبل الخصم</p>
+                <p className="text-sm font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalFeesBeforeDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">الرسوم بعد الخصم</p>
-                <p className="text-sm font-black text-gray-900 truncate">{fmt(totals.totalFeesAfterDiscount)}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">الرسوم بعد الخصم</p>
+                <p className="text-sm font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalFeesAfterDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">الخصومات</p>
-                <p className="text-sm font-black text-gray-900 truncate">{fmt(totals.totalDiscount)}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">الخصومات</p>
+                <p className="text-sm font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">المتبقي</p>
-                <p className="text-sm font-black text-amber-600 truncate">{fmt(totals.totalRemaining)}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">المتبقي</p>
+                <p className="text-sm font-black text-amber-600 dark:text-amber-400 truncate">{fmt(totals.totalRemaining)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">المدفوع</p>
-                <p className="text-sm font-black text-green-600 truncate">{fmt(totals.totalPaid)}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">المدفوع</p>
+                <p className="text-sm font-black text-green-600 dark:text-green-400 truncate">{fmt(totals.totalPaid)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">المصروفات</p>
-                <p className="text-sm font-black text-red-600 truncate">{fmt(totals.totalExpenses)}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">المصروفات</p>
+                <p className="text-sm font-black text-red-600 dark:text-red-400 truncate">{fmt(totals.totalExpenses)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">عدد الطلاب</p>
-                <p className="text-sm font-black text-gray-900">{fmtN(totals.studentsCount)}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">عدد الطلاب</p>
+                <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmtN(totals.studentsCount)}</p>
               </div>
               {/* نسبة السداد */}
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">نسبة السداد</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">نسبة السداد</p>
                 <div className="flex items-center gap-2 justify-end">
-                  <p className="text-sm font-black text-green-600">{fmtN(paidPct)}%</p>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <p className="text-sm font-black text-green-600 dark:text-green-400">{fmtN(paidPct)}%</p>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-50 dark:to-green-900/10 border border-green-200 dark:border-green-900/50 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
@@ -491,7 +491,7 @@ export default async function GroupDashboardPage({
             </div>
 
             {/* Export */}
-            <div className="mt-6 pt-5 border-t border-gray-100">
+            <div className="mt-6 pt-5 border-t border-gray-100 dark:border-slate-700">
               <ExportButtons />
             </div>
           </div>
@@ -508,60 +508,60 @@ export default async function GroupDashboardPage({
             }
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
             {/* Best collection */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-green-600">أفضل تحصيل</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center text-xl">🏆</div>
+                <p className="text-xs font-black uppercase tracking-wide text-green-600 dark:text-green-400">أفضل تحصيل</p>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-50 dark:to-green-900/10 border border-green-200 dark:border-green-900/50 flex items-center justify-center text-xl">🏆</div>
               </div>
-              <p className="text-base font-black text-gray-900 leading-snug line-clamp-2">
+              <p className="text-base font-black text-gray-900 dark:text-slate-100 leading-snug line-clamp-2">
                 {overview.analysis.strongestCollectionBranch?.branchName ?? (
-                  <span className="text-gray-300 font-semibold text-sm">لا توجد بيانات</span>
+                  <span className="text-gray-300 dark:text-slate-500 font-semibold text-sm">لا توجد بيانات</span>
                 )}
               </p>
               {overview.analysis.strongestCollectionBranch && (
-                <p className="mt-3 text-lg font-black text-green-600">
+                <p className="mt-3 text-lg font-black text-green-600 dark:text-green-400">
                   {fmtN(overview.analysis.strongestCollectionBranch.paidPercentage)}%
                 </p>
               )}
             </div>
 
             {/* Highest remaining */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-amber-600">أعلى متبقي</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 flex items-center justify-center text-xl">⚠️</div>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">أعلى متبقي</p>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 dark:from-amber-900/30 to-amber-50 dark:to-amber-900/10 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center text-xl">⚠️</div>
               </div>
-              <p className="text-base font-black text-gray-900 leading-snug line-clamp-2">
+              <p className="text-base font-black text-gray-900 dark:text-slate-100 leading-snug line-clamp-2">
                 {overview.analysis.highestRemainingBranch?.branchName ?? (
-                  <span className="text-gray-300 font-semibold text-sm">لا توجد بيانات</span>
+                  <span className="text-gray-300 dark:text-slate-500 font-semibold text-sm">لا توجد بيانات</span>
                 )}
               </p>
               {overview.analysis.highestRemainingBranch && (
-                <p className="mt-3 text-sm font-black text-amber-600">
+                <p className="mt-3 text-sm font-black text-amber-600 dark:text-amber-400">
                   {fmt(overview.analysis.highestRemainingBranch.totalRemaining)}
                 </p>
               )}
             </div>
 
             {/* Highest expenses */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-red-600">أعلى مصروفات</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 to-red-50 border border-red-200 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <p className="text-xs font-black uppercase tracking-wide text-red-600 dark:text-red-400">أعلى مصروفات</p>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 dark:from-red-900/30 to-red-50 dark:to-red-900/10 border border-red-200 dark:border-red-900/50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
               </div>
-              <p className="text-base font-black text-gray-900 leading-snug line-clamp-2">
+              <p className="text-base font-black text-gray-900 dark:text-slate-100 leading-snug line-clamp-2">
                 {overview.analysis.highestExpenseBranch?.branchName ?? (
-                  <span className="text-gray-300 font-semibold text-sm">لا توجد مصروفات</span>
+                  <span className="text-gray-300 dark:text-slate-500 font-semibold text-sm">لا توجد مصروفات</span>
                 )}
               </p>
               {overview.analysis.highestExpenseBranch && (
-                <p className="mt-3 text-sm font-black text-red-600">
+                <p className="mt-3 text-sm font-black text-red-600 dark:text-red-400">
                   {fmt(overview.analysis.highestExpenseBranch.totalExpenses)}
                 </p>
               )}

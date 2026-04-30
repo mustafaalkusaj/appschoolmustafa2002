@@ -76,10 +76,10 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+    <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
       {/* Section title */}
       <div className="flex items-center gap-2 mb-6">
-        <h2 className="text-lg font-black text-gray-800">لوحة التحليل المالي</h2>
+        <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">لوحة التحليل المالي</h2>
         <div className="w-5 h-5 text-gray-400">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
             <path

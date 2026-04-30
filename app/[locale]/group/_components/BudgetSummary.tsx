@@ -224,10 +224,10 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
   // Loading state
   if (loading) {
     return (
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
         <div className="flex items-center gap-2 mb-6">
-          <h2 className="text-lg font-black text-gray-800">{title}</h2>
-          <div className="w-5 h-5 text-gray-400">
+          <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">{title}</h2>
+          <div className="w-5 h-5 text-gray-400 dark:text-slate-500">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H9a2 2 0 00-2 2v1M4 20a2 2 0 01-2-2v-5a2 2 0 012-2h2" />
             </svg>
@@ -245,23 +245,23 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
   // Error state
   if (error || !response) {
     return (
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
         <div className="flex items-center gap-2 mb-6">
-          <h2 className="text-lg font-black text-gray-800">{title}</h2>
+          <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">{title}</h2>
         </div>
         <div className="space-y-3">
-          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-center">
-            <p className="text-sm font-semibold text-red-700">
+          <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-5 py-4 text-center">
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
               {locale === "ar" ? "تعذر تحميل بيانات الموازنة." : "Could not load budget data."}
             </p>
             {error && (
-              <p className="mt-1 text-[11px] text-red-500 opacity-80">{error}</p>
+              <p className="mt-1 text-[11px] text-red-500 dark:text-red-400 opacity-80">{error}</p>
             )}
           </div>
           <div className="flex justify-center">
             <button
               onClick={() => setRetryKey((k) => k + 1)}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-2 text-sm font-black text-gray-700 transition hover:bg-gray-100"
+              className="rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 px-5 py-2 text-sm font-black text-gray-700 dark:text-slate-100 transition hover:bg-gray-100 dark:hover:bg-slate-600"
             >
               {locale === "ar" ? "إعادة المحاولة" : "Retry"}
             </button>
@@ -272,9 +272,9 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+    <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
       <div className="flex items-center gap-2 mb-6">
-        <h2 className="text-lg font-black text-gray-800">{title}</h2>
+        <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">{title}</h2>
         <div className="w-5 h-5 text-gray-400">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H9a2 2 0 00-2 2v1M4 20a2 2 0 01-2-2v-5a2 2 0 012-2h2" />
