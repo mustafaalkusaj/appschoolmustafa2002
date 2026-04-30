@@ -54,6 +54,21 @@ export async function GET(req: NextRequest) {
     const studentsWithBranch = students?.filter((s) => s.branch_id)?.length ?? 0;
     const studentsWithoutBranch = (students?.length ?? 0) - studentsWithBranch;
 
+    // Get the specific branches that students reference
+    const studentBranchIds = students
+      ?.filter((s) => s.branch_id)
+      .map((s) => s.branch_id)
+      .filter((v, i, a) => a.indexOf(v) === i) ?? [];
+
+    let referencedBranches: any[] = [];
+    if (studentBranchIds.length > 0) {
+      const { data: refBranches } = await actorSupabase
+        .from("branches")
+        .select("id, name, group_id, school_id")
+        .in("id", studentBranchIds);
+      referencedBranches = refBranches ?? [];
+    }
+
     return NextResponse.json({
       user: {
         id: actorUserId,
@@ -68,6 +83,11 @@ export async function GET(req: NextRequest) {
         count: branches?.length ?? 0,
         data: branches ?? [],
         error: branchesError?.message,
+      },
+      referencedBranches: {
+        count: referencedBranches.length,
+        data: referencedBranches,
+        note: "Branches that students actually reference by branch_id",
       },
       students: {
         totalCount: students?.length ?? 0,
