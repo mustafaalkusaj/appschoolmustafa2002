@@ -310,36 +310,34 @@ export default async function GroupDashboardPage({
           ))}
 
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), icon: "👥" },
-            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), icon: "💰" },
-            { label: "الرسوم بعد الخصم", value: fmt(totals.totalFeesAfterDiscount), icon: "📝" },
-            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), icon: "🏷️" },
-            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), icon: "✅" },
-            { label: "المبلغ المتبقي", value: fmt(totals.totalRemaining), icon: "⏳" },
-            { label: "المصروفات", value: fmt(totals.totalExpenses), icon: "📊" },
-            { label: "نسبة السداد", value: `${fmtN(Math.round(totals.paidPercentage))}%`, icon: "📈" },
-            { label: "المتوسط لكل طالب", value: fmt(totals.studentsCount > 0 ? totals.totalFeesAfterDiscount / totals.studentsCount : 0), icon: "💵" },
-            { label: "معدل التحصيل", value: `${fmtN(Math.round((totals.totalPaid / Math.max(1, totals.totalFeesAfterDiscount)) * 100))}%`, icon: "🎯" },
-            { label: "معدل المتبقي", value: `${fmtN(Math.round((totals.totalRemaining / Math.max(1, totals.totalFeesAfterDiscount)) * 100))}%`, icon: "⚠️" },
-            { label: "نسبة المصروفات", value: `${fmtN(Math.round((totals.totalExpenses / Math.max(1, totals.totalPaid)) * 100))}%`, icon: "💸" },
-          ].map((metric, idx) => {
-            const accent = getAccent(idx);
-            return (
-              <div key={metric.label} className="rounded-2xl border shadow-sm p-4 sm:p-5 transition-colors" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1 text-right">
-                    <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{metric.label}</p>
-                    <p className="text-[clamp(1rem,3vw,1.75rem)] font-black whitespace-nowrap leading-tight" style={{ color: "var(--text-primary)" }}>{metric.value}</p>
-                  </div>
-                  <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 text-lg sm:text-xl`}>
-                    {metric.icon}
-                  </div>
+            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), color: "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300" },
+            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), color: "bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-300" },
+            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), color: "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300" },
+            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), color: "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300" },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-2xl border shadow-sm p-5 transition-colors" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1 text-right">
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>
+                    {metric.label}
+                  </p>
+                  <p className="mt-2 whitespace-nowrap text-[clamp(1.25rem,1.8vw,2rem)] font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+                    {metric.value}
+                  </p>
+                </div>
+                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${metric.color}`}>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {metric.label.includes("طلاب") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-2a6 6 0 0112 0v2zm0 0h6v-2a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />}
+                    {metric.label.includes("المدفوع") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />}
+                    {metric.label.includes("الخصومات") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
+                    {metric.label.includes("الرسوم قبل") && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
+                  </svg>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
         {/* ── Branch summary ─────────────────────────────────────────────────── */}
