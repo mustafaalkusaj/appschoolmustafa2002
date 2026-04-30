@@ -305,7 +305,7 @@ export default async function GroupDashboardPage({
           ))}
 
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[
             { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), icon: "👥" },
             { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), icon: "💰" },
@@ -323,12 +323,12 @@ export default async function GroupDashboardPage({
             const accent = getAccent(idx);
             return (
               <div key={metric.label} className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1 text-right">
                     <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">{metric.label}</p>
-                    <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{metric.value}</p>
+                    <p className="text-[clamp(1rem,3vw,1.75rem)] font-black text-gray-900 dark:text-slate-100 whitespace-nowrap leading-tight">{metric.value}</p>
                   </div>
-                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 text-xl sm:text-2xl`}>
+                  <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 text-lg sm:text-xl`}>
                     {metric.icon}
                   </div>
                 </div>
