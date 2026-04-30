@@ -116,6 +116,13 @@ export function buildSchoolManagerOverview(input: {
   const branchOrder: string[] = [];
   const warnings: string[] = [];
 
+  console.log("[buildSchoolManagerOverview] Input data:", {
+    branchesCount: input.branches.length,
+    branches: input.branches.map(b => ({ id: b.id, name: b.name })),
+    studentsCount: input.students.length,
+    expensesCount: input.expenses.length,
+  });
+
   input.branches.forEach((branch) => {
     const branchId = branch.id;
     branchOrder.push(branchId);
@@ -227,6 +234,11 @@ export async function resolveSchoolManagerOverview(
 
   const groupId = school.group_id;
 
+  console.log("[resolveSchoolManagerOverview] School data:", {
+    schoolId,
+    groupId,
+  });
+
   if (!groupId) {
     console.warn("[resolveSchoolManagerOverview] School has no group_id assigned:", schoolId);
   }
@@ -251,6 +263,15 @@ export async function resolveSchoolManagerOverview(
         .select("branch_id, amount")
         .eq("school_id", schoolId),
     ]);
+
+  console.log("[resolveSchoolManagerOverview] Query results:", {
+    branchesCount: branches?.length ?? 0,
+    branchesError: branchesError?.message,
+    studentsCount: students?.length ?? 0,
+    studentsError: studentsError?.message,
+    expensesCount: expenses?.length ?? 0,
+    expensesError: expensesError?.message,
+  });
 
   if (branchesError) {
     throw new Error(branchesError.message || "تعذر تحميل قائمة الفروع.");
