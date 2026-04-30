@@ -47,7 +47,7 @@ function fmtNum(value: number) {
   return value.toLocaleString("en-US");
 }
 
-const CARD = "rounded-xl border border-gray-100 bg-gray-50 p-4";
+const CARD = "rounded-xl border p-4";
 
 export function SchoolManagerComparisonChart({ points, totals }: Props) {
   const remainingPercentage =
@@ -76,11 +76,11 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
   };
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
+    <section className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
       {/* Section title */}
       <div className="flex items-center gap-2 mb-6">
-        <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">لوحة التحليل المالي</h2>
-        <div className="w-5 h-5 text-gray-400">
+        <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>لوحة التحليل المالي</h2>
+        <div className="w-5 h-5" style={{ color: "var(--text-tertiary)" }}>
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
             <path
               strokeLinecap="round"
@@ -94,8 +94,8 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Bar chart: إجمالي المبيع حسب الفرع */}
-        <div className={CARD}>
-          <h3 className="mb-3 text-sm font-black text-gray-600 text-right">
+        <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+          <h3 className="mb-3 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>
             إجمالي المبالغ حسب الفرع
           </h3>
           <div style={{ height: 260 }}>
@@ -152,32 +152,32 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
         </div>
 
         {/* Progress bars: تقدم الدفع */}
-        <div className={CARD}>
-          <h3 className="mb-4 text-sm font-black text-gray-600 text-right">تقدم الدفع</h3>
+        <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+          <h3 className="mb-4 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>تقدم الدفع</h3>
 
           <div className="space-y-5">
             {/* Paid */}
             <div>
-              <div className="mb-1.5 flex items-center justify-between text-xs font-bold text-gray-500">
+              <div className="mb-1.5 flex items-center justify-between text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>
                 <span>{fmtCurrency(totals.totalPaid)}</span>
                 <span>المبلغ المدفوع</span>
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+              <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--background)" }}>
                 <div
                   className="h-full rounded-full bg-emerald-500 transition-all"
                   style={{ width: `${paidPct}%` }}
                 />
               </div>
-              <div className="mt-1 text-[10px] text-gray-400">{fmtNum(paidPct)}%</div>
+              <div className="mt-1 text-[10px]" style={{ color: "var(--text-tertiary)" }}>{fmtNum(paidPct)}%</div>
             </div>
 
             {/* Remaining */}
             <div>
-              <div className="mb-1.5 flex items-center justify-between text-xs font-bold text-gray-500">
+              <div className="mb-1.5 flex items-center justify-between text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>
                 <span>{fmtCurrency(totals.totalRemaining)}</span>
                 <span>المبلغ المتبقي</span>
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+              <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--background)" }}>
                 <div
                   className="h-full rounded-full bg-amber-400 transition-all"
                   style={{ width: `${remPct}%` }}
@@ -197,8 +197,8 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
         </div>
 
         {/* Donut chart: إحصائيات الدفع */}
-        <div className={CARD}>
-          <h3 className="mb-3 text-sm font-black text-gray-600 text-right">إحصائيات الدفع</h3>
+        <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+          <h3 className="mb-3 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>إحصائيات الدفع</h3>
           <div className="relative" style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -226,36 +226,36 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
             </ResponsiveContainer>
             {/* Center label */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[10px] font-bold text-gray-400">الإجمالي</span>
-              <span className="text-xs font-black text-gray-900">
+              <span className="text-[10px] font-bold" style={{ color: "var(--text-tertiary)" }}>الإجمالي</span>
+              <span className="text-xs font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtNum(totals.totalFeesAfterDiscount)}
               </span>
-              <span className="text-[9px] text-gray-400">IQD</span>
+              <span className="text-[9px]" style={{ color: "var(--text-tertiary)" }}>IQD</span>
             </div>
           </div>
         </div>
 
         {/* Quick stats */}
-        <div className={CARD}>
-          <h3 className="mb-4 text-sm font-black text-gray-600 text-right">إحصائيات سريعة</h3>
+        <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+          <h3 className="mb-4 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>إحصائيات سريعة</h3>
           <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-sm font-black text-gray-900">
+            <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "var(--border)" }}>
+              <span className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtNum(points.length)}
               </span>
-              <span className="text-xs text-gray-500">إجمالي الفروع</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>إجمالي الفروع</span>
             </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-sm font-black text-gray-900">
+            <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "var(--border)" }}>
+              <span className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtNum(totals.studentsCount)}
               </span>
-              <span className="text-xs text-gray-500">إجمالي الطلاب</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>إجمالي الطلاب</span>
             </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-sm font-black text-gray-900">
+            <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "var(--border)" }}>
+              <span className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtCurrency(totals.totalFeesAfterDiscount)}
               </span>
-              <span className="text-xs text-gray-500">الرسوم بعد الخصم</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>الرسوم بعد الخصم</span>
             </div>
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
@@ -265,7 +265,7 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
                 />
                 <span className="text-sm font-black text-emerald-600">{fmtNum(paidPct)}%</span>
               </div>
-              <span className="text-xs text-gray-500">نسبة السداد</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>نسبة السداد</span>
             </div>
           </div>
         </div>

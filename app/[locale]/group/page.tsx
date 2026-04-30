@@ -10,7 +10,7 @@ const SchoolManagerComparisonChart = dynamicImport(
   () => import("./_components/SchoolManagerComparisonChart").then((mod) => mod.SchoolManagerComparisonChart),
   {
     loading: () => (
-      <div className="h-[440px] w-full animate-pulse rounded-2xl bg-white border border-gray-100 shadow-sm" />
+      <div className="h-[440px] w-full animate-pulse rounded-2xl border shadow-sm" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }} />
     ),
   }
 );
@@ -58,8 +58,8 @@ function buildExportUrl(format: "excel" | "word" | "pdf", branchId?: string | nu
 function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <h2 className="text-lg font-black text-gray-800 dark:text-slate-100">{title}</h2>
-      <div className="w-5 h-5 text-gray-400 dark:text-slate-500 flex items-center justify-center">{icon}</div>
+      <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{title}</h2>
+      <div className="w-5 h-5 flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>{icon}</div>
     </div>
   );
 }
@@ -72,7 +72,8 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
         {["PDF", "Word", "Excel"].map((label) => (
           <span
             key={label}
-            className="text-xs font-black px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 text-gray-300 dark:text-slate-500 cursor-not-allowed"
+            className="text-xs font-black px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed"
+            style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)", color: "var(--text-tertiary)" }}
           >
             {label}
           </span>
@@ -86,7 +87,8 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
         href={buildExportUrl("pdf", branchId)}
         target="_blank"
         rel="noreferrer"
-        className="text-xs font-black px-4 py-2 rounded-lg border border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 hover:border-red-400 dark:hover:border-red-700 transition shadow-sm hover:shadow-md"
+        className="text-xs font-black px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 transition shadow-sm hover:shadow-md"
+        style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)" }}
       >
         📄 PDF
       </a>
@@ -94,13 +96,15 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
         href={buildExportUrl("word", branchId)}
         target="_blank"
         rel="noreferrer"
-        className="text-xs font-black px-4 py-2 rounded-lg border border-blue-300 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:border-blue-400 dark:hover:border-blue-700 transition shadow-sm hover:shadow-md"
+        className="text-xs font-black px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm hover:shadow-md"
+        style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)" }}
       >
         📘 Word
       </a>
       <a
         href={buildExportUrl("excel", branchId)}
-        className="text-xs font-black px-4 py-2 rounded-lg border border-green-300 dark:border-green-900/50 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 hover:border-green-400 dark:hover:border-green-700 transition shadow-sm hover:shadow-md"
+        className="text-xs font-black px-4 py-2 rounded-lg border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm hover:shadow-md"
+        style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)" }}
       >
         📊 Excel
       </a>
@@ -116,7 +120,8 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
 
   return (
     <article
-      className={`bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 overflow-hidden border-t-4 ${accent.top} flex flex-col`}
+      className={`rounded-2xl border shadow-sm dark:shadow-slate-900/30 overflow-hidden border-t-4 ${accent.top} flex flex-col transition-colors`}
+      style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}
     >
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between gap-3">
@@ -125,50 +130,50 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
         >
           {branch.branchName.charAt(0).toUpperCase()}
         </div>
-        <h3 className="text-base font-black text-gray-900 dark:text-slate-100 text-right flex-1">{branch.branchName}</h3>
+        <h3 className="text-base font-black text-right flex-1" style={{ color: "var(--text-primary)" }}>{branch.branchName}</h3>
       </div>
 
-      <div className="border-t border-gray-50 dark:border-slate-700 mx-6" />
+      <div className="border-t mx-6" style={{ borderColor: "var(--border)" }} />
 
       {/* Metrics grid */}
       <div className="px-6 py-5 grid grid-cols-2 gap-x-5 gap-y-5 flex-1">
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">الرسوم قبل الخصم</p>
-          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmt(branch.totalFeesBeforeDiscount)}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>الرسوم قبل الخصم</p>
+          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalFeesBeforeDiscount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">الرسوم بعد الخصم</p>
-          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmt(branch.totalFeesAfterDiscount)}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>الرسوم بعد الخصم</p>
+          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalFeesAfterDiscount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">المدفوع</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>المدفوع</p>
           <p className="text-sm font-black text-green-600 dark:text-green-400">{fmt(branch.totalPaid)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">المتبقي</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>المتبقي</p>
           <p className="text-sm font-black text-amber-600 dark:text-amber-400">{fmt(branch.totalRemaining)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">عدد الطلاب</p>
-          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmtN(branch.studentsCount)}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>عدد الطلاب</p>
+          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtN(branch.studentsCount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">المصروفات</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>المصروفات</p>
           <p className="text-sm font-black text-red-600 dark:text-red-400">{fmt(branch.totalExpenses)}</p>
         </div>
         <div className="col-span-2 text-right">
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-1.5">الخصم</p>
-          <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmt(branch.totalDiscount)}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>الخصم</p>
+          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalDiscount)}</p>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="px-6 py-4 bg-gray-50 dark:bg-slate-700/50 border-t border-gray-100 dark:border-slate-700">
+      <div className="px-6 py-4 border-t" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
         <div className="flex justify-between items-center mb-2">
           <p className={`text-sm font-black ${accent.pctColor}`}>{fmtN(pct)}%</p>
-          <p className="text-xs font-bold text-gray-500 dark:text-slate-400">نسبة السداد</p>
+          <p className="text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>نسبة السداد</p>
         </div>
-        <div className="h-3 rounded-full bg-gray-200 dark:bg-slate-600 overflow-hidden shadow-sm">
+        <div className="h-3 rounded-full overflow-hidden shadow-sm" style={{ background: "var(--background)" }}>
           <div
             className={`h-full rounded-full ${accent.bar} transition-all`}
             style={{ width: `${pct}%` }}
@@ -276,20 +281,20 @@ export default async function GroupDashboardPage({
   const schoolInitial = school.name.charAt(0) || "م";
 
   return (
-    <div dir="rtl" className="bg-white dark:bg-slate-950 min-h-screen transition-colors duration-200">
+    <div dir="rtl" className="min-h-screen transition-colors duration-200" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
       {/* ── Main content ────────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 py-6 space-y-6 max-w-screen-2xl mx-auto">
 
         {/* Breadcrumb + page title */}
         <div>
-          <p className="text-xs text-gray-400 dark:text-slate-500 mb-2">الرئيسية &gt; المجموعة</p>
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-slate-100 leading-tight">اللوحة المالية للمجموعة</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1.5">نظرة شاملة على الأداء المالي لجميع فروع المدرسة</p>
+          <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>الرئيسية &gt; المجموعة</p>
+          <h1 className="text-2xl sm:text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>اللوحة المالية للمجموعة</h1>
+          <p className="text-sm mt-1.5" style={{ color: "var(--text-tertiary)" }}>نظرة شاملة على الأداء المالي لجميع فروع المدرسة</p>
         </div>
 
         {/* Error / warnings */}
         {overviewError && (
-          <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-5 py-4 text-sm text-red-700 dark:text-red-400 font-medium">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 font-medium">
             {overviewError}
           </div>
         )}
@@ -298,7 +303,7 @@ export default async function GroupDashboardPage({
           .map((w) => (
             <div
               key={w}
-              className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-5 py-3 text-xs text-amber-700 dark:text-amber-400 font-medium"
+              className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-700 font-medium"
             >
               {w}
             </div>
@@ -322,11 +327,11 @@ export default async function GroupDashboardPage({
           ].map((metric, idx) => {
             const accent = getAccent(idx);
             return (
-              <div key={metric.label} className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-5">
+              <div key={metric.label} className="rounded-2xl border shadow-sm p-4 sm:p-5 transition-colors" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1 text-right">
-                    <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">{metric.label}</p>
-                    <p className="text-[clamp(1rem,3vw,1.75rem)] font-black text-gray-900 dark:text-slate-100 whitespace-nowrap leading-tight">{metric.value}</p>
+                    <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{metric.label}</p>
+                    <p className="text-[clamp(1rem,3vw,1.75rem)] font-black whitespace-nowrap leading-tight" style={{ color: "var(--text-primary)" }}>{metric.value}</p>
                   </div>
                   <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 text-lg sm:text-xl`}>
                     {metric.icon}
@@ -349,13 +354,13 @@ export default async function GroupDashboardPage({
           />
 
           {overview.branches.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 py-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-gray-300 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="rounded-2xl border shadow-sm py-16 text-center" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "var(--background)" }}>
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: "var(--text-tertiary)" }}>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <p className="text-sm font-semibold text-gray-400 dark:text-slate-500">لا توجد فروع نشطة لهذه المدرسة</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>لا توجد فروع نشطة لهذه المدرسة</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -381,43 +386,43 @@ export default async function GroupDashboardPage({
             }
           />
 
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
+          <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
             {/* Metrics grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-6">
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">الرسوم قبل الخصم</p>
-                <p className="text-sm font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalFeesBeforeDiscount)}</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>الرسوم قبل الخصم</p>
+                <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalFeesBeforeDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">الرسوم بعد الخصم</p>
-                <p className="text-sm font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalFeesAfterDiscount)}</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>الرسوم بعد الخصم</p>
+                <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalFeesAfterDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">الخصومات</p>
-                <p className="text-sm font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalDiscount)}</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>الخصومات</p>
+                <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">المتبقي</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>المتبقي</p>
                 <p className="text-sm font-black text-amber-600 dark:text-amber-400 truncate">{fmt(totals.totalRemaining)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">المدفوع</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>المدفوع</p>
                 <p className="text-sm font-black text-green-600 dark:text-green-400 truncate">{fmt(totals.totalPaid)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">المصروفات</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>المصروفات</p>
                 <p className="text-sm font-black text-red-600 dark:text-red-400 truncate">{fmt(totals.totalExpenses)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">عدد الطلاب</p>
-                <p className="text-sm font-black text-gray-900 dark:text-slate-100">{fmtN(totals.studentsCount)}</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>عدد الطلاب</p>
+                <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtN(totals.studentsCount)}</p>
               </div>
               {/* نسبة السداد */}
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">نسبة السداد</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>نسبة السداد</p>
                 <div className="flex items-center gap-2 justify-end">
                   <p className="text-sm font-black text-green-600 dark:text-green-400">{fmtN(paidPct)}%</p>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-50 dark:to-green-900/10 border border-green-200 dark:border-green-900/50 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center shrink-0">
                     <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
@@ -427,7 +432,7 @@ export default async function GroupDashboardPage({
             </div>
 
             {/* Export */}
-            <div className="mt-6 pt-5 border-t border-gray-100 dark:border-slate-700">
+            <div className="mt-6 pt-5 border-t" style={{ borderColor: "var(--border)" }}>
               <ExportButtons />
             </div>
           </div>
@@ -446,14 +451,14 @@ export default async function GroupDashboardPage({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
             {/* Best collection */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
+            <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-black uppercase tracking-wide text-green-600 dark:text-green-400">أفضل تحصيل</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-50 dark:to-green-900/10 border border-green-200 dark:border-green-900/50 flex items-center justify-center text-xl">🏆</div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center text-xl">🏆</div>
               </div>
-              <p className="text-base font-black text-gray-900 dark:text-slate-100 leading-snug line-clamp-2">
+              <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
                 {overview.analysis.strongestCollectionBranch?.branchName ?? (
-                  <span className="text-gray-300 dark:text-slate-500 font-semibold text-sm">لا توجد بيانات</span>
+                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>لا توجد بيانات</span>
                 )}
               </p>
               {overview.analysis.strongestCollectionBranch && (
@@ -464,14 +469,14 @@ export default async function GroupDashboardPage({
             </div>
 
             {/* Highest remaining */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
+            <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">أعلى متبقي</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 dark:from-amber-900/30 to-amber-50 dark:to-amber-900/10 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center text-xl">⚠️</div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 flex items-center justify-center text-xl">⚠️</div>
               </div>
-              <p className="text-base font-black text-gray-900 dark:text-slate-100 leading-snug line-clamp-2">
+              <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
                 {overview.analysis.highestRemainingBranch?.branchName ?? (
-                  <span className="text-gray-300 dark:text-slate-500 font-semibold text-sm">لا توجد بيانات</span>
+                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>لا توجد بيانات</span>
                 )}
               </p>
               {overview.analysis.highestRemainingBranch && (
@@ -482,18 +487,18 @@ export default async function GroupDashboardPage({
             </div>
 
             {/* Highest expenses */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6">
+            <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-black uppercase tracking-wide text-red-600 dark:text-red-400">أعلى مصروفات</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 dark:from-red-900/30 to-red-50 dark:to-red-900/10 border border-red-200 dark:border-red-900/50 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 to-red-50 border border-red-200 flex items-center justify-center">
                   <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
               </div>
-              <p className="text-base font-black text-gray-900 dark:text-slate-100 leading-snug line-clamp-2">
+              <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
                 {overview.analysis.highestExpenseBranch?.branchName ?? (
-                  <span className="text-gray-300 dark:text-slate-500 font-semibold text-sm">لا توجد مصروفات</span>
+                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>لا توجد مصروفات</span>
                 )}
               </p>
               {overview.analysis.highestExpenseBranch && (
