@@ -207,13 +207,31 @@ export async function resolveSchoolManagerOverview(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
 ): Promise<SchoolManagerOverview> {
+  // Step 1: Get the school's group_id to filter branches
+  // schools table has a group_id that links to school_groups
+  // branches use group_id to identify which school_group they belong to
+  const { data: school, error: schoolError } = await actorSupabase
+    .from("schools")
+    .select("id, group_id")
+    .eq("id", schoolId)
+    .maybeSingle();
+
+  if (schoolError || !school?.id) {
+    throw new Error(schoolError?.message || "تعذر تحميل المدرسة الحالية.");
+  }
+
+  const groupId = school.group_id;
+
+  // Step 2: Query branches using the group_id
   const [{ data: branches, error: branchesError }, { data: students, error: studentsError }, { data: expenses, error: expensesError }] =
     await Promise.all([
-      actorSupabase
-        .from("branches")
-        .select("id, name")
-        .eq("school_id", schoolId)
-        .order("name", { ascending: true }),
+      groupId
+        ? actorSupabase
+            .from("branches")
+            .select("id, name")
+            .eq("group_id", groupId)
+            .order("name", { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
       actorSupabase
         .from("students")
         .select("branch_id, total_fee, paid_fee, remaining_fee, discount_value, status")
