@@ -38,6 +38,18 @@ function buildRows(branch: SchoolManagerBranchSummary): Array<[string, string]> 
   ];
 }
 
+function buildFilename(schoolName: string, branchName: string | null, ext: string): string {
+  const date = new Date().toISOString().slice(0, 10);
+  const parts = [schoolName.trim()];
+  if (branchName) {
+    parts.push(branchName.trim());
+  } else {
+    parts.push("إجمالي المدرسة");
+  }
+  parts.push(date);
+  return `${parts.join(" - ")}.${ext}`;
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -207,15 +219,18 @@ export async function GET(req: NextRequest) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
+    const xlsxFilename = buildFilename(school.name, selectedBranch?.branchName ?? null, "xlsx");
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename=\"school-manager-${Date.now()}.xlsx\"`,
+        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(xlsxFilename)}`,
+        "Cache-Control": "no-store",
       },
     });
   }
 
   const html = buildHtmlDocument(target.title, target.rows, format === "pdf");
+  const docFilename = buildFilename(school.name, selectedBranch?.branchName ?? null, format === "word" ? "doc" : "html");
   return new NextResponse(html, {
     headers: {
       "Content-Type":
@@ -224,8 +239,9 @@ export async function GET(req: NextRequest) {
           : "text/html; charset=utf-8",
       "Content-Disposition":
         format === "word"
-          ? `attachment; filename="school-manager-${Date.now()}.doc"`
+          ? `attachment; filename*=UTF-8''${encodeURIComponent(docFilename)}`
           : "inline",
+      "Cache-Control": "no-store",
     },
   });
 }

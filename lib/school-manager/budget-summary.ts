@@ -93,18 +93,37 @@ async function fetchActualFinancials(
   };
 }
 
+// Must match the exclusion list in lib/school-manager/overview.ts
+const EXCLUDED_BRANCH_NAMES = new Set([
+  "الفرع الرئيسي",
+  "الفرع الافتراضي",
+  "الفرع الاداري",
+  "main branch",
+  "main",
+  "root",
+  "root branch",
+  "default branch",
+]);
+
+function isBudgetExcludedBranch(name: string | null | undefined): boolean {
+  if (!name) return false;
+  const t = name.trim();
+  return EXCLUDED_BRANCH_NAMES.has(t) || EXCLUDED_BRANCH_NAMES.has(t.toLowerCase());
+}
+
 /**
- * Get all branches for school with zero-data guarantee
+ * Get all non-excluded branches for school
  */
 async function fetchBranchesWithData(supabase: RouteSupabaseClient, schoolId: string) {
   const { data } = await supabase
     .from("branches")
     .select("id, name")
     .eq("school_id", schoolId)
-    .eq("is_active", true)
     .order("name", { ascending: true });
 
-  return (data ?? []) as Array<{ id: string; name: string }>;
+  return ((data ?? []) as Array<{ id: string; name: string }>).filter(
+    (b) => !isBudgetExcludedBranch(b.name),
+  );
 }
 
 /**

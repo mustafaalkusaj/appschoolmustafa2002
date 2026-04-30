@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { FiscalYearSummary } from "@/lib/school-manager/budget-summary";
 
@@ -13,168 +12,161 @@ interface BudgetResponse {
 }
 
 function formatCurrency(value: number) {
-  return `${value.toLocaleString("en-US")} IQD`;
+  if (value === 0) return "IQD 0";
+  return `IQD ${value.toLocaleString("en-US")}`;
 }
 
-function BudgetYearTab({
-  year: { fiscalYear, isCurrent, budget, branches, totals },
-  locale,
-  nextYear,
+function RateBar({ value, color }: { value: number; color: string }) {
+  const clamped = Math.min(100, Math.max(0, value));
+  return (
+    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+      <div
+        className={`h-full rounded-full transition-all ${color}`}
+        style={{ width: `${clamped}%` }}
+      />
+    </div>
+  );
+}
+
+function BudgetMetricCell({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl p-3.5 text-right ${
+        highlight
+          ? "border border-blue-100 bg-blue-50"
+          : "border border-transparent bg-gray-50"
+      }`}
+    >
+      <div className="text-[11px] font-semibold leading-tight text-gray-500">{label}</div>
+      <div
+        className={`mt-1.5 text-sm font-black tabular-nums leading-tight ${
+          highlight ? "text-blue-600" : "text-gray-900"
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function EmptyBudgetYear({ label, year }: { label: string; year: number }) {
+  return (
+    <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-8 text-center">
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-xl">
+        📋
+      </div>
+      <div className="text-sm font-black text-gray-700">
+        {label} ({year})
+      </div>
+      <p className="mt-1.5 text-xs font-medium text-gray-400">لا توجد موازنة مسجلة لهذه السنة</p>
+    </div>
+  );
+}
+
+function BudgetYearSection({
+  year,
+  badge,
+  badgeColor,
 }: {
   year: FiscalYearSummary;
-  locale: "ar" | "en";
-  nextYear: number;
+  badge: string;
+  badgeColor: string;
 }) {
-  const router = useRouter();
-  const isNextYear = fiscalYear === nextYear;
-  const hasActualData = totals.actualIncome > 0 || totals.actualExpense > 0;
-
-  const handleCreateBudget = () => {
-    router.push(`/budgets/new?year=${fiscalYear}`);
-  };
-
-  if (!budget) {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-[24px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--info)_10%,transparent)] px-6 py-4 text-center">
-          <p className="text-sm text-[var(--text-secondary)]">
-            {isCurrent
-              ? locale === "ar"
-                ? "لم يتم إنشاء موازنة لهذه السنة بعد."
-                : "No budget has been created for this year yet."
-              : locale === "ar"
-                ? "لم يتم إنشاء موازنة للسنة القادمة بعد."
-                : "No budget has been created for next year yet."}
-          </p>
-        </div>
-        <div className="flex justify-center">
-          <button
-            onClick={handleCreateBudget}
-            className="rounded-[18px] bg-blue-500 px-6 py-2 font-black text-white hover:bg-blue-600"
-          >
-            {isCurrent
-              ? locale === "ar"
-                ? "إنشاء موازنة لهذه السنة"
-                : "Create Budget for This Year"
-              : locale === "ar"
-                ? "إنشاء موازنة للسنة القادمة"
-                : "Create Budget for Next Year"}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const { totals, branches, fiscalYear } = year;
+  const yearLabel = year.isCurrent ? "السنة الحالية" : "السنة القادمة";
 
   return (
-    <div className="space-y-4">
-      {isNextYear && !hasActualData && (
-        <div className="rounded-[18px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] px-4 py-3 text-center text-xs text-[var(--text-secondary)]">
-          {locale === "ar"
-            ? "لا توجد بيانات فعلية للسنة القادمة بعد."
-            : "No actual data available for next year yet."}
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "الدخل المخطط" : "Planned Income"}
-          </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {formatCurrency(totals.plannedIncome)}
-          </div>
-        </div>
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "الدخل الفعلي" : "Actual Income"}
-          </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {formatCurrency(totals.actualIncome)}
-          </div>
-        </div>
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "المصروفات المخطط" : "Planned Expenses"}
-          </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {formatCurrency(totals.plannedExpense)}
-          </div>
-        </div>
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "المصروفات الفعلية" : "Actual Expenses"}
-          </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {formatCurrency(totals.actualExpense)}
+    <div className="space-y-3">
+      {/* Year header */}
+      <div className="flex items-center justify-between gap-2">
+        <span className={`rounded-xl px-3 py-1 text-[11px] font-black ${badgeColor}`}>{badge}</span>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-black text-gray-800">{yearLabel}</h3>
+          <div className="w-5 h-5 text-gray-400 flex items-center justify-center">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "الفائض المخطط" : "Planned Surplus"}
+      {/* No budget */}
+      {!year.budget ? (
+        <EmptyBudgetYear label={yearLabel} year={fiscalYear} />
+      ) : (
+        <div className="space-y-2.5">
+          {/* Main metrics grid */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <BudgetMetricCell label="الدخل المخطط" value={formatCurrency(totals.plannedIncome)} />
+            <BudgetMetricCell label="الدخل الفعلي" value={formatCurrency(totals.actualIncome)} highlight />
+            <BudgetMetricCell label="المصروفات المخططة" value={formatCurrency(totals.plannedExpense)} />
+            <BudgetMetricCell label="المصروفات الفعلية" value={formatCurrency(totals.actualExpense)} />
           </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {formatCurrency(totals.plannedSurplus)}
-          </div>
-        </div>
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "الفائض الفعلي" : "Actual Surplus"}
-          </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {formatCurrency(totals.actualSurplus)}
-          </div>
-        </div>
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "نسبة تحقق الدخل" : "Income Completion Rate"}
-          </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {totals.incomeCompletionRate.toFixed(1)}%
-          </div>
-        </div>
-        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-          <div className="text-xs font-black text-[var(--text-secondary)]">
-            {locale === "ar" ? "نسبة استهلاك المصروفات" : "Expense Consumption Rate"}
-          </div>
-          <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
-            {totals.expenseConsumptionRate.toFixed(1)}%
-          </div>
-        </div>
-      </div>
 
-      {branches.length > 0 && (
-        <div>
-          <h4 className="mb-3 text-sm font-black text-[var(--text-primary)]">
-            {locale === "ar" ? "تفصيل الفروع" : "Branch Details"}
-          </h4>
-          <div className="space-y-2">
-            {branches.map((branch) => (
-              <div key={branch.branchId || "unassigned"} className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-muted)] p-3">
-                <div className="font-bold text-[var(--text-primary)]">{branch.branchName}</div>
-                <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                  <div>
-                    <span className="text-[var(--text-secondary)]">
-                      {locale === "ar" ? "دخل: " : "Income: "}
-                    </span>
-                    <span className="font-bold">
-                      {formatCurrency(branch.actualIncome)} / {formatCurrency(branch.plannedIncome)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-secondary)]">
-                      {locale === "ar" ? "مصروفات: " : "Expenses: "}
-                    </span>
-                    <span className="font-bold">
-                      {formatCurrency(branch.actualExpense)} / {formatCurrency(branch.plannedExpense)}
-                    </span>
-                  </div>
-                </div>
+          {/* Surplus + rates */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <BudgetMetricCell label="الفائض المخطط" value={formatCurrency(totals.plannedSurplus)} />
+            <BudgetMetricCell label="الفائض الفعلي" value={formatCurrency(totals.actualSurplus)} highlight />
+            <div className="rounded-xl border border-transparent bg-gray-50 p-3.5 text-right">
+              <div className="text-[11px] font-semibold text-gray-500">نسبة تحقق الدخل</div>
+              <div className="mt-1.5 text-sm font-black text-gray-900">
+                {totals.incomeCompletionRate.toFixed(1)}%
               </div>
-            ))}
+              <RateBar value={totals.incomeCompletionRate} color="bg-emerald-500" />
+            </div>
+            <div className="rounded-xl border border-transparent bg-gray-50 p-3.5 text-right">
+              <div className="text-[11px] font-semibold text-gray-500">استهلاك المصروفات</div>
+              <div className="mt-1.5 text-sm font-black text-gray-900">
+                {totals.expenseConsumptionRate.toFixed(1)}%
+              </div>
+              <RateBar value={totals.expenseConsumptionRate} color="bg-amber-400" />
+            </div>
           </div>
+
+          {/* Branch breakdown */}
+          {branches.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="mb-3 text-[11px] font-black uppercase tracking-wide text-gray-400 text-right">
+                تفصيل الفروع
+              </div>
+              <div className="space-y-2">
+                {branches.map((branch) => (
+                  <div
+                    key={branch.branchId ?? "unassigned"}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5"
+                  >
+                    <div className="flex flex-wrap gap-3 text-[11px] font-medium text-gray-500">
+                      <span>
+                        مصروفات:{" "}
+                        <span className="font-black text-gray-900">
+                          {formatCurrency(branch.actualExpense)}
+                        </span>
+                        {" / "}
+                        {formatCurrency(branch.plannedExpense)}
+                      </span>
+                      <span>
+                        دخل:{" "}
+                        <span className="font-black text-gray-900">
+                          {formatCurrency(branch.actualIncome)}
+                        </span>
+                        {" / "}
+                        {formatCurrency(branch.plannedIncome)}
+                      </span>
+                    </div>
+                    <span className="text-xs font-black text-gray-900">{branch.branchName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -185,98 +177,124 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
   const [response, setResponse] = useState<BudgetResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchBudgets = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const res = await fetch("/api/web/dashboard/budgets");
+        const res = await fetch("/api/web/dashboard/budgets", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
         if (!res.ok) {
-          throw new Error("Failed to fetch budgets");
+          const body = (await res.json().catch(() => ({}))) as {
+            error?: { message?: string };
+          };
+          throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
         }
         const data = (await res.json()) as BudgetResponse;
-        if (data.ok) {
-          setResponse(data);
+        if (!cancelled) {
+          if (data.ok) {
+            setResponse(data);
+          } else {
+            setError("استجابة غير متوقعة من الخادم.");
+          }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Unknown error");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchBudgets();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [retryKey]);
 
+  const title = locale === "ar" ? "الموازنة السنوية" : "Annual Budget";
+
+  // Loading state
   if (loading) {
     return (
-      <section className="rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
-        <div className="text-center">
-          <h2 className="text-2xl font-black text-[var(--text-primary)]">
-            {locale === "ar" ? "الموازنة السنوية" : "Annual Budget"}
-          </h2>
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <h2 className="text-lg font-black text-gray-800">{title}</h2>
+          <div className="w-5 h-5 text-gray-400">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H9a2 2 0 00-2 2v1M4 20a2 2 0 01-2-2v-5a2 2 0 012-2h2" />
+            </svg>
+          </div>
         </div>
-        <div className="mt-6 text-center text-[var(--text-secondary)]">
-          {locale === "ar" ? "جاري التحميل..." : "Loading..."}
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-xl bg-gray-100" />
+          ))}
         </div>
       </section>
     );
   }
 
+  // Error state
   if (error || !response) {
     return (
-      <section className="rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
-        <div className="text-center">
-          <h2 className="text-2xl font-black text-[var(--text-primary)]">
-            {locale === "ar" ? "الموازنة السنوية" : "Annual Budget"}
-          </h2>
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <h2 className="text-lg font-black text-gray-800">{title}</h2>
         </div>
-        <div className="mt-6 rounded-[24px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] px-6 py-4 text-center text-sm text-[var(--text-secondary)]">
-          {locale === "ar" ? "حدث خطأ في تحميل الموازنات." : "Error loading budgets."}
+        <div className="space-y-3">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-center">
+            <p className="text-sm font-semibold text-red-700">
+              {locale === "ar" ? "تعذر تحميل بيانات الموازنة." : "Could not load budget data."}
+            </p>
+            {error && (
+              <p className="mt-1 text-[11px] text-red-500 opacity-80">{error}</p>
+            )}
+          </div>
+          <div className="flex justify-center">
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-2 text-sm font-black text-gray-700 transition hover:bg-gray-100"
+            >
+              {locale === "ar" ? "إعادة المحاولة" : "Retry"}
+            </button>
+          </div>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="rounded-[34px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
-      <div className="text-center">
-        <h2 className="text-2xl font-black text-[var(--text-primary)]">
-          {locale === "ar" ? "الموازنة السنوية" : "Annual Budget"}
-        </h2>
+    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <div className="flex items-center gap-2 mb-6">
+        <h2 className="text-lg font-black text-gray-800">{title}</h2>
+        <div className="w-5 h-5 text-gray-400">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H9a2 2 0 00-2 2v1M4 20a2 2 0 01-2-2v-5a2 2 0 012-2h2" />
+          </svg>
+        </div>
       </div>
 
-      <div className="mt-6 space-y-8">
-        <div key="current">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-black text-[var(--text-primary)]">
-              {locale === "ar" ? "السنة الحالية" : "Current Year"} ({response.currentYear})
-            </h3>
-            <span className="inline-block rounded-[12px] bg-blue-100 px-3 py-1 text-xs font-black text-blue-700">
-              {locale === "ar" ? "هذه السنة" : "Current"}
-            </span>
-          </div>
-          <BudgetYearTab
-            year={response.current}
-            locale={locale}
-            nextYear={response.nextYear}
-          />
-        </div>
-
-        <div key="next">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-black text-[var(--text-primary)]">
-              {locale === "ar" ? "السنة القادمة" : "Next Year"} ({response.nextYear})
-            </h3>
-            <span className="inline-block rounded-[12px] bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">
-              {locale === "ar" ? "قادمة" : "Upcoming"}
-            </span>
-          </div>
-          <BudgetYearTab
-            year={response.next}
-            locale={locale}
-            nextYear={response.nextYear}
-          />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <BudgetYearSection
+          year={response.current}
+          badge={locale === "ar" ? "هذه السنة" : "Current"}
+          badgeColor="bg-blue-100 text-blue-700"
+        />
+        <div className="hidden md:block border-r border-gray-100" />
+        <div className="md:hidden border-t border-gray-100" />
+        <BudgetYearSection
+          year={response.next}
+          badge={locale === "ar" ? "السنة القادمة" : "Upcoming"}
+          badgeColor="bg-amber-100 text-amber-700"
+        />
       </div>
     </section>
   );

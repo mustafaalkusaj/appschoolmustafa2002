@@ -49,13 +49,18 @@ export async function GET(req: NextRequest) {
   try {
     const { current, next } = await fetchBudgetSummaries(actorSupabase, targetSchoolId);
 
-    return NextResponse.json({
-      ok: true,
-      current,
-      next,
-      currentYear: current.fiscalYear,
-      nextYear: next.fiscalYear,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        current,
+        next,
+        currentYear: current.fiscalYear,
+        nextYear: next.fiscalYear,
+      },
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch (error) {
     console.error("[Budgets] Unexpected error:", error);
     return jsonError("حدث خطأ غير متوقع.", 500);
