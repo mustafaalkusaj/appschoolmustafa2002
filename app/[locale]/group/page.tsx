@@ -21,10 +21,18 @@ type Locale = "ar" | "en";
 
 // ─── Accent palette ────────────────────────────────────────────────────────────
 const ACCENTS = [
-  { top: "border-t-blue-500", iconBg: "bg-blue-50 text-blue-500", bar: "bg-blue-500", pctColor: "text-blue-600" },
-  { top: "border-t-purple-500", iconBg: "bg-purple-50 text-purple-500", bar: "bg-purple-500", pctColor: "text-purple-600" },
-  { top: "border-t-green-500", iconBg: "bg-green-50 text-green-500", bar: "bg-green-500", pctColor: "text-green-600" },
-  { top: "border-t-amber-500", iconBg: "bg-amber-50 text-amber-500", bar: "bg-amber-500", pctColor: "text-amber-600" },
+  { top: "border-t-blue-500", iconBg: "bg-blue-50 text-blue-500", bar: "bg-blue-500", pctColor: "text-blue-600", initials: "bg-blue-600" },
+  { top: "border-t-purple-500", iconBg: "bg-purple-50 text-purple-500", bar: "bg-purple-500", pctColor: "text-purple-600", initials: "bg-purple-600" },
+  { top: "border-t-green-500", iconBg: "bg-green-50 text-green-500", bar: "bg-green-500", pctColor: "text-green-600", initials: "bg-green-600" },
+  { top: "border-t-amber-500", iconBg: "bg-amber-50 text-amber-500", bar: "bg-amber-500", pctColor: "text-amber-600", initials: "bg-amber-600" },
+  { top: "border-t-red-500", iconBg: "bg-red-50 text-red-500", bar: "bg-red-500", pctColor: "text-red-600", initials: "bg-red-600" },
+  { top: "border-t-indigo-500", iconBg: "bg-indigo-50 text-indigo-500", bar: "bg-indigo-500", pctColor: "text-indigo-600", initials: "bg-indigo-600" },
+  { top: "border-t-cyan-500", iconBg: "bg-cyan-50 text-cyan-500", bar: "bg-cyan-500", pctColor: "text-cyan-600", initials: "bg-cyan-600" },
+  { top: "border-t-pink-500", iconBg: "bg-pink-50 text-pink-500", bar: "bg-pink-500", pctColor: "text-pink-600", initials: "bg-pink-600" },
+  { top: "border-t-emerald-500", iconBg: "bg-emerald-50 text-emerald-500", bar: "bg-emerald-500", pctColor: "text-emerald-600", initials: "bg-emerald-600" },
+  { top: "border-t-orange-500", iconBg: "bg-orange-50 text-orange-500", bar: "bg-orange-500", pctColor: "text-orange-600", initials: "bg-orange-600" },
+  { top: "border-t-teal-500", iconBg: "bg-teal-50 text-teal-500", bar: "bg-teal-500", pctColor: "text-teal-600", initials: "bg-teal-600" },
+  { top: "border-t-rose-500", iconBg: "bg-rose-50 text-rose-500", bar: "bg-rose-500", pctColor: "text-rose-600", initials: "bg-rose-600" },
 ];
 
 function getAccent(index: number) {
@@ -113,9 +121,9 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between gap-3">
         <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 ${accent.iconBg}`}
+          className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black shrink-0 text-white ${accent.initials}`}
         >
-          🎓
+          {branch.branchName.charAt(0).toUpperCase()}
         </div>
         <h3 className="text-base font-black text-gray-900 dark:text-slate-100 text-right flex-1">{branch.branchName}</h3>
       </div>
@@ -297,58 +305,36 @@ export default async function GroupDashboardPage({
           ))}
 
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5">
-          {/* Students */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
-              <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1 sm:mb-2 uppercase tracking-wide">إجمالي الطلاب</p>
-              <p className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-slate-100">{fmtN(totals.studentsCount)}</p>
-            </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-100 dark:from-amber-900/30 to-amber-50 dark:to-amber-900/10 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-900/50">
-              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Total paid */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
-              <p className="text-xs font-bold text-green-600 dark:text-green-400 mb-1 sm:mb-2 uppercase tracking-wide">إجمالي المدفوع</p>
-              <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalPaid)}</p>
-            </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-50 dark:to-green-900/10 flex items-center justify-center shrink-0 border border-green-100 dark:border-green-900/50">
-              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Discounts */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
-              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1 sm:mb-2 uppercase tracking-wide">إجمالي الخصومات</p>
-              <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalDiscount)}</p>
-            </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-100 dark:from-blue-900/30 to-blue-50 dark:to-blue-900/10 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/50">
-              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Fees before discount */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-            <div className="min-w-0 flex-1 text-center sm:text-right w-full sm:w-auto">
-              <p className="text-xs font-bold text-purple-600 dark:text-purple-400 mb-1 sm:mb-2 uppercase tracking-wide">الرسوم قبل الخصم</p>
-              <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{fmt(totals.totalFeesBeforeDiscount)}</p>
-            </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-purple-100 dark:from-purple-900/30 to-purple-50 dark:to-purple-900/10 flex items-center justify-center shrink-0 border border-purple-100 dark:border-purple-900/50">
-              <svg className="w-6 sm:w-7 h-6 sm:h-7 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[
+            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), icon: "👥" },
+            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), icon: "💰" },
+            { label: "الرسوم بعد الخصم", value: fmt(totals.totalFeesAfterDiscount), icon: "📝" },
+            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), icon: "🏷️" },
+            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), icon: "✅" },
+            { label: "المبلغ المتبقي", value: fmt(totals.totalRemaining), icon: "⏳" },
+            { label: "المصروفات", value: fmt(totals.totalExpenses), icon: "📊" },
+            { label: "نسبة السداد", value: `${fmtN(Math.round(totals.paidPercentage))}%`, icon: "📈" },
+            { label: "المتوسط لكل طالب", value: fmt(totals.studentsCount > 0 ? totals.totalFeesAfterDiscount / totals.studentsCount : 0), icon: "💵" },
+            { label: "معدل التحصيل", value: `${fmtN(Math.round((totals.totalPaid / Math.max(1, totals.totalFeesAfterDiscount)) * 100))}%`, icon: "🎯" },
+            { label: "معدل المتبقي", value: `${fmtN(Math.round((totals.totalRemaining / Math.max(1, totals.totalFeesAfterDiscount)) * 100))}%`, icon: "⚠️" },
+            { label: "نسبة المصروفات", value: `${fmtN(Math.round((totals.totalExpenses / Math.max(1, totals.totalPaid)) * 100))}%`, icon: "💸" },
+          ].map((metric, idx) => {
+            const accent = getAccent(idx);
+            return (
+              <div key={metric.label} className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">{metric.label}</p>
+                    <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-slate-100 truncate">{metric.value}</p>
+                  </div>
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 text-xl sm:text-2xl`}>
+                    {metric.icon}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* ── Branch summary ─────────────────────────────────────────────────── */}
