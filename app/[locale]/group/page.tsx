@@ -312,22 +312,22 @@ export default async function GroupDashboardPage({
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), bgLight: "#dbeafe", bgDark: "rgba(30, 58, 138, 0.4)", iconColor: "#1e3a8a" },
-            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), bgLight: "#d1fae5", bgDark: "rgba(5, 150, 105, 0.4)", iconColor: "#065f46" },
-            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), bgLight: "#fed7aa", bgDark: "rgba(180, 83, 9, 0.4)", iconColor: "#92400e" },
-            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#e0e7ff", bgDark: "rgba(55, 48, 163, 0.4)", iconColor: "#312e81" },
+            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), bgLight: "#3b82f6", textLight: "#ffffff", bgDark: "rgba(59, 130, 246, 0.3)" },
+            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), bgLight: "#10b981", textLight: "#ffffff", bgDark: "rgba(16, 185, 129, 0.3)" },
+            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), bgLight: "#f59e0b", textLight: "#ffffff", bgDark: "rgba(245, 158, 11, 0.3)" },
+            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#8b5cf6", textLight: "#ffffff", bgDark: "rgba(139, 92, 246, 0.3)" },
           ].map((metric) => (
-            <div key={metric.label} className="rounded-2xl border shadow-sm p-5 transition-colors" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+            <div key={metric.label} className="rounded-2xl border shadow-sm p-5 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0 flex-1 text-right">
-                  <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>
+                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
                     {metric.label}
                   </p>
-                  <p className="mt-2 whitespace-nowrap text-[clamp(1.25rem,1.8vw,2rem)] font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+                  <p className="mt-3 whitespace-nowrap text-[clamp(1.5rem,2vw,2.25rem)] font-black leading-none" style={{ color: "var(--text-primary)" }}>
                     {metric.value}
                   </p>
                 </div>
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-colors" style={{ background: `light-dark(${metric.bgLight}, ${metric.bgDark})`, color: metric.iconColor }}>
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl transition-colors" style={{ background: `light-dark(${metric.bgLight}, ${metric.bgDark})` }}>
                   <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
                     {metric.label.includes("طلاب") && <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.667 0-8 1.337-8 4v2h16v-2c0-2.663-5.333-4-8-4z" />}
                     {metric.label.includes("المدفوع") && <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />}
