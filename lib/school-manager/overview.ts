@@ -216,11 +216,20 @@ export async function resolveSchoolManagerOverview(
     .eq("id", schoolId)
     .maybeSingle();
 
-  if (schoolError || !school?.id) {
+  if (schoolError) {
+    console.error("[resolveSchoolManagerOverview] Schools query error:", schoolError);
+  }
+
+  if (!school?.id) {
+    console.warn("[resolveSchoolManagerOverview] School not found for id:", schoolId);
     throw new Error(schoolError?.message || "تعذر تحميل المدرسة الحالية.");
   }
 
   const groupId = school.group_id;
+
+  if (!groupId) {
+    console.warn("[resolveSchoolManagerOverview] School has no group_id assigned:", schoolId);
+  }
 
   // Step 2: Query branches using the group_id
   const [{ data: branches, error: branchesError }, { data: students, error: studentsError }, { data: expenses, error: expensesError }] =

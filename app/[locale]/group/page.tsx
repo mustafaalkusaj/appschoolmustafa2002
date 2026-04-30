@@ -282,17 +282,46 @@ export default async function GroupDashboardPage({
 
   const { actorSupabase, targetSchoolId } = context.value;
 
-  const [{ data: school, error: schoolError }, overview] = await Promise.all([
+  let overview;
+  let overviewError: Error | null = null;
+
+  const [{ data: school, error: schoolError }] = await Promise.all([
     actorSupabase
       .from("schools")
       .select("id, name")
       .eq("id", targetSchoolId)
       .maybeSingle(),
-    resolveSchoolManagerOverview(actorSupabase, targetSchoolId),
   ]);
 
   if (schoolError || !school?.id) {
     redirect(localizeAppPath("/access-denied", locale));
+  }
+
+  try {
+    overview = await resolveSchoolManagerOverview(actorSupabase, targetSchoolId);
+  } catch (error) {
+    overviewError = error instanceof Error ? error : new Error("تعذر تحميل ملخص المدرسة.");
+    overview = {
+      branches: [],
+      totals: {
+        studentsCount: 0,
+        totalFeesBeforeDiscount: 0,
+        totalDiscount: 0,
+        totalFeesAfterDiscount: 0,
+        totalPaid: 0,
+        totalRemaining: 0,
+        totalExpenses: 0,
+        paidPercentage: 0,
+      },
+      analysis: {
+        strongestCollectionBranch: null,
+        highestRemainingBranch: null,
+        highestExpenseBranch: null,
+      },
+      warnings: overviewError
+        ? [`خطأ في تحميل البيانات: ${overviewError.message}`]
+        : [],
+    };
   }
 
   const chartPoints = overview.branches.map((branch) => ({
