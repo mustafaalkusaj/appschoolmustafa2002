@@ -116,13 +116,6 @@ export function buildSchoolManagerOverview(input: {
   const branchOrder: string[] = [];
   const warnings: string[] = [];
 
-  console.log("[buildSchoolManagerOverview] Input data:", {
-    branchesCount: input.branches.length,
-    branches: input.branches.map(b => ({ id: b.id, name: b.name })),
-    studentsCount: input.students.length,
-    expensesCount: input.expenses.length,
-  });
-
   input.branches.forEach((branch) => {
     const branchId = branch.id;
     branchOrder.push(branchId);
@@ -214,9 +207,7 @@ export async function resolveSchoolManagerOverview(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
 ): Promise<SchoolManagerOverview> {
-  // Step 1: Get the school's group_id to filter branches
-  // schools table has a group_id that links to school_groups
-  // branches use group_id to identify which school_group they belong to
+  // Get school's group_id for branch filtering
   const { data: school, error: schoolError } = await actorSupabase
     .from("schools")
     .select("id, group_id")
@@ -224,35 +215,24 @@ export async function resolveSchoolManagerOverview(
     .maybeSingle();
 
   if (schoolError) {
-    console.error("[resolveSchoolManagerOverview] Schools query error:", schoolError);
+    console.error("[resolveSchoolManagerOverview] School query error:", schoolError);
   }
 
-  if (!school?.id) {
-    console.warn("[resolveSchoolManagerOverview] School not found for id:", schoolId);
-    throw new Error(schoolError?.message || "تعذر تحميل المدرسة الحالية.");
-  }
-
-  const groupId = school.group_id;
-
-  console.log("[resolveSchoolManagerOverview] School data:", {
-    schoolId,
-    groupId,
-  });
-
-  if (!groupId) {
-    console.warn("[resolveSchoolManagerOverview] School has no group_id assigned:", schoolId);
-  }
-
-  // Step 2: Query branches using the group_id
+  // Query branches and students/expenses in parallel
   const [{ data: branches, error: branchesError }, { data: students, error: studentsError }, { data: expenses, error: expensesError }] =
     await Promise.all([
-      groupId
+      // Try to get branches by group_id if available, otherwise by school_id
+      school?.group_id
         ? actorSupabase
             .from("branches")
             .select("id, name")
-            .eq("group_id", groupId)
+            .eq("group_id", school.group_id)
             .order("name", { ascending: true })
-        : Promise.resolve({ data: [], error: null }),
+        : actorSupabase
+            .from("branches")
+            .select("id, name")
+            .eq("school_id", schoolId)
+            .order("name", { ascending: true }),
       actorSupabase
         .from("students")
         .select("branch_id, total_fee, paid_fee, remaining_fee, discount_value, status")
@@ -263,15 +243,6 @@ export async function resolveSchoolManagerOverview(
         .select("branch_id, amount")
         .eq("school_id", schoolId),
     ]);
-
-  console.log("[resolveSchoolManagerOverview] Query results:", {
-    branchesCount: branches?.length ?? 0,
-    branchesError: branchesError?.message,
-    studentsCount: students?.length ?? 0,
-    studentsError: studentsError?.message,
-    expensesCount: expenses?.length ?? 0,
-    expensesError: expensesError?.message,
-  });
 
   if (branchesError) {
     throw new Error(branchesError.message || "تعذر تحميل قائمة الفروع.");

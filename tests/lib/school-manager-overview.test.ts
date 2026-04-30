@@ -117,4 +117,31 @@ describe("school manager overview", () => {
     });
     expect(overview.warnings[0]).toContain("غير مرتبطة بفرع");
   });
+
+  it("preserves branch names when the source branches are provided by school scope", () => {
+    const overview = buildSchoolManagerOverview({
+      branches: [
+        { id: "branch-a", name: "فرع الكرخ" },
+        { id: "branch-b", name: "فرع الرصافة" },
+      ],
+      students: [
+        {
+          branch_id: "branch-a",
+          total_fee: 400,
+          discount_value: 0,
+          paid_fee: 100,
+          remaining_fee: 300,
+          status: "active",
+        },
+      ],
+      expenses: [],
+    });
+
+    expect(overview.branches.map((branch) => branch.branchName)).toEqual([
+      "فرع الكرخ",
+      "فرع الرصافة",
+    ]);
+    expect(overview.branches[0].studentsCount).toBe(1);
+    expect(overview.branches[1].studentsCount).toBe(0);
+  });
 });
