@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { StudentWithFees, StudentFormData, ManagedUserAccountCard, StudentStatus } from "../_types";
+import type { StudentWithFees, StudentFormData, ManagedUserAccountCard } from "../_types";
 import { DEFAULT_STUDENT_FORM } from "../_constants";
 
 const STUDENT_MENU_WIDTH = 216;

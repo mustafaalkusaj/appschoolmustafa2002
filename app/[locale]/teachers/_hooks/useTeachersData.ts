@@ -179,8 +179,10 @@ export function useTeachersData(
     statusFilter,
   ].join("::");
 
-  const effectivePage =
-    usersQueryScopeRef.current !== null && usersQueryScopeRef.current !== usersQueryScopeKey && page !== 1 ? 1 : page;
+  const effectivePage = useMemo(() => {
+    const refValue = usersQueryScopeRef.current;
+    return refValue !== null && refValue !== usersQueryScopeKey && page !== 1 ? 1 : page;
+  }, [usersQueryScopeKey, page]);
 
   const teachersOnlyUsers = useMemo(() => users.filter((user) => user.role === "teacher"), [users]);
 

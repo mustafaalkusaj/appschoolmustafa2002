@@ -254,9 +254,18 @@ export function buildSchoolManagerOverview(input: {
     .filter((b): b is SchoolManagerBranchSummary => Boolean(b))
     .map(finalizeSummary);
 
-  // School totals: ONLY display branches — excluded branches are NOT counted anywhere
+  // School totals: display branches + orphan records (but excluded branches are NOT counted)
+  const allBranchesForTotals = [
+    ...displayBranches,
+    // Include orphan records ("__unassigned__") if they exist
+    ...Array.from(summaries.values())
+      .filter((b) => !branchOrder.includes(b.branchId || ""))
+      .filter((b) => !excludedBranchIdSet.has(b.branchId || ""))
+      .map(finalizeSummary),
+  ];
+
   const totals = finalizeSummary(
-    displayBranches.reduce<SchoolManagerBranchSummary>(
+    allBranchesForTotals.reduce<SchoolManagerBranchSummary>(
       (acc, branch) => ({
         branchId: null,
         branchName: "إجمالي المدرسة",

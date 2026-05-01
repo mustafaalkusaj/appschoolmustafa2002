@@ -197,7 +197,7 @@ export function detectHeaderRow(
 export function mapExcelRow(
   row: Record<string, unknown>,
   headers: string[],
-  rowIndex: number
+  _rowIndex: number
 ): { mapped: StudentImportRow; errors: string[] } {
   const errors: string[] = [];
   const mapped: Partial<StudentImportRow> = {};

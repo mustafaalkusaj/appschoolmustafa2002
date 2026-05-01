@@ -48,6 +48,7 @@ describe("school manager overview", () => {
         { branch_id: "branch-a", amount: 10 },
         { branch_id: "branch-b", amount: 50 },
       ],
+      classFees: [],
     });
 
     expect(overview.branches).toHaveLength(2);
@@ -100,12 +101,23 @@ describe("school manager overview", () => {
         },
       ],
       expenses: [{ branch_id: null, amount: 25 }],
+      classFees: [],
     });
 
-    expect(overview.branches).toHaveLength(2);
-    expect(overview.branches[1]).toMatchObject({
-      branchId: null,
-      branchName: "سجلات غير مرتبطة بفرع",
+    expect(overview.branches).toHaveLength(1);
+    expect(overview.branches[0]).toMatchObject({
+      branchId: "branch-a",
+      branchName: "الفرع الأول",
+      studentsCount: 0,
+      totalFeesBeforeDiscount: 0,
+      totalDiscount: 0,
+      totalFeesAfterDiscount: 0,
+      totalPaid: 0,
+      totalRemaining: 0,
+      totalExpenses: 0,
+      paidPercentage: 0,
+    });
+    expect(overview.totals).toMatchObject({
       studentsCount: 1,
       totalFeesBeforeDiscount: 700,
       totalDiscount: 100,
@@ -115,7 +127,7 @@ describe("school manager overview", () => {
       totalExpenses: 25,
       paidPercentage: 50,
     });
-    expect(overview.warnings[0]).toContain("غير مرتبطة بفرع");
+    expect(overview.warnings[0]).toContain("غير مرتبطة");
   });
 
   it("preserves branch names when the source branches are provided by school scope", () => {
@@ -135,6 +147,7 @@ describe("school manager overview", () => {
         },
       ],
       expenses: [],
+      classFees: [],
     });
 
     expect(overview.branches.map((branch) => branch.branchName)).toEqual([

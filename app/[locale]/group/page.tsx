@@ -300,8 +300,6 @@ export default async function GroupDashboardPage({
 
   const totals = overview.totals;
   const paidPct = Math.min(100, Math.max(0, totals.paidPercentage));
-  const userInitial = userName.charAt(0) || "م";
-  const schoolInitial = school.name.charAt(0) || "م";
 
   return (
     <div dir={locale === "ar" ? "rtl" : "ltr"} className="min-h-screen transition-colors duration-200" style={{ background: "var(--background)", color: "var(--text-primary)" }}>

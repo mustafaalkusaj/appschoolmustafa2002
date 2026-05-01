@@ -90,6 +90,7 @@ describe("GET /api/web/dashboard/budgets", () => {
         actorSupabase: {},
         actorUserId: "user-1",
         targetSchoolId: "school-1",
+        scopeLevel: "group_admin",
       },
     });
 
@@ -144,6 +145,7 @@ describe("GET /api/web/dashboard/budgets", () => {
         actorSupabase: {},
         actorUserId: "user-1",
         targetSchoolId: "school-1",
+        scopeLevel: "group_admin",
       },
     });
 

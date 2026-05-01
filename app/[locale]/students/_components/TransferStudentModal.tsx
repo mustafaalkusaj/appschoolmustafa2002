@@ -29,7 +29,6 @@ export function TransferStudentModal({
   onCancel,
   loading = false,
 }: TransferStudentModalProps) {
-  const t = useTranslations("students");
   const [transferType, setTransferType] = useState<TransferType | null>(null);
   const [targetClass, setTargetClass] = useState("");
   const [targetSection, setTargetSection] = useState("");

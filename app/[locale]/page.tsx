@@ -12,6 +12,11 @@ import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import type { UserRole } from "@/types/roles";
 
 export default function Home() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
+  const t = useTranslations("home");
+  const commonT = useTranslations("common");
+
   let profile, role;
   try {
     const result = useRole();
@@ -36,10 +41,6 @@ export default function Home() {
       </ProtectedRoute>
     );
   }
-  const pathname = usePathname();
-  const locale = getLocaleFromPath(pathname);
-  const t = useTranslations("home");
-  const commonT = useTranslations("common");
 
   const cards = useMemo(() => {
     if (!role) return [];

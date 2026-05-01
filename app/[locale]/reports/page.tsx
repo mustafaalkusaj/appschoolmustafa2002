@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatDate, formatNumber } from "@/lib/formatting";
@@ -627,7 +627,7 @@ export default function ReportsPage() {
     );
   }
 
-  const reportCards = [
+  const reportCards = useMemo(() => [
     {
       id: "students",
       title: t("cards.students.title"),
@@ -689,7 +689,7 @@ export default function ReportsPage() {
       onExcel: exportSalariesExcel,
       onPrint: printSalaries,
     },
-  ];
+  ], [metrics, t, dashboardT, commonT, currency, reportCopy, exportStudentsExcel, printStudents, exportPaymentsExcel, printPayments, exportExpensesExcel, printExpenses, exportSalariesExcel, printSalaries]);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
