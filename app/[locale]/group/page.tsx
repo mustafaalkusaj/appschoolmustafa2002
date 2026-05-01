@@ -324,17 +324,17 @@ export default async function GroupDashboardPage({
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { key: "totalStudents", label: t("kpis.totalStudents"), value: fmtN(totals.studentsCount), bgLight: "#3b82f6", textLight: "#ffffff", bgDark: "rgba(59, 130, 246, 0.3)" },
-            { key: "totalPaid", label: t("kpis.totalPaid"), value: fmt(totals.totalPaid), bgLight: "#10b981", textLight: "#ffffff", bgDark: "rgba(16, 185, 129, 0.3)" },
-            { key: "totalDiscounts", label: t("kpis.totalDiscounts"), value: fmt(totals.totalDiscount), bgLight: "#f59e0b", textLight: "#ffffff", bgDark: "rgba(245, 158, 11, 0.3)" },
-            { key: "feesBeforeDiscount", label: t("kpis.feesBeforeDiscount"), value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#8b5cf6", textLight: "#ffffff", bgDark: "rgba(139, 92, 246, 0.3)" },
+            { key: "totalStudents", label: t("kpis.totalStudents"), value: fmtN(totals.studentsCount) },
+            { key: "totalPaid", label: t("kpis.totalPaid"), value: fmt(totals.totalPaid) },
+            { key: "totalDiscounts", label: t("kpis.totalDiscounts"), value: fmt(totals.totalDiscount) },
+            { key: "feesBeforeDiscount", label: t("kpis.feesBeforeDiscount"), value: fmt(totals.totalFeesBeforeDiscount) },
           ].map((metric) => (
-            <div key={metric.key} className="rounded-2xl border shadow-sm p-5 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+            <div key={metric.key} className="rounded-2xl border shadow-sm p-6 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="text-right">
                 <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
                   {metric.label}
                 </p>
-                <p className="mt-3 text-[clamp(1.75rem,3vw,2.5rem)] font-black leading-none break-words" style={{ color: "var(--text-primary)" }}>
+                <p className="mt-2.5 text-[clamp(1.75rem,3vw,2.5rem)] font-black leading-tight tracking-tight" style={{ color: "var(--text-primary)" }}>
                   {metric.value}
                 </p>
               </div>
