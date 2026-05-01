@@ -247,9 +247,21 @@ export function BudgetSummary() {
       setLoading(true);
       setError(null);
       try {
+        const headers: Record<string, string> = {
+          "cache": "no-store",
+        };
+        // Get auth token from session storage if available
+        const authToken = typeof window !== "undefined"
+          ? sessionStorage.getItem("authToken") || localStorage.getItem("authToken")
+          : null;
+        if (authToken) {
+          headers["Authorization"] = `Bearer ${authToken}`;
+        }
+
         const res = await fetch("/api/web/dashboard/budgets", {
           cache: "no-store",
           credentials: "same-origin",
+          headers,
         });
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as {

@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       allowedRoles: ["admin"],
       roleDeniedMessage: "لا يمكن الوصول إلى الموازنات من هذا الحساب.",
     },
+    req.headers.get("authorization"),
   );
 
   if (!context.ok) {
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
       allowedRoles: ["admin"],
       roleDeniedMessage: "لا يمكنك إنشاء موازنات من هذا الحساب.",
     },
+    req.headers.get("authorization"),
   );
 
   if (!context.ok) {
