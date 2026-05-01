@@ -250,14 +250,14 @@ export default async function GroupDashboardPage({
     redirect(localizeAppPath("/access-denied", locale));
   }
 
-  let userName = "مدير النظام";
+  let _userName = "مدير النظام";
   try {
     const { data: profile } = await actorSupabase
       .from("user_profiles")
       .select("full_name")
       .eq("user_id", actorUserId)
       .maybeSingle();
-    if (profile?.full_name) userName = profile.full_name;
+    if (profile?.full_name) _userName = profile.full_name;
   } catch {
     // fallback already set
   }

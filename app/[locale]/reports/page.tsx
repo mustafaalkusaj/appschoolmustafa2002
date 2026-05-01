@@ -627,11 +627,26 @@ export default function ReportsPage() {
     );
   }
 
+  function renderReportIcon(iconId: string) {
+    switch (iconId) {
+      case "students":
+        return <Users size={28} />;
+      case "payments":
+        return <CreditCard size={28} />;
+      case "expenses":
+        return <Wallet size={28} />;
+      case "salaries":
+        return <Briefcase size={28} />;
+      default:
+        return null;
+    }
+  }
+
   const reportCards = useMemo(() => [
     {
       id: "students",
       title: t("cards.students.title"),
-      icon: Users,
+      iconId: "students",
       color: "text-[var(--info)]",
       bg: "bg-[var(--info)]/10",
       description: t("cards.students.description"),
@@ -647,7 +662,7 @@ export default function ReportsPage() {
     {
       id: "payments",
       title: t("cards.payments.title"),
-      icon: CreditCard,
+      iconId: "payments",
       color: "text-[var(--success)]",
       bg: "bg-[var(--success)]/10",
       description: t("cards.payments.description"),
@@ -662,7 +677,7 @@ export default function ReportsPage() {
     {
       id: "expenses",
       title: t("cards.expenses.title"),
-      icon: Wallet,
+      iconId: "expenses",
       color: "text-[var(--danger)]",
       bg: "bg-[var(--danger)]/10",
       description: t("cards.expenses.description"),
@@ -677,7 +692,7 @@ export default function ReportsPage() {
     {
       id: "salaries",
       title: t("cards.salaries.title"),
-      icon: Briefcase,
+      iconId: "salaries",
       color: "text-[var(--primary)]",
       bg: "bg-[var(--primary)]/10",
       description: t("cards.salaries.description"),
@@ -806,7 +821,7 @@ export default function ReportsPage() {
                         <div className="flex items-start justify-between mb-6">
                           <div className="flex items-center gap-4">
                             <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", card.bg, card.color)}>
-                              <card.icon size={28} />
+                              {renderReportIcon(card.iconId)}
                             </div>
                             <div>
                               <h3 className={cn("text-lg font-black", card.color)}>{card.title}</h3>

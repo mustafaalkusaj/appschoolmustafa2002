@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRole } from "@/hooks/useRole";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import type { UserRole } from "@/types/roles";
+import type { UserProfile } from "@/lib/auth";
 
 export default function Home() {
   const pathname = usePathname();
@@ -17,29 +18,16 @@ export default function Home() {
   const t = useTranslations("home");
   const commonT = useTranslations("common");
 
-  let profile, role;
+  let profile: UserProfile | null = null;
+  let role: UserRole | null = null;
+  let renderError = false;
   try {
     const result = useRole();
     profile = result.profile;
     role = result.role;
   } catch (err) {
     console.error("[Home] useRole failed:", err);
-    return (
-      <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
-        <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">خطأ في تحميل البيانات</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-6">يرجى إعادة تحميل الصفحة</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              إعادة تحميل
-            </button>
-          </div>
-        </div>
-      </ProtectedRoute>
-    );
+    renderError = true;
   }
 
   const cards = useMemo(() => {
@@ -123,6 +111,25 @@ export default function Home() {
       return allowedPages.includes(card.href.replace(/^\//, ""));
     });
   }, [profile?.allowed_pages, role, t]);
+
+  if (renderError) {
+    return (
+      <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
+        <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">خطأ في تحميل البيانات</h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">يرجى إعادة تحميل الصفحة</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              إعادة تحميل
+            </button>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>

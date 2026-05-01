@@ -179,10 +179,8 @@ export function useTeachersData(
     statusFilter,
   ].join("::");
 
-  const effectivePage = useMemo(() => {
-    const refValue = usersQueryScopeRef.current;
-    return refValue !== null && refValue !== usersQueryScopeKey && page !== 1 ? 1 : page;
-  }, [usersQueryScopeKey, page]);
+  // Page reset on scope change is handled by useEffect below, so just use page directly
+  const effectivePage = page;
 
   const teachersOnlyUsers = useMemo(() => users.filter((user) => user.role === "teacher"), [users]);
 
