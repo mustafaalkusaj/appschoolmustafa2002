@@ -1,0 +1,237 @@
+[
+  {
+    "page": "Login (AR)",
+    "url": "/ar/login",
+    "ttfb": 2010,
+    "domContentLoaded": 2010,
+    "timeToFirstVisibleText": 2047,
+    "timeToLoginFormVisible": 5049,
+    "timeToCardVisible": null,
+    "bodyTextLength": {
+      "1000": 78,
+      "3000": 78,
+      "5000": 78,
+      "8000": 78
+    },
+    "inputCount": {
+      "1000": 0,
+      "3000": 0,
+      "5000": 0,
+      "8000": 0
+    },
+    "buttonCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "headingCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "errors": [
+      "console.error: Failed to load resource: the server responded with a status of 500 ()"
+    ],
+    "failedRequests": [],
+    "responses": {
+      "https://school-iraq.com/ar/login": "500"
+    },
+    "blankPageAt1s": false,
+    "screenshots": [
+      "1000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-login-1000ms.png",
+      "3000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-login-3000ms.png",
+      "5000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-login-5000ms.png",
+      "8000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-login-8000ms.png"
+    ]
+  },
+  {
+    "page": "Dashboard (AR)",
+    "url": "/ar",
+    "ttfb": 1139,
+    "domContentLoaded": 1139,
+    "timeToFirstVisibleText": 1160,
+    "timeToLoginFormVisible": null,
+    "timeToCardVisible": 4160,
+    "bodyTextLength": {
+      "1000": 78,
+      "3000": 78,
+      "5000": 78,
+      "8000": 78
+    },
+    "inputCount": {
+      "1000": 0,
+      "3000": 0,
+      "5000": 0,
+      "8000": 0
+    },
+    "buttonCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "headingCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "errors": [
+      "console.error: Failed to load resource: the server responded with a status of 500 ()"
+    ],
+    "failedRequests": [],
+    "responses": {
+      "https://school-iraq.com/ar/login?next=%2Far": "500"
+    },
+    "blankPageAt1s": false,
+    "screenshots": [
+      "1000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-1000ms.png",
+      "3000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-3000ms.png",
+      "5000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-5000ms.png",
+      "8000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-8000ms.png"
+    ]
+  },
+  {
+    "page": "Students (AR)",
+    "url": "/ar/students",
+    "ttfb": 730,
+    "domContentLoaded": 730,
+    "timeToFirstVisibleText": 750,
+    "timeToLoginFormVisible": null,
+    "timeToCardVisible": 3751,
+    "bodyTextLength": {
+      "1000": 78,
+      "3000": 78,
+      "5000": 78,
+      "8000": 78
+    },
+    "inputCount": {
+      "1000": 0,
+      "3000": 0,
+      "5000": 0,
+      "8000": 0
+    },
+    "buttonCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "headingCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "errors": [
+      "console.error: Failed to load resource: the server responded with a status of 500 ()"
+    ],
+    "failedRequests": [],
+    "responses": {
+      "https://school-iraq.com/ar/login?next=%2Far%2Fstudents": "500"
+    },
+    "blankPageAt1s": false,
+    "screenshots": [
+      "1000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-students-1000ms.png",
+      "3000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-students-3000ms.png",
+      "5000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-students-5000ms.png",
+      "8000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-students-8000ms.png"
+    ]
+  },
+  {
+    "page": "Payments (AR)",
+    "url": "/ar/payments",
+    "ttfb": 1210,
+    "domContentLoaded": 1210,
+    "timeToFirstVisibleText": 1230,
+    "timeToLoginFormVisible": null,
+    "timeToCardVisible": 4230,
+    "bodyTextLength": {
+      "1000": 78,
+      "3000": 78,
+      "5000": 78,
+      "8000": 78
+    },
+    "inputCount": {
+      "1000": 0,
+      "3000": 0,
+      "5000": 0,
+      "8000": 0
+    },
+    "buttonCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "headingCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "errors": [
+      "console.error: Failed to load resource: the server responded with a status of 500 ()"
+    ],
+    "failedRequests": [],
+    "responses": {
+      "https://school-iraq.com/ar/login?next=%2Far%2Fpayments": "500"
+    },
+    "blankPageAt1s": false,
+    "screenshots": [
+      "1000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-payments-1000ms.png",
+      "3000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-payments-3000ms.png",
+      "5000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-payments-5000ms.png",
+      "8000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-payments-8000ms.png"
+    ]
+  },
+  {
+    "page": "Branch Overview (AR)",
+    "url": "/ar/branch-overview",
+    "ttfb": 790,
+    "domContentLoaded": 790,
+    "timeToFirstVisibleText": 811,
+    "timeToLoginFormVisible": null,
+    "timeToCardVisible": 3811,
+    "bodyTextLength": {
+      "1000": 78,
+      "3000": 78,
+      "5000": 78,
+      "8000": 78
+    },
+    "inputCount": {
+      "1000": 0,
+      "3000": 0,
+      "5000": 0,
+      "8000": 0
+    },
+    "buttonCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "headingCount": {
+      "1000": 1,
+      "3000": 1,
+      "5000": 1,
+      "8000": 1
+    },
+    "errors": [
+      "console.error: Failed to load resource: the server responded with a status of 500 ()"
+    ],
+    "failedRequests": [],
+    "responses": {
+      "https://school-iraq.com/ar/login?next=%2Far%2Fbranch-overview": "500"
+    },
+    "blankPageAt1s": false,
+    "screenshots": [
+      "1000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-branch-overview-1000ms.png",
+      "3000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-branch-overview-3000ms.png",
+      "5000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-branch-overview-5000ms.png",
+      "8000ms: /Users/musatafa/Desktop/appschoolmustafa2002/perf--ar-branch-overview-8000ms.png"
+    ]
+  }
+]

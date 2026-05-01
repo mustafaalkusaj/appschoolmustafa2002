@@ -12,7 +12,7 @@ test.describe("Dashboard and Branch Overview", () => {
     await expect(page.locator("body")).toBeVisible();
   });
 
-  test("no global error boundary on authenticated pages", async ({ page, context }) => {
+  test("no global error boundary on authenticated pages", async ({ page, _context }) => {
     const errors: string[] = [];
 
     page.on("pageerror", (err) => {

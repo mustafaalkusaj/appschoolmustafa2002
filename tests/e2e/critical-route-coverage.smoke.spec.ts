@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { expect, test, type Page } from "@playwright/test";
+import { test, type Page } from "@playwright/test";
 
 const screenshotDir = "/Users/musatafa/school-app/output/playwright/critical-routes";
 

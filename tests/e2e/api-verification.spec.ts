@@ -1,9 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
 const PROD_URL = "https://school-iraq.com";
 
 test.describe("API Endpoints Verification", () => {
-  test("verify PATCH endpoint has status update capability", async ({ request }) => {
+  test("verify PATCH endpoint has status update capability", async ({ _request: _req }) => {
     console.log("=== PHASE 1: Verify API Endpoints Structure ===");
 
     // Test that OPTIONS request is handled
@@ -85,7 +85,7 @@ test.describe("API Endpoints Verification", () => {
     console.log(`Page response status: ${pageResponse.status()}`);
   });
 
-  test("verify request/response structure for student updates", async ({ request }) => {
+  test("verify request/response structure for student updates", async ({ _request: _req }) => {
     console.log("=== PHASE 3: API Request/Response Structure ===");
 
     // Create test body matching the expected schema

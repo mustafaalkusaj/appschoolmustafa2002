@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
 const ROUTES = [
   { path: "/ar/login", role: null },
@@ -31,7 +31,6 @@ function isKnownIgnorable(msg: string): boolean {
 for (const { path, role } of ROUTES) {
   test(`no console errors: ${path} [${role || "anon"}]`, async ({
     page,
-    context,
   }) => {
     const errors: Array<{ type: string; message: string }> = [];
     const failed: string[] = [];

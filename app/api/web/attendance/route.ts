@@ -118,15 +118,23 @@ export async function GET(req: NextRequest) {
   }
   const fromDate = getLocalIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 14 * 24 * 60 * 60 * 1000));
 
+  // Branch isolation: branch_admin sees only their branch students
+  let studentsQuery = actorSupabase
+    .from("students")
+    .select("id, full_name, class_name, section, status, school_id, branch_id")
+    .eq("school_id", targetSchoolId)
+    .neq("status", "deleted")
+    .order("class_name", { ascending: true })
+    .order("full_name", { ascending: true })
+    .limit(5000);  // Prevent loading excessive students
+
+  // Branch admin: restrict to their branch only
+  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
+    studentsQuery = studentsQuery.eq("branch_id", context.value.actorBranchId);
+  }
+
   const [studentsResult, recordsResult, historyResult] = await Promise.all([
-    actorSupabase
-      .from("students")
-      .select("id, full_name, class_name, section, status, school_id, branch_id")
-      .eq("school_id", targetSchoolId)
-      .neq("status", "deleted")
-      .order("class_name", { ascending: true })
-      .order("full_name", { ascending: true })
-      .limit(5000),  // Prevent loading excessive students
+    studentsQuery,
     actorSupabase
       .from("attendance_records")
       .select("id, student_id, status, note, updated_at")
@@ -211,12 +219,19 @@ export async function POST(req: NextRequest) {
     return jsonError("ليس لديك صلاحية تسجيل الحضور.", 403);
   }
   const studentIds = entries.map((entry) => entry.student_id);
-  const { data: students, error: studentsError } = await actorSupabase
+  let studentsQuery = actorSupabase
     .from("students")
     .select("id, branch_id")
     .eq("school_id", targetSchoolId)
     .in("id", studentIds)
     .neq("status", "deleted");
+
+  // Branch admin: can only save attendance for their branch students
+  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
+    studentsQuery = studentsQuery.eq("branch_id", context.value.actorBranchId);
+  }
+
+  const { data: students, error: studentsError } = await studentsQuery;
 
   if (studentsError) {
     return jsonError(studentsError.message || "تعذر التحقق من الطلاب قبل الحفظ.", 500);
@@ -230,7 +245,12 @@ export async function POST(req: NextRequest) {
   );
 
   if (branchByStudentId.size !== studentIds.length) {
-    return jsonError("بعض سجلات الحضور تشير إلى طلاب خارج نطاق المدرسة الحالية.", 400);
+    return jsonError(
+      context.value.scopeLevel === "branch_user"
+        ? "بعض الطلاب لا ينتمون إلى فرعك."
+        : "بعض سجلات الحضور تشير إلى طلاب خارج نطاق المدرسة الحالية.",
+      400
+    );
   }
 
   const payload = entries.map((entry) => ({

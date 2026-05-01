@@ -113,7 +113,7 @@ test.describe("Students Management Flows", () => {
         if (download) {
           expect(download).toBeDefined();
         }
-      } catch (e) {
+      } catch {
         // Export might trigger API response instead of download
       }
     }

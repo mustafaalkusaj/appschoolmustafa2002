@@ -48,7 +48,6 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [parseWasCalled, setParseWasCalled] = useState(false);
   const [parseStatusCode, setParseStatusCode] = useState<number | null>(null);
   const [importStatusCode, setImportStatusCode] = useState<number | null>(null);
@@ -59,7 +58,6 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
     : null;
 
   const handleFileSelect = async (file: File) => {
-    setSelectedFile(file);
     setError(null);
     setStep('parsing');
     setParseWasCalled(false);
@@ -146,7 +144,6 @@ export function BulkImportModal({ show, onClose, onImportComplete }: BulkImportM
     setParseResult(null);
     setImportResult(null);
     setError(null);
-    setSelectedFile(null);
     setShowErrorDetails(false);
     setParseWasCalled(false);
     setParseStatusCode(null);

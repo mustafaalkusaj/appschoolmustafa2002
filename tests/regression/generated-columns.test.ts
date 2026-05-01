@@ -112,7 +112,7 @@ describe('Generated Columns Regression', () => {
     };
 
     // ❌ BAD: API calculating it
-    const badApiResponse = {
+    const _badApiResponse = {
       id: 'student-123',
       total_fee: 500,
       remaining_fee: 500 - 200, // ❌ WRONG - should come from DB

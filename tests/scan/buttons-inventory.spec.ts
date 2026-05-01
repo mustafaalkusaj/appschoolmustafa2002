@@ -1,8 +1,8 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
 // Test credentials from environment or use defaults for test environment
-const TEST_USER_DOMAIN = process.env.TEST_USER_DOMAIN || "test.school.com";
-const TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || "test1234";
+const _TEST_USER_DOMAIN = process.env.TEST_USER_DOMAIN || "test.school.com";
+const _TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || "test1234";
 
 const PAGES = [
   { path: "/ar/dashboard", role: "admin" },
@@ -19,7 +19,7 @@ const PAGES = [
   { path: "/ar/monitoring", role: "admin" },
 ];
 
-interface ButtonInfo {
+interface _ButtonInfo {
   text: string | null;
   ariaLabel: string | null;
   testId: string | null;

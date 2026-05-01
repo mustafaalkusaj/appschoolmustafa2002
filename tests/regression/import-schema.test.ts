@@ -9,11 +9,11 @@ import { describe, it, expect } from 'vitest';
 describe('Import Schema Regression', () => {
 
   // Current valid schema columns
-  const validClassesColumns = ['id', 'name', 'school_id', 'branch_id', 'created_at', 'updated_at'];
-  const validStudentColumns = ['name', 'class_name', 'section', 'phone', 'address', 'total_fee', 'discount_value'];
+  const _validClassesColumns = ['id', 'name', 'school_id', 'branch_id', 'created_at', 'updated_at'];
+  const _validStudentColumns = ['name', 'class_name', 'section', 'phone', 'address', 'total_fee', 'discount_value'];
 
   // Deprecated columns that must NOT be used
-  const deprecatedColumns = {
+  const _deprecatedColumns = {
     classes: ['name_ar', 'nameAr', 'name_en', 'nameEn', 'gradeLevel', 'level', 'academic_year_id', 'year_id'],
     students: ['nameAr', 'nameEn', 'fullName', 'class_id', 'grade', 'level', 'year'],
   };
@@ -72,7 +72,7 @@ describe('Import Schema Regression', () => {
       class_name: '4 - أ', // ✅ Correct
     };
 
-    const invalidColumns = {
+    const _invalidColumns = {
       className: '4 - أ', // ❌ Wrong
       class_id: 'cls-123', // ❌ Wrong
       classId: '4', // ❌ Wrong
@@ -192,7 +192,7 @@ describe('Import Schema Regression', () => {
 
   it('Import process: parse stage validates schema first', () => {
     // Step 1: Read Excel
-    const excelData = {
+    const _excelData = {
       headers: ['اسم الطالب', 'الصف', 'العنوان', 'الرسوم'],
       rows: [
         ['أحمد علي', '4 - أ', 'بغداد', '500'],
@@ -243,7 +243,7 @@ describe('Import Schema Regression', () => {
     const invalidAliases = ['nameAr', 'nameEn', 'classId', 'gradeLevel'];
 
     // Import code should not contain these strings
-    const importCode = `
+    const _importCode = `
       const name = row.nameAr || row.name;
       const className = row.className || row.class_name;
     `;

@@ -124,19 +124,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
     return jsonError("نطاق التاريخ كبير جدًا. يرجى تقليص الفترة إلى سنة واحدة كحد أقصى.", 400);
   }
 
-  const { data: student, error: studentError } = await context.value.actorSupabase
+  let studentQuery = context.value.actorSupabase
     .from("students")
-    .select("id, full_name, class_name, section")
+    .select("id, full_name, class_name, section, branch_id")
     .eq("school_id", context.value.targetSchoolId)
-    .eq("id", studentId)
-    .maybeSingle<StudentPreview>();
+    .eq("id", studentId);
+
+  // Branch admin: restrict to their branch only
+  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
+    studentQuery = studentQuery.eq("branch_id", context.value.actorBranchId);
+  }
+
+  const { data: student, error: studentError } = await studentQuery.maybeSingle<StudentPreview>();
 
   if (studentError) {
     return jsonError(studentError.message || "تعذر تحميل بيانات الطالب.", 500);
   }
 
   if (!student?.id) {
-    return jsonError("الطالب غير موجود ضمن المدرسة الحالية.", 404);
+    return jsonError("الطالب غير موجود أو ليس ضمن نطاق صلاحيات المستخدم.", 404);
   }
 
   // Summary: fetch statuses only (bounded range), then reduce.

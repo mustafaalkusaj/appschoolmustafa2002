@@ -6,6 +6,7 @@ import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 type ReportsMetrics = {
   studentsCount: number;
@@ -57,6 +58,8 @@ async function loadFallbackMetrics(
   currentMonth: string,
   todayKey: string,
 ) {
+  console.log("[loadFallbackMetrics DEBUG] Starting - schoolId:", schoolId, "branchScope:", branchScope);
+
   const [studentsResult, paymentsResult, expensesResult, salariesResult] = await Promise.allSettled([
     applyBranchScopeToQuery(
       actorSupabase
@@ -89,30 +92,47 @@ async function loadFallbackMetrics(
     ),
   ]);
 
+  console.log("[loadFallbackMetrics DEBUG] Query results status:", {
+    students: studentsResult.status,
+    payments: paymentsResult.status,
+    expenses: expensesResult.status,
+    salaries: salariesResult.status,
+  });
+
   const students =
     studentsResult.status === "fulfilled"
       ? studentsResult.value.error
-        ? []
+        ? (console.log("[loadFallbackMetrics DEBUG] Students query error:", studentsResult.value.error), [])
         : ((studentsResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+      : (console.log("[loadFallbackMetrics DEBUG] Students query rejected"), []);
+
   const payments =
     paymentsResult.status === "fulfilled"
       ? paymentsResult.value.error
-        ? []
+        ? (console.log("[loadFallbackMetrics DEBUG] Payments query error:", paymentsResult.value.error), [])
         : ((paymentsResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+      : (console.log("[loadFallbackMetrics DEBUG] Payments query rejected"), []);
+
   const expenses =
     expensesResult.status === "fulfilled"
       ? expensesResult.value.error
-        ? []
+        ? (console.log("[loadFallbackMetrics DEBUG] Expenses query error:", expensesResult.value.error), [])
         : ((expensesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+      : (console.log("[loadFallbackMetrics DEBUG] Expenses query rejected"), []);
+
   const salaries =
     salariesResult.status === "fulfilled"
       ? salariesResult.value.error
-        ? []
+        ? (console.log("[loadFallbackMetrics DEBUG] Salaries query error:", salariesResult.value.error), [])
         : ((salariesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+      : (console.log("[loadFallbackMetrics DEBUG] Salaries query rejected"), []);
+
+  console.log("[loadFallbackMetrics DEBUG] Data counts:", {
+    students: students.length,
+    payments: payments.length,
+    expenses: expenses.length,
+    salaries: salaries.length,
+  });
 
   const expenseTypeCount = new Set(
     expenses
@@ -148,11 +168,15 @@ async function loadFallbackMetrics(
     currentMonthSalaryCount: salaries.filter((item) => item.month === currentMonth).length,
   };
 
+  const finalMetrics = {
+    ...metrics,
+    netBalance: metrics.paymentVolume - metrics.expenseVolume - metrics.salaryVolume,
+  } satisfies ReportsMetrics;
+
+  console.log("[loadFallbackMetrics DEBUG] Calculated metrics:", finalMetrics);
+
   return {
-    metrics: {
-      ...metrics,
-      netBalance: metrics.paymentVolume - metrics.expenseVolume - metrics.salaryVolume,
-    } satisfies ReportsMetrics,
+    metrics: finalMetrics,
     warnings: [studentsResult, paymentsResult, expensesResult, salariesResult]
       .map((result, index) => {
         const labels = ["بيانات الطلاب", "بيانات الدفعات", "بيانات المصروفات", "بيانات الرواتب"];
@@ -253,9 +277,12 @@ export async function GET(req: NextRequest) {
       `reports-overview:${targetSchoolId}:${branchScope.value.cacheKeySuffix}`,
       30_000,
       async () => {
+        // Use service role client for data queries (authorization already validated above)
+        const dataSupabase = createServiceSupabaseClient();
+
         if (branchScope.value.branchIds.length === 0) {
           try {
-            const metrics = await loadSummaryMetrics(actorSupabase, targetSchoolId, currentMonth, todayDate);
+            const metrics = await loadSummaryMetrics(dataSupabase, targetSchoolId, currentMonth, todayDate);
             if (metrics) {
               return {
                 metrics,
@@ -269,7 +296,7 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        const fallback = await loadFallbackMetrics(actorSupabase, targetSchoolId, branchScope.value, currentMonth, todayKey);
+        const fallback = await loadFallbackMetrics(dataSupabase, targetSchoolId, branchScope.value, currentMonth, todayKey);
         return {
           metrics: fallback.metrics,
           warnings: [

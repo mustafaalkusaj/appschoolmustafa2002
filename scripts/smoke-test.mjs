@@ -6,7 +6,6 @@
  * No data modifications - read-only verification only
  */
 
-import { spawn } from 'child_process';
 import process from 'process';
 
 const baseUrl = process.env.VERCEL_URL
@@ -55,7 +54,7 @@ async function runSmokeTests() {
 
   let passCount = 0;
   let failCount = 0;
-  let results = [];
+  const results = [];
 
   for (const endpoint of endpoints) {
     const fullUrl = `${baseUrl}${endpoint.path}`;

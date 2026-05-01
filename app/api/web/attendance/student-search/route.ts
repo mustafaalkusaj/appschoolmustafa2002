@@ -68,6 +68,11 @@ export async function GET(req: NextRequest) {
     .neq("status", "deleted")
     .limit(20);
 
+  // Branch admin: restrict to their branch only
+  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
+    query = query.eq("branch_id", context.value.actorBranchId);
+  }
+
   if (className) query = query.eq("class_name", className);
   if (section) query = query.eq("section", section);
 

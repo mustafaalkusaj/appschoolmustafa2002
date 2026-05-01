@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
 test("Login page visual check - ar/login?next", async ({ page }) => {
   const logs: string[] = [];

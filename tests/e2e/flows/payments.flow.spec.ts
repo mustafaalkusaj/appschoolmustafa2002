@@ -142,7 +142,7 @@ test.describe("Payments Management Flows", () => {
         if (download) {
           expect(download).toBeDefined();
         }
-      } catch (e) {
+      } catch {
         // Export might not trigger download
       }
     }

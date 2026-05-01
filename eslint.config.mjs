@@ -11,8 +11,11 @@ const eslintConfig = defineConfig([
     ".next/**",
     ".next_bak_*/**",
     ".next_tmp_build_*/**",
+    ".vercel/**",
     "out/**",
     "build/**",
+    "dist/**",
+    "node_modules/**",
     "next-env.d.ts",
     ".claude/**",
     // Ignore sibling projects and standalone artifacts that are not part of this Next.js app.

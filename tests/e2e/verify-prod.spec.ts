@@ -42,7 +42,7 @@ test.describe('Production Bulk Import - Schema Fix Verification', () => {
     console.log('✓ Students page loaded without schema errors');
   });
 
-  test('should open bulk import modal without errors', async ({ page, context }) => {
+  test('should open bulk import modal without errors', async ({ page, _context }) => {
     // Setup auth
     await page.goto(`${BASE_URL}/ar/login`);
     await page.locator('#email').fill(EMAIL);

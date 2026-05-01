@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   normalizeArabicText,
   normalizeClassName,
@@ -8,7 +8,7 @@ import {
   mapExcelRow,
   matchClass,
   generateImportPreview,
-  COLUMN_ALIASES,
+  // COLUMN_ALIASES, // TODO: Use when adding more test cases
 } from '@/lib/students/import-engine';
 import { Class } from '@/lib/students/import-types';
 

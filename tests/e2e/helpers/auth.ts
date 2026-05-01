@@ -14,7 +14,7 @@ type LoginOptions = {
   email: string;
   password: string;
   expectedPath: RegExp;
-  expectedHeading: string;
+  __expectedHeading: string;
 };
 
 async function typeControlledValue(locator: Locator, value: string) {
@@ -24,7 +24,7 @@ async function typeControlledValue(locator: Locator, value: string) {
 
 export async function loginWithCredentials(
   page: Page,
-  { locale = "ar", email, password, expectedPath, expectedHeading }: LoginOptions,
+  { locale = "ar", email, password, expectedPath, _expectedHeading }: LoginOptions,
 ) {
   await page.goto(`/${locale}/login`);
 

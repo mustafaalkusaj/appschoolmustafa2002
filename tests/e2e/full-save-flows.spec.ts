@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { test, type Locator, type Page } from "@playwright/test";
 
 import { ensureE2EEnvLoaded, getQAAccount, getQAIds } from "./helpers/e2e-env";
 

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { expect, test, type BrowserContext, type ConsoleMessage, type Page, type Response } from "@playwright/test";
+import { test, type BrowserContext, type ConsoleMessage, type Page, type Response } from "@playwright/test";
 
 type AuditRole = "admin" | "super_admin";
 type AuditLocale = "ar" | "en";

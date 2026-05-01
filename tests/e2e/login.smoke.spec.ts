@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { test } from "@playwright/test";
 
 test("localized login page renders the core sign-in form", async ({ page }) => {
   await page.goto("/ar/login");

@@ -1,11 +1,11 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
 const PROD_URL = "https://school-iraq.com";
-const QA_EMAIL = process.env.QA_EMAIL || "";
-const QA_PASSWORD = process.env.QA_PASSWORD || "";
+const _QA_EMAIL = process.env.QA_EMAIL || "";
+const _QA_PASSWORD = process.env.QA_PASSWORD || "";
 
 test.describe("Student Actions Verification - Production", () => {
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ _page, _context }) => {
     // Load existing auth state if available
     if (process.env.STORAGE_STATE) {
       await context.addInitScript(() => {

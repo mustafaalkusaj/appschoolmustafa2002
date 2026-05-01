@@ -1,8 +1,8 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
 test.describe("Error Boundaries", () => {
   // Test that error boundaries don't expose stack traces
-  test("error boundaries hide stack traces", async ({ page, context }) => {
+  test("error boundaries hide stack traces", async ({ page, _context }) => {
     const consoleMessages: string[] = [];
 
     page.on("console", (msg) => {

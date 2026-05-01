@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Request, type Response } from "@playwright/test";
+import { test, type Page, type Request, type Response } from "@playwright/test";
 
 const targetUrl = process.env.QA_TARGET_URL ?? "https://appschoolmustafa2002.vercel.app";
 
@@ -113,7 +113,7 @@ test.describe("production smoke", () => {
     }
   });
 
-  test("protected APIs reject unauthenticated requests safely", async ({ request }) => {
+  test("protected APIs reject unauthenticated requests safely", async ({ _request }) => {
     const apiPaths = [
       "/api/account/me",
       "/api/users",
