@@ -953,5 +953,82 @@
     "noteColumn": "Note",
     "noResults": "No matching results.",
     "noRecords": "No records in range."
+  },
+  "groupDashboard": {
+    "title": "Group Financial Dashboard",
+    "subtitle": "A comprehensive overview of financial performance across all school branches",
+    "breadcrumb": "Home > Group",
+    "kpis": {
+      "totalStudents": "Total Students",
+      "totalPaid": "Total Paid",
+      "totalDiscounts": "Total Discounts",
+      "feesBeforeDiscount": "Fees Before Discount",
+      "feesAfterDiscount": "Fees After Discount",
+      "remaining": "Remaining",
+      "expenses": "Expenses",
+      "discount": "Discount",
+      "studentsCount": "Students Count",
+      "paymentRate": "Payment Rate",
+      "paid": "Paid",
+      "paidAmount": "Paid Amount",
+      "remainingAmount": "Remaining Amount",
+      "totalRequired": "Total Required"
+    },
+    "branches": {
+      "title": "Branch Summary",
+      "noActive": "No active branches for this school"
+    },
+    "totals": {
+      "title": "School Totals"
+    },
+    "analysis": {
+      "title": "Performance Analysis",
+      "bestCollection": "Best Collection",
+      "noData": "No data available",
+      "highestRemaining": "Highest Remaining",
+      "highestExpenses": "Highest Expenses",
+      "noExpenses": "No expenses"
+    },
+    "budget": {
+      "title": "Annual Budget",
+      "currentYearBadge": "This Year",
+      "nextYearBadge": "Next Year",
+      "currentYear": "Current Year",
+      "nextYear": "Upcoming Year",
+      "plannedIncome": "Planned Income",
+      "actualIncome": "Actual Income",
+      "plannedExpense": "Planned Expenses",
+      "actualExpense": "Actual Expenses",
+      "plannedSurplus": "Planned Surplus",
+      "actualSurplus": "Actual Surplus",
+      "incomeCompletionRate": "Income Completion Rate",
+      "expenseConsumptionRate": "Expense Consumption",
+      "branchBreakdown": "Branch Breakdown",
+      "branchExpenses": "Expenses",
+      "branchIncome": "Income",
+      "empty": "No budget has been recorded for this year",
+      "error": "Unable to load budget data.",
+      "unexpectedResponse": "Unexpected server response.",
+      "retry": "Retry"
+    },
+    "analytics": {
+      "title": "Financial Analytics",
+      "byBranch": "Total Amounts by Branch",
+      "paymentProgress": "Payment Progress",
+      "totalRequired": "Total Required Amount",
+      "paymentStats": "Payment Statistics",
+      "donutTotal": "Total",
+      "quickStats": "Quick Stats",
+      "totalBranches": "Total Branches",
+      "feesAfterDiscount": "Fees After Discount",
+      "paymentRate": "Payment Rate",
+      "paidAmount": "Paid Amount",
+      "remainingAmount": "Remaining Amount",
+      "paid": "Paid",
+      "remaining": "Remaining"
+    },
+    "errors": {
+      "overviewError": "Failed to load school overview."
+    }
   }
 }

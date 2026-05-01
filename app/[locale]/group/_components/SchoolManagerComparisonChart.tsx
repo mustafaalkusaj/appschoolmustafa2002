@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   Bar,
   BarChart,
@@ -32,6 +33,7 @@ type Props = {
     studentsCount: number;
     paidPercentage: number;
   };
+  locale?: "ar" | "en";
 };
 
 const BLUE = "#3b82f6";
@@ -50,6 +52,8 @@ function fmtNum(value: number) {
 const CARD = "rounded-xl border p-4";
 
 export function SchoolManagerComparisonChart({ points, totals }: Props) {
+  const t = useTranslations("groupDashboard");
+
   const remainingPercentage =
     totals.totalFeesAfterDiscount > 0
       ? Math.round(
@@ -63,8 +67,8 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
   const remPct = Math.min(100, Math.max(0, remainingPercentage));
 
   const pieData = [
-    { name: "مدفوع", value: totals.totalPaid, color: GREEN },
-    { name: "المتبقي", value: totals.totalRemaining, color: AMBER },
+    { name: t("analytics.paid"), value: totals.totalPaid, color: GREEN },
+    { name: t("analytics.remaining"), value: totals.totalRemaining, color: AMBER },
   ];
 
   const tooltipStyle = {
@@ -79,7 +83,7 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
     <section className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
       {/* Section title */}
       <div className="flex items-center gap-2 mb-6">
-        <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>لوحة التحليل المالي</h2>
+        <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{t("analytics.title")}</h2>
         <div className="w-5 h-5" style={{ color: "var(--text-tertiary)" }}>
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
             <path
@@ -93,10 +97,10 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Bar chart: إجمالي المبيع حسب الفرع */}
+        {/* Bar chart: Total amounts by branch */}
         <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
           <h3 className="mb-3 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>
-            إجمالي المبالغ حسب الفرع
+            {t("analytics.byBranch")}
           </h3>
           <div style={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -124,25 +128,25 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar
                   dataKey="totalFeesAfterDiscount"
-                  name="الرسوم بعد الخصم"
+                  name={t("kpis.feesAfterDiscount")}
                   fill={BLUE}
                   radius={[6, 6, 0, 0]}
                 />
                 <Bar
                   dataKey="totalPaid"
-                  name="المبلغ المدفوع"
+                  name={t("analytics.paidAmount")}
                   fill={GREEN}
                   radius={[6, 6, 0, 0]}
                 />
                 <Bar
                   dataKey="totalRemaining"
-                  name="المبلغ المتبقي"
+                  name={t("analytics.remainingAmount")}
                   fill={AMBER}
                   radius={[6, 6, 0, 0]}
                 />
                 <Bar
                   dataKey="totalExpenses"
-                  name="المصروفات"
+                  name={t("kpis.expenses")}
                   fill={RED}
                   radius={[6, 6, 0, 0]}
                 />
@@ -151,16 +155,16 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
           </div>
         </div>
 
-        {/* Progress bars: تقدم الدفع */}
+        {/* Progress bars: Payment Progress */}
         <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-          <h3 className="mb-4 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>تقدم الدفع</h3>
+          <h3 className="mb-4 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>{t("analytics.paymentProgress")}</h3>
 
           <div className="space-y-5">
             {/* Paid */}
             <div>
               <div className="mb-1.5 flex items-center justify-between text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>
                 <span>{fmtCurrency(totals.totalPaid)}</span>
-                <span>المبلغ المدفوع</span>
+                <span>{t("analytics.paidAmount")}</span>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--background)" }}>
                 <div
@@ -175,7 +179,7 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
             <div>
               <div className="mb-1.5 flex items-center justify-between text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>
                 <span>{fmtCurrency(totals.totalRemaining)}</span>
-                <span>المبلغ المتبقي</span>
+                <span>{t("analytics.remainingAmount")}</span>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--background)" }}>
                 <div
@@ -188,7 +192,7 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
 
             {/* Total required */}
             <div className="mt-3 rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-right">
-              <div className="text-xs font-bold text-gray-500">إجمالي المبلغ المطلوب</div>
+              <div className="text-xs font-bold text-gray-500">{t("analytics.totalRequired")}</div>
               <div className="mt-1 text-xl font-black" style={{ color: PURPLE }}>
                 {fmtCurrency(totals.totalFeesAfterDiscount)}
               </div>
@@ -196,9 +200,9 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
           </div>
         </div>
 
-        {/* Donut chart: إحصائيات الدفع */}
+        {/* Donut chart: Payment Statistics */}
         <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-          <h3 className="mb-3 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>إحصائيات الدفع</h3>
+          <h3 className="mb-3 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>{t("analytics.paymentStats")}</h3>
           <div className="relative" style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -226,7 +230,7 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
             </ResponsiveContainer>
             {/* Center label */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[10px] font-bold" style={{ color: "var(--text-tertiary)" }}>الإجمالي</span>
+              <span className="text-[10px] font-bold" style={{ color: "var(--text-tertiary)" }}>{t("analytics.donutTotal")}</span>
               <span className="text-xs font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtNum(totals.totalFeesAfterDiscount)}
               </span>
@@ -237,25 +241,25 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
 
         {/* Quick stats */}
         <div className={CARD} style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-          <h3 className="mb-4 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>إحصائيات سريعة</h3>
+          <h3 className="mb-4 text-sm font-black text-right" style={{ color: "var(--text-primary)" }}>{t("analytics.quickStats")}</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "var(--border)" }}>
               <span className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtNum(points.length)}
               </span>
-              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>إجمالي الفروع</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{t("analytics.totalBranches")}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "var(--border)" }}>
               <span className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtNum(totals.studentsCount)}
               </span>
-              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>إجمالي الطلاب</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{t("kpis.totalStudents")}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "var(--border)" }}>
               <span className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {fmtCurrency(totals.totalFeesAfterDiscount)}
               </span>
-              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>الرسوم بعد الخصم</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{t("analytics.feesAfterDiscount")}</span>
             </div>
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
@@ -265,7 +269,7 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
                 />
                 <span className="text-sm font-black text-emerald-600">{fmtNum(paidPct)}%</span>
               </div>
-              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>نسبة السداد</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{t("analytics.paymentRate")}</span>
             </div>
           </div>
         </div>

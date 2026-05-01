@@ -978,5 +978,82 @@
     "noteColumn": "ملاحظة",
     "noResults": "لا توجد نتائج مطابقة.",
     "noRecords": "لا توجد سجلات ضمن الفترة."
+  },
+  "groupDashboard": {
+    "title": "اللوحة المالية للمجموعة",
+    "subtitle": "نظرة شاملة على الأداء المالي لجميع فروع المدرسة",
+    "breadcrumb": "الرئيسية > المجموعة",
+    "kpis": {
+      "totalStudents": "إجمالي الطلاب",
+      "totalPaid": "إجمالي المدفوع",
+      "totalDiscounts": "إجمالي الخصومات",
+      "feesBeforeDiscount": "الرسوم قبل الخصم",
+      "feesAfterDiscount": "الرسوم بعد الخصم",
+      "remaining": "المتبقي",
+      "expenses": "المصروفات",
+      "discount": "الخصم",
+      "studentsCount": "عدد الطلاب",
+      "paymentRate": "نسبة السداد",
+      "paid": "المدفوع",
+      "paidAmount": "المبلغ المدفوع",
+      "remainingAmount": "المبلغ المتبقي",
+      "totalRequired": "إجمالي المبلغ المطلوب"
+    },
+    "branches": {
+      "title": "ملخص الفروع",
+      "noActive": "لا توجد فروع نشطة لهذه المدرسة"
+    },
+    "totals": {
+      "title": "إجمالي المدرسة"
+    },
+    "analysis": {
+      "title": "تحليل الأداء",
+      "bestCollection": "أفضل تحصيل",
+      "noData": "لا توجد بيانات",
+      "highestRemaining": "أعلى متبقي",
+      "highestExpenses": "أعلى مصروفات",
+      "noExpenses": "لا توجد مصروفات"
+    },
+    "budget": {
+      "title": "الموازنة السنوية",
+      "currentYearBadge": "هذه السنة",
+      "nextYearBadge": "السنة القادمة",
+      "currentYear": "السنة الحالية",
+      "nextYear": "السنة القادمة",
+      "plannedIncome": "الدخل المخطط",
+      "actualIncome": "الدخل الفعلي",
+      "plannedExpense": "المصروفات المخططة",
+      "actualExpense": "المصروفات الفعلية",
+      "plannedSurplus": "الفائض المخطط",
+      "actualSurplus": "الفائض الفعلي",
+      "incomeCompletionRate": "نسبة تحقق الدخل",
+      "expenseConsumptionRate": "استهلاك المصروفات",
+      "branchBreakdown": "تفصيل الفروع",
+      "branchExpenses": "مصروفات",
+      "branchIncome": "دخل",
+      "empty": "لا توجد موازنة مسجلة لهذه السنة",
+      "error": "تعذر تحميل بيانات الموازنة.",
+      "unexpectedResponse": "استجابة غير متوقعة من الخادم.",
+      "retry": "إعادة المحاولة"
+    },
+    "analytics": {
+      "title": "لوحة التحليل المالي",
+      "byBranch": "إجمالي المبالغ حسب الفرع",
+      "paymentProgress": "تقدم الدفع",
+      "totalRequired": "إجمالي المبلغ المطلوب",
+      "paymentStats": "إحصائيات الدفع",
+      "donutTotal": "الإجمالي",
+      "quickStats": "إحصائيات سريعة",
+      "totalBranches": "إجمالي الفروع",
+      "feesAfterDiscount": "الرسوم بعد الخصم",
+      "paymentRate": "نسبة السداد",
+      "paidAmount": "المبلغ المدفوع",
+      "remainingAmount": "المبلغ المتبقي",
+      "paid": "مدفوع",
+      "remaining": "المتبقي"
+    },
+    "errors": {
+      "overviewError": "تعذر تحميل ملخص المدرسة."
+    }
   }
 }

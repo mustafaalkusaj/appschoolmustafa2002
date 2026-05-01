@@ -1,5 +1,6 @@
 import dynamicImport from "next/dynamic";
 import { redirect } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { localizeAppPath } from "@/lib/locale-routing";
@@ -113,7 +114,15 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
 }
 
 // ─── Branch card ───────────────────────────────────────────────────────────────
-function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; index: number }) {
+function BranchCard({
+  branch,
+  index,
+  labels,
+}: {
+  branch: SchoolManagerBranchSummary;
+  index: number;
+  labels: Record<string, string>;
+}) {
   const accent = getAccent(index);
   const pct = Math.min(100, Math.max(0, branch.paidPercentage));
   const disabled = branch.branchId === null;
@@ -138,31 +147,31 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
       {/* Metrics grid */}
       <div className="px-6 py-5 grid grid-cols-2 gap-x-5 gap-y-5 flex-1">
         <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>الرسوم قبل الخصم</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.feesBeforeDiscount}</p>
           <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalFeesBeforeDiscount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>الرسوم بعد الخصم</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.feesAfterDiscount}</p>
           <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalFeesAfterDiscount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>المدفوع</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.paid}</p>
           <p className="text-sm font-black text-green-600 dark:text-green-400">{fmt(branch.totalPaid)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>المتبقي</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.remaining}</p>
           <p className="text-sm font-black text-amber-600 dark:text-amber-400">{fmt(branch.totalRemaining)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>عدد الطلاب</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.studentsCount}</p>
           <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtN(branch.studentsCount)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>المصروفات</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.expenses}</p>
           <p className="text-sm font-black text-red-600 dark:text-red-400">{fmt(branch.totalExpenses)}</p>
         </div>
         <div className="col-span-2 text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>الخصم</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.discount}</p>
           <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalDiscount)}</p>
         </div>
       </div>
@@ -171,7 +180,7 @@ function BranchCard({ branch, index }: { branch: SchoolManagerBranchSummary; ind
       <div className="px-6 py-4 border-t" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
         <div className="flex justify-between items-center mb-2">
           <p className={`text-sm font-black ${accent.pctColor}`}>{fmtN(pct)}%</p>
-          <p className="text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>نسبة السداد</p>
+          <p className="text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>{labels.paymentRate}</p>
         </div>
         <div className="h-3 rounded-full overflow-hidden shadow-sm" style={{ background: "var(--background)" }}>
           <div
@@ -197,6 +206,9 @@ export default async function GroupDashboardPage({
 }) {
   const { locale: rawLocale } = await params;
   const locale: Locale = rawLocale === "en" ? "en" : "ar";
+
+  setRequestLocale(locale);
+  const t = await getTranslations("groupDashboard");
 
   const context = await resolveSchoolScopedActorContext(null, {
     allowedRoles: ["admin"],
@@ -281,15 +293,15 @@ export default async function GroupDashboardPage({
   const schoolInitial = school.name.charAt(0) || "م";
 
   return (
-    <div dir="rtl" className="min-h-screen transition-colors duration-200" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
+    <div dir={locale === "ar" ? "rtl" : "ltr"} className="min-h-screen transition-colors duration-200" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
       {/* ── Main content ────────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 py-6 space-y-6 max-w-screen-2xl mx-auto">
 
         {/* Breadcrumb + page title */}
         <div>
-          <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>الرئيسية &gt; المجموعة</p>
-          <h1 className="text-2xl sm:text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>اللوحة المالية للمجموعة</h1>
-          <p className="text-sm mt-1.5" style={{ color: "var(--text-tertiary)" }}>نظرة شاملة على الأداء المالي لجميع فروع المدرسة</p>
+          <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>{t("breadcrumb")}</p>
+          <h1 className="text-2xl sm:text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>{t("title")}</h1>
+          <p className="text-sm mt-1.5" style={{ color: "var(--text-tertiary)" }}>{t("subtitle")}</p>
         </div>
 
         {/* Error / warnings */}
@@ -312,12 +324,12 @@ export default async function GroupDashboardPage({
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "إجمالي الطلاب", value: fmtN(totals.studentsCount), bgLight: "#3b82f6", textLight: "#ffffff", bgDark: "rgba(59, 130, 246, 0.3)" },
-            { label: "إجمالي المدفوع", value: fmt(totals.totalPaid), bgLight: "#10b981", textLight: "#ffffff", bgDark: "rgba(16, 185, 129, 0.3)" },
-            { label: "إجمالي الخصومات", value: fmt(totals.totalDiscount), bgLight: "#f59e0b", textLight: "#ffffff", bgDark: "rgba(245, 158, 11, 0.3)" },
-            { label: "الرسوم قبل الخصم", value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#8b5cf6", textLight: "#ffffff", bgDark: "rgba(139, 92, 246, 0.3)" },
+            { key: "totalStudents", label: t("kpis.totalStudents"), value: fmtN(totals.studentsCount), bgLight: "#3b82f6", textLight: "#ffffff", bgDark: "rgba(59, 130, 246, 0.3)" },
+            { key: "totalPaid", label: t("kpis.totalPaid"), value: fmt(totals.totalPaid), bgLight: "#10b981", textLight: "#ffffff", bgDark: "rgba(16, 185, 129, 0.3)" },
+            { key: "totalDiscounts", label: t("kpis.totalDiscounts"), value: fmt(totals.totalDiscount), bgLight: "#f59e0b", textLight: "#ffffff", bgDark: "rgba(245, 158, 11, 0.3)" },
+            { key: "feesBeforeDiscount", label: t("kpis.feesBeforeDiscount"), value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#8b5cf6", textLight: "#ffffff", bgDark: "rgba(139, 92, 246, 0.3)" },
           ].map((metric) => (
-            <div key={metric.label} className="rounded-2xl border shadow-sm p-5 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+            <div key={metric.key} className="rounded-2xl border shadow-sm p-5 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0 flex-1 text-right">
                   <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
@@ -329,10 +341,10 @@ export default async function GroupDashboardPage({
                 </div>
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl transition-colors" style={{ background: `light-dark(${metric.bgLight}, ${metric.bgDark})` }}>
                   <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                    {metric.label.includes("طلاب") && <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.667 0-8 1.337-8 4v2h16v-2c0-2.663-5.333-4-8-4z" />}
-                    {metric.label.includes("المدفوع") && <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />}
-                    {metric.label.includes("الخصومات") && <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6h1.5zm0 8H11v1.5h1.5z" />}
-                    {metric.label.includes("الرسوم قبل") && <path d="M12 1.5C6.25 1.5 1.5 6.25 1.5 12S6.25 22.5 12 22.5 22.5 17.75 22.5 12 17.75 1.5 12 1.5zm0 20C7.0725 21.5 3 17.4275 3 12.5C3 7.5725 7.0725 3.5 12 3.5C16.9275 3.5 21 7.5725 21 12.5C21 17.4275 16.9275 21.5 12 21.5z M12 6.5C9.51 6.5 7.5 8.51 7.5 11C7.5 12.16 8.01 13.18 8.81 13.86L12 17.05L15.19 13.86C15.99 13.18 16.5 12.16 16.5 11C16.5 8.51 14.49 6.5 12 6.5zm0 3C13.38 9.5 14.5 10.62 14.5 11C14.5 12.1 13.6 13 12.5 13C11.4 13 10.5 12.1 10.5 11C10.5 10.62 11.62 9.5 12 9.5z" />}
+                    {metric.key === "totalStudents" && <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.667 0-8 1.337-8 4v2h16v-2c0-2.663-5.333-4-8-4z" />}
+                    {metric.key === "totalPaid" && <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />}
+                    {metric.key === "totalDiscounts" && <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6h1.5zm0 8H11v1.5h1.5z" />}
+                    {metric.key === "feesBeforeDiscount" && <path d="M12 1.5C6.25 1.5 1.5 6.25 1.5 12S6.25 22.5 12 22.5 22.5 17.75 22.5 12 17.75 1.5 12 1.5zm0 20C7.0725 21.5 3 17.4275 3 12.5C3 7.5725 7.0725 3.5 12 3.5C16.9275 3.5 21 7.5725 21 12.5C21 17.4275 16.9275 21.5 12 21.5z M12 6.5C9.51 6.5 7.5 8.51 7.5 11C7.5 12.16 8.01 13.18 8.81 13.86L12 17.05L15.19 13.86C15.99 13.18 16.5 12.16 16.5 11C16.5 8.51 14.49 6.5 12 6.5zm0 3C13.38 9.5 14.5 10.62 14.5 11C14.5 12.1 13.6 13 12.5 13C11.4 13 10.5 12.1 10.5 11C10.5 10.62 11.62 9.5 12 9.5z" />}
                   </svg>
                 </div>
               </div>
@@ -343,7 +355,7 @@ export default async function GroupDashboardPage({
         {/* ── Branch summary ─────────────────────────────────────────────────── */}
         <section>
           <SectionTitle
-            title="ملخص الفروع"
+            title={t("branches.title")}
             icon={
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -358,7 +370,7 @@ export default async function GroupDashboardPage({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>لا توجد فروع نشطة لهذه المدرسة</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>{t("branches.noActive")}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -367,6 +379,16 @@ export default async function GroupDashboardPage({
                   key={branch.branchId ?? `branch-${idx}`}
                   branch={branch}
                   index={idx}
+                  labels={{
+                    feesBeforeDiscount: t("kpis.feesBeforeDiscount"),
+                    feesAfterDiscount: t("kpis.feesAfterDiscount"),
+                    paid: t("kpis.paid"),
+                    remaining: t("kpis.remaining"),
+                    studentsCount: t("kpis.studentsCount"),
+                    expenses: t("kpis.expenses"),
+                    discount: t("kpis.discount"),
+                    paymentRate: t("kpis.paymentRate"),
+                  }}
                 />
               ))}
             </div>
@@ -376,7 +398,7 @@ export default async function GroupDashboardPage({
         {/* ── School totals ──────────────────────────────────────────────────── */}
         <section>
           <SectionTitle
-            title="إجمالي المدرسة"
+            title={t("totals.title")}
             icon={
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -388,36 +410,35 @@ export default async function GroupDashboardPage({
             {/* Metrics grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-6">
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>الرسوم قبل الخصم</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.feesBeforeDiscount")}</p>
                 <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalFeesBeforeDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>الرسوم بعد الخصم</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.feesAfterDiscount")}</p>
                 <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalFeesAfterDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>الخصومات</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.discount")}</p>
                 <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalDiscount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>المتبقي</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.remaining")}</p>
                 <p className="text-sm font-black text-amber-600 dark:text-amber-400 truncate">{fmt(totals.totalRemaining)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>المدفوع</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.paid")}</p>
                 <p className="text-sm font-black text-green-600 dark:text-green-400 truncate">{fmt(totals.totalPaid)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>المصروفات</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.expenses")}</p>
                 <p className="text-sm font-black text-red-600 dark:text-red-400 truncate">{fmt(totals.totalExpenses)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>عدد الطلاب</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.studentsCount")}</p>
                 <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtN(totals.studentsCount)}</p>
               </div>
-              {/* نسبة السداد */}
               <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>نسبة السداد</p>
+                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.paymentRate")}</p>
                 <div className="flex items-center gap-2 justify-end">
                   <p className="text-sm font-black text-green-600 dark:text-green-400">{fmtN(paidPct)}%</p>
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center shrink-0">
@@ -439,7 +460,7 @@ export default async function GroupDashboardPage({
         {/* ── Performance analysis ───────────────────────────────────────────── */}
         <section>
           <SectionTitle
-            title="تحليل الأداء"
+            title={t("analysis.title")}
             icon={
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -451,12 +472,12 @@ export default async function GroupDashboardPage({
             {/* Best collection */}
             <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-green-600 dark:text-green-400">أفضل تحصيل</p>
+                <p className="text-xs font-black uppercase tracking-wide text-green-600 dark:text-green-400">{t("analysis.bestCollection")}</p>
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center text-xl">🏆</div>
               </div>
               <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
                 {overview.analysis.strongestCollectionBranch?.branchName ?? (
-                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>لا توجد بيانات</span>
+                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>{t("analysis.noData")}</span>
                 )}
               </p>
               {overview.analysis.strongestCollectionBranch && (
@@ -469,12 +490,12 @@ export default async function GroupDashboardPage({
             {/* Highest remaining */}
             <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">أعلى متبقي</p>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">{t("analysis.highestRemaining")}</p>
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 flex items-center justify-center text-xl">⚠️</div>
               </div>
               <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
                 {overview.analysis.highestRemainingBranch?.branchName ?? (
-                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>لا توجد بيانات</span>
+                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>{t("analysis.noData")}</span>
                 )}
               </p>
               {overview.analysis.highestRemainingBranch && (
@@ -487,7 +508,7 @@ export default async function GroupDashboardPage({
             {/* Highest expenses */}
             <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-red-600 dark:text-red-400">أعلى مصروفات</p>
+                <p className="text-xs font-black uppercase tracking-wide text-red-600 dark:text-red-400">{t("analysis.highestExpenses")}</p>
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 to-red-50 border border-red-200 flex items-center justify-center">
                   <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -496,7 +517,7 @@ export default async function GroupDashboardPage({
               </div>
               <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
                 {overview.analysis.highestExpenseBranch?.branchName ?? (
-                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>لا توجد مصروفات</span>
+                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>{t("analysis.noExpenses")}</span>
                 )}
               </p>
               {overview.analysis.highestExpenseBranch && (
@@ -513,7 +534,7 @@ export default async function GroupDashboardPage({
 
         {/* ── Financial analysis chart ───────────────────────────────────────── */}
         {chartPoints.length > 0 && (
-          <SchoolManagerComparisonChart points={chartPoints} totals={overview.totals} />
+          <SchoolManagerComparisonChart points={chartPoints} totals={overview.totals} locale={locale} />
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { FiscalYearSummary } from "@/lib/school-manager/budget-summary";
 
 interface BudgetResponse {
@@ -91,17 +92,21 @@ function DataQualityBadge({ quality }: { quality: "high" | "medium" | "low" }) {
   );
 }
 
+type TFn = (key: string) => string;
+
 function BudgetYearSection({
   year,
   badge,
   badgeColor,
+  t,
 }: {
   year: FiscalYearSummary;
   badge: string;
   badgeColor: string;
+  t: TFn;
 }) {
   const { totals, branches, fiscalYear, insights, dataQuality, isForecasted } = year;
-  const yearLabel = year.isCurrent ? "السنة الحالية" : "السنة القادمة";
+  const yearLabel = year.isCurrent ? t("budget.currentYear") : t("budget.nextYear");
 
   return (
     <div className="space-y-3">
@@ -139,7 +144,7 @@ function BudgetYearSection({
       {insights.length > 0 && (
         <div className="space-y-2 rounded-xl border p-3.5" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
           <div className="text-[10px] font-black uppercase tracking-wide text-right" style={{ color: "var(--text-tertiary)" }}>
-            لماذا نتوقع هذه الأرقام؟
+            {t("budget.incomeCompletionRate")}
           </div>
           <ul className="space-y-1.5">
             {insights.map((insight, i) => (
@@ -159,25 +164,25 @@ function BudgetYearSection({
         <div className="space-y-2.5">
           {/* Main metrics grid */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <BudgetMetricCell label="الدخل المخطط" value={formatCurrency(totals.plannedIncome)} />
-            <BudgetMetricCell label="الدخل الفعلي" value={formatCurrency(totals.actualIncome)} highlight />
-            <BudgetMetricCell label="المصروفات المخططة" value={formatCurrency(totals.plannedExpense)} />
-            <BudgetMetricCell label="المصروفات الفعلية" value={formatCurrency(totals.actualExpense)} />
+            <BudgetMetricCell label={t("budget.plannedIncome")} value={formatCurrency(totals.plannedIncome)} />
+            <BudgetMetricCell label={t("budget.actualIncome")} value={formatCurrency(totals.actualIncome)} highlight />
+            <BudgetMetricCell label={t("budget.plannedExpense")} value={formatCurrency(totals.plannedExpense)} />
+            <BudgetMetricCell label={t("budget.actualExpense")} value={formatCurrency(totals.actualExpense)} />
           </div>
 
           {/* Surplus + rates */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <BudgetMetricCell label="الفائض المخطط" value={formatCurrency(totals.plannedSurplus)} />
-            <BudgetMetricCell label="الفائض الفعلي" value={formatCurrency(totals.actualSurplus)} highlight />
+            <BudgetMetricCell label={t("budget.plannedSurplus")} value={formatCurrency(totals.plannedSurplus)} />
+            <BudgetMetricCell label={t("budget.actualSurplus")} value={formatCurrency(totals.actualSurplus)} highlight />
             <div className="rounded-xl border border-transparent p-3.5 text-right" style={{ background: "var(--surface-strong)" }}>
-              <div className="text-[11px] font-semibold" style={{ color: "var(--text-tertiary)" }}>نسبة تحقق الدخل</div>
+              <div className="text-[11px] font-semibold" style={{ color: "var(--text-tertiary)" }}>{t("budget.incomeCompletionRate")}</div>
               <div className="mt-1.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {totals.incomeCompletionRate.toFixed(1)}%
               </div>
               <RateBar value={totals.incomeCompletionRate} color="bg-emerald-500" />
             </div>
             <div className="rounded-xl border border-transparent p-3.5 text-right" style={{ background: "var(--surface-strong)" }}>
-              <div className="text-[11px] font-semibold" style={{ color: "var(--text-tertiary)" }}>استهلاك المصروفات</div>
+              <div className="text-[11px] font-semibold" style={{ color: "var(--text-tertiary)" }}>{t("budget.expenseConsumptionRate")}</div>
               <div className="mt-1.5 text-sm font-black" style={{ color: "var(--text-primary)" }}>
                 {totals.expenseConsumptionRate.toFixed(1)}%
               </div>
@@ -189,7 +194,7 @@ function BudgetYearSection({
           {branches.length > 0 && (
             <div className="rounded-xl border p-4" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
               <div className="mb-3 text-[11px] font-black uppercase tracking-wide text-right" style={{ color: "var(--text-tertiary)" }}>
-                تفصيل الفروع
+                {t("budget.branchBreakdown")}
               </div>
               <div className="space-y-2">
                 {branches.map((branch) => (
@@ -200,7 +205,7 @@ function BudgetYearSection({
                   >
                     <div className="flex flex-wrap gap-3 text-[11px] font-medium" style={{ color: "var(--text-tertiary)" }}>
                       <span>
-                        مصروفات:{" "}
+                        {t("budget.branchExpenses")}: {" "}
                         <span className="font-black" style={{ color: "var(--text-primary)" }}>
                           {formatCurrency(branch.actualExpense)}
                         </span>
@@ -208,7 +213,7 @@ function BudgetYearSection({
                         {formatCurrency(branch.plannedExpense)}
                       </span>
                       <span>
-                        دخل:{" "}
+                        {t("budget.branchIncome")}: {" "}
                         <span className="font-black" style={{ color: "var(--text-primary)" }}>
                           {formatCurrency(branch.actualIncome)}
                         </span>
@@ -228,7 +233,8 @@ function BudgetYearSection({
   );
 }
 
-export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
+export function BudgetSummary() {
+  const t = useTranslations("groupDashboard");
   const [response, setResponse] = useState<BudgetResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -256,7 +262,7 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
           if (data.ok) {
             setResponse(data);
           } else {
-            setError("استجابة غير متوقعة من الخادم.");
+            setError(t("budget.unexpectedResponse"));
           }
         }
       } catch (err) {
@@ -274,14 +280,12 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
     };
   }, [retryKey]);
 
-  const title = locale === "ar" ? "الموازنة السنوية" : "Annual Budget";
-
   // Loading state
   if (loading) {
     return (
       <section className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2 mb-6">
-          <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{title}</h2>
+          <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{t("budget.title")}</h2>
           <div className="w-5 h-5" style={{ color: "var(--text-tertiary)" }}>
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H9a2 2 0 00-2 2v1M4 20a2 2 0 01-2-2v-5a2 2 0 012-2h2" />
@@ -302,12 +306,12 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
     return (
       <section className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2 mb-6">
-          <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{title}</h2>
+          <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{t("budget.title")}</h2>
         </div>
         <div className="space-y-3">
           <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-center">
             <p className="text-sm font-semibold text-red-700">
-              {locale === "ar" ? "تعذر تحميل بيانات الموازنة." : "Could not load budget data."}
+              {t("budget.error")}
             </p>
             {error && (
               <p className="mt-1 text-[11px] text-red-500 opacity-80">{error}</p>
@@ -319,7 +323,7 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
               className="rounded-xl border px-5 py-2 text-sm font-black transition"
               style={{ borderColor: "var(--border)", background: "var(--surface-strong)", color: "var(--text-primary)" }}
             >
-              {locale === "ar" ? "إعادة المحاولة" : "Retry"}
+              {t("budget.retry")}
             </button>
           </div>
         </div>
@@ -330,7 +334,7 @@ export function BudgetSummary({ locale }: { locale: "ar" | "en" }) {
   return (
     <section className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
       <div className="flex items-center gap-2 mb-6">
-        <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{title}</h2>
+        <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{t("budget.title")}</h2>
         <div className="w-5 h-5" style={{ color: "var(--text-tertiary)" }}>
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H9a2 2 0 00-2 2v1M4 20a2 2 0 01-2-2v-5a2 2 0 012-2h2" />
