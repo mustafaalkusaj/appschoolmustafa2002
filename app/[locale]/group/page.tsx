@@ -330,23 +330,13 @@ export default async function GroupDashboardPage({
             { key: "feesBeforeDiscount", label: t("kpis.feesBeforeDiscount"), value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#8b5cf6", textLight: "#ffffff", bgDark: "rgba(139, 92, 246, 0.3)" },
           ].map((metric) => (
             <div key={metric.key} className="rounded-2xl border shadow-sm p-5 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                <div className="min-w-0 flex-1 text-right">
-                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
-                    {metric.label}
-                  </p>
-                  <p className="mt-3 text-[clamp(1.5rem,2vw,2.25rem)] font-black leading-none break-words" style={{ color: "var(--text-primary)" }}>
-                    {metric.value}
-                  </p>
-                </div>
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl transition-colors self-end sm:self-auto" style={{ background: `light-dark(${metric.bgLight}, ${metric.bgDark})` }}>
-                  <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                    {metric.key === "totalStudents" && <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.667 0-8 1.337-8 4v2h16v-2c0-2.663-5.333-4-8-4z" />}
-                    {metric.key === "totalPaid" && <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />}
-                    {metric.key === "totalDiscounts" && <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6h1.5zm0 8H11v1.5h1.5z" />}
-                    {metric.key === "feesBeforeDiscount" && <path d="M12 1.5C6.25 1.5 1.5 6.25 1.5 12S6.25 22.5 12 22.5 22.5 17.75 22.5 12 17.75 1.5 12 1.5zm0 20C7.0725 21.5 3 17.4275 3 12.5C3 7.5725 7.0725 3.5 12 3.5C16.9275 3.5 21 7.5725 21 12.5C21 17.4275 16.9275 21.5 12 21.5z M12 6.5C9.51 6.5 7.5 8.51 7.5 11C7.5 12.16 8.01 13.18 8.81 13.86L12 17.05L15.19 13.86C15.99 13.18 16.5 12.16 16.5 11C16.5 8.51 14.49 6.5 12 6.5zm0 3C13.38 9.5 14.5 10.62 14.5 11C14.5 12.1 13.6 13 12.5 13C11.4 13 10.5 12.1 10.5 11C10.5 10.62 11.62 9.5 12 9.5z" />}
-                  </svg>
-                </div>
+              <div className="text-right">
+                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
+                  {metric.label}
+                </p>
+                <p className="mt-3 text-[clamp(1.75rem,3vw,2.5rem)] font-black leading-none break-words" style={{ color: "var(--text-primary)" }}>
+                  {metric.value}
+                </p>
               </div>
             </div>
           ))}
