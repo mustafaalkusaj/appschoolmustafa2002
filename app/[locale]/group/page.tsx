@@ -5,7 +5,6 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { localizeAppPath } from "@/lib/locale-routing";
 import { resolveSchoolManagerOverview, type SchoolManagerBranchSummary } from "@/lib/school-manager/overview";
-import { BudgetSummary } from "./_components/BudgetSummary";
 
 const SchoolManagerComparisonChart = dynamicImport(
   () => import("./_components/SchoolManagerComparisonChart").then((mod) => mod.SchoolManagerComparisonChart),
@@ -532,9 +531,6 @@ export default async function GroupDashboardPage({
             </div>
           </div>
         </section>
-
-        {/* ── Annual budget ──────────────────────────────────────────────────── */}
-        <BudgetSummary />
 
         {/* ── Financial analysis chart ───────────────────────────────────────── */}
         {chartPoints.length > 0 && (
