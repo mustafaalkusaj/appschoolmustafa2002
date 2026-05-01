@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const context = await resolveSchoolScopedActorContext(
     null,
     {
-      allowedRoles: ["super_admin", "admin"],
+      allowedRoles: ["admin"],
       roleDeniedMessage: "لا يمكن الوصول إلى الموازنات من هذا الحساب.",
     },
     req.headers.get("authorization"),
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   const context = await resolveSchoolScopedActorContext(
     null,
     {
-      allowedRoles: ["super_admin", "admin"],
+      allowedRoles: ["admin"],
       roleDeniedMessage: "لا يمكنك إنشاء موازنات من هذا الحساب.",
     },
     req.headers.get("authorization"),
