@@ -322,7 +322,7 @@ export default async function GroupDashboardPage({
           ))}
 
         {/* ── KPI cards ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { key: "totalStudents", label: t("kpis.totalStudents"), value: fmtN(totals.studentsCount) },
             { key: "totalPaid", label: t("kpis.totalPaid"), value: fmt(totals.totalPaid) },
@@ -335,22 +335,20 @@ export default async function GroupDashboardPage({
             const amount = parts.slice(1).join(" ");
 
             return (
-              <div key={metric.key} className="rounded-3xl border shadow-sm p-6 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-                <div className="flex h-full flex-col justify-between gap-4 text-right">
-                  <p className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color: "var(--text-tertiary)" }}>
-                    {metric.label}
-                  </p>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1" style={{ color: "var(--text-primary)" }}>
-                      {hasCurrency && (
-                        <span className="text-[clamp(1.1rem,1.6vw,1.5rem)] font-bold">
-                          {currency}
-                        </span>
-                      )}
-                      <span className="whitespace-nowrap text-[clamp(2rem,3vw,4rem)] font-black tracking-tight leading-none">
-                        {amount}
+              <div key={metric.key} className="rounded-3xl border shadow-sm p-6 transition-all hover:shadow-md flex flex-col justify-between" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>
+                  {metric.label}
+                </p>
+                <div className="min-w-0 mt-4">
+                  <div className="flex flex-wrap items-baseline justify-end gap-2" style={{ color: "var(--text-primary)" }}>
+                    {hasCurrency && (
+                      <span className="text-sm font-bold" style={{ color: "var(--text-tertiary)" }}>
+                        {currency}
                       </span>
-                    </div>
+                    )}
+                    <span className="whitespace-nowrap text-[clamp(2rem,2.4vw,3rem)] font-extrabold leading-none tracking-tight">
+                      {amount}
+                    </span>
                   </div>
                 </div>
               </div>
