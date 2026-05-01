@@ -103,6 +103,9 @@ async function resolveAttendanceContext(req: NextRequest, schoolId: string | nul
 }
 
 export async function GET(req: NextRequest) {
+  const t0 = performance.now();
+  const tAuthStart = performance.now();
+
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const date = normalizeDate(req.nextUrl.searchParams.get("date")) ?? getLocalIsoDate(new Date());
 
@@ -110,6 +113,8 @@ export async function GET(req: NextRequest) {
   if (!context.ok) {
     return context.response;
   }
+
+  const tAuthEnd = performance.now();
 
   const { actorSupabase, targetSchoolId } = context.value;
   const canViewAttendance = await routeUserHasPermission(actorSupabase, context.value.actorUserId, "view_attendance");
@@ -167,12 +172,35 @@ export async function GET(req: NextRequest) {
     }))
     .filter((row): row is { attendance_date: string; status: AttendanceStatus } => Boolean(row.attendance_date && row.status));
 
-  return NextResponse.json({
-    ok: true,
-    students: studentsResult.data ?? [],
-    records: recordsResult.data ?? [],
-    history: buildHistory(historyRows),
+  const tEnd = performance.now();
+  const totalTime = tEnd - t0;
+  const authTime = tAuthEnd - tAuthStart;
+  const dataTime = tEnd - tAuthEnd;
+
+  console.log("[attendance GET] Performance metrics", {
+    targetSchoolId,
+    studentsCount: (studentsResult.data ?? []).length,
+    recordsCount: (recordsResult.data ?? []).length,
+    historyDays: historyRows.length,
+    totalTimeMs: Math.round(totalTime),
+    authTimeMs: Math.round(authTime),
+    dataTimeMs: Math.round(dataTime),
+    responseSize: JSON.stringify({ students: studentsResult.data, records: recordsResult.data, history: buildHistory(historyRows) }).length,
   });
+
+  return NextResponse.json(
+    {
+      ok: true,
+      students: studentsResult.data ?? [],
+      records: recordsResult.data ?? [],
+      history: buildHistory(historyRows),
+    },
+    {
+      headers: {
+        "Server-Timing": `auth;dur=${Math.round(authTime)}, data;dur=${Math.round(dataTime)}, total;dur=${Math.round(totalTime)}`,
+      },
+    }
+  );
 }
 
 export async function POST(req: NextRequest) {

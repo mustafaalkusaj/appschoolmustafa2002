@@ -10,6 +10,9 @@ function jsonError(message: string, status: number) {
 }
 
 export async function GET(req: NextRequest) {
+  const t0 = performance.now();
+  const tAuthStart = performance.now();
+
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const context = await resolveSchoolScopedActorContext(
     schoolId,
@@ -26,6 +29,8 @@ export async function GET(req: NextRequest) {
       "status" in context ? context.status : 500,
     );
   }
+
+  const tAuthEnd = performance.now();
 
   const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
   const branchScope = resolveBranchScope(context.value, requestedBranchId);
@@ -47,11 +52,30 @@ export async function GET(req: NextRequest) {
   try {
     const filters = parsePaymentsListFilters(req.nextUrl.searchParams);
     const payload = await resolvePaymentsStudentsPage(actorSupabase, targetSchoolId, branchScope.value, filters);
+
+    const tEnd = performance.now();
+    const totalTime = tEnd - t0;
+    const authTime = tAuthEnd - tAuthStart;
+    const dataTime = tEnd - tAuthEnd;
+
+    console.log("[payments/students GET] Performance metrics", {
+      targetSchoolId,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      studentsCount: payload.students.length,
+      totalCount: payload.totalCount,
+      totalTimeMs: Math.round(totalTime),
+      authTimeMs: Math.round(authTime),
+      dataTimeMs: Math.round(dataTime),
+      responseSize: JSON.stringify(payload).length,
+    });
+
     return NextResponse.json(
       { ok: true, ...payload },
       {
         headers: {
           "Cache-Control": "private, no-store, max-age=0",
+          "Server-Timing": `auth;dur=${Math.round(authTime)}, data;dur=${Math.round(dataTime)}, total;dur=${Math.round(totalTime)}`,
         },
       },
     );

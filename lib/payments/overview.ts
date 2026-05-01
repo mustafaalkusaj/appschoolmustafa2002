@@ -288,7 +288,7 @@ async function fetchClassOptions(
   const { data, error } = await applyBranchScopeToQuery(
     actorSupabase
       .from("classes")
-      .select("*")
+      .select("name, grade")
       .eq("school_id", schoolId)
       .order("created_at", { ascending: true }),
     branchScope,

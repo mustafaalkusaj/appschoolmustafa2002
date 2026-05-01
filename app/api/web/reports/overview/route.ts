@@ -272,6 +272,9 @@ async function loadSummaryMetrics(
 }
 
 export async function GET(req: NextRequest) {
+  const t0 = performance.now();
+  const tAuthStart = performance.now();
+
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const context = await resolveSchoolScopedActorContext(
     schoolId,
@@ -281,6 +284,7 @@ export async function GET(req: NextRequest) {
     },
     req.headers.get("authorization"),
   );
+  const tAuthEnd = performance.now();
 
   if (!context.ok) {
     return jsonError(
@@ -354,18 +358,19 @@ export async function GET(req: NextRequest) {
       },
     );
 
-    console.log("[reports/overview] Response prepared", {
+    const tEnd = performance.now();
+    const totalTime = tEnd - t0;
+    const authTime = tAuthEnd - tAuthStart;
+    const dataTime = tEnd - tAuthEnd;
+
+    console.log("[reports/overview] Performance metrics", {
       endpoint: "/api/web/reports/overview",
       targetSchoolId,
-      metricsReturned: {
-        totalFees: payload.metrics.totalFees,
-        paymentVolume: payload.metrics.paymentVolume,
-        expenseVolume: payload.metrics.expenseVolume,
-        salaryVolume: payload.metrics.salaryVolume,
-        netBalance: payload.metrics.netBalance,
-        studentsCount: payload.metrics.studentsCount,
-      },
-      warningsCount: payload.warnings.length,
+      totalTimeMs: Math.round(totalTime),
+      authTimeMs: Math.round(authTime),
+      dataTimeMs: Math.round(dataTime),
+      studentsCount: payload.metrics.studentsCount,
+      responseSize: JSON.stringify(payload).length,
     });
 
     return NextResponse.json(
@@ -377,6 +382,7 @@ export async function GET(req: NextRequest) {
         headers: {
           "Cache-Control": "private, no-store, max-age=0, must-revalidate",
           "Pragma": "no-cache",
+          "Server-Timing": `auth;dur=${Math.round(authTime)}, data;dur=${Math.round(dataTime)}, total;dur=${Math.round(totalTime)}`,
         },
       },
     );
