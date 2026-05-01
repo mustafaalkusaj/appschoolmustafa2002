@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest";
 
-import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
+import { detectAppSchemaCompatWithClient, __TEST_ONLY_resetAllCaches } from "@/lib/schema-compat";
 
 type FakeCompatClient = {
   from: (table: string) => {
@@ -45,6 +45,10 @@ function createCompatClient(missingColumns: string[] = []): FakeCompatClient {
 }
 
 describe("detectAppSchemaCompatWithClient", () => {
+  beforeEach(() => {
+    __TEST_ONLY_resetAllCaches();
+  });
+
   it("detects branch branding columns when they exist", async () => {
     const compat = await detectAppSchemaCompatWithClient(createCompatClient());
 

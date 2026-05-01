@@ -8,6 +8,72 @@ import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 import { buildResolvedStudentFinancials, calculateStudentPaidPercentage } from "@/lib/students/financials";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
+// Server-side cache for schema column detection (10-minute TTL)
+let schemaColumnsCache: {
+  value: {
+    studentsStatusScope: boolean;
+    studentsBranchScope: boolean;
+    paymentsBranchScope: boolean;
+    salariesBranchScope: boolean;
+    feeNotificationsTableExists: boolean;
+    feeNotificationsBranchScope: boolean;
+    classFeesTableExists: boolean;
+    classFeesSchoolScope: boolean;
+    classFeesBranchScope: boolean;
+  };
+  timestamp: number;
+} | null = null;
+
+const SCHEMA_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+async function getSchemaColumns(
+  serviceSupabase: ReturnType<typeof createServiceSupabaseClient>,
+) {
+  const now = Date.now();
+  if (schemaColumnsCache && now - schemaColumnsCache.timestamp < SCHEMA_CACHE_TTL_MS) {
+    return schemaColumnsCache.value;
+  }
+
+  const [
+    studentsStatusScope,
+    studentsBranchScope,
+    paymentsBranchScope,
+    salariesBranchScope,
+    feeNotificationsTableExists,
+    feeNotificationsBranchScope,
+    classFeesTableExists,
+    classFeesSchoolScope,
+    classFeesBranchScope,
+  ] = await Promise.all([
+    tableHasColumn(serviceSupabase as never, "students", "status").catch(() => false),
+    tableHasColumn(serviceSupabase as never, "students", "branch_id").catch(() => false),
+    tableHasColumn(serviceSupabase as never, "payments", "branch_id").catch(() => false),
+    tableHasColumn(serviceSupabase as never, "salaries", "branch_id").catch(() => false),
+    tableHasColumn(serviceSupabase as never, "fee_notifications", "id").catch(() => false),
+    tableHasColumn(serviceSupabase as never, "fee_notifications", "branch_id").catch(
+      () => false,
+    ),
+    tableHasColumn(serviceSupabase as never, "class_fees", "id").catch(() => false),
+    tableHasColumn(serviceSupabase as never, "class_fees", "school_id").catch(() => false),
+    tableHasColumn(serviceSupabase as never, "class_fees", "branch_id").catch(() => false),
+  ]);
+
+  const result = {
+    studentsStatusScope,
+    studentsBranchScope,
+    paymentsBranchScope,
+    salariesBranchScope,
+    feeNotificationsTableExists,
+    feeNotificationsBranchScope,
+    classFeesTableExists,
+    classFeesSchoolScope,
+    classFeesBranchScope,
+  };
+
+  schemaColumnsCache = { value: result, timestamp: now };
+  return result;
+}
+
 type DashboardStudentRow = {
   id: string;
   full_name: string | null;
@@ -114,7 +180,7 @@ export async function GET(req: NextRequest) {
   try {
     const serviceSupabase = createServiceSupabaseClient();
     const loadDashboardOverview = async () => {
-      const [
+      const {
         studentsStatusScope,
         studentsBranchScope,
         paymentsBranchScope,
@@ -124,17 +190,7 @@ export async function GET(req: NextRequest) {
         classFeesTableExists,
         classFeesSchoolScope,
         classFeesBranchScope,
-      ] = await Promise.all([
-        tableHasColumn(serviceSupabase as never, "students", "status").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "students", "branch_id").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "payments", "branch_id").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "salaries", "branch_id").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "fee_notifications", "id").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "fee_notifications", "branch_id").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "class_fees", "id").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "class_fees", "school_id").catch(() => false),
-        tableHasColumn(serviceSupabase as never, "class_fees", "branch_id").catch(() => false),
-      ]);
+      } = await getSchemaColumns(serviceSupabase);
 
       const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
@@ -225,10 +281,22 @@ export async function GET(req: NextRequest) {
           ? ((studentsResult.value.data ?? []) as DashboardStudentRow[])
           : [];
 
-      // SAFETY: If branch scope was requested but studentsBranchScope=false,
+      // SAFETY: If branch scope was requested but schema detection failed for any table,
       // we cannot safely apply branch filtering. Return degraded to prevent data leakage.
-      if (effectiveBranchId && !studentsBranchScope) {
-        return buildEmptyDashboardOverviewPayload("degraded_dashboard_overview");
+      if (effectiveBranchId) {
+        const missingBranchScopes = [];
+        if (!studentsBranchScope) missingBranchScopes.push("students");
+        if (!paymentsBranchScope) missingBranchScopes.push("payments");
+        if (!salariesBranchScope) missingBranchScopes.push("salaries");
+        if (effectiveBranchId && feeNotificationsTableExists && !feeNotificationsBranchScope) {
+          missingBranchScopes.push("fee_notifications");
+        }
+        if (missingBranchScopes.length > 0) {
+          console.warn(
+            `[dashboard-overview] Branch requested but columns not found in: ${missingBranchScopes.join(", ")}. Returning degraded.`
+          );
+          return buildEmptyDashboardOverviewPayload("degraded_dashboard_overview");
+        }
       }
       const classFeeMap = new Map<string, number>();
       (classFeesResult.status === "fulfilled" && !classFeesResult.value.error

@@ -30,6 +30,22 @@ export const DEFAULT_COMPAT: AppSchemaCompat = {
 };
 
 let compatPromise: Promise<AppSchemaCompat> | null = null;
+let serverSideCacheEntry: { compat: AppSchemaCompat; timestamp: number } | null = null;
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getServerCachedCompat(): AppSchemaCompat | null {
+  if (!serverSideCacheEntry) return null;
+  const age = Date.now() - serverSideCacheEntry.timestamp;
+  if (age > CACHE_TTL_MS) {
+    serverSideCacheEntry = null;
+    return null;
+  }
+  return serverSideCacheEntry.compat;
+}
+
+function setServerCachedCompat(compat: AppSchemaCompat): void {
+  serverSideCacheEntry = { compat, timestamp: Date.now() };
+}
 
 type SchemaCompatSelectQuery = {
   // Supabase's query builders are thenables (PromiseLike). Keep this intentionally
@@ -79,6 +95,12 @@ async function fetchCompatFromApi(): Promise<AppSchemaCompat> {
 }
 
 export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient): Promise<AppSchemaCompat> {
+  // Check server-side cache first (10-min TTL)
+  const cached = getServerCachedCompat();
+  if (cached) {
+    return cached;
+  }
+
   return Promise.all([
     probeColumnWithClient(client, "schools", "primary_color"),
     probeColumnWithClient(client, "schools", "theme_preset"),
@@ -104,20 +126,28 @@ export async function detectAppSchemaCompatWithClient(client: SchemaCompatClient
       classFeesSchoolScope,
       classesNameColumn,
       sectionsSchoolScope,
-    ]) => ({
-      schoolColors,
-      schoolThemePreset,
-      branchColors,
-      branchUiColors,
-      branchLogo,
-      classFeesBranchScope,
-      classesBranchScope,
-      branchesIsMain,
-      classFeesSchoolScope,
-      classesNameColumn,
-      sectionsSchoolScope,
-    }))
-    .catch(() => DEFAULT_COMPAT);
+    ]) => {
+      const result = {
+        schoolColors,
+        schoolThemePreset,
+        branchColors,
+        branchUiColors,
+        branchLogo,
+        classFeesBranchScope,
+        classesBranchScope,
+        branchesIsMain,
+        classFeesSchoolScope,
+        classesNameColumn,
+        sectionsSchoolScope,
+      };
+      // Store in server cache for future calls
+      setServerCachedCompat(result);
+      return result;
+    })
+    .catch(() => {
+      // On error, still return DEFAULT_COMPAT but don't cache the error
+      return DEFAULT_COMPAT;
+    });
 }
 
 export async function detectAppSchemaCompat(): Promise<AppSchemaCompat> {
@@ -133,4 +163,10 @@ export async function detectAppSchemaCompat(): Promise<AppSchemaCompat> {
 
 export function resetAppSchemaCompatCache() {
   compatPromise = null;
+  serverSideCacheEntry = null;
+}
+
+// For testing purposes: reset all caches
+export function __TEST_ONLY_resetAllCaches() {
+  resetAppSchemaCompatCache();
 }

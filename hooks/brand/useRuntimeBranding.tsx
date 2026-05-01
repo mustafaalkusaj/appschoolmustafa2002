@@ -130,6 +130,17 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean)
   }
 }
 
+function isAuthPage(pathname: string | null): boolean {
+  if (!pathname) return false;
+  // Remove locale prefix (e.g., "/ar" or "/en")
+  const normalized = pathname.replace(/^\/[a-z]{2}(?=\/|$)/, "") || "/";
+  return (
+    normalized === "/login" ||
+    normalized === "/forgot-password" ||
+    normalized === "/register"
+  );
+}
+
 export function RuntimeBrandingProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { profile } = useRole();
@@ -149,6 +160,15 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
     async function loadBranding() {
       try {
+        // Skip branding load on auth pages (login, forgot-password, register)
+        // These pages don't need custom branding and load faster without it
+        if (isAuthPage(pathname)) {
+          if (active) {
+            setBranding(createEmptyBrandingState());
+          }
+          return;
+        }
+
         if (!scopedSchoolId) {
           if (active) {
             setBranding(createEmptyBrandingState());

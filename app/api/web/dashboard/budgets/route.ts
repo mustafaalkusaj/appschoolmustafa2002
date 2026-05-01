@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { fetchBudgetSummaries } from "@/lib/school-manager/budget-summary";
+import { assertBranchBelongsToUserContext } from "@/lib/branch-validation";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -149,6 +150,20 @@ export async function POST(req: NextRequest) {
 
     // Insert budget items if provided
     if (Array.isArray(items) && items.length > 0) {
+      // Validate all branch_ids before proceeding
+      try {
+        for (const item of items) {
+          if (item.branch_id) {
+            assertBranchBelongsToUserContext(item.branch_id, context.value, "item.branch_id");
+          }
+        }
+      } catch (validationError) {
+        return jsonError(
+          validationError instanceof Error ? validationError.message : "Invalid branch_id in budget items.",
+          403
+        );
+      }
+
       const itemsPayload = items.map((item) => ({
         budget_id: budget.id,
         school_id: targetSchoolId,
