@@ -7,6 +7,7 @@ import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { buildResolvedStudentFinancials } from "@/lib/students/financials";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -63,13 +64,20 @@ async function loadFallbackMetrics(
 ) {
   console.log("[loadFallbackMetrics DEBUG] Starting - schoolId:", schoolId, "branchScope:", branchScope);
 
-  const [studentsResult, paymentsResult, expensesResult, salariesResult] = await Promise.allSettled([
+  const [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult] = await Promise.allSettled([
     applyBranchScopeToQuery(
       actorSupabase
         .from("students")
-        .select("id, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .select("id, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
         .eq("school_id", schoolId)
         .neq("status", "deleted"),
+      branchScope,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("class_fees")
+        .select("class_name, total_fee")
+        .eq("school_id", schoolId),
       branchScope,
     ),
     applyBranchScopeToQuery(
@@ -97,6 +105,7 @@ async function loadFallbackMetrics(
 
   console.log("[loadFallbackMetrics DEBUG] Query results status:", {
     students: studentsResult.status,
+    classFees: classFeesResult.status,
     payments: paymentsResult.status,
     expenses: expensesResult.status,
     salaries: salariesResult.status,
@@ -108,6 +117,13 @@ async function loadFallbackMetrics(
         ? (console.log("[loadFallbackMetrics DEBUG] Students query error:", studentsResult.value.error), [])
         : ((studentsResult.value.data ?? []) as Array<Record<string, unknown>>)
       : (console.log("[loadFallbackMetrics DEBUG] Students query rejected"), []);
+
+  const classFees =
+    classFeesResult.status === "fulfilled"
+      ? classFeesResult.value.error
+        ? (console.log("[loadFallbackMetrics DEBUG] ClassFees query error:", classFeesResult.value.error), [])
+        : ((classFeesResult.value.data ?? []) as Array<Record<string, unknown>>)
+      : (console.log("[loadFallbackMetrics DEBUG] ClassFees query rejected"), []);
 
   const payments =
     paymentsResult.status === "fulfilled"
@@ -132,9 +148,18 @@ async function loadFallbackMetrics(
 
   console.log("[loadFallbackMetrics DEBUG] Data counts:", {
     students: students.length,
+    classFees: classFees.length,
     payments: payments.length,
     expenses: expenses.length,
     salaries: salaries.length,
+  });
+
+  // Build class_name -> total_fee map
+  const classFeeMap = new Map<string, number>();
+  classFees.forEach((cf: any) => {
+    if (cf.class_name && typeof cf.total_fee === "number") {
+      classFeeMap.set(String(cf.class_name), cf.total_fee);
+    }
   });
 
   const expenseTypeCount = new Set(
@@ -143,20 +168,34 @@ async function loadFallbackMetrics(
       .filter(Boolean),
   ).size;
 
+  // Calculate metrics with resolved class fees
+  let totalFees = 0;
+  let totalPaid = 0;
+  let totalRemaining = 0;
+
+  students.forEach((student: any) => {
+    const className = student.class_name;
+    const classFeeTotal = className ? classFeeMap.get(className) : undefined;
+    const resolved = buildResolvedStudentFinancials(
+      {
+        total_fee: Number(student.total_fee ?? 0),
+        paid_fee: Number(student.paid_fee ?? 0),
+        discount_value: Number(student.discount_value ?? 0),
+      },
+      classFeeTotal,
+    );
+
+    totalFees += resolved.resolved_total_fee;
+    totalPaid += resolved.paid_fee;
+    totalRemaining += resolved.remaining_fee;
+  });
+
   const metrics = {
     studentsCount: students.length,
     activeStudents: students.filter((item) => item.status === "active").length,
-    totalFees: students.reduce((sum, item) => sum + Number(item.total_fee ?? 0), 0),
-    totalPaid: students.reduce((sum, item) => sum + Number(item.paid_fee ?? 0), 0),
-    totalRemaining: students.reduce(
-      (sum, item) =>
-        sum
-        + Math.max(
-          Number(item.total_fee ?? 0) - Number(item.paid_fee ?? 0) - Number(item.discount_value ?? 0),
-          0,
-        ),
-      0,
-    ),
+    totalFees,
+    totalPaid,
+    totalRemaining,
     paymentsCount: payments.length,
     paymentVolume: payments.reduce((sum, item) => sum + Number(item.amount ?? 0), 0),
     todayPayments: payments.filter((item) => new Date(String(item.created_at ?? "")).toDateString() === todayKey).length,
@@ -180,9 +219,9 @@ async function loadFallbackMetrics(
 
   return {
     metrics: finalMetrics,
-    warnings: [studentsResult, paymentsResult, expensesResult, salariesResult]
+    warnings: [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult]
       .map((result, index) => {
-        const labels = ["بيانات الطلاب", "بيانات الدفعات", "بيانات المصروفات", "بيانات الرواتب"];
+        const labels = ["بيانات الطلاب", "بيانات رسوم الفئات", "بيانات الدفعات", "بيانات المصروفات", "بيانات الرواتب"];
         if (result.status !== "fulfilled") return `تعذر تحميل ${labels[index]} حالياً.`;
         if (result.value.error) return result.value.error.message || `تعذر تحميل ${labels[index]} حالياً.`;
         return null;
