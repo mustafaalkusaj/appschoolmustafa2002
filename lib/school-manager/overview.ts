@@ -23,6 +23,7 @@ function isExcludedBranch(name: string | null | undefined): boolean {
 export type SchoolManagerBranchRecord = {
   id: string;
   name: string | null;
+  logo_url: string | null;
 };
 
 export type SchoolManagerStudentRecord = {
@@ -49,6 +50,7 @@ export type SchoolManagerClassFeeRecord = {
 export type SchoolManagerBranchSummary = {
   branchId: string | null;
   branchName: string;
+  logoUrl: string | null;
   studentsCount: number;
   totalFeesBeforeDiscount: number;
   totalDiscount: number;
@@ -90,10 +92,11 @@ function shouldCountStudent(status: string | null | undefined) {
   return String(status ?? "").toLowerCase() !== "deleted";
 }
 
-function buildEmptySummary(branchId: string | null, branchName: string): SchoolManagerBranchSummary {
+function buildEmptySummary(branchId: string | null, branchName: string, logoUrl: string | null = null): SchoolManagerBranchSummary {
   return {
     branchId,
     branchName,
+    logoUrl,
     studentsCount: 0,
     totalFeesBeforeDiscount: 0,
     totalDiscount: 0,
@@ -164,7 +167,7 @@ export function buildSchoolManagerOverview(input: {
     if (isExcludedBranch(branch.name)) {
       excludedBranchIdSet.add(branchId);
     } else {
-      summaries.set(branchId, buildEmptySummary(branchId, name));
+      summaries.set(branchId, buildEmptySummary(branchId, name, branch.logo_url || null));
       branchOrder.push(branchId);
     }
   }
@@ -257,6 +260,7 @@ export function buildSchoolManagerOverview(input: {
       (acc, branch) => ({
         branchId: null,
         branchName: "إجمالي المدرسة",
+        logoUrl: null,
         studentsCount: acc.studentsCount + branch.studentsCount,
         totalFeesBeforeDiscount:
           acc.totalFeesBeforeDiscount + branch.totalFeesBeforeDiscount,
@@ -307,7 +311,7 @@ export async function resolveSchoolManagerOverview(
   ] = await Promise.all([
     actorSupabase
       .from("branches")
-      .select("id, name")
+      .select("id, name, logo_url")
       .eq("school_id", schoolId)
       .order("name", { ascending: true }),
     actorSupabase

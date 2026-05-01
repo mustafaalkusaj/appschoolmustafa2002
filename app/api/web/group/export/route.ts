@@ -155,6 +155,7 @@ export async function GET(req: NextRequest) {
         rows: buildRows({
           branchId: null,
           branchName: "إجمالي المدرسة",
+          logoUrl: null,
           ...overview.totals,
         }),
       };

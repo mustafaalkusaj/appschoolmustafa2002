@@ -1,4 +1,5 @@
 import dynamicImport from "next/dynamic";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
@@ -133,10 +134,21 @@ function BranchCard({
     >
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between gap-3">
-        <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black shrink-0 text-white ${accent.initials}`}
-        >
-          {branch.branchName.charAt(0).toUpperCase()}
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+          {branch.logoUrl ? (
+            <Image
+              src={branch.logoUrl}
+              alt={branch.branchName}
+              width={56}
+              height={56}
+              className="h-full w-full object-contain p-2"
+              unoptimized
+            />
+          ) : (
+            <div className="flex items-center justify-center text-sm font-bold text-center px-2" style={{ color: "var(--text-tertiary)" }}>
+              {branch.branchName.split(" ").map((word) => word.charAt(0)).join("").substring(0, 2).toUpperCase()}
+            </div>
+          )}
         </div>
         <h3 className="text-base font-black text-right flex-1" style={{ color: "var(--text-primary)" }}>{branch.branchName}</h3>
       </div>
