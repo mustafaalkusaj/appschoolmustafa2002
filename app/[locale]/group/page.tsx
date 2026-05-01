@@ -328,18 +328,34 @@ export default async function GroupDashboardPage({
             { key: "totalPaid", label: t("kpis.totalPaid"), value: fmt(totals.totalPaid) },
             { key: "totalDiscounts", label: t("kpis.totalDiscounts"), value: fmt(totals.totalDiscount) },
             { key: "feesBeforeDiscount", label: t("kpis.feesBeforeDiscount"), value: fmt(totals.totalFeesBeforeDiscount) },
-          ].map((metric) => (
-            <div key={metric.key} className="rounded-2xl border shadow-sm p-6 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-              <div className="text-right">
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
-                  {metric.label}
-                </p>
-                <p className="mt-2.5 text-[clamp(1.75rem,3vw,2.5rem)] font-black leading-tight tracking-tight" style={{ color: "var(--text-primary)" }}>
-                  {metric.value}
-                </p>
+          ].map((metric) => {
+            const hasCurrency = metric.value.startsWith("IQD");
+            const parts = hasCurrency ? metric.value.split(" ") : ["", metric.value];
+            const currency = parts[0];
+            const amount = parts.slice(1).join(" ");
+
+            return (
+              <div key={metric.key} className="rounded-3xl border shadow-sm p-6 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
+                <div className="flex h-full flex-col justify-between gap-4 text-right">
+                  <p className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color: "var(--text-tertiary)" }}>
+                    {metric.label}
+                  </p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1" style={{ color: "var(--text-primary)" }}>
+                      {hasCurrency && (
+                        <span className="text-[clamp(1.1rem,1.6vw,1.5rem)] font-bold">
+                          {currency}
+                        </span>
+                      )}
+                      <span className="whitespace-nowrap text-[clamp(2rem,3vw,4rem)] font-black tracking-tight leading-none">
+                        {amount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* ── Branch summary ─────────────────────────────────────────────────── */}
