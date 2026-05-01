@@ -254,7 +254,8 @@ export default function ReportsPage() {
       }
 
       const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics }>(
-        `/api/web/reports/overview?schoolId=${encodeURIComponent(schoolId)}`,
+        `/api/web/reports/overview?schoolId=${encodeURIComponent(schoolId)}&t=${Date.now()}`,
+        { cache: "no-store" }
       );
 
       if (!response.ok) {

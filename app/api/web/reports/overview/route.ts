@@ -8,6 +8,9 @@ import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type ReportsMetrics = {
   studentsCount: number;
   activeStudents: number;
@@ -312,6 +315,20 @@ export async function GET(req: NextRequest) {
       },
     );
 
+    console.log("[reports/overview] Response prepared", {
+      endpoint: "/api/web/reports/overview",
+      targetSchoolId,
+      metricsReturned: {
+        totalFees: payload.metrics.totalFees,
+        paymentVolume: payload.metrics.paymentVolume,
+        expenseVolume: payload.metrics.expenseVolume,
+        salaryVolume: payload.metrics.salaryVolume,
+        netBalance: payload.metrics.netBalance,
+        studentsCount: payload.metrics.studentsCount,
+      },
+      warningsCount: payload.warnings.length,
+    });
+
     return NextResponse.json(
       {
         ok: true,
@@ -319,7 +336,8 @@ export async function GET(req: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "private, no-store, max-age=0",
+          "Cache-Control": "private, no-store, max-age=0, must-revalidate",
+          "Pragma": "no-cache",
         },
       },
     );
