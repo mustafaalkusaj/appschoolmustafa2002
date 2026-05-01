@@ -530,7 +530,7 @@ export default async function GroupDashboardPage({
         </section>
 
         {/* ── Annual budget ──────────────────────────────────────────────────── */}
-        <BudgetSummary locale={locale} />
+        <BudgetSummary />
 
         {/* ── Financial analysis chart ───────────────────────────────────────── */}
         {chartPoints.length > 0 && (

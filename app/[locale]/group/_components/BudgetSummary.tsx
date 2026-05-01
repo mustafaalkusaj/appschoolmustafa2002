@@ -60,7 +60,7 @@ function BudgetMetricCell({
   );
 }
 
-function EmptyBudgetYear({ label, year }: { label: string; year: number }) {
+function EmptyBudgetYear({ label, year, t }: { label: string; year: number; t: TFn }) {
   return (
     <div className="rounded-xl border border-dashed px-6 py-8 text-center" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
       <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-xl">
@@ -69,7 +69,7 @@ function EmptyBudgetYear({ label, year }: { label: string; year: number }) {
       <div className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
         {label} ({year})
       </div>
-      <p className="mt-1.5 text-xs font-medium" style={{ color: "var(--text-tertiary)" }}>لا توجد موازنة مسجلة لهذه السنة</p>
+      <p className="mt-1.5 text-xs font-medium" style={{ color: "var(--text-tertiary)" }}>{t("budget.empty")}</p>
     </div>
   );
 }
@@ -159,7 +159,7 @@ function BudgetYearSection({
 
       {/* No budget */}
       {!year.budget && !isForecasted ? (
-        <EmptyBudgetYear label={yearLabel} year={fiscalYear} />
+        <EmptyBudgetYear label={yearLabel} year={fiscalYear} t={t} />
       ) : (
         <div className="space-y-2.5">
           {/* Main metrics grid */}
@@ -345,15 +345,17 @@ export function BudgetSummary() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <BudgetYearSection
           year={response.current}
-          badge={locale === "ar" ? "هذه السنة" : "Current"}
+          badge={t("budget.currentYearBadge")}
           badgeColor="bg-blue-100 text-blue-700"
+          t={t}
         />
         <div className="hidden md:block border-r" style={{ borderColor: "var(--border)" }} />
         <div className="md:hidden border-t" style={{ borderColor: "var(--border)" }} />
         <BudgetYearSection
           year={response.next}
-          badge={locale === "ar" ? "السنة القادمة" : "Upcoming"}
+          badge={t("budget.nextYearBadge")}
           badgeColor="bg-amber-100 text-amber-700"
+          t={t}
         />
       </div>
     </section>
