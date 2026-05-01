@@ -330,16 +330,16 @@ export default async function GroupDashboardPage({
             { key: "feesBeforeDiscount", label: t("kpis.feesBeforeDiscount"), value: fmt(totals.totalFeesBeforeDiscount), bgLight: "#8b5cf6", textLight: "#ffffff", bgDark: "rgba(139, 92, 246, 0.3)" },
           ].map((metric) => (
             <div key={metric.key} className="rounded-2xl border shadow-sm p-5 transition-all hover:shadow-md" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div className="min-w-0 flex-1 text-right">
                   <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
                     {metric.label}
                   </p>
-                  <p className="mt-3 whitespace-nowrap text-[clamp(1.5rem,2vw,2.25rem)] font-black leading-none" style={{ color: "var(--text-primary)" }}>
+                  <p className="mt-3 text-[clamp(1.5rem,2vw,2.25rem)] font-black leading-none break-words" style={{ color: "var(--text-primary)" }}>
                     {metric.value}
                   </p>
                 </div>
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl transition-colors" style={{ background: `light-dark(${metric.bgLight}, ${metric.bgDark})` }}>
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl transition-colors self-end sm:self-auto" style={{ background: `light-dark(${metric.bgLight}, ${metric.bgDark})` }}>
                   <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
                     {metric.key === "totalStudents" && <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.667 0-8 1.337-8 4v2h16v-2c0-2.663-5.333-4-8-4z" />}
                     {metric.key === "totalPaid" && <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />}
