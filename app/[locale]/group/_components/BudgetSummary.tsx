@@ -73,6 +73,24 @@ function EmptyBudgetYear({ label, year }: { label: string; year: number }) {
   );
 }
 
+function DataQualityBadge({ quality }: { quality: "high" | "medium" | "low" }) {
+  const colors = {
+    high: "bg-emerald-100 text-emerald-700",
+    medium: "bg-amber-100 text-amber-700",
+    low: "bg-red-100 text-red-700",
+  };
+  const labels = {
+    high: "جودة عالية",
+    medium: "جودة متوسطة",
+    low: "جودة منخفضة",
+  };
+  return (
+    <span className={`rounded-lg px-2.5 py-1 text-[10px] font-bold ${colors[quality]}`}>
+      {labels[quality]}
+    </span>
+  );
+}
+
 function BudgetYearSection({
   year,
   badge,
@@ -82,26 +100,60 @@ function BudgetYearSection({
   badge: string;
   badgeColor: string;
 }) {
-  const { totals, branches, fiscalYear } = year;
+  const { totals, branches, fiscalYear, insights, dataQuality, isForecasted } = year;
   const yearLabel = year.isCurrent ? "السنة الحالية" : "السنة القادمة";
 
   return (
     <div className="space-y-3">
       {/* Year header */}
-      <div className="flex items-center justify-between gap-2">
-        <span className={`rounded-xl px-3 py-1 text-[11px] font-black ${badgeColor}`}>{badge}</span>
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-black" style={{ color: "var(--text-primary)" }}>{yearLabel}</h3>
-          <div className="w-5 h-5 flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`rounded-xl px-3 py-1 text-[11px] font-black ${badgeColor}`}>{badge}</span>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-black" style={{ color: "var(--text-primary)" }}>{yearLabel}</h3>
+            <div className="w-5 h-5 flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
           </div>
+        </div>
+
+        {/* Status badges */}
+        <div className="flex flex-wrap items-center gap-2">
+          <DataQualityBadge quality={dataQuality} />
+          {isForecasted && (
+            <span className="rounded-lg px-2.5 py-1 text-[10px] font-bold bg-blue-100 text-blue-700">
+              توقع أولي
+            </span>
+          )}
+          {year.budget && (
+            <span className="rounded-lg px-2.5 py-1 text-[10px] font-bold bg-green-100 text-green-700">
+              موازنة معتمدة
+            </span>
+          )}
         </div>
       </div>
 
+      {/* Insights section */}
+      {insights.length > 0 && (
+        <div className="space-y-2 rounded-xl border p-3.5" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
+          <div className="text-[10px] font-black uppercase tracking-wide text-right" style={{ color: "var(--text-tertiary)" }}>
+            لماذا نتوقع هذه الأرقام؟
+          </div>
+          <ul className="space-y-1.5">
+            {insights.map((insight, i) => (
+              <li key={i} className="flex gap-2 text-[12px] font-medium text-right" style={{ color: "var(--text-secondary)" }}>
+                <span className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-tertiary)" }}>•</span>
+                <span>{insight}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* No budget */}
-      {!year.budget ? (
+      {!year.budget && !isForecasted ? (
         <EmptyBudgetYear label={yearLabel} year={fiscalYear} />
       ) : (
         <div className="space-y-2.5">

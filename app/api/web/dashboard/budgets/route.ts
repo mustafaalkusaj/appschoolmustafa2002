@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Allow group_admin scope to access budgets
-  if (context.value.scopeLevel !== "group_admin") {
+  // Allow super_admin and group_admin scopes to access budgets
+  if (context.value.scopeLevel !== "super_admin" && context.value.scopeLevel !== "group_admin") {
     return jsonError("لا يمكن الوصول إلى الموازنات من هذا الحساب.", 403);
   }
 
@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Allow group_admin scope to create budgets
-  if (context.value.scopeLevel !== "group_admin") {
+  // Allow super_admin and group_admin scopes to create budgets
+  if (context.value.scopeLevel !== "super_admin" && context.value.scopeLevel !== "group_admin") {
     return jsonError("لا يمكنك إنشاء موازنات من هذا الحساب.", 403);
   }
 

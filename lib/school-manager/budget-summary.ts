@@ -48,6 +48,9 @@ export interface FiscalYearSummary {
     incomeCompletionRate: number;
     expenseConsumptionRate: number;
   };
+  dataQuality: "high" | "medium" | "low";
+  insights: string[];
+  isForecasted: boolean;
 }
 
 function toAmount(value: unknown): number {
@@ -59,6 +62,151 @@ function calculateRate(actual: number, planned: number): number {
   if (planned === 0) return 0;
   const rate = (actual / planned) * 100;
   return Math.min(100, Math.max(0, Math.round(rate * 10) / 10));
+}
+
+/**
+ * Evaluate data quality based on available financial records
+ */
+function evaluateDataQuality(
+  hasBudget: boolean,
+  paymentsCount: number,
+  expensesCount: number,
+  branchCount: number,
+  hasActualData: boolean,
+): "high" | "medium" | "low" {
+  const score = [
+    hasBudget ? 2 : 0,
+    paymentsCount > 0 ? 2 : 0,
+    expensesCount > 0 ? 2 : 0,
+    branchCount > 0 ? 1 : 0,
+    hasActualData ? 2 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  if (score >= 8) return "high";
+  if (score >= 4) return "medium";
+  return "low";
+}
+
+/**
+ * Generate dynamic insights based on financial data
+ */
+function generateInsights(
+  currentSummary: Omit<FiscalYearSummary, "dataQuality" | "insights" | "isForecasted">,
+  paymentsCount: number,
+  expensesCount: number,
+): string[] {
+  const insights: string[] = [];
+  const { totals, branches } = currentSummary;
+
+  // Income collection rate insight
+  if (totals.plannedIncome > 0) {
+    const collectionRate = totals.incomeCompletionRate;
+    if (collectionRate < 50) {
+      insights.push("معدل التحصيل منخفض جداً، مما قد يؤثر على دقة التوقعات المستقبلية.");
+    } else if (collectionRate < 75) {
+      insights.push("معدل التحصيل متوسط، لذلك توقع السنة القادمة قد يحمل مخاطرة.");
+    }
+  }
+
+  // Expense tracking insight
+  if (expensesCount === 0) {
+    insights.push("لا توجد مصروفات مسجلة، لذلك دقة توقع المصروفات منخفضة.");
+  } else if (totals.plannedExpense > 0 && totals.actualExpense === 0) {
+    insights.push("المصروفات المخططة غير مطابقة للبيانات الفعلية المسجلة.");
+  }
+
+  // Branch concentration insight
+  if (branches.length > 0) {
+    const sortedByIncome = [...branches].sort((a, b) => b.actualIncome - a.actualIncome);
+    const topBranchIncome = sortedByIncome[0]?.actualIncome || 0;
+    const totalIncome = totals.actualIncome;
+
+    if (totalIncome > 0 && topBranchIncome > 0) {
+      const concentration = (topBranchIncome / totalIncome) * 100;
+      if (concentration > 70) {
+        insights.push(
+          `أغلب الإيرادات (${concentration.toFixed(0)}%) تأتي من فرع واحد، مما يزيد المخاطرة.`,
+        );
+      }
+    }
+  }
+
+  // Payment count insight
+  if (paymentsCount === 0) {
+    insights.push("لا توجد مدفوعات مسجلة حتى الآن.");
+  }
+
+  // Budget status insight
+  if (!currentSummary.budget) {
+    insights.push("لا توجد موازنة معتمدة، التوقع يعتمد على البيانات الفعلية فقط.");
+  } else {
+    insights.push("التوقع يعتمد على موازنة معتمدة وبيانات فعلية.");
+  }
+
+  return insights;
+}
+
+/**
+ * Create a forecast for next year based on current data
+ */
+function createForecast(
+  current: Omit<FiscalYearSummary, "dataQuality" | "insights" | "isForecasted">,
+  nextYear: Omit<FiscalYearSummary, "dataQuality" | "insights" | "isForecasted">,
+): Omit<FiscalYearSummary, "dataQuality" | "insights" | "isForecasted"> {
+  // If next year has a budget, use it; otherwise create a forecast
+  if (nextYear.budget) {
+    return nextYear;
+  }
+
+  const { totals: currentTotals, branches: currentBranches } = current;
+
+  // Calculate growth factor or use conservative estimate
+  let incomeFactor = 1;
+  let expenseFactor = 1;
+
+  if (currentTotals.actualIncome > 0 && currentTotals.plannedIncome > 0) {
+    // Compare actual to planned
+    incomeFactor = Math.min(1.1, currentTotals.actualIncome / currentTotals.plannedIncome);
+  } else if (currentTotals.actualIncome > 0) {
+    // Conservative 5% growth
+    incomeFactor = 1.05;
+  }
+
+  if (currentTotals.actualExpense > 0 && currentTotals.plannedExpense > 0) {
+    expenseFactor = currentTotals.actualExpense / currentTotals.plannedExpense;
+  } else if (currentTotals.actualExpense > 0) {
+    expenseFactor = 1.05;
+  }
+
+  // Forecast branch data
+  const forecastedBranches: BranchFinancialData[] = currentBranches.map((branch) => ({
+    ...branch,
+    plannedIncome: Math.round(branch.actualIncome * incomeFactor),
+    plannedExpense: Math.round(branch.actualExpense * expenseFactor),
+  }));
+
+  // Compute new totals
+  const forecastedTotals = {
+    plannedIncome: Math.round(currentTotals.actualIncome * incomeFactor),
+    actualIncome: 0,
+    plannedExpense: Math.round(currentTotals.actualExpense * expenseFactor),
+    actualExpense: 0,
+    plannedSurplus: 0,
+    actualSurplus: 0,
+    incomeCompletionRate: 0,
+    expenseConsumptionRate: 0,
+  };
+
+  forecastedTotals.plannedSurplus =
+    forecastedTotals.plannedIncome - forecastedTotals.plannedExpense;
+
+  return {
+    fiscalYear: nextYear.fiscalYear,
+    isCurrent: false,
+    budget: null,
+    branches: forecastedBranches,
+    totals: forecastedTotals,
+  };
 }
 
 /**
@@ -257,12 +405,33 @@ export async function computeFiscalYearSummary(
     expenseConsumptionRate: calculateRate(basicTotals.actualExpense, basicTotals.plannedExpense),
   };
 
-  return {
+  const baseSummary = {
     fiscalYear,
     isCurrent,
     budget,
     branches: branchList,
     totals,
+  };
+
+  // Evaluate data quality
+  const dataQuality = evaluateDataQuality(
+    !!budget,
+    financials.payments.length,
+    financials.expenses.length,
+    branches.length,
+    financials.payments.length > 0 || financials.expenses.length > 0,
+  );
+
+  // Generate insights
+  const insights = isCurrent
+    ? generateInsights(baseSummary, financials.payments.length, financials.expenses.length)
+    : [];
+
+  return {
+    ...baseSummary,
+    dataQuality,
+    insights,
+    isForecasted: false,
   };
 }
 
@@ -276,10 +445,25 @@ export async function fetchBudgetSummaries(
   const currentYear = new Date().getFullYear();
   const nextYear = currentYear + 1;
 
-  const [current, next] = await Promise.all([
+  const [current, nextComputed] = await Promise.all([
     computeFiscalYearSummary(supabase, schoolId, currentYear),
     computeFiscalYearSummary(supabase, schoolId, nextYear),
   ]);
+
+  // If next year doesn't have a budget, create a forecast
+  let next = nextComputed;
+  if (!nextComputed.budget && current.totals.actualIncome > 0) {
+    const forecasted = createForecast(current, nextComputed);
+    next = {
+      ...forecasted,
+      dataQuality: current.dataQuality === "low" ? "low" : "medium",
+      insights: [
+        `هذا توقع أولي للسنة ${nextYear} بناءً على البيانات الفعلية للسنة ${currentYear}.`,
+        ...(current.insights.length > 0 ? current.insights.slice(0, 2) : []),
+      ],
+      isForecasted: true,
+    };
+  }
 
   return { current, next };
 }
