@@ -4,17 +4,6 @@ import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { getTimings } from "@/lib/request-context-cache";
 
-type DiagnosticMetric = {
-  endpoint: string;
-  totalTimeMs: number;
-  authTimeMs: number;
-  dataTimeMs: number;
-  responseSize: number;
-  timestamp: string;
-  statusCode: number;
-  details?: string;
-};
-
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
@@ -34,8 +23,8 @@ export async function GET(req: NextRequest) {
   );
 
   const tAuthEnd = performance.now();
-  const authTimeMs = Math.round(tAuthEnd - tAuthStart);
-  const authTimings = getTimings();
+  const authTotalMs = Math.round(tAuthEnd - tAuthStart);
+  const authPhaseTimings = getTimings();
 
   if (!context.ok) {
     return jsonError(
@@ -45,181 +34,110 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  const metrics: DiagnosticMetric[] = [];
+  const dataSupabase = createServiceSupabaseClient();
 
-  // Run independent diagnostics in parallel
-  const diag1Start = performance.now();
+  // RUN DIAGNOSTICS IN PARALLEL
+  const tDiagsStart = performance.now();
   const [
-    { data: studentCount, error: err1 },
-    { data: paymentCount, error: err2 },
-    { data: attendanceCount, error: err3 },
-    { data: classFeesData, error: err4 },
+    { data: rlsStudents, error: rlsErr1, count: rlsCount1 },
+    { data: rlsPayments, error: rlsErr2, count: rlsCount2 },
+    { data: rlsAttendance, error: rlsErr3, count: rlsCount3 },
+    { data: rlsClassFees, error: rlsErr4, count: rlsCount4 },
+    { data: serviceStudents, error: srvErr1 },
+    { data: servicePayments, error: srvErr2 },
+    { data: serviceExpenses, error: srvErr3 },
+    { data: serviceClassFees, error: srvErr4 },
   ] = await Promise.all([
-    // Diagnostic 1: Count students via RLS
+    // RLS-scoped diagnostics (via actor context)
     actorSupabase
       .from("students")
       .select("id", { count: "exact", head: true })
       .eq("school_id", targetSchoolId)
       .neq("status", "deleted"),
-    // Diagnostic 2: Count payments via RLS
     actorSupabase
       .from("payments")
       .select("id", { count: "exact", head: true })
       .eq("school_id", targetSchoolId),
-    // Diagnostic 3: Count attendance records (today) via RLS
     actorSupabase
       .from("attendance_records")
       .select("id", { count: "exact", head: true })
       .eq("school_id", targetSchoolId)
       .eq("attendance_date", new Date().toISOString().slice(0, 10)),
-    // Diagnostic 4: Get class_fees (check structure)
     actorSupabase
       .from("class_fees")
-      .select("school_id, branch_id, class_name, total_fee", { count: "exact", head: true })
+      .select("*", { count: "exact", head: true })
+      .eq("school_id", targetSchoolId),
+    // Service-role diagnostics (bypass RLS, see real data)
+    serviceStudents
+      .from("students")
+      .select("id, class_name, total_fee, paid_fee, discount_value, status")
+      .eq("school_id", targetSchoolId)
+      .neq("status", "deleted"),
+    servicePayments
+      .from("payments")
+      .select("id, amount, created_at")
+      .eq("school_id", targetSchoolId),
+    serviceExpenses
+      .from("expenses")
+      .select("id, amount")
+      .eq("school_id", targetSchoolId),
+    serviceClassFees
+      .from("class_fees")
+      .select("school_id, class_name, total_fee")
       .eq("school_id", targetSchoolId),
   ]);
-  const diag1End = performance.now();
-  const diagsParallelTimeMs = Math.round(diag1End - diag1Start);
-
-  metrics.push({
-    endpoint: "diagnostic/students_count",
-    totalTimeMs: diagsParallelTimeMs,
-    authTimeMs,
-    dataTimeMs: diagsParallelTimeMs,
-    responseSize: 11,
-    timestamp: new Date().toISOString(),
-    statusCode: err1 ? 500 : 200,
-    details: err1 ? err1.message : `Found ${studentCount?.length || 0} students (via RLS)`,
-  });
-
-  metrics.push({
-    endpoint: "diagnostic/payments_count",
-    totalTimeMs: diagsParallelTimeMs,
-    authTimeMs,
-    dataTimeMs: diagsParallelTimeMs,
-    responseSize: 11,
-    timestamp: new Date().toISOString(),
-    statusCode: err2 ? 500 : 200,
-    details: err2 ? err2.message : `Found ${paymentCount?.length || 0} payments (via RLS)`,
-  });
-
-  metrics.push({
-    endpoint: "diagnostic/attendance_count_today",
-    totalTimeMs: diagsParallelTimeMs,
-    authTimeMs,
-    dataTimeMs: diagsParallelTimeMs,
-    responseSize: 11,
-    timestamp: new Date().toISOString(),
-    statusCode: err3 ? 500 : 200,
-    details: err3 ? err3.message : `Found ${attendanceCount?.length || 0} attendance records today (via RLS)`,
-  });
-
-  metrics.push({
-    endpoint: "diagnostic/class_fees_structure",
-    totalTimeMs: diagsParallelTimeMs,
-    authTimeMs,
-    dataTimeMs: diagsParallelTimeMs,
-    responseSize: 11,
-    timestamp: new Date().toISOString(),
-    statusCode: err4 ? 500 : 200,
-    details: err4 ? `Error: ${err4.message}` : `Found ${classFeesData?.length || 0} class_fees records (has school_id: ${classFeesData && classFeesData.length > 0})`,
-  });
-
-  // Diagnostic 5: Reports overview - break down by sub-query
-  const dataSupabase = createServiceSupabaseClient();
-  const t5Start = performance.now();
-
-  const t5aStart = performance.now();
-  const { data: studentsData, error: err5a } = await dataSupabase
-    .from("students")
-    .select("id, class_name, total_fee, paid_fee, discount_value, status")
-    .eq("school_id", targetSchoolId)
-    .neq("status", "deleted");
-  const t5aEnd = performance.now();
-
-  const t5bStart = performance.now();
-  const { data: paymentsData, error: err5b } = await dataSupabase
-    .from("payments")
-    .select("id, amount, created_at")
-    .eq("school_id", targetSchoolId);
-  const t5bEnd = performance.now();
-
-  const t5cStart = performance.now();
-  const { data: expensesData, error: err5c } = await dataSupabase
-    .from("expenses")
-    .select("id, amount")
-    .eq("school_id", targetSchoolId);
-  const t5cEnd = performance.now();
-
-  const t5dStart = performance.now();
-  const { data: classFeesForReports, error: err5d } = await dataSupabase
-    .from("class_fees")
-    .select("school_id, class_name, total_fee")
-    .eq("school_id", targetSchoolId);
-  const t5dEnd = performance.now();
-
-  const t5End = performance.now();
-
-  metrics.push({
-    endpoint: "api/web/reports/overview/students",
-    totalTimeMs: Math.round(t5aEnd - t5aStart),
-    authTimeMs,
-    dataTimeMs: Math.round(t5aEnd - t5aStart),
-    responseSize: JSON.stringify(studentsData || []).length,
-    timestamp: new Date().toISOString(),
-    statusCode: err5a ? 500 : 200,
-    details: err5a ? err5a.message : `${(studentsData || []).length} students fetched`,
-  });
-
-  metrics.push({
-    endpoint: "api/web/reports/overview/payments",
-    totalTimeMs: Math.round(t5bEnd - t5bStart),
-    authTimeMs,
-    dataTimeMs: Math.round(t5bEnd - t5bStart),
-    responseSize: JSON.stringify(paymentsData || []).length,
-    timestamp: new Date().toISOString(),
-    statusCode: err5b ? 500 : 200,
-    details: err5b ? err5b.message : `${(paymentsData || []).length} payments fetched`,
-  });
-
-  metrics.push({
-    endpoint: "api/web/reports/overview/expenses",
-    totalTimeMs: Math.round(t5cEnd - t5cStart),
-    authTimeMs,
-    dataTimeMs: Math.round(t5cEnd - t5cStart),
-    responseSize: JSON.stringify(expensesData || []).length,
-    timestamp: new Date().toISOString(),
-    statusCode: err5c ? 500 : 200,
-    details: err5c ? err5c.message : `${(expensesData || []).length} expenses fetched`,
-  });
-
-  metrics.push({
-    endpoint: "api/web/reports/overview/class_fees",
-    totalTimeMs: Math.round(t5dEnd - t5dStart),
-    authTimeMs,
-    dataTimeMs: Math.round(t5dEnd - t5dStart),
-    responseSize: JSON.stringify(classFeesForReports || []).length,
-    timestamp: new Date().toISOString(),
-    statusCode: err5d ? 500 : 200,
-    details: err5d ? err5d.message : `${(classFeesForReports || []).length} class_fees fetched`,
-  });
+  const tDiagsEnd = performance.now();
+  const diagsParallelMs = Math.round(tDiagsEnd - tDiagsStart);
 
   const tEnd = performance.now();
   const totalOverallMs = Math.round(tEnd - t0);
 
-  console.log("[performance-debug] Enhanced diagnostic results with auth breakdown", {
-    schoolId: targetSchoolId,
-    authTimeMs,
-    authTimings,
-    diagsParallelTimeMs,
-    totalOverallMs,
-    metricsCount: metrics.length,
-    breakdown: {
-      students: (studentsData || []).length,
-      payments: (paymentsData || []).length,
-      expenses: (expensesData || []).length,
-      classFees: (classFeesForReports || []).length,
+  const diagnostics = {
+    rlsScoped: {
+      students: {
+        count: rlsCount1 ?? 0,
+        error: rlsErr1?.message || null,
+      },
+      payments: {
+        count: rlsCount2 ?? 0,
+        error: rlsErr2?.message || null,
+      },
+      attendance: {
+        count: rlsCount3 ?? 0,
+        error: rlsErr3?.message || null,
+      },
+      classFeesQuery: {
+        count: rlsCount4 ?? 0,
+        error: rlsErr4?.message || null,
+      },
     },
+    serviceRole: {
+      students: {
+        count: (serviceStudents || []).length,
+        error: srvErr1?.message || null,
+      },
+      payments: {
+        count: (servicePayments || []).length,
+        error: srvErr2?.message || null,
+      },
+      expenses: {
+        count: (serviceExpenses || []).length,
+        error: srvErr3?.message || null,
+      },
+      classFeesQuery: {
+        count: (serviceClassFees || []).length,
+        error: srvErr4?.message || null,
+      },
+    },
+  };
+
+  console.log("[performance-debug] P1B diagnostic results", {
+    schoolId: targetSchoolId,
+    authTotalMs,
+    authPhaseTimings,
+    diagsParallelMs,
+    totalOverallMs,
+    diagnostics,
   });
 
   return NextResponse.json(
@@ -227,17 +145,20 @@ export async function GET(req: NextRequest) {
       ok: true,
       schoolId: targetSchoolId,
       timestamp: new Date().toISOString(),
-      authTimeMs,
-      authTimingBreakdown: authTimings,
-      diagsParallelTimeMs,
-      totalOverallMs,
-      notes: {
-        authPhases: "Session resolve → RBAC verify → User profiles → Validation. Check breakdown for slowest phase.",
-        authMemoization: "Within request, subsequent calls should use cache. Check cache_hit timing.",
-        diagsParallel: `4 independent diagnostics ran in parallel (${diagsParallelTimeMs}ms).`,
-        reportsBreakdown: "reports/overview queries broken down by sub-query (students, payments, expenses, class_fees).",
+      timing: {
+        authTotalMs,
+        authPhaseTimings, // Record each phase duration + call count
+        diagsParallelMs,
+        totalOverallMs,
       },
-      metrics: metrics.sort((a, b) => b.totalTimeMs - a.totalTimeMs),
+      diagnostics,
+      interpretation: {
+        rlsVsService: "RLS-scoped returns filtered data. Service-role returns unfiltered. If RLS=0 but service>0, user has no access to that data via RLS.",
+        authMemoization: authPhaseTimings["auth_cache_hit"]
+          ? `Cache hit detected: ${authPhaseTimings["auth_cache_hit"].callCount} times`
+          : "No cache hits detected. Memoization may not be working.",
+        performance: `Auth: ${authTotalMs}ms, Diagnostics: ${diagsParallelMs}ms (parallel), Total: ${totalOverallMs}ms`,
+      },
     },
     {
       headers: {

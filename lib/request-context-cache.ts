@@ -5,13 +5,15 @@ import type { SchoolScopedActorContext } from "@/lib/managed-users/types";
 // NO data leakage between requests or users.
 const requestContextStore = new AsyncLocalStorage<{
   contexts: Map<string, { ok: true; value: SchoolScopedActorContext } | { ok: false; status: number; message: string }>;
-  timings: Map<string, { start: number; end?: number }>;
+  timings: Map<string, number>; // label -> durationMs
+  callCounts: Map<string, number>; // label -> count
 }>();
 
 export function initializeRequestContextCache() {
   const store = {
     contexts: new Map(),
     timings: new Map(),
+    callCounts: new Map(),
   };
   return requestContextStore.run(store, () => store);
 }
@@ -22,6 +24,7 @@ export async function runWithRequestContextCache<T>(
   const store = {
     contexts: new Map(),
     timings: new Map(),
+    callCounts: new Map(),
   };
   return requestContextStore.run(store, callback);
 }
@@ -34,7 +37,12 @@ export function getCachedSchoolContext(
   if (!store) return null;
 
   const key = `${userId}:${schoolId || "null"}`;
-  return store.contexts.get(key) || null;
+  const cached = store.contexts.get(key);
+  if (cached) {
+    const label = "auth_cache_hit";
+    store.callCounts.set(label, (store.callCounts.get(label) ?? 0) + 1);
+  }
+  return cached || null;
 }
 
 export function setCachedSchoolContext(
@@ -53,23 +61,21 @@ export function recordTiming(label: string, durationMs: number): void {
   const store = requestContextStore.getStore();
   if (!store) return;
 
-  const now = performance.now();
-  store.timings.set(label, { start: now - durationMs, end: now });
+  // Sum multiple calls to same label
+  store.timings.set(label, (store.timings.get(label) ?? 0) + durationMs);
+  store.callCounts.set(label, (store.callCounts.get(label) ?? 0) + 1);
 }
 
-export function getTimings(): Record<string, { start: number; end: number; durationMs: number }> {
+export function getTimings(): Record<string, { durationMs: number; callCount: number }> {
   const store = requestContextStore.getStore();
   if (!store) return {};
 
-  const result: Record<string, { start: number; end: number; durationMs: number }> = {};
-  for (const [key, timing] of store.timings) {
-    if (timing.end !== undefined) {
-      result[key] = {
-        start: timing.start,
-        end: timing.end,
-        durationMs: Math.round(timing.end - timing.start),
-      };
-    }
-  }
+  const result: Record<string, { durationMs: number; callCount: number }> = {};
+  store.timings.forEach((durationMs, key) => {
+    result[key] = {
+      durationMs: Math.round(durationMs),
+      callCount: store.callCounts.get(key) ?? 1,
+    };
+  });
   return result;
 }
