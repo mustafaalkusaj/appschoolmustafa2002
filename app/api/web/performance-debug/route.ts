@@ -39,14 +39,14 @@ export async function GET(req: NextRequest) {
   // RUN DIAGNOSTICS IN PARALLEL
   const tDiagsStart = performance.now();
   const [
-    { data: rlsStudents, error: rlsErr1, count: rlsCount1 },
-    { data: rlsPayments, error: rlsErr2, count: rlsCount2 },
-    { data: rlsAttendance, error: rlsErr3, count: rlsCount3 },
-    { data: rlsClassFees, error: rlsErr4, count: rlsCount4 },
-    { data: serviceStudents, error: srvErr1 },
-    { data: servicePayments, error: srvErr2 },
-    { data: serviceExpenses, error: srvErr3 },
-    { data: serviceClassFees, error: srvErr4 },
+    rlsStudentsResult,
+    rlsPaymentsResult,
+    rlsAttendanceResult,
+    rlsClassFeesResult,
+    serviceStudentsResult,
+    servicePaymentsResult,
+    serviceExpensesResult,
+    serviceClassFeesResult,
   ] = await Promise.all([
     // RLS-scoped diagnostics (via actor context)
     actorSupabase
@@ -68,24 +68,49 @@ export async function GET(req: NextRequest) {
       .select("*", { count: "exact", head: true })
       .eq("school_id", targetSchoolId),
     // Service-role diagnostics (bypass RLS, see real data)
-    serviceStudents
+    dataSupabase
       .from("students")
       .select("id, class_name, total_fee, paid_fee, discount_value, status")
       .eq("school_id", targetSchoolId)
       .neq("status", "deleted"),
-    servicePayments
+    dataSupabase
       .from("payments")
       .select("id, amount, created_at")
       .eq("school_id", targetSchoolId),
-    serviceExpenses
+    dataSupabase
       .from("expenses")
       .select("id, amount")
       .eq("school_id", targetSchoolId),
-    serviceClassFees
+    dataSupabase
       .from("class_fees")
       .select("school_id, class_name, total_fee")
       .eq("school_id", targetSchoolId),
   ]);
+
+  const {
+    data: rlsStudents,
+    error: rlsErr1,
+    count: rlsCount1,
+  } = rlsStudentsResult;
+  const {
+    data: rlsPayments,
+    error: rlsErr2,
+    count: rlsCount2,
+  } = rlsPaymentsResult;
+  const {
+    data: rlsAttendance,
+    error: rlsErr3,
+    count: rlsCount3,
+  } = rlsAttendanceResult;
+  const {
+    data: rlsClassFees,
+    error: rlsErr4,
+    count: rlsCount4,
+  } = rlsClassFeesResult;
+  const { data: serviceStudents, error: srvErr1 } = serviceStudentsResult;
+  const { data: servicePayments, error: srvErr2 } = servicePaymentsResult;
+  const { data: serviceExpenses, error: srvErr3 } = serviceExpensesResult;
+  const { data: serviceClassFees, error: srvErr4 } = serviceClassFeesResult;
   const tDiagsEnd = performance.now();
   const diagsParallelMs = Math.round(tDiagsEnd - tDiagsStart);
 

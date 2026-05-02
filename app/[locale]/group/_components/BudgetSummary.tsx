@@ -74,20 +74,17 @@ function EmptyBudgetYear({ label, year, t }: { label: string; year: number; t: T
   );
 }
 
-function DataQualityBadge({ quality }: { quality: "high" | "medium" | "low" }) {
+function DataQualityBadge({ quality, t }: { quality: "high" | "medium" | "low"; t: TFn }) {
   const colors = {
     high: "bg-emerald-100 text-emerald-700",
     medium: "bg-amber-100 text-amber-700",
     low: "bg-red-100 text-red-700",
   };
-  const labels = {
-    high: "جودة عالية",
-    medium: "جودة متوسطة",
-    low: "جودة منخفضة",
-  };
   return (
     <span className={`rounded-lg px-2.5 py-1 text-[10px] font-bold ${colors[quality]}`}>
-      {labels[quality]}
+      {quality === "high" && "✓ High Quality"}
+      {quality === "medium" && "⊙ Medium Quality"}
+      {quality === "low" && "⚠ Low Quality"}
     </span>
   );
 }
@@ -126,15 +123,15 @@ function BudgetYearSection({
 
         {/* Status badges */}
         <div className="flex flex-wrap items-center gap-2">
-          <DataQualityBadge quality={dataQuality} />
+          <DataQualityBadge quality={dataQuality} t={t} />
           {isForecasted && (
             <span className="rounded-lg px-2.5 py-1 text-[10px] font-bold bg-blue-100 text-blue-700">
-              توقع أولي
+              ℹ Forecast
             </span>
           )}
           {year.budget && (
             <span className="rounded-lg px-2.5 py-1 text-[10px] font-bold bg-green-100 text-green-700">
-              موازنة معتمدة
+              ✓ Approved
             </span>
           )}
         </div>
@@ -274,7 +271,7 @@ export function BudgetSummary() {
           if (data.ok) {
             setResponse(data);
           } else {
-            setError(t("budget.unexpectedResponse"));
+            setError(t("budget.unexpectedResponse") ?? "Unexpected server response");
           }
         }
       } catch (err) {
