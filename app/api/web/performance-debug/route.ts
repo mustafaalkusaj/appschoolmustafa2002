@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
   const context = await resolveSchoolScopedActorContext(
     schoolId,
     {
-      allowedRoles: ["super_admin", "admin"],
-      roleDeniedMessage: "Performance debug available for admins only.",
+      allowedRoles: ["super_admin"],
+      roleDeniedMessage: "Performance debug available for super_admin only.",
     },
     req.headers.get("authorization"),
   );

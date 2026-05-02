@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const context = await resolveSchoolScopedActorContext(
     schoolId,
-    { allowedRoles: ["super_admin", "admin"], roleDeniedMessage: "unauthorized" },
+    { allowedRoles: ["super_admin"], roleDeniedMessage: "unauthorized" },
     req.headers.get("authorization"),
   );
 
