@@ -135,7 +135,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       setClassFees([]);
       return;
     }
-    let query = supabase.from("class_fees").select("*").order("class_name", { ascending: true });
+    let query = supabase.from("class_fees").select("id, class_name, total_fee, installments, installment_amount, school_id, branch_id").order("class_name", { ascending: true });
     if (compat.classFeesSchoolScope && schoolId) {
       query = query.eq("school_id", schoolId);
     }
