@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   const service = getService();
   const { data, error } = await service
     .from("group_alerts")
-    .select("*")
+    .select("id, group_id, title, message, type, is_read, created_at, updated_at")
     .eq("group_id", auth.groupId)
     .eq("is_read", false)
     .order("created_at", { ascending: false });
