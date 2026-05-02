@@ -12,6 +12,7 @@ import type {
 } from "./types";
 
 import { endOfDayBaghdad } from "@/lib/tz";
+import { getCachedSchoolContext, setCachedSchoolContext, recordTiming } from "@/lib/request-context-cache";
 
 // Check if school subscription is expired
 function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
@@ -46,29 +47,58 @@ export async function resolveSchoolScopedActorContext(
   | { ok: true; value: SchoolScopedActorContext }
   | { ok: false; status: number; message: string }
 > {
+  const t0 = performance.now();
+  const cacheKey = (requestedSchoolId ?? "").trim() || "null";
+
+  // SAFE: Request-level cache only. Each request gets isolated cache.
+  // No data leakage between requests or users.
+  const cached = getCachedSchoolContext("_pending", cacheKey);
+  if (cached) {
+    recordTiming("auth_cache_hit", performance.now() - t0);
+    return cached;
+  }
+
+  const tSessionStart = performance.now();
   const actorSupabase = await createRouteSupabaseClient();
   const {
     data: { user },
     error: actorUserError,
   } = await getRouteAuthenticatedUser(actorSupabase, authHeader);
+  const tSessionEnd = performance.now();
+  recordTiming("auth_session_resolve", tSessionEnd - tSessionStart);
 
   if (actorUserError || !user?.id) {
-    return { ok: false, status: 401, message: "يجب تسجيل الدخول أولاً." };
+    const result = { ok: false as const, status: 401, message: "يجب تسجيل الدخول أولاً." };
+    setCachedSchoolContext("_pending", cacheKey, result);
+    return result;
   }
 
+  const tRbacStart = performance.now();
   const rbacSession = await readValidatedRbacSession();
+  const tRbacEnd = performance.now();
+  recordTiming("auth_rbac_verify", tRbacEnd - tRbacStart);
   if (rbacSession && rbacSession.userId === user.id) {
+    const tValidStart = performance.now();
     const actorRole = resolveKnownUserRole(rbacSession.role);
     if (!actorRole) {
-      return { ok: false, status: 403, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." };
+      const result = { ok: false as const, status: 403, message: "هذا الحساب غير مخصص للوصول إلى لوحة الويب الإدارية." };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
 
     if (!options.allowedRoles.includes(actorRole)) {
-      return { ok: false, status: 403, message: options.roleDeniedMessage };
+      const result = { ok: false as const, status: 403, message: options.roleDeniedMessage };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
 
     if (!rbacSession.userActive) {
-      return { ok: false, status: 403, message: "ليس لديك صلاحية لاستخدام هذه الواجهة." };
+      const result = { ok: false as const, status: 403, message: "ليس لديك صلاحية لاستخدام هذه الواجهة." };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
 
     const requested = requestedSchoolId?.trim() || null;
@@ -76,23 +106,35 @@ export async function resolveSchoolScopedActorContext(
 
     if (actorRole !== "super_admin") {
       if (!rbacSession.schoolId) {
-        return { ok: false, status: 403, message: "الحساب الحالي غير مرتبط بمدرسة صالحة." };
+        const result = { ok: false as const, status: 403, message: "الحساب الحالي غير مرتبط بمدرسة صالحة." };
+        setCachedSchoolContext("_pending", cacheKey, result);
+        recordTiming("auth_validation", performance.now() - tValidStart);
+        return result;
       }
 
       if (requested && requested !== rbacSession.schoolId) {
-        return { ok: false, status: 403, message: "لا يمكنك تنفيذ هذا الإجراء خارج مدرسة حسابك الحالية." };
+        const result = { ok: false as const, status: 403, message: "لا يمكنك تنفيذ هذا الإجراء خارج مدرسة حسابك الحالية." };
+        setCachedSchoolContext("_pending", cacheKey, result);
+        recordTiming("auth_validation", performance.now() - tValidStart);
+        return result;
       }
 
       targetSchoolId = rbacSession.schoolId;
     }
 
     if (!targetSchoolId) {
-      return { ok: false, status: 400, message: "يجب تحديد مدرسة قبل متابعة هذا الإجراء." };
+      const result = { ok: false as const, status: 400, message: "يجب تحديد مدرسة قبل متابعة هذا الإجراء." };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
 
     if (actorRole !== "super_admin") {
       if (!rbacSession.schoolActive) {
-        return { ok: false, status: 403, message: "المدرسة الحالية غير مفعلة، لذلك تم حظر هذا الإجراء." };
+        const result = { ok: false as const, status: 403, message: "المدرسة الحالية غير مفعلة، لذلك تم حظر هذا الإجراء." };
+        setCachedSchoolContext("_pending", cacheKey, result);
+        recordTiming("auth_validation", performance.now() - tValidStart);
+        return result;
       }
 
       const status = (rbacSession.subscriptionStatus || "").toLowerCase();
@@ -100,12 +142,16 @@ export async function resolveSchoolScopedActorContext(
       const blockedByExpiry = status === "expired" || isSchoolSubscriptionExpired(rbacSession.subscriptionEnd);
 
       if (blockedByStatus || blockedByExpiry) {
-        return { ok: false, status: 403, message: "اشتراك المدرسة الحالية غير صالح، لذلك تم حظر هذا الإجراء." };
+        const result = { ok: false as const, status: 403, message: "اشتراك المدرسة الحالية غير صالح، لذلك تم حظر هذا الإجراء." };
+        setCachedSchoolContext("_pending", cacheKey, result);
+        recordTiming("auth_validation", performance.now() - tValidStart);
+        return result;
       }
     }
 
-    return {
-      ok: true,
+    recordTiming("auth_validation", performance.now() - tValidStart);
+    const successResult = {
+      ok: true as const,
       value: {
         actorSupabase,
         actorUserId: user.id,
@@ -118,18 +164,31 @@ export async function resolveSchoolScopedActorContext(
         permissionsVersion: rbacSession.permissionsVersion,
       },
     };
+    setCachedSchoolContext("_pending", cacheKey, successResult);
+    return successResult;
   }
 
+  // RBAC cache miss: expensive path. Measure sub-queries.
+  const tProfileStart = performance.now();
   const resolvedProfile = await resolveWebUserProfile(actorSupabase, user.id).catch(() => null);
+  const tProfileEnd = performance.now();
+  recordTiming("auth_user_profiles_query", tProfileEnd - tProfileStart);
+
   if (!resolvedProfile || !resolvedProfile.snapshot.userActive) {
-    return { ok: false, status: 403, message: "ليس لديك صلاحية لاستخدام هذه الواجهة." };
+    const result = { ok: false as const, status: 403, message: "ليس لديك صلاحية لاستخدام هذه الواجهة." };
+    setCachedSchoolContext("_pending", cacheKey, result);
+    return result;
   }
 
+  const tValidStart = performance.now();
   const { snapshot } = resolvedProfile;
   const actorRole = snapshot.role;
 
   if (!options.allowedRoles.includes(actorRole)) {
-    return { ok: false, status: 403, message: options.roleDeniedMessage };
+    const result = { ok: false as const, status: 403, message: options.roleDeniedMessage };
+    setCachedSchoolContext("_pending", cacheKey, result);
+    recordTiming("auth_validation", performance.now() - tValidStart);
+    return result;
   }
 
   const requested = requestedSchoolId?.trim() || null;
@@ -137,23 +196,35 @@ export async function resolveSchoolScopedActorContext(
 
   if (actorRole !== "super_admin") {
     if (!snapshot.schoolId) {
-      return { ok: false, status: 403, message: "الحساب الحالي غير مرتبط بمدرسة صالحة." };
+      const result = { ok: false as const, status: 403, message: "الحساب الحالي غير مرتبط بمدرسة صالحة." };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
 
     if (requested && requested !== snapshot.schoolId) {
-      return { ok: false, status: 403, message: "لا يمكنك تنفيذ هذا الإجراء خارج مدرسة حسابك الحالية." };
+      const result = { ok: false as const, status: 403, message: "لا يمكنك تنفيذ هذا الإجراء خارج مدرسة حسابك الحالية." };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
 
     targetSchoolId = snapshot.schoolId;
   }
 
   if (!targetSchoolId) {
-    return { ok: false, status: 400, message: "يجب تحديد مدرسة قبل متابعة هذا الإجراء." };
+    const result = { ok: false as const, status: 400, message: "يجب تحديد مدرسة قبل متابعة هذا الإجراء." };
+    setCachedSchoolContext("_pending", cacheKey, result);
+    recordTiming("auth_validation", performance.now() - tValidStart);
+    return result;
   }
 
   if (actorRole !== "super_admin") {
     if (!snapshot.schoolActive) {
-      return { ok: false, status: 403, message: "المدرسة الحالية غير مفعلة، لذلك تم حظر هذا الإجراء." };
+      const result = { ok: false as const, status: 403, message: "المدرسة الحالية غير مفعلة، لذلك تم حظر هذا الالإجراء." };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
 
     const status = (snapshot.subscriptionStatus || "").toLowerCase();
@@ -161,12 +232,16 @@ export async function resolveSchoolScopedActorContext(
     const blockedByExpiry = status === "expired" || isSchoolSubscriptionExpired(snapshot.subscriptionEnd);
 
     if (blockedByStatus || blockedByExpiry) {
-      return { ok: false, status: 403, message: "اشتراك المدرسة الحالية غير صالح، لذلك تم حظر هذا الإجراء." };
+      const result = { ok: false as const, status: 403, message: "اشتراك المدرسة الحالية غير صالح، لذلك تم حظر هذا الإجراء." };
+      setCachedSchoolContext("_pending", cacheKey, result);
+      recordTiming("auth_validation", performance.now() - tValidStart);
+      return result;
     }
   }
 
-  return {
-    ok: true,
+  recordTiming("auth_validation", performance.now() - tValidStart);
+  const successResult = {
+    ok: true as const,
     value: {
       actorSupabase,
       actorUserId: user.id,
@@ -179,6 +254,8 @@ export async function resolveSchoolScopedActorContext(
       permissionsVersion: snapshot.permissionsVersion,
     },
   };
+  setCachedSchoolContext("_pending", cacheKey, successResult);
+  return successResult;
 }
 
 // Resolve managed users actor context

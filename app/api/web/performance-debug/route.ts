@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { getTimings } from "@/lib/request-context-cache";
 
 type DiagnosticMetric = {
   endpoint: string;
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
 
   const tAuthEnd = performance.now();
   const authTimeMs = Math.round(tAuthEnd - tAuthStart);
+  const authTimings = getTimings();
 
   if (!context.ok) {
     return jsonError(
@@ -205,9 +207,10 @@ export async function GET(req: NextRequest) {
   const tEnd = performance.now();
   const totalOverallMs = Math.round(tEnd - t0);
 
-  console.log("[performance-debug] Enhanced diagnostic results", {
+  console.log("[performance-debug] Enhanced diagnostic results with auth breakdown", {
     schoolId: targetSchoolId,
     authTimeMs,
+    authTimings,
     diagsParallelTimeMs,
     totalOverallMs,
     metricsCount: metrics.length,
@@ -225,12 +228,14 @@ export async function GET(req: NextRequest) {
       schoolId: targetSchoolId,
       timestamp: new Date().toISOString(),
       authTimeMs,
+      authTimingBreakdown: authTimings,
       diagsParallelTimeMs,
       totalOverallMs,
       notes: {
-        authBottleneck: `Auth took ${authTimeMs}ms. If > 500ms, RBAC cache missed. Check verifyRBACSession + resolveWebUserProfile.`,
-        diagsParallel: `4 independent diagnostics ran in parallel (${diagsParallelTimeMs}ms). Not sequential.`,
-        reportsBreakdown: "reports/overview queries broken down to identify slowest sub-query.",
+        authPhases: "Session resolve → RBAC verify → User profiles → Validation. Check breakdown for slowest phase.",
+        authMemoization: "Within request, subsequent calls should use cache. Check cache_hit timing.",
+        diagsParallel: `4 independent diagnostics ran in parallel (${diagsParallelTimeMs}ms).`,
+        reportsBreakdown: "reports/overview queries broken down by sub-query (students, payments, expenses, class_fees).",
       },
       metrics: metrics.sort((a, b) => b.totalTimeMs - a.totalTimeMs),
     },
