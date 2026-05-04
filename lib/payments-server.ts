@@ -33,21 +33,12 @@ async function loadStudentPaymentRows(
     .eq("student_id", studentId);
 
   // Apply branch scope if provided (matches frontend behavior)
+  let finalQuery = query;
   if (branchScope) {
-    const { data: paymentRows, error: paymentsError } = await applyBranchScopeToQuery(
-      query,
-      branchScope,
-    );
-
-    if (paymentsError) {
-      throw paymentsError;
-    }
-
-    return (paymentRows ?? []) as PaymentAmountRow[];
+    finalQuery = applyBranchScopeToQuery(query, branchScope);
   }
 
-  // Fallback: no branch scope filtering (for backward compatibility)
-  const { data: paymentRows, error: paymentsError } = await query;
+  const { data: paymentRows, error: paymentsError } = await finalQuery;
 
   if (paymentsError) {
     throw paymentsError;
