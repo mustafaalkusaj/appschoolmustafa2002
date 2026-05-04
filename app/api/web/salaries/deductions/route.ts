@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -27,7 +28,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
+  if (!canManageSalaries) {
+    return jsonError("ليس لديك صلاحية الوصول إلى سجل السحوبات.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-deductions-read",
     windowMs: 60_000,
@@ -38,11 +49,14 @@ export async function GET(req: NextRequest) {
     return rateLimited;
   }
 
-  const { data, error } = await actorSupabase
-    .from("deductions")
-    .select("id, teacher_id, amount, notes, deduction_date, teachers(full_name)")
-    .eq("school_id", targetSchoolId)
-    .order("deduction_date", { ascending: false });
+  const { data, error } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("deductions")
+      .select("id, teacher_id, amount, notes, deduction_date, teachers(full_name)")
+      .eq("school_id", targetSchoolId)
+      .order("deduction_date", { ascending: false }),
+    branchScope.value,
+  );
 
   if (error) {
     return jsonError(error.message || "تعذر تحميل سجل السحوبات.", 500);
@@ -90,6 +104,11 @@ export async function POST(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
+  const branchScope = resolveBranchScope(context.value, branchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-deductions-write",
     windowMs: 60_000,
@@ -105,18 +124,24 @@ export async function POST(req: NextRequest) {
     return jsonError("ليس لديك صلاحية إدارة السحوبات.", 403);
   }
 
-  const { data: teacher, error: teacherError } = await context.value.actorSupabase
-    .from("teachers")
-    .select("id, full_name")
-    .eq("id", teacherId)
-    .eq("school_id", context.value.targetSchoolId)
-    .maybeSingle();
+  const { data: teacher, error: teacherError } = await applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("teachers")
+      .select("id, full_name")
+      .eq("id", teacherId)
+      .eq("school_id", context.value.targetSchoolId),
+    branchScope.value,
+  ).maybeSingle();
 
   if (teacherError || !teacher?.id) {
     return jsonError("الأستاذ المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  const resolvedBranchId = branchId ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
+  const writeBranch = resolveBranchIdForWrite(branchScope.value, branchId);
+  if (!writeBranch.ok) {
+    return jsonError(writeBranch.message, writeBranch.status);
+  }
+  const resolvedBranchId = writeBranch.value ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
   const { data, error } = await context.value.actorSupabase
     .from("deductions")
     .insert({

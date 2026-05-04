@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import {
   resolveSchoolBranchId,
   resolveSchoolScopedActorContext,
@@ -104,6 +105,11 @@ export async function PATCH(
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
+  const branchScope = resolveBranchScope(context.value, branchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-teachers-update",
     windowMs: 60_000,
@@ -123,12 +129,14 @@ export async function PATCH(
     return jsonError("ليس لديك صلاحية إدارة الأساتذة.", 403);
   }
 
-  const { data: existingTeacher, error: teacherLookupError } = await context.value.actorSupabase
-    .from("teachers")
-    .select("id")
-    .eq("id", normalizedTeacherId)
-    .eq("school_id", context.value.targetSchoolId)
-    .maybeSingle();
+  const { data: existingTeacher, error: teacherLookupError } = await applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("teachers")
+      .select("id")
+      .eq("id", normalizedTeacherId)
+      .eq("school_id", context.value.targetSchoolId),
+    branchScope.value,
+  ).maybeSingle();
 
   if (teacherLookupError || !existingTeacher?.id) {
     return jsonError("الأستاذ المطلوب غير موجود ضمن المدرسة الحالية.", 404);
@@ -138,17 +146,24 @@ export async function PATCH(
     () => true,
   );
   const teacherSelect = buildTeacherSelect(includeLecturePrice);
-  const resolvedBranchId = branchId ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
+  const writeBranch = resolveBranchIdForWrite(branchScope.value, branchId);
+  if (!writeBranch.ok) {
+    return jsonError(writeBranch.message, writeBranch.status);
+  }
+  const resolvedBranchId = writeBranch.value ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
   const payload = normalizeTeacherPayload(body ?? {}, resolvedBranchId, includeLecturePrice);
   if (!payload.ok) {
     return jsonError(payload.message, 400);
   }
 
-  const { data, error } = await context.value.actorSupabase
-    .from("teachers")
-    .update(payload.value)
-    .eq("id", normalizedTeacherId)
-    .eq("school_id", context.value.targetSchoolId)
+  const { data, error } = await applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("teachers")
+      .update(payload.value)
+      .eq("id", normalizedTeacherId)
+      .eq("school_id", context.value.targetSchoolId),
+    branchScope.value,
+  )
     .select(teacherSelect)
     .single();
 

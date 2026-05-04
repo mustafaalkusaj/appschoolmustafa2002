@@ -13,7 +13,10 @@ export type ActiveTab =
   | "notifications"
   | "monitoring"
   | "branches"
-  | "errors";
+  | "analytics"
+  | "health"
+  | "bulk"
+  | "activity";
 
 export type SchoolPlan = "basic" | "premium" | "enterprise";
 export type SubscriptionStatus = "active" | "suspended" | "inactive" | "expired";

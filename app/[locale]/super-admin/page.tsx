@@ -20,6 +20,7 @@ import {
   GitBranch,
   Flag,
   Plus,
+  TrendingUp,
   X,
   Loader2,
 } from "@/lib/icons";
@@ -44,7 +45,10 @@ import { TrashTab } from "./components/TrashTab";
 import { NotificationsTab } from "./components/NotificationsTab";
 import { MonitoringTab } from "./components/MonitoringTab";
 import { BranchesTab } from "./components/BranchesTab";
-import { ErrorsTab } from "./components/ErrorsTab";
+import { AnalyticsTab } from "./components/AnalyticsTab";
+import { HealthMonitoringTab } from "./components/HealthMonitoringTab";
+import { BulkOperationsTab } from "./components/BulkOperationsTab";
+import { ActivityTimelineTab } from "./components/ActivityTimelineTab";
 
 import {
   OverviewTab,
@@ -118,13 +122,16 @@ export default function SuperAdminPage() {
     { id: "schools", label: t("tabs.schools.label"), hint: t("tabs.schools.hint"), icon: School },
     { id: "users", label: t("tabs.users.label"), hint: t("tabs.users.hint"), icon: Users },
     { id: "subscriptions", label: t("tabs.subscriptions.label"), hint: t("tabs.subscriptions.hint"), icon: CreditCard },
+    { id: "analytics", label: "التحليلات", hint: "رسوم بيانية وإحصائيات متقدمة", icon: TrendingUp },
+    { id: "health", label: "صحة النظام", hint: "مراقبة الأداء والموارد", icon: Activity },
+    { id: "bulk", label: "عمليات جماعية", hint: "استيراد وتحديث جماعي", icon: Plus },
+    { id: "activity", label: "سجل النشاط", hint: "تتبع العمليات والأحداث", icon: History },
     { id: "audit", label: t("tabs.audit.label"), hint: t("tabs.audit.hint"), icon: History },
     { id: "roles", label: t("tabs.roles.label"), hint: t("tabs.roles.hint"), icon: ShieldCheck },
     { id: "trash", label: t("tabs.trash.label"), hint: t("tabs.trash.hint"), icon: Trash2 },
     { id: "notifications", label: t("tabs.notifications.label"), hint: t("tabs.notifications.hint"), icon: Bell },
     { id: "monitoring", label: t("tabs.monitoring.label"), hint: t("tabs.monitoring.hint"), icon: Activity },
     { id: "branches", label: t("tabs.branches.label"), hint: t("tabs.branches.hint"), icon: GitBranch },
-    { id: "errors", label: "أخطاء الإنتاج", hint: "Error Capture + Fix Prompt", icon: AlertTriangle },
   ], [t]);
 
   const flashSuccess = useCallback((m: string) => { setSuccess(m); toast.success(m); window.setTimeout(() => setSuccess(""), 2600); }, [toast]);
@@ -547,7 +554,10 @@ export default function SuperAdminPage() {
                     {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
                     {activeTab === "monitoring" && <MonitoringTab infrastructure={infrastructure} />}
                     {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} />}
-                    {activeTab === "errors" && <ErrorsTab />}
+                    {activeTab === "analytics" && <AnalyticsTab schools={schools} users={users} subscriptions={subscriptions} />}
+                    {activeTab === "health" && <HealthMonitoringTab />}
+                    {activeTab === "bulk" && <BulkOperationsTab />}
+                    {activeTab === "activity" && <ActivityTimelineTab />}
                   </div>
                 )}
               </div>

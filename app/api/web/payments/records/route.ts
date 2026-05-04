@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createPaymentSchema } from "@/lib/api-schemas";
-import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
     receipt_date: receiptDate,
     receipt_number: receiptNumber,
     manual_receipt_number: manualReceiptNumber,
-    branch_id: requestedBranchId,
   } = parsed.data;
 
   const context = await resolveSchoolScopedActorContext(
@@ -45,11 +44,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const branchScope = resolveBranchScope(context.value, requestedBranchId);
-  if (!branchScope.ok) {
-    return jsonError(branchScope.message, branchScope.status);
-  }
-
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const rateLimited = await enforceRateLimit(req, {
     namespace: "payments-records-create",
@@ -65,36 +59,47 @@ export async function POST(req: NextRequest) {
   if (!canRecordPayments) {
     return jsonError("ليس لديك صلاحية تسجيل دفعات جديدة.", 403);
   }
-  // Parallelize student fetch and authoritative fee calculation
+
+  // Load student FIRST to get real branch_id from DB (not client-provided)
   let student: any;
   let studentError: any;
-  let authoritativePaidFee: number;
+  let studentBranchId: string | null;
+
   try {
-    const [studentResult, authFeeResult] = await Promise.all([
-      applyBranchScopeToQuery(
-        actorSupabase
-          .from("students")
-          .select("id, school_id, paid_fee, total_fee, discount_value")
-          .eq("id", studentId)
-          .eq("school_id", targetSchoolId),
-        branchScope.value,
-      ).maybeSingle(),
-      resolveAuthoritativeStudentPaidFee(
-        actorSupabase,
-        targetSchoolId,
-        studentId,
-        undefined,
-      ),
-    ]);
+    const studentResult = await actorSupabase
+      .from("students")
+      .select("id, school_id, paid_fee, total_fee, discount_value, branch_id")
+      .eq("id", studentId)
+      .eq("school_id", targetSchoolId)
+      .maybeSingle();
 
     ({ data: student, error: studentError } = studentResult);
-    authoritativePaidFee = authFeeResult;
+    studentBranchId = student?.branch_id ?? null;
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
   }
 
   if (studentError || !student?.id) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
+  }
+
+  // Validate actor has access to student's actual branch
+  const studentBranchScope = resolveBranchScope(context.value, studentBranchId ?? undefined);
+  if (!studentBranchScope.ok) {
+    return jsonError(studentBranchScope.message, studentBranchScope.status);
+  }
+
+  // Get authoritative paid fee
+  let authoritativePaidFee: number;
+  try {
+    authoritativePaidFee = await resolveAuthoritativeStudentPaidFee(
+      actorSupabase,
+      targetSchoolId,
+      studentId,
+      undefined,
+    );
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
   }
 
   const remainingBeforePayment = calculateStudentRemainingFee({
@@ -106,17 +111,22 @@ export async function POST(req: NextRequest) {
     return jsonError("قيمة الدفعة أكبر من المبلغ المتبقي على الطالب.", 400);
   }
 
-  const writeBranch = resolveBranchIdForWrite(branchScope.value, requestedBranchId);
-  if (!writeBranch.ok) {
-    return jsonError(writeBranch.message, writeBranch.status);
+  // Use student's actual branch_id from DB; ignore client-provided requestedBranchId
+  let finalBranchId: string | null;
+
+  if (studentBranchId) {
+    // Student has a branch_id - use it
+    finalBranchId = studentBranchId;
+  } else {
+    // Student has no branch_id - assign from school's primary branch
+    finalBranchId = await resolveSchoolBranchId(actorSupabase, targetSchoolId);
   }
-  const branchId = writeBranch.value ?? (await resolveSchoolBranchId(actorSupabase, targetSchoolId));
   const paymentTimestamp = receiptDate ?? new Date().toISOString();
   const { data: createdPayment, error: paymentError } = await actorSupabase
     .from("payments")
     .insert({
       school_id: targetSchoolId,
-      branch_id: branchId,
+      branch_id: finalBranchId,
       student_id: studentId,
       amount,
       payment_method: paymentMethod,

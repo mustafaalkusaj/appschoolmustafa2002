@@ -1,80 +1,139 @@
-import dynamicImport from "next/dynamic";
-import Image from "next/image";
 import { redirect } from "next/navigation";
-import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { localizeAppPath } from "@/lib/locale-routing";
 import { resolveSchoolManagerOverview, type SchoolManagerBranchSummary } from "@/lib/school-manager/overview";
-
-const SchoolManagerComparisonChart = dynamicImport(
-  () => import("./_components/SchoolManagerComparisonChart").then((mod) => mod.SchoolManagerComparisonChart),
-  {
-    loading: () => (
-      <div className="h-[440px] w-full animate-pulse rounded-2xl border shadow-sm" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }} />
-    ),
-  }
-);
+import { SchoolManagerComparisonChart } from "./_components/SchoolManagerComparisonChart";
+import { RefreshButton } from "./_components/RefreshButton";
 
 export const dynamic = "force-dynamic";
 
-type Locale = "ar" | "en";
+const COPY = {
+  ar: {
+    title: "صفحة المدير على مستوى المدرسة",
+    subtitle: "عرض مركزي دقيق للفروع بدون قائمة جانبية، وبنفس المعادلات المالية المعتمدة داخل النظام.",
+    formulaIntro: "المعادلات المعتمدة في هذه الصفحة:",
+    formulaBefore: "إجمالي الرسوم قبل التخفيض = مجموع total_fee لكل الطلاب غير المحذوفين في الفرع.",
+    formulaAfter: "إجمالي الرسوم بعد التخفيض = إجمالي الرسوم قبل التخفيض - التخفيض.",
+    formulaRemaining: "المبلغ المتبقي = مجموع remaining_fee كما هو مخزن على الطلاب داخل الفرع.",
+    formulaPaid: "المبلغ المدفوع = مجموع paid_fee داخل الفرع.",
+    formulaExpenses: "إجمالي المصروفات = مجموع expense.amount على نفس الفرع.",
+    branchSection: "ملخص كل فرع",
+    totalSection: "إجمالي المدرسة",
+    analysisTitle: "تحليل بياني",
+    analysisSubtitle: "ملخص سريع لأهم القراءات التنفيذية على مستوى المدرسة.",
+    beforeDiscount: "إجمالي الرسوم قبل التخفيض",
+    afterDiscount: "إجمالي الرسوم بعد التخفيض",
+    discount: "التخفيض",
+    remaining: "المبلغ المتبقي",
+    paid: "المبلغ المدفوع",
+    expenses: "إجمالي المصروفات",
+    students: "عدد الطلاب",
+    paidPercentage: "نسبة السداد",
+    excel: "Excel",
+    word: "Word",
+    pdf: "PDF",
+    strongestCollection: "أفضل فرع في التحصيل",
+    highestRemaining: "أعلى فرع في المتبقي",
+    highestExpenses: "أعلى فرع في المصروفات",
+    noBranches: "لا توجد فروع نشطة مرتبطة بهذه المدرسة حاليًا.",
+    generatedAt: "آخر تحديث",
+    schoolTotalLabel: "إجمالي المدرسة",
+    unassigned: "سجلات غير مرتبطة بفرع",
+  },
+  en: {
+    title: "School-Level Manager Page",
+    subtitle: "A precise school-wide branch view without a sidebar, using the same financial formulas as the system.",
+    formulaIntro: "Applied formulas:",
+    formulaBefore: "Fees before discount = sum of total_fee for all non-deleted students in the branch.",
+    formulaAfter: "Fees after discount = fees before discount - discount.",
+    formulaRemaining: "Remaining amount = sum of student remaining_fee in the branch.",
+    formulaPaid: "Paid amount = sum of student paid_fee in the branch.",
+    formulaExpenses: "Total expenses = sum of expense.amount in the same branch.",
+    branchSection: "Branch Summary",
+    totalSection: "School Totals",
+    analysisTitle: "Analytical Summary",
+    analysisSubtitle: "Fast executive reading of the strongest and weakest financial points.",
+    beforeDiscount: "Fees Before Discount",
+    afterDiscount: "Fees After Discount",
+    discount: "Discount",
+    remaining: "Remaining Amount",
+    paid: "Paid Amount",
+    expenses: "Total Expenses",
+    students: "Students Count",
+    paidPercentage: "Collection Rate",
+    excel: "Excel",
+    word: "Word",
+    pdf: "PDF",
+    strongestCollection: "Strongest Collection Branch",
+    highestRemaining: "Highest Outstanding Branch",
+    highestExpenses: "Highest Expense Branch",
+    noBranches: "There are no active branches linked to this school yet.",
+    generatedAt: "Updated",
+    schoolTotalLabel: "School Total",
+    unassigned: "Unassigned records",
+  },
+} as const;
 
-// ─── Accent palette ────────────────────────────────────────────────────────────
-const ACCENTS = [
-  { top: "border-t-blue-500", iconBg: "bg-blue-50 text-blue-500", bar: "bg-blue-500", pctColor: "text-blue-600", initials: "bg-blue-600" },
-  { top: "border-t-purple-500", iconBg: "bg-purple-50 text-purple-500", bar: "bg-purple-500", pctColor: "text-purple-600", initials: "bg-purple-600" },
-  { top: "border-t-green-500", iconBg: "bg-green-50 text-green-500", bar: "bg-green-500", pctColor: "text-green-600", initials: "bg-green-600" },
-  { top: "border-t-amber-500", iconBg: "bg-amber-50 text-amber-500", bar: "bg-amber-500", pctColor: "text-amber-600", initials: "bg-amber-600" },
-  { top: "border-t-red-500", iconBg: "bg-red-50 text-red-500", bar: "bg-red-500", pctColor: "text-red-600", initials: "bg-red-600" },
-  { top: "border-t-indigo-500", iconBg: "bg-indigo-50 text-indigo-500", bar: "bg-indigo-500", pctColor: "text-indigo-600", initials: "bg-indigo-600" },
-  { top: "border-t-cyan-500", iconBg: "bg-cyan-50 text-cyan-500", bar: "bg-cyan-500", pctColor: "text-cyan-600", initials: "bg-cyan-600" },
-  { top: "border-t-pink-500", iconBg: "bg-pink-50 text-pink-500", bar: "bg-pink-500", pctColor: "text-pink-600", initials: "bg-pink-600" },
-  { top: "border-t-emerald-500", iconBg: "bg-emerald-50 text-emerald-500", bar: "bg-emerald-500", pctColor: "text-emerald-600", initials: "bg-emerald-600" },
-  { top: "border-t-orange-500", iconBg: "bg-orange-50 text-orange-500", bar: "bg-orange-500", pctColor: "text-orange-600", initials: "bg-orange-600" },
-  { top: "border-t-teal-500", iconBg: "bg-teal-50 text-teal-500", bar: "bg-teal-500", pctColor: "text-teal-600", initials: "bg-teal-600" },
-  { top: "border-t-rose-500", iconBg: "bg-rose-50 text-rose-500", bar: "bg-rose-500", pctColor: "text-rose-600", initials: "bg-rose-600" },
-];
+type Locale = keyof typeof COPY;
 
-function getAccent(index: number) {
-  return ACCENTS[index % ACCENTS.length];
+function formatCurrency(value: number, _locale: Locale) {
+  return `${value.toLocaleString("en-US")} IQD`;
 }
 
-// ─── Format helpers ────────────────────────────────────────────────────────────
-function fmt(v: number) {
-  return v === 0 ? "IQD 0" : `IQD ${v.toLocaleString("en-US")}`;
+function formatNumber(value: number, _locale: Locale) {
+  return value.toLocaleString("en-US");
 }
 
-function fmtN(v: number) {
-  return v.toLocaleString("en-US");
+function formatUpdatedAt(locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "ar" ? "ar-IQ" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date());
 }
 
-function buildExportUrl(format: "excel" | "word" | "pdf", branchId?: string | null) {
+function buildExportHref(format: "excel" | "word" | "pdf" | "csv", branchId?: string | null) {
   const params = new URLSearchParams({ format });
-  if (branchId) params.set("branchId", branchId);
+  if (branchId) {
+    params.set("branchId", branchId);
+  }
   return `/api/web/group/export?${params.toString()}`;
 }
 
-// ─── Section title ─────────────────────────────────────────────────────────────
-function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+function MetricTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="flex items-center gap-2 mb-4">
-      <h2 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{title}</h2>
-      <div className="w-5 h-5 flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>{icon}</div>
+    <div className="rounded-[24px] border border-[var(--border)] border-l-2 border-l-[var(--accent)] bg-[var(--surface-muted)] px-4 py-4 text-center">
+      <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{label}</div>
+      <div className="mt-2 text-xl font-black text-[var(--text-primary)]">{value}</div>
     </div>
   );
 }
 
-// ─── Export buttons ────────────────────────────────────────────────────────────
-function ExportButtons({ branchId, disabled }: { branchId?: string | null; disabled?: boolean }) {
+function ExportButtons({
+  locale,
+  branchId,
+}: {
+  locale: Locale;
+  branchId?: string | null;
+}) {
+  const copy = COPY[locale];
+  const disabled = !branchId && branchId !== undefined;
+  const baseClassName =
+    "inline-flex min-w-[94px] items-center justify-center rounded-[18px] border px-4 py-2 text-sm font-black transition hover:shadow-md";
+
   if (disabled) {
     return (
-      <div className="flex gap-2.5 flex-wrap">
-        {["PDF", "Word", "Excel"].map((label) => (
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        {[copy.excel, copy.word, copy.pdf, "CSV"].map((label) => (
           <span
             key={label}
-            className="text-xs font-black px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed"
-            style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)", color: "var(--text-tertiary)" }}
+            className={`${baseClassName} cursor-not-allowed border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-tertiary)] opacity-60`}
           >
             {label}
           </span>
@@ -82,155 +141,121 @@ function ExportButtons({ branchId, disabled }: { branchId?: string | null; disab
       </div>
     );
   }
+
   return (
-    <div className="flex gap-2.5 flex-wrap">
+    <div className="flex flex-wrap items-center justify-center gap-3">
       <a
-        href={buildExportUrl("pdf", branchId)}
-        target="_blank"
-        rel="noreferrer"
-        className="text-xs font-black px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 transition shadow-sm hover:shadow-md"
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)" }}
+        href={buildExportHref("excel", branchId)}
+        className={`${baseClassName} border-[#16a34a1f] bg-[#16a34a14] text-[#166534] hover:bg-[#16a34a22]`}
       >
-        📄 PDF
+        {copy.excel}
       </a>
       <a
-        href={buildExportUrl("word", branchId)}
+        href={buildExportHref("word", branchId)}
         target="_blank"
         rel="noreferrer"
-        className="text-xs font-black px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm hover:shadow-md"
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)" }}
+        className={`${baseClassName} border-[#2563eb1f] bg-[#2563eb14] text-[#1d4ed8] hover:bg-[#2563eb22]`}
       >
-        📘 Word
+        {copy.word}
       </a>
       <a
-        href={buildExportUrl("excel", branchId)}
-        className="text-xs font-black px-4 py-2 rounded-lg border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm hover:shadow-md"
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--surface-strong)" }}
+        href={buildExportHref("pdf", branchId)}
+        target="_blank"
+        rel="noreferrer"
+        className={`${baseClassName} border-[#7c3aed1f] bg-[#7c3aed14] text-[#6d28d9] hover:bg-[#7c3aed22]`}
       >
-        📊 Excel
+        {copy.pdf}
+      </a>
+      <a
+        href={buildExportHref("csv", branchId)}
+        className={`${baseClassName} border-[#f59e0b1f] bg-[#f59e0b14] text-[#d97706] hover:bg-[#f59e0b22]`}
+      >
+        CSV
       </a>
     </div>
   );
 }
 
-// ─── Branch card ───────────────────────────────────────────────────────────────
 function BranchCard({
+  locale,
   branch,
-  index,
-  labels,
 }: {
+  locale: Locale;
   branch: SchoolManagerBranchSummary;
-  index: number;
-  labels: Record<string, string>;
 }) {
-  const accent = getAccent(index);
-  const pct = Math.min(100, Math.max(0, branch.paidPercentage));
-  const disabled = branch.branchId === null;
+  const copy = COPY[locale];
 
   return (
-    <article
-      className={`rounded-2xl border shadow-sm dark:shadow-slate-900/30 overflow-hidden border-t-4 ${accent.top} flex flex-col transition-colors`}
-      style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}
-    >
-      {/* Header */}
-      <div className="px-6 pt-6 pb-4 flex items-center justify-between gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-          {branch.logoUrl ? (
-            <Image
-              src={branch.logoUrl}
-              alt={branch.branchName}
-              width={56}
-              height={56}
-              className="h-full w-full object-contain p-2"
-              unoptimized
-            />
-          ) : (
-            <div className="flex items-center justify-center text-sm font-bold text-center px-2" style={{ color: "var(--text-tertiary)" }}>
-              {branch.branchName.split(" ").map((word) => word.charAt(0)).join("").substring(0, 2).toUpperCase()}
-            </div>
+    <section className="group overflow-hidden rounded-[34px] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] transition-all hover:shadow-[var(--shadow-md)] hover:border-blue-300">
+      <div className="border-t-4 border-t-blue-500 bg-gradient-to-r from-blue-50/50 to-blue-100/20 px-5 pt-5 pb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-black text-[var(--text-primary)]">{branch.branchName}</h2>
+            <p className="mt-1 text-xs font-bold text-[var(--text-tertiary)]">
+              {formatNumber(branch.studentsCount, locale)} {copy.students}
+            </p>
+          </div>
+          {branch.branchId && (
+            <a
+              href={`/${locale}/branches/${branch.branchId}/students`}
+              className="rounded-full bg-blue-500 px-3 py-1 text-xs font-black text-white transition hover:bg-blue-600"
+              title="عرض الطلاب"
+            >
+              →
+            </a>
           )}
         </div>
-        <h3 className="text-base font-black text-right flex-1" style={{ color: "var(--text-primary)" }}>{branch.branchName}</h3>
       </div>
+      <div className="p-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MetricTile label={copy.beforeDiscount} value={formatCurrency(branch.totalFeesBeforeDiscount, locale)} />
+          <MetricTile label={copy.afterDiscount} value={formatCurrency(branch.totalFeesAfterDiscount, locale)} />
+          <MetricTile label={copy.remaining} value={formatCurrency(branch.totalRemaining, locale)} />
+          <MetricTile label={copy.discount} value={formatCurrency(branch.totalDiscount, locale)} />
+          <MetricTile label={copy.paid} value={formatCurrency(branch.totalPaid, locale)} />
+          <MetricTile label={copy.expenses} value={formatCurrency(branch.totalExpenses, locale)} />
+        </div>
 
-      <div className="border-t mx-6" style={{ borderColor: "var(--border)" }} />
+        <div className="mt-4 rounded-[20px] bg-gradient-to-br from-green-50/60 to-green-100/40 p-4">
+          <div className="text-center">
+            <p className="text-xs font-bold text-[var(--text-tertiary)]">{copy.paidPercentage}</p>
+            <p className="mt-1 text-3xl font-black text-green-600">{formatNumber(branch.paidPercentage, locale)}%</p>
+          </div>
+        </div>
 
-      {/* Metrics grid */}
-      <div className="px-6 py-5 grid grid-cols-2 gap-x-5 gap-y-5 flex-1">
-        <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.feesBeforeDiscount}</p>
-          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalFeesBeforeDiscount)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.feesAfterDiscount}</p>
-          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalFeesAfterDiscount)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.paid}</p>
-          <p className="text-sm font-black text-green-600 dark:text-green-400">{fmt(branch.totalPaid)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.remaining}</p>
-          <p className="text-sm font-black text-amber-600 dark:text-amber-400">{fmt(branch.totalRemaining)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.studentsCount}</p>
-          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtN(branch.studentsCount)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.expenses}</p>
-          <p className="text-sm font-black text-red-600 dark:text-red-400">{fmt(branch.totalExpenses)}</p>
-        </div>
-        <div className="col-span-2 text-right">
-          <p className="text-xs font-bold mb-1.5" style={{ color: "var(--text-tertiary)" }}>{labels.discount}</p>
-          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmt(branch.totalDiscount)}</p>
+        <div className="mt-5 border-t border-[var(--border)] pt-4">
+          <ExportButtons locale={locale} branchId={branch.branchId} />
         </div>
       </div>
-
-      {/* Progress bar */}
-      <div className="px-6 py-4 border-t" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-        <div className="flex justify-between items-center mb-2">
-          <p className={`text-sm font-black ${accent.pctColor}`}>{fmtN(pct)}%</p>
-          <p className="text-xs font-bold" style={{ color: "var(--text-tertiary)" }}>{labels.paymentRate}</p>
-        </div>
-        <div className="h-3 rounded-full overflow-hidden shadow-sm" style={{ background: "var(--background)" }}>
-          <div
-            className={`h-full rounded-full ${accent.bar} transition-all`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Export buttons */}
-      <div className="px-6 py-3.5 border-t border-gray-100 dark:border-slate-700">
-        <ExportButtons branchId={branch.branchId} disabled={disabled} />
-      </div>
-    </article>
+    </section>
   );
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────
+
 export default async function GroupDashboardPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale: rawLocale } = await params;
-  const locale: Locale = rawLocale === "en" ? "en" : "ar";
+  const locale = rawLocale === "en" ? "en" : "ar";
+  const copy = COPY[locale];
 
-  setRequestLocale(locale);
-  const t = await getTranslations("groupDashboard");
-
-  const context = await resolveSchoolScopedActorContext(null, {
-    allowedRoles: ["admin"],
-    roleDeniedMessage:
-      locale === "ar"
-        ? "هذه الصفحة مخصصة لمدير المدرسة على مستوى المدرسة فقط."
-        : "This page is reserved for school-level managers only.",
-  });
+  const context = await resolveSchoolScopedActorContext(
+    null,
+    {
+      allowedRoles: ["admin"],
+      roleDeniedMessage:
+        locale === "ar"
+          ? "هذه الصفحة مخصصة لمدير المدرسة على مستوى المدرسة فقط."
+          : "This page is reserved for school-level managers only.",
+    },
+  );
 
   if (!context.ok) {
-    if (context.status === 401) redirect(localizeAppPath("/login", locale));
+    if (context.status === 401) {
+      redirect(localizeAppPath("/login", locale));
+    }
     redirect(localizeAppPath("/access-denied", locale));
   }
 
@@ -238,314 +263,151 @@ export default async function GroupDashboardPage({
     redirect(localizeAppPath("/access-denied", locale));
   }
 
-  const { actorSupabase, targetSchoolId, actorUserId } = context.value;
+  const { actorSupabase, targetSchoolId } = context.value;
 
-  const { data: school, error: schoolError } = await actorSupabase
-    .from("schools")
-    .select("id, name")
-    .eq("id", targetSchoolId)
-    .maybeSingle();
+  const [{ data: school, error: schoolError }, overview] = await Promise.all([
+    actorSupabase
+      .from("schools")
+      .select("id, name")
+      .eq("id", targetSchoolId)
+      .maybeSingle(),
+    resolveSchoolManagerOverview(actorSupabase, targetSchoolId),
+  ]);
 
   if (schoolError || !school?.id) {
     redirect(localizeAppPath("/access-denied", locale));
   }
 
-  let _userName = "مدير النظام";
-  try {
-    const { data: profile } = await actorSupabase
-      .from("user_profiles")
-      .select("full_name")
-      .eq("user_id", actorUserId)
-      .maybeSingle();
-    if (profile?.full_name) _userName = profile.full_name;
-  } catch {
-    // fallback already set
-  }
-
-  let overview;
-  let overviewError: string | null = null;
-
-  try {
-    overview = await resolveSchoolManagerOverview(actorSupabase, targetSchoolId);
-  } catch (err) {
-    overviewError = err instanceof Error ? err.message : "تعذر تحميل ملخص المدرسة.";
-    overview = {
-      branches: [],
-      totals: {
-        studentsCount: 0,
-        totalFeesBeforeDiscount: 0,
-        totalDiscount: 0,
-        totalFeesAfterDiscount: 0,
-        totalPaid: 0,
-        totalRemaining: 0,
-        totalExpenses: 0,
-        paidPercentage: 0,
-      },
-      analysis: {
-        strongestCollectionBranch: null,
-        highestRemainingBranch: null,
-        highestExpenseBranch: null,
-      },
-      warnings: overviewError ? [overviewError] : [],
-    };
-  }
-
-  const chartPoints = overview.branches.map((b) => ({
-    branchName: b.branchName,
-    totalFeesAfterDiscount: b.totalFeesAfterDiscount,
-    totalPaid: b.totalPaid,
-    totalRemaining: b.totalRemaining,
-    totalExpenses: b.totalExpenses,
+  const chartPoints = overview.branches.map((branch) => ({
+    branchName: branch.branchName,
+    totalFeesAfterDiscount: branch.totalFeesAfterDiscount,
+    totalPaid: branch.totalPaid,
+    totalRemaining: branch.totalRemaining,
+    totalExpenses: branch.totalExpenses,
   }));
 
-  const totals = overview.totals;
-  const paidPct = Math.min(100, Math.max(0, totals.paidPercentage));
-
   return (
-    <div dir={locale === "ar" ? "rtl" : "ltr"} className="min-h-screen transition-colors duration-200" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
-      {/* ── Main content ────────────────────────────────────────────────────── */}
-      <div className="px-4 sm:px-6 py-6 space-y-6 max-w-screen-2xl mx-auto">
+    <div className="space-y-8 pb-10">
+      <section className="rounded-[36px] border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] to-blue-50/30 px-6 py-8 shadow-[var(--shadow-sm)] sm:px-10">
+        <div className="flex flex-col items-center justify-center">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-[var(--text-tertiary)]">
+            {school.name}
+          </p>
+          <h1 className="mt-4 text-3xl font-black text-[var(--text-primary)] sm:text-5xl">
+            {copy.title}
+          </h1>
+          <p className="mx-auto mt-4 max-w-4xl text-center text-sm leading-8 text-[var(--text-secondary)] sm:text-base">
+            {copy.subtitle}
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row">
+            <div className="text-xs font-bold text-[var(--text-tertiary)]">
+              {copy.generatedAt}: {formatUpdatedAt(locale)}
+            </div>
+            <RefreshButton locale={locale} />
+          </div>
+        </div>
+      </section>
 
-        {/* Breadcrumb + page title */}
-        <div>
-          <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>{t("breadcrumb")}</p>
-          <h1 className="text-2xl sm:text-3xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>{t("title")}</h1>
-          <p className="text-sm mt-1.5" style={{ color: "var(--text-tertiary)" }}>{t("subtitle")}</p>
+      <section className="space-y-5">
+        <div className="text-center">
+          <h2 className="text-2xl font-black text-[var(--text-primary)]">{copy.branchSection}</h2>
         </div>
 
-        {/* Error / warnings */}
-        {overviewError && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 font-medium">
-            {overviewError}
+        {overview.branches.length === 0 ? (
+          <div className="rounded-[32px] border border-[var(--border)] bg-[var(--surface)] p-10 text-center text-[var(--text-secondary)] shadow-[var(--shadow-sm)]">
+            {copy.noBranches}
+          </div>
+        ) : (
+          <div className="grid gap-5 xl:grid-cols-3">
+            {overview.branches.map((branch) => (
+              <BranchCard key={`${branch.branchId ?? "unassigned"}-${branch.branchName}`} locale={locale} branch={branch} />
+            ))}
           </div>
         )}
-        {overview.warnings
-          .filter((w) => w !== overviewError)
-          .map((w) => (
-            <div
-              key={w}
-              className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-700 font-medium"
-            >
-              {w}
-            </div>
-          ))}
+      </section>
 
-        {/* ── KPI cards ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { key: "totalStudents", label: t("kpis.totalStudents"), value: fmtN(totals.studentsCount) },
-            { key: "totalPaid", label: t("kpis.totalPaid"), value: fmt(totals.totalPaid) },
-            { key: "totalDiscounts", label: t("kpis.totalDiscounts"), value: fmt(totals.totalDiscount) },
-            { key: "feesBeforeDiscount", label: t("kpis.feesBeforeDiscount"), value: fmt(totals.totalFeesBeforeDiscount) },
-          ].map((metric) => {
-            const hasCurrency = metric.value.startsWith("IQD");
-            const parts = hasCurrency ? metric.value.split(" ") : ["", metric.value];
-            const currency = parts[0];
-            const amount = parts.slice(1).join(" ");
-
-            return (
-              <div key={metric.key} className="rounded-3xl border shadow-sm p-6 transition-all hover:shadow-md flex flex-col justify-between" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>
-                  {metric.label}
-                </p>
-                <div className="min-w-0 mt-4">
-                  <div className="flex flex-wrap items-baseline justify-end gap-2" style={{ color: "var(--text-primary)" }}>
-                    {hasCurrency && (
-                      <span className="text-sm font-bold" style={{ color: "var(--text-tertiary)" }}>
-                        {currency}
-                      </span>
-                    )}
-                    <span className="whitespace-nowrap text-[clamp(2rem,2.4vw,3rem)] font-extrabold leading-none tracking-tight">
-                      {amount}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+      <section className="rounded-[34px] border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] via-purple-50/20 to-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
+        <div className="text-center">
+          <h2 className="text-2xl font-black text-[var(--text-primary)]">{copy.totalSection}</h2>
+          <p className="mt-2 text-xs font-bold text-[var(--text-tertiary)]">
+            {formatNumber(overview.branches.length, locale)} {locale === "ar" ? "فرع" : "branches"}
+          </p>
         </div>
 
-        {/* ── Branch summary ─────────────────────────────────────────────────── */}
-        <section>
-          <SectionTitle
-            title={t("branches.title")}
-            icon={
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            }
-          />
+        <div className="mx-auto mt-6 max-w-5xl">
+          <div className="grid gap-4 md:grid-cols-2">
+            <MetricTile label={copy.beforeDiscount} value={formatCurrency(overview.totals.totalFeesBeforeDiscount, locale)} />
+            <MetricTile label={copy.afterDiscount} value={formatCurrency(overview.totals.totalFeesAfterDiscount, locale)} />
+            <MetricTile label={copy.remaining} value={formatCurrency(overview.totals.totalRemaining, locale)} />
+            <MetricTile label={copy.discount} value={formatCurrency(overview.totals.totalDiscount, locale)} />
+            <MetricTile label={copy.paid} value={formatCurrency(overview.totals.totalPaid, locale)} />
+            <MetricTile label={copy.expenses} value={formatCurrency(overview.totals.totalExpenses, locale)} />
+          </div>
 
-          {overview.branches.length === 0 ? (
-            <div className="rounded-2xl border shadow-sm py-16 text-center" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "var(--background)" }}>
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: "var(--text-tertiary)" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-tertiary)" }}>{t("branches.noActive")}</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[24px] border border-[var(--border)] bg-blue-50/40 px-4 py-4 text-center">
+              <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{copy.students}</div>
+              <div className="mt-2 text-2xl font-black text-blue-600">{formatNumber(overview.totals.studentsCount, locale)}</div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-              {overview.branches.map((branch, idx) => (
-                <BranchCard
-                  key={branch.branchId ?? `branch-${idx}`}
-                  branch={branch}
-                  index={idx}
-                  labels={{
-                    feesBeforeDiscount: t("kpis.feesBeforeDiscount"),
-                    feesAfterDiscount: t("kpis.feesAfterDiscount"),
-                    paid: t("kpis.paid"),
-                    remaining: t("kpis.remaining"),
-                    studentsCount: t("kpis.studentsCount"),
-                    expenses: t("kpis.expenses"),
-                    discount: t("kpis.discount"),
-                    paymentRate: t("kpis.paymentRate"),
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── School totals ──────────────────────────────────────────────────── */}
-        <section>
-          <SectionTitle
-            title={t("totals.title")}
-            icon={
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            }
-          />
-
-          <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-            {/* Metrics grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-6">
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.feesBeforeDiscount")}</p>
-                <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalFeesBeforeDiscount)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.feesAfterDiscount")}</p>
-                <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalFeesAfterDiscount)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.discount")}</p>
-                <p className="text-sm font-black truncate" style={{ color: "var(--text-primary)" }}>{fmt(totals.totalDiscount)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.remaining")}</p>
-                <p className="text-sm font-black text-amber-600 dark:text-amber-400 truncate">{fmt(totals.totalRemaining)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.paid")}</p>
-                <p className="text-sm font-black text-green-600 dark:text-green-400 truncate">{fmt(totals.totalPaid)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.expenses")}</p>
-                <p className="text-sm font-black text-red-600 dark:text-red-400 truncate">{fmt(totals.totalExpenses)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.studentsCount")}</p>
-                <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtN(totals.studentsCount)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>{t("kpis.paymentRate")}</p>
-                <div className="flex items-center gap-2 justify-end">
-                  <p className="text-sm font-black text-green-600 dark:text-green-400">{fmtN(paidPct)}%</p>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Export */}
-            <div className="mt-6 pt-5 border-t" style={{ borderColor: "var(--border)" }}>
-              <ExportButtons />
+            <div className="rounded-[24px] border border-[var(--border)] bg-green-50/40 px-4 py-4 text-center">
+              <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{copy.paidPercentage}</div>
+              <div className="mt-2 text-2xl font-black text-green-600">{formatNumber(overview.totals.paidPercentage, locale)}%</div>
             </div>
           </div>
-        </section>
 
-        {/* ── Performance analysis ───────────────────────────────────────────── */}
-        <section>
-          <SectionTitle
-            title={t("analysis.title")}
-            icon={
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            }
-          />
+          <div className="mt-6">
+            <ExportButtons locale={locale} />
+          </div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
-            {/* Best collection */}
-            <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-green-600 dark:text-green-400">{t("analysis.bestCollection")}</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 to-green-50 border border-green-200 flex items-center justify-center text-xl">🏆</div>
-              </div>
-              <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
-                {overview.analysis.strongestCollectionBranch?.branchName ?? (
-                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>{t("analysis.noData")}</span>
-                )}
-              </p>
-              {overview.analysis.strongestCollectionBranch && (
-                <p className="mt-3 text-lg font-black text-green-600 dark:text-green-400">
-                  {fmtN(overview.analysis.strongestCollectionBranch.paidPercentage)}%
-                </p>
-              )}
+      <section className="rounded-[32px] border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] to-amber-50/20 p-6 shadow-[var(--shadow-sm)]">
+        <div className="mb-6">
+          <h2 className="text-2xl font-black text-[var(--text-primary)]">{copy.analysisTitle}</h2>
+          <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{copy.analysisSubtitle}</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-[24px] border-l-4 border-l-green-500 border border-[var(--border)] bg-gradient-to-br from-green-50/60 to-green-100/40 p-5">
+            <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{copy.strongestCollection}</div>
+            <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
+              {overview.analysis.strongestCollectionBranch?.branchName || "—"}
             </div>
-
-            {/* Highest remaining */}
-            <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">{t("analysis.highestRemaining")}</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 flex items-center justify-center text-xl">⚠️</div>
-              </div>
-              <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
-                {overview.analysis.highestRemainingBranch?.branchName ?? (
-                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>{t("analysis.noData")}</span>
-                )}
-              </p>
-              {overview.analysis.highestRemainingBranch && (
-                <p className="mt-3 text-sm font-black text-amber-600 dark:text-amber-400">
-                  {fmt(overview.analysis.highestRemainingBranch.totalRemaining)}
-                </p>
-              )}
-            </div>
-
-            {/* Highest expenses */}
-            <div className="rounded-2xl border shadow-sm p-6" style={{ background: "var(--surface-strong)", borderColor: "var(--border)" }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-black uppercase tracking-wide text-red-600 dark:text-red-400">{t("analysis.highestExpenses")}</p>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 to-red-50 border border-red-200 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-              </div>
-              <p className="text-base font-black leading-snug line-clamp-2" style={{ color: "var(--text-primary)" }}>
-                {overview.analysis.highestExpenseBranch?.branchName ?? (
-                  <span className="font-semibold text-sm" style={{ color: "var(--text-tertiary)" }}>{t("analysis.noExpenses")}</span>
-                )}
-              </p>
-              {overview.analysis.highestExpenseBranch && (
-                <p className="mt-3 text-sm font-black text-red-600 dark:text-red-400">
-                  {fmt(overview.analysis.highestExpenseBranch.totalExpenses)}
-                </p>
-              )}
+            <div className="mt-2 text-sm font-bold text-green-600">
+              {overview.analysis.strongestCollectionBranch
+                ? `${formatNumber(overview.analysis.strongestCollectionBranch.paidPercentage, locale)}%`
+                : "—"}
             </div>
           </div>
-        </section>
+          <div className="rounded-[24px] border-l-4 border-l-orange-500 border border-[var(--border)] bg-gradient-to-br from-orange-50/60 to-orange-100/40 p-5">
+            <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{copy.highestRemaining}</div>
+            <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
+              {overview.analysis.highestRemainingBranch?.branchName || "—"}
+            </div>
+            <div className="mt-2 text-sm font-bold text-orange-600">
+              {overview.analysis.highestRemainingBranch
+                ? formatCurrency(overview.analysis.highestRemainingBranch.totalRemaining, locale)
+                : "—"}
+            </div>
+          </div>
+          <div className="rounded-[24px] border-l-4 border-l-red-500 border border-[var(--border)] bg-gradient-to-br from-red-50/60 to-red-100/40 p-5">
+            <div className="text-xs font-black leading-6 text-[var(--text-secondary)]">{copy.highestExpenses}</div>
+            <div className="mt-2 text-lg font-black text-[var(--text-primary)]">
+              {overview.analysis.highestExpenseBranch?.branchName || "—"}
+            </div>
+            <div className="mt-2 text-sm font-bold text-red-600">
+              {overview.analysis.highestExpenseBranch
+                ? formatCurrency(overview.analysis.highestExpenseBranch.totalExpenses, locale)
+                : "—"}
+            </div>
+          </div>
+        </div>
+      </section>
 
-        {/* ── Financial analysis chart ───────────────────────────────────────── */}
-        {chartPoints.length > 0 && (
-          <SchoolManagerComparisonChart points={chartPoints} totals={overview.totals} locale={locale} />
-        )}
+      <SchoolManagerComparisonChart points={chartPoints} totals={overview.totals} />
+
+      <div className="text-center text-xs font-bold text-[var(--text-tertiary)]">
+        {copy.schoolTotalLabel}: {school.name}
       </div>
     </div>
   );

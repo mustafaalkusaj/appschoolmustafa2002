@@ -29,24 +29,25 @@ export async function GET(
     );
   }
 
-  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
-  const branchScope = resolveBranchScope(context.value, requestedBranchId);
-  if (!branchScope.ok) {
-    return jsonError(branchScope.message, branchScope.status);
-  }
-
   const { actorSupabase, targetSchoolId } = context.value;
-  const { data: student, error: studentError } = await applyBranchScopeToQuery(
-    actorSupabase
-      .from("students")
-      .select("id")
-      .eq("id", studentId)
-      .eq("school_id", targetSchoolId),
-    branchScope.value,
-  ).maybeSingle();
+
+  // Load student FIRST to get real branch_id from DB (not client-provided)
+  const { data: student, error: studentError } = await actorSupabase
+    .from("students")
+    .select("id, branch_id")
+    .eq("id", studentId)
+    .eq("school_id", targetSchoolId)
+    .maybeSingle();
 
   if (studentError || !student?.id) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
+  }
+
+  // Resolve branch scope using student's REAL branch_id from DB
+  const studentBranchId = student.branch_id ?? undefined;
+  const branchScope = resolveBranchScope(context.value, studentBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
   }
 
   const { data, error } = await applyBranchScopeToQuery(

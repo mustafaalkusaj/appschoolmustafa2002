@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -27,7 +29,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
+  if (!canManageSalaries) {
+    return jsonError("ليس لديك صلاحية الوصول إلى تقارير الرواتب.", 403);
+  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-report",
     windowMs: 60_000,
@@ -38,11 +50,14 @@ export async function GET(req: NextRequest) {
     return rateLimited;
   }
 
-  let query = actorSupabase
-    .from("daily_lectures")
-    .select("id, teacher_id, grade, section, period, session_type, lecture_date, price, teachers(full_name,subject)")
-    .eq("school_id", targetSchoolId)
-    .order("lecture_date", { ascending: false });
+  let query = applyBranchScopeToQuery(
+    actorSupabase
+      .from("daily_lectures")
+      .select("id, teacher_id, grade, section, period, session_type, lecture_date, price, teachers(full_name,subject)")
+      .eq("school_id", targetSchoolId)
+      .order("lecture_date", { ascending: false }),
+    branchScope.value,
+  );
 
   if (teacherId) {
     query = query.eq("teacher_id", teacherId);

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -38,6 +40,12 @@ export async function GET(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-lectures",
     windowMs: 60_000,
@@ -46,6 +54,15 @@ export async function GET(req: NextRequest) {
   });
   if (rateLimited) {
     return rateLimited;
+  }
+
+  const canManageSalaries = await routeUserHasPermission(
+    context.value.actorSupabase,
+    context.value.actorUserId,
+    "manage_salaries",
+  );
+  if (!canManageSalaries) {
+    return jsonError("ليس لديك صلاحية الوصول إلى بيانات المحاضرات.", 403);
   }
 
   const range = extractMonthRange(month);
@@ -59,19 +76,24 @@ export async function GET(req: NextRequest) {
     }
 
     const [{ data: teacher, error: teacherError }, { data: lectures, error: lecturesError }] = await Promise.all([
-      context.value.actorSupabase
-        .from("teachers")
-        .select("id, lecture_price")
-        .eq("id", teacherId)
-        .eq("school_id", context.value.targetSchoolId)
-        .maybeSingle(),
-      context.value.actorSupabase
-        .from("daily_lectures")
-        .select("price")
-        .eq("teacher_id", teacherId)
-        .eq("school_id", context.value.targetSchoolId)
-        .gte("lecture_date", range.from)
-        .lte("lecture_date", range.to),
+      applyBranchScopeToQuery(
+        context.value.actorSupabase
+          .from("teachers")
+          .select("id, lecture_price")
+          .eq("id", teacherId)
+          .eq("school_id", context.value.targetSchoolId),
+        branchScope.value,
+      ).maybeSingle(),
+      applyBranchScopeToQuery(
+        context.value.actorSupabase
+          .from("daily_lectures")
+          .select("price")
+          .eq("teacher_id", teacherId)
+          .eq("school_id", context.value.targetSchoolId)
+          .gte("lecture_date", range.from)
+          .lte("lecture_date", range.to),
+        branchScope.value,
+      ),
     ]);
 
     if (teacherError || !teacher?.id) {
@@ -99,13 +121,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const { data, error } = await context.value.actorSupabase
-    .from("daily_lectures")
-    .select("lecture_date")
-    .eq("school_id", context.value.targetSchoolId)
-    .gte("lecture_date", range.from)
-    .lte("lecture_date", range.to)
-    .order("lecture_date", { ascending: false });
+  const { data, error } = await applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("daily_lectures")
+      .select("lecture_date")
+      .eq("school_id", context.value.targetSchoolId)
+      .gte("lecture_date", range.from)
+      .lte("lecture_date", range.to)
+      .order("lecture_date", { ascending: false }),
+    branchScope.value,
+  );
 
   if (error) {
     return jsonError(error.message || "تعذر تحميل تقويم المحاضرات.", 500);

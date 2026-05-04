@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import {
   resolveSchoolBranchId,
   resolveSchoolScopedActorContext,
@@ -95,6 +96,11 @@ export async function POST(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
+  const branchScope = resolveBranchScope(context.value, branchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-teachers-create",
     windowMs: 60_000,
@@ -118,7 +124,11 @@ export async function POST(req: NextRequest) {
     () => true,
   );
   const teacherSelect = buildTeacherSelect(includeLecturePrice);
-  const resolvedBranchId = branchId ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
+  const writeBranch = resolveBranchIdForWrite(branchScope.value, branchId);
+  if (!writeBranch.ok) {
+    return jsonError(writeBranch.message, writeBranch.status);
+  }
+  const resolvedBranchId = writeBranch.value ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
   const payload = normalizeTeacherPayload(body ?? {}, resolvedBranchId, includeLecturePrice);
   if (!payload.ok) {
     return jsonError(payload.message, 400);

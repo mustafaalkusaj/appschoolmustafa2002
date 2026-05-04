@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { salaryPaymentSchema } from "@/lib/api-schemas";
 import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-pay",
@@ -55,31 +61,40 @@ export async function POST(req: NextRequest) {
   if (!canManageSalaries) {
     return jsonError("ليس لديك صلاحية صرف الرواتب.", 403);
   }
-  const { data: teacher, error: teacherError } = await actorSupabase
-    .from("teachers")
-    .select("id, full_name")
-    .eq("id", teacherId)
-    .eq("school_id", targetSchoolId)
-    .maybeSingle();
+  const { data: teacher, error: teacherError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("teachers")
+      .select("id, full_name")
+      .eq("id", teacherId)
+      .eq("school_id", targetSchoolId),
+    branchScope.value,
+  ).maybeSingle();
 
   if (teacherError || !teacher?.id) {
     return jsonError("الأستاذ المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  const { data: existing } = await actorSupabase
-    .from("salaries")
-    .select("id")
-    .eq("school_id", targetSchoolId)
-    .eq("teacher_id", teacherId)
-    .eq("month", month)
-    .order("created_at", { ascending: true })
-    .limit(1);
+  const { data: existing } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("salaries")
+      .select("id")
+      .eq("school_id", targetSchoolId)
+      .eq("teacher_id", teacherId)
+      .eq("month", month)
+      .order("created_at", { ascending: true })
+      .limit(1),
+    branchScope.value,
+  );
 
   if (existing && existing.length > 0) {
     return jsonError("تم دفع راتب هذا الشهر مسبقاً.", 409);
   }
 
-  const branchId = requestedBranchId ?? (await resolveSchoolBranchId(actorSupabase, targetSchoolId));
+  const writeBranch = resolveBranchIdForWrite(branchScope.value, requestedBranchId);
+  if (!writeBranch.ok) {
+    return jsonError(writeBranch.message, writeBranch.status);
+  }
+  const branchId = writeBranch.value ?? (await resolveSchoolBranchId(actorSupabase, targetSchoolId));
   const { data: insertedSalary, error: insertError } = await actorSupabase
     .from("salaries")
     .insert({

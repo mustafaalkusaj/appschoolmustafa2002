@@ -2,8 +2,27 @@ import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
-import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolManagerOverview, type SchoolManagerBranchSummary } from "@/lib/school-manager/overview";
+import { escapeHtml, buildCsvContent } from "@/lib/export";
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function enforceRateLimit(key: string, limit: number = 20, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(key);
+
+  if (!record || record.resetAt <= now) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+
+  if (record.count >= limit) {
+    return false;
+  }
+
+  record.count += 1;
+  return true;
+}
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -38,27 +57,8 @@ function buildRows(branch: SchoolManagerBranchSummary): Array<[string, string]> 
   ];
 }
 
-function buildFilename(schoolName: string, branchName: string | null, ext: string): string {
-  const date = new Date().toISOString().slice(0, 10);
-  const parts = [schoolName.trim()];
-  if (branchName) {
-    parts.push(branchName.trim());
-  } else {
-    parts.push("إجمالي المدرسة");
-  }
-  parts.push(date);
-  return `${parts.join(" - ")}.${ext}`;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function buildHtmlDocument(title: string, rows: Array<[string, string]>, autoPrint = false) {
+  const escapedTitle = escapeHtml(title);
   const tableRows = rows
     .map(
       ([label, value]) =>
@@ -70,7 +70,7 @@ function buildHtmlDocument(title: string, rows: Array<[string, string]>, autoPri
   <html lang="ar" dir="rtl">
     <head>
       <meta charset="UTF-8" />
-      <title>${title}</title>
+      <title>${escapedTitle}</title>
       <style>
         body { font-family: Arial, sans-serif; background: #f2f4f8; padding: 32px; color: #111827; }
         .sheet { max-width: 880px; margin: 0 auto; background: white; border: 1px solid #d9d9df; border-radius: 24px; padding: 32px; }
@@ -82,7 +82,7 @@ function buildHtmlDocument(title: string, rows: Array<[string, string]>, autoPri
     </head>
     <body>
       <div class="sheet">
-        <h1>${escapeHtml(title)}</h1>
+        <h1>${escapedTitle}</h1>
         <p>تم التوليد من صفحة مدير المدرسة على مستوى المدرسة.</p>
         <table>${tableRows}</table>
         <div class="footer">${new Date().toLocaleString("ar-IQ")}</div>
@@ -113,14 +113,9 @@ export async function GET(req: NextRequest) {
     return jsonError("هذا التصدير مخصص لمدير المدرسة على مستوى المدرسة فقط.", 403);
   }
 
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "group-export",
-    windowMs: 60_000,
-    maxHits: 20,
-    identifier: context.value.actorUserId,
-  });
-  if (rateLimited) {
-    return rateLimited;
+  const userId = context.value.targetSchoolId;
+  if (!enforceRateLimit(userId, 20, 60000)) {
+    return jsonError("عدد طلبات التصدير كثير جداً. انتظر قليلاً قبل المحاولة مجدداً.", 429);
   }
 
   const branchId = req.nextUrl.searchParams.get("branchId");
@@ -155,10 +150,21 @@ export async function GET(req: NextRequest) {
         rows: buildRows({
           branchId: null,
           branchName: "إجمالي المدرسة",
-          logoUrl: null,
           ...overview.totals,
-        }),
+        } as SchoolManagerBranchSummary),
       };
+
+  if (format === "csv") {
+    const csvRows = target.rows.map(([label, value]) => ({ label, value }));
+    const csv = buildCsvContent(csvRows, ["label", "value"]);
+
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="school-manager-${Date.now()}.csv"`,
+      },
+    });
+  }
 
   if (format === "excel") {
     const workbook = new ExcelJS.Workbook();
@@ -220,18 +226,15 @@ export async function GET(req: NextRequest) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const xlsxFilename = buildFilename(school.name, selectedBranch?.branchName ?? null, "xlsx");
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(xlsxFilename)}`,
-        "Cache-Control": "no-store",
+        "Content-Disposition": `attachment; filename="school-manager-${Date.now()}.xlsx"`,
       },
     });
   }
 
   const html = buildHtmlDocument(target.title, target.rows, format === "pdf");
-  const docFilename = buildFilename(school.name, selectedBranch?.branchName ?? null, format === "word" ? "doc" : "html");
   return new NextResponse(html, {
     headers: {
       "Content-Type":
@@ -240,9 +243,8 @@ export async function GET(req: NextRequest) {
           : "text/html; charset=utf-8",
       "Content-Disposition":
         format === "word"
-          ? `attachment; filename*=UTF-8''${encodeURIComponent(docFilename)}`
+          ? `attachment; filename="school-manager-${Date.now()}.doc"`
           : "inline",
-      "Cache-Control": "no-store",
     },
   });
 }

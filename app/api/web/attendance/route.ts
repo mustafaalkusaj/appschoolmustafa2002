@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -103,9 +104,6 @@ async function resolveAttendanceContext(req: NextRequest, schoolId: string | nul
 }
 
 export async function GET(req: NextRequest) {
-  const t0 = performance.now();
-  const tAuthStart = performance.now();
-
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const date = normalizeDate(req.nextUrl.searchParams.get("date")) ?? getLocalIsoDate(new Date());
 
@@ -114,7 +112,11 @@ export async function GET(req: NextRequest) {
     return context.response;
   }
 
-  const tAuthEnd = performance.now();
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
 
   const { actorSupabase, targetSchoolId } = context.value;
   const canViewAttendance = await routeUserHasPermission(actorSupabase, context.value.actorUserId, "view_attendance");
@@ -123,34 +125,34 @@ export async function GET(req: NextRequest) {
   }
   const fromDate = getLocalIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 14 * 24 * 60 * 60 * 1000));
 
-  // Branch isolation: branch_admin sees only their branch students
-  let studentsQuery = actorSupabase
-    .from("students")
-    .select("id, full_name, class_name, section, status, school_id, branch_id")
-    .eq("school_id", targetSchoolId)
-    .neq("status", "deleted")
-    .order("class_name", { ascending: true })
-    .order("full_name", { ascending: true })
-    .limit(5000);  // Prevent loading excessive students
-
-  // Branch admin: restrict to their branch only
-  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
-    studentsQuery = studentsQuery.eq("branch_id", context.value.actorBranchId);
-  }
-
   const [studentsResult, recordsResult, historyResult] = await Promise.all([
-    studentsQuery,
-    actorSupabase
+    applyBranchScopeToQuery(
+      actorSupabase
+      .from("students")
+      .select("id, full_name, class_name, section, status, school_id, branch_id")
+      .eq("school_id", targetSchoolId)
+      .neq("status", "deleted")
+      .order("class_name", { ascending: true })
+      .order("full_name", { ascending: true }),
+      branchScope.value,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
       .from("attendance_records")
       .select("id, student_id, status, note, updated_at")
       .eq("school_id", targetSchoolId)
       .eq("attendance_date", date),
-    actorSupabase
+      branchScope.value,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
       .from("attendance_records")
       .select("attendance_date, status")
       .eq("school_id", targetSchoolId)
       .gte("attendance_date", fromDate)
       .lte("attendance_date", date),
+      branchScope.value,
+    ),
   ]);
 
   if (studentsResult.error) {
@@ -172,40 +174,17 @@ export async function GET(req: NextRequest) {
     }))
     .filter((row): row is { attendance_date: string; status: AttendanceStatus } => Boolean(row.attendance_date && row.status));
 
-  const tEnd = performance.now();
-  const totalTime = tEnd - t0;
-  const authTime = tAuthEnd - tAuthStart;
-  const dataTime = tEnd - tAuthEnd;
-
-  console.log("[attendance GET] Performance metrics", {
-    targetSchoolId,
-    studentsCount: (studentsResult.data ?? []).length,
-    recordsCount: (recordsResult.data ?? []).length,
-    historyDays: historyRows.length,
-    totalTimeMs: Math.round(totalTime),
-    authTimeMs: Math.round(authTime),
-    dataTimeMs: Math.round(dataTime),
-    responseSize: JSON.stringify({ students: studentsResult.data, records: recordsResult.data, history: buildHistory(historyRows) }).length,
+  return NextResponse.json({
+    ok: true,
+    students: studentsResult.data ?? [],
+    records: recordsResult.data ?? [],
+    history: buildHistory(historyRows),
   });
-
-  return NextResponse.json(
-    {
-      ok: true,
-      students: studentsResult.data ?? [],
-      records: recordsResult.data ?? [],
-      history: buildHistory(historyRows),
-    },
-    {
-      headers: {
-        "Server-Timing": `auth;dur=${Math.round(authTime)}, data;dur=${Math.round(dataTime)}, total;dur=${Math.round(totalTime)}`,
-      },
-    }
-  );
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as
-    | { school_id?: unknown; attendance_date?: unknown; entries?: unknown }
+    | { school_id?: unknown; attendance_date?: unknown; entries?: unknown; branch_id?: unknown }
     | null;
 
   const schoolId = typeof body?.school_id === "string" ? body.school_id.trim() : null;
@@ -218,6 +197,13 @@ export async function POST(req: NextRequest) {
   const context = await resolveAttendanceContext(req, schoolId, "attendance-save", 45);
   if (!context.ok) {
     return context.response;
+  }
+
+  const requestedBranchId =
+    typeof body?.branch_id === "string" && body.branch_id.trim().length > 0 ? body.branch_id.trim() : null;
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
   }
 
   const rawEntries = Array.isArray(body?.entries) ? body.entries : [];
@@ -247,19 +233,15 @@ export async function POST(req: NextRequest) {
     return jsonError("ليس لديك صلاحية تسجيل الحضور.", 403);
   }
   const studentIds = entries.map((entry) => entry.student_id);
-  let studentsQuery = actorSupabase
-    .from("students")
-    .select("id, branch_id")
-    .eq("school_id", targetSchoolId)
-    .in("id", studentIds)
-    .neq("status", "deleted");
-
-  // Branch admin: can only save attendance for their branch students
-  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
-    studentsQuery = studentsQuery.eq("branch_id", context.value.actorBranchId);
-  }
-
-  const { data: students, error: studentsError } = await studentsQuery;
+  const { data: students, error: studentsError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("id, branch_id")
+      .eq("school_id", targetSchoolId)
+      .in("id", studentIds)
+      .neq("status", "deleted"),
+    branchScope.value,
+  );
 
   if (studentsError) {
     return jsonError(studentsError.message || "تعذر التحقق من الطلاب قبل الحفظ.", 500);
@@ -273,17 +255,17 @@ export async function POST(req: NextRequest) {
   );
 
   if (branchByStudentId.size !== studentIds.length) {
-    return jsonError(
-      context.value.scopeLevel === "branch_user"
-        ? "بعض الطلاب لا ينتمون إلى فرعك."
-        : "بعض سجلات الحضور تشير إلى طلاب خارج نطاق المدرسة الحالية.",
-      400
-    );
+    return jsonError("بعض سجلات الحضور تشير إلى طلاب خارج نطاق المدرسة الحالية.", 400);
+  }
+
+  const writeBranch = resolveBranchIdForWrite(branchScope.value, requestedBranchId);
+  if (!writeBranch.ok) {
+    return jsonError(writeBranch.message, writeBranch.status);
   }
 
   const payload = entries.map((entry) => ({
     school_id: targetSchoolId,
-    branch_id: branchByStudentId.get(entry.student_id) ?? null,
+    branch_id: writeBranch.value ?? branchByStudentId.get(entry.student_id) ?? null,
     student_id: entry.student_id,
     attendance_date: attendanceDate,
     status: entry.status,
