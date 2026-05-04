@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     const studentResult = await actorSupabase
       .from("students")
-      .select("id, school_id, paid_fee, total_fee, discount_value, branch_id")
+      .select("id, school_id, paid_fee, total_fee, branch_id")
       .eq("id", studentId)
       .eq("school_id", targetSchoolId)
       .maybeSingle();

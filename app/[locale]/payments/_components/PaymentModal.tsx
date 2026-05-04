@@ -60,7 +60,7 @@ export function PaymentModal({
   const displayedPaidFee = actualPaidFee ?? payStudent?.paid_fee ?? 0;
   const displayedRemainingFee = payStudent
     ? Math.max(
-        (payStudent.total_fee ?? 0) - displayedPaidFee - (payStudent.discount_value ?? 0),
+        (payStudent.total_fee ?? 0) - displayedPaidFee,
         0
       )
     : 0;
@@ -70,7 +70,7 @@ export function PaymentModal({
   const previewPaidFee = displayedPaidFee + enteredAmount;
   const previewRemainingFee = payStudent
     ? Math.max(
-        (payStudent.total_fee ?? 0) - previewPaidFee - (payStudent.discount_value ?? 0),
+        (payStudent.total_fee ?? 0) - previewPaidFee,
         0
       )
     : 0;
