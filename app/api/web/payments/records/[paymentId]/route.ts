@@ -57,20 +57,22 @@ export async function DELETE(
   if (!canDeletePayments) {
     return jsonError("ليس لديك صلاحية حذف الدفعات.", 403);
   }
-  const { data: payment, error: paymentError } = await applyBranchScopeToQuery(
+
+  const paymentQuery = applyBranchScopeToQuery(
     actorSupabase
       .from("payments")
       .select("id, student_id")
       .eq("id", paymentId)
       .eq("school_id", targetSchoolId),
     branchScope.value,
-  ).maybeSingle();
+  );
+  const { data: payment, error: paymentError } = await paymentQuery.maybeSingle();
 
   if (paymentError || !payment?.id || typeof payment.student_id !== "string") {
     return jsonError("تعذر العثور على الدفعة المطلوبة ضمن المدرسة الحالية.", 404);
   }
 
-  const { error: deleteError } = await applyBranchScopeToQuery(
+  const deleteQuery = applyBranchScopeToQuery(
     actorSupabase
       .from("payments")
       .delete()
@@ -78,6 +80,7 @@ export async function DELETE(
       .eq("school_id", targetSchoolId),
     branchScope.value,
   );
+  const { error: deleteError } = await deleteQuery;
 
   if (deleteError) {
     logRouteError("payments-records-delete", deleteError, {
@@ -88,14 +91,15 @@ export async function DELETE(
     return jsonError("تعذر حذف الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
 
-  const { data: refreshedStudent, error: refreshedStudentError } = await applyBranchScopeToQuery(
+  const refreshedStudentQuery = applyBranchScopeToQuery(
     actorSupabase
       .from("students")
-      .select("id, paid_fee, total_fee, discount_value")
+      .select("id, paid_fee, total_fee")
       .eq("id", payment.student_id)
       .eq("school_id", targetSchoolId),
     branchScope.value,
-  ).maybeSingle();
+  );
+  const { data: refreshedStudent, error: refreshedStudentError } = await refreshedStudentQuery.maybeSingle();
 
   if (refreshedStudentError) {
     logRouteError("payments-records-delete-refresh-student", refreshedStudentError, {
@@ -130,7 +134,7 @@ export async function DELETE(
           remaining_fee: calculateStudentRemainingFee({
             total_fee: Number(refreshedStudent.total_fee ?? 0),
             paid_fee: Number(refreshedStudent.paid_fee ?? 0),
-            discount_value: Number(refreshedStudent.discount_value ?? 0),
+            discount_value: 0,
           }),
         }
       : null,

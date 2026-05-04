@@ -50,7 +50,7 @@ export async function GET(
     return jsonError(branchScope.message, branchScope.status);
   }
 
-  const { data, error } = await applyBranchScopeToQuery(
+  const paymentsQuery = applyBranchScopeToQuery(
     actorSupabase
       .from("payments")
       .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
@@ -59,6 +59,7 @@ export async function GET(
       .order("created_at", { ascending: false }),
     branchScope.value,
   );
+  const { data, error } = await paymentsQuery;
 
   if (error) {
     return jsonError(error.message || "تعذر تحميل سجل دفعات الطالب.", 500);

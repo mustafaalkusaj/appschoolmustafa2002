@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   const remainingBeforePayment = calculateStudentRemainingFee({
     total_fee: Number(student.total_fee ?? 0),
     paid_fee: authoritativePaidFee,
-    discount_value: Number(student.discount_value ?? 0),
+    discount_value: 0,
   });
 
   // Validate payment amount doesn't exceed remaining balance
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
   const newRemainingFee = calculateStudentRemainingFee({
     total_fee: Number(student.total_fee ?? 0),
     paid_fee: newPaidFee,
-    discount_value: Number(student.discount_value ?? 0),
+    discount_value: 0,
   });
 
   invalidateSchoolCacheDomains(targetSchoolId, [
