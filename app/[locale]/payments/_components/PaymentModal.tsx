@@ -65,6 +65,16 @@ export function PaymentModal({
       )
     : 0;
 
+  // Calculate preview amounts AFTER this payment is submitted
+  const enteredAmount = parseInt(payForm.amount) || 0;
+  const previewPaidFee = displayedPaidFee + enteredAmount;
+  const previewRemainingFee = payStudent
+    ? Math.max(
+        (payStudent.total_fee ?? 0) - previewPaidFee - (payStudent.discount_value ?? 0),
+        0
+      )
+    : 0;
+
   return (
     <Modal open={show} onClose={onClose} size="lg">
       <ModalHeader title={t("title")} onClose={onClose} />
@@ -131,19 +141,46 @@ export function PaymentModal({
           {/* Student Info Box */}
           {payStudent && (
             <Card className="p-4">
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-[var(--text-muted)]">{t("total")}:</span>
-                  <p className="font-semibold text-[var(--text-primary)]">د.ع {formatNumber(payStudent.total_fee)}</p>
+              <div className="space-y-3">
+                {/* Current Balance */}
+                <div className="pb-3 border-b border-[var(--border)]">
+                  <p className="text-xs text-[var(--text-muted)] font-semibold mb-2">الرصيد الحالي:</p>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-[var(--text-muted)]">{t("total")}:</span>
+                      <p className="font-semibold text-[var(--text-primary)]">د.ع {formatNumber(payStudent.total_fee)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[var(--text-muted)]">{t("paid")}:</span>
+                      <p className="font-semibold text-[var(--success)]">د.ع {formatNumber(displayedPaidFee)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[var(--text-muted)]">{t("remaining")}:</span>
+                      <p className="font-semibold text-[var(--danger)]">د.ع {formatNumber(displayedRemainingFee)}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">{t("paid")}:</span>
-                  <p className="font-semibold text-[var(--success)]">د.ع {formatNumber(displayedPaidFee)}</p>
-                </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">{t("remaining")}:</span>
-                  <p className="font-semibold text-[var(--danger)]">د.ع {formatNumber(displayedRemainingFee)}</p>
-                </div>
+
+                {/* Preview After Payment */}
+                {enteredAmount > 0 && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)] font-semibold mb-2">بعد تسجيل هذه الدفعة:</p>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-[var(--text-muted)]">{t("total")}:</span>
+                        <p className="font-semibold text-[var(--text-primary)]">د.ع {formatNumber(payStudent.total_fee)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)]">{t("paid")}:</span>
+                        <p className="font-semibold text-[var(--success)]">د.ع {formatNumber(previewPaidFee)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)]">{t("remaining")}:</span>
+                        <p className="font-semibold text-[var(--danger)]">د.ع {formatNumber(previewRemainingFee)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           )}
