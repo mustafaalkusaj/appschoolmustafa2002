@@ -20,6 +20,7 @@ export type PaymentsSortDir = "asc" | "desc";
 export type PaymentStudentRecord = {
   id: string;
   school_id: string;
+  branch_id: string | null;
   full_name: string;
   class_name: string | null;
   section: string | null;
@@ -86,7 +87,7 @@ type PaymentsPageRpcRecord = PaymentStudentRecord & {
 };
 
 const STUDENT_LIST_SELECT =
-  "id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, remaining_fee, status";
+  "id, school_id, branch_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, remaining_fee, status";
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 const QUERY_BATCH_SIZE = 1000;
@@ -702,6 +703,7 @@ function buildStudentRowsPayload(
     return {
       id: String(row.id),
       school_id: String(row.school_id ?? ""),
+      branch_id: typeof row.branch_id === "string" ? row.branch_id : null,
       full_name: String(row.full_name ?? ""),
       class_name: className,
       section: typeof row.section === "string" ? row.section : null,

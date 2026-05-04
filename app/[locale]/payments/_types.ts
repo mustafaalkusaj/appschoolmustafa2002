@@ -35,6 +35,7 @@ export type Student = {
   remaining_fee: number;
   status?: string;
   school_id?: string;
+  branch_id?: string | null;
 };
 
 export type Payment = {

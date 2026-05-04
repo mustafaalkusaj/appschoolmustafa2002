@@ -190,7 +190,9 @@ export function usePaymentOperations(
         return;
       }
 
-      const branchId = await resolveBranchIdForSchool(targetSchoolId);
+      // Use the student's own branch_id to avoid mismatched branch scope errors.
+      // Falling back to a school-level query could return a different branch than the student's.
+      const branchId = student.branch_id ?? await resolveBranchIdForSchool(targetSchoolId);
       const electronicReceiptNum = buildReceiptNumber();
       try {
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
