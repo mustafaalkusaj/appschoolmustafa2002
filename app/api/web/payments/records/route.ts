@@ -8,7 +8,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
-import { calculateStudentRemainingFee } from "@/lib/students/financials";
+import { resolveStudentFeeTotal } from "@/lib/students/financials";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     const studentResult = await actorSupabase
       .from("students")
-      .select("id, school_id, paid_fee, total_fee, branch_id")
+      .select("id, school_id, paid_fee, total_fee, discount_value, class_name, branch_id")
       .eq("id", studentId)
       .eq("school_id", targetSchoolId)
       .maybeSingle();
@@ -105,11 +105,23 @@ export async function POST(req: NextRequest) {
     return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
   }
 
-  const remainingBeforePayment = calculateStudentRemainingFee({
-    total_fee: Number(student.total_fee ?? 0),
-    paid_fee: authoritativePaidFee,
-    discount_value: 0,
-  });
+  // Resolve effective total_fee from class_fees (same logic as frontend)
+  let classFeeTotal: number | undefined;
+  if (student.class_name) {
+    const { data: classFeeRow } = await actorSupabase
+      .from("class_fees")
+      .select("total_fee")
+      .eq("school_id", targetSchoolId)
+      .eq("class_name", student.class_name)
+      .maybeSingle();
+    if (classFeeRow?.total_fee) {
+      classFeeTotal = Number(classFeeRow.total_fee);
+    }
+  }
+
+  const effectiveTotalFee = resolveStudentFeeTotal(Number(student.total_fee ?? 0), classFeeTotal);
+  const effectiveDiscount = Number(student.discount_value ?? 0);
+  const remainingBeforePayment = Math.max(effectiveTotalFee - authoritativePaidFee - effectiveDiscount, 0);
 
   // Use student's actual branch_id from DB; ignore client-provided requestedBranchId
   let finalBranchId: string | null;
@@ -149,11 +161,9 @@ export async function POST(req: NextRequest) {
 
   // Calculate updated student values from payment insertion
   const newPaidFee = authoritativePaidFee + amount;
-  const totalFee = Number(student.total_fee ?? 0);
-  const discountValue = 0;
 
-  // Calculate remaining, allowing for overpayment but never negative
-  const rawRemaining = totalFee - newPaidFee - discountValue;
+  // Use same effective total as validation (class_fee resolved)
+  const rawRemaining = effectiveTotalFee - newPaidFee - effectiveDiscount;
   const newRemainingFee = Math.max(rawRemaining, 0);
   const overpaidAmount = Math.max(-rawRemaining, 0);
 
