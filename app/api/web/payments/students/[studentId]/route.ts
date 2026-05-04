@@ -43,22 +43,27 @@ export async function GET(
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  // Resolve branch scope using student's REAL branch_id from DB
+  // Validate actor has access to student's actual branch
   const studentBranchId = student.branch_id ?? undefined;
-  const branchScope = resolveBranchScope(context.value, studentBranchId);
-  if (!branchScope.ok) {
-    return jsonError(branchScope.message, branchScope.status);
+  const studentBranchScope = resolveBranchScope(context.value, studentBranchId);
+  if (!studentBranchScope.ok) {
+    return jsonError(studentBranchScope.message, studentBranchScope.status);
   }
 
-  const paymentsQuery = applyBranchScopeToQuery(
-    actorSupabase
-      .from("payments")
-      .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
-      .eq("school_id", targetSchoolId)
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false }),
-    branchScope.value,
-  );
+  // Query payments using actor's allowed branches (matches POST endpoint logic)
+  // This accounts for cross-branch payments like the backend does
+  const actorBranchScope = resolveBranchScope(context.value);
+  let paymentsQuery = actorSupabase
+    .from("payments")
+    .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
+    .eq("school_id", targetSchoolId)
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+
+  if (actorBranchScope.ok) {
+    paymentsQuery = applyBranchScopeToQuery(paymentsQuery, actorBranchScope.value);
+  }
+
   const { data, error } = await paymentsQuery;
 
   if (error) {
@@ -76,8 +81,8 @@ export async function GET(
     ? {
         studentId,
         studentBranchId,
-        branchScopeType: branchScope.value.branchId ? "single" : "multiple",
-        branchIds: branchScope.value.branchIds,
+        branchScopeType: actorBranchScope.ok && actorBranchScope.value.branchId ? "single" : "multiple",
+        branchIds: actorBranchScope.ok ? actorBranchScope.value.branchIds : [],
         actorRole: context.value.actorRole,
         paymentRowsCount: (data ?? []).length,
         paidBefore,
