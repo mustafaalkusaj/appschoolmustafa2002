@@ -108,6 +108,14 @@ export async function POST(req: NextRequest) {
     discount_value: Number(student.discount_value ?? 0),
   });
 
+  // Validate payment amount doesn't exceed remaining balance
+  if (amount > remainingBeforePayment) {
+    return jsonError(
+      `قيمة الدفعة (${amount.toLocaleString("ar-IQ")} د.ع) أكبر من المبلغ المتبقي (${remainingBeforePayment.toLocaleString("ar-IQ")} د.ع).`,
+      400,
+    );
+  }
+
   // Use student's actual branch_id from DB; ignore client-provided requestedBranchId
   let finalBranchId: string | null;
 
