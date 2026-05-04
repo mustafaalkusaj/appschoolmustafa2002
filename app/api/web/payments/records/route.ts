@@ -111,43 +111,6 @@ export async function POST(req: NextRequest) {
     discount_value: 0,
   });
 
-  // Validate payment amount doesn't exceed remaining balance
-  if (amount > remainingBeforePayment) {
-    // TODO: Remove debug output after diagnosis of 4M vs 0 discrepancy
-    const debugToken = req.headers.get("x-debug-token");
-    const hasDebugAccess =
-      context.value.actorRole === "super_admin" ||
-      (debugToken && debugToken === process.env.PAYMENT_DEBUG_TOKEN);
-
-    const debugInfo = hasDebugAccess
-      ? {
-          studentId,
-          studentName: student?.full_name,
-          studentBranchId,
-          actorId: actorUserId,
-          actorRole: context.value.actorRole,
-          actorBranchIds: context.value.allowedBranchIds,
-          totalFee: student?.total_fee,
-          paidBefore: authoritativePaidFee,
-          remainingBeforePayment,
-          requestedAmount: amount,
-        }
-      : undefined;
-
-    console.error("[payments-records] Overpayment rejected:", debugInfo || "debug hidden");
-
-    const errorMessage = `قيمة الدفعة (${amount.toLocaleString("ar-IQ")} د.ع) أكبر من المبلغ المتبقي (${remainingBeforePayment.toLocaleString("ar-IQ")} د.ع).`;
-
-    return NextResponse.json(
-      {
-        ok: false,
-        error: { message: errorMessage },
-        ...(debugInfo && { debug: debugInfo }),
-      },
-      { status: 400 }
-    );
-  }
-
   // Use student's actual branch_id from DB; ignore client-provided requestedBranchId
   let finalBranchId: string | null;
 
@@ -186,11 +149,15 @@ export async function POST(req: NextRequest) {
 
   // Calculate updated student values from payment insertion
   const newPaidFee = authoritativePaidFee + amount;
-  const newRemainingFee = calculateStudentRemainingFee({
-    total_fee: Number(student.total_fee ?? 0),
-    paid_fee: newPaidFee,
-    discount_value: 0,
-  });
+  const totalFee = Number(student.total_fee ?? 0);
+  const discountValue = 0;
+
+  // Calculate remaining, allowing for overpayment but never negative
+  const rawRemaining = totalFee - newPaidFee - discountValue;
+  const newRemainingFee = Math.max(rawRemaining, 0);
+  const overpaidAmount = Math.max(-rawRemaining, 0);
+
+  const isOverpayment = overpaidAmount > 0;
 
   invalidateSchoolCacheDomains(targetSchoolId, [
     "dashboard-overview",
@@ -198,7 +165,7 @@ export async function POST(req: NextRequest) {
     "reports-overview",
   ]);
 
-  return NextResponse.json({
+  const response: Record<string, unknown> = {
     ok: true,
     payment: createdPayment,
     studentUpdate: {
@@ -206,5 +173,15 @@ export async function POST(req: NextRequest) {
       paid_fee: newPaidFee,
       remaining_fee: newRemainingFee,
     },
-  });
+  };
+
+  if (isOverpayment) {
+    response.warning = {
+      code: "OVERPAYMENT",
+      message: "تم تسجيل الدفعة، ويوجد رصيد زائد.",
+      overpaidAmount,
+    };
+  }
+
+  return NextResponse.json(response);
 }

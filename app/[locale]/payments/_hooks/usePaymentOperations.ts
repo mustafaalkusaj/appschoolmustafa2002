@@ -232,7 +232,7 @@ export function usePaymentOperations(
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
           payment?: Payment;
           studentUpdate?: { id: string; paid_fee: number; remaining_fee: number } | null;
-          warning?: string;
+          warning?: { code?: string; message?: string; overpaidAmount?: number };
           error?: { message?: string };
         }>("/api/web/payments/records", {
           method: "POST",
@@ -272,7 +272,14 @@ export function usePaymentOperations(
           onPaymentCreated?.(newPayment, student);
         }
 
-        onSuccess?.(payload?.warning ? `تم تسجيل الدفعة مع ملاحظة: ${payload.warning}` : "تم تسجيل الدفعة بنجاح ✓");
+        if (payload?.warning) {
+          const msg = payload.warning.code === "OVERPAYMENT"
+            ? `تم تسجيل الدفعة. رصيد زائد: ${payload.warning.overpaidAmount?.toLocaleString("ar-IQ")} د.ع`
+            : `تم تسجيل الدفعة: ${payload.warning.message}`;
+          onSuccess?.(msg);
+        } else {
+          onSuccess?.("تم تسجيل الدفعة بنجاح ✓");
+        }
         setShowPayModal(false);
         setPayForm(initialPayForm);
         setPayStudent(null);
