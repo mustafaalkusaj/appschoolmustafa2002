@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
           studentName: student?.full_name,
           studentBranchId,
           actorId: actorUserId,
+          actorRole: context.value.actorRole,
           actorBranchIds: context.value.allowedBranchIds,
           totalFee: student?.total_fee,
           paidBefore: authoritativePaidFee,
@@ -135,10 +136,12 @@ export async function POST(req: NextRequest) {
 
     console.error("[payments-records] Overpayment rejected:", debugInfo || "debug hidden");
 
+    const errorMessage = `قيمة الدفعة (${amount.toLocaleString("ar-IQ")} د.ع) أكبر من المبلغ المتبقي (${remainingBeforePayment.toLocaleString("ar-IQ")} د.ع).`;
+
     return NextResponse.json(
       {
         ok: false,
-        error: `قيمة الدفعة (${amount.toLocaleString("ar-IQ")} د.ع) أكبر من المبلغ المتبقي (${remainingBeforePayment.toLocaleString("ar-IQ")} د.ع).`,
+        error: { message: errorMessage },
         ...(debugInfo && { debug: debugInfo }),
       },
       { status: 400 }

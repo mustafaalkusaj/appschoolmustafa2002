@@ -78,6 +78,7 @@ export async function GET(
         studentBranchId,
         branchScopeType: branchScope.value.branchId ? "single" : "multiple",
         branchIds: branchScope.value.branchIds,
+        actorRole: context.value.actorRole,
         paymentRowsCount: (data ?? []).length,
         paidBefore,
         payments: data ?? [],
