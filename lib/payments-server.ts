@@ -1,4 +1,5 @@
 import { createRouteSupabaseClient } from "@/lib/supabase-server";
+import { applyBranchScopeToQuery, type ResolvedBranchScope } from "@/lib/branch-scope";
 
 type RouteSupabaseClient = Awaited<ReturnType<typeof createRouteSupabaseClient>>;
 
@@ -23,12 +24,30 @@ async function loadStudentPaymentRows(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
   studentId: string,
+  branchScope?: ResolvedBranchScope,
 ) {
-  const { data: paymentRows, error: paymentsError } = await actorSupabase
+  const query = actorSupabase
     .from("payments")
     .select("amount")
     .eq("school_id", schoolId)
     .eq("student_id", studentId);
+
+  // Apply branch scope if provided (matches frontend behavior)
+  if (branchScope) {
+    const { data: paymentRows, error: paymentsError } = await applyBranchScopeToQuery(
+      query,
+      branchScope,
+    );
+
+    if (paymentsError) {
+      throw paymentsError;
+    }
+
+    return (paymentRows ?? []) as PaymentAmountRow[];
+  }
+
+  // Fallback: no branch scope filtering (for backward compatibility)
+  const { data: paymentRows, error: paymentsError } = await query;
 
   if (paymentsError) {
     throw paymentsError;
@@ -42,8 +61,9 @@ export async function resolveAuthoritativeStudentPaidFee(
   schoolId: string,
   studentId: string,
   fallbackPaidFee: unknown,
+  branchScope?: ResolvedBranchScope,
 ) {
-  const paymentRows = await loadStudentPaymentRows(actorSupabase, schoolId, studentId);
+  const paymentRows = await loadStudentPaymentRows(actorSupabase, schoolId, studentId, branchScope);
   return pickAuthoritativePaidFee(paymentRows, fallbackPaidFee);
 }
 

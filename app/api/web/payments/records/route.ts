@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     return jsonError(studentBranchScope.message, studentBranchScope.status);
   }
 
-  // Get authoritative paid fee
+  // Get authoritative paid fee (with branch scope to match frontend calculations)
   let authoritativePaidFee: number;
   try {
     authoritativePaidFee = await resolveAuthoritativeStudentPaidFee(
@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
       targetSchoolId,
       studentId,
       undefined,
+      studentBranchScope.value, // Pass branch scope for accurate payment calculation
     );
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
