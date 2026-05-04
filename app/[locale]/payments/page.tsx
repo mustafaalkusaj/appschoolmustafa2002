@@ -56,6 +56,11 @@ export default function PaymentsPage() {
     openPaymentForStudent,
   } = usePaymentsPage();
 
+  // Calculate actual paid fee from payment records
+  const actualPaidFee = paymentOpsHook.payStudent
+    ? paymentOpsHook.paymentsByStudent[paymentOpsHook.payStudent.id]?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) ?? 0
+    : undefined;
+
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
       <div className="flex min-h-screen bg-[var(--bg-base)]">
@@ -218,6 +223,7 @@ export default function PaymentsPage() {
           onClose={paymentOpsHook.closePaymentModal}
           onSubmit={handlePaymentSubmit}
           error={error}
+          actualPaidFee={actualPaidFee}
           studentSearch={paymentOpsHook.studentSearch}
           setStudentSearch={paymentOpsHook.setStudentSearch}
           studentSearchResults={paymentOpsHook.studentSearchResults}

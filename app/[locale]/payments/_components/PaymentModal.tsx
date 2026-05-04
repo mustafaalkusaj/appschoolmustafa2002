@@ -21,6 +21,7 @@ interface PaymentModalProps {
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   error: string;
+  actualPaidFee?: number; // Calculated from actual payments
   // Student search
   studentSearch: string;
   setStudentSearch: (value: string) => void;
@@ -42,6 +43,7 @@ export function PaymentModal({
   onClose,
   onSubmit,
   error,
+  actualPaidFee,
   studentSearch,
   setStudentSearch,
   studentSearchResults,
@@ -53,6 +55,15 @@ export function PaymentModal({
 }: PaymentModalProps) {
   const t = useTranslations("payments.modal");
   const nextReceiptNum = `REC-${(totalPaymentCount + 1001).toString()}`;
+
+  // Calculate remaining based on actual paid amount
+  const displayedPaidFee = actualPaidFee ?? payStudent?.paid_fee ?? 0;
+  const displayedRemainingFee = payStudent
+    ? Math.max(
+        (payStudent.total_fee ?? 0) - displayedPaidFee - (payStudent.discount_value ?? 0),
+        0
+      )
+    : 0;
 
   return (
     <Modal open={show} onClose={onClose} size="lg">
@@ -127,11 +138,11 @@ export function PaymentModal({
                 </div>
                 <div>
                   <span className="text-[var(--text-muted)]">{t("paid")}:</span>
-                  <p className="font-semibold text-[var(--success)]">د.ع {formatNumber(payStudent.paid_fee)}</p>
+                  <p className="font-semibold text-[var(--success)]">د.ع {formatNumber(displayedPaidFee)}</p>
                 </div>
                 <div>
                   <span className="text-[var(--text-muted)]">{t("remaining")}:</span>
-                  <p className="font-semibold text-[var(--danger)]">د.ع {formatNumber(payStudent.remaining_fee)}</p>
+                  <p className="font-semibold text-[var(--danger)]">د.ع {formatNumber(displayedRemainingFee)}</p>
                 </div>
               </div>
             </Card>

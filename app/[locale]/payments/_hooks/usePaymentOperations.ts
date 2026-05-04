@@ -158,6 +158,12 @@ export function usePaymentOperations(
     [paymentsByStudent, resolvedSchoolId, onError]
   );
 
+  // Calculate actual paid amount by summing student's payments
+  const calculateActualPaidFee = (studentId: string): number => {
+    const payments = paymentsByStudent[studentId] ?? [];
+    return payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  };
+
   const handlePayment = useCallback(
     async (
       e: React.FormEvent,
@@ -308,18 +314,25 @@ export function usePaymentOperations(
     [canDeletePayments, resolvedSchoolId, onError]
   );
 
-  const openPaymentModal = useCallback((student?: Student) => {
-    if (student) {
-      setPayStudent(student);
-      setStudentSearch(student.full_name);
-      setStudentSearchResults([]);
-    } else {
-      setPayStudent(null);
-      setStudentSearch("");
-      setStudentSearchResults([]);
-    }
-    setShowPayModal(true);
-  }, []);
+  const openPaymentModal = useCallback(
+    (student?: Student) => {
+      if (student) {
+        // Load student's payments to get accurate remaining balance
+        void (async () => {
+          await loadStudentPayments(student.id, { force: true });
+        })();
+        setPayStudent(student);
+        setStudentSearch(student.full_name);
+        setStudentSearchResults([]);
+      } else {
+        setPayStudent(null);
+        setStudentSearch("");
+        setStudentSearchResults([]);
+      }
+      setShowPayModal(true);
+    },
+    [loadStudentPayments]
+  );
 
   const closePaymentModal = useCallback(() => {
     setShowPayModal(false);
