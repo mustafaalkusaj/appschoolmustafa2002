@@ -65,12 +65,31 @@ export function usePaymentOperations(
 
   // Load payments when student selected for payment
   useEffect(() => {
-    if (payStudent && resolvedSchoolId) {
-      void (async () => {
-        await loadStudentPayments(payStudent.id, { force: true });
-      })();
-    }
-  }, [payStudent, resolvedSchoolId, loadStudentPayments]);
+    if (!payStudent || !resolvedSchoolId) return;
+    if (paymentsByStudent[payStudent.id]) return; // Already loaded
+
+    setPaymentsLoadingStudentId(payStudent.id);
+    void (async () => {
+      try {
+        const { response, payload } = await fetchJsonWithAuthorizedSession<{
+          payments?: Payment[];
+          error?: { message?: string };
+        }>(`/api/web/payments/students/${payStudent.id}?schoolId=${encodeURIComponent(resolvedSchoolId)}`);
+
+        if (!response.ok) {
+          onError?.(payload?.error?.message || "تعذر تحميل سجل دفعات الطالب.");
+          return;
+        }
+
+        const nextPayments = payload?.payments ?? [];
+        setPaymentsByStudent((current) => ({ ...current, [payStudent.id]: nextPayments }));
+      } catch (error) {
+        onError?.(error instanceof Error ? error.message : "تعذر تحميل سجل دفعات الطالب.");
+      } finally {
+        setPaymentsLoadingStudentId(null);
+      }
+    })();
+  }, [payStudent?.id, resolvedSchoolId, onError]);
 
   // Student search effect
   useEffect(() => {
