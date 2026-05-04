@@ -65,8 +65,22 @@ export async function GET(
     return jsonError(error.message || "تعذر تحميل سجل دفعات الطالب.", 500);
   }
 
+  // DEBUG: Log payment rows returned to frontend
+  const paidBefore = (data ?? []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const debugInfo = {
+    studentId,
+    studentBranchId,
+    branchScopeType: branchScope.value.branchId ? "single" : "multiple",
+    branchIds: branchScope.value.branchIds,
+    paymentRowsCount: (data ?? []).length,
+    paidBefore,
+    payments: data ?? [],
+  };
+  console.log("[payments-students-get] Payment rows returned:", debugInfo);
+
   return NextResponse.json({
     ok: true,
     payments: data ?? [],
+    debug: debugInfo,
   });
 }

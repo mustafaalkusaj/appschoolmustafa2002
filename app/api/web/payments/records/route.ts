@@ -113,9 +113,27 @@ export async function POST(req: NextRequest) {
 
   // Validate payment amount doesn't exceed remaining balance
   if (amount > remainingBeforePayment) {
-    return jsonError(
-      `قيمة الدفعة (${amount.toLocaleString("ar-IQ")} د.ع) أكبر من المبلغ المتبقي (${remainingBeforePayment.toLocaleString("ar-IQ")} د.ع).`,
-      400,
+    // DEBUG: Log overpayment details
+    const debugInfo = {
+      studentId,
+      studentName: student?.full_name,
+      studentBranchId,
+      actorId: actorUserId,
+      actorBranchIds: context.value.allowedBranchIds,
+      totalFee: student?.total_fee,
+      paidBefore: authoritativePaidFee,
+      remainingBeforePayment,
+      requestedAmount: amount,
+    };
+    console.error("[payments-records] Overpayment rejected:", debugInfo);
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `قيمة الدفعة (${amount.toLocaleString("ar-IQ")} د.ع) أكبر من المبلغ المتبقي (${remainingBeforePayment.toLocaleString("ar-IQ")} د.ع).`,
+        debug: debugInfo,
+      },
+      { status: 400 }
     );
   }
 
