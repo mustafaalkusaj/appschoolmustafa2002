@@ -63,6 +63,15 @@ export function usePaymentOperations(
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  // Load payments when student selected for payment
+  useEffect(() => {
+    if (payStudent && resolvedSchoolId) {
+      void (async () => {
+        await loadStudentPayments(payStudent.id, { force: true });
+      })();
+    }
+  }, [payStudent, resolvedSchoolId, loadStudentPayments]);
+
   // Student search effect
   useEffect(() => {
     if (!showPayModal || !resolvedSchoolId || payStudent || !studentSearch.trim()) {
@@ -317,10 +326,6 @@ export function usePaymentOperations(
   const openPaymentModal = useCallback(
     (student?: Student) => {
       if (student) {
-        // Load student's payments to get accurate remaining balance
-        void (async () => {
-          await loadStudentPayments(student.id, { force: true });
-        })();
         setPayStudent(student);
         setStudentSearch(student.full_name);
         setStudentSearchResults([]);
@@ -331,7 +336,7 @@ export function usePaymentOperations(
       }
       setShowPayModal(true);
     },
-    [loadStudentPayments]
+    []
   );
 
   const closePaymentModal = useCallback(() => {
