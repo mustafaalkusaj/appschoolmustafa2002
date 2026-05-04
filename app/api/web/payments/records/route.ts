@@ -113,25 +113,33 @@ export async function POST(req: NextRequest) {
 
   // Validate payment amount doesn't exceed remaining balance
   if (amount > remainingBeforePayment) {
-    // DEBUG: Log overpayment details
-    const debugInfo = {
-      studentId,
-      studentName: student?.full_name,
-      studentBranchId,
-      actorId: actorUserId,
-      actorBranchIds: context.value.allowedBranchIds,
-      totalFee: student?.total_fee,
-      paidBefore: authoritativePaidFee,
-      remainingBeforePayment,
-      requestedAmount: amount,
-    };
-    console.error("[payments-records] Overpayment rejected:", debugInfo);
+    // TODO: Remove debug output after diagnosis of 4M vs 0 discrepancy
+    const debugToken = req.headers.get("x-debug-token");
+    const hasDebugAccess =
+      context.value.actorRole === "super_admin" ||
+      (debugToken && debugToken === process.env.PAYMENT_DEBUG_TOKEN);
+
+    const debugInfo = hasDebugAccess
+      ? {
+          studentId,
+          studentName: student?.full_name,
+          studentBranchId,
+          actorId: actorUserId,
+          actorBranchIds: context.value.allowedBranchIds,
+          totalFee: student?.total_fee,
+          paidBefore: authoritativePaidFee,
+          remainingBeforePayment,
+          requestedAmount: amount,
+        }
+      : undefined;
+
+    console.error("[payments-records] Overpayment rejected:", debugInfo || "debug hidden");
 
     return NextResponse.json(
       {
         ok: false,
         error: `قيمة الدفعة (${amount.toLocaleString("ar-IQ")} د.ع) أكبر من المبلغ المتبقي (${remainingBeforePayment.toLocaleString("ar-IQ")} د.ع).`,
-        debug: debugInfo,
+        ...(debugInfo && { debug: debugInfo }),
       },
       { status: 400 }
     );

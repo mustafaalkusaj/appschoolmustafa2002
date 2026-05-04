@@ -65,22 +65,33 @@ export async function GET(
     return jsonError(error.message || "تعذر تحميل سجل دفعات الطالب.", 500);
   }
 
-  // DEBUG: Log payment rows returned to frontend
+  // TODO: Remove debug output after diagnosis of 4M vs 0 discrepancy
+  const debugToken = req.headers.get("x-debug-token");
+  const hasDebugAccess =
+    context.value.actorRole === "super_admin" ||
+    (debugToken && debugToken === process.env.PAYMENT_DEBUG_TOKEN);
+
   const paidBefore = (data ?? []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const debugInfo = {
-    studentId,
-    studentBranchId,
-    branchScopeType: branchScope.value.branchId ? "single" : "multiple",
-    branchIds: branchScope.value.branchIds,
-    paymentRowsCount: (data ?? []).length,
-    paidBefore,
-    payments: data ?? [],
-  };
-  console.log("[payments-students-get] Payment rows returned:", debugInfo);
+  const debugInfo = hasDebugAccess
+    ? {
+        studentId,
+        studentBranchId,
+        branchScopeType: branchScope.value.branchId ? "single" : "multiple",
+        branchIds: branchScope.value.branchIds,
+        paymentRowsCount: (data ?? []).length,
+        paidBefore,
+        payments: data ?? [],
+      }
+    : undefined;
+
+  console.log(
+    "[payments-students-get] Payment rows returned:",
+    debugInfo || "debug hidden"
+  );
 
   return NextResponse.json({
     ok: true,
     payments: data ?? [],
-    debug: debugInfo,
+    ...(debugInfo && { debug: debugInfo }),
   });
 }
