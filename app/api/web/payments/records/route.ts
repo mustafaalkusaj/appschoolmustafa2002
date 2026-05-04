@@ -89,7 +89,9 @@ export async function POST(req: NextRequest) {
     return jsonError(studentBranchScope.message, studentBranchScope.status);
   }
 
-  // Get authoritative paid fee (with branch scope to match frontend calculations)
+  // Get authoritative paid fee from ALL payments across actor's allowed branches
+  // (not just student's branch, to account for cross-branch payments)
+  const actorBranchScope = resolveBranchScope(context.value);
   let authoritativePaidFee: number;
   try {
     authoritativePaidFee = await resolveAuthoritativeStudentPaidFee(
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
       targetSchoolId,
       studentId,
       undefined,
-      studentBranchScope.value, // Pass branch scope for accurate payment calculation
+      actorBranchScope.ok ? actorBranchScope.value : undefined,
     );
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
