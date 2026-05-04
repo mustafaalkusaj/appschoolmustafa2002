@@ -107,9 +107,6 @@ export async function POST(req: NextRequest) {
     paid_fee: authoritativePaidFee,
     discount_value: Number(student.discount_value ?? 0),
   });
-  if (amount > remainingBeforePayment) {
-    return jsonError("قيمة الدفعة أكبر من المبلغ المتبقي على الطالب.", 400);
-  }
 
   // Use student's actual branch_id from DB; ignore client-provided requestedBranchId
   let finalBranchId: string | null;
