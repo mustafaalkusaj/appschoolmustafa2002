@@ -56,11 +56,12 @@ export function PaymentModal({
   const t = useTranslations("payments.modal");
   const nextReceiptNum = `REC-${(totalPaymentCount + 1001).toString()}`;
 
-  // Calculate remaining based on actual paid amount
+  // Calculate remaining based on actual paid amount (including discount)
   const displayedPaidFee = actualPaidFee ?? payStudent?.paid_fee ?? 0;
+  const displayedDiscount = payStudent?.discount_value ?? 0;
   const displayedRemainingFee = payStudent
     ? Math.max(
-        (payStudent.total_fee ?? 0) - displayedPaidFee,
+        (payStudent.total_fee ?? 0) - displayedPaidFee - displayedDiscount,
         0
       )
     : 0;
@@ -70,7 +71,7 @@ export function PaymentModal({
   const previewPaidFee = displayedPaidFee + enteredAmount;
   const previewRemainingFee = payStudent
     ? Math.max(
-        (payStudent.total_fee ?? 0) - previewPaidFee,
+        (payStudent.total_fee ?? 0) - previewPaidFee - displayedDiscount,
         0
       )
     : 0;

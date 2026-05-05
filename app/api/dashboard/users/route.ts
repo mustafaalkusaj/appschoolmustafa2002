@@ -833,7 +833,95 @@ export async function POST(req: NextRequest) {
   }
 
   const serviceSupabase = createServiceSupabaseClient();
-  const branchId = await resolveSchoolBranchId(actorSupabase, targetSchoolId);
+
+  // CRITICAL FIX: Resolve actor's accessible branches
+  // For single-branch users: use their branch
+  // For multi-branch users: REQUIRE branch_id in request
+  let actorBranchId: string | null = null;
+  let actorAccessibleBranches: string[] = [];
+
+  try {
+    const { data: actorProfile, error: profileError } = await actorSupabase
+      .from("managed_user_profiles")
+      .select("branch_id")
+      .eq("auth_user_id", actorUserId)
+      .eq("school_id", targetSchoolId)
+      .maybeSingle();
+
+    if (!profileError && actorProfile?.branch_id) {
+      actorBranchId = actorProfile.branch_id;
+      actorAccessibleBranches = [actorProfile.branch_id];
+    } else {
+      // Admin/super_admin with no branch restriction - fetch all school branches
+      const { data: allBranches, error: branchesError } = await actorSupabase
+        .from("branches")
+        .select("id")
+        .eq("school_id", targetSchoolId);
+
+      if (!branchesError && allBranches) {
+        actorAccessibleBranches = allBranches.map((b) => b.id);
+      }
+    }
+  } catch (err) {
+    return jsonError(
+      err instanceof Error ? err.message : "تعذر التحقق من صلاحيات الفروع.",
+      500
+    );
+  }
+
+  // Determine branch for new student/teacher
+  let branchId: string | null = null;
+
+  if (validation.value.role === "student") {
+    const requestedBranchId = validation.value.student?.branch_id;
+
+    // Require branch_id if actor has access to multiple branches
+    if (actorAccessibleBranches.length > 1 && !requestedBranchId) {
+      return jsonError(
+        "يجب تحديد الفرع المطلوب. المستخدم الحالي له صلاحيات في عدة فروع.",
+        400,
+        {
+          "student.branch_id": "تحديد الفرع مطلوب للمستخدمين متعددي الفروع.",
+        }
+      );
+    }
+
+    // Use provided branch_id if specified
+    if (requestedBranchId) {
+      // Validate it's in actor's accessible branches
+      if (!actorAccessibleBranches.includes(requestedBranchId)) {
+        return jsonError(
+          "الفرع المحدد غير متاح لهذا المستخدم.",
+          403,
+          {
+            "student.branch_id": "ليس لديك صلاحيات الوصول إلى هذا الفرع.",
+          }
+        );
+      }
+
+      // Validate branch exists and belongs to school
+      const { data: branchData, error: branchError } = await actorSupabase
+        .from("branches")
+        .select("id")
+        .eq("id", requestedBranchId)
+        .eq("school_id", targetSchoolId)
+        .maybeSingle();
+
+      if (branchError || !branchData) {
+        return jsonError("الفرع المحدد غير موجود أو لا ينتمي لهذه المدرسة.", 404, {
+          "student.branch_id": "الفرع المطلوب غير موجود.",
+        });
+      }
+
+      branchId = requestedBranchId;
+    } else if (actorAccessibleBranches.length === 1) {
+      // Single-branch user: use their branch
+      branchId = actorAccessibleBranches[0];
+    }
+  } else if (validation.value.role === "teacher" && actorAccessibleBranches.length === 1) {
+    // For teachers, use actor's branch if they're single-branch
+    branchId = actorAccessibleBranches[0];
+  }
   const loginIdentifier = await generateManagedLoginIdentifier(actorSupabase, {
     schoolId: targetSchoolId,
     role: validation.value.role,

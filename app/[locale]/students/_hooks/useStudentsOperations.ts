@@ -235,6 +235,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
           total_fee: modals.form.total_fee,
           paid_fee: modals.form.paid_fee,
           discount_value: modals.form.discount_value,
+          branch_id: modals.form.branch_id,
         },
         teacher: null,
       }),

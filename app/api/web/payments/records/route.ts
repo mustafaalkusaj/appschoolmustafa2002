@@ -182,6 +182,8 @@ export async function POST(req: NextRequest) {
       id: studentId,
       paid_fee: newPaidFee,
       remaining_fee: newRemainingFee,
+      discount_value: effectiveDiscount,
+      total_fee: effectiveTotalFee,
     },
   };
 

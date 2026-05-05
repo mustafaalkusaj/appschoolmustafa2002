@@ -41,7 +41,8 @@ export const studentSchema = z.object({
   classId: z.string().uuid("Invalid class ID"),
   registrationNumber: z.string().min(1, "Registration number required").max(50),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
-  status: z.enum(["active", "inactive", "graduated"]).default("active")
+  status: z.enum(["active", "inactive", "graduated"]).default("active"),
+  branchId: z.string().min(1, "Branch ID is required").max(36)
 });
 
 export const studentQuerySchema = z.object({

@@ -43,6 +43,28 @@ export default function StudentsPage() {
   const schoolScope = useSchoolScope(profile);
   const runtimeBranding = useRuntimeBranding();
 
+  const [branches, setBranches] = useState<Array<{ id: string; nameAr: string; nameEn: string }>>([]);
+
+  useEffect(() => {
+    if (!schoolScope.selectedSchoolId) {
+      setBranches([]);
+      return;
+    }
+    const fetchBranches = async () => {
+      try {
+        const response = await fetch(`/api/school-data/${schoolScope.selectedSchoolId}/branches`);
+        if (response.ok) {
+          const data = await response.json();
+          setBranches(data.branches ?? []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch branches:", err);
+        setBranches([]);
+      }
+    };
+    fetchBranches();
+  }, [schoolScope.selectedSchoolId]);
+
   const canAddStudents = can("add_students");
   const canEditStudents = can("edit_students");
   const canDeleteStudents = can("delete_students");
@@ -349,6 +371,7 @@ export default function StudentsPage() {
           form={modals.form}
           setForm={modals.setForm}
           classFees={classFees}
+          branches={branches}
           saving={modals.saving}
           error={modals.error}
           onClose={() => {

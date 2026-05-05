@@ -255,15 +255,17 @@ export function usePaymentOperations(
           return;
         }
 
+        // Force reload student payments to ensure we have fresh state
+        const freshPayments = await loadStudentPayments(student.id, { force: true });
+
+        // Update student financials from response
         if (payload?.studentUpdate) {
           onUpdate(student.id, payload.studentUpdate);
         }
+
+        // Add the new payment and log payment year
         if (payload?.payment) {
           const newPayment = payload.payment;
-          setPaymentsByStudent((current) => ({
-            ...current,
-            [student.id]: [newPayment, ...(current[student.id] ?? [])],
-          }));
           onIncrementCount();
           const createdYear = payload.payment.created_at ? new Date(payload.payment.created_at).getFullYear() : null;
           if (typeof createdYear === "number" && Number.isFinite(createdYear)) {
@@ -328,13 +330,20 @@ export function usePaymentOperations(
           return;
         }
 
+        // Update student financials from response
         if (payload?.studentUpdate) {
           onUpdate(studentId, payload.studentUpdate);
         }
+
+        // Remove payment from local state
         setPaymentsByStudent((current) => ({
           ...current,
           [studentId]: (current[studentId] ?? []).filter((payment) => payment.id !== paymentId),
         }));
+
+        // Force reload fresh payments to ensure consistency
+        await loadStudentPayments(studentId, { force: true });
+
         onDecrementCount();
 
         if (payload?.warning) {

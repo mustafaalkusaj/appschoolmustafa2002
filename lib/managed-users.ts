@@ -57,6 +57,7 @@ export interface ManagedStudentInput {
   total_fee: number;
   paid_fee: number;
   discount_value: number;
+  branch_id?: string; // CRITICAL FIX: User-selected branch_id
 }
 
 export interface ManagedTeacherInput {

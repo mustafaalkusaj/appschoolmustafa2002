@@ -94,7 +94,7 @@ export async function DELETE(
   const refreshedStudentQuery = applyBranchScopeToQuery(
     actorSupabase
       .from("students")
-      .select("id, paid_fee, total_fee")
+      .select("id, paid_fee, total_fee, discount_value, class_name, school_id")
       .eq("id", payment.student_id)
       .eq("school_id", targetSchoolId),
     branchScope.value,
@@ -124,6 +124,20 @@ export async function DELETE(
     "reports-overview",
   ]);
 
+  // Resolve effective total_fee from class_fees (same logic as POST)
+  let classFeeTotal: number | undefined;
+  if (refreshedStudent?.class_name && refreshedStudent.school_id) {
+    const { data: classFeeRow } = await actorSupabase
+      .from("class_fees")
+      .select("total_fee")
+      .eq("school_id", refreshedStudent.school_id)
+      .eq("class_name", refreshedStudent.class_name)
+      .maybeSingle();
+    if (classFeeRow?.total_fee) {
+      classFeeTotal = Number(classFeeRow.total_fee);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     deletedPaymentId: paymentId,
@@ -132,10 +146,11 @@ export async function DELETE(
           id: refreshedStudent.id,
           paid_fee: Number(refreshedStudent.paid_fee ?? 0),
           remaining_fee: calculateStudentRemainingFee({
-            total_fee: Number(refreshedStudent.total_fee ?? 0),
+            total_fee: classFeeTotal || Number(refreshedStudent.total_fee ?? 0),
             paid_fee: Number(refreshedStudent.paid_fee ?? 0),
-            discount_value: 0,
+            discount_value: Number(refreshedStudent.discount_value ?? 0),
           }),
+          discount_value: Number(refreshedStudent.discount_value ?? 0),
         }
       : null,
   });

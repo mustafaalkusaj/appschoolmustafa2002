@@ -134,9 +134,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
 
-    const { classId, nameAr, nameEn, registrationNumber, dateOfBirth, status } = validation.data;
+    const { classId, nameAr, nameEn, registrationNumber, dateOfBirth, status, branchId } = validation.data;
 
-    // Verify class exists and belongs to user's school/branch
+    // Validate branch_id is provided and not empty
+    if (!branchId || typeof branchId !== 'string' || branchId.trim().length === 0) {
+      log.logResponse(400, { userId: authContext.userId });
+      return NextResponse.json({ error: 'Branch ID is required and must not be empty' }, { status: 400 });
+    }
+
+    // Verify class exists and belongs to user's school
     const classRecord = await prisma.class.findUnique({
       where: { id: classId },
       select: { schoolId: true, branchId: true }
@@ -147,18 +153,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Class not found' }, { status: 404 });
     }
 
-    // Verify user has access to this class's branch
-    if (
-      classRecord.schoolId !== authContext.schoolId ||
-      (authContext.branchId && classRecord.branchId !== authContext.branchId)
-    ) {
+    // Verify class belongs to user's school
+    if (classRecord.schoolId !== authContext.schoolId) {
       log.logAuthEvent('permission_denied', `Unauthorized access to class ${classId}`);
       log.logResponse(403, { userId: authContext.userId });
       return NextResponse.json({ error: 'Forbidden: Cannot access this class' }, { status: 403 });
     }
 
-    // Get the branch from the class
-    const branchId = classRecord.branchId;
+    // Verify the provided branch exists and belongs to the same school
+    const branchRecord = await prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { schoolId: true }
+    });
+
+    if (!branchRecord) {
+      log.logResponse(404, { userId: authContext.userId });
+      return NextResponse.json({ error: 'Branch not found' }, { status: 404 });
+    }
+
+    if (branchRecord.schoolId !== authContext.schoolId) {
+      log.logAuthEvent('permission_denied', `Unauthorized access to branch ${branchId}`);
+      log.logResponse(403, { userId: authContext.userId });
+      return NextResponse.json({ error: 'Forbidden: Cannot access this branch' }, { status: 403 });
+    }
+
+    // Verify user has access to this branch
+    if (authContext.branchId && branchId !== authContext.branchId) {
+      log.logAuthEvent('permission_denied', `User restricted to branch ${authContext.branchId}, cannot access ${branchId}`);
+      log.logResponse(403, { userId: authContext.userId });
+      return NextResponse.json({ error: 'Forbidden: You do not have access to this branch' }, { status: 403 });
+    }
 
     // Create student
     const student = await prisma.student.create({
