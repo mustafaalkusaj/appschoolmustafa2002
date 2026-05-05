@@ -232,7 +232,6 @@ export function usePaymentOperations(
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
           payment?: Payment;
           studentUpdate?: { id: string; paid_fee: number; remaining_fee: number } | null;
-          warning?: { code?: string; message?: string; overpaidAmount?: number };
           error?: { message?: string };
         }>("/api/web/payments/records", {
           method: "POST",
