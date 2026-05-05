@@ -236,7 +236,10 @@ export function usePaymentsPage() {
 
   const handleDeletePayment = useCallback(
     async (paymentId: string) => {
-      if (!selectedStudent) return;
+      if (!selectedStudent) {
+        setError("لا يمكن حذف الدفعة: لم يتم تحديد الطالب.");
+        return;
+      }
       await paymentOpsHook.deletePayment(
         paymentId,
         selectedStudent.id,
@@ -246,7 +249,7 @@ export function usePaymentsPage() {
       );
       studentsHook.updatePaymentCount(selectedStudent.id, -1);
     },
-    [selectedStudent, paymentOpsHook, studentsHook, metaHook, updateStudentFinancials]
+    [selectedStudent, paymentOpsHook, studentsHook, metaHook, updateStudentFinancials, setError]
   );
 
   const handlePaymentSubmit = useCallback(

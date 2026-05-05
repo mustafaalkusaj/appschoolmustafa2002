@@ -297,11 +297,13 @@ export function usePaymentOperations(
       onDecrementCount: () => void
     ) => {
       if (!canDeletePayments) {
-        onError?.("ليس لديك صلاحية حذف الدفعات.");
+        const msg = "ليس لديك صلاحية حذف الدفعات.";
+        onError?.(msg);
         return;
       }
       if (!resolvedSchoolId) {
-        onError?.("تعذر تحديد سياق المدرسة لهذه العملية.");
+        const msg = "تعذر تحديد سياق المدرسة لهذه العملية.";
+        onError?.(msg);
         return;
       }
 
@@ -318,7 +320,8 @@ export function usePaymentOperations(
         });
 
         if (!response.ok) {
-          onError?.(payload?.error?.message || "تعذر حذف الدفعة.");
+          const errMsg = payload?.error?.message || "تعذر حذف الدفعة.";
+          onError?.(errMsg);
           return;
         }
 
@@ -340,14 +343,17 @@ export function usePaymentOperations(
 
         if (payload?.warning) {
           onError?.(`تم حذف الدفعة لكن تعذر مزامنة رصيد الطالب بالكامل: ${payload.warning}`);
+        } else {
+          onError?.("تم حذف الدفعة بنجاح ✓");
         }
 
         onMetaRefresh();
       } catch (deleteError) {
-        onError?.(deleteError instanceof Error ? deleteError.message : "تعذر حذف الدفعة.");
+        const errMsg = deleteError instanceof Error ? deleteError.message : "تعذر حذف الدفعة.";
+        onError?.(errMsg);
       }
     },
-    [canDeletePayments, resolvedSchoolId, onError]
+    [canDeletePayments, resolvedSchoolId, onError, loadStudentPayments]
   );
 
   const openPaymentModal = useCallback(
