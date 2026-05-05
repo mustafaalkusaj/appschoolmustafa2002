@@ -274,14 +274,7 @@ export function usePaymentOperations(
           onPaymentCreated?.(newPayment, student);
         }
 
-        if (payload?.warning) {
-          const msg = payload.warning.code === "OVERPAYMENT"
-            ? `تم تسجيل الدفعة. رصيد زائد: ${payload.warning.overpaidAmount?.toLocaleString("ar-IQ")} د.ع`
-            : `تم تسجيل الدفعة: ${payload.warning.message}`;
-          onSuccess?.(msg);
-        } else {
-          onSuccess?.("تم تسجيل الدفعة بنجاح ✓");
-        }
+        onSuccess?.("تم تسجيل الدفعة بنجاح ✓");
         setShowPayModal(false);
         setPayForm(initialPayForm);
         setPayStudent(null);

@@ -123,6 +123,36 @@ export async function POST(req: NextRequest) {
   const effectiveDiscount = Number(student.discount_value ?? 0);
   const remainingBeforePayment = Math.max(effectiveTotalFee - authoritativePaidFee - effectiveDiscount, 0);
 
+  // VALIDATION: Reject if student already paid in full
+  if (remainingBeforePayment <= 0) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "PAID_IN_FULL",
+          message: "تم تسديد المبلغ بالكامل، لا يمكن تسجيل دفعة جديدة.",
+        },
+      },
+      { status: 400, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  // VALIDATION: Reject if payment exceeds remaining amount
+  if (amount > remainingBeforePayment) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "PAYMENT_EXCEEDS_REMAINING",
+          message: "قيمة الدفعة أكبر من المبلغ المتبقي.",
+        },
+        details: {
+          amount,
+          remainingBeforePayment,
+        },
+      },
+      { status: 400, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   // Use student's actual branch_id from DB; ignore client-provided requestedBranchId
   let finalBranchId: string | null;
 
@@ -163,11 +193,7 @@ export async function POST(req: NextRequest) {
   const newPaidFee = authoritativePaidFee + amount;
 
   // Use same effective total as validation (class_fee resolved)
-  const rawRemaining = effectiveTotalFee - newPaidFee - effectiveDiscount;
-  const newRemainingFee = Math.max(rawRemaining, 0);
-  const overpaidAmount = Math.max(-rawRemaining, 0);
-
-  const isOverpayment = overpaidAmount > 0;
+  const newRemainingFee = Math.max(effectiveTotalFee - newPaidFee - effectiveDiscount, 0);
 
   invalidateSchoolCacheDomains(targetSchoolId, [
     "dashboard-overview",
@@ -175,7 +201,7 @@ export async function POST(req: NextRequest) {
     "reports-overview",
   ]);
 
-  const response: Record<string, unknown> = {
+  return NextResponse.json({
     ok: true,
     payment: createdPayment,
     studentUpdate: {
@@ -185,15 +211,5 @@ export async function POST(req: NextRequest) {
       discount_value: effectiveDiscount,
       total_fee: effectiveTotalFee,
     },
-  };
-
-  if (isOverpayment) {
-    response.warning = {
-      code: "OVERPAYMENT",
-      message: "تم تسجيل الدفعة، ويوجد رصيد زائد.",
-      overpaidAmount,
-    };
-  }
-
-  return NextResponse.json(response);
+  });
 }

@@ -76,6 +76,10 @@ export function PaymentModal({
       )
     : 0;
 
+  // Validation: Check if amount exceeds remaining
+  const amountExceedsRemaining = enteredAmount > displayedRemainingFee && enteredAmount > 0;
+  const isPaymentDisabled = displayedRemainingFee <= 0;
+
   return (
     <Modal open={show} onClose={onClose} size="lg">
       <ModalHeader title={t("title")} onClose={onClose} />
@@ -139,6 +143,13 @@ export function PaymentModal({
             </div>
           </FormField>
 
+          {/* Paid in Full Message */}
+          {payStudent && isPaymentDisabled && (
+            <div className="bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success)] rounded-[var(--radius-md)] p-3 text-sm font-semibold">
+              تم تسديد المبلغ بالكامل
+            </div>
+          )}
+
           {/* Student Info Box */}
           {payStudent && (
             <Card className="p-4">
@@ -198,7 +209,12 @@ export function PaymentModal({
               />
             </FormField>
 
-            <FormField label={t("amount") + " (" + t("currency") + ")"} htmlFor="payment-amount" required>
+            <FormField
+              label={t("amount") + " (" + t("currency") + ")"}
+              htmlFor="payment-amount"
+              required
+              helpText={amountExceedsRemaining ? `أقصى مبلغ: د.ع ${formatNumber(displayedRemainingFee)}` : undefined}
+            >
               <Input
                 id="payment-amount"
                 type="number"
@@ -206,6 +222,7 @@ export function PaymentModal({
                 placeholder={t("amount")}
                 value={payForm.amount}
                 onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                disabled={isPaymentDisabled}
               />
             </FormField>
 
@@ -248,7 +265,12 @@ export function PaymentModal({
         </ModalBody>
 
         <ModalFooter>
-          <Button type="submit" variant="primary" disabled={saving || !payStudent} loading={saving}>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saving || !payStudent || isPaymentDisabled || amountExceedsRemaining}
+            loading={saving}
+          >
             تسجيل الدفعة
           </Button>
           <Button type="button" variant="secondary" onClick={onClose}>
