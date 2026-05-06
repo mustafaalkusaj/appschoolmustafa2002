@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
 /**
  * Register Endpoint
  * POST /api/auth/register
@@ -10,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { registerUser } from '@/lib/services/auth-service';
 import { registerSchema } from '@/lib/validators';
 import { createApiLogger } from '@/lib/api-logger';
+import { enforceRateLimit, getRateLimitClientIp } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   const log = createApiLogger({
@@ -19,6 +18,19 @@ export async function POST(req: NextRequest) {
 
   try {
     log.logRequest('POST');
+
+    // Enforce rate limit
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: 'auth-register',
+      windowMs: 15 * 60_000,
+      maxHits: 5,
+      identifier: getRateLimitClientIp(req)
+    });
+
+    if (rateLimited) {
+      log.logResponse(429);
+      return rateLimited;
+    }
 
     // Parse request body
     const body = await req.json();
@@ -54,10 +66,19 @@ export async function POST(req: NextRequest) {
 
     // Check for errors
     if ('code' in result) {
-      let statusCode = 400;
-      if (result.code === 'USER_EXISTS') statusCode = 409;
-      if (result.code === 'DATABASE_ERROR') statusCode = 500;
+      // Prevent user enumeration: always return generic message for USER_EXISTS
+      if (result.code === 'USER_EXISTS') {
+        log.logResponse(200);
+        return NextResponse.json(
+          {
+            ok: true,
+            message: 'تم إرسال رابط التأكيد إلى بريدك الإلكتروني'
+          },
+          { status: 200 }
+        );
+      }
 
+      const statusCode = result.code === 'DATABASE_ERROR' ? 500 : 400;
       log.logResponse(statusCode);
       return NextResponse.json(
         {

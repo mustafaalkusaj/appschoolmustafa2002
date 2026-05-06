@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
 /**
  * Change Password Endpoint
  * POST /api/auth/change-password
@@ -11,6 +9,7 @@ import { requireAuth } from '@/lib/middleware/auth-middleware';
 import { updatePassword } from '@/lib/services/auth-service';
 import { resetPasswordSchema } from '@/lib/validators';
 import { createApiLogger } from '@/lib/api-logger';
+import { enforceRateLimit, getRateLimitClientIp } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   const endpoint = '/api/auth/change-password';
@@ -29,6 +28,19 @@ export async function POST(req: NextRequest) {
     }
 
     const authContext = authResult.auth!;
+
+    // Enforce rate limit
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: 'auth-change-password',
+      windowMs: 15 * 60_000,
+      maxHits: 5,
+      identifier: `${getRateLimitClientIp(req)}:${authContext.userId}`
+    });
+
+    if (rateLimited) {
+      log.logResponse(429, { userId: authContext.userId });
+      return rateLimited;
+    }
 
     // Parse request body
     const body = await req.json();

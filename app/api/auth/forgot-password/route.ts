@@ -45,15 +45,6 @@ export async function POST(req: NextRequest) {
       logRouteError("auth-forgot-password", error, {
         email: parsed.data.email,
       });
-      return buildResponse(
-        {
-          ok: false,
-          error: {
-            message: "تعذر بدء استعادة كلمة المرور حالياً.",
-          },
-        },
-        500,
-      );
     }
 
     return buildResponse({
@@ -63,14 +54,8 @@ export async function POST(req: NextRequest) {
     logRouteError("auth-forgot-password-unexpected", error, {
       email: parsed.data.email,
     });
-    return buildResponse(
-      {
-        ok: false,
-        error: {
-          message: "حدث خطأ غير متوقع أثناء طلب إعادة التعيين.",
-        },
-      },
-      500,
-    );
+    return buildResponse({
+      ok: true,
+    });
   }
 }

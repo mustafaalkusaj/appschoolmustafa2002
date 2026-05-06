@@ -4,6 +4,7 @@
  * Branch Service
  * Handles branch management, isolation, and access control
  * Core service for multi-branch architecture
+ * TODO: Refactor to use Supabase client instead of legacy Prisma stub
  */
 
 import { prisma } from '@/lib/prisma';

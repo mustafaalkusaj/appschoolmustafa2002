@@ -34,43 +34,43 @@ const CACHE_CONFIG: Record<string, CacheConfig> = {
     maxAge: 300, // 5 minutes
     sMaxAge: 300,
     staleWhileRevalidate: 60,
-    public: true,
+    public: false,
   },
   'expenses-list': {
     maxAge: 300,
     sMaxAge: 300,
     staleWhileRevalidate: 60,
-    public: true,
+    public: false,
   },
   'payments-meta': {
     maxAge: 300,
     sMaxAge: 300,
     staleWhileRevalidate: 60,
-    public: true,
+    public: false,
   },
   'payments-list': {
     maxAge: 300,
     sMaxAge: 300,
     staleWhileRevalidate: 60,
-    public: true,
+    public: false,
   },
   'students-list': {
     maxAge: 300,
     sMaxAge: 300,
     staleWhileRevalidate: 60,
-    public: true,
+    public: false,
   },
   'students-meta': {
     maxAge: 300,
     sMaxAge: 300,
     staleWhileRevalidate: 60,
-    public: true,
+    public: false,
   },
   'teacher-activity-meta': {
     maxAge: 300,
     sMaxAge: 300,
     staleWhileRevalidate: 60,
-    public: true,
+    public: false,
   },
 };
 
@@ -86,7 +86,7 @@ export function getCacheHeaders(
   if (!config) {
     // Default fallback for unknown strategies
     return {
-      'cache-control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+      'cache-control': 'private, max-age=300, stale-while-revalidate=60',
     };
   }
 
