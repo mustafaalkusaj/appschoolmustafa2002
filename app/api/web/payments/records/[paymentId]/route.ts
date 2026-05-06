@@ -7,7 +7,6 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
-import { calculateStudentRemainingFee } from "@/lib/students/financials";
 
 export async function DELETE(
   req: NextRequest,
@@ -61,7 +60,7 @@ export async function DELETE(
   const paymentQuery = applyBranchScopeToQuery(
     actorSupabase
       .from("payments")
-      .select("id, student_id")
+      .select("id, student_id, deleted_at")
       .eq("id", paymentId)
       .eq("school_id", targetSchoolId),
     branchScope.value,
@@ -72,49 +71,49 @@ export async function DELETE(
     return jsonError("تعذر العثور على الدفعة المطلوبة ضمن المدرسة الحالية.", 404);
   }
 
-  const deleteQuery = applyBranchScopeToQuery(
-    actorSupabase
-      .from("payments")
-      .delete()
-      .eq("id", paymentId)
-      .eq("school_id", targetSchoolId),
-    branchScope.value,
-  );
-  const { error: deleteError } = await deleteQuery;
+  if (payment.deleted_at) {
+    return jsonError("تم حذف هذه الدفعة مسبقاً.", 404);
+  }
+
+  // Soft delete: UPDATE with deleted_at instead of hard DELETE
+  // This avoids database trigger issues and maintains audit trail
+  let softDeleteQuery = actorSupabase
+    .from("payments")
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: actorUserId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", paymentId)
+    .eq("school_id", targetSchoolId);
+
+  // Only apply branch scope filtering if user has specific branch access
+  if (branchScope.value.branchId) {
+    softDeleteQuery = softDeleteQuery.eq("branch_id", branchScope.value.branchId);
+  } else if (branchScope.value.branchIds.length > 0) {
+    softDeleteQuery = softDeleteQuery.in("branch_id", branchScope.value.branchIds);
+  }
+  // If neither (group_admin with all branches), no branch filtering needed
+
+  const { error: deleteError } = await softDeleteQuery;
 
   if (deleteError) {
     logRouteError("payments-records-delete", deleteError, {
       actorUserId,
       schoolId: targetSchoolId,
       paymentId,
+      errorCode: deleteError.code,
+      errorMessage: deleteError.message,
     });
-    return jsonError("تعذر حذف الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
-  }
-
-  const refreshedStudentQuery = applyBranchScopeToQuery(
-    actorSupabase
-      .from("students")
-      .select("id, paid_fee, total_fee, discount_value, class_name, school_id")
-      .eq("id", payment.student_id)
-      .eq("school_id", targetSchoolId),
-    branchScope.value,
-  );
-  const { data: refreshedStudent, error: refreshedStudentError } = await refreshedStudentQuery.maybeSingle();
-
-  if (refreshedStudentError) {
-    logRouteError("payments-records-delete-refresh-student", refreshedStudentError, {
-      actorUserId,
-      schoolId: targetSchoolId,
-      studentId: payment.student_id,
-      paymentId,
-    });
-    return NextResponse.json(
-      {
-        ok: true,
-        deletedPaymentId: paymentId,
-        warning: "تم حذف الدفعة لكن تعذر تحميل الرصيد المحدث للطالب.",
-      },
-      { status: 202 },
+    // Return detailed error for debugging
+    const msg = deleteError.message || "unknown error";
+    return jsonError(
+      msg.includes("policy") || msg.includes("RLS")
+        ? "RLS policy blocks delete. Contact admin."
+        : msg.includes("foreign key")
+        ? "Payment referenced elsewhere, cannot delete."
+        : "Delete failed: " + msg,
+      500
     );
   }
 
@@ -124,34 +123,42 @@ export async function DELETE(
     "reports-overview",
   ]);
 
-  // Resolve effective total_fee from class_fees (same logic as POST)
-  let classFeeTotal: number | undefined;
-  if (refreshedStudent?.class_name && refreshedStudent.school_id) {
-    const { data: classFeeRow } = await actorSupabase
-      .from("class_fees")
-      .select("total_fee")
-      .eq("school_id", refreshedStudent.school_id)
-      .eq("class_name", refreshedStudent.class_name)
-      .maybeSingle();
-    if (classFeeRow?.total_fee) {
-      classFeeTotal = Number(classFeeRow.total_fee);
-    }
+  // Trigger recompute_student_payment_totals fires on UPDATE of deleted_at
+  // Query updated student data (includes trigger-recomputed paid_fee and remaining_fee)
+  const { data: updatedStudent, error: studentQueryError } = await actorSupabase
+    .from("students")
+    .select("id, total_fee, paid_fee, remaining_fee, discount_value")
+    .eq("id", payment.student_id)
+    .eq("school_id", targetSchoolId)
+    .maybeSingle();
+
+  if (studentQueryError || !updatedStudent) {
+    logRouteError("payments-records-delete-fetch-updated-student", studentQueryError, {
+      actorUserId,
+      schoolId: targetSchoolId,
+      studentId: payment.student_id,
+      paymentId,
+    });
+    return NextResponse.json(
+      {
+        ok: true,
+        deletedPaymentId: paymentId,
+        warning: "تم حذف الدفعة لكن تعذر تحميل الرصيد المحدث.",
+      },
+      { status: 202 },
+    );
   }
 
   return NextResponse.json({
     ok: true,
     deletedPaymentId: paymentId,
-    studentUpdate: refreshedStudent
-      ? {
-          id: refreshedStudent.id,
-          paid_fee: Number(refreshedStudent.paid_fee ?? 0),
-          remaining_fee: calculateStudentRemainingFee({
-            total_fee: classFeeTotal || Number(refreshedStudent.total_fee ?? 0),
-            paid_fee: Number(refreshedStudent.paid_fee ?? 0),
-            discount_value: Number(refreshedStudent.discount_value ?? 0),
-          }),
-          discount_value: Number(refreshedStudent.discount_value ?? 0),
-        }
-      : null,
+    studentId: payment.student_id,
+    studentUpdate: {
+      id: updatedStudent.id,
+      paid_fee: updatedStudent.paid_fee,
+      remaining_fee: updatedStudent.remaining_fee,
+      total_fee: updatedStudent.total_fee,
+      discount_value: updatedStudent.discount_value,
+    },
   });
 }

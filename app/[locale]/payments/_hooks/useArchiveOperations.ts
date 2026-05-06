@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { PaymentArchive } from "../_types";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 
@@ -26,7 +26,8 @@ export function useArchiveOperations(
   resolvedSchoolId: string | null,
   canDeletePayments: boolean,
   onSuccess?: (message: string) => void,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
+  currentBranchId?: string | null
 ) {
   const [archiveYear, setArchiveYear] = useState(new Date().getFullYear().toString());
   const [archiving, setArchiving] = useState(false);
@@ -56,6 +57,14 @@ export function useArchiveOperations(
 
       setArchiving(true);
       try {
+        const archiveBody: Record<string, any> = {
+          school_id: resolvedSchoolId,
+          archive_year: year,
+        };
+        if (currentBranchId) {
+          archiveBody.branch_id = currentBranchId;
+        }
+
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
           archive?: PaymentArchive;
           created?: boolean;
@@ -63,10 +72,7 @@ export function useArchiveOperations(
         }>("/api/web/payments/archive", {
           method: "POST",
           headers: withJsonHeaders(),
-          body: JSON.stringify({
-            school_id: resolvedSchoolId,
-            archive_year: year,
-          }),
+          body: JSON.stringify(archiveBody),
         });
 
         if (!response.ok) {
@@ -85,7 +91,7 @@ export function useArchiveOperations(
         setArchiving(false);
       }
     },
-    [archiveYear, canDeletePayments, resolvedSchoolId, onError, onSuccess]
+    [archiveYear, canDeletePayments, resolvedSchoolId, onError, onSuccess, currentBranchId]
   );
 
   const openArchiveDetail = useCallback((archive: PaymentArchive) => {
@@ -98,7 +104,7 @@ export function useArchiveOperations(
     setSelectedArchive(null);
   }, []);
 
-  return {
+  return useMemo(() => ({
     archiveYear,
     setArchiveYear,
     archiving,
@@ -109,5 +115,5 @@ export function useArchiveOperations(
     archiveAccountsYear,
     openArchiveDetail,
     closeArchiveDetail,
-  };
+  }), [archiveYear, setArchiveYear, archiving, selectedArchive, showArchiveDetail, archiveExportingId, setArchiveExportingId, archiveAccountsYear, openArchiveDetail, closeArchiveDetail]);
 }

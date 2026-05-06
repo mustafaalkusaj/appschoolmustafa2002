@@ -10,6 +10,7 @@ import { getAcademicYearLabel } from "@/lib/academic-year";
 import { useRuntimeBranding } from "@/hooks/brand";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
+import { useBranchScope } from "@/hooks/useBranchScope";
 import { getSidebarItemsForRole, isPathMatch, type SidebarItem } from "@/types/roles";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import {
@@ -75,6 +76,7 @@ export function AppSidebar({
   const locale = getLocaleFromPath(pathname);
   const isRTL = locale === "ar";
   const schoolScope = useSchoolScope(profile);
+  const branchScope = useBranchScope(profile);
   const [scopedSchoolId, setScopedSchoolId] = useState<string | null>(() => readSchoolScopeFromWindow());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
@@ -337,6 +339,36 @@ export function AppSidebar({
                     ))}
                   </select>
                   <ChevronDown size={12} className="absolute end-3 text-[var(--text-tertiary)] pointer-events-none" />
+                </div>
+              </div>
+            ) : branchScope.isMultiBranchScope ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <span className="px-1 text-xs font-semibold uppercase text-[var(--text-muted)] tracking-wider">
+                    {locale === "en" ? "Active branch" : "الفرع النشط"}
+                  </span>
+                  <div className="relative flex items-center">
+                    <School size={14} className="absolute start-3 text-[var(--text-tertiary)] pointer-events-none" />
+                    <select
+                      className="w-full h-10 ps-9 pe-8 text-sm font-semibold bg-[var(--surface-muted)] border-none rounded-lg appearance-none cursor-pointer outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] text-[var(--text-primary)] disabled:opacity-50"
+                      value={branchScope.selectedBranchId ?? ""}
+                      onChange={(event) => branchScope.setSelectedBranchId(event.target.value || null)}
+                      disabled={branchScope.scopeLoading || branchScope.branches.length === 0}
+                    >
+                      <option value="">{locale === "en" ? "Select branch" : "اختر فرع"}</option>
+                      {branchScope.branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute end-3 text-[var(--text-tertiary)] pointer-events-none" />
+                  </div>
+                  {branchScope.needsSelection && (
+                    <p className="text-xs text-[var(--text-warning)] px-1">
+                      {locale === "en" ? "Select a branch to continue" : "اختر فرع للمتابعة"}
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import type { UserProfile } from "@/lib/auth";
 import { DashboardNotification } from "../_components/types";
@@ -73,9 +73,9 @@ export function useNotifications({ profile, scopeLoading }: UseNotificationsProp
     void fetchDashboardNotifications();
   }, [profile, scopeLoading, fetchDashboardNotifications]);
 
-  const unreadNotifications = notifications.filter((item) => !item.is_read).length;
+  const unreadNotifications = useMemo(() => notifications.filter((item) => !item.is_read).length, [notifications]);
 
-  return {
+  return useMemo(() => ({
     notifications,
     notificationsEnabled,
     notificationsLoading,
@@ -83,5 +83,5 @@ export function useNotifications({ profile, scopeLoading }: UseNotificationsProp
     unreadNotifications,
     fetchDashboardNotifications,
     markNotificationAsRead,
-  };
+  }), [notifications, notificationsEnabled, notificationsLoading, error, unreadNotifications, fetchDashboardNotifications, markNotificationAsRead]);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Student, Payment, PayFormState, SEARCH_DEBOUNCE_MS } from "../_types";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { resolveBranchIdForSchool } from "@/lib/school/context";
@@ -29,7 +29,8 @@ export function usePaymentOperations(
   canDeletePayments: boolean,
   onSuccess?: (message: string) => void,
   onError?: (message: string) => void,
-  onPaymentCreated?: (payment: Payment, student: Student) => void
+  onPaymentCreated?: (payment: Payment, student: Student) => void,
+  currentBranchId?: string | null
 ) {
   const [paymentsByStudent, setPaymentsByStudent] = useState<Record<string, Payment[]>>({});
   const [paymentsLoadingStudentId, setPaymentsLoadingStudentId] = useState<string | null>(null);
@@ -71,10 +72,17 @@ export function usePaymentOperations(
     setPaymentsLoadingStudentId(payStudent.id);
     void (async () => {
       try {
+        const params = new URLSearchParams({
+          schoolId: resolvedSchoolId,
+        });
+        if (currentBranchId) {
+          params.set("branchId", currentBranchId);
+        }
+
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
           payments?: Payment[];
           error?: { message?: string };
-        }>(`/api/web/payments/students/${payStudent.id}?schoolId=${encodeURIComponent(resolvedSchoolId)}`);
+        }>(`/api/web/payments/students/${payStudent.id}?${params.toString()}`);
 
         if (!response.ok) {
           onError?.(payload?.error?.message || "تعذر تحميل سجل دفعات الطالب.");
@@ -89,7 +97,7 @@ export function usePaymentOperations(
         setPaymentsLoadingStudentId(null);
       }
     })();
-  }, [payStudent?.id, resolvedSchoolId, onError]);
+  }, [payStudent?.id, resolvedSchoolId, onError, currentBranchId]);
 
   // Student search effect
   useEffect(() => {
@@ -121,6 +129,9 @@ export function usePaymentOperations(
             q: studentSearch.trim(),
             limit: "8",
           });
+          if (currentBranchId) {
+            params.set("branchId", currentBranchId);
+          }
           const { response, payload } = await fetchJsonWithAuthorizedSession<{
             students?: Student[];
             error?: { message?: string };
@@ -153,7 +164,7 @@ export function usePaymentOperations(
       window.clearTimeout(timeoutId);
       searchAbortRef.current?.abort();
     };
-  }, [payStudent, resolvedSchoolId, showPayModal, studentSearch, onError]);
+  }, [payStudent, resolvedSchoolId, showPayModal, studentSearch, onError, currentBranchId]);
 
   const loadStudentPayments = useCallback(
     async (studentId: string, options?: { force?: boolean }) => {
@@ -164,10 +175,17 @@ export function usePaymentOperations(
 
       setPaymentsLoadingStudentId(studentId);
       try {
+        const params = new URLSearchParams({
+          schoolId: resolvedSchoolId,
+        });
+        if (currentBranchId) {
+          params.set("branchId", currentBranchId);
+        }
+
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
           payments?: Payment[];
           error?: { message?: string };
-        }>(`/api/web/payments/students/${studentId}?schoolId=${encodeURIComponent(resolvedSchoolId)}`);
+        }>(`/api/web/payments/students/${studentId}?${params.toString()}`);
 
         if (!response.ok) {
           throw new Error(payload?.error?.message || "تعذر تحميل سجل دفعات الطالب.");
@@ -183,7 +201,7 @@ export function usePaymentOperations(
         setPaymentsLoadingStudentId((current) => (current === studentId ? null : current));
       }
     },
-    [paymentsByStudent, resolvedSchoolId, onError]
+    [paymentsByStudent, resolvedSchoolId, onError, currentBranchId]
   );
 
   // Calculate actual paid amount by summing student's payments
@@ -285,7 +303,7 @@ export function usePaymentOperations(
         setSaving(false);
       }
     },
-    [canAddPayments, resolvedSchoolId, onError, onPaymentCreated, onSuccess]
+    [canAddPayments, resolvedSchoolId, onError, onPaymentCreated, onSuccess, currentBranchId]
   );
 
   const deletePayment = useCallback(
@@ -308,6 +326,11 @@ export function usePaymentOperations(
       }
 
       try {
+        const deleteBody: Record<string, any> = { school_id: resolvedSchoolId };
+        if (currentBranchId) {
+          deleteBody.branch_id = currentBranchId;
+        }
+
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
           deletedPaymentId?: string;
           studentUpdate?: { id: string; paid_fee: number; remaining_fee: number } | null;
@@ -316,7 +339,7 @@ export function usePaymentOperations(
         }>(`/api/web/payments/records/${paymentId}`, {
           method: "DELETE",
           headers: withJsonHeaders(),
-          body: JSON.stringify({ school_id: resolvedSchoolId }),
+          body: JSON.stringify(deleteBody),
         });
 
         if (!response.ok) {
@@ -387,7 +410,7 @@ export function usePaymentOperations(
     setShowDropdown(false);
   }, []);
 
-  return {
+  return useMemo(() => ({
     // Payment modal
     showPayModal,
     payStudent,
@@ -417,5 +440,5 @@ export function usePaymentOperations(
     pendingDeletePaymentId,
     setPendingDeletePaymentId,
     deletePayment,
-  };
+  }), [showPayModal, payStudent, payForm, setPayForm, saving, openPaymentModal, closePaymentModal, handlePayment, selectStudentForPayment, studentSearch, setStudentSearch, studentSearchResults, studentSearchLoading, showDropdown, setShowDropdown, searchRef, paymentsByStudent, paymentsLoadingStudentId, loadStudentPayments, pendingDeletePaymentId, setPendingDeletePaymentId, deletePayment]);
 }

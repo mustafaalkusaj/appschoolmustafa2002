@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
-import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
   if (!writeBranch.ok) {
     return jsonError(writeBranch.message, writeBranch.status);
   }
-  const resolvedBranchId = writeBranch.value ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
+  const resolvedBranchId = writeBranch.value ?? branchScope.value.branchId;
   const { data, error } = await context.value.actorSupabase
     .from("deductions")
     .insert({

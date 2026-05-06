@@ -4,6 +4,7 @@ import { resolveBranchScope } from "@/lib/branch-scope";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { parsePaymentsListFilters, resolvePaymentsStudentsPage } from "@/lib/payments/overview";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -51,9 +52,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { ok: true, ...payload },
       {
-        headers: {
-          "Cache-Control": "private, no-store, max-age=0",
-        },
+        headers: getCacheHeaders(CACHE_STRATEGIES.PAYMENTS_LIST),
       },
     );
   } catch (error) {

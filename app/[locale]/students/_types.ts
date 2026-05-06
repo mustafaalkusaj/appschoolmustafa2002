@@ -51,7 +51,8 @@ export type StudentFormData = {
   paid_fee: string;
   discount_value: string;
   status: StudentStatus;
-  branch_id?: string; // CRITICAL FIX: User-selected branch, not derived from class
+  // NOTE: branch_id is no longer part of the form
+  // It is automatically assigned from the user's current branch (profile.branch_id)
 };
 
 export type ClassFee = {

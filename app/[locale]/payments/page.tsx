@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { Card } from "@/components/ui/card";
+import { useRuntimeBranding } from "@/hooks/brand";
 
 import {
   PaymentsStats,
@@ -23,6 +24,7 @@ import "./_components/payments.css";
 
 export default function PaymentsPage() {
   const t = useTranslations();
+  const runtimeBranding = useRuntimeBranding();
   const {
     canAddPayments,
     canDeletePayments,
@@ -54,7 +56,9 @@ export default function PaymentsPage() {
     handleDeletePayment,
     handlePaymentSubmit,
     openPaymentForStudent,
-  } = usePaymentsPage();
+  } = usePaymentsPage({
+    currentBranchId: runtimeBranding.branchId,
+  });
 
   // Calculate actual paid fee from payment records
   const actualPaidFee = paymentOpsHook.payStudent
@@ -248,7 +252,9 @@ export default function PaymentsPage() {
           confirmLabel={t("payments.dialogs.deletePaymentConfirm")}
           cancelLabel={t("common.cancel")}
           tone="danger"
-          onClose={() => paymentOpsHook.setPendingDeletePaymentId(null)}
+          onClose={() => {
+            paymentOpsHook.setPendingDeletePaymentId(null);
+          }}
           onConfirm={async () => {
             const targetId = paymentOpsHook.pendingDeletePaymentId;
             paymentOpsHook.setPendingDeletePaymentId(null);

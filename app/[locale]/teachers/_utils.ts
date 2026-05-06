@@ -72,7 +72,7 @@ export function mapUserToForm(user: ManagedUserRecord): UserFormState {
   };
 }
 
-export function buildPayload(form: UserFormState, schoolId: string) {
+export function buildPayload(form: UserFormState, schoolId: string, currentBranchId?: string | null) {
   return {
     school_id: schoolId,
     role: form.role,
@@ -86,12 +86,14 @@ export function buildPayload(form: UserFormState, schoolId: string) {
         ? {
             class_name: form.student.class_name,
             section: form.student.section,
+            branch_id: currentBranchId || undefined,
           }
         : null,
     teacher:
       form.role === "teacher"
         ? {
             assignments: form.teacher.assignments,
+            branch_id: currentBranchId || undefined,
           }
         : null,
   };

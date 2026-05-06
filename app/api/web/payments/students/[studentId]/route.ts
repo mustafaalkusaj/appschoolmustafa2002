@@ -58,6 +58,7 @@ export async function GET(
     .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
     .eq("school_id", targetSchoolId)
     .eq("student_id", studentId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (actorBranchScope.ok) {

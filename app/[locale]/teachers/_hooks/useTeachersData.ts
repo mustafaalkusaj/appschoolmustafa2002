@@ -14,6 +14,7 @@ import {
   validateUpdateManagedUserInput,
 } from "@/lib/managed-users";
 import { fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import type {
   ClassOption,
   FieldErrors,
@@ -128,6 +129,7 @@ export function useTeachersData(
   currentSchoolId: string | null,
   profile: { role: string; school_id?: string | null } | null,
   schoolScopeLoading: boolean,
+  currentBranchId?: string | null,
 ): UseTeachersDataResult {
   // State
   const [classes, setClasses] = useState<ClassOption[]>([]);
@@ -172,6 +174,7 @@ export function useTeachersData(
 
   const usersQueryScopeKey = [
     currentSchoolId || "none",
+    currentBranchId || "none",
     deferredQuery,
     normalizedClassFilter,
     normalizedSectionFilter,
@@ -255,6 +258,10 @@ export function useTeachersData(
         params.set("pageSize", String(options.pageSize));
       }
 
+      if (currentBranchId) {
+        params.set("branchId", currentBranchId);
+      }
+
       if (statusFilter !== "all") {
         params.set("status", statusFilter);
       }
@@ -273,7 +280,7 @@ export function useTeachersData(
 
       return params;
     },
-    [currentSchoolId, deferredQuery, normalizedClassFilter, normalizedSectionFilter, normalizedSubjectFilter, statusFilter],
+    [currentSchoolId, currentBranchId, deferredQuery, normalizedClassFilter, normalizedSectionFilter, normalizedSubjectFilter, statusFilter],
   );
 
   // Data fetching
@@ -333,12 +340,19 @@ export function useTeachersData(
 
     try {
       const params = buildUsersQueryParams({ page: effectivePage, pageSize: PAGE_SIZE });
+      const cacheKey = `teachers-list:${currentSchoolId}:${currentBranchId || "none"}:${effectivePage}:${PAGE_SIZE}:${statusFilter}:${deferredQuery}:${normalizedClassFilter}:${normalizedSectionFilter}:${normalizedSubjectFilter}`;
 
-      const response = await fetchWithAuthorizedSession(`/api/dashboard/users?${params.toString()}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-      const payload = await response.json().catch(() => null);
+      const { response, payload } = await deduplicatedFetch(
+        cacheKey,
+        async () => {
+          const res = await fetchWithAuthorizedSession(`/api/dashboard/users?${params.toString()}`, {
+            method: "GET",
+            cache: "no-store",
+          });
+          const data = await res.json().catch(() => null);
+          return { response: res, payload: data };
+        }
+      );
 
       if (!response.ok) {
         throw new Error(readApiError(payload, "تعذر تحميل الحسابات."));
@@ -358,7 +372,7 @@ export function useTeachersData(
     } finally {
       setLoading(false);
     }
-  }, [buildUsersQueryParams, currentSchoolId, effectivePage, profile]);
+  }, [buildUsersQueryParams, currentSchoolId, currentBranchId, deferredQuery, effectivePage, normalizedClassFilter, normalizedSectionFilter, normalizedSubjectFilter, profile, statusFilter]);
 
   // Effects
   useEffect(() => {
@@ -788,7 +802,13 @@ export function useTeachersData(
       return;
     }
 
-    const payload = buildPayload(form, currentSchoolId);
+    // For multi-branch schools, require explicit branch selection for teacher creation
+    if (!editingUser && form.role === "teacher" && !currentBranchId) {
+      setError("يرجى اختيار الفرع الحالي للمتابعة.");
+      return;
+    }
+
+    const payload = buildPayload(form, currentSchoolId, currentBranchId);
     const localValidation = editingUser
       ? validateUpdateManagedUserInput(payload)
       : validateCreateManagedUserInput(payload);
@@ -909,7 +929,7 @@ export function useTeachersData(
     }
   }, [clearMessages, currentSchoolId, fetchUsers]);
 
-  return {
+  return useMemo(() => ({
     // State
     classes,
     sections,
@@ -982,5 +1002,5 @@ export function useTeachersData(
     openPrintableWindow,
     handleCopyCredentials,
     fetchUsers,
-  };
+  }), [classes, sections, subjects, users, loading, saving, togglingId, cardLoadingId, searchInput, query, statusFilter, classFilter, sectionFilter, subjectFilter, page, totalCount, success, error, fieldErrors, showCreateModal, editingUser, accountCard, revealedPassword, showImportModal, importing, importPreview, importPayloads, importErrors, form, filteredUsers, teachersOnlyUsers, stats, availableStudentSections, availableTeacherSections, sectionOptionsByClass, showingModal, teacherAssignment, teacherSections, setSearchInput, setStatusFilter, setClassFilter, setSectionFilter, setSubjectFilter, setPage, setSuccess, setError, setShowCreateModal, setShowImportModal, openCreateModal, openEditModal, closeModal, closeAccountCard, closeImportModal, updateTeacherAssignment, updateFormField, updateStudentField, resetTableFilters, openAccountCardForUser, handleResetTemporaryPassword, handleSubmit, handleToggle, handleDelete, handleExportUsers, handleImportFileChange, handleImportUsers, downloadUsersTemplate, openPrintableWindow, handleCopyCredentials, fetchUsers]);
 }

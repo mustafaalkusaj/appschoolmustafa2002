@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import {
@@ -75,8 +76,13 @@ export function useDashboardData({
       if (branchScoped && branchId) {
         searchParams.set("branchId", branchId);
       }
-      const { response, payload } = await fetchJsonWithAuthorizedSession<DashboardOverviewResponse>(
-        `/api/web/dashboard/overview?${searchParams.toString()}`
+
+      const cacheKey = `dashboard-overview:${schoolId}:${branchScoped ? branchId : "none"}`;
+      const { response, payload } = await deduplicatedFetch(
+        cacheKey,
+        () => fetchJsonWithAuthorizedSession<DashboardOverviewResponse>(
+          `/api/web/dashboard/overview?${searchParams.toString()}`
+        )
       );
 
       if (!response.ok) {
@@ -125,7 +131,7 @@ export function useDashboardData({
     void fetchAll();
   }, [profile, scopeLoading, fetchAll]);
 
-  return {
+  return useMemo(() => ({
     dashboardTotals,
     recentPayments,
     overdueStudents,
@@ -136,5 +142,5 @@ export function useDashboardData({
     warning,
     refetch: fetchAll,
     setClassFees,
-  };
+  }), [dashboardTotals, recentPayments, overdueStudents, studentCountByClass, classFees, loading, error, warning, fetchAll, setClassFees]);
 }

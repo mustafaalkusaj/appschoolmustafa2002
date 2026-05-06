@@ -64,6 +64,7 @@ export interface ManagedTeacherInput {
   specialization: string | null;
   notes: string | null;
   assignments: ManagedTeacherAssignmentInput[];
+  branch_id?: string; // CRITICAL FIX: User-selected branch_id for multi-branch isolation
 }
 
 export interface ManagedUserInput {

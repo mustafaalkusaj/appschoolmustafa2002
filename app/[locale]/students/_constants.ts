@@ -47,5 +47,4 @@ export const DEFAULT_STUDENT_FORM = {
   paid_fee: "",
   discount_value: "",
   status: "active" as const,
-  branch_id: "" as string | undefined,
 };

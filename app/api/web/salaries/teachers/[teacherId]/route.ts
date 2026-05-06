@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import {
-  resolveSchoolBranchId,
   resolveSchoolScopedActorContext,
   tableHasColumn,
 } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 
 function jsonError(message: string, status: number) {
@@ -150,7 +150,7 @@ export async function PATCH(
   if (!writeBranch.ok) {
     return jsonError(writeBranch.message, writeBranch.status);
   }
-  const resolvedBranchId = writeBranch.value ?? (await resolveSchoolBranchId(context.value.actorSupabase, context.value.targetSchoolId));
+  const resolvedBranchId = writeBranch.value ?? branchScope.value.branchId;
   const payload = normalizeTeacherPayload(body ?? {}, resolvedBranchId, includeLecturePrice);
   if (!payload.ok) {
     return jsonError(payload.message, 400);
@@ -170,6 +170,8 @@ export async function PATCH(
   if (error || !data) {
     return jsonError(error?.message || "تعذر تحديث بيانات الأستاذ.", 500);
   }
+
+  invalidateSchoolCacheDomains(context.value.targetSchoolId, ["dashboard-overview", "reports-overview"]);
 
   return NextResponse.json({
     ok: true,

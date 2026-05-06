@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getTeacherActivityMeta, jsonError } from "@/lib/teacher-activity-server";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
 
 export async function GET(request: NextRequest) {
   const input = {
@@ -24,9 +25,7 @@ export async function GET(request: NextRequest) {
         ...result.value,
       },
       {
-        headers: {
-          "Cache-Control": "private, no-store, max-age=0",
-        },
+        headers: getCacheHeaders(CACHE_STRATEGIES.TEACHER_ACTIVITY_META),
       },
     );
   } catch (error) {

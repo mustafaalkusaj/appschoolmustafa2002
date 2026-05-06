@@ -10,10 +10,10 @@ import {
   resolveExpensesPage,
 } from "@/lib/expenses-server";
 import {
-  resolveSchoolBranchId,
   resolveSchoolScopedActorContext,
 } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies"; // ✅ cache strategies
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 
@@ -85,9 +85,7 @@ export async function GET(req: NextRequest) {
         ...payload,
       },
       {
-        headers: {
-          "Cache-Control": "private, no-store, max-age=0",
-        },
+        headers: getCacheHeaders(CACHE_STRATEGIES.EXPENSES_LIST),
       },
     );
   } catch (error) {
@@ -161,7 +159,7 @@ export async function POST(req: NextRequest) {
       return jsonError(writeBranch.message, writeBranch.status);
     }
 
-    const branchId = writeBranch.value ?? (await resolveSchoolBranchId(actorSupabase, targetSchoolId));
+    const branchId = writeBranch.value ?? branchScope.value.branchId;
     const { data: createdExpense, error } = await actorSupabase
       .from("expenses")
       .insert({

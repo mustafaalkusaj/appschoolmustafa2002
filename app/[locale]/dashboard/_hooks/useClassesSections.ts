@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassItem, SectionItem } from "../_components/types";
@@ -66,8 +67,12 @@ export function useClassesSections({
       }
     }
 
-    const { response, payload } = await fetchJsonWithAuthorizedSession<DashboardStructureResponse>(
-      `/api/web/dashboard/structure?${params.toString()}`,
+    const cacheKey = `dashboard-structure:${schoolId}:${branchScoped ? branchId : "none"}`;
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<DashboardStructureResponse>(
+        `/api/web/dashboard/structure?${params.toString()}`,
+      )
     );
 
     if (!response.ok) {
@@ -302,7 +307,7 @@ export function useClassesSections({
     });
   }, [fetchStructure, profile, scopeLoading]);
 
-  return {
+  return useMemo(() => ({
     classes,
     sections,
     mutationError,
@@ -315,5 +320,5 @@ export function useClassesSections({
     handleDeleteClass,
     handleSaveSection,
     handleDeleteSection,
-  };
+  }), [classes, sections, mutationError, mutationSuccess, mutationLoading, clearMutationFeedback, fetchClasses, fetchSections, handleSaveClass, handleDeleteClass, handleSaveSection, handleDeleteSection]);
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { validateFeeNotificationInput } from "@/lib/teacher-activity";
 import { createFeeNotification, jsonError, listFeeNotifications } from "@/lib/teacher-activity-server";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
 export async function GET(request: NextRequest) {
   const page = Number(request.nextUrl.searchParams.get("page") || "1");
@@ -35,6 +36,10 @@ export async function POST(request: NextRequest) {
   const result = await createFeeNotification(request, validation.value);
   if (result.ok === false) {
     return jsonError(result.message, result.status);
+  }
+
+  if (validation.value.schoolId) {
+    invalidateSchoolCacheDomains(validation.value.schoolId, ["teacher-activity-meta", "dashboard-overview"]);
   }
 
   return NextResponse.json(

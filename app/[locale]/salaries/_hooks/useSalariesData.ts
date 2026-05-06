@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import type { UserProfile } from "@/lib/auth";
 import type { SchoolScopeState } from "@/hooks/useSchoolScope";
 import type {
@@ -91,7 +92,8 @@ interface UseSalariesDataReturn {
 
 export function useSalariesData(
   profile: UserProfile | null,
-  schoolScope: SchoolScopeState
+  schoolScope: SchoolScopeState,
+  currentBranchId?: string | null
 ): UseSalariesDataReturn {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,8 +150,19 @@ export function useSalariesData(
     if (!schoolId) return;
     if (withLoader) setLoading(true);
     try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<BootstrapPayload>(
-        `/api/web/salaries/bootstrap?schoolId=${encodeURIComponent(schoolId)}&scope=${scope}`
+      const cacheKey = `salaries-bootstrap:${schoolId}:${currentBranchId || "none"}:${scope}`;
+      const params = new URLSearchParams({
+        schoolId,
+        scope,
+      });
+      if (currentBranchId) {
+        params.set("branchId", currentBranchId);
+      }
+      const { response, payload } = await deduplicatedFetch(
+        cacheKey,
+        () => fetchJsonWithAuthorizedSession<BootstrapPayload>(
+          `/api/web/salaries/bootstrap?${params.toString()}`
+        )
       );
 
       if (!response.ok) {
@@ -178,7 +191,7 @@ export function useSalariesData(
     } finally {
       if (withLoader) setLoading(false);
     }
-  }, [applyReferencePayload, schoolId]);
+  }, [applyReferencePayload, schoolId, currentBranchId]);
 
   const fetchAll = useCallback(async () => {
     if (!schoolId) return;
@@ -210,40 +223,76 @@ export function useSalariesData(
   const fetchCalendarLectures = useCallback(async (calYear: number, calMonth: number) => {
     if (!schoolId) return;
     const month = `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      dates?: string[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=calendar&month=${encodeURIComponent(month)}`);
+    const cacheKey = `salaries-calendar:${schoolId}:${currentBranchId || "none"}:${month}`;
+    const params = new URLSearchParams({
+      schoolId,
+      view: "calendar",
+      month,
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        dates?: string[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/lectures?${params.toString()}`)
+    );
     if (response.ok) {
       setCalLectureDates(payload?.dates ?? []);
     } else {
       setError(payload?.error?.message || "تعذر تحميل تقويم المحاضرات.");
     }
-  }, [schoolId]);
+  }, [schoolId, currentBranchId]);
 
   const fetchDetailedReportAll = useCallback(async (teacherId = "") => {
     if (!schoolId) return;
     setReportLoading(true);
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      lectures?: DailyLecture[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}${teacherId ? `&teacherId=${encodeURIComponent(teacherId)}` : ""}`);
+    const cacheKey = `salaries-report:detailed:${schoolId}:${currentBranchId || "none"}:${teacherId}`;
+    const params = new URLSearchParams({
+      schoolId,
+    });
+    if (teacherId) {
+      params.set("teacherId", teacherId);
+    }
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        lectures?: DailyLecture[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/report?${params.toString()}`)
+    );
     if (response.ok) {
       setDailyLectures(payload?.lectures ?? []);
     } else {
       setError(payload?.error?.message || "تعذر تحميل التقرير التفصيلي.");
     }
     setReportLoading(false);
-  }, [schoolId]);
+  }, [schoolId, currentBranchId]);
 
   const fetchReportSummary = useCallback(async () => {
     if (!schoolId) return;
     setReportLoading(true);
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      summary?: ReportSummary[];
-      totals?: { lectureCount?: number; total?: number };
-      error?: { message?: string };
-    }>(`/api/web/salaries/report?schoolId=${encodeURIComponent(schoolId)}&view=summary`);
+    const cacheKey = `salaries-report:summary:${schoolId}:${currentBranchId || "none"}`;
+    const params = new URLSearchParams({
+      schoolId,
+      view: "summary",
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        summary?: ReportSummary[];
+        totals?: { lectureCount?: number; total?: number };
+        error?: { message?: string };
+      }>(`/api/web/salaries/report?${params.toString()}`)
+    );
     if (response.ok) {
       setReportSummary(payload?.summary ?? []);
       setReportTotals({
@@ -254,27 +303,50 @@ export function useSalariesData(
       setError(payload?.error?.message || "تعذر تحميل ملخص الرواتب.");
     }
     setReportLoading(false);
-  }, [schoolId]);
+  }, [schoolId, currentBranchId]);
 
   const fetchDeductionsList = useCallback(async () => {
     if (!schoolId) return;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      deductions?: Deduction[];
-      error?: { message?: string };
-    }>(`/api/web/salaries/deductions?schoolId=${encodeURIComponent(schoolId)}`);
+    const cacheKey = `salaries-deductions:${schoolId}:${currentBranchId || "none"}`;
+    const params = new URLSearchParams({
+      schoolId,
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        deductions?: Deduction[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/deductions?${params.toString()}`)
+    );
     if (response.ok) {
       setDeductionsList(payload?.deductions ?? []);
     } else {
       setError(payload?.error?.message || "تعذر تحميل سجل السحوبات.");
     }
-  }, [schoolId]);
+  }, [schoolId, currentBranchId]);
 
   const loadTeacherMonthLectures = useCallback(async (teacher: Teacher, month: string): Promise<{ count: number; total: number }> => {
     if (!teacher || !schoolId) return { count: 0, total: 0 };
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      summary?: { count?: number; total?: number };
-      error?: { message?: string };
-    }>(`/api/web/salaries/lectures?schoolId=${encodeURIComponent(schoolId)}&view=summary&teacherId=${encodeURIComponent(teacher.id)}&month=${encodeURIComponent(month)}`);
+    const cacheKey = `salaries-lectures:${schoolId}:${currentBranchId || "none"}:${teacher.id}:${month}`;
+    const params = new URLSearchParams({
+      schoolId,
+      view: "summary",
+      teacherId: teacher.id,
+      month,
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        summary?: { count?: number; total?: number };
+        error?: { message?: string };
+      }>(`/api/web/salaries/lectures?${params.toString()}`)
+    );
     if (!response.ok) {
       console.error("Error loading lectures:", payload?.error?.message || "unexpected error");
       return { count: 0, total: 0 };
@@ -283,20 +355,24 @@ export function useSalariesData(
       count: Number(payload?.summary?.count ?? 0) || 0,
       total: Number(payload?.summary?.total ?? 0) || 0,
     };
-  }, [schoolId]);
+  }, [schoolId, currentBranchId]);
 
   const archiveMonth = useCallback(async (currentMonth: string): Promise<boolean> => {
     try {
+      const archiveBody: Record<string, any> = {
+        school_id: schoolId,
+        month: currentMonth,
+      };
+      if (currentBranchId) {
+        archiveBody.branch_id = currentBranchId;
+      }
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
         archive?: SalaryArchive;
         error?: { message?: string };
       }>("/api/web/salaries/archive", {
         method: "POST",
         headers: withJsonHeaders(),
-        body: JSON.stringify({
-          school_id: schoolId,
-          month: currentMonth,
-        }),
+        body: JSON.stringify(archiveBody),
       });
       if (!response.ok) {
         setError(payload?.error?.message || "تعذر أرشفة الشهر الحالي.");
@@ -311,7 +387,7 @@ export function useSalariesData(
       setError(archiveError instanceof Error ? archiveError.message : "تعذر أرشفة الشهر الحالي.");
       return false;
     }
-  }, [fetchAll, fetchDetailedReportAll, schoolId, setSuccess]);
+  }, [fetchAll, fetchDetailedReportAll, schoolId, currentBranchId, setSuccess]);
 
   // Initialize schoolId from profile/scope
   useEffect(() => {
@@ -351,7 +427,7 @@ export function useSalariesData(
     void fetchBootstrap("core", true);
   }, [fetchBootstrap, schoolId]);
 
-  return {
+  return useMemo(() => ({
     schoolId,
     loading,
     referenceLoading,
@@ -395,5 +471,5 @@ export function useSalariesData(
     loadTeacherMonthLectures,
     getBranchId,
     archiveMonth,
-  };
+  }), [schoolId, loading, referenceLoading, referenceLoaded, archivesLoading, archivesLoaded, error, success, teachers, salaries, classes, subjectsList, jobTitlesList, dailyLectures, archives, lessonTimes, lecturePrices, deductionsList, calLectureDates, reportSummary, reportTotals, reportLoading, setSuccess, setError, setTeachers, setSalaries, setDeductionsList, setDailyLectures, setClasses, setSubjectsList, setJobTitlesList, setLessonTimes, setLecturePrices, fetchAll, ensureReferenceData, ensureArchivesData, fetchCalendarLectures, fetchDetailedReportAll, fetchReportSummary, fetchDeductionsList, loadTeacherMonthLectures, getBranchId, archiveMonth]);
 }

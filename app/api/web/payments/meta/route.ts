@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveBranchScope } from "@/lib/branch-scope";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies"; // ✅ cache strategies
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolvePaymentsMeta } from "@/lib/payments/overview";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
@@ -57,9 +58,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { ok: true, ...payload },
       {
-        headers: {
-          "Cache-Control": "private, no-store, max-age=0",
-        },
+        headers: getCacheHeaders(CACHE_STRATEGIES.PAYMENTS_META),
       },
     );
   } catch (error) {

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildStudentInsertPayloads, getStudentImportValidationMessage, readStudentImportErrorMessage, studentImportRequestSchema } from "@/lib/api/student-import";
 import { resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users/context";
-import { resolveSchoolBranchId } from "@/lib/managed-users/queries";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import {
   buildDuplicateStudentNameMessage,
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
       return jsonError(buildDuplicateStudentNameMessage({ existingDuplicates }), 409);
     }
 
-    const resolvedBranchId = writeBranch.value ?? (await resolveSchoolBranchId(actorSupabase, targetSchoolId));
+    const resolvedBranchId = writeBranch.value ?? branchScope.value.branchId;
     if (!resolvedBranchId) {
       return jsonError("تعذر تحديد الفرع الخاص بالمدرسة الحالية.", 400);
     }

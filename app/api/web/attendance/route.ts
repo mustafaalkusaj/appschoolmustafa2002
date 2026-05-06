@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
@@ -279,6 +280,8 @@ export async function POST(req: NextRequest) {
   if (error) {
     return jsonError(error.message || "تعذر حفظ سجلات الحضور.", 500);
   }
+
+  invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "reports-overview"]);
 
   return NextResponse.json({
     ok: true,

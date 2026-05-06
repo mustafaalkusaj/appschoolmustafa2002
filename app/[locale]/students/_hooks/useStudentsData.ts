@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
 import type { UserProfile } from "@/lib/auth";
 import type { StudentWithFees, StudentsMetaPayload, ClassFee, StudentDatasetRow } from "../_types";
@@ -9,6 +9,7 @@ import { usePagedSupabaseList } from "@/hooks/usePagedSupabaseList";
 import { supabase } from "@/lib/supabase";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache"; // ✅ إضافة deduplication
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { normalizeStudentSearchValue, mapStudentRecordToStudentWithFees } from "../_utils";
 import { EMPTY_STUDENT_META } from "../_constants";
@@ -24,6 +25,7 @@ export interface UseStudentsDataOptions {
   filterSection: string;
   pageSize: number;
   page: number;
+  currentBranchId?: string;
 }
 
 export interface UseStudentsDataReturn {
@@ -52,6 +54,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     filterSection,
     pageSize,
     page,
+    currentBranchId,
   } = options;
 
   const [totalPages, setTotalPages] = useState(0);
@@ -78,12 +81,18 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       if (safeSearch) params.set("search", safeSearch);
       if (filterClass) params.set("className", filterClass);
       if (filterSection) params.set("sectionName", filterSection);
+      if (currentBranchId) params.set("branchId", currentBranchId);
 
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        students?: StudentListRow[];
-        totalCount?: number;
-        error?: { message?: string };
-      }>(`/api/web/students/list?${params.toString()}`);
+      // ✅ إضافة deduplication للـ request
+      const cacheKey = `students-fetch:${schoolId}:${currentPage}:${pageSize}:${activeTab}:${safeSearch}:${filterClass}:${filterSection}`;
+      const { response, payload } = await deduplicatedFetch(
+        cacheKey,
+        () => fetchJsonWithAuthorizedSession<{
+          students?: StudentListRow[];
+          totalCount?: number;
+          error?: { message?: string };
+        }>(`/api/web/students/list?${params.toString()}`)
+      );
 
       if (!response.ok) {
         return {
@@ -98,7 +107,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       );
       return { data: typedData, count: payload?.totalCount ?? 0, error: null };
     },
-    [profile, selectedSchoolId, debouncedSearch, pageSize, activeTab, filterClass, filterSection],
+    [profile, selectedSchoolId, debouncedSearch, pageSize, activeTab, filterClass, filterSection, currentBranchId],
   );
 
   const cacheKey = [
@@ -165,6 +174,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     if (safeSearch) params.set("search", safeSearch);
     if (filterClass) params.set("className", filterClass);
     if (filterSection) params.set("sectionName", filterSection);
+    if (currentBranchId) params.set("branchId", currentBranchId);
 
     try {
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
@@ -187,7 +197,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       console.error("fetchStudentsMeta error:", metaError);
       setStudentsMeta(EMPTY_STUDENT_META);
     }
-  }, [profile, selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection]);
+  }, [profile, selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection, currentBranchId]);
 
   useEffect(() => {
     if (!profile || scopeLoading) return;
@@ -226,6 +236,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       if (debouncedSearch.trim()) params.append("search", debouncedSearch.trim());
       if (filterClass.trim()) params.append("className", filterClass.trim());
       if (filterSection.trim()) params.append("sectionName", filterSection.trim());
+      if (currentBranchId) params.append("branchId", currentBranchId);
 
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
         students?: StudentDatasetRow[];
@@ -251,9 +262,9 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     } finally {
       setDatasetLoading(false);
     }
-  }, [profile, selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection, allStudentsDataset]);
+  }, [profile, selectedSchoolId, activeTab, debouncedSearch, filterClass, filterSection, allStudentsDataset, currentBranchId]);
 
-  return {
+  return useMemo(() => ({
     pagedStudents,
     totalCount,
     totalPages,
@@ -266,5 +277,5 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     allStudentsDataset,
     datasetLoading,
     loadStudentsDataset,
-  };
+  }), [pagedStudents, totalCount, totalPages, setTotalPages, pagedLoading, pagedError, reload, studentsMeta, classFees, allStudentsDataset, datasetLoading, loadStudentsDataset]);
 }

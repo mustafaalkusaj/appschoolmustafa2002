@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createPaymentSchema } from "@/lib/api-schemas";
 import { resolveBranchScope } from "@/lib/branch-scope";
-import { resolveSchoolBranchId, resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies"; // ✅ cache strategies
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
           message: "تم تسديد المبلغ بالكامل، لا يمكن تسجيل دفعة جديدة.",
         },
       },
-      { status: 400, headers: { "Cache-Control": "no-store" } }
+      { status: 400, headers: getCacheHeaders(CACHE_STRATEGIES.PAYMENTS_LIST) }
     );
   }
 
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest) {
           remainingBeforePayment,
         },
       },
-      { status: 400, headers: { "Cache-Control": "no-store" } }
+      { status: 400, headers: getCacheHeaders(CACHE_STRATEGIES.PAYMENTS_LIST) }
     );
   }
 
@@ -160,8 +161,8 @@ export async function POST(req: NextRequest) {
     // Student has a branch_id - use it
     finalBranchId = studentBranchId;
   } else {
-    // Student has no branch_id - assign from school's primary branch
-    finalBranchId = await resolveSchoolBranchId(actorSupabase, targetSchoolId);
+    // Student has no branch_id - assign from actor's accessible branch
+    finalBranchId = actorBranchScope.ok ? actorBranchScope.value.branchId : null;
   }
   const paymentTimestamp = receiptDate ?? new Date().toISOString();
   const { data: createdPayment, error: paymentError } = await actorSupabase

@@ -24,7 +24,6 @@ import {
   normalizeManagedUserRecords,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
-  resolveSchoolBranchId,
   syncManagedUserAccountState,
   syncStudentTeacherLinks,
   getTeacherTableCapabilities,
@@ -46,6 +45,11 @@ import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import {
+  normalizeFullName,
+  normalizeClassName,
+  normalizeSection,
+} from "@/lib/normalization";
 
 function jsonError(message: string, status: number, fieldErrors?: Record<string, string>) {
   return NextResponse.json(
@@ -918,9 +922,52 @@ export async function POST(req: NextRequest) {
       // Single-branch user: use their branch
       branchId = actorAccessibleBranches[0];
     }
-  } else if (validation.value.role === "teacher" && actorAccessibleBranches.length === 1) {
-    // For teachers, use actor's branch if they're single-branch
-    branchId = actorAccessibleBranches[0];
+  } else if (validation.value.role === "teacher") {
+    const requestedBranchId = validation.value.teacher?.branch_id;
+
+    // Require branch_id if actor has access to multiple branches
+    if (actorAccessibleBranches.length > 1 && !requestedBranchId) {
+      return jsonError(
+        "يجب تحديد الفرع المطلوب. المستخدم الحالي له صلاحيات في عدة فروع.",
+        400,
+        {
+          "teacher.branch_id": "تحديد الفرع مطلوب للمستخدمين متعددي الفروع.",
+        }
+      );
+    }
+
+    // Use provided branch_id if specified
+    if (requestedBranchId) {
+      // Validate it's in actor's accessible branches
+      if (!actorAccessibleBranches.includes(requestedBranchId)) {
+        return jsonError(
+          "الفرع المحدد غير متاح لهذا المستخدم.",
+          403,
+          {
+            "teacher.branch_id": "ليس لديك صلاحيات الوصول إلى هذا الفرع.",
+          }
+        );
+      }
+
+      // Validate branch exists and belongs to school
+      const { data: branchData, error: branchError } = await actorSupabase
+        .from("branches")
+        .select("id")
+        .eq("id", requestedBranchId)
+        .eq("school_id", targetSchoolId)
+        .maybeSingle();
+
+      if (branchError || !branchData) {
+        return jsonError("الفرع المحدد غير موجود أو لا ينتمي لهذه المدرسة.", 404, {
+          "teacher.branch_id": "الفرع المطلوب غير موجود.",
+        });
+      }
+
+      branchId = requestedBranchId;
+    } else if (actorAccessibleBranches.length === 1) {
+      // Single-branch user: use their branch
+      branchId = actorAccessibleBranches[0];
+    }
   }
   const loginIdentifier = await generateManagedLoginIdentifier(actorSupabase, {
     schoolId: targetSchoolId,
@@ -960,12 +1007,15 @@ export async function POST(req: NextRequest) {
   try {
     if (validation.value.role === "student") {
       const requestedSection = validation.value.student!.section || "";
+      const normalizedFullName = normalizeFullName(validation.value.full_name);
+      const normalizedClassName = normalizeClassName(validation.value.student!.class_name);
+      const normalizedSection = normalizeSection(requestedSection);
+
       const { data: existingStudents, error: existingStudentError } = await actorSupabase
         .from("students")
-        .select("id, auth_user_id, section")
+        .select("id, auth_user_id, section, full_name, class_name, branch_id")
         .eq("school_id", targetSchoolId)
-        .eq("full_name", validation.value.full_name)
-        .eq("class_name", validation.value.student!.class_name)
+        .eq("branch_id", branchId)
         .neq("status", "deleted")
         .limit(25);
 
@@ -976,13 +1026,31 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const matchingStudent = ((existingStudents ?? []) as Array<Record<string, unknown>>).find(
-        (row) => normalizeIdentityText(row.section) === normalizeIdentityText(requestedSection),
-      );
+      // Find matching student with normalized comparison
+      const matchingStudent = ((existingStudents ?? []) as Array<Record<string, unknown>>).find((row) => {
+        const rowNormalizedName = normalizeFullName(String(row.full_name || ""));
+        const rowNormalizedClass = normalizeClassName(String(row.class_name || ""));
+        const rowNormalizedSection = normalizeSection(row.section as string | null);
+
+        return (
+          rowNormalizedName === normalizedFullName &&
+          rowNormalizedClass === normalizedClassName &&
+          rowNormalizedSection === normalizedSection
+        );
+      });
 
       if (matchingStudent?.auth_user_id) {
         return jsonError("هذا الطالب يملك حساب تطبيق مرتبطاً مسبقاً.", 409, {
           full_name: "تم منع إنشاء حساب طالب مكرر لنفس الاسم والصف والشعبة.",
+        });
+      }
+
+      if (matchingStudent?.id) {
+        // Student exists without auth account - will be reused below
+      } else if (!branchId) {
+        // New student requires branch_id
+        return jsonError("يجب تحديد الفرع لإضافة طالب جديد.", 400, {
+          "student.branch_id": "الفرع مطلوب لإضافة طالب جديد.",
         });
       }
 

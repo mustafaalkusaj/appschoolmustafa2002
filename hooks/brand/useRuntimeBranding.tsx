@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { useRole } from "@/hooks/useRole";
 import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
+import { useBranchScope } from "@/hooks/useBranchScope";
 import {
   DEFAULT_PRIMARY,
   DEFAULT_SECONDARY,
@@ -26,6 +27,7 @@ import { supabase } from "@/lib/supabase";
 type RuntimeBrandingState = {
   schoolName: string | null;
   logoUrl: string | null;
+  branchId: string | null;
   branchName: string | null;
   branchLogoUrl: string | null;
   primaryColor: string | null;
@@ -59,6 +61,7 @@ export const RUNTIME_BRANDING_REFRESH_EVENT = "runtime-branding-refresh";
 const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   schoolName: null,
   logoUrl: null,
+  branchId: null,
   branchName: null,
   branchLogoUrl: null,
   primaryColor: null,
@@ -73,6 +76,7 @@ function createEmptyBrandingState(): RuntimeBrandingState {
   return {
     schoolName: null,
     logoUrl: null,
+    branchId: null,
     branchName: null,
     branchLogoUrl: null,
     primaryColor: null,
@@ -146,6 +150,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
   const { profile } = useRole();
   const { resolvedTheme } = useTheme();
   const schoolScope = useSchoolScope(profile);
+  const branchScope = useBranchScope(profile);
   const [branding, setBranding] = useState<RuntimeBrandingState>(createEmptyBrandingState);
 
   const scopedSchoolId =
@@ -153,7 +158,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
   const scopedBranchId =
     profile?.role === "super_admin" || isGroupOverviewPath(pathname)
       ? null
-      : profile?.branch_id ?? null;
+      : branchScope.isMultiBranchScope
+        ? branchScope.selectedBranchId
+        : profile?.branch_id ?? null;
 
   useEffect(() => {
     let active = true;
@@ -290,6 +297,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         setBranding({
           schoolName: null,
           logoUrl: null,
+          branchId: scopedBranchId,
           branchName: resolvedBranchName,
           branchLogoUrl: resolvedBranchLogoUrl,
           primaryColor: resolvedPrimaryColor,
@@ -373,6 +381,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       setBranding({
         schoolName: typeof schoolRecord.name === "string" ? schoolRecord.name : null,
         logoUrl: safeLogoUrl,
+        branchId: scopedBranchId,
         branchName: resolvedBranchName,
         branchLogoUrl: resolvedBranchLogoUrl,
         primaryColor: resolvedPrimaryColor,
@@ -401,7 +410,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       active = false;
       window.removeEventListener(RUNTIME_BRANDING_REFRESH_EVENT, refreshListener);
     };
-  }, [scopedBranchId, scopedSchoolId]);
+  }, [scopedBranchId, scopedSchoolId, branchScope.isMultiBranchScope, branchScope.selectedBranchId]);
 
   useEffect(() => {
     applyBrandingToCssVars(branding, resolvedTheme === "dark");
@@ -413,6 +422,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
     return {
       schoolName,
       logoUrl: branding.logoUrl,
+      branchId: branding.branchId,
       branchName,
       branchLogoUrl: branding.branchLogoUrl,
       primaryColor: branding.primaryColor,
@@ -438,6 +448,7 @@ export function useRuntimeBranding() {
     return {
       schoolName: SCHOOL_BRAND.nameAr,
       logoUrl: null,
+      branchId: null,
       branchName: null,
       branchLogoUrl: null,
       primaryColor: null,
@@ -451,6 +462,7 @@ export function useRuntimeBranding() {
   return {
     schoolName: context.schoolName || SCHOOL_BRAND.nameAr,
     logoUrl: context.logoUrl,
+    branchId: context.branchId,
     branchName: context.branchName,
     branchLogoUrl: context.branchLogoUrl,
     primaryColor: context.primaryColor,

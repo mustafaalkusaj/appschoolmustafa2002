@@ -20,7 +20,6 @@ interface AddStudentModalProps {
   form: StudentFormData;
   setForm: (form: StudentFormData) => void;
   classFees: ClassFee[];
-  branches: Array<{ id: string; nameAr: string; nameEn: string }>;
   saving: boolean;
   error: string;
   onClose: () => void;
@@ -36,7 +35,6 @@ export function AddStudentModal({
   form,
   setForm,
   classFees,
-  branches,
   saving,
   error,
   onClose,
@@ -177,22 +175,6 @@ export function AddStudentModal({
                       </div>
                     );
                   })()}
-                </FormField>
-
-                <FormField label={t("form.branch")} htmlFor="branch_id" required>
-                  <Select
-                    id="branch_id"
-                    required
-                    value={form.branch_id || ""}
-                    onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
-                  >
-                    <option value="">{t("form.selectBranch")}</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.nameAr} / {branch.nameEn}
-                      </option>
-                    ))}
-                  </Select>
                 </FormField>
 
                 <FormField label={t("form.section")} htmlFor="section" helpText={t("form.optional")}>

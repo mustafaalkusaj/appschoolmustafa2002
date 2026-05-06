@@ -43,27 +43,6 @@ export default function StudentsPage() {
   const schoolScope = useSchoolScope(profile);
   const runtimeBranding = useRuntimeBranding();
 
-  const [branches, setBranches] = useState<Array<{ id: string; nameAr: string; nameEn: string }>>([]);
-
-  useEffect(() => {
-    if (!schoolScope.selectedSchoolId) {
-      setBranches([]);
-      return;
-    }
-    const fetchBranches = async () => {
-      try {
-        const response = await fetch(`/api/school-data/${schoolScope.selectedSchoolId}/branches`);
-        if (response.ok) {
-          const data = await response.json();
-          setBranches(data.branches ?? []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch branches:", err);
-        setBranches([]);
-      }
-    };
-    fetchBranches();
-  }, [schoolScope.selectedSchoolId]);
 
   const canAddStudents = can("add_students");
   const canEditStudents = can("edit_students");
@@ -115,6 +94,7 @@ export default function StudentsPage() {
     filterSection,
     pageSize,
     page,
+    currentBranchId: runtimeBranding.branchId ?? undefined,
   });
 
   const modals = useStudentsModals();
@@ -130,6 +110,7 @@ export default function StudentsPage() {
     setActiveTab,
     locale,
     runtimeBranding,
+    currentBranchId: runtimeBranding.branchId,
     modals: {
       setError: modals.setError,
       setSuccess: modals.setSuccess,
@@ -329,7 +310,10 @@ export default function StudentsPage() {
                         onExportAll={exportAllStudentsExcel}
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
                         onPrintAllCards={printAllStudentCards}
-                        onAddStudent={() => modals.setShowModal(true)}
+                        onAddStudent={() => {
+                          modals.resetForm();
+                          modals.setShowModal(true);
+                        }}
                         onBulkImport={() => setShowBulkImport(true)}
                       />
                       <StudentsTable
@@ -371,12 +355,11 @@ export default function StudentsPage() {
           form={modals.form}
           setForm={modals.setForm}
           classFees={classFees}
-          branches={branches}
           saving={modals.saving}
           error={modals.error}
           onClose={() => {
             modals.setShowModal(false);
-            modals.setAddStep(1);
+            modals.resetForm();
           }}
           onSubmit={operations.handleAdd}
         />

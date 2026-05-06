@@ -4,6 +4,7 @@ import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { parseStudentsListFilters, resolveStudentsListPage } from "@/lib/students/overview";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies"; // ✅ إضافة cache strategies
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -50,9 +51,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { ok: true, ...payload },
       {
-        headers: {
-          "Cache-Control": "private, no-store, max-age=0",
-        },
+        headers: getCacheHeaders(CACHE_STRATEGIES.STUDENTS_LIST), // ✅ استخدام cache strategy
       },
     );
   } catch (error) {

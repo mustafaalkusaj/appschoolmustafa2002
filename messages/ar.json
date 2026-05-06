@@ -622,6 +622,8 @@
         "fullNamePlaceholder": "أحمد محمد علي",
         "className": "الصف الدراسي *",
         "selectClass": "— اختر الصف —",
+        "branch": "الفرع",
+        "selectBranch": "— اختر الفرع —",
         "manualEntry": "أدخل يدوياً...",
         "manualPlaceholder": "اكتب اسم الصف",
         "section": "الشعبة",

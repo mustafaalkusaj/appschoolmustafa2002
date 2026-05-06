@@ -226,7 +226,8 @@ async function fetchPaymentCountsByStudent(
       .from("payments")
       .select("student_id")
       .eq("school_id", schoolId)
-      .in("student_id", studentIds),
+      .in("student_id", studentIds)
+      .is("deleted_at", null),
     branchScope,
   );
 
@@ -255,6 +256,7 @@ async function fetchSchoolPaymentStudentIds(
         .from("payments")
         .select("id, student_id")
         .eq("school_id", schoolId)
+        .is("deleted_at", null)
         .order("id", { ascending: true })
         .range(from, from + QUERY_BATCH_SIZE - 1),
       branchScope,
@@ -552,6 +554,7 @@ async function fetchPaymentYears(
         .from("payments")
         .select("id, created_at", { count: counted ? undefined : "exact" })
         .eq("school_id", schoolId)
+        .is("deleted_at", null)
         .order("id", { ascending: true })
         .range(from, from + QUERY_BATCH_SIZE - 1),
       branchScope,

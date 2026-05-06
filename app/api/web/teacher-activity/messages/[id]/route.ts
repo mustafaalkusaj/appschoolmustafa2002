@@ -7,6 +7,7 @@ import {
   jsonError,
   updateTeacherMessageByAdmin,
 } from "@/lib/teacher-activity-server";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
 export async function GET(
   request: NextRequest,
@@ -50,6 +51,11 @@ export async function PATCH(
     return jsonError(result.message, result.status);
   }
 
+  const schoolId = payload.schoolId ?? payload.school_id;
+  if (schoolId) {
+    invalidateSchoolCacheDomains(schoolId, ["teacher-activity-meta", "dashboard-overview", "reports-overview"]);
+  }
+
   return NextResponse.json({
     ok: true,
     item: result.value,
@@ -73,6 +79,11 @@ export async function DELETE(
 
   if (result.ok === false) {
     return jsonError(result.message, result.status);
+  }
+
+  const schoolId = payload.schoolId ?? payload.school_id;
+  if (schoolId) {
+    invalidateSchoolCacheDomains(schoolId, ["teacher-activity-meta", "dashboard-overview", "reports-overview"]);
   }
 
   return NextResponse.json({

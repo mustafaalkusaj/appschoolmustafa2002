@@ -253,8 +253,11 @@ export default function ReportsPage() {
         return;
       }
 
+      const params = new URLSearchParams({ schoolId });
+      if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
+
       const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics }>(
-        `/api/web/reports/overview?schoolId=${encodeURIComponent(schoolId)}&t=${Date.now()}`,
+        `/api/web/reports/overview?${params.toString()}&t=${Date.now()}`,
         { cache: "no-store" }
       );
 
@@ -270,7 +273,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile, reportCopy.loadReportsFailed, schoolScope.selectedSchoolId]);
+  }, [profile, reportCopy.loadReportsFailed, schoolScope.selectedSchoolId, runtimeBranding.branchId]);
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
@@ -300,13 +303,16 @@ export default function ReportsPage() {
 
       setActionLoading(type);
       try {
+        const params = new URLSearchParams({ schoolId, type });
+        if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
+
         const { response, payload } = await fetchJsonWithAuthorizedSession<{
           students?: StudentRow[];
           payments?: PaymentRow[];
           expenses?: ExpenseRow[];
           salaries?: SalaryRow[];
           error?: { message?: string };
-        }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=${type}`);
+        }>(`/api/web/reports/dataset?${params.toString()}`);
 
         if (!response.ok) {
           throw new Error(payload?.error?.message || reportCopy.loadDatasetFailed);
@@ -327,7 +333,7 @@ export default function ReportsPage() {
         setActionLoading((current) => (current === type ? null : current));
       }
     },
-    [getScopedSchoolId, reportCopy.loadDatasetFailed],
+    [getScopedSchoolId, reportCopy.loadDatasetFailed, runtimeBranding.branchId],
   );
 
   const loadAllDatasets = useCallback(async () => {
@@ -352,13 +358,16 @@ export default function ReportsPage() {
 
     setActionLoading("all");
     try {
+      const params = new URLSearchParams({ schoolId, type: "all" });
+      if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
+
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
         students?: StudentRow[];
         payments?: PaymentRow[];
         expenses?: ExpenseRow[];
         salaries?: SalaryRow[];
         error?: { message?: string };
-      }>(`/api/web/reports/dataset?schoolId=${encodeURIComponent(schoolId)}&type=all`);
+      }>(`/api/web/reports/dataset?${params.toString()}`);
 
       if (!response.ok) throw new Error(reportCopy.loadComprehensiveFailed);
 
@@ -378,7 +387,7 @@ export default function ReportsPage() {
     } finally {
       setActionLoading((current) => (current === "all" ? null : current));
     }
-  }, [getScopedSchoolId, reportCopy.loadComprehensiveFailed]);
+  }, [getScopedSchoolId, reportCopy.loadComprehensiveFailed, runtimeBranding.branchId]);
 
   async function exportRows(rows: Record<string, unknown>[], sheetName: string, fileName: string) {
     const XLSX = await loadXLSX();

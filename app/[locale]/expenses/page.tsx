@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
@@ -127,6 +128,7 @@ export default function ExpensesPage() {
   const isEnglish = locale === "en";
   const { profile } = useRole();
   const schoolScope = useSchoolScope(profile);
+  const runtimeBranding = useRuntimeBranding();
   const copy = isEnglish
     ? {
         title: "Expenses",
@@ -295,7 +297,7 @@ export default function ExpensesPage() {
   }, [profile, schoolScope.selectedSchoolId]);
 
   const fetchExpenseTypes = useCallback(
-    async (explicitSchoolId?: string | null) => {
+    async (explicitSchoolId?: string | null, currentBranchId?: string | null) => {
       const scopedSchoolId = explicitSchoolId ?? (await resolveScopedSchoolId());
       if (!scopedSchoolId) {
         setExpenseTypes([]);
@@ -305,10 +307,14 @@ export default function ExpensesPage() {
 
       setTypesLoading(true);
       try {
+        const params: Record<string, string | number | null | undefined> = {
+          schoolId: scopedSchoolId,
+        };
+        if (currentBranchId) {
+          params.branchId = currentBranchId;
+        }
         const { response, payload } = await fetchJsonWithAuthorizedSession<ExpenseTypesResponse>(
-          buildExpensesUrl("/api/web/expenses/types", {
-            schoolId: scopedSchoolId,
-          }),
+          buildExpensesUrl("/api/web/expenses/types", params),
         );
 
         if (!response.ok) {
@@ -327,7 +333,7 @@ export default function ExpensesPage() {
   );
 
   const fetchExpenses = useCallback(
-    async (explicitSchoolId?: string | null) => {
+    async (explicitSchoolId?: string | null, currentBranchId?: string | null) => {
       const scopedSchoolId = explicitSchoolId ?? (await resolveScopedSchoolId());
       if (!scopedSchoolId) {
         setExpenses([]);
@@ -340,16 +346,20 @@ export default function ExpensesPage() {
 
       setExpensesLoading(true);
       try {
+        const params: Record<string, string | number | null | undefined> = {
+          schoolId: scopedSchoolId,
+          page: expensePage,
+          pageSize: EXPENSES_PAGE_SIZE,
+          search: deferredSearch,
+          expenseTypeId: expenseTypeFilter || null,
+          fromDate: filterFrom || null,
+          toDate: filterTo || null,
+        };
+        if (currentBranchId) {
+          params.branchId = currentBranchId;
+        }
         const { response, payload } = await fetchJsonWithAuthorizedSession<ExpensesListResponse>(
-          buildExpensesUrl("/api/web/expenses", {
-            schoolId: scopedSchoolId,
-            page: expensePage,
-            pageSize: EXPENSES_PAGE_SIZE,
-            search: deferredSearch,
-            expenseTypeId: expenseTypeFilter || null,
-            fromDate: filterFrom || null,
-            toDate: filterTo || null,
-          }),
+          buildExpensesUrl("/api/web/expenses", params),
         );
 
         if (!response.ok) {
@@ -394,13 +404,16 @@ export default function ExpensesPage() {
       return;
     }
 
-    await Promise.all([fetchExpenseTypes(scopedSchoolId), fetchExpenses(scopedSchoolId)]);
-  }, [fetchExpenseTypes, fetchExpenses, profile, resolveScopedSchoolId]);
+    await Promise.all([
+      fetchExpenseTypes(scopedSchoolId, runtimeBranding.branchId),
+      fetchExpenses(scopedSchoolId, runtimeBranding.branchId),
+    ]);
+  }, [fetchExpenseTypes, fetchExpenses, profile, resolveScopedSchoolId, runtimeBranding.branchId]);
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
-    void fetchExpenseTypes();
-  }, [fetchExpenseTypes, profile, schoolScope.scopeLoading]);
+    void fetchExpenseTypes(undefined, runtimeBranding.branchId);
+  }, [fetchExpenseTypes, profile, schoolScope.scopeLoading, runtimeBranding.branchId]);
 
   useEffect(() => {
     setExpensePage(1);
@@ -408,8 +421,8 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
-    void fetchExpenses();
-  }, [fetchExpenses, expensePage, profile, schoolScope.scopeLoading]);
+    void fetchExpenses(undefined, runtimeBranding.branchId);
+  }, [fetchExpenses, expensePage, profile, schoolScope.scopeLoading, runtimeBranding.branchId]);
 
   async function handleSaveExpense(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
@@ -421,7 +434,7 @@ export default function ExpensesPage() {
       return;
     }
 
-    const payload = {
+    const payload: Record<string, any> = {
       school_id: targetSchoolId,
       expense_type_id: form.expense_type_id,
       amount: Number(form.amount),
@@ -430,6 +443,9 @@ export default function ExpensesPage() {
       receipt_number: form.receipt_number || null,
       notes: form.notes || null,
     };
+    if (runtimeBranding.branchId) {
+      payload.branch_id = runtimeBranding.branchId;
+    }
 
     const requestUrl = editExpense ? `/api/web/expenses/${editExpense.id}` : "/api/web/expenses";
     const requestMethod = editExpense ? "PATCH" : "POST";
@@ -452,9 +468,9 @@ export default function ExpensesPage() {
       if (shouldResetPage) {
         setExpensePage(1);
       } else {
-        await fetchExpenses(targetSchoolId);
+        await fetchExpenses(targetSchoolId, runtimeBranding.branchId);
       }
-      await fetchExpenseTypes(targetSchoolId);
+      await fetchExpenseTypes(targetSchoolId, runtimeBranding.branchId);
       setTimeout(() => setSuccess(""), 3000);
     }
     setSaving(false);
@@ -469,7 +485,10 @@ export default function ExpensesPage() {
       setSavingType(false);
       return;
     }
-    const payload = { school_id: targetSchoolId, name: typeForm.name, notes: typeForm.notes || null };
+    const payload: Record<string, any> = { school_id: targetSchoolId, name: typeForm.name, notes: typeForm.notes || null };
+    if (runtimeBranding.branchId) {
+      payload.branch_id = runtimeBranding.branchId;
+    }
     const requestUrl = editType ? `/api/web/expenses/types/${editType.id}` : "/api/web/expenses/types";
     const requestMethod = editType ? "PATCH" : "POST";
     const { response, payload: responsePayload } = await fetchJsonWithAuthorizedSession<ExpenseMutationResponse>(
@@ -487,7 +506,7 @@ export default function ExpensesPage() {
       setSuccess(editType ? copy.updateTypeSuccess : copy.createTypeSuccess);
       setShowTypeForm(false); setEditType(null);
       setTypeForm({ name: "", notes: "" });
-      await fetchExpenseTypes(targetSchoolId);
+      await fetchExpenseTypes(targetSchoolId, runtimeBranding.branchId);
       setTimeout(() => setSuccess(""), 3000);
     }
     setSavingType(false);
@@ -500,12 +519,16 @@ export default function ExpensesPage() {
       return;
     }
 
+    const deleteBody: Record<string, any> = { school_id: scopedSchoolId };
+    if (runtimeBranding.branchId) {
+      deleteBody.branch_id = runtimeBranding.branchId;
+    }
     const { response, payload } = await fetchJsonWithAuthorizedSession<ExpenseMutationResponse>(
       `/api/web/expenses/${id}`,
       {
         method: "DELETE",
         headers: withJsonHeaders(),
-        body: JSON.stringify({ school_id: scopedSchoolId }),
+        body: JSON.stringify(deleteBody),
       },
     );
 
@@ -515,8 +538,8 @@ export default function ExpensesPage() {
     }
 
     setSuccess(copy.deleteExpenseSuccess);
-    await fetchExpenses(scopedSchoolId);
-    await fetchExpenseTypes(scopedSchoolId);
+    await fetchExpenses(scopedSchoolId, runtimeBranding.branchId);
+    await fetchExpenseTypes(scopedSchoolId, runtimeBranding.branchId);
     setTimeout(() => setSuccess(""), 3000);
   }
 
@@ -527,12 +550,16 @@ export default function ExpensesPage() {
       return;
     }
 
+    const deleteBody: Record<string, any> = { school_id: scopedSchoolId };
+    if (runtimeBranding.branchId) {
+      deleteBody.branch_id = runtimeBranding.branchId;
+    }
     const { response, payload } = await fetchJsonWithAuthorizedSession<ExpenseMutationResponse>(
       `/api/web/expenses/types/${id}`,
       {
         method: "DELETE",
         headers: withJsonHeaders(),
-        body: JSON.stringify({ school_id: scopedSchoolId }),
+        body: JSON.stringify(deleteBody),
       },
     );
 
@@ -542,7 +569,7 @@ export default function ExpensesPage() {
     }
 
     setSuccess(copy.deleteTypeSuccess);
-    await fetchExpenseTypes(scopedSchoolId);
+    await fetchExpenseTypes(scopedSchoolId, runtimeBranding.branchId);
     setTimeout(() => setSuccess(""), 3000);
   }
 
@@ -589,16 +616,20 @@ export default function ExpensesPage() {
     let totalPages = 1;
 
     do {
+      const params: Record<string, string | number | null | undefined> = {
+        schoolId: scopedSchoolId,
+        page,
+        pageSize: EXPENSE_EXPORT_PAGE_SIZE,
+        search: deferredSearch,
+        expenseTypeId: expenseTypeFilter || null,
+        fromDate: filterFrom || null,
+        toDate: filterTo || null,
+      };
+      if (runtimeBranding.branchId) {
+        params.branchId = runtimeBranding.branchId;
+      }
       const { response, payload } = await fetchJsonWithAuthorizedSession<ExpensesListResponse>(
-        buildExpensesUrl("/api/web/expenses", {
-          schoolId: scopedSchoolId,
-          page,
-          pageSize: EXPENSE_EXPORT_PAGE_SIZE,
-          search: deferredSearch,
-          expenseTypeId: expenseTypeFilter || null,
-          fromDate: filterFrom || null,
-          toDate: filterTo || null,
-        }),
+        buildExpensesUrl("/api/web/expenses", params),
       );
 
       if (!response.ok) {

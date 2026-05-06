@@ -4,6 +4,7 @@ import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildStudentPromotionPlan } from "@/lib/students/promotion";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -160,6 +161,8 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
 
   return NextResponse.json({
     ok: true,

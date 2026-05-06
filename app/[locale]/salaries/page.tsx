@@ -77,7 +77,7 @@ export default function SalariesPage() {
   const schoolScope = useSchoolScope(profile);
 
   // Main data hook
-  const salariesData = useSalariesData(profile, schoolScope);
+  const salariesData = useSalariesData(profile, schoolScope, runtimeBranding.branchId);
   const {
     schoolId,
     loading,

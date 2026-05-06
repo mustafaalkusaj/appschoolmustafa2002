@@ -16,7 +16,7 @@ export function usePagedSupabaseList<T>({
   fetchPage,
   refreshKey = 0,
   cacheKey,
-  ttlMs = 20_000,
+  ttlMs = 600_000,  // ✅ زيادة من 20 ثانية إلى 10 دقائق
 }: {
   enabled: boolean;
   page: number;

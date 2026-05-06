@@ -110,10 +110,10 @@ export function useStudentsPrint(options: UseStudentsPrintOptions) {
     []
   );
 
-  return {
+  return useMemo(() => ({
     handlePrint,
     printFilteredStudents,
     openAccountCardWindow,
     copyAccountCardCredentials,
-  };
+  }), [handlePrint, printFilteredStudents, openAccountCardWindow, copyAccountCardCredentials]);
 }

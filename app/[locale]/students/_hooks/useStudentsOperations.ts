@@ -26,6 +26,7 @@ export interface UseStudentsOperationsOptions {
     primaryColor?: string | null;
     secondaryColor?: string | null;
   };
+  currentBranchId: string | null;
   modals: {
     setError: (error: string) => void;
     setSuccess: (success: string) => void;
@@ -95,6 +96,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     setActiveTab,
     locale,
     runtimeBranding: _runtimeBranding,
+    currentBranchId: activeBranchIdFromUI,
     modals,
     reload,
   } = options;
@@ -211,6 +213,19 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     e.preventDefault();
     modals.setSaving(true);
     modals.setError("");
+
+    // Use current active branch from UI context (sidebar/header)
+    // Priority: UI context > profile.branch_id (for single-branch users)
+    const resolvedBranchId = activeBranchIdFromUI ?? profile?.branch_id ?? null;
+    if (!resolvedBranchId) {
+      const errorMsg = locale === "en"
+        ? "Could not determine the current branch. Please ensure a branch is selected in the sidebar."
+        : "تعذر تحديد الفرع الحالي. يرجى التأكد من اختيار فرع في القائمة الجانبية.";
+      modals.setError(errorMsg);
+      modals.setSaving(false);
+      return;
+    }
+
     const { school_id } = await getSchoolBranch();
     if (!school_id) {
       modals.setError(copy.addSchoolBranchFirst);
@@ -235,7 +250,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
           total_fee: modals.form.total_fee,
           paid_fee: modals.form.paid_fee,
           discount_value: modals.form.discount_value,
-          branch_id: modals.form.branch_id,
+          branch_id: resolvedBranchId,
         },
         teacher: null,
       }),
@@ -253,7 +268,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       setTimeout(() => modals.setSuccess(""), 4000);
     }
     modals.setSaving(false);
-  }, [canManageStudentAccounts, copy.addSchoolBranchFirst, copy.createFailed, copy.createdSuccess, copy.noCreatePermission, getSchoolBranch, modals, reload]);
+  }, [canManageStudentAccounts, copy.addSchoolBranchFirst, copy.createFailed, copy.createdSuccess, copy.noCreatePermission, getSchoolBranch, modals, reload, profile, locale, activeBranchIdFromUI]);
 
   const handleEdit = useCallback(async (e: React.FormEvent) => {
     if (!canEditStudents) {
@@ -731,7 +746,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     }
   }, [canManageStudentAccounts, copy, getSchoolBranch, modals, reload]);
 
-  return {
+  return useMemo(() => ({
     handleAdd,
     handleEdit,
     changeStatus,
@@ -746,5 +761,5 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     downloadTemplate,
     openStudentCredentialsCard,
     getSchoolBranch,
-  };
+  }), [handleAdd, handleEdit, changeStatus, initTransfer, confirmTransfer, initSuspend, initRestore, handleDeleteConfirmed, exportExcel, handleFileChange, handleImport, downloadTemplate, openStudentCredentialsCard, getSchoolBranch]);
 }

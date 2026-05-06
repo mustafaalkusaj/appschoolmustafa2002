@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { StudentWithFees, StudentFormData, ManagedUserAccountCard } from "../_types";
 import { DEFAULT_STUDENT_FORM } from "../_constants";
 
@@ -175,7 +175,7 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     setAddStep(1);
   }, []);
 
-  return {
+  return useMemo(() => ({
     showModal,
     setShowModal,
     addStep,
@@ -221,5 +221,5 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     openMenu,
     resetForm,
     closeAllModals,
-  };
+  }), [showModal, setShowModal, addStep, setAddStep, showImport, setShowImport, showEdit, setShowEdit, showDeleteConfirm, setShowDeleteConfirm, showTransferConfirm, setShowTransferConfirm, selectedStudent, setSelectedStudent, form, setForm, editForm, setEditForm, saving, setSaving, importing, setImporting, printingCards, setPrintingCards, success, setSuccess, error, setError, accountCard, setAccountCard, revealedPassword, setRevealedPassword, importPreview, setImportPreview, importError, setImportError, activeMenu, setActiveMenu, menuPos, setMenuPos, fileRef, openEdit, openMenu, resetForm, closeAllModals]);
 }

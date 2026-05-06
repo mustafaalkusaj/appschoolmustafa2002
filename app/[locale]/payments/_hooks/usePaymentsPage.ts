@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { useRuntimeBranding } from "@/hooks/brand";
@@ -19,7 +19,7 @@ import { useArchiveOperations } from "./useArchiveOperations";
 
 import { Student, Payment, PaymentArchive, SEARCH_DEBOUNCE_MS } from "../_types";
 
-export function usePaymentsPage() {
+export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const isEnglish = locale === "en";
@@ -28,6 +28,7 @@ export function usePaymentsPage() {
   const schoolScope = useSchoolScope(profile);
   const canAddPayments = can("add_payments");
   const canDeletePayments = can("delete_payments");
+  const currentBranchId = options?.currentBranchId ?? null;
 
   // State
   const [resolvedSchoolId, setResolvedSchoolId] = useState<string | null>(null);
@@ -82,14 +83,15 @@ export function usePaymentsPage() {
   }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
 
   // Hooks
-  const metaHook = usePaymentsMeta(resolvedSchoolId);
+  const metaHook = usePaymentsMeta(resolvedSchoolId, currentBranchId);
   const studentsHook = useStudentsPage(
     resolvedSchoolId,
     quickFilter,
     filterClass,
     filterSort,
     filterDir,
-    search
+    search,
+    currentBranchId
   );
 
   const onSuccess = useCallback((msg: string) => {
@@ -152,14 +154,16 @@ export function usePaymentsPage() {
     canDeletePayments,
     onSuccess,
     setError,
-    printReceipt
+    printReceipt,
+    currentBranchId
   );
 
   const archiveOpsHook = useArchiveOperations(
     resolvedSchoolId,
     canDeletePayments,
     onSuccess,
-    setError
+    setError,
+    currentBranchId
   );
 
   // Handlers
@@ -184,6 +188,7 @@ export function usePaymentsPage() {
       });
       if (search) params.set("search", search);
       if (filterClass) params.set("className", filterClass);
+      if (currentBranchId) params.set("branchId", currentBranchId);
 
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
         students?: Student[];
@@ -212,7 +217,7 @@ export function usePaymentsPage() {
     } finally {
       setExporting(false);
     }
-  }, [resolvedSchoolId, quickFilter, filterSort, filterDir, search, filterClass]);
+  }, [resolvedSchoolId, quickFilter, filterSort, filterDir, search, filterClass, currentBranchId]);
 
   const handleArchiveExport = useCallback(
     async (archive: PaymentArchive) => {
@@ -240,6 +245,7 @@ export function usePaymentsPage() {
         setError("لا يمكن حذف الدفعة: لم يتم تحديد الطالب.");
         return;
       }
+
       await paymentOpsHook.deletePayment(
         paymentId,
         selectedStudent.id,
@@ -276,22 +282,22 @@ export function usePaymentsPage() {
     [paymentOpsHook]
   );
 
-  return {
+  return useMemo(() => ({
     // Permissions
     canAddPayments,
     canDeletePayments,
-    
+
     // School scope
     schoolScope,
     resolvedSchoolId,
-    
+
     // State
     success,
     error,
     searchInput,
     setSearchInput,
     exporting,
-    
+
     // Filters
     quickFilter,
     setQuickFilter,
@@ -301,25 +307,25 @@ export function usePaymentsPage() {
     setFilterSort,
     filterDir,
     setFilterDir,
-    
+
     // Meta hook
     metaHook,
-    
+
     // Students hook
     studentsHook,
-    
+
     // Payment operations hook
     paymentOpsHook,
-    
+
     // Archive operations hook
     archiveOpsHook,
-    
+
     // Selected student
     selectedStudent,
     setSelectedStudent,
     showDetail,
     setShowDetail,
-    
+
     // Handlers
     openStudentDetail,
     handleExportExcel,
@@ -329,5 +335,5 @@ export function usePaymentsPage() {
     handlePaymentSubmit,
     openPaymentForStudent,
     updateStudentFinancials,
-  };
+  }), [canAddPayments, canDeletePayments, schoolScope, resolvedSchoolId, success, error, searchInput, setSearchInput, exporting, quickFilter, setQuickFilter, filterClass, setFilterClass, filterSort, setFilterSort, filterDir, setFilterDir, metaHook, studentsHook, paymentOpsHook, archiveOpsHook, selectedStudent, setSelectedStudent, showDetail, setShowDetail, openStudentDetail, handleExportExcel, printReceipt, handleArchiveExport, handleDeletePayment, handlePaymentSubmit, openPaymentForStudent, updateStudentFinancials]);
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Student, PaymentsPageState, PAGE_SIZE } from "../_types";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 
 const paymentsPageCache = new Map<string, PaymentsPageState>();
 
@@ -12,7 +13,8 @@ export function useStudentsPage(
   filterClass: string,
   filterSort: string,
   filterDir: string,
-  search: string
+  search: string,
+  currentBranchId?: string | null
 ) {
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentCountsByStudent, setPaymentCountsByStudent] = useState<Record<string, number>>({});
@@ -38,8 +40,12 @@ export function useStudentsPage(
       params.set("className", filterClass);
     }
 
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+
     return params;
-  }, [filterClass, filterDir, filterSort, page, quickFilter, resolvedSchoolId, search]);
+  }, [filterClass, filterDir, filterSort, page, quickFilter, resolvedSchoolId, search, currentBranchId]);
 
   const fetchStudentsPage = useCallback(async () => {
     if (!resolvedSchoolId) return;
@@ -58,12 +64,16 @@ export function useStudentsPage(
     }
 
     try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        students?: Student[];
-        paymentCountsByStudent?: Record<string, number>;
-        totalCount?: number;
-        error?: { message?: string };
-      }>(`/api/web/payments/students?${params.toString()}`);
+      const dedupeKey = `payments-students:${params.toString()}`;
+      const { response, payload } = await deduplicatedFetch(
+        dedupeKey,
+        () => fetchJsonWithAuthorizedSession<{
+          students?: Student[];
+          paymentCountsByStudent?: Record<string, number>;
+          totalCount?: number;
+          error?: { message?: string };
+        }>(`/api/web/payments/students?${params.toString()}`)
+      );
 
       if (!response.ok) {
         throw new Error(payload?.error?.message || "تعذر تحميل قائمة المدفوعات.");
@@ -97,7 +107,7 @@ export function useStudentsPage(
 
   useEffect(() => {
     setPage(1);
-  }, [resolvedSchoolId, search, quickFilter, filterClass, filterSort, filterDir]);
+  }, [resolvedSchoolId, search, quickFilter, filterClass, filterSort, filterDir, currentBranchId]);
 
   const updateStudentFinancials = useCallback((studentId: string, update: { paid_fee: number; remaining_fee: number }) => {
     setStudents((current) =>
@@ -116,9 +126,9 @@ export function useStudentsPage(
     }));
   }, []);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(totalCount / PAGE_SIZE)), [totalCount]);
 
-  return {
+  return useMemo(() => ({
     students,
     paymentCountsByStudent,
     totalCount,
@@ -129,5 +139,5 @@ export function useStudentsPage(
     fetchStudentsPage,
     updateStudentFinancials,
     updatePaymentCount,
-  };
+  }), [students, paymentCountsByStudent, totalCount, totalPages, loading, page, setPage, fetchStudentsPage, updateStudentFinancials, updatePaymentCount]);
 }

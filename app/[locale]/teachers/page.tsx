@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
+import { useRuntimeBranding } from "@/hooks/brand";
 import {
   AccountCardModal,
   TeacherFormModal,
@@ -24,6 +25,7 @@ import { useTeachersData } from "./_hooks/useTeachersData";
 export default function TeachersManagementPage() {
   const { profile } = useRole();
   const t = useTranslations("teachers");
+  const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
   const currentSchoolId = profile?.role === "super_admin" ? schoolScope.selectedSchoolId : profile?.school_id ?? null;
 
@@ -90,7 +92,7 @@ export default function TeachersManagementPage() {
     openPrintableWindow,
     handleCopyCredentials,
     fetchUsers,
-  } = useTeachersData(currentSchoolId, profile, schoolScope.scopeLoading);
+  } = useTeachersData(currentSchoolId, profile, schoolScope.scopeLoading, runtimeBranding.branchId);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>

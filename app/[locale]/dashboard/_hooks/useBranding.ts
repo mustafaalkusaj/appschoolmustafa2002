@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import {
@@ -50,17 +51,21 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
       return;
     }
 
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{
-      school?: {
-        name?: string | null;
-        logo_url?: string | null;
-        primary_color?: string | null;
-        secondary_color?: string | null;
-        theme_preset?: string | null;
-      };
-      schemaCompat?: { schoolColors?: boolean; schoolThemePreset?: boolean };
-      error?: { message?: string };
-    }>(`/api/web/dashboard/branding?schoolId=${encodeURIComponent(schoolId)}`);
+    const cacheKey = `dashboard-branding:${schoolId}`;
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        school?: {
+          name?: string | null;
+          logo_url?: string | null;
+          primary_color?: string | null;
+          secondary_color?: string | null;
+          theme_preset?: string | null;
+        };
+        schemaCompat?: { schoolColors?: boolean; schoolThemePreset?: boolean };
+        error?: { message?: string };
+      }>(`/api/web/dashboard/branding?schoolId=${encodeURIComponent(schoolId)}`)
+    );
 
     if (!response.ok || !payload?.school) {
       setBrandingNotice(payload?.error?.message || "تعذر تحميل الهوية البصرية.");
@@ -206,7 +211,7 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
     void fetchSchoolBranding();
   }, [profile, scopeLoading, fetchSchoolBranding]);
 
-  return {
+  return useMemo(() => ({
     brandingSchoolId,
     brandingForm,
     setBrandingForm,
@@ -217,5 +222,5 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
     saveBrandingFromDashboard,
     applyBrandThemePreset,
     deriveDashboardBrandingFromLogo,
-  };
+  }), [brandingSchoolId, brandingForm, setBrandingForm, brandingSaving, brandingDeriving, brandingNotice, selectedBrandTheme, saveBrandingFromDashboard, applyBrandThemePreset, deriveDashboardBrandingFromLogo]);
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { resolveSchoolBranchForProfile } from "@/lib/school-context";
 import type { UserProfile } from "@/lib/auth";
 
@@ -55,15 +56,25 @@ export function useRecentActivity({
     try {
       const scopedSuffix =
         branchScoped && branchId ? `&branchId=${encodeURIComponent(branchId)}` : "";
+      const cacheKeySuffix = branchScoped ? branchId : "none";
       const requests = await Promise.allSettled([
-        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
-          `/api/web/teacher-activity/messages?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+        deduplicatedFetch(
+          `dashboard-activity:messages:${schoolId}:${cacheKeySuffix}`,
+          () => fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
+            `/api/web/teacher-activity/messages?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+          )
         ),
-        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
-          `/api/web/teacher-activity/homework?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+        deduplicatedFetch(
+          `dashboard-activity:homework:${schoolId}:${cacheKeySuffix}`,
+          () => fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
+            `/api/web/teacher-activity/homework?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+          )
         ),
-        fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
-          `/api/web/fee-notifications?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+        deduplicatedFetch(
+          `dashboard-activity:alerts:${schoolId}:${cacheKeySuffix}`,
+          () => fetchJsonWithAuthorizedSession<{ items: ActivityApiItem[] }>(
+            `/api/web/fee-notifications?schoolId=${encodeURIComponent(schoolId)}&pageSize=3${scopedSuffix}`,
+          )
         ),
       ]);
 
@@ -117,7 +128,8 @@ export function useRecentActivity({
         failedSources += 1;
       }
 
-      setActivities(combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6));
+      const sortedActivities = combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6);
+      setActivities(sortedActivities);
       setError(failedSources === requests.length && combined.length === 0 ? "dashboard_activity_failed" : null);
     } catch (err) {
       console.error("Failed to fetch recent activities", err);
@@ -133,10 +145,10 @@ export function useRecentActivity({
     void fetchActivities();
   }, [profile, scopeLoading, fetchActivities]);
 
-  return {
+  return useMemo(() => ({
     activities,
     loading,
     error,
     refresh: fetchActivities,
-  };
+  }), [activities, loading, error, fetchActivities]);
 }

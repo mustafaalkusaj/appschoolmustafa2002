@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
@@ -306,6 +307,7 @@ export default function AttendancePage() {
   const copy = ATTENDANCE_COPY[locale];
   const statusMeta = useMemo(() => buildStatusMeta(copy), [copy]);
   const { profile } = useRole();
+  const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceDrafts, setAttendanceDrafts] = useState<Record<string, AttendanceDraft>>({});
@@ -341,8 +343,16 @@ export default function AttendancePage() {
       return;
     }
 
+    const params = new URLSearchParams({
+      schoolId: scopedSchoolId,
+      date: dateValue,
+    });
+    if (runtimeBranding.branchId) {
+      params.set("branchId", runtimeBranding.branchId);
+    }
+
     const { response, payload } = await fetchJsonWithAuthorizedSession<AttendanceSnapshotResponse>(
-      `/api/web/attendance?schoolId=${encodeURIComponent(scopedSchoolId)}&date=${encodeURIComponent(dateValue)}`,
+      `/api/web/attendance?${params.toString()}`,
     );
 
     if (!response.ok || !payload?.ok) {
@@ -384,7 +394,7 @@ export default function AttendancePage() {
     setHistoryRows(payload.history ?? []);
     setLoadingStudents(false);
     setLoadingAttendance(false);
-  }, [profile, schoolScope.selectedSchoolId, copy]);
+  }, [profile, schoolScope.selectedSchoolId, copy, runtimeBranding.branchId]);
 
   useEffect(() => {
     if (schoolScope.scopeLoading) return;
@@ -464,16 +474,21 @@ export default function AttendancePage() {
       return;
     }
 
+    const saveBody: Record<string, any> = {
+      school_id: scopedSchoolId,
+      attendance_date: selectedDate,
+      entries: payload,
+    };
+    if (runtimeBranding.branchId) {
+      saveBody.branch_id = runtimeBranding.branchId;
+    }
+
     const { response, payload: result } = await fetchJsonWithAuthorizedSession<AttendanceSaveResponse>(
       "/api/web/attendance",
       {
         method: "POST",
         headers: withJsonHeaders(),
-        body: JSON.stringify({
-          school_id: scopedSchoolId,
-          attendance_date: selectedDate,
-          entries: payload,
-        }),
+        body: JSON.stringify(saveBody),
       },
     );
 

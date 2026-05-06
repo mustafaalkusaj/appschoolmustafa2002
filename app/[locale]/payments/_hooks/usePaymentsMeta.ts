@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   PaymentsMetaState,
   EMPTY_SUMMARY,
@@ -8,10 +8,11 @@ import {
   PaymentArchive,
 } from "../_types";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 
 const paymentsMetaCache = new Map<string, PaymentsMetaState>();
 
-export function usePaymentsMeta(resolvedSchoolId: string | null) {
+export function usePaymentsMeta(resolvedSchoolId: string | null, currentBranchId?: string | null) {
   const [summary, setSummary] = useState<PaymentsSummary>(EMPTY_SUMMARY);
   const [classes, setClasses] = useState<string[]>([]);
   const [paymentYears, setPaymentYears] = useState<number[]>([]);
@@ -24,7 +25,10 @@ export function usePaymentsMeta(resolvedSchoolId: string | null) {
   const fetchMeta = useCallback(async () => {
     if (!resolvedSchoolId) return;
 
-    const cached = paymentsMetaCache.get(resolvedSchoolId);
+    const cacheKey = currentBranchId
+      ? `payments-meta:${resolvedSchoolId}:${currentBranchId}`
+      : `payments-meta:${resolvedSchoolId}`;
+    const cached = paymentsMetaCache.get(cacheKey);
     if (cached) {
       setSummary(cached.summary);
       setClasses(cached.classOptions);
@@ -38,15 +42,25 @@ export function usePaymentsMeta(resolvedSchoolId: string | null) {
     }
 
     try {
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        summary?: PaymentsSummary;
-        classOptions?: string[];
-        paymentYears?: number[];
-        totalPaymentCount?: number;
-        archives?: PaymentArchive[];
-        archiveNotice?: string;
-        error?: { message?: string };
-      }>(`/api/web/payments/meta?schoolId=${encodeURIComponent(resolvedSchoolId)}`);
+      const params = new URLSearchParams({
+        schoolId: resolvedSchoolId,
+      });
+      if (currentBranchId) {
+        params.set("branchId", currentBranchId);
+      }
+
+      const { response, payload } = await deduplicatedFetch(
+        cacheKey,
+        () => fetchJsonWithAuthorizedSession<{
+          summary?: PaymentsSummary;
+          classOptions?: string[];
+          paymentYears?: number[];
+          totalPaymentCount?: number;
+          archives?: PaymentArchive[];
+          archiveNotice?: string;
+          error?: { message?: string };
+        }>(`/api/web/payments/meta?${params.toString()}`)
+      );
 
       if (!response.ok) {
         throw new Error(payload?.error?.message || "تعذر تحميل ملخص المدفوعات.");
@@ -61,7 +75,7 @@ export function usePaymentsMeta(resolvedSchoolId: string | null) {
         archiveNotice: payload?.archiveNotice ?? "",
       } satisfies PaymentsMetaState;
 
-      paymentsMetaCache.set(resolvedSchoolId, nextMeta);
+      paymentsMetaCache.set(cacheKey, nextMeta);
       setSummary(nextMeta.summary);
       setClasses(nextMeta.classOptions);
       setPaymentYears(nextMeta.paymentYears);
@@ -73,7 +87,7 @@ export function usePaymentsMeta(resolvedSchoolId: string | null) {
     } finally {
       setMetaLoading(false);
     }
-  }, [resolvedSchoolId]);
+  }, [resolvedSchoolId, currentBranchId]);
 
   useEffect(() => {
     if (!resolvedSchoolId) return;
@@ -81,11 +95,12 @@ export function usePaymentsMeta(resolvedSchoolId: string | null) {
   }, [fetchMeta, resolvedSchoolId]);
 
   const refreshMeta = useCallback(() => {
-    if (resolvedSchoolId) {
-      paymentsMetaCache.delete(resolvedSchoolId);
-    }
+    const cacheKey = currentBranchId
+      ? `payments-meta:${resolvedSchoolId}:${currentBranchId}`
+      : `payments-meta:${resolvedSchoolId}`;
+    paymentsMetaCache.delete(cacheKey);
     void fetchMeta();
-  }, [fetchMeta, resolvedSchoolId]);
+  }, [fetchMeta, resolvedSchoolId, currentBranchId]);
 
   const incrementPaymentCount = useCallback(() => {
     setTotalPaymentCount((current) => current + 1);
@@ -112,7 +127,7 @@ export function usePaymentsMeta(resolvedSchoolId: string | null) {
     setTotalPaymentCount((current) => Math.max(0, current - 1));
   }, []);
 
-  return {
+  return useMemo(() => ({
     summary,
     classes,
     paymentYears,
@@ -128,5 +143,5 @@ export function usePaymentsMeta(resolvedSchoolId: string | null) {
     addPaymentYear,
     updateArchives,
     setError,
-  };
+  }), [summary, classes, paymentYears, totalPaymentCount, archives, archiveNotice, metaLoading, error, fetchMeta, refreshMeta, incrementPaymentCount, decrementPaymentCount, addPaymentYear, updateArchives, setError]);
 }

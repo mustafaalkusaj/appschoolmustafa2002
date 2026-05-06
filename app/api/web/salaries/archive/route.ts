@@ -4,6 +4,7 @@ import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import {
   applyEffectiveSalaryDeductions,
   calculateNetSalary,
@@ -172,6 +173,8 @@ export async function POST(req: NextRequest) {
   } catch {
     // Ignore when migration has not been applied yet.
   }
+
+  invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "reports-overview"]);
 
   return NextResponse.json({
     ok: true,

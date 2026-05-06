@@ -622,6 +622,8 @@
         "fullNamePlaceholder": "Ahmed Mohammed Ali",
         "className": "Class *",
         "selectClass": "— Select Class —",
+        "branch": "Branch",
+        "selectBranch": "— Select Branch —",
         "manualEntry": "Enter manually...",
         "manualPlaceholder": "Type class name",
         "section": "Section",

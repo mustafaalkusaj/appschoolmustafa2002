@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies"; // ✅ cache strategies
+import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 import { fetchBudgetSummaries } from "@/lib/school-manager/budget-summary";
 import { assertBranchBelongsToUserContext } from "@/lib/branch-validation";
 
@@ -59,7 +61,7 @@ export async function GET(req: NextRequest) {
         nextYear: next.fiscalYear,
       },
       {
-        headers: { "Cache-Control": "no-store" },
+        headers: getCacheHeaders(CACHE_STRATEGIES.BUDGETS_LIST),
       },
     );
   } catch (error) {
@@ -183,6 +185,8 @@ export async function POST(req: NextRequest) {
         // Don't fail the whole operation, just log
       }
     }
+
+    invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-budgets", "dashboard-overview", "reports-overview"]);
 
     return NextResponse.json({
       ok: true,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
@@ -241,7 +241,7 @@ export function useFeeManagement({
     );
   }, [studentCountByClass]);
 
-  return {
+  return useMemo(() => ({
     showFeeModal,
     setShowFeeModal,
     feeForm,
@@ -258,5 +258,5 @@ export function useFeeManagement({
     openNewFee,
     closeFeeModal,
     getClassStats,
-  };
+  }), [showFeeModal, setShowFeeModal, feeForm, setFeeForm, feeLoading, feeError, feeSuccess, editingFee, deleteConfirm, setDeleteConfirm, handleSaveFee, handleDeleteFee, openEditFee, openNewFee, closeFeeModal, getClassStats]);
 }
