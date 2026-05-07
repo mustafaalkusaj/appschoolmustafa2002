@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { CheckCircle2, CircleOff } from "@/lib/icons";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { useRole } from "@/hooks/useRole";
@@ -82,9 +83,15 @@ export default function TeachersManagementPage() {
     resetTableFilters,
     openAccountCardForUser,
     handleResetTemporaryPassword,
+    confirmResetPassword,
+    cancelResetPassword,
+    pendingResetUser,
     handleSubmit,
     handleToggle,
     handleDelete,
+    confirmDelete,
+    cancelDelete,
+    pendingDeleteUser,
     handleExportUsers,
     handleImportFileChange,
     handleImportUsers,
@@ -242,6 +249,28 @@ export default function TeachersManagementPage() {
           onClose={closeAccountCard}
           onCopy={() => void handleCopyCredentials()}
           onPrint={openPrintableWindow}
+        />
+
+        <ConfirmDialog
+          open={Boolean(pendingDeleteUser)}
+          title={`حذف حساب "${pendingDeleteUser?.full_name}"؟`}
+          description="سيُحذف الحساب نهائياً ولا يمكن التراجع عن هذا الإجراء."
+          confirmLabel="حذف"
+          tone="danger"
+          busy={togglingId === pendingDeleteUser?.auth_user_id}
+          onConfirm={() => void confirmDelete()}
+          onClose={cancelDelete}
+        />
+
+        <ConfirmDialog
+          open={Boolean(pendingResetUser)}
+          title={`إعادة ضبط كلمة مرور "${pendingResetUser?.full_name}"؟`}
+          description="ستُنشأ كلمة مرور مؤقتة جديدة وستُلغى كلمة المرور الحالية فوراً."
+          confirmLabel="إعادة الضبط"
+          tone="primary"
+          busy={cardLoadingId === pendingResetUser?.auth_user_id}
+          onConfirm={() => void confirmResetPassword()}
+          onClose={cancelResetPassword}
         />
       </div>
     </ProtectedRoute>

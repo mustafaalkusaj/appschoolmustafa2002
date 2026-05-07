@@ -81,6 +81,8 @@ type UseTeachersDataResult = {
   importPayloads: ImportPayload[];
   importErrors: string[];
   form: UserFormState;
+  pendingDeleteUser: ManagedUserRecord | null;
+  pendingResetUser: ManagedUserRecord | null;
   // Computed
   filteredUsers: ManagedUserRecord[];
   teachersOnlyUsers: ManagedUserRecord[];
@@ -112,10 +114,14 @@ type UseTeachersDataResult = {
   updateStudentField: <K extends keyof UserFormState['student']>(field: K, value: UserFormState['student'][K]) => void;
   resetTableFilters: () => void;
   openAccountCardForUser: (user: ManagedUserRecord) => Promise<void>;
-  handleResetTemporaryPassword: (user: ManagedUserRecord) => Promise<void>;
+  handleResetTemporaryPassword: (user: ManagedUserRecord) => void;
+  confirmResetPassword: () => Promise<void>;
+  cancelResetPassword: () => void;
   handleSubmit: (e: React.FormEvent) => Promise<void>;
   handleToggle: (user: ManagedUserRecord) => Promise<void>;
-  handleDelete: (user: ManagedUserRecord) => Promise<void>;
+  handleDelete: (user: ManagedUserRecord) => void;
+  confirmDelete: () => Promise<void>;
+  cancelDelete: () => void;
   handleExportUsers: () => Promise<void>;
   handleImportFileChange: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleImportUsers: () => Promise<void>;
@@ -161,6 +167,8 @@ export function useTeachersData(
   const [importPayloads, setImportPayloads] = useState<ImportPayload[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [form, setForm] = useState<UserFormState>(() => createEmptyForm("teacher"));
+  const [pendingDeleteUser, setPendingDeleteUser] = useState<ManagedUserRecord | null>(null);
+  const [pendingResetUser, setPendingResetUser] = useState<ManagedUserRecord | null>(null);
 
   // Refs
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -759,13 +767,20 @@ export function useTeachersData(
     }
   }, [clearMessages, currentSchoolId, fetchUsers]);
 
-  const handleResetTemporaryPassword = useCallback(async (user: ManagedUserRecord) => {
-    if (!currentSchoolId) {
-      setError("يجب تحديد مدرسة قبل إعادة تعيين كلمة المرور.");
-      return;
-    }
+  const handleResetTemporaryPassword = useCallback((user: ManagedUserRecord) => {
+    setPendingResetUser(user);
+  }, []);
+
+  const cancelResetPassword = useCallback(() => {
+    setPendingResetUser(null);
+  }, []);
+
+  const confirmResetPassword = useCallback(async () => {
+    if (!pendingResetUser || !currentSchoolId) return;
+    const user = pendingResetUser;
 
     clearMessages();
+    setPendingResetUser(null);
     setCardLoadingId(user.auth_user_id);
 
     try {
@@ -781,7 +796,6 @@ export function useTeachersData(
       }
 
       setAccountCard((payload?.accountCard as ManagedUserAccountCard | null) ?? null);
-      // Store the revealed password from the reset response (one-time reveal)
       setRevealedPassword((payload?.temporary_password as string | null) ?? null);
       setSuccess("تم إنشاء كلمة مرور مؤقتة جديدة وفتح بطاقة الحساب.");
       await fetchUsers();
@@ -790,7 +804,7 @@ export function useTeachersData(
     } finally {
       setCardLoadingId(null);
     }
-  }, [clearMessages, currentSchoolId, fetchUsers]);
+  }, [clearMessages, currentSchoolId, fetchUsers, pendingResetUser]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -850,7 +864,11 @@ export function useTeachersData(
             : "تم إنشاء الحساب بنجاح.",
       );
       if (createdTeacher && result?.accountCard) {
-        setAccountCard(result.accountCard as ManagedUserAccountCard);
+        const card = result.accountCard as ManagedUserAccountCard;
+        setAccountCard(card);
+        if (card.temporary_password && card.temporary_password !== "••••••••") {
+          setRevealedPassword(card.temporary_password);
+        }
       }
       closeModal();
       resetForm();
@@ -896,16 +914,20 @@ export function useTeachersData(
     }
   }, [clearMessages, currentSchoolId, fetchUsers]);
 
-  const handleDelete = useCallback(async (user: ManagedUserRecord) => {
-    if (!currentSchoolId) {
-      setError("يجب تحديد مدرسة قبل حذف الحساب.");
-      return;
-    }
+  const handleDelete = useCallback((user: ManagedUserRecord) => {
+    setPendingDeleteUser(user);
+  }, []);
 
-    const confirmed = window.confirm(`تأكيد حذف حساب الأستاذ "${user.full_name}" نهائياً؟`);
-    if (!confirmed) return;
+  const cancelDelete = useCallback(() => {
+    setPendingDeleteUser(null);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDeleteUser || !currentSchoolId) return;
+    const user = pendingDeleteUser;
 
     clearMessages();
+    setPendingDeleteUser(null);
     setTogglingId(user.auth_user_id);
 
     try {
@@ -927,7 +949,7 @@ export function useTeachersData(
     } finally {
       setTogglingId(null);
     }
-  }, [clearMessages, currentSchoolId, fetchUsers]);
+  }, [clearMessages, currentSchoolId, fetchUsers, pendingDeleteUser]);
 
   return useMemo(() => ({
     // State
@@ -960,6 +982,8 @@ export function useTeachersData(
     importPayloads,
     importErrors,
     form,
+    pendingDeleteUser,
+    pendingResetUser,
     // Computed
     filteredUsers,
     teachersOnlyUsers,
@@ -992,9 +1016,13 @@ export function useTeachersData(
     resetTableFilters,
     openAccountCardForUser,
     handleResetTemporaryPassword,
+    confirmResetPassword,
+    cancelResetPassword,
     handleSubmit,
     handleToggle,
     handleDelete,
+    confirmDelete,
+    cancelDelete,
     handleExportUsers,
     handleImportFileChange,
     handleImportUsers,
@@ -1002,5 +1030,5 @@ export function useTeachersData(
     openPrintableWindow,
     handleCopyCredentials,
     fetchUsers,
-  }), [classes, sections, subjects, users, loading, saving, togglingId, cardLoadingId, searchInput, query, statusFilter, classFilter, sectionFilter, subjectFilter, page, totalCount, success, error, fieldErrors, showCreateModal, editingUser, accountCard, revealedPassword, showImportModal, importing, importPreview, importPayloads, importErrors, form, filteredUsers, teachersOnlyUsers, stats, availableStudentSections, availableTeacherSections, sectionOptionsByClass, showingModal, teacherAssignment, teacherSections, setSearchInput, setStatusFilter, setClassFilter, setSectionFilter, setSubjectFilter, setPage, setSuccess, setError, setShowCreateModal, setShowImportModal, openCreateModal, openEditModal, closeModal, closeAccountCard, closeImportModal, updateTeacherAssignment, updateFormField, updateStudentField, resetTableFilters, openAccountCardForUser, handleResetTemporaryPassword, handleSubmit, handleToggle, handleDelete, handleExportUsers, handleImportFileChange, handleImportUsers, downloadUsersTemplate, openPrintableWindow, handleCopyCredentials, fetchUsers]);
+  }), [classes, sections, subjects, users, loading, saving, togglingId, cardLoadingId, searchInput, query, statusFilter, classFilter, sectionFilter, subjectFilter, page, totalCount, success, error, fieldErrors, showCreateModal, editingUser, accountCard, revealedPassword, showImportModal, importing, importPreview, importPayloads, importErrors, form, pendingDeleteUser, pendingResetUser, filteredUsers, teachersOnlyUsers, stats, availableStudentSections, availableTeacherSections, sectionOptionsByClass, showingModal, teacherAssignment, teacherSections, setSearchInput, setStatusFilter, setClassFilter, setSectionFilter, setSubjectFilter, setPage, setSuccess, setError, setShowCreateModal, setShowImportModal, openCreateModal, openEditModal, closeModal, closeAccountCard, closeImportModal, updateTeacherAssignment, updateFormField, updateStudentField, resetTableFilters, openAccountCardForUser, handleResetTemporaryPassword, confirmResetPassword, cancelResetPassword, handleSubmit, handleToggle, handleDelete, confirmDelete, cancelDelete, handleExportUsers, handleImportFileChange, handleImportUsers, downloadUsersTemplate, openPrintableWindow, handleCopyCredentials, fetchUsers]);
 }
