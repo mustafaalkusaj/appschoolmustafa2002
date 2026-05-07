@@ -25,7 +25,7 @@ const baseMutationSchema = z.object({
 
 const saveClassSchema = baseMutationSchema.extend({
   action: z.literal("save_class"),
-  editing_class_id: z.string().trim().optional().nullable(),
+  editing_class_id: z.string().trim().uuid("معرّف الصف غير صالح.").optional().nullable(),
   legacy_class_ids: z.array(z.string().trim()).optional().default([]),
   name: z.string().trim().min(1, "اسم الصف مطلوب."),
   sections: z.array(z.string()).optional().default([]),
@@ -33,21 +33,21 @@ const saveClassSchema = baseMutationSchema.extend({
 
 const deleteClassSchema = baseMutationSchema.extend({
   action: z.literal("delete_class"),
-  class_id: z.string().trim().min(1, "معرّف الصف غير صالح."),
+  class_id: z.string().trim().uuid("معرّف الصف غير صالح."),
   legacy_class_ids: z.array(z.string().trim()).optional().default([]),
 });
 
 const saveSectionSchema = baseMutationSchema.extend({
   action: z.literal("save_section"),
-  section_id: z.string().trim().optional().nullable(),
-  class_id: z.string().trim().min(1, "معرّف الصف غير صالح."),
+  section_id: z.string().trim().uuid("معرّف الشعبة غير صالح.").optional().nullable(),
+  class_id: z.string().trim().uuid("معرّف الصف غير صالح."),
   class_name: z.string().trim().optional().nullable(),
   name: z.string().trim().min(1, "اسم الشعبة مطلوب."),
 });
 
 const deleteSectionSchema = baseMutationSchema.extend({
   action: z.literal("delete_section"),
-  section_id: z.string().trim().min(1, "معرّف الشعبة غير صالح."),
+  section_id: z.string().trim().uuid("معرّف الشعبة غير صالح."),
 });
 
 const structureMutationSchema = z.discriminatedUnion("action", [
@@ -231,7 +231,7 @@ export async function POST(req: NextRequest) {
         return jsonError("إجراء غير مدعوم.", 400);
     }
 
-    invalidateSchoolCacheDomains(context.value.targetSchoolId, ["dashboard-overview"]);
+    invalidateSchoolCacheDomains(context.value.targetSchoolId, ["dashboard-overview", "dashboard-structure"]);
     return NextResponse.json({ ok: true });
   } catch (error) {
     logRouteError("dashboard-structure-write", error, {

@@ -211,6 +211,7 @@ export async function GET(req: NextRequest) {
         .from("payments")
         .select("id, amount, created_at, student_id, students(full_name,class_name)")
         .eq("school_id", targetSchoolId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(5);
       if (effectiveBranchId && paymentsBranchScope) {
@@ -413,7 +414,7 @@ export async function GET(req: NextRequest) {
           : [];
 
       const monthlySalaries = monthlySalaryRows.reduce(
-        (sum, row) => sum + Number(row.gross_salary ?? 0) - Number(row.deductions ?? 0),
+        (sum, row) => sum + Math.max(0, Number(row.gross_salary ?? 0) - Number(row.deductions ?? 0)),
         0,
       );
 
