@@ -95,8 +95,10 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     let cancelled = false;
     void (async () => {
       try {
+        const rcParams = new URLSearchParams({ schoolId: resolvedSchoolId });
+        if (currentBranchId) rcParams.set("branchId", currentBranchId);
         const { payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; config: ReceiptConfig | null }>(
-          `/api/web/payments/receipt-config?schoolId=${encodeURIComponent(resolvedSchoolId)}`,
+          `/api/web/payments/receipt-config?${rcParams.toString()}`,
         );
         if (!cancelled && payload?.ok) setReceiptConfig(payload.config);
       } catch {
@@ -106,7 +108,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [resolvedSchoolId]);
+  }, [resolvedSchoolId, currentBranchId]);
 
   // Hooks
   const metaHook = usePaymentsMeta(resolvedSchoolId, currentBranchId);
