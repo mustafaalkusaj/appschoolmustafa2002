@@ -4,6 +4,7 @@ import {
   buildSchoolArchivePayload,
   persistSchoolArchiveSnapshot,
 } from "@/lib/school-archives";
+import { logger } from "@/lib/logger";
 import { resolveSuperAdminActorContext } from "@/lib/super-admin-server";
 
 function jsonError(message: string, status: number) {
@@ -62,7 +63,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("school export error", error);
+    logger.error("school export error", error instanceof Error ? error : new Error(String(error)));
     return jsonError(
       error instanceof Error ? error.message : "تعذر تصدير بيانات المدرسة.",
       500,

@@ -231,7 +231,13 @@ export async function POST(req: NextRequest) {
 
   if (schoolError || !school) {
     if (groupId) {
-      await dataSupabase.from("school_groups").delete().eq("id", groupId);
+      const { error: groupDeleteError } = await dataSupabase
+        .from("school_groups")
+        .delete()
+        .eq("id", groupId);
+      if (groupDeleteError) {
+        logger.error("Orphaned school_group after school insert failure", new Error(groupDeleteError.message), { groupId });
+      }
     }
     return jsonError(schoolError?.message || "تعذر إنشاء المدرسة.", 500);
   }
