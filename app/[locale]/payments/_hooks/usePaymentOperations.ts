@@ -303,7 +303,7 @@ export function usePaymentOperations(
         setSaving(false);
       }
     },
-    [canAddPayments, resolvedSchoolId, onError, onPaymentCreated, onSuccess, currentBranchId]
+    [canAddPayments, resolvedSchoolId, onError, onPaymentCreated, onSuccess, currentBranchId, loadStudentPayments]
   );
 
   const deletePayment = useCallback(

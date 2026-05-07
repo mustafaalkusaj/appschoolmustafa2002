@@ -382,7 +382,7 @@ export function StudentAttendanceInsight(props: {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [query, resolvedSchoolId]);
+  }, [query, resolvedSchoolId, locale]);
 
   async function openStudent(student: StudentSearchItem) {
     setSelected(student);

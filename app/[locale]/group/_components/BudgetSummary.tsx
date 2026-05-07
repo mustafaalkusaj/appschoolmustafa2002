@@ -287,7 +287,7 @@ export function BudgetSummary() {
     return () => {
       cancelled = true;
     };
-  }, [retryKey]);
+  }, [retryKey, t]);
 
   // Loading state
   if (loading) {
