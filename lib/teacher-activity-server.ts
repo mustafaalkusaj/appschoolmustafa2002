@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { logger } from "@/lib/logger";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -1298,14 +1299,30 @@ export async function createFeeNotification(request: NextRequest, input: FeeNoti
     })),
   ];
 
-  if (recipientRows.length > 0) {
-    const { error: recipientsError } = await scope.serviceSupabase.from("fee_notification_recipients").insert(recipientRows);
-    if (recipientsError) return { ok: false as const, status: 500, message: recipientsError.message };
-  }
-
   const sentCount = insertErrorMessage ? 0 : sendableStudents.length;
   const failedCount = studentRows.length - sentCount;
-  await scope.serviceSupabase.from("fee_notifications").update({ sent_count: sentCount, failed_count: failedCount }).eq("id", feeNotificationId);
+
+  if (recipientRows.length > 0) {
+    const { error: recipientsError } = await scope.serviceSupabase
+      .from("fee_notification_recipients")
+      .insert(recipientRows);
+    if (recipientsError) {
+      // Counts won't be updated below — set them now so the record is never left with NULL counts.
+      await scope.serviceSupabase
+        .from("fee_notifications")
+        .update({ sent_count: 0, failed_count: studentRows.length })
+        .eq("id", feeNotificationId);
+      return { ok: false as const, status: 500, message: recipientsError.message };
+    }
+  }
+
+  const { error: updateCountsError } = await scope.serviceSupabase
+    .from("fee_notifications")
+    .update({ sent_count: sentCount, failed_count: failedCount })
+    .eq("id", feeNotificationId);
+  if (updateCountsError) {
+    logger.error("Failed to update fee_notification counts", new Error(updateCountsError.message), { feeNotificationId });
+  }
 
   await logTeacherActivityAuditAction({
     serviceSupabase: scope.serviceSupabase,
@@ -1326,7 +1343,7 @@ export async function createFeeNotification(request: NextRequest, input: FeeNoti
     },
   });
 
-  if (insertErrorMessage) return { ok: false as const, status: 500, message: `تم إنشاء السجل لكن فشل إرسال الإشعارات: ${insertErrorMessage}` };
-
+  // If notifications insert failed, recipients are recorded as "failed" and counts reflect 0 sent.
+  // Return the detail so the caller can inspect failed_count — do not return 500 after data is already persisted.
   return fetchFeeNotificationDetailInternal(scope, feeNotificationId);
 }
