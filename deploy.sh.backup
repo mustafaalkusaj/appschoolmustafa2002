@@ -5,7 +5,7 @@
 #
 # Usage:
 #   ./deploy.sh deploy@159.203.120.28
-#   APP_URL=https://school-iraq.com ./deploy.sh deploy@159.203.120.28
+#   APP_URL=https://app.school-iraq.com ./deploy.sh deploy@159.203.120.28
 #
 # Requirements:
 #   - SSH key configured for passwordless login
@@ -49,7 +49,7 @@ APP_HOST="${REMOTE##*@}"
 APP_USER="${REMOTE%%@*}"
 REMOTE_DIR="${REMOTE_DIR:-/var/www/school-app}"
 APP_PORT="${APP_PORT:-3001}"
-APP_URL="${APP_URL:-https://school-iraq.com}"
+APP_URL="${APP_URL:-https://app.school-iraq.com}"
 HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
 HEALTH_DELAY="${HEALTH_DELAY:-2}"
 

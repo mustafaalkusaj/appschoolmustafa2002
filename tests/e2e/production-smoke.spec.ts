@@ -113,7 +113,7 @@ test.describe("production smoke", () => {
     }
   });
 
-  test("protected APIs reject unauthenticated requests safely", async ({ _request }) => {
+  test("protected APIs reject unauthenticated requests safely", async ({ request }) => {
     const apiPaths = [
       "/api/account/me",
       "/api/users",

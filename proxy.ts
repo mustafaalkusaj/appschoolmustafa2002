@@ -171,6 +171,7 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
   const isPublicApiPath =
     normalizedPath === "/api/auth/login" ||
     normalizedPath === "/api/auth/me" ||
+    normalizedPath === "/api/auth/demo-users" ||
     normalizedPath === "/api/auth/forgot-password" ||
     normalizedPath === "/api/auth/register" ||
     normalizedPath === "/api/rbac/session" ||
