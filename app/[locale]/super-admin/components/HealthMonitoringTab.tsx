@@ -142,7 +142,7 @@ export function HealthMonitoringTab() {
             { label: "قاعدة البيانات", service: metrics.database, icon: Database },
             { label: "واجهة البرنامج", service: metrics.api, icon: Server },
             { label: "التخزين", service: metrics.storage, icon: Activity },
-          ].map(({ label, service, icon: Icon }) => {
+          ].map(({ label, service, icon: _Icon }) => {
             const StatusIcon = getStatusIcon(service.status);
             return (
               <div

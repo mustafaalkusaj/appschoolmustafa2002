@@ -853,7 +853,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!profileError && actorProfile?.branch_id) {
-      actorBranchId = actorProfile.branch_id;
+      // actorBranchId = actorProfile.branch_id; // Currently unused
       actorAccessibleBranches = [actorProfile.branch_id];
     } else {
       // Admin/super_admin with no branch restriction - fetch all school branches

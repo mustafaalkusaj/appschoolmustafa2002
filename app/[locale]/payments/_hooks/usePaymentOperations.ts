@@ -205,7 +205,7 @@ export function usePaymentOperations(
   );
 
   // Calculate actual paid amount by summing student's payments
-  const calculateActualPaidFee = (studentId: string): number => {
+  const _calculateActualPaidFee = (studentId: string): number => {
     const payments = paymentsByStudent[studentId] ?? [];
     return payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   };
@@ -273,7 +273,7 @@ export function usePaymentOperations(
         }
 
         // Force reload student payments to ensure we have fresh state
-        const freshPayments = await loadStudentPayments(student.id, { force: true });
+        const _freshPayments = await loadStudentPayments(student.id, { force: true });
 
         // Update student financials from response
         if (payload?.studentUpdate) {

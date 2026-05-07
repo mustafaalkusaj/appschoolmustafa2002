@@ -74,7 +74,7 @@ function EmptyBudgetYear({ label, year, t }: { label: string; year: number; t: T
   );
 }
 
-function DataQualityBadge({ quality, t }: { quality: "high" | "medium" | "low"; t: TFn }) {
+function DataQualityBadge({ quality, _t }: { quality: "high" | "medium" | "low"; t: TFn }) {
   const colors = {
     high: "bg-emerald-100 text-emerald-700",
     medium: "bg-amber-100 text-amber-700",

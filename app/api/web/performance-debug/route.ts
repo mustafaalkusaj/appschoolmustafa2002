@@ -88,22 +88,22 @@ export async function GET(req: NextRequest) {
   ]);
 
   const {
-    data: rlsStudents,
+    data: _rlsStudents,
     error: rlsErr1,
     count: rlsCount1,
   } = rlsStudentsResult;
   const {
-    data: rlsPayments,
+    data: _rlsPayments,
     error: rlsErr2,
     count: rlsCount2,
   } = rlsPaymentsResult;
   const {
-    data: rlsAttendance,
+    data: _rlsAttendance,
     error: rlsErr3,
     count: rlsCount3,
   } = rlsAttendanceResult;
   const {
-    data: rlsClassFees,
+    data: _rlsClassFees,
     error: rlsErr4,
     count: rlsCount4,
   } = rlsClassFeesResult;

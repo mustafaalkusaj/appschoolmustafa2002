@@ -511,8 +511,8 @@ export default function AttendancePage() {
     return Array.from(new Set(source.map((s) => s.section).filter(Boolean))) as string[];
   }, [students, filterClass]);
 
-  const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
+  const { filteredStudents, stats } = useMemo(() => {
+    const filtered = students.filter((student) => {
       const draft = attendanceDrafts[student.id];
       const status = draft?.status || "";
       const matchSearch = student.full_name?.includes(search) || student.class_name?.includes(search) || (student.section || "").includes(search);
@@ -521,11 +521,9 @@ export default function AttendancePage() {
       const matchStatus = filterStatus === "all" ? true : filterStatus === "unrecorded" ? !status : status === filterStatus;
       return matchSearch && matchClass && matchSection && matchStatus;
     });
-  }, [students, attendanceDrafts, search, filterClass, filterSection, filterStatus]);
 
-  const stats = useMemo(() => {
     const count = { present: 0, absent: 0, late: 0, excused: 0, unrecorded: 0 };
-    filteredStudents.forEach((student) => {
+    filtered.forEach((student) => {
       const status = attendanceDrafts[student.id]?.status || "";
       if (!status) {
         count.unrecorded += 1;
@@ -533,10 +531,11 @@ export default function AttendancePage() {
       }
       if (status in count) count[status as AttendanceStatus] += 1;
     });
-    const total = filteredStudents.length;
+    const total = filtered.length;
     const attendanceRate = total ? Math.round(((count.present + count.late) / total) * 100) : 0;
-    return { ...count, total, attendanceRate };
-  }, [filteredStudents, attendanceDrafts]);
+
+    return { filteredStudents: filtered, stats: { ...count, total, attendanceRate } };
+  }, [students, attendanceDrafts, search, filterClass, filterSection, filterStatus]);
 
   const changedCount = useMemo(() => Object.values(attendanceDrafts).filter((draft) => draft.touched && draft.status).length, [attendanceDrafts]);
   const heroDateLabel = useMemo(
