@@ -841,7 +841,7 @@ export async function POST(req: NextRequest) {
   // CRITICAL FIX: Resolve actor's accessible branches
   // For single-branch users: use their branch
   // For multi-branch users: REQUIRE branch_id in request
-  let actorBranchId: string | null = null;
+  let _actorBranchId: string | null = null;
   let actorAccessibleBranches: string[] = [];
 
   try {

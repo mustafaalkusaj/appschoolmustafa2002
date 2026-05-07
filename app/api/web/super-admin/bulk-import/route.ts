@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
           plan: plan as "basic" | "premium" | "enterprise",
           is_active: status === "active",
         });
-      } catch (_err) {
+      } catch {
         errors.push(`صف ${i + 1}: خطأ في المعالجة`);
       }
     }

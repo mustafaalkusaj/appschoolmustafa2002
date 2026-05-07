@@ -826,6 +826,7 @@ export default function ReportsPage() {
 
                   {/* Detailed Reports Grid */}
                   <div className="grid gap-8 md:grid-cols-2">
+                    {/* eslint-disable-next-line react-hooks/refs */}
                     {reportCards.map((card) => (
                       <section key={card.id} className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)] group">
                         <div className="flex items-start justify-between mb-6">
