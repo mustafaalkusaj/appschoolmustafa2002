@@ -39,6 +39,7 @@ export default function TeachersManagementPage() {
     saving,
     togglingId,
     cardLoadingId,
+    resetLoadingId,
     searchInput,
     query,
     statusFilter,
@@ -200,6 +201,7 @@ export default function TeachersManagementPage() {
                         onPageChange={setPage}
                         togglingId={togglingId}
                         cardLoadingId={cardLoadingId}
+                        resetLoadingId={resetLoadingId}
                         onEdit={openEditModal}
                         onOpenAccountCard={(user) => void openAccountCardForUser(user)}
                         onResetPassword={(user) => void handleResetTemporaryPassword(user)}
@@ -268,7 +270,7 @@ export default function TeachersManagementPage() {
           description="ستُنشأ كلمة مرور مؤقتة جديدة وستُلغى كلمة المرور الحالية فوراً."
           confirmLabel="إعادة الضبط"
           tone="primary"
-          busy={cardLoadingId === pendingResetUser?.auth_user_id}
+          busy={resetLoadingId === pendingResetUser?.auth_user_id}
           onConfirm={() => void confirmResetPassword()}
           onClose={cancelResetPassword}
         />

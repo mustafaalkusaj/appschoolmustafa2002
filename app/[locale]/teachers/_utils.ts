@@ -173,10 +173,10 @@ export function parseImportActive(value: string) {
 }
 
 // Date formatting
-export function formatDateLabel(value: string | null | undefined) {
+export function formatDateLabel(value: string | null | undefined, locale = "ar-IQ") {
   if (!value) return "—";
 
-  return new Intl.DateTimeFormat("ar-IQ", {
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",

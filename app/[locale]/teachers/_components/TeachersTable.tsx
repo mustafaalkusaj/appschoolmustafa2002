@@ -27,6 +27,7 @@ type TeachersTableProps = {
   onPageChange: (page: number) => void;
   togglingId: string | null;
   cardLoadingId: string | null;
+  resetLoadingId: string | null;
   onEdit: (user: ManagedUserRecord) => void;
   onOpenAccountCard: (user: ManagedUserRecord) => void;
   onResetPassword: (user: ManagedUserRecord) => void;
@@ -43,6 +44,7 @@ export function TeachersTable({
   onPageChange,
   togglingId,
   cardLoadingId,
+  resetLoadingId,
   onEdit,
   onOpenAccountCard,
   onResetPassword,
@@ -178,9 +180,9 @@ export function TeachersTable({
                         type="button"
                         className="ui-button ui-button--secondary inline-flex min-h-[42px] min-w-[124px] items-center justify-center gap-2 px-3 py-2 text-sm"
                         onClick={() => onResetPassword(user)}
-                        disabled={cardLoadingId === user.auth_user_id}
+                        disabled={resetLoadingId === user.auth_user_id}
                       >
-                        {cardLoadingId === user.auth_user_id ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
+                        {resetLoadingId === user.auth_user_id ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
                         إعادة ضبط المرور
                       </button>
                       <button

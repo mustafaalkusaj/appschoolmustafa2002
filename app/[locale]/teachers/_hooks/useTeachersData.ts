@@ -60,6 +60,7 @@ type UseTeachersDataResult = {
   saving: boolean;
   togglingId: string | null;
   cardLoadingId: string | null;
+  resetLoadingId: string | null;
   searchInput: string;
   query: string;
   statusFilter: "all" | "active" | "inactive";
@@ -146,6 +147,7 @@ export function useTeachersData(
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [cardLoadingId, setCardLoadingId] = useState<string | null>(null);
+  const [resetLoadingId, setResetLoadingId] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -625,8 +627,9 @@ export function useTeachersData(
         if (!validation.ok) {
           const fieldErrors = "fieldErrors" in validation ? validation.fieldErrors : {};
           const fallbackMessage = "message" in validation ? validation.message : "البيانات غير صالحة.";
-          const firstFieldError = Object.values(fieldErrors)[0] ?? fallbackMessage;
-          collectedErrors.push(`السطر ${line}: ${firstFieldError}`);
+          const allFieldErrors = Object.values(fieldErrors);
+          const errorMessage = allFieldErrors.length > 0 ? allFieldErrors.join(" | ") : fallbackMessage;
+          collectedErrors.push(`السطر ${line}: ${errorMessage}`);
           return;
         }
 
@@ -781,7 +784,7 @@ export function useTeachersData(
 
     clearMessages();
     setPendingResetUser(null);
-    setCardLoadingId(user.auth_user_id);
+    setResetLoadingId(user.auth_user_id);
 
     try {
       const response = await fetchWithAuthorizedSession(`/api/dashboard/users/${user.auth_user_id}/reset-password`, {
@@ -802,7 +805,7 @@ export function useTeachersData(
     } catch (resetError) {
       setError(resetError instanceof Error ? resetError.message : "تعذر إعادة تعيين كلمة المرور المؤقتة.");
     } finally {
-      setCardLoadingId(null);
+      setResetLoadingId(null);
     }
   }, [clearMessages, currentSchoolId, fetchUsers, pendingResetUser]);
 
@@ -961,6 +964,7 @@ export function useTeachersData(
     saving,
     togglingId,
     cardLoadingId,
+    resetLoadingId,
     searchInput,
     query,
     statusFilter,
@@ -1030,5 +1034,5 @@ export function useTeachersData(
     openPrintableWindow,
     handleCopyCredentials,
     fetchUsers,
-  }), [classes, sections, subjects, users, loading, saving, togglingId, cardLoadingId, searchInput, query, statusFilter, classFilter, sectionFilter, subjectFilter, page, totalCount, success, error, fieldErrors, showCreateModal, editingUser, accountCard, revealedPassword, showImportModal, importing, importPreview, importPayloads, importErrors, form, pendingDeleteUser, pendingResetUser, filteredUsers, teachersOnlyUsers, stats, availableStudentSections, availableTeacherSections, sectionOptionsByClass, showingModal, teacherAssignment, teacherSections, setSearchInput, setStatusFilter, setClassFilter, setSectionFilter, setSubjectFilter, setPage, setSuccess, setError, setShowCreateModal, setShowImportModal, openCreateModal, openEditModal, closeModal, closeAccountCard, closeImportModal, updateTeacherAssignment, updateFormField, updateStudentField, resetTableFilters, openAccountCardForUser, handleResetTemporaryPassword, confirmResetPassword, cancelResetPassword, handleSubmit, handleToggle, handleDelete, confirmDelete, cancelDelete, handleExportUsers, handleImportFileChange, handleImportUsers, downloadUsersTemplate, openPrintableWindow, handleCopyCredentials, fetchUsers]);
+  }), [classes, sections, subjects, users, loading, saving, togglingId, cardLoadingId, resetLoadingId, searchInput, query, statusFilter, classFilter, sectionFilter, subjectFilter, page, totalCount, success, error, fieldErrors, showCreateModal, editingUser, accountCard, revealedPassword, showImportModal, importing, importPreview, importPayloads, importErrors, form, pendingDeleteUser, pendingResetUser, filteredUsers, teachersOnlyUsers, stats, availableStudentSections, availableTeacherSections, sectionOptionsByClass, showingModal, teacherAssignment, teacherSections, setSearchInput, setStatusFilter, setClassFilter, setSectionFilter, setSubjectFilter, setPage, setSuccess, setError, setShowCreateModal, setShowImportModal, openCreateModal, openEditModal, closeModal, closeAccountCard, closeImportModal, updateTeacherAssignment, updateFormField, updateStudentField, resetTableFilters, openAccountCardForUser, handleResetTemporaryPassword, confirmResetPassword, cancelResetPassword, handleSubmit, handleToggle, handleDelete, confirmDelete, cancelDelete, handleExportUsers, handleImportFileChange, handleImportUsers, downloadUsersTemplate, openPrintableWindow, handleCopyCredentials, fetchUsers]);
 }
