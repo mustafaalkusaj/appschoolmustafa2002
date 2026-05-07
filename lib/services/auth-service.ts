@@ -4,6 +4,7 @@
  * Authentication Service
  * Core service for user authentication operations
  * Integrates with Prisma database and JWT tokens
+ * TODO: Refactor to use Supabase client instead of legacy Prisma stub
  */
 
 import { prisma } from '@/lib/prisma';

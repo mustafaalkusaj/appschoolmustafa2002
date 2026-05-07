@@ -41,7 +41,19 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
       if (err) reject(err);
 
       const newHash = derivedKey.toString('hex');
-      resolve(newHash === originalHash);
+      const expectedBuf = Buffer.from(originalHash, 'utf-8');
+      const actualBuf = Buffer.from(newHash, 'utf-8');
+
+      if (expectedBuf.length !== actualBuf.length) {
+        resolve(false);
+        return;
+      }
+
+      try {
+        resolve(crypto.timingSafeEqual(expectedBuf, actualBuf));
+      } catch {
+        resolve(false);
+      }
     });
   });
 }

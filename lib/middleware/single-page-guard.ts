@@ -4,6 +4,7 @@
  * Single-Page User Guard Middleware
  * Restricts single-page users to their assigned pages
  * Enforces the isSinglePageUser and pageAccess restrictions
+ * TODO: Refactor to use Supabase client instead of legacy Prisma stub
  */
 
 import { NextResponse } from 'next/server';

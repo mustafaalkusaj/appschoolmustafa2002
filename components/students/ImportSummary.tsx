@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, FileText, ArrowRight } from "lucide-react";
 

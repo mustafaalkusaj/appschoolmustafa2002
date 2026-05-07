@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/brand/brand-utils";

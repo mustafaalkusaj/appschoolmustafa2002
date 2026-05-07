@@ -4,6 +4,7 @@
  * Branch Isolation Middleware
  * Enforces branch-level access control
  * Ensures users can only access data within their assigned branch/school
+ * TODO: Refactor to use Supabase client instead of legacy Prisma stub
  */
 
 import { NextResponse } from 'next/server';

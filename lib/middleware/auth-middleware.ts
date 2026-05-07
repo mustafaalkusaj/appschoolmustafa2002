@@ -156,31 +156,6 @@ export function requireBranchAccess(
 }
 
 /**
- * Middleware to check permission on resource
- */
-export function requirePermission(
-  authContext: AuthContext,
-  _requiredPermission: string,
-  _endpoint: string
-): { allowed: true; response: null } | { allowed: false; response: NextResponse } {
-  // Super admin has all permissions
-  if (authContext.role === 'SUPER_ADMIN') {
-    return {
-      allowed: true,
-      response: null
-    };
-  }
-
-  // In a real app, you would check the permission against the database
-  // For now, we'll assume the permission check happens in the service layer
-
-  return {
-    allowed: true,
-    response: null
-  };
-}
-
-/**
  * Add auth context to request for downstream handlers
  */
 export function injectAuthContext(req: NextRequest, authContext: AuthContext): void {

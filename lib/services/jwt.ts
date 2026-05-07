@@ -5,7 +5,7 @@
  * Built with Node.js crypto for zero-dependency JWT handling
  */
 
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 export interface JWTPayload {
   userId: string;
@@ -18,7 +18,16 @@ export interface JWTPayload {
   exp?: number;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+function getJWTSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: JWT_SECRET is not set in production. Set this environment variable to a random string of at least 32 characters.');
+  }
+  return 'dev-only-insecure-jwt-key-never-use-in-production';
+}
+
+const JWT_SECRET = getJWTSecret();
 const JWT_EXPIRES_IN_MS = parseInt(process.env.JWT_EXPIRES_IN_MS || '86400000', 10); // 24 hours default
 
 /**
@@ -95,8 +104,10 @@ function verifyJwtSignature(token: string, secret: string): boolean {
   const signature = createHmac('sha256', secret).update(message).digest();
   const expectedSignatureEncoded = base64UrlEncode(signature);
 
-  // Timing-safe comparison
-  return expectedSignatureEncoded === signatureEncoded;
+  const expectedBuf = Buffer.from(expectedSignatureEncoded, 'utf-8');
+  const actualBuf = Buffer.from(signatureEncoded, 'utf-8');
+  if (expectedBuf.length !== actualBuf.length) return false;
+  return timingSafeEqual(expectedBuf, actualBuf);
 }
 
 /**

@@ -8,6 +8,7 @@
  * Usage:
  *   const isolatedDb = createIsolatedPrismaClient(authContext);
  *   const students = await isolatedDb.student.findMany({...}); // schoolId/branchId auto-applied
+ * TODO: Refactor to use Supabase client instead of legacy Prisma stub
  */
 
 import { prisma } from '@/lib/prisma';

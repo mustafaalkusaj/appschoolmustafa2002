@@ -369,8 +369,23 @@ if (!isProduction() && typeof setInterval !== "undefined") {
  * Get client IP from request (for compatibility)
  */
 export function getRateLimitClientIp(req: NextRequest): string {
+  // Trust X-Forwarded-For only if behind Vercel or configured proxy
+  // Vercel always sends CF-Connecting-IP or x-forwarded-for
+  const cfIp = req.headers.get("cf-connecting-ip");
+  if (cfIp) return cfIp.trim();
+
   const forwarded = req.headers.get("x-forwarded-for");
-  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
+  if (!forwarded) return "unknown";
+
+  // Extract first IP from comma-separated list (leftmost = client IP)
+  const clientIp = forwarded.split(",")[0]?.trim();
+
+  // Validate IP format (basic check)
+  if (!clientIp || !/^[\d.a-f:]+$/i.test(clientIp)) {
+    return "unknown";
+  }
+
+  return clientIp;
 }
 
 export function normalizeRateLimitEmail(email: string | null | undefined) {

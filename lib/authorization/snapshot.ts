@@ -156,53 +156,21 @@ export type ResolveWebUserProfileResult =
       role: string | null;
     };
 
-const PROFILE_SELECTS = [
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id, is_single_page_user, default_branch_id, hierarchy_level, permissions_version",
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id, branch_id",
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id, branch_id",
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions, scope, scope_level, allowed_module, group_id",
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, scope, scope_level, allowed_module, group_id",
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions, permissions",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions, permissions",
-  "id, full_name, job_title, email, phone, role, school_id, is_active, custom_permissions",
-  "id, full_name, email, phone, role, school_id, is_active, custom_permissions",
-] as const;
-
 async function selectProfileCompat(
   routeSupabase: GenericSupabaseClient,
   userId: string,
 ): Promise<UserProfileRow | null> {
-  let lastError: unknown = null;
+  const response = await routeSupabase
+    .from("user_profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle<UserProfileRow>();
 
-  for (const select of PROFILE_SELECTS) {
-    const response = await routeSupabase
-      .from("user_profiles")
-      .select(select)
-      .eq("id", userId)
-      .maybeSingle<UserProfileRow>();
-
-    if (!response.error) {
-      return response.data ?? null;
-    }
-
-    lastError = response.error;
-    if (!isMissingColumnError(response.error, "user_profiles")) {
-      break;
-    }
+  if (response.error) {
+    throw response.error;
   }
 
-  if (lastError) {
-    throw lastError;
-  }
-
-  return null;
+  return response.data ?? null;
 }
 
 async function resolveSchoolContext(

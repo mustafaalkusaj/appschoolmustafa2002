@@ -6,6 +6,7 @@ const requiredEnvKeys = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "RBAC_COOKIE_SECRET",
   "HEALTHCHECK_TOKEN",
+  "JWT_SECRET",
 ];
 
 const recommendedEnvKeys = [
@@ -63,6 +64,13 @@ function validateSecuritySettings() {
     fail("HEALTHCHECK_TOKEN must be at least 24 characters.");
   } else if (healthToken.length >= 24) {
     ok("Health check token length looks valid.");
+  }
+
+  const jwtSecret = env.JWT_SECRET?.trim() ?? "";
+  if (jwtSecret.length > 0 && jwtSecret.length < 32) {
+    fail("JWT_SECRET must be at least 32 characters.");
+  } else if (jwtSecret.length >= 32) {
+    ok("JWT secret length looks valid.");
   }
 
   const upstashUrl = hasValue("UPSTASH_REDIS_REST_URL");

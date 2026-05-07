@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import { ChevronRight } from "@/lib/icons";
 import { cn } from "@/lib/brand/brand-utils";

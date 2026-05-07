@@ -1,4 +1,3 @@
-import React from 'react';
 import { ValidationError } from '@/lib/students/import-types';
 import { AlertTriangle, AlertCircle } from 'lucide-react';
 
