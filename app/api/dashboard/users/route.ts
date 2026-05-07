@@ -838,25 +838,22 @@ export async function POST(req: NextRequest) {
 
   const serviceSupabase = createServiceSupabaseClient();
 
-  // CRITICAL FIX: Resolve actor's accessible branches
-  // For single-branch users: use their branch
-  // For multi-branch users: REQUIRE branch_id in request
-  let _actorBranchId: string | null = null;
+  // Resolve actor's accessible branches from user_profiles (source of truth)
   let actorAccessibleBranches: string[] = [];
 
   try {
     const { data: actorProfile, error: profileError } = await actorSupabase
-      .from("managed_user_profiles")
+      .from("user_profiles")
       .select("branch_id")
-      .eq("auth_user_id", actorUserId)
+      .eq("id", actorUserId)
       .eq("school_id", targetSchoolId)
       .maybeSingle();
 
     if (!profileError && actorProfile?.branch_id) {
-      // actorBranchId = actorProfile.branch_id; // Currently unused
+      // Single-branch user: only their assigned branch
       actorAccessibleBranches = [actorProfile.branch_id];
     } else {
-      // Admin/super_admin with no branch restriction - fetch all school branches
+      // School-wide admin or multi-branch: fetch all school branches
       const { data: allBranches, error: branchesError } = await actorSupabase
         .from("branches")
         .select("id")
