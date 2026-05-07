@@ -16,7 +16,7 @@ import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
-import { loadXLSX } from "@/lib/xlsx-loader";
+import { loadExcelJS, solidFill, addTitleBlock, addColumnHeaders, addDataRow, addTotalsRow, NUM_FMT_IQD, colLetter } from "@/lib/excel/styled-export";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useSalariesData } from "./_hooks";
 import {
@@ -541,109 +541,162 @@ export default function SalariesPage() {
       exportLectures = reportTeacher ? dailyLectures.filter((lecture) => lecture.teacher_id === reportTeacher) : dailyLectures;
     }
 
-    const XLSX = await loadXLSX();
-    const workbook = XLSX.utils.book_new();
+    const ExcelJS = await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "School System";
+    wb.created = new Date();
 
-    if (exportOptions.teachers) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          teachers.map((teacher) => ({
-            الاسم: teacher.full_name,
-            المسمى: teacher.job_title || "",
-            المادة: teacher.subject || "",
-            الراتب: teacher.base_salary,
-            "سعر المحاضرة": teacher.lecture_price || 0,
-          }))
-        ),
-        "الأساتذة"
-      );
+    const schoolLabel = (runtimeBranding.schoolName || "المدرسة") + (runtimeBranding.branchName ? ` — ${runtimeBranding.branchName}` : "");
+    const dateLabel   = `تاريخ التصدير: ${new Date().toLocaleDateString("ar-IQ")}`;
+
+    function makeWs(sheetName: string, title: string, cols: Array<{ label: string; width: number }>, landscape = false) {
+      const LAST_COL = colLetter(cols.length - 1);
+      const ws = wb.addWorksheet(sheetName, {
+        views: [{ state: "frozen", xSplit: 0, ySplit: 4, rightToLeft: true }],
+        pageSetup: {
+          paperSize: 9, orientation: landscape ? "landscape" : "portrait",
+          fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
+          margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+        },
+      });
+      addTitleBlock(ws, { schoolName: schoolLabel, reportTitle: title, meta: dateLabel, lastCol: LAST_COL, numCols: cols.length });
+      addColumnHeaders(ws, cols, 4, LAST_COL);
+      return { ws, LAST_COL };
     }
 
-    if (exportOptions.subjects) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(subjectsList.map((subject) => ({ المادة: subject.name }))),
-        "المواد"
-      );
+    if (exportOptions.teachers && teachers.length > 0) {
+      const COLS = [
+        { label: "الاسم",         width: 30 },
+        { label: "المسمى الوظيفي",width: 20 },
+        { label: "المادة",        width: 18 },
+        { label: "الراتب الأساسي",width: 18 },
+        { label: "سعر المحاضرة", width: 16 },
+      ];
+      const { ws, LAST_COL } = makeWs("الأساتذة", "قائمة الأساتذة", COLS);
+      teachers.forEach((t, idx) => addDataRow(ws, 5 + idx, [
+        { value: t.full_name || "—" },
+        { value: t.job_title || "—" },
+        { value: t.subject || "—" },
+        { value: Number(t.base_salary ?? 0),    numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: true },
+        { value: Number(t.lecture_price ?? 0),  numFmt: NUM_FMT_IQD },
+      ], idx % 2 === 0));
+      addTotalsRow(ws, 5 + teachers.length, `المجموع — ${teachers.length} أستاذ`, 3,
+        [teachers.reduce((a, t) => a + Number(t.base_salary ?? 0), 0), teachers.reduce((a, t) => a + Number(t.lecture_price ?? 0), 0)],
+        NUM_FMT_IQD, LAST_COL);
+      ws.mergeCells(`A${5 + teachers.length}:C${5 + teachers.length}`);
+      const lc = ws.getCell(`A${5 + teachers.length}`);
+      lc.fill = solidFill("FF1B3A6B"); lc.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      lc.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
     }
 
-    if (exportOptions.classes) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(classes.map((classroom) => ({ الصف: classroom.grade, الشعبة: classroom.section }))),
-        "الصفوف"
-      );
+    if (exportOptions.subjects && subjectsList.length > 0) {
+      const COLS = [{ label: "المادة", width: 32 }];
+      const { ws } = makeWs("المواد", "قائمة المواد", COLS);
+      subjectsList.forEach((s, idx) => addDataRow(ws, 5 + idx, [{ value: s.name }], idx % 2 === 0));
     }
 
-    if (exportOptions.prices) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          lecturePrices.map((entry) => ({
-            الصف: entry.grade,
-            السعر: entry.price_per_lecture,
-          }))
-        ),
-        "الأسعار"
-      );
+    if (exportOptions.classes && classes.length > 0) {
+      const COLS = [{ label: "الصف", width: 24 }, { label: "الشعبة", width: 20 }];
+      const { ws } = makeWs("الصفوف", "قائمة الصفوف", COLS);
+      classes.forEach((c, idx) => addDataRow(ws, 5 + idx, [{ value: c.grade }, { value: c.section }], idx % 2 === 0));
     }
 
-    if (exportOptions.fixed_salaries) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          salaries.map((salary) => ({
-            الأستاذ: salary.teachers?.full_name || "",
-            الشهر: salary.month,
-            الإجمالي: salary.gross_salary,
-            الخصومات: salary.deductions || 0,
-            الصافي: Math.max(0, (salary.gross_salary || 0) - (salary.deductions || 0)),
-          }))
-        ),
-        "الرواتب"
-      );
+    if (exportOptions.prices && lecturePrices.length > 0) {
+      const COLS = [{ label: "الصف", width: 24 }, { label: "السعر", width: 18 }];
+      const { ws, LAST_COL } = makeWs("الأسعار", "أسعار المحاضرات", COLS);
+      lecturePrices.forEach((e, idx) => addDataRow(ws, 5 + idx, [
+        { value: e.grade },
+        { value: Number(e.price_per_lecture ?? 0), numFmt: NUM_FMT_IQD, color: "FF16A34A" },
+      ], idx % 2 === 0));
+      addTotalsRow(ws, 5 + lecturePrices.length, `العدد: ${lecturePrices.length}`, 1,
+        [lecturePrices.reduce((a, e) => a + Number(e.price_per_lecture ?? 0), 0)], NUM_FMT_IQD, LAST_COL);
     }
 
-    if (exportOptions.lectures) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          exportLectures.map((lecture) => ({
-            الأستاذ: lecture.teachers?.full_name || "",
-            التاريخ: lecture.lecture_date,
-            الصف: lecture.grade,
-            الشعبة: lecture.section,
-            الدرس: lecture.period,
-            النوع: lecture.session_type,
-            السعر: lecture.price,
-          }))
-        ),
-        "المحاضرات"
-      );
+    if (exportOptions.fixed_salaries && salaries.length > 0) {
+      const COLS = [
+        { label: "الأستاذ",   width: 28 },
+        { label: "الشهر",     width: 16 },
+        { label: "الإجمالي",  width: 18 },
+        { label: "الخصومات", width: 15 },
+        { label: "الصافي",   width: 18 },
+      ];
+      const { ws, LAST_COL } = makeWs("الرواتب", "الرواتب الثابتة", COLS);
+      salaries.forEach((s, idx) => {
+        const net = Math.max(0, (Number(s.gross_salary ?? 0)) - (Number(s.deductions ?? 0)));
+        addDataRow(ws, 5 + idx, [
+          { value: s.teachers?.full_name || "—" },
+          { value: s.month || "—" },
+          { value: Number(s.gross_salary ?? 0), numFmt: NUM_FMT_IQD },
+          { value: Number(s.deductions ?? 0),   numFmt: NUM_FMT_IQD, color: "FFDC2626", bold: Number(s.deductions) > 0 },
+          { value: net,                          numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: true },
+        ], idx % 2 === 0);
+      });
+      addTotalsRow(ws, 5 + salaries.length, `المجموع — ${salaries.length} راتب`, 2,
+        [
+          salaries.reduce((a, s) => a + Number(s.gross_salary ?? 0), 0),
+          salaries.reduce((a, s) => a + Number(s.deductions ?? 0), 0),
+          salaries.reduce((a, s) => a + Math.max(0, Number(s.gross_salary ?? 0) - Number(s.deductions ?? 0)), 0),
+        ],
+        NUM_FMT_IQD, LAST_COL);
+      ws.mergeCells(`A${5 + salaries.length}:B${5 + salaries.length}`);
+      const lc = ws.getCell(`A${5 + salaries.length}`);
+      lc.fill = solidFill("FF1B3A6B"); lc.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      lc.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
     }
 
-    if (exportOptions.lesson_times) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          lessonTimes.map((lessonTime) => ({
-            الفترة: lessonTime.session_type === "morning" ? "صباحي" : "ظهري",
-            الدرس: lessonTime.period,
-            البداية: lessonTime.start_time,
-            النهاية: lessonTime.end_time,
-          }))
-        ),
-        "التوقيتات"
-      );
+    if (exportOptions.lectures && exportLectures.length > 0) {
+      const COLS = [
+        { label: "الأستاذ",   width: 28 },
+        { label: "التاريخ",   width: 16 },
+        { label: "الصف",      width: 14 },
+        { label: "الشعبة",    width: 12 },
+        { label: "الدرس",     width: 10 },
+        { label: "النوع",     width: 12 },
+        { label: "السعر",     width: 16 },
+      ];
+      const { ws, LAST_COL } = makeWs("المحاضرات", "سجل المحاضرات", COLS, true);
+      exportLectures.forEach((l, idx) => addDataRow(ws, 5 + idx, [
+        { value: l.teachers?.full_name || "—" },
+        { value: l.lecture_date || "—" },
+        { value: l.grade || "—" },
+        { value: l.section || "—" },
+        { value: l.period || "—" },
+        { value: l.session_type || "—" },
+        { value: Number(l.price ?? 0), numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: true },
+      ], idx % 2 === 0));
+      addTotalsRow(ws, 5 + exportLectures.length, `المجموع — ${exportLectures.length} محاضرة`, 6,
+        [exportLectures.reduce((a, l) => a + Number(l.price ?? 0), 0)], NUM_FMT_IQD, LAST_COL);
+      ws.mergeCells(`A${5 + exportLectures.length}:F${5 + exportLectures.length}`);
+      const lc = ws.getCell(`A${5 + exportLectures.length}`);
+      lc.fill = solidFill("FF1B3A6B"); lc.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      lc.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
     }
 
-    if (workbook.SheetNames.length === 0) {
+    if (exportOptions.lesson_times && lessonTimes.length > 0) {
+      const COLS = [
+        { label: "الفترة",    width: 14 },
+        { label: "الدرس",     width: 12 },
+        { label: "وقت البداية",width: 16 },
+        { label: "وقت النهاية",width: 16 },
+      ];
+      const { ws } = makeWs("التوقيتات", "توقيتات الدروس", COLS);
+      lessonTimes.forEach((l, idx) => addDataRow(ws, 5 + idx, [
+        { value: l.session_type === "morning" ? "صباحي" : "ظهري" },
+        { value: l.period || "—" },
+        { value: l.start_time || "—" },
+        { value: l.end_time || "—" },
+      ], idx % 2 === 0));
+    }
+
+    if (wb.worksheets.length === 0) {
       setError("اختر بيانات للتصدير");
       return;
     }
 
-    await XLSX.writeFile(workbook, `تصدير_${formatDate(new Date())}.xlsx`);
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    Object.assign(document.createElement("a"), { href: url, download: `تصدير_${formatDate(new Date())}.xlsx` }).click();
+    URL.revokeObjectURL(url);
     setShowExport(false);
   };
 

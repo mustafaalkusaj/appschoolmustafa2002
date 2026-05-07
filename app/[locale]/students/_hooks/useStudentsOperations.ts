@@ -5,6 +5,7 @@ import type { StudentWithFees, StudentStatus, ManagedUserAccountCard, StudentFor
 import { STATUS_MAP, DEFAULT_STUDENT_FORM } from "../_constants";
 import { formatDate } from "@/lib/formatting";
 import { loadXLSX } from "@/lib/xlsx-loader";
+import { loadExcelJS, solidFill, addTitleBlock, addColumnHeaders, addDataRow, addTotalsRow, NUM_FMT_IQD, colLetter } from "@/lib/excel/styled-export";
 import { fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
@@ -530,23 +531,102 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
   }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, reload, setActiveTab]);
 
   const exportExcel = useCallback(async (data: StudentWithFees[]) => {
-    const XLSX = await loadXLSX();
-    const rows = data.map((s) => ({
-      [copy.exportColumns.name]: s.full_name,
-      [copy.exportColumns.className]: s.class_name,
-      [copy.exportColumns.section]: s.section || "",
-      [copy.exportColumns.address]: s.address || "",
-      [copy.exportColumns.phone]: s.phone || "",
-      [copy.exportColumns.totalFees]: s.total_fee,
-      [copy.exportColumns.paid]: s.paid_fee,
-      [copy.exportColumns.remaining]: s.remaining_fee,
-      [copy.exportColumns.status]: copy.statusLabels[s.status],
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, copy.exportSheet);
-    await XLSX.writeFile(wb, copy.exportFile);
-  }, [copy]);
+    const ExcelJS = await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "School System";
+    wb.created = new Date();
+
+    const c = copy.exportColumns;
+    const COLS = [
+      { label: c.name,      width: 32, key: "name" },
+      { label: c.className, width: 20, key: "class" },
+      { label: c.section,   width: 12, key: "section" },
+      { label: c.address,   width: 24, key: "address" },
+      { label: c.phone,     width: 16, key: "phone" },
+      { label: c.totalFees, width: 18, key: "total",     numFmt: NUM_FMT_IQD },
+      { label: c.paid,      width: 18, key: "paid",      numFmt: NUM_FMT_IQD },
+      { label: c.remaining, width: 18, key: "remaining", numFmt: NUM_FMT_IQD },
+      { label: c.status,    width: 14, key: "status" },
+    ];
+    const LAST_COL = colLetter(COLS.length - 1);
+
+    const ws = wb.addWorksheet(copy.exportSheet, {
+      views: [{ state: "frozen", xSplit: 0, ySplit: 4, rightToLeft: true }],
+      pageSetup: {
+        paperSize: 9, orientation: "portrait",
+        fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        horizontalCentered: true,
+        margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+      },
+    });
+
+    const schoolLabel = _runtimeBranding.schoolName || (isEnglish ? "School" : "المدرسة");
+    addTitleBlock(ws, {
+      schoolName: schoolLabel,
+      reportTitle: copy.exportSheet,
+      meta: `${isEnglish ? "Export date" : "تاريخ التصدير"}: ${new Date().toLocaleDateString(isEnglish ? "en-US" : "ar-IQ")}   |   ${isEnglish ? "Count" : "العدد"}: ${data.length}`,
+      lastCol: LAST_COL,
+      numCols: COLS.length,
+    });
+    addColumnHeaders(ws, COLS, 4, LAST_COL);
+
+    const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
+      active:     { color: "FF16A34A", bg: "FFDCFCE7" },
+      suspended:  { color: "FFDC2626", bg: "FFFEE2E2" },
+      deleted:    { color: "FFDC2626", bg: "FFFEE2E2" },
+      transferred:{ color: "FF2563EB", bg: "FFDBEAFE" },
+      graduated:  { color: "FF7C3AED", bg: "FFEDE9FE" },
+    };
+
+    data.forEach((s, idx) => {
+      const remaining = Number(s.remaining_fee ?? 0);
+      const statusKey = (s.status ?? "").toLowerCase();
+      const sc = STATUS_COLORS[statusKey];
+      addDataRow(ws, 5 + idx, [
+        { value: s.full_name || "—" },
+        { value: s.class_name || "—" },
+        { value: s.section || "—" },
+        { value: s.address || "—" },
+        { value: s.phone || "—" },
+        { value: Number(s.total_fee ?? 0),    numFmt: NUM_FMT_IQD },
+        { value: Number(s.paid_fee ?? 0),     numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: Number(s.paid_fee) > 0 },
+        {
+          value: remaining, numFmt: NUM_FMT_IQD,
+          color: remaining === 0 ? "FF16A34A" : "FFDC2626",
+          bgArgb: remaining === 0 ? "FFDCFCE7" : "FFFEE2E2",
+          bold: true,
+        },
+        { value: copy.statusLabels[s.status] || s.status, color: sc?.color, bgArgb: sc?.bg },
+      ], idx % 2 === 0);
+    });
+
+    const totRow = 5 + data.length;
+    ws.mergeCells(`A${totRow}:E${totRow}`);
+    addTotalsRow(ws, totRow,
+      `${isEnglish ? "Total" : "المجموع الكلي"} — ${data.length} ${isEnglish ? "students" : "طالب"}`,
+      5,
+      [
+        data.reduce((acc, s) => acc + Number(s.total_fee ?? 0), 0),
+        data.reduce((acc, s) => acc + Number(s.paid_fee ?? 0), 0),
+        data.reduce((acc, s) => acc + Number(s.remaining_fee ?? 0), 0),
+      ],
+      NUM_FMT_IQD,
+      LAST_COL,
+    );
+    const totLabel = ws.getCell(`A${totRow}`);
+    totLabel.fill      = solidFill("FF1B3A6B");
+    totLabel.font      = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    totLabel.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob   = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement("a");
+    a.href       = url;
+    a.download   = copy.exportFile;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [copy, _runtimeBranding, isEnglish]);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     modals.setImportError("");

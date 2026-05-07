@@ -11,7 +11,7 @@ import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolSco
 import { useRuntimeBranding } from "@/hooks/brand";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
-import { loadXLSX } from "@/lib/xlsx-loader";
+import { loadExcelJS, solidFill, addTitleBlock, addColumnHeaders, addDataRow, addTotalsRow, NUM_FMT_IQD, colLetter } from "@/lib/excel/styled-export";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
@@ -392,142 +392,322 @@ export default function ReportsPage() {
     }
   }, [getScopedSchoolId, reportCopy.loadComprehensiveFailed, runtimeBranding.branchId]);
 
-  async function exportRows(rows: Record<string, unknown>[], sheetName: string, fileName: string) {
-    const XLSX = await loadXLSX();
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    await XLSX.writeFile(wb, `${fileName}_${formatDate(new Date())}.xlsx`);
+  const schoolLabel = runtimeBranding.schoolName || "المدرسة";
+  const branchLabel = runtimeBranding.branchName ? ` — ${runtimeBranding.branchName}` : "";
+  const schoolFullLabel = `${schoolLabel}${branchLabel}`;
+
+  async function buildStyledSheet(
+    ExcelJS: typeof import("exceljs"),
+    wb: import("exceljs").Workbook,
+    opts: {
+      sheetName: string;
+      reportTitle: string;
+      cols: Array<{ label: string; width: number; key?: string; numFmt?: string }>;
+      rows: import("@/lib/excel/styled-export").CellData[][];
+      totals?: { labelCols: number; label: string; values: number[] };
+      landscape?: boolean;
+    }
+  ) {
+    const LAST_COL = colLetter(opts.cols.length - 1);
+    const ws = wb.addWorksheet(opts.sheetName, {
+      views: [{ state: "frozen", xSplit: 0, ySplit: 4, rightToLeft: true }],
+      pageSetup: {
+        paperSize: 9,
+        orientation: opts.landscape ? "landscape" : "portrait",
+        fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        horizontalCentered: true,
+        margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+      },
+    });
+    addTitleBlock(ws, {
+      schoolName: schoolFullLabel,
+      reportTitle: opts.reportTitle,
+      meta: `تاريخ التصدير: ${new Date().toLocaleDateString("ar-IQ")}   |   العدد: ${opts.rows.length}`,
+      lastCol: LAST_COL,
+      numCols: opts.cols.length,
+    });
+    addColumnHeaders(ws, opts.cols, 4, LAST_COL);
+    opts.rows.forEach((row, idx) => addDataRow(ws, 5 + idx, row, idx % 2 === 0));
+    if (opts.totals) {
+      const totRow = 5 + opts.rows.length;
+      ws.mergeCells(`A${totRow}:${colLetter(opts.totals.labelCols - 1)}${totRow}`);
+      addTotalsRow(ws, totRow, opts.totals.label, opts.totals.labelCols, opts.totals.values, NUM_FMT_IQD, LAST_COL);
+      const lc = ws.getCell(`A${totRow}`);
+      lc.fill = solidFill("FF1B3A6B");
+      lc.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      lc.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+    }
+    void ExcelJS;
   }
 
   async function exportStudentsExcel() {
     const students = await loadDataset("students");
-    await exportRows(
-      students.map((item) => ({
-        [reportCopy.studentName]: item.full_name,
-        [reportCopy.className]: item.class_name || "—",
-        [reportCopy.status]: studentStatusLabel(item.status),
-        [reportCopy.totalFees]: item.total_fee || 0,
-        [reportCopy.paid]: item.paid_fee || 0,
-        [reportCopy.remaining]: item.remaining_fee || 0,
-        [reportCopy.phone]: item.phone || "",
-        [reportCopy.address]: item.address || "",
-      })),
-      reportCopy.studentsSheet,
-      reportCopy.studentsFile,
-    );
+    const ExcelJS  = await loadExcelJS();
+    const wb = new ExcelJS.Workbook(); wb.creator = "School System"; wb.created = new Date();
+    const COLS = [
+      { label: reportCopy.studentName, width: 32 },
+      { label: reportCopy.className,   width: 20 },
+      { label: reportCopy.status,      width: 14 },
+      { label: reportCopy.totalFees,   width: 18 },
+      { label: reportCopy.paid,        width: 18 },
+      { label: reportCopy.remaining,   width: 18 },
+      { label: reportCopy.phone,       width: 16 },
+      { label: reportCopy.address,     width: 24 },
+    ];
+    const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
+      active:      { color: "FF16A34A", bg: "FFDCFCE7" },
+      suspended:   { color: "FFDC2626", bg: "FFFEE2E2" },
+      deleted:     { color: "FFDC2626", bg: "FFFEE2E2" },
+      transferred: { color: "FF2563EB", bg: "FFDBEAFE" },
+      graduated:   { color: "FF7C3AED", bg: "FFEDE9FE" },
+    };
+    await buildStyledSheet(ExcelJS, wb, {
+      sheetName: reportCopy.studentsSheet,
+      reportTitle: reportCopy.studentsSheet,
+      cols: COLS,
+      rows: students.map((item) => {
+        const sc = STATUS_COLORS[(item.status ?? "").toLowerCase()];
+        const rem = Number(item.remaining_fee ?? 0);
+        return [
+          { value: item.full_name },
+          { value: item.class_name || "—" },
+          { value: studentStatusLabel(item.status), color: sc?.color, bgArgb: sc?.bg },
+          { value: Number(item.total_fee ?? 0), numFmt: NUM_FMT_IQD },
+          { value: Number(item.paid_fee ?? 0),  numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: Number(item.paid_fee) > 0 },
+          { value: rem, numFmt: NUM_FMT_IQD, color: rem === 0 ? "FF16A34A" : "FFDC2626", bgArgb: rem === 0 ? "FFDCFCE7" : "FFFEE2E2", bold: true },
+          { value: item.phone || "—" },
+          { value: item.address || "—" },
+        ];
+      }),
+      totals: {
+        labelCols: 3, label: `المجموع — ${students.length} طالب`,
+        values: [
+          students.reduce((a, s) => a + Number(s.total_fee ?? 0), 0),
+          students.reduce((a, s) => a + Number(s.paid_fee ?? 0), 0),
+          students.reduce((a, s) => a + Number(s.remaining_fee ?? 0), 0),
+        ],
+      },
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    Object.assign(document.createElement("a"), { href: url, download: `${reportCopy.studentsFile}_${formatDate(new Date())}.xlsx` }).click();
+    URL.revokeObjectURL(url);
   }
 
   async function exportPaymentsExcel() {
     const payments = await loadDataset("payments");
-    await exportRows(
-      payments.map((item) => ({
-        [reportCopy.student]: item.students?.full_name || "—",
-        [reportCopy.className]: item.students?.class_name || "—",
-        [reportCopy.amount]: item.amount || 0,
-        [reportCopy.paymentMethod]: paymentMethodLabel(item.payment_method),
-        [reportCopy.date]: formatDate(item.created_at ?? ""),
-        [reportCopy.receiptNumber]: item.receipt_number || "—",
-        [reportCopy.notes]: item.notes || "",
-      })),
-      reportCopy.paymentsSheet,
-      reportCopy.paymentsFile,
-    );
+    const ExcelJS  = await loadExcelJS();
+    const wb = new ExcelJS.Workbook(); wb.creator = "School System"; wb.created = new Date();
+    const COLS = [
+      { label: reportCopy.student,       width: 32 },
+      { label: reportCopy.className,     width: 20 },
+      { label: reportCopy.amount,        width: 18 },
+      { label: reportCopy.paymentMethod, width: 16 },
+      { label: reportCopy.date,          width: 16 },
+      { label: reportCopy.receiptNumber, width: 20 },
+      { label: reportCopy.notes,         width: 24 },
+    ];
+    await buildStyledSheet(ExcelJS, wb, {
+      sheetName: reportCopy.paymentsSheet,
+      reportTitle: reportCopy.paymentsSheet,
+      cols: COLS,
+      rows: payments.map((item) => [
+        { value: item.students?.full_name || "—" },
+        { value: item.students?.class_name || "—" },
+        { value: Number(item.amount ?? 0), numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: true },
+        { value: paymentMethodLabel(item.payment_method) },
+        { value: formatDate(item.created_at ?? "") },
+        { value: item.receipt_number || "—" },
+        { value: item.notes || "" },
+      ]),
+      totals: {
+        labelCols: 2, label: `المجموع — ${payments.length} دفعة`,
+        values: [payments.reduce((a, p) => a + Number(p.amount ?? 0), 0)],
+      },
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    Object.assign(document.createElement("a"), { href: url, download: `${reportCopy.paymentsFile}_${formatDate(new Date())}.xlsx` }).click();
+    URL.revokeObjectURL(url);
   }
 
   async function exportExpensesExcel() {
     const expenses = await loadDataset("expenses");
-    await exportRows(
-      expenses.map((item) => ({
-        [reportCopy.type]: item.expense_types?.name || "—",
-        [reportCopy.amount]: item.amount || 0,
-        [reportCopy.date]: formatDate(item.expense_date ?? ""),
-        [reportCopy.recipient]: item.recipient || "—",
-        [reportCopy.receiptNumber]: item.receipt_number || "—",
-        [reportCopy.notes]: item.notes || "",
-      })),
-      reportCopy.expensesSheet,
-      reportCopy.expensesFile,
-    );
+    const ExcelJS  = await loadExcelJS();
+    const wb = new ExcelJS.Workbook(); wb.creator = "School System"; wb.created = new Date();
+    const COLS = [
+      { label: reportCopy.type,          width: 24 },
+      { label: reportCopy.amount,        width: 18 },
+      { label: reportCopy.date,          width: 16 },
+      { label: reportCopy.recipient,     width: 24 },
+      { label: reportCopy.receiptNumber, width: 20 },
+      { label: reportCopy.notes,         width: 24 },
+    ];
+    await buildStyledSheet(ExcelJS, wb, {
+      sheetName: reportCopy.expensesSheet,
+      reportTitle: reportCopy.expensesSheet,
+      cols: COLS,
+      rows: expenses.map((item) => [
+        { value: item.expense_types?.name || "—" },
+        { value: Number(item.amount ?? 0), numFmt: NUM_FMT_IQD, color: "FFDC2626", bold: true },
+        { value: formatDate(item.expense_date ?? "") },
+        { value: item.recipient || "—" },
+        { value: item.receipt_number || "—" },
+        { value: item.notes || "" },
+      ]),
+      totals: {
+        labelCols: 1, label: `المجموع — ${expenses.length} مصروف`,
+        values: [expenses.reduce((a, e) => a + Number(e.amount ?? 0), 0)],
+      },
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    Object.assign(document.createElement("a"), { href: url, download: `${reportCopy.expensesFile}_${formatDate(new Date())}.xlsx` }).click();
+    URL.revokeObjectURL(url);
   }
 
   async function exportSalariesExcel() {
     const salaries = await loadDataset("salaries");
-    await exportRows(
-      salaries.map((item) => ({
-        [reportCopy.teacher]: item.teachers?.full_name || "—",
-        [reportCopy.subject]: item.teachers?.subject || "—",
-        [reportCopy.month]: item.month || "—",
-        [reportCopy.gross]: item.gross_salary || 0,
-        [reportCopy.deductions]: item.deductions || 0,
-        [reportCopy.net]: (item.gross_salary || 0) - (item.deductions || 0),
-        [reportCopy.paidAt]: item.paid_at ? formatDate(item.paid_at) : "—",
-      })),
-      reportCopy.salariesSheet,
-      reportCopy.salariesFile,
-    );
+    const ExcelJS  = await loadExcelJS();
+    const wb = new ExcelJS.Workbook(); wb.creator = "School System"; wb.created = new Date();
+    const COLS = [
+      { label: reportCopy.teacher,    width: 28 },
+      { label: reportCopy.subject,    width: 20 },
+      { label: reportCopy.month,      width: 16 },
+      { label: reportCopy.gross,      width: 18 },
+      { label: reportCopy.deductions, width: 15 },
+      { label: reportCopy.net,        width: 18 },
+      { label: reportCopy.paidAt,     width: 16 },
+    ];
+    await buildStyledSheet(ExcelJS, wb, {
+      sheetName: reportCopy.salariesSheet,
+      reportTitle: reportCopy.salariesSheet,
+      cols: COLS,
+      rows: salaries.map((item) => {
+        const net = (Number(item.gross_salary ?? 0)) - (Number(item.deductions ?? 0));
+        return [
+          { value: item.teachers?.full_name || "—" },
+          { value: item.teachers?.subject || "—" },
+          { value: item.month || "—" },
+          { value: Number(item.gross_salary ?? 0),  numFmt: NUM_FMT_IQD },
+          { value: Number(item.deductions ?? 0),    numFmt: NUM_FMT_IQD, color: "FFDC2626", bold: Number(item.deductions) > 0 },
+          { value: Math.max(0, net),                numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: true },
+          { value: item.paid_at ? formatDate(item.paid_at) : "—" },
+        ];
+      }),
+      totals: {
+        labelCols: 3, label: `المجموع — ${salaries.length} راتب`,
+        values: [
+          salaries.reduce((a, s) => a + Number(s.gross_salary ?? 0), 0),
+          salaries.reduce((a, s) => a + Number(s.deductions ?? 0), 0),
+          salaries.reduce((a, s) => a + Math.max(0, Number(s.gross_salary ?? 0) - Number(s.deductions ?? 0)), 0),
+        ],
+      },
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    Object.assign(document.createElement("a"), { href: url, download: `${reportCopy.salariesFile}_${formatDate(new Date())}.xlsx` }).click();
+    URL.revokeObjectURL(url);
   }
 
   async function exportAllExcel() {
-    const XLSX = await loadXLSX();
     const { students, payments, expenses, salaries } = await loadAllDatasets();
-    const wb = XLSX.utils.book_new();
-    const sheets = [
-      {
-        name: reportCopy.studentsSheet,
-        rows: students.map((item) => ({
-          [reportCopy.studentName]: item.full_name,
-          [reportCopy.className]: item.class_name || "—",
-          [reportCopy.status]: studentStatusLabel(item.status),
-          [reportCopy.totalFees]: item.total_fee || 0,
-          [reportCopy.paid]: item.paid_fee || 0,
-          [reportCopy.remaining]: item.remaining_fee || 0,
-          [reportCopy.phone]: item.phone || "",
-          [reportCopy.address]: item.address || "",
-        })),
-      },
-      {
-        name: reportCopy.paymentsSheet,
-        rows: payments.map((item) => ({
-          [reportCopy.student]: item.students?.full_name || "—",
-          [reportCopy.className]: item.students?.class_name || "—",
-          [reportCopy.amount]: item.amount || 0,
-          [reportCopy.paymentMethod]: paymentMethodLabel(item.payment_method),
-          [reportCopy.date]: formatDate(item.created_at ?? ""),
-          [reportCopy.receiptNumber]: item.receipt_number || "—",
-        })),
-      },
-      {
-        name: reportCopy.expensesSheet,
-        rows: expenses.map((item) => ({
-          [reportCopy.type]: item.expense_types?.name || "—",
-          [reportCopy.amount]: item.amount || 0,
-          [reportCopy.date]: formatDate(item.expense_date ?? ""),
-          [reportCopy.recipient]: item.recipient || "—",
-          [reportCopy.receiptNumber]: item.receipt_number || "—",
-        })),
-      },
-      {
-        name: reportCopy.salariesSheet,
-        rows: salaries.map((item) => ({
-          [reportCopy.teacher]: item.teachers?.full_name || "—",
-          [reportCopy.subject]: item.teachers?.subject || "—",
-          [reportCopy.month]: item.month || "—",
-          [reportCopy.gross]: item.gross_salary || 0,
-          [reportCopy.deductions]: item.deductions || 0,
-          [reportCopy.net]: (item.gross_salary || 0) - (item.deductions || 0),
-          [reportCopy.paidAt]: item.paid_at ? formatDate(item.paid_at) : "—",
-        })),
-      },
-    ];
+    const ExcelJS = await loadExcelJS();
+    const wb = new ExcelJS.Workbook(); wb.creator = "School System"; wb.created = new Date();
 
-    sheets.forEach((sheet) => {
-      if (sheet.rows.length > 0) {
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet.rows), sheet.name);
-      }
-    });
+    const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
+      active:      { color: "FF16A34A", bg: "FFDCFCE7" },
+      suspended:   { color: "FFDC2626", bg: "FFFEE2E2" },
+      transferred: { color: "FF2563EB", bg: "FFDBEAFE" },
+      graduated:   { color: "FF7C3AED", bg: "FFEDE9FE" },
+    };
 
-    await XLSX.writeFile(wb, `${reportCopy.allFile}_${formatDate(new Date())}.xlsx`);
+    if (students.length > 0) {
+      await buildStyledSheet(ExcelJS, wb, {
+        sheetName: reportCopy.studentsSheet, reportTitle: reportCopy.studentsSheet,
+        cols: [
+          { label: reportCopy.studentName, width: 32 }, { label: reportCopy.className, width: 20 },
+          { label: reportCopy.status,      width: 14 }, { label: reportCopy.totalFees, width: 18 },
+          { label: reportCopy.paid,        width: 18 }, { label: reportCopy.remaining, width: 18 },
+        ],
+        rows: students.map((s) => {
+          const sc = STATUS_COLORS[(s.status ?? "").toLowerCase()];
+          const rem = Number(s.remaining_fee ?? 0);
+          return [
+            { value: s.full_name },
+            { value: s.class_name || "—" },
+            { value: studentStatusLabel(s.status), color: sc?.color, bgArgb: sc?.bg },
+            { value: Number(s.total_fee ?? 0), numFmt: NUM_FMT_IQD },
+            { value: Number(s.paid_fee ?? 0),  numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: Number(s.paid_fee) > 0 },
+            { value: rem, numFmt: NUM_FMT_IQD, color: rem === 0 ? "FF16A34A" : "FFDC2626", bgArgb: rem === 0 ? "FFDCFCE7" : "FFFEE2E2", bold: true },
+          ];
+        }),
+      });
+    }
+
+    if (payments.length > 0) {
+      await buildStyledSheet(ExcelJS, wb, {
+        sheetName: reportCopy.paymentsSheet, reportTitle: reportCopy.paymentsSheet,
+        cols: [
+          { label: reportCopy.student,       width: 32 }, { label: reportCopy.className,     width: 20 },
+          { label: reportCopy.amount,        width: 18 }, { label: reportCopy.paymentMethod, width: 16 },
+          { label: reportCopy.date,          width: 16 }, { label: reportCopy.receiptNumber, width: 20 },
+        ],
+        rows: payments.map((p) => [
+          { value: p.students?.full_name || "—" },
+          { value: p.students?.class_name || "—" },
+          { value: Number(p.amount ?? 0), numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: true },
+          { value: paymentMethodLabel(p.payment_method) },
+          { value: formatDate(p.created_at ?? "") },
+          { value: p.receipt_number || "—" },
+        ]),
+      });
+    }
+
+    if (expenses.length > 0) {
+      await buildStyledSheet(ExcelJS, wb, {
+        sheetName: reportCopy.expensesSheet, reportTitle: reportCopy.expensesSheet,
+        cols: [
+          { label: reportCopy.type,          width: 24 }, { label: reportCopy.amount,    width: 18 },
+          { label: reportCopy.date,          width: 16 }, { label: reportCopy.recipient, width: 24 },
+          { label: reportCopy.receiptNumber, width: 20 },
+        ],
+        rows: expenses.map((e) => [
+          { value: e.expense_types?.name || "—" },
+          { value: Number(e.amount ?? 0), numFmt: NUM_FMT_IQD, color: "FFDC2626", bold: true },
+          { value: formatDate(e.expense_date ?? "") },
+          { value: e.recipient || "—" },
+          { value: e.receipt_number || "—" },
+        ]),
+      });
+    }
+
+    if (salaries.length > 0) {
+      await buildStyledSheet(ExcelJS, wb, {
+        sheetName: reportCopy.salariesSheet, reportTitle: reportCopy.salariesSheet,
+        cols: [
+          { label: reportCopy.teacher,    width: 28 }, { label: reportCopy.subject,    width: 20 },
+          { label: reportCopy.month,      width: 16 }, { label: reportCopy.gross,      width: 18 },
+          { label: reportCopy.deductions, width: 15 }, { label: reportCopy.net,        width: 18 },
+        ],
+        rows: salaries.map((s) => {
+          const net = Number(s.gross_salary ?? 0) - Number(s.deductions ?? 0);
+          return [
+            { value: s.teachers?.full_name || "—" },
+            { value: s.teachers?.subject || "—" },
+            { value: s.month || "—" },
+            { value: Number(s.gross_salary ?? 0), numFmt: NUM_FMT_IQD },
+            { value: Number(s.deductions ?? 0),   numFmt: NUM_FMT_IQD, color: "FFDC2626", bold: Number(s.deductions) > 0 },
+            { value: Math.max(0, net),             numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: true },
+          ];
+        }),
+      });
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    Object.assign(document.createElement("a"), { href: url, download: `${reportCopy.allFile}_${formatDate(new Date())}.xlsx` }).click();
+    URL.revokeObjectURL(url);
   }
 
   function printDocument(title: string, subtitle: string, bodyHtml: string) {

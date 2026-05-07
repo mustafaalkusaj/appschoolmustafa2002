@@ -9,7 +9,7 @@ import { useRole } from "@/hooks/useRole";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { printHtmlDocument } from "@/lib/print/branding";
 import { buildReceiptHtml, type ReceiptConfig } from "@/lib/print/receipt-template";
-import { loadXLSX } from "@/lib/xlsx-loader";
+import { loadExcelJS, solidFill, thinBorder, addTitleBlock, addColumnHeaders, addDataRow, addTotalsRow, NUM_FMT_IQD, colLetter } from "@/lib/excel/styled-export";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 
@@ -207,27 +207,109 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
 
       if (!response.ok) throw new Error(payload?.error?.message || "تعذر تحميل بيانات التصدير.");
 
-      const XLSX = await loadXLSX();
-      const rows = (payload?.students ?? []).map((s) => ({
-        "اسم الطالب": s.full_name,
-        "الصف": s.class_name,
-        "الهاتف": s.phone || "",
-        "المبلغ الكلي": s.total_fee,
-        "المدفوع": s.paid_fee,
-        "الخصم": s.discount_value || 0,
-        "المتبقي": s.remaining_fee,
-        "الحالة": s.status,
-      }));
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "فواتير الطلاب");
-      await XLSX.writeFile(wb, `فواتير_${formatDate(new Date())}.xlsx`);
+      const students = payload?.students ?? [];
+      const ExcelJS  = await loadExcelJS();
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "School System";
+      wb.created = new Date();
+
+      const COLS = [
+        { label: "اسم الطالب",   width: 32, key: "name" },
+        { label: "الصف",         width: 20, key: "class" },
+        { label: "الهاتف",       width: 16, key: "phone" },
+        { label: "المبلغ الكلي", width: 18, key: "total",     numFmt: NUM_FMT_IQD },
+        { label: "المدفوع",      width: 18, key: "paid",      numFmt: NUM_FMT_IQD },
+        { label: "الخصم",        width: 15, key: "discount",  numFmt: NUM_FMT_IQD },
+        { label: "المتبقي",      width: 18, key: "remaining", numFmt: NUM_FMT_IQD },
+        { label: "الحالة",       width: 14, key: "status" },
+      ];
+      const LAST_COL = colLetter(COLS.length - 1);
+
+      const ws = wb.addWorksheet("فواتير الطلاب", {
+        views: [{ state: "frozen", xSplit: 0, ySplit: 4, rightToLeft: true }],
+        pageSetup: {
+          paperSize: 9, orientation: "portrait",
+          fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          horizontalCentered: true,
+          margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+        },
+      });
+
+      const schoolLabel = runtimeBranding.schoolName || "المدرسة";
+      const branchLabel = runtimeBranding.branchName ? ` — ${runtimeBranding.branchName}` : "";
+      addTitleBlock(ws, {
+        schoolName: `${schoolLabel}${branchLabel}`,
+        reportTitle: "فواتير الطلاب",
+        meta: `تاريخ التصدير: ${new Date().toLocaleDateString("ar-IQ")}   |   عدد الطلاب: ${students.length}`,
+        lastCol: LAST_COL,
+        numCols: COLS.length,
+      });
+      addColumnHeaders(ws, COLS, 4, LAST_COL);
+
+      const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
+        paid:      { color: "FF16A34A", bg: "FFDCFCE7" },
+        completed: { color: "FF16A34A", bg: "FFDCFCE7" },
+        overdue:   { color: "FFDC2626", bg: "FFFEE2E2" },
+        late:      { color: "FFDC2626", bg: "FFFEE2E2" },
+      };
+
+      students.forEach((s, idx) => {
+        const remaining = Number(s.remaining_fee ?? 0);
+        const statusKey = (s.status ?? "").toLowerCase();
+        const sc = STATUS_COLORS[statusKey];
+        addDataRow(ws, 5 + idx, [
+          { value: s.full_name || "—" },
+          { value: s.class_name || "—" },
+          { value: s.phone || "—" },
+          { value: Number(s.total_fee ?? 0),      numFmt: NUM_FMT_IQD },
+          { value: Number(s.paid_fee ?? 0),        numFmt: NUM_FMT_IQD, color: "FF16A34A", bold: Number(s.paid_fee) > 0 },
+          { value: Number(s.discount_value ?? 0),  numFmt: NUM_FMT_IQD, color: "FFD97706", bold: Number(s.discount_value) > 0 },
+          {
+            value: remaining, numFmt: NUM_FMT_IQD,
+            color: remaining === 0 ? "FF16A34A" : "FFDC2626",
+            bgArgb: remaining === 0 ? "FFDCFCE7" : "FFFEE2E2",
+            bold: true,
+          },
+          { value: s.status || "—", color: sc?.color, bgArgb: sc?.bg },
+        ], idx % 2 === 0);
+      });
+
+      const totRow = 5 + students.length;
+      addTotalsRow(ws, totRow,
+        `المجموع الكلي — ${students.length} طالب`,
+        3,
+        [
+          students.reduce((acc, s) => acc + Number(s.total_fee ?? 0), 0),
+          students.reduce((acc, s) => acc + Number(s.paid_fee ?? 0), 0),
+          students.reduce((acc, s) => acc + Number(s.discount_value ?? 0), 0),
+          students.reduce((acc, s) => acc + Number(s.remaining_fee ?? 0), 0),
+        ],
+        NUM_FMT_IQD,
+        LAST_COL,
+      );
+
+      // merge label across name+class+phone
+      ws.mergeCells(`A${totRow}:C${totRow}`);
+      const totLabel = ws.getCell(`A${totRow}`);
+      totLabel.fill      = solidFill("FF1B3A6B");
+      totLabel.font      = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      totLabel.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+
+      await wb.xlsx.writeBuffer().then((buffer) => {
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href     = url;
+        a.download = `فواتير_${formatDate(new Date())}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : "تعذر تصدير البيانات.");
     } finally {
       setExporting(false);
     }
-  }, [resolvedSchoolId, quickFilter, filterSort, filterDir, search, filterClass, currentBranchId]);
+  }, [resolvedSchoolId, quickFilter, filterSort, filterDir, search, filterClass, currentBranchId, runtimeBranding]);
 
   const handleArchiveExport = useCallback(
     async (archive: PaymentArchive) => {
