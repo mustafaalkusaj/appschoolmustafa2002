@@ -330,6 +330,7 @@ export default function AttendancePage() {
   }, [profile?.school_id, schoolScope.selectedSchoolId]);
 
   const fetchAttendanceSnapshot = useCallback(async (dateValue: string) => {
+    "use no memo";
     setLoadingStudents(true);
     setLoadingAttendance(true);
     setError("");
