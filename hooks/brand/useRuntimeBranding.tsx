@@ -410,7 +410,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       active = false;
       window.removeEventListener(RUNTIME_BRANDING_REFRESH_EVENT, refreshListener);
     };
-  }, [scopedBranchId, scopedSchoolId, branchScope.isMultiBranchScope, branchScope.selectedBranchId]);
+  }, [scopedBranchId, scopedSchoolId, branchScope.isMultiBranchScope, branchScope.selectedBranchId, pathname]);
 
   useEffect(() => {
     applyBrandingToCssVars(branding, resolvedTheme === "dark");

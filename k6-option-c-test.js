@@ -16,7 +16,7 @@ export const options = {
 
 const BASE_URL = "http://localhost:3000";
 
-export default function () {
+export default function loadTest() {
   // Test 1: Dashboard (lightweight)
   let res = http.get(`${BASE_URL}/`);
   check(res, {
