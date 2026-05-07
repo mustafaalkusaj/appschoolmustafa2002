@@ -14,6 +14,7 @@ const SELECT_COLS = [
   "footer_note",
   "primary_color",
   "accent_color",
+  "page_size",
 ].join(",");
 
 function jsonError(message: string, status: number) {

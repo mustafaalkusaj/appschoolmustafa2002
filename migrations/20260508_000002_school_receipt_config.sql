@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.school_receipt_config (
   footer_note             TEXT,
   primary_color           TEXT,
   accent_color            TEXT,
+  page_size               TEXT NOT NULL DEFAULT 'A5'
+                          CHECK (page_size IN ('A5', 'A4')),
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by              UUID REFERENCES auth.users(id) ON DELETE SET NULL

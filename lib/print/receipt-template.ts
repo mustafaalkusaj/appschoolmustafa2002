@@ -3,6 +3,8 @@
  * Renders a self-contained HTML document for window.print() via printHtmlDocument().
  */
 
+export type PageSize = "A5" | "A4";
+
 export type ReceiptConfig = {
   decoration_top_left?: string | null;
   decoration_top_right?: string | null;
@@ -14,6 +16,7 @@ export type ReceiptConfig = {
   footer_note?: string | null;
   primary_color?: string | null;
   accent_color?: string | null;
+  page_size?: PageSize | null;
 };
 
 export type ReceiptInput = {
@@ -32,7 +35,13 @@ export type ReceiptInput = {
   remaining: number;
   notes?: string | null;
   config?: ReceiptConfig | null;
+  pageSizeOverride?: PageSize | null;
   autoPrint?: boolean;
+};
+
+const PAGE_DIMS: Record<PageSize, { width: string; minHeight: string; padding: string; logoSize: string; schoolFont: string; paidFont: string }> = {
+  A5: { width: "148mm", minHeight: "210mm", padding: "14mm 12mm", logoSize: "22mm", schoolFont: "18pt", paidFont: "28pt" },
+  A4: { width: "210mm", minHeight: "297mm", padding: "20mm 18mm", logoSize: "30mm", schoolFont: "24pt", paidFont: "40pt" },
 };
 
 function escapeHtml(input: string | null | undefined): string {
@@ -72,6 +81,14 @@ function safeColor(value: string | null | undefined, fallback: string): string {
 export function buildReceiptHtml(input: ReceiptInput): string {
   const dir = input.locale === "en" ? "ltr" : "rtl";
   const t = (ar: string, en: string) => (input.locale === "en" ? en : ar);
+
+  const pageSize: PageSize =
+    input.pageSizeOverride === "A4" || input.pageSizeOverride === "A5"
+      ? input.pageSizeOverride
+      : input.config?.page_size === "A4"
+        ? "A4"
+        : "A5";
+  const dims = PAGE_DIMS[pageSize];
 
   const primary = safeColor(input.config?.primary_color, "#3B2C9C");
   const accent = safeColor(input.config?.accent_color, "#5B47C9");
@@ -131,7 +148,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
             src:url("/fonts/noto-sans-arabic/NotoSansArabic-Variable.ttf") format("truetype");
             font-display:swap;
           }
-          @page{ size:A5 portrait; margin:0; }
+          @page{ size:${pageSize} portrait; margin:0; }
           *{ box-sizing:border-box; }
           html,body{ margin:0; padding:0; }
           body{
@@ -143,10 +160,10 @@ export function buildReceiptHtml(input: ReceiptInput): string {
           }
           .r-page{
             position:relative;
-            width:148mm;
-            min-height:210mm;
+            width:${dims.width};
+            min-height:${dims.minHeight};
             margin:0 auto;
-            padding:14mm 12mm;
+            padding:${dims.padding};
             background:#ffffff
               ${bgPattern ? `url('${escapeHtml(bgPattern)}') center/cover no-repeat` : ""};
             overflow:hidden;
@@ -200,13 +217,13 @@ export function buildReceiptHtml(input: ReceiptInput): string {
             margin-bottom:5mm;
           }
           .r-logo{
-            width:22mm; height:22mm;
+            width:${dims.logoSize}; height:${dims.logoSize};
             object-fit:contain;
             margin:0 auto 2mm;
             display:block;
           }
           .r-school{
-            font-size:18pt;
+            font-size:${dims.schoolFont};
             font-weight:800;
             color:${primary};
             margin:0 0 1mm;
@@ -285,7 +302,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
             margin-bottom:2mm;
           }
           .r-paid-amount{
-            font-size:28pt;
+            font-size:${dims.paidFont};
             font-weight:900;
             color:${primary};
             letter-spacing:1px;

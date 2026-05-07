@@ -15,6 +15,7 @@ type ReceiptConfig = {
   footer_note: string | null;
   primary_color: string | null;
   accent_color: string | null;
+  page_size: "A5" | "A4" | null;
 };
 
 const URL_FIELDS: Array<{ key: keyof ReceiptConfig; label: string; hint: string }> = [
@@ -37,6 +38,7 @@ const EMPTY: ReceiptConfig = {
   footer_note: null,
   primary_color: null,
   accent_color: null,
+  page_size: "A5",
 };
 
 interface Props {
@@ -149,6 +151,30 @@ export function ReceiptConfigModal({ school, onClose }: Props) {
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">{hint}</p>
               </div>
             ))}
+
+            <div>
+              <label className="block text-sm font-bold mb-1 text-[var(--text-primary)]">حجم الصفحة الافتراضي</label>
+              <div className="flex gap-2">
+                {(["A5", "A4"] as const).map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setConfig((p) => ({ ...p, page_size: size }))}
+                    className={
+                      "flex-1 px-4 py-2 rounded-lg border-2 font-bold transition " +
+                      ((config.page_size ?? "A5") === size
+                        ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                        : "border-[var(--border)] bg-transparent text-[var(--text-primary)]")
+                    }
+                  >
+                    {size}
+                    <span className="block text-xs font-normal mt-0.5 opacity-80">
+                      {size === "A5" ? "نصف A4 — مناسب للوصل الصغير" : "كامل — مساحة أكبر"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>

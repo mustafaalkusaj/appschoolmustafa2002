@@ -126,7 +126,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   }, []);
 
   const printReceipt = useCallback(
-    (p: Payment, student: Student) => {
+    (p: Payment, student: Student, pageSizeOverride?: "A5" | "A4") => {
       const methodLabels: Record<string, string> = {
         cash: isEnglish ? "Cash" : "نقداً",
         bank_transfer: isEnglish ? "Bank transfer" : "تحويل بنكي",
@@ -148,6 +148,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
         remaining: Number(student?.remaining_fee ?? 0),
         notes: p.notes || null,
         config: receiptConfig,
+        pageSizeOverride: pageSizeOverride ?? null,
         autoPrint: false,
       });
       printHtmlDocument(html);

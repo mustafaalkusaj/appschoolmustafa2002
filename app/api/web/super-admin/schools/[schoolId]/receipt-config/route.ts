@@ -13,12 +13,14 @@ const URL_FIELDS = [
 
 const TEXT_FIELDS = ["thank_you_text", "footer_note"] as const;
 const COLOR_FIELDS = ["primary_color", "accent_color"] as const;
+const VALID_PAGE_SIZES = ["A4", "A5"] as const;
 
 const SELECT_COLS = [
   "school_id",
   ...URL_FIELDS,
   ...TEXT_FIELDS,
   ...COLOR_FIELDS,
+  "page_size",
   "updated_at",
 ].join(",");
 
@@ -114,6 +116,14 @@ export async function PATCH(
       return jsonError(`صيغة اللون غير صالحة للحقل ${field}.`, 400);
     }
     payload[field] = value;
+  }
+
+  if ("page_size" in body) {
+    const value = asString(body.page_size);
+    if (value !== null && !VALID_PAGE_SIZES.includes(value as typeof VALID_PAGE_SIZES[number])) {
+      return jsonError("حجم الصفحة غير صالح. يجب أن يكون A4 أو A5.", 400);
+    }
+    payload.page_size = value ?? "A5";
   }
 
   if (Object.keys(payload).length === 0) {

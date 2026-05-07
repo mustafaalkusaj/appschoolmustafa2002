@@ -20,7 +20,7 @@ interface StudentDetailPanelProps {
   onClose: () => void;
   onAddPayment: (student: Student) => void;
   onDeletePayment: (paymentId: string) => void;
-  onPrintReceipt: (payment: Payment, student: Student) => void;
+  onPrintReceipt: (payment: Payment, student: Student, pageSize?: "A5" | "A4") => void;
   canAddPayments: boolean;
   canDeletePayments: boolean;
 }
@@ -156,7 +156,7 @@ export function StudentDetailPanel({
                   key={p.id}
                   payment={p}
                   index={i}
-                  onPrint={() => onPrintReceipt(p, student)}
+                  onPrint={(pageSize) => onPrintReceipt(p, student, pageSize)}
                   onDelete={() => onDeletePayment(p.id)}
                   canDelete={canDeletePayments}
                 />
@@ -178,7 +178,7 @@ export function StudentDetailPanel({
 interface PaymentRowProps {
   payment: Payment;
   index: number;
-  onPrint: () => void;
+  onPrint: (pageSize?: "A5" | "A4") => void;
   onDelete: () => void;
   canDelete: boolean;
 }
@@ -209,15 +209,31 @@ function PaymentRow({ payment, index, onPrint, onDelete, canDelete }: PaymentRow
             </Badge>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <IconButton
             variant="ghost"
             size="sm"
-            aria-label={t("payments.detailPanel.printReceipt")}
-            onClick={onPrint}
+            aria-label={`${t("payments.detailPanel.printReceipt")} (افتراضي)`}
+            onClick={() => onPrint()}
           >
             <Printer className="h-4 w-4" />
           </IconButton>
+          <button
+            type="button"
+            onClick={() => onPrint("A5")}
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--surface-muted)]"
+            title="طباعة بحجم A5"
+          >
+            A5
+          </button>
+          <button
+            type="button"
+            onClick={() => onPrint("A4")}
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--surface-muted)]"
+            title="طباعة بحجم A4"
+          >
+            A4
+          </button>
           {canDelete && (
             <IconButton
               variant="ghost"
