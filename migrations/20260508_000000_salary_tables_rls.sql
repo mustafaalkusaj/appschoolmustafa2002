@@ -314,8 +314,6 @@ CREATE POLICY teachers_select ON teachers
            up.scope_level = 'super_admin'
            OR (up.scope_level = 'group_admin'  AND teachers.school_id = up.school_id)
            OR (up.scope_level IN ('branch_user', 'restricted') AND teachers.school_id = up.school_id AND teachers.branch_id = up.branch_id)
-           -- Teacher can see their own record
-           OR teachers.user_id = auth.uid()
          )
     )
   );

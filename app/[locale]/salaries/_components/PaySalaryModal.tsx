@@ -32,7 +32,7 @@ export function PaySalaryModal({
 
   const grossSalary = parseInt(form.gross_salary) || 0;
   const deductions = parseInt(form.deductions) || 0;
-  const net = grossSalary - deductions;
+  const net = Math.max(0, grossSalary - deductions);
 
   return (
     <Modal open={show} onClose={onClose} size="md">
