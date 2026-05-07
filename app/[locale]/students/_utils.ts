@@ -2,6 +2,7 @@ import type { StudentListRow, StudentDatasetRow, StudentWithFees, PrintCardOptio
 import { formatNumber } from "@/lib/formatting";
 import { escapeHtml, wrapPrintDocument } from "@/lib/print/branding";
 import { STUDENT_IMPORT_ALLOWED_EXTENSIONS, STUDENT_IMPORT_MAX_FILE_SIZE_BYTES } from "./_constants";
+import { getAcademicYearLabel } from "@/lib/academic-year";
 
 export function formatCardDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -208,3 +209,110 @@ export function buildSingleStudentPrintHtml(
 }
 
 export type { StudentCredentialTarget };
+
+export interface IdCardPrintOptions {
+  locale: "ar" | "en";
+  schoolName?: string;
+  branchName?: string;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+}
+
+/** Builds a single compact student ID card (used inside the grid). */
+function buildIdCard(
+  student: StudentWithFees,
+  index: number,
+  opts: IdCardPrintOptions,
+): string {
+  const { locale, schoolName, branchName, logoUrl, primaryColor } = opts;
+  const primary = primaryColor || "#2563EB";
+  const classLine = [student.class_name, student.section ? `${locale === "en" ? "Sec" : "ش"} ${student.section}` : null].filter(Boolean).join(" · ");
+  const yearLabel = getAcademicYearLabel(new Date(), locale);
+  const logoHtml = logoUrl
+    ? `<img src="${escapeHtml(logoUrl)}" alt="logo" style="width:44px;height:44px;object-fit:contain;border-radius:8px;" />`
+    : `<div style="width:44px;height:44px;border-radius:8px;background:${escapeHtml(primary)};display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:900">${escapeHtml((schoolName || "م").charAt(0))}</div>`;
+
+  return `
+    <div class="id-card" style="
+      break-inside:avoid;
+      border:2px solid ${escapeHtml(primary)};
+      border-radius:16px;
+      overflow:hidden;
+      font-family:'Cairo','Arial',sans-serif;
+      direction:${locale === "en" ? "ltr" : "rtl"};
+      background:#fff;
+      box-shadow:0 2px 8px rgba(0,0,0,.08);
+    ">
+      <!-- Header -->
+      <div style="background:${escapeHtml(primary)};padding:10px 14px;display:flex;align-items:center;gap:10px;">
+        ${logoHtml}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(schoolName || (locale === "en" ? "School" : "المدرسة"))}</div>
+          ${branchName ? `<div style="font-size:10px;color:rgba(255,255,255,.85);margin-top:1px;">${escapeHtml(branchName)}</div>` : ""}
+          <div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:2px;">${escapeHtml(yearLabel)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.2);color:#fff;font-size:11px;font-weight:900;border-radius:20px;padding:2px 8px;white-space:nowrap;">${locale === "en" ? "#" : "رقم"} ${index + 1}</div>
+      </div>
+      <!-- Body -->
+      <div style="padding:12px 14px 10px;">
+        <div style="font-size:16px;font-weight:900;color:#0f172a;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(student.full_name)}</div>
+        <div style="font-size:11px;color:#475569;font-weight:700;margin-bottom:8px;">${escapeHtml(classLine || "—")}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${student.phone ? `<div style="font-size:10px;background:#f1f5f9;border-radius:6px;padding:3px 8px;color:#334155;direction:ltr;">${escapeHtml(student.phone)}</div>` : ""}
+          ${student.address ? `<div style="font-size:10px;background:#f1f5f9;border-radius:6px;padding:3px 8px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">${escapeHtml(student.address)}</div>` : ""}
+        </div>
+      </div>
+      <!-- Footer fees strip -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);background:#f8fafc;border-top:1px solid #e2e8f0;padding:6px 8px;gap:2px;text-align:center;">
+        <div>
+          <div style="font-size:9px;color:#64748b;font-weight:600;">${locale === "en" ? "Total" : "الرسوم"}</div>
+          <div style="font-size:11px;font-weight:800;color:#0f172a;">${formatNumber(student.total_fee)}</div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:#16a34a;font-weight:600;">${locale === "en" ? "Paid" : "المدفوع"}</div>
+          <div style="font-size:11px;font-weight:800;color:#16a34a;">${formatNumber(student.paid_fee)}</div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:${Number(student.remaining_fee) > 0 ? "#dc2626" : "#16a34a"};font-weight:600;">${locale === "en" ? "Remaining" : "المتبقي"}</div>
+          <div style="font-size:11px;font-weight:800;color:${Number(student.remaining_fee) > 0 ? "#dc2626" : "#16a34a"};">${formatNumber(student.remaining_fee)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/** Wraps a grid of ID cards into a printable HTML document. 4 cards per row on A4. */
+export function buildStudentIdCardsHtml(
+  students: StudentWithFees[],
+  opts: IdCardPrintOptions,
+): string {
+  const { locale, schoolName, branchName, primaryColor } = opts;
+  const primary = primaryColor || "#2563EB";
+  const cards = students.map((s, i) => buildIdCard(s, i, opts)).join("");
+  const yearLabel = getAcademicYearLabel(new Date(), locale);
+  const titleLine = [schoolName, branchName].filter(Boolean).join(" — ");
+
+  return `<!DOCTYPE html><html dir="${locale === "en" ? "ltr" : "rtl"}"><head>
+<meta charset="utf-8"/>
+<title>${escapeHtml(locale === "en" ? "Student ID Cards" : "بطاقات الطلاب")}</title>
+<style>
+  @page { size: A4 portrait; margin: 1cm; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: 'Cairo','Arial',sans-serif; background:#fff; direction:${locale === "en" ? "ltr" : "rtl"}; }
+  .page-header { text-align:center; margin-bottom:16px; padding-bottom:12px; border-bottom:3px solid ${primary}; }
+  .page-header h1 { font-size:18px; font-weight:900; margin:0 0 4px; color:${primary}; }
+  .page-header p  { font-size:12px; color:#475569; margin:0; }
+  .cards-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
+  @media print {
+    .id-card { break-inside: avoid; }
+  }
+</style>
+</head><body>
+<div class="page-header">
+  <h1>${escapeHtml(locale === "en" ? "Student ID Cards" : "بطاقات الطلاب")}</h1>
+  <p>${escapeHtml(titleLine || "")}${titleLine ? " · " : ""}${escapeHtml(yearLabel)} · ${students.length} ${locale === "en" ? "students" : "طالب"}</p>
+</div>
+<div class="cards-grid">${cards}</div>
+</body></html>`;
+}

@@ -197,13 +197,18 @@ export default function StudentsPage() {
   }, [loadStudentsDataset, locale, modals, operations]);
 
   const printAllStudentCards = useCallback(async () => {
-    const fullDataset = await loadStudentsDataset();
-    if (fullDataset.length === 0) {
-      modals.setError(locale === "en" ? "Could not load the students for printing." : "تعذر تحميل بيانات الطلاب للطباعة");
-      return;
+    modals.setPrintingCards(true);
+    try {
+      const dataset = await loadStudentsDataset();
+      if (dataset.length === 0) {
+        modals.setError(locale === "en" ? "No students found for the current filters." : "لا يوجد طلاب بعد تطبيق الفلاتر الحالية.");
+        return;
+      }
+      modals.setError("");
+      print.printIdCards(dataset);
+    } finally {
+      modals.setPrintingCards(false);
     }
-    modals.setError("");
-    print.printFilteredStudents(fullDataset);
   }, [loadStudentsDataset, locale, modals, print]);
 
   return (
