@@ -638,11 +638,39 @@
         "paidFee": "المدفوع مسبقاً",
         "discount": "التخفيض ({currency})",
         "afterDiscount": "بعد الخصم: {amount}",
+        "paidExceedsTotal": "⚠ المدفوع يتجاوز الرسوم بعد الخصم",
         "installmentInfo": "قسط واحد: {amount} × {count} أقساط",
         "saving": "جارٍ الحفظ...",
         "saveStudent": "✓ حفظ الطالب",
         "saveChanges": "✓ حفظ التعديلات",
         "status": "الحالة"
+      },
+      "transfer": {
+        "title": "نقل الطالب",
+        "studentName": "اسم الطالب:",
+        "currentClass": "الصف الحالي:",
+        "currentSection": "الشعبة الحالية:",
+        "selectType": "اختر نوع النقل",
+        "classTransfer": {
+          "title": "نقل الصف",
+          "description": "تغيير صف الطالب مع إبقاء الطالب نشطاً",
+          "newClass": "الصف الجديد",
+          "selectClass": "اختر الصف",
+          "newSection": "الشعبة الجديدة (اختياري)",
+          "sectionPlaceholder": "أدخل الشعبة الجديدة"
+        },
+        "sectionTransfer": {
+          "title": "نقل الشعبة",
+          "description": "تغيير شعبة الطالب داخل نفس الصف",
+          "newSection": "الشعبة الجديدة",
+          "sectionPlaceholder": "أدخل الشعبة الجديدة"
+        },
+        "markTransferred": {
+          "title": "نقل إلى المنقولون",
+          "description": "نقل الطالب إلى تبويب المنقولون بدون حذف بياناته"
+        },
+        "confirm": "تأكيد النقل",
+        "cancel": "إلغاء"
       },
       "deleteConfirm": {
         "message": "هل تريد حذف هذا الطالب؟",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import type { StudentWithFees, ClassFee } from "../_types";
@@ -28,6 +29,7 @@ export function TransferStudentModal({
   onCancel,
   loading = false,
 }: TransferStudentModalProps) {
+  const t = useTranslations("students.modals.transfer");
   const [transferType, setTransferType] = useState<TransferType | null>(null);
   const [targetClass, setTargetClass] = useState("");
   const [targetSection, setTargetSection] = useState("");
@@ -57,7 +59,7 @@ export function TransferStudentModal({
 
   return (
     <Modal open={show} onClose={onCancel} size="md">
-      <ModalHeader title="نقل الطالب" onClose={onCancel} />
+      <ModalHeader title={t("title")} onClose={onCancel} />
 
       <ModalBody>
         <div className="space-y-4">
@@ -65,16 +67,16 @@ export function TransferStudentModal({
           <div className="bg-[color-mix(in_srgb,var(--primary)_5%,transparent)] p-4 rounded-lg">
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-[var(--text-muted)]">اسم الطالب:</span>
+                <span className="text-[var(--text-muted)]">{t("studentName")}</span>
                 <span className="font-semibold">{selectedStudent.full_name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[var(--text-muted)]">الصف الحالي:</span>
+                <span className="text-[var(--text-muted)]">{t("currentClass")}</span>
                 <span className="font-semibold">{selectedStudent.class_name}</span>
               </div>
               {selectedStudent.section && (
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-muted)]">الشعبة الحالية:</span>
+                  <span className="text-[var(--text-muted)]">{t("currentSection")}</span>
                   <span className="font-semibold">{selectedStudent.section}</span>
                 </div>
               )}
@@ -83,7 +85,7 @@ export function TransferStudentModal({
 
           {/* Transfer Type Selection */}
           <div className="space-y-3">
-            <h3 className="font-semibold text-[var(--text-primary)]">اختر نوع النقل</h3>
+            <h3 className="font-semibold text-[var(--text-primary)]">{t("selectType")}</h3>
 
             {/* Option 1: Transfer Class */}
             <label className="flex items-start gap-3 p-3 border border-[var(--border)] rounded-lg cursor-pointer hover:bg-[color-mix(in_srgb,var(--primary)_3%,transparent)]">
@@ -100,9 +102,9 @@ export function TransferStudentModal({
                 className="mt-1"
               />
               <div className="flex-1">
-                <div className="font-semibold">نقل الصف</div>
+                <div className="font-semibold">{t("classTransfer.title")}</div>
                 <div className="text-sm text-[var(--text-muted)]">
-                  تغيير صف الطالب مع إبقاء الطالب نشطاً
+                  {t("classTransfer.description")}
                 </div>
               </div>
             </label>
@@ -111,13 +113,13 @@ export function TransferStudentModal({
             {transferType === "class" && (
               <div className="space-y-2 mr-8">
                 <div>
-                  <label className="block text-sm font-medium mb-1">الصف الجديد</label>
+                  <label className="block text-sm font-medium mb-1">{t("classTransfer.newClass")}</label>
                   <select
                     value={targetClass}
                     onChange={(e) => setTargetClass(e.target.value)}
                     className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--bg-input)] text-[var(--text-primary)]"
                   >
-                    <option value="">اختر الصف</option>
+                    <option value="">{t("classTransfer.selectClass")}</option>
                     {classes.map((cls) => (
                       <option key={cls} value={cls}>
                         {cls}
@@ -126,12 +128,12 @@ export function TransferStudentModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">الشعبة الجديدة (اختياري)</label>
+                  <label className="block text-sm font-medium mb-1">{t("classTransfer.newSection")}</label>
                   <input
                     type="text"
                     value={targetSection}
                     onChange={(e) => setTargetSection(e.target.value)}
-                    placeholder="أدخل الشعبة الجديدة"
+                    placeholder={t("classTransfer.sectionPlaceholder")}
                     className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--bg-input)] text-[var(--text-primary)]"
                   />
                 </div>
@@ -153,9 +155,9 @@ export function TransferStudentModal({
                 className="mt-1"
               />
               <div className="flex-1">
-                <div className="font-semibold">نقل الشعبة</div>
+                <div className="font-semibold">{t("sectionTransfer.title")}</div>
                 <div className="text-sm text-[var(--text-muted)]">
-                  تغيير شعبة الطالب داخل نفس الصف
+                  {t("sectionTransfer.description")}
                 </div>
               </div>
             </label>
@@ -163,12 +165,12 @@ export function TransferStudentModal({
             {/* Section Input for Option 2 */}
             {transferType === "section" && (
               <div className="mr-8">
-                <label className="block text-sm font-medium mb-1">الشعبة الجديدة</label>
+                <label className="block text-sm font-medium mb-1">{t("sectionTransfer.newSection")}</label>
                 <input
                   type="text"
                   value={targetSection}
                   onChange={(e) => setTargetSection(e.target.value)}
-                  placeholder="أدخل الشعبة الجديدة"
+                  placeholder={t("sectionTransfer.sectionPlaceholder")}
                   className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--bg-input)] text-[var(--text-primary)]"
                 />
               </div>
@@ -189,9 +191,9 @@ export function TransferStudentModal({
                 className="mt-1"
               />
               <div className="flex-1">
-                <div className="font-semibold">نقل إلى المنقولون</div>
+                <div className="font-semibold">{t("markTransferred.title")}</div>
                 <div className="text-sm text-[var(--text-muted)]">
-                  نقل الطالب إلى تبويب المنقولون بدون حذف بياناته
+                  {t("markTransferred.description")}
                 </div>
               </div>
             </label>
@@ -206,10 +208,10 @@ export function TransferStudentModal({
           disabled={isConfirmDisabled}
           loading={loading}
         >
-          تأكيد النقل
+          {t("confirm")}
         </Button>
         <Button variant="ghost" onClick={onCancel} disabled={loading}>
-          إلغاء
+          {t("cancel")}
         </Button>
       </ModalFooter>
     </Modal>

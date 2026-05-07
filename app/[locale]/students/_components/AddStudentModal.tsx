@@ -260,13 +260,29 @@ export function AddStudentModal({
                     value={form.discount_value}
                     onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
                   />
-                  {form.discount_value && parseInt(form.discount_value) > 0 && form.total_fee && parseInt(form.total_fee) > 0 && (
-                    <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-xs font-semibold text-[var(--warning)]">
-                      {t("form.afterDiscount", {
-                        amount: `${commonT("currency")} ${formatNumber(parseInt(form.total_fee) - parseInt(form.discount_value))}`
-                      })}
-                    </div>
-                  )}
+                  {(() => {
+                    const totalFee = parseFloat(form.total_fee) || 0;
+                    const discount = parseFloat(form.discount_value) || 0;
+                    const paidFee = parseFloat(form.paid_fee) || 0;
+                    const effectiveFee = Math.max(totalFee - discount, 0);
+                    if (discount > 0 && totalFee > 0) {
+                      return (
+                        <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-xs font-semibold text-[var(--warning)]">
+                          {t("form.afterDiscount", {
+                            amount: `${commonT("currency")} ${formatNumber(effectiveFee)}`
+                          })}
+                        </div>
+                      );
+                    }
+                    if (paidFee > effectiveFee && effectiveFee > 0) {
+                      return (
+                        <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-xs font-semibold text-[var(--danger)]">
+                          {t("form.paidExceedsTotal")}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </FormField>
               </>
             )}

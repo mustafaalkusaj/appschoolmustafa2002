@@ -603,7 +603,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       const rows = data.map((row) => {
         const source = row as Record<string, string | number | null | undefined>;
         const className = String(getImportCell(source, IMPORT_COLUMN_ALIASES.className) || "");
-        const importedTotalFee = parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.totalFee) || 0), 10) || 0;
+        const importedTotalFee = Math.max(0, Number(getImportCell(source, IMPORT_COLUMN_ALIASES.totalFee) || 0));
         const classFee = classFeeByName.get(className.trim()) ?? 0;
         return ({
         school_id,
@@ -614,8 +614,8 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         phone: getImportCell(source, IMPORT_COLUMN_ALIASES.phone) != null ? String(getImportCell(source, IMPORT_COLUMN_ALIASES.phone)) : null,
         address: typeof getImportCell(source, IMPORT_COLUMN_ALIASES.address) === "string" ? String(getImportCell(source, IMPORT_COLUMN_ALIASES.address)) : null,
         total_fee: importedTotalFee > 0 ? importedTotalFee : classFee,
-        paid_fee: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.paidFee) || 0), 10) || 0,
-        discount_value: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.discountValue) || 0), 10) || 0,
+        paid_fee: Math.max(0, Number(getImportCell(source, IMPORT_COLUMN_ALIASES.paidFee) || 0)),
+        discount_value: Math.max(0, Number(getImportCell(source, IMPORT_COLUMN_ALIASES.discountValue) || 0)),
         status: "active",
       })}).filter((r) => r.full_name && r.class_name);
 
@@ -668,7 +668,12 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         }
       }
       if (failures.length > 0 && successCount === 0) {
-        modals.setImportError(failures[0]);
+        const detail = failures.length === 1
+          ? failures[0]
+          : (isEnglish
+              ? `${failures.length} students failed. First error: ${failures[0]}`
+              : `تعذر استيراد ${failures.length} طالب. أول خطأ: ${failures[0]}`);
+        modals.setImportError(detail);
       } else {
         modals.setSuccess(
           failures.length > 0

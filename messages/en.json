@@ -638,11 +638,39 @@
         "paidFee": "Prepaid Amount",
         "discount": "Discount ({currency})",
         "afterDiscount": "After Discount: {amount}",
+        "paidExceedsTotal": "⚠ Paid amount exceeds fees after discount",
         "installmentInfo": "Single Installment: {amount} × {count} installments",
         "saving": "Saving...",
         "saveStudent": "✓ Save Student",
         "saveChanges": "✓ Save Changes",
         "status": "Status"
+      },
+      "transfer": {
+        "title": "Transfer Student",
+        "studentName": "Student name:",
+        "currentClass": "Current class:",
+        "currentSection": "Current section:",
+        "selectType": "Select transfer type",
+        "classTransfer": {
+          "title": "Transfer Class",
+          "description": "Change the student's class while keeping them active",
+          "newClass": "New class",
+          "selectClass": "Select class",
+          "newSection": "New section (optional)",
+          "sectionPlaceholder": "Enter new section"
+        },
+        "sectionTransfer": {
+          "title": "Transfer Section",
+          "description": "Change the student's section within the same class",
+          "newSection": "New section",
+          "sectionPlaceholder": "Enter new section"
+        },
+        "markTransferred": {
+          "title": "Mark as Transferred",
+          "description": "Move student to the Transferred tab without deleting their data"
+        },
+        "confirm": "Confirm Transfer",
+        "cancel": "Cancel"
       },
       "deleteConfirm": {
         "message": "Are you sure you want to delete this student?",

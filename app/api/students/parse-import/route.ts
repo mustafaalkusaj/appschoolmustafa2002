@@ -66,8 +66,6 @@ export async function POST(request: NextRequest) {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws);
 
-    console.log(`[ParseImport] Loaded ${rows.length} rows from file ${file.name}`);
-
     if (rows.length === 0) {
       return jsonError("الملف فارغ أو لا يحتوي على بيانات", 400);
     }
@@ -178,27 +176,7 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    console.log(`[ParseImport] Loaded ${enrichedClasses.length} classes`);
-    console.log("[ParseImport] Classes detail:", classes.map(c => ({
-      id: c.id,
-      nameAr: c.nameAr,
-      nameEn: c.nameEn,
-      rawSectionFromDb: classesData.find((row: any) => row.id === c.id)?.section,
-      sections: (sectionsByClassId.get(c.id) ?? c.sections).map((s: any) => s.name || s),
-      sectionsCount: (sectionsByClassId.get(c.id) ?? c.sections).length,
-      classSection: (c as any).section,
-    })));
-
     // Extract unique classes/sections from Excel
-    const excelClasses = new Set(rows.map((r: any) => r['الصف'] || r['class'] || r['Class']));
-    const excelSections = new Set(rows.map((r: any) => r['الشعبة'] || r['section'] || r['Section']));
-
-    console.log("[ParseImport] Excel data summary:", {
-      totalRows: rows.length,
-      headers: Object.keys(rows[0] || {}),
-      uniqueClasses: Array.from(excelClasses),
-      uniqueSections: Array.from(excelSections),
-    });
 
     // Generate import preview
     const preview = generateImportPreview(
@@ -213,14 +191,6 @@ export async function POST(request: NextRequest) {
       rowNumber: row.rowIndex,
       errors: row.errors,
     }));
-
-    console.log(
-      `[ParseImport] Preview: ${preview.validRows.length} valid, ${preview.invalidRows.length} invalid`,
-    );
-
-    if (preview.invalidRows.length > 0) {
-      console.log("[ParseImport] First invalid row:", JSON.stringify(preview.invalidRows[0]));
-    }
 
     return NextResponse.json({
       success: true,

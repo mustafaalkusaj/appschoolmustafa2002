@@ -185,7 +185,8 @@ async function validateClassExists(
   schoolId: string,
   branchScope: ResolvedBranchScope,
 ): Promise<boolean> {
-  const { data, error } = await applyBranchScopeToQuery(
+  // Check class_fees first (common path), then fall back to classes table
+  const { data: feeData } = await applyBranchScopeToQuery(
     serviceSupabase
       .from("class_fees")
       .select("class_name")
@@ -194,7 +195,24 @@ async function validateClassExists(
     branchScope,
   ).maybeSingle<{ class_name: string }>();
 
-  return !error && !!data;
+  if (feeData) return true;
+
+  // A class may exist without a fee entry — check the classes table
+  let classesQuery = serviceSupabase
+    .from("classes")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("grade", className)
+    .limit(1);
+
+  if (branchScope.branchId) {
+    classesQuery = classesQuery.eq("branch_id", branchScope.branchId);
+  } else if (branchScope.branchIds.length > 0) {
+    classesQuery = classesQuery.in("branch_id", branchScope.branchIds);
+  }
+
+  const { data: classData } = await classesQuery.maybeSingle<{ id: string }>();
+  return !!classData;
 }
 
 export async function PATCH(

@@ -158,13 +158,29 @@ export function EditStudentModal({
                 value={editForm.discount_value}
                 onChange={(e) => setEditForm({ ...editForm, discount_value: e.target.value })}
               />
-              {editForm.discount_value && parseInt(editForm.discount_value) > 0 && editForm.total_fee && parseInt(editForm.total_fee) > 0 && (
-                <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-xs font-semibold text-[var(--warning)]">
-                  {t("form.afterDiscount", {
-                    amount: `${commonT("currency")} ${formatNumber(parseInt(editForm.total_fee) - parseInt(editForm.discount_value))}`
-                  })}
-                </div>
-              )}
+              {(() => {
+                const totalFee = parseFloat(editForm.total_fee) || 0;
+                const discount = parseFloat(editForm.discount_value) || 0;
+                const paidFee = parseFloat(editForm.paid_fee) || 0;
+                const effectiveFee = Math.max(totalFee - discount, 0);
+                if (discount > 0 && totalFee > 0) {
+                  return (
+                    <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-xs font-semibold text-[var(--warning)]">
+                      {t("form.afterDiscount", {
+                        amount: `${commonT("currency")} ${formatNumber(effectiveFee)}`
+                      })}
+                    </div>
+                  );
+                }
+                if (paidFee > effectiveFee && effectiveFee > 0) {
+                  return (
+                    <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-xs font-semibold text-[var(--danger)]">
+                      {t("form.paidExceedsTotal")}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </FormField>
 
             <FormField label={t("form.status")} htmlFor="edit_status">
