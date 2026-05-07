@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -10,6 +11,8 @@ import {
   calculateNetSalary,
   loadSchoolDeductionIndex,
 } from "@/lib/salaries/effective-deductions";
+
+const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -35,6 +38,10 @@ export async function POST(req: NextRequest) {
     return jsonError("بيانات الأرشفة غير مكتملة.", 400);
   }
 
+  if (!MONTH_REGEX.test(month)) {
+    return jsonError("صيغة الشهر غير صالحة. استخدم YYYY-MM.", 400);
+  }
+
   const context = await resolveSchoolScopedActorContext(
     schoolId,
     {
@@ -49,6 +56,12 @@ export async function POST(req: NextRequest) {
       "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
       "status" in context ? context.status : 500,
     );
+  }
+
+  const requestedBranchId = typeof body?.branch_id === "string" && body.branch_id.trim() ? body.branch_id.trim() : null;
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
@@ -69,18 +82,27 @@ export async function POST(req: NextRequest) {
   const { from, to } = extractMonthRange(month);
 
   const [teachersResult, salariesResult, lecturesResult] = await Promise.all([
-    actorSupabase.from("teachers").select("id").eq("school_id", targetSchoolId),
-    actorSupabase
-      .from("salaries")
-      .select("id, teacher_id, gross_salary, deductions, month, paid_at, notes, teachers(full_name,subject)")
-      .eq("school_id", targetSchoolId)
-      .eq("month", month),
-    actorSupabase
-      .from("daily_lectures")
-      .select("id, teacher_id, grade, section, period, session_type, lecture_date, price")
-      .eq("school_id", targetSchoolId)
-      .gte("lecture_date", from)
-      .lte("lecture_date", to),
+    applyBranchScopeToQuery(
+      actorSupabase.from("teachers").select("id").eq("school_id", targetSchoolId),
+      branchScope.value,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("salaries")
+        .select("id, teacher_id, gross_salary, deductions, month, paid_at, notes, teachers(full_name,subject)")
+        .eq("school_id", targetSchoolId)
+        .eq("month", month),
+      branchScope.value,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("daily_lectures")
+        .select("id, teacher_id, grade, section, period, session_type, lecture_date, price")
+        .eq("school_id", targetSchoolId)
+        .gte("lecture_date", from)
+        .lte("lecture_date", to),
+      branchScope.value,
+    ),
   ]);
 
   if (teachersResult.error) {
@@ -157,15 +179,24 @@ export async function POST(req: NextRequest) {
     return jsonError(archiveError.message || "تعذر أرشفة بيانات الرواتب.", 500);
   }
 
-  const { error: purgeLecturesError } = await actorSupabase
-    .from("daily_lectures")
-    .delete()
-    .eq("school_id", targetSchoolId)
-    .gte("lecture_date", from)
-    .lte("lecture_date", to);
+  const { error: purgeLecturesError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("daily_lectures")
+      .delete()
+      .eq("school_id", targetSchoolId)
+      .gte("lecture_date", from)
+      .lte("lecture_date", to),
+    branchScope.value,
+  );
 
   if (purgeLecturesError) {
-    return jsonError(purgeLecturesError.message || "تمت الأرشفة لكن تعذر تصفير سجل المحاضرات للشهر.", 500);
+    // Rollback: remove the archive we just wrote to keep state consistent
+    await actorSupabase
+      .from("salary_archives")
+      .delete()
+      .eq("id", archive!.id)
+      .eq("school_id", targetSchoolId);
+    return jsonError(purgeLecturesError.message || "تعذر تصفير سجل المحاضرات — تم التراجع عن الأرشفة.", 500);
   }
 
   try {

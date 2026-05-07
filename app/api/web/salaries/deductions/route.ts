@@ -83,8 +83,13 @@ export async function POST(req: NextRequest) {
       ? body.deduction_date.trim()
       : new Date().toISOString().split("T")[0];
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!schoolId || !teacherId) {
     return jsonError("بيانات السحب غير مكتملة.", 400);
+  }
+
+  if (!UUID_REGEX.test(teacherId)) {
+    return jsonError("معرف الأستاذ غير صالح.", 400);
   }
 
   if (!Number.isFinite(amount) || amount <= 0) {

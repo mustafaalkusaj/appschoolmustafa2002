@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const teacherId = req.nextUrl.searchParams.get("teacherId");
   const view = req.nextUrl.searchParams.get("view")?.trim() || "details";
+  const monthParam = req.nextUrl.searchParams.get("month")?.trim() || "";
   const context = await resolveSchoolScopedActorContext(
     schoolId,
     {
@@ -50,17 +51,29 @@ export async function GET(req: NextRequest) {
     return rateLimited;
   }
 
+  const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
+  const validMonth = MONTH_REGEX.test(monthParam) ? monthParam : "";
+
   let query = applyBranchScopeToQuery(
     actorSupabase
       .from("daily_lectures")
       .select("id, teacher_id, grade, section, period, session_type, lecture_date, price, teachers(full_name,subject)")
       .eq("school_id", targetSchoolId)
-      .order("lecture_date", { ascending: false }),
+      .order("lecture_date", { ascending: false })
+      .limit(10_000),
     branchScope.value,
   );
 
   if (teacherId) {
     query = query.eq("teacher_id", teacherId);
+  }
+
+  if (validMonth) {
+    const [year, mon] = validMonth.split("-").map(Number);
+    const from = `${year}-${String(mon).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, mon, 0).getDate();
+    const to = `${year}-${String(mon).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    query = query.gte("lecture_date", from).lte("lecture_date", to);
   }
 
   const { data, error } = await query;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Users, Wallet, Banknote, AlertCircle } from "@/lib/icons";
 import { formatNumber } from "@/lib/formatting";
 import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
@@ -9,6 +10,7 @@ interface StatsCardsProps {
   totalBaseSalaries: number;
   totalPaidThisMonth: number;
   unpaidCount: number;
+  currency: string;
 }
 
 export function StatsCards({
@@ -16,30 +18,32 @@ export function StatsCards({
   totalBaseSalaries,
   totalPaidThisMonth,
   unpaidCount,
+  currency,
 }: StatsCardsProps) {
+  const t = useTranslations("salaries.summary");
   return (
     <KPIGrid>
       <StatsCard
-        label="الأساتذة النشطين"
+        label={t("activeTeachers")}
         value={activeTeachers}
         icon={Users}
         variant="primary"
       />
       <StatsCard
-        label="إجمالي الرواتب"
-        value={`د.ع ${formatNumber(totalBaseSalaries)}`}
+        label={t("totalBaseSalaries")}
+        value={`${currency} ${formatNumber(totalBaseSalaries)}`}
         icon={Wallet}
         variant="info"
       />
       <StatsCard
-        label="مدفوع هذا الشهر"
-        value={`د.ع ${formatNumber(totalPaidThisMonth)}`}
+        label={t("paidThisMonth")}
+        value={`${currency} ${formatNumber(totalPaidThisMonth)}`}
         icon={Banknote}
         variant="success"
       />
       <StatsCard
-        label="غير مدفوع"
-        value={`${formatNumber(unpaidCount)} مدرس`}
+        label={t("pendingPayout")}
+        value={formatNumber(unpaidCount)}
         icon={AlertCircle}
         variant="warning"
       />

@@ -200,7 +200,7 @@ export default function SalariesPage() {
   const paidTeacherIds = useMemo(() => monthSalaries.map((s) => s.teacher_id), [monthSalaries]);
   const unpaidTeachers = useMemo(() => teachers.filter((t) => !paidTeacherIds.includes(t.id) && t.status === "active"), [teachers, paidTeacherIds]);
   const totalBaseSalaries = useMemo(() => teachers.filter((t) => t.status === "active").reduce((a, t) => a + t.base_salary, 0), [teachers]);
-  const totalPaidThisMonth = useMemo(() => monthSalaries.reduce((a, s) => a + ((s.gross_salary || 0) - (s.deductions || 0)), 0), [monthSalaries]);
+  const totalPaidThisMonth = useMemo(() => monthSalaries.reduce((a, s) => a + Math.max(0, (s.gross_salary || 0) - (s.deductions || 0)), 0), [monthSalaries]);
   const activeTeachers = useMemo(() => teachers.filter((t) => t.status === "active").length, [teachers]);
   const gradeOptions = useMemo(() => Array.from(new Set(classes.map((c) => c.grade))) as string[], [classes]);
   const isMainSection = activeSection === "main";
@@ -257,14 +257,14 @@ export default function SalariesPage() {
       const stats = await loadTeacherMonthLectures(selectedTeacher, salaryForm.month);
       if (canceled) return;
       setLectureSalaryCalc(stats);
-      let grossBase = parseInt(salaryForm.gross_salary) || 0;
+      let grossBase = parseFloat(salaryForm.gross_salary) || 0;
       if (selectedTeacher.salary_type === "fixed") grossBase = Number(selectedTeacher.base_salary) || 0;
       else if (selectedTeacher.salary_type === "hourly") grossBase = stats.total;
       else if (selectedTeacher.salary_type === "mixed") grossBase = (Number(selectedTeacher.base_salary) || 0) + stats.total;
       setSalaryForm((prev) => ({ ...prev, gross_salary: grossBase.toString() }));
     })();
     return () => { canceled = true; };
-  }, [showPaySalary, selectedTeacher, salaryForm.month, salaryForm.gross_salary, schoolId, loadTeacherMonthLectures]);
+  }, [showPaySalary, selectedTeacher, salaryForm.month, schoolId, loadTeacherMonthLectures]);
 
   // Operations
   const openTeacherAdd = async () => { await ensureReferenceData(); setTeacherEditId(null); setTeacherForm(EMPTY_TEACHER_FORM); setTeacherModalError(""); setShowTeacherModal(true); };
@@ -310,8 +310,8 @@ export default function SalariesPage() {
     if (selectedTeacher.salary_type === "fixed") gross = Number(selectedTeacher.base_salary) || 0;
     else if (selectedTeacher.salary_type === "hourly") gross = lectureSalaryCalc.total;
     else if (selectedTeacher.salary_type === "mixed") gross = (Number(selectedTeacher.base_salary) || 0) + lectureSalaryCalc.total;
-    else gross = parseInt(salaryForm.gross_salary) || Number(selectedTeacher.base_salary) || 0;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<SalaryPaymentResponse>("/api/web/salaries/pay", { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ school_id: schoolId, teacher_id: selectedTeacher.id, gross_salary: gross, deductions: parseInt(salaryForm.deductions) || 0, month: salaryForm.month, notes: salaryForm.notes || null }) });
+    else gross = parseFloat(salaryForm.gross_salary) || Number(selectedTeacher.base_salary) || 0;
+    const { response, payload } = await fetchJsonWithAuthorizedSession<SalaryPaymentResponse>("/api/web/salaries/pay", { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ school_id: schoolId, teacher_id: selectedTeacher.id, gross_salary: gross, deductions: parseFloat(salaryForm.deductions) || 0, month: salaryForm.month, notes: salaryForm.notes || null }) });
     if (!response.ok) setError(payload?.error?.message || "تعذر صرف الراتب.");
     else { setSuccess(`تم دفع الراتب بنجاح ✓`); setShowPaySalary(false); fetchAll(); setTimeout(() => setSuccess(""), 3000); }
     setSavingSalary(false);
@@ -598,7 +598,7 @@ export default function SalariesPage() {
             الشهر: salary.month,
             الإجمالي: salary.gross_salary,
             الخصومات: salary.deductions || 0,
-            الصافي: (salary.gross_salary || 0) - (salary.deductions || 0),
+            الصافي: Math.max(0, (salary.gross_salary || 0) - (salary.deductions || 0)),
           }))
         ),
         "الرواتب"
@@ -666,7 +666,7 @@ export default function SalariesPage() {
   };
 
   const printSalarySlip = (salary: (typeof salaries)[number]) => {
-    const net = (salary.gross_salary || 0) - (salary.deductions || 0);
+    const net = Math.max(0, (salary.gross_salary || 0) - (salary.deductions || 0));
     openPrintWindow(
       isEnglish ? "Salary slip" : "قسيمة راتب",
       escapeHtml(salary.teachers?.full_name || (isEnglish ? "Teacher account" : "سجل الأستاذ")),

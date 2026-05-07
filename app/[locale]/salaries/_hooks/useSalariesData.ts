@@ -123,6 +123,7 @@ export function useSalariesData(
   const [reportLoading, setReportLoading] = useState(false);
 
   const getBranchId = useCallback(async (): Promise<string | null> => {
+    if (currentBranchId) return currentBranchId;
     if (!schoolId) return null;
     const { data } = await supabase
       .from("branches")
@@ -130,7 +131,7 @@ export function useSalariesData(
       .eq("school_id", schoolId)
       .limit(1);
     return data?.[0]?.id ?? null;
-  }, [schoolId]);
+  }, [schoolId, currentBranchId]);
 
   const applyReferencePayload = useCallback((payload: BootstrapPayload) => {
     const classesData = payload.classes ?? [];
@@ -184,8 +185,8 @@ export function useSalariesData(
         setArchivesLoaded(true);
       }
 
-      const warningText = (payload?.warnings ?? []).join(" ");
-      setError(warningText);
+      const warnings = payload?.warnings ?? [];
+      if (warnings.length > 0) setError(warnings.join(" "));
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات الرواتب.");
     } finally {
@@ -348,7 +349,6 @@ export function useSalariesData(
       }>(`/api/web/salaries/lectures?${params.toString()}`)
     );
     if (!response.ok) {
-      console.error("Error loading lectures:", payload?.error?.message || "unexpected error");
       return { count: 0, total: 0 };
     }
     return {

@@ -80,7 +80,8 @@ export async function PATCH(
 ) {
   const { teacherId } = await params;
   const normalizedTeacherId = teacherId.trim();
-  if (!normalizedTeacherId) {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!normalizedTeacherId || !UUID_REGEX.test(normalizedTeacherId)) {
     return jsonError("معرف الأستاذ غير صالح.", 400);
   }
 
