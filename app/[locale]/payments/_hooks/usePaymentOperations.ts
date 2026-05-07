@@ -272,12 +272,17 @@ export function usePaymentOperations(
           return;
         }
 
-        // Force reload student payments to ensure we have fresh state
-        await loadStudentPayments(student.id, { force: true });
-
         // Update student financials from response
         if (payload?.studentUpdate) {
           onUpdate(student.id, payload.studentUpdate);
+        }
+
+        // Append the new payment to local state immediately (no network round-trip)
+        if (payload?.payment) {
+          setPaymentsByStudent((current) => ({
+            ...current,
+            [student.id]: [...(current[student.id] ?? []), payload.payment!],
+          }));
         }
 
         // Add the new payment and log payment year
@@ -303,7 +308,7 @@ export function usePaymentOperations(
         setSaving(false);
       }
     },
-    [canAddPayments, resolvedSchoolId, onError, onPaymentCreated, onSuccess, currentBranchId, loadStudentPayments]
+    [canAddPayments, resolvedSchoolId, onError, onPaymentCreated, onSuccess, currentBranchId, setPaymentsByStudent]
   );
 
   const deletePayment = useCallback(
@@ -353,14 +358,11 @@ export function usePaymentOperations(
           onUpdate(studentId, payload.studentUpdate);
         }
 
-        // Remove payment from local state
+        // Remove payment from local state immediately
         setPaymentsByStudent((current) => ({
           ...current,
           [studentId]: (current[studentId] ?? []).filter((payment) => payment.id !== paymentId),
         }));
-
-        // Force reload fresh payments to ensure consistency
-        await loadStudentPayments(studentId, { force: true });
 
         onDecrementCount();
 
@@ -376,7 +378,7 @@ export function usePaymentOperations(
         onError?.(errMsg);
       }
     },
-    [canDeletePayments, resolvedSchoolId, onError, loadStudentPayments]
+    [canDeletePayments, resolvedSchoolId, onError, setPaymentsByStudent]
   );
 
   const openPaymentModal = useCallback(

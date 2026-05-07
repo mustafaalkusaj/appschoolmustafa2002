@@ -77,6 +77,10 @@ export default function StudentsPage() {
     pagedStudents,
     totalCount,
     totalPages,
+    backgroundReload,
+    addStudentOptimistically,
+    updateStudentOptimistically,
+    removeStudentOptimistically,
     pagedLoading,
     pagedError,
     reload,
@@ -137,6 +141,10 @@ export default function StudentsPage() {
       openEdit: modals.openEdit,
     },
     reload,
+    backgroundReload,
+    addStudentOptimistically,
+    updateStudentOptimistically,
+    removeStudentOptimistically,
   });
 
   const print = useStudentsPrint({

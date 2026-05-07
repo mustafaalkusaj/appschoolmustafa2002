@@ -36,6 +36,10 @@ export interface UseStudentsDataReturn {
   pagedLoading: boolean;
   pagedError: string | null;
   reload: () => void;
+  backgroundReload: () => Promise<void>;
+  addStudentOptimistically: (student: StudentWithFees) => void;
+  updateStudentOptimistically: (id: string, update: Partial<StudentWithFees>) => void;
+  removeStudentOptimistically: (id: string) => void;
   studentsMeta: StudentsMetaPayload;
   classFees: ClassFee[];
   allStudentsDataset: StudentWithFees[];
@@ -120,7 +124,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     filterSection,
   ].join("::");
 
-  const { rows, totalCount, error: pagedError, loading: pagedLoading, reload } = usePagedSupabaseList<StudentWithFees>({
+  const { rows, totalCount, error: pagedError, loading: pagedLoading, reload, backgroundReload, addItem, removeItem, updateItem } = usePagedSupabaseList<StudentWithFees>({
     enabled: Boolean(profile && !scopeLoading),
     page,
     pageSize,
@@ -272,10 +276,14 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     pagedLoading,
     pagedError,
     reload,
+    backgroundReload,
+    addStudentOptimistically: addItem,
+    updateStudentOptimistically: updateItem,
+    removeStudentOptimistically: removeItem,
     studentsMeta,
     classFees,
     allStudentsDataset,
     datasetLoading,
     loadStudentsDataset,
-  }), [pagedStudents, totalCount, totalPages, setTotalPages, pagedLoading, pagedError, reload, studentsMeta, classFees, allStudentsDataset, datasetLoading, loadStudentsDataset]);
+  }), [pagedStudents, totalCount, totalPages, setTotalPages, pagedLoading, pagedError, reload, backgroundReload, addItem, updateItem, removeItem, studentsMeta, classFees, allStudentsDataset, datasetLoading, loadStudentsDataset]);
 }

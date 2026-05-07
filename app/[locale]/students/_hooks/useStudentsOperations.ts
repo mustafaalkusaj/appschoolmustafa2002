@@ -53,6 +53,10 @@ export interface UseStudentsOperationsOptions {
     openEdit: (student: StudentWithFees) => void;
   };
   reload: () => void;
+  backgroundReload: () => Promise<void>;
+  addStudentOptimistically: (student: StudentWithFees) => void;
+  updateStudentOptimistically: (id: string, update: Partial<StudentWithFees>) => void;
+  removeStudentOptimistically: (id: string) => void;
 }
 
 const IMPORT_COLUMN_ALIASES = {
@@ -99,6 +103,10 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     currentBranchId: activeBranchIdFromUI,
     modals,
     reload,
+    backgroundReload,
+    addStudentOptimistically,
+    updateStudentOptimistically,
+    removeStudentOptimistically,
   } = options;
   const isEnglish = locale === "en";
   const copy = useMemo(() => ({
@@ -264,11 +272,35 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       modals.setAddStep(1);
       modals.setAccountCard((payload?.accountCard as ManagedUserAccountCard | null) ?? null);
       modals.setForm(DEFAULT_STUDENT_FORM);
-      reload();
+      const newStudentId = (payload as { user?: { student_id?: string; id?: string } } | null)?.user?.student_id
+        ?? (payload as { user?: { student_id?: string; id?: string } } | null)?.user?.id
+        ?? crypto.randomUUID();
+      const totalFee = parseFormNumber(modals.form.total_fee);
+      const paidFee = parseFormNumber(modals.form.paid_fee);
+      const discountValue = parseFormNumber(modals.form.discount_value);
+      addStudentOptimistically({
+        id: newStudentId,
+        school_id: school_id,
+        branch_id: resolvedBranchId ?? undefined,
+        full_name: modals.form.full_name,
+        phone: modals.form.phone || null,
+        class_name: modals.form.class_name,
+        section: modals.form.section || null,
+        address: modals.form.address || null,
+        total_fee: totalFee,
+        paid_fee: paidFee,
+        discount_value: discountValue,
+        remaining_fee: totalFee - paidFee,
+        status: "active",
+        auth_user_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      } as StudentWithFees);
+      void backgroundReload();
       setTimeout(() => modals.setSuccess(""), 4000);
     }
     modals.setSaving(false);
-  }, [canManageStudentAccounts, copy.addSchoolBranchFirst, copy.createFailed, copy.createdSuccess, copy.noCreatePermission, getSchoolBranch, modals, reload, profile, locale, activeBranchIdFromUI]);
+  }, [canManageStudentAccounts, copy.addSchoolBranchFirst, copy.createFailed, copy.createdSuccess, copy.noCreatePermission, getSchoolBranch, modals, backgroundReload, addStudentOptimistically, profile, locale, activeBranchIdFromUI]);
 
   const handleEdit = useCallback(async (e: React.FormEvent) => {
     if (!canEditStudents) {
@@ -321,11 +353,27 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       } catch { /* keep update successful even if sync fails */ }
       modals.setSuccess(copy.updateSuccess);
       modals.setShowEdit(false);
-      reload();
+      const editedId = modals.selectedStudent.id;
+      const totalFee = parseFormNumber(modals.editForm.total_fee);
+      const paidFee = parseFormNumber(modals.editForm.paid_fee);
+      const discountValue = parseFormNumber(modals.editForm.discount_value);
+      updateStudentOptimistically(editedId, {
+        full_name: modals.editForm.full_name,
+        phone: modals.editForm.phone || null,
+        class_name: modals.editForm.class_name,
+        section: modals.editForm.section || null,
+        address: modals.editForm.address || null,
+        total_fee: totalFee,
+        paid_fee: paidFee,
+        discount_value: discountValue,
+        remaining_fee: totalFee - paidFee,
+        status: modals.editForm.status,
+        updated_at: new Date().toISOString(),
+      });
       setTimeout(() => modals.setSuccess(""), 3000);
     }
     modals.setSaving(false);
-  }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, reload]);
+  }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, updateStudentOptimistically]);
 
   const changeStatus = useCallback(async (student: StudentWithFees, status: StudentStatus, msg: string) => {
     if (!canEditStudents) {
@@ -352,9 +400,9 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       setActiveTab(status);
     }
     modals.setSuccess(msg);
-    reload();
+    removeStudentOptimistically(student.id);
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, reload, setActiveTab]);
+  }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab]);
 
   const initTransfer = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
@@ -401,9 +449,9 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       setActiveTab("transferred");
     }
 
-    reload();
+    removeStudentOptimistically(modals.selectedStudent?.id ?? "");
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [modals, copy, getSchoolBranch, isEnglish, reload, setActiveTab]);
+  }, [modals, copy, getSchoolBranch, isEnglish, removeStudentOptimistically, setActiveTab]);
 
   const initSuspend = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
@@ -464,10 +512,10 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
 
       setActiveTab(nextTab);
       modals.setSuccess(successMsg);
-      reload();
+      removeStudentOptimistically(student.id);
       setTimeout(() => modals.setSuccess(""), 3000);
     })();
-  }, [modals, copy, getSchoolBranch, isEnglish, reload, setActiveTab]);
+  }, [modals, copy, getSchoolBranch, isEnglish, removeStudentOptimistically, setActiveTab]);
 
   const initRestore = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
@@ -497,10 +545,10 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
 
       setActiveTab("active");
       modals.setSuccess(isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓");
-      reload();
+      removeStudentOptimistically(student.id);
       setTimeout(() => modals.setSuccess(""), 3000);
     })();
-  }, [copy.selectSchoolBeforeEdit, getSchoolBranch, isEnglish, modals, reload, setActiveTab]);
+  }, [copy.selectSchoolBeforeEdit, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab]);
 
   const handleDeleteConfirmed = useCallback(async () => {
     if (!canDeleteStudents || !modals.selectedStudent) return;
@@ -521,13 +569,14 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       modals.setError(readApiError(payload, copy.genericError(isEnglish ? "Could not delete the student." : "تعذر حذف الطالب.")));
       return;
     }
+    const deletedId = modals.selectedStudent.id;
     modals.setShowDeleteConfirm(false);
     modals.setSelectedStudent(null);
     setActiveTab("deleted");
     modals.setSuccess(copy.deleteSuccess);
-    reload();
+    removeStudentOptimistically(deletedId);
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, reload, setActiveTab]);
+  }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab]);
 
   const exportExcel = useCallback(async (data: StudentWithFees[]) => {
     const XLSX = await loadXLSX();
@@ -683,7 +732,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         modals.setShowImport(false);
         modals.setImportPreview([]);
         if (modals.fileRef.current) modals.fileRef.current.value = "";
-        reload();
+        void backgroundReload();
         setTimeout(() => modals.setSuccess(""), 4000);
       }
     } catch {
@@ -691,7 +740,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     } finally {
       modals.setImporting(false);
     }
-  }, [canManageStudentAccounts, classFeeByName, copy, getSchoolBranch, modals, reload]);
+  }, [canManageStudentAccounts, classFeeByName, copy, getSchoolBranch, modals, backgroundReload]);
 
   const downloadTemplate = useCallback(async () => {
     const XLSX = await loadXLSX();
@@ -744,12 +793,12 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         modals.setRevealedPassword((resetPayload?.temporary_password as string | null) ?? null);
         modals.setSuccess(copy.openCardSuccess);
       }
-      void reload();
+      void backgroundReload();
       setTimeout(() => modals.setSuccess(""), 3000);
     } catch (err) {
       modals.setError(err instanceof Error ? err.message : copy.openCardError);
     }
-  }, [canManageStudentAccounts, copy, getSchoolBranch, modals, reload]);
+  }, [canManageStudentAccounts, copy, getSchoolBranch, modals, backgroundReload]);
 
   return useMemo(() => ({
     handleAdd,

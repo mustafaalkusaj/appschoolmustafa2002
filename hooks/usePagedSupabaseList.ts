@@ -32,7 +32,7 @@ export function usePagedSupabaseList<T>({
   const [error, setError] = useState<string | null>(null);
   const requestSequenceRef = useRef(0);
 
-  const load = useCallback(async (options?: { bypassCache?: boolean }) => {
+  const load = useCallback(async (options?: { bypassCache?: boolean; silent?: boolean }) => {
     const requestId = ++requestSequenceRef.current;
     if (!enabled) {
       setRows([]);
@@ -41,7 +41,7 @@ export function usePagedSupabaseList<T>({
       setError(null);
       return;
     }
-    setLoading(true);
+    if (!options?.silent) setLoading(true);
     setError(null);
     const from = Math.max(0, (page - 1) * pageSize);
     const to = from + pageSize - 1;
@@ -117,5 +117,39 @@ export function usePagedSupabaseList<T>({
     await load({ bypassCache: true });
   }, [load]);
 
-  return { rows, totalCount, loading, error, reload };
+  const backgroundReload = useCallback(async () => {
+    await load({ bypassCache: true, silent: true });
+  }, [load]);
+
+  const addItem = useCallback((item: T) => {
+    setRows((prev) => [item, ...prev]);
+    setTotalCount((prev) => prev + 1);
+    if (cacheKey && typeof window !== "undefined") {
+      const handle = `${cacheKey}::${refreshKey}::${page}::${pageSize}`;
+      try { window.sessionStorage.removeItem(handle); } catch { /* ignore */ }
+    }
+  }, [cacheKey, refreshKey, page, pageSize]);
+
+  const removeItem = useCallback((id: string) => {
+    setRows((prev) => prev.filter((item) => (item as { id: string }).id !== id));
+    setTotalCount((prev) => Math.max(0, prev - 1));
+    if (cacheKey && typeof window !== "undefined") {
+      const handle = `${cacheKey}::${refreshKey}::${page}::${pageSize}`;
+      try { window.sessionStorage.removeItem(handle); } catch { /* ignore */ }
+    }
+  }, [cacheKey, refreshKey, page, pageSize]);
+
+  const updateItem = useCallback((id: string, update: Partial<T>) => {
+    setRows((prev) =>
+      prev.map((item) =>
+        (item as { id: string }).id === id ? { ...item, ...update } : item
+      )
+    );
+    if (cacheKey && typeof window !== "undefined") {
+      const handle = `${cacheKey}::${refreshKey}::${page}::${pageSize}`;
+      try { window.sessionStorage.removeItem(handle); } catch { /* ignore */ }
+    }
+  }, [cacheKey, refreshKey, page, pageSize]);
+
+  return { rows, totalCount, loading, error, reload, backgroundReload, addItem, removeItem, updateItem };
 }
