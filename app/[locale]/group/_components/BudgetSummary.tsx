@@ -74,7 +74,7 @@ function EmptyBudgetYear({ label, year, t }: { label: string; year: number; t: T
   );
 }
 
-function DataQualityBadge({ quality, _t }: { quality: "high" | "medium" | "low"; t: TFn }) {
+function DataQualityBadge({ quality, _t }: { quality: "high" | "medium" | "low"; _t: TFn }) {
   const colors = {
     high: "bg-emerald-100 text-emerald-700",
     medium: "bg-amber-100 text-amber-700",
@@ -123,7 +123,7 @@ function BudgetYearSection({
 
         {/* Status badges */}
         <div className="flex flex-wrap items-center gap-2">
-          <DataQualityBadge quality={dataQuality} t={t} />
+          <DataQualityBadge quality={dataQuality} _t={t} />
           {isForecasted && (
             <span className="rounded-lg px-2.5 py-1 text-[10px] font-bold bg-blue-100 text-blue-700">
               ℹ Forecast
