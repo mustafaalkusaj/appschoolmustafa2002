@@ -489,7 +489,7 @@ async function fetchSummaryViaReportsRpc(actorSupabase: RouteSupabaseClient, sch
       totalFee: normalizeMetricNumber(source.total_fees),
       totalPaid: normalizeMetricNumber(source.total_paid),
       totalRemaining: normalizeMetricNumber(source.total_remaining),
-      collectedCount: 0,
+      collectedCount: normalizeMetricNumber(source.collected_count),
     } satisfies PaymentsSummary,
     totalPaymentCount: normalizeMetricNumber(source.payments_count),
   };

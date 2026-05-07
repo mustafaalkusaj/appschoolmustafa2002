@@ -15,8 +15,9 @@ export async function POST(req: NextRequest) {
   const schoolId = typeof body?.school_id === "string" ? body.school_id.trim() : "";
   const archiveYear = Number(body?.archive_year ?? 0);
 
-  if (!schoolId || !Number.isInteger(archiveYear) || archiveYear <= 0) {
-    return jsonError("بيانات الأرشفة غير مكتملة.", 400);
+  const currentYear = new Date().getFullYear();
+  if (!schoolId || !Number.isInteger(archiveYear) || archiveYear <= 0 || archiveYear > currentYear) {
+    return jsonError("بيانات الأرشفة غير مكتملة أو السنة غير صالحة.", 400);
   }
 
   const context = await resolveSchoolScopedActorContext(
@@ -127,20 +128,7 @@ export async function POST(req: NextRequest) {
     return jsonError("جدول الأرشيف السنوي غير موجود بعد. نفّذ ملف database_setup.sql في Supabase.", 500);
   }
 
-  const writeResult = existingArchive?.id
-    ? await actorSupabase
-        .from("account_archives")
-        .update(payload)
-        .eq("id", existingArchive.id)
-        .eq("school_id", targetSchoolId)
-        .select("*")
-        .single()
-    : await actorSupabase.from("account_archives").insert(payload).select("*").single();
-
-  if (writeResult.error || !writeResult.data) {
-    return jsonError(writeResult.error?.message || "تعذر حفظ الأرشيف السنوي.", 500);
-  }
-
+  // Run student promotion BEFORE saving archive — if promotion fails, nothing is persisted
   if (promotionPlan.updates.length > 0) {
     const groups = new Map<string, string[]>();
     for (const update of promotionPlan.updates) {
@@ -157,9 +145,23 @@ export async function POST(req: NextRequest) {
         .in("id", studentIdsForClass);
 
       if (promotionError) {
-        return jsonError("تم حفظ الأرشيف لكن تعذر ترحيل بعض الطلاب إلى الصف التالي.", 500);
+        return jsonError("تعذر ترحيل الطلاب إلى الصف التالي. لم يُحفظ الأرشيف.", 500);
       }
     }
+  }
+
+  const writeResult = existingArchive?.id
+    ? await actorSupabase
+        .from("account_archives")
+        .update(payload)
+        .eq("id", existingArchive.id)
+        .eq("school_id", targetSchoolId)
+        .select("*")
+        .single()
+    : await actorSupabase.from("account_archives").insert(payload).select("*").single();
+
+  if (writeResult.error || !writeResult.data) {
+    return jsonError(writeResult.error?.message || "تعذر حفظ الأرشيف السنوي.", 500);
   }
 
   invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);

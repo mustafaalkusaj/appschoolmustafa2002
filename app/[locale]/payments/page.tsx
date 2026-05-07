@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useTranslations } from "next-intl";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
@@ -25,6 +26,7 @@ import "./_components/payments.css";
 export default function PaymentsPage() {
   const t = useTranslations();
   const runtimeBranding = useRuntimeBranding();
+  const [pendingArchiveConfirm, setPendingArchiveConfirm] = React.useState(false);
   const {
     canAddPayments,
     canDeletePayments,
@@ -178,9 +180,7 @@ export default function PaymentsPage() {
                       archiving={archiveOpsHook.archiving}
                       paymentYears={metaHook.paymentYears}
                       canDeletePayments={canDeletePayments}
-                      onArchive={() =>
-                        archiveOpsHook.archiveAccountsYear(metaHook.updateArchives, metaHook.refreshMeta)
-                      }
+                      onArchive={() => setPendingArchiveConfirm(true)}
                       onViewDetail={archiveOpsHook.openArchiveDetail}
                       onExportArchive={handleArchiveExport}
                       archiveExportingId={archiveOpsHook.archiveExportingId}
@@ -236,6 +236,21 @@ export default function PaymentsPage() {
           setShowDropdown={paymentOpsHook.setShowDropdown}
           searchRef={paymentOpsHook.searchRef}
           onSelectStudent={paymentOpsHook.selectStudentForPayment}
+        />
+
+        {/* Archive Confirmation Dialog */}
+        <ConfirmDialog
+          open={pendingArchiveConfirm}
+          title={`أرشفة حسابات سنة ${archiveOpsHook.archiveYear || "—"}؟`}
+          description="ستُحفظ دفعات السنة في أرشيف دائم وسيُرحَّل الطلاب للصف التالي. هذه العملية لا يمكن التراجع عنها."
+          confirmLabel="أرشفة وترحيل"
+          tone="primary"
+          busy={archiveOpsHook.archiving}
+          onClose={() => setPendingArchiveConfirm(false)}
+          onConfirm={() => {
+            setPendingArchiveConfirm(false);
+            void archiveOpsHook.archiveAccountsYear(metaHook.updateArchives, metaHook.refreshMeta);
+          }}
         />
 
         {/* Delete Confirmation Dialog */}

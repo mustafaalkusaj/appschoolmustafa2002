@@ -8,11 +8,16 @@ import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ paymentId: string }> },
 ) {
   const { paymentId } = await params;
+  if (!paymentId || !UUID_REGEX.test(paymentId)) {
+    return jsonError("معرف الدفعة غير صالح.", 400);
+  }
   const body = await req.json().catch(() => null);
   const parsed = deletePaymentSchema.safeParse(body);
   if (!parsed.success) {
@@ -120,6 +125,7 @@ export async function DELETE(
   invalidateSchoolCacheDomains(targetSchoolId, [
     "dashboard-overview",
     "payments-meta",
+    "payments-list",
     "reports-overview",
   ]);
 

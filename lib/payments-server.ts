@@ -30,7 +30,8 @@ async function loadStudentPaymentRows(
     .from("payments")
     .select("amount")
     .eq("school_id", schoolId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .is("deleted_at", null);
 
   // Apply branch scope if provided (matches frontend behavior)
   let finalQuery = query;

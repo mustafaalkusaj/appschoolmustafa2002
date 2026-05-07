@@ -7,11 +7,16 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> },
 ) {
   const { studentId } = await params;
+  if (!studentId || !UUID_REGEX.test(studentId)) {
+    return jsonError("معرف الطالب غير صالح.", 400);
+  }
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   const context = await resolveSchoolScopedActorContext(
     schoolId,

@@ -71,7 +71,8 @@ export function PaymentsTable({
       {/* Mobile Cards */}
       <div className="grid gap-4 lg:hidden">
         {students.map((s, i) => {
-          const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
+          const effectiveFee = Math.max((s.total_fee ?? 0) - (s.discount_value ?? 0), 0);
+          const pct = effectiveFee > 0 ? Math.min(100, Math.round(((s.paid_fee ?? 0) / effectiveFee) * 100)) : 0;
           const status = getPaymentStatus(s.remaining_fee, s.total_fee);
 
           return (
@@ -198,7 +199,8 @@ export function PaymentsTable({
           </thead>
           <tbody>
             {students.map((s, i) => {
-              const pct = s.total_fee > 0 ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100)) : 0;
+              const effectiveFee = Math.max((s.total_fee ?? 0) - (s.discount_value ?? 0), 0);
+              const pct = effectiveFee > 0 ? Math.min(100, Math.round(((s.paid_fee ?? 0) / effectiveFee) * 100)) : 0;
               const status = getPaymentStatus(s.remaining_fee, s.total_fee);
 
               return (

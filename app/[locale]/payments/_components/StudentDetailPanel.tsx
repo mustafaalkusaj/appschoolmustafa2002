@@ -43,7 +43,8 @@ export function StudentDetailPanel({
 
   if (!student) return null;
 
-  const progressPct = student.total_fee > 0 ? Math.min(100, Math.round((student.paid_fee / student.total_fee) * 100)) : 0;
+  const effectiveFee = Math.max((student.total_fee ?? 0) - (student.discount_value ?? 0), 0);
+  const progressPct = effectiveFee > 0 ? Math.min(100, Math.round(((student.paid_fee ?? 0) / effectiveFee) * 100)) : 0;
 
   return (
     <Modal open={show} onClose={onClose} size="full" className="max-h-[88vh] overflow-hidden">

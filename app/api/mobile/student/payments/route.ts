@@ -11,11 +11,13 @@ export async function GET(req: NextRequest) {
   const params = parseMobileListParams(req, { limit: 20, maxLimit: 100 });
   const result = await queryStudentPayments(context.value, params);
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
     gate: result.gate,
     items: result.items,
     page: params.page,
     limit: params.limit,
   });
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  return response;
 }

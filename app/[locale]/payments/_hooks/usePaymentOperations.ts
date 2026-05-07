@@ -228,8 +228,8 @@ export function usePaymentOperations(
       if (!student) return;
       setSaving(true);
 
-      const amount = parseInt(form.amount);
-      if (!amount || amount <= 0) {
+      const amount = parseFloat(form.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
         onError?.("المبلغ يجب أن يكون أكبر من صفر");
         setSaving(false);
         return;
@@ -273,7 +273,7 @@ export function usePaymentOperations(
         }
 
         // Force reload student payments to ensure we have fresh state
-        const _freshPayments = await loadStudentPayments(student.id, { force: true });
+        await loadStudentPayments(student.id, { force: true });
 
         // Update student financials from response
         if (payload?.studentUpdate) {
@@ -367,7 +367,7 @@ export function usePaymentOperations(
         if (payload?.warning) {
           onError?.(`تم حذف الدفعة لكن تعذر مزامنة رصيد الطالب بالكامل: ${payload.warning}`);
         } else {
-          onError?.("تم حذف الدفعة بنجاح ✓");
+          onSuccess?.("تم حذف الدفعة بنجاح ✓");
         }
 
         onMetaRefresh();
