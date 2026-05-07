@@ -285,6 +285,10 @@ function validateCommonManagedUserInput(
       fieldErrors["student.discount_value"] = "الخصم لا يمكن أن يكون أكبر من إجمالي الرسوم.";
     }
 
+    const studentBranchId = typeof studentPayload.branch_id === "string" && studentPayload.branch_id.trim()
+      ? studentPayload.branch_id.trim()
+      : undefined;
+
     student = {
       class_name: className,
       section: normalizeNullableString(studentPayload.section, 64),
@@ -292,14 +296,20 @@ function validateCommonManagedUserInput(
       total_fee: totalFee,
       paid_fee: paidFee,
       discount_value: discountValue,
+      branch_id: studentBranchId,
     };
   }
 
   if (role === "teacher") {
+    const teacherBranchId = typeof teacherPayload.branch_id === "string" && teacherPayload.branch_id.trim()
+      ? teacherPayload.branch_id.trim()
+      : undefined;
+
     teacher = {
       specialization: normalizeNullableString(teacherPayload.specialization, 120),
       notes: normalizeNullableString(teacherPayload.notes, 500),
       assignments: normalizeTeacherAssignments(teacherPayload.assignments, fieldErrors),
+      branch_id: teacherBranchId,
     };
   }
 
