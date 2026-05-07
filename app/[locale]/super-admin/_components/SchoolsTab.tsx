@@ -1,11 +1,13 @@
 "use client";
 
-import { School, Plus, RefreshCw, FileDown, PencilLine, Trash2, Ban, BadgeCheck, Upload, Download } from "@/lib/icons";
+import { useState } from "react";
+import { School, Plus, RefreshCw, FileDown, PencilLine, Trash2, Ban, BadgeCheck, Upload, Download, ReceiptText } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { cx, formatDate, statusTone, calculateDaysLeft, isSubscriptionExpired } from "./utils";
 import type { SchoolRecord, SubscriptionRecord } from "./types";
 import { exportToCSV } from "@/lib/export";
 import { PLAN_LABELS, SUBSCRIPTION_STATUS_LABELS } from "./types";
+import { ReceiptConfigModal } from "./ReceiptConfigModal";
 
 interface SchoolsTabProps {
   schools: SchoolRecord[];
@@ -38,6 +40,7 @@ export function SchoolsTab({
   importingSchoolId,
   onRefresh,
 }: SchoolsTabProps) {
+  const [receiptConfigSchool, setReceiptConfigSchool] = useState<SchoolRecord | null>(null);
   return (
     <SectionCard
       title={`إدارة المدارس (${filteredSchools.length})`}
@@ -145,6 +148,10 @@ export function SchoolsTab({
                         <Download size={16} />
                         تحميل البيانات
                       </button>
+                      <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => setReceiptConfigSchool(school)}>
+                        <ReceiptText size={16} />
+                        تخصيص الإيصال
+                      </button>
                       <label className="ui-button ui-button--secondary inline-flex cursor-pointer items-center gap-2">
                         <Upload size={16} />
                         {importingSchoolId === school.id ? "جارٍ الاستيراد..." : "استيراد ملف"}
@@ -185,6 +192,9 @@ export function SchoolsTab({
             );
           })}
         </div>
+      )}
+      {receiptConfigSchool && (
+        <ReceiptConfigModal school={receiptConfigSchool} onClose={() => setReceiptConfigSchool(null)} />
       )}
     </SectionCard>
   );
