@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -50,14 +50,12 @@ export async function GET(req: NextRequest) {
     return rateLimited;
   }
 
-  let query = applyBranchScopeToQuery(
-    actorSupabase
-      .from("daily_lectures")
-      .select("id, teacher_id, grade, section, period, session_type, lecture_date, price, teachers(full_name,subject)")
-      .eq("school_id", targetSchoolId)
-      .order("lecture_date", { ascending: false }),
-    branchScope.value,
-  );
+  let query = actorSupabase
+    .from("daily_lectures")
+    .select("id, teacher_id, grade, section, period, session_type, lecture_date, price, teachers(full_name,subject)")
+    .eq("school_id", targetSchoolId)
+    .order("lecture_date", { ascending: false })
+    .limit(10_000);
 
   if (teacherId) {
     query = query.eq("teacher_id", teacherId);

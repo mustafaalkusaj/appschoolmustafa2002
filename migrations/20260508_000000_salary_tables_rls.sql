@@ -76,7 +76,7 @@ CREATE POLICY deductions_delete ON deductions
   );
 
 -- ============================================================
--- 2. DAILY_LECTURES
+-- 2. DAILY_LECTURES (school-level only — no branch_id column)
 -- ============================================================
 ALTER TABLE daily_lectures ENABLE ROW LEVEL SECURITY;
 
@@ -89,8 +89,7 @@ CREATE POLICY daily_lectures_select ON daily_lectures
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin'  AND daily_lectures.school_id = up.school_id)
-           OR (up.scope_level IN ('branch_user', 'restricted') AND daily_lectures.school_id = up.school_id AND daily_lectures.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user', 'restricted') AND daily_lectures.school_id = up.school_id)
          )
     )
   );
@@ -104,8 +103,7 @@ CREATE POLICY daily_lectures_insert ON daily_lectures
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin'  AND daily_lectures.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user'  AND daily_lectures.school_id = up.school_id AND daily_lectures.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND daily_lectures.school_id = up.school_id)
          )
     )
   );
@@ -119,8 +117,7 @@ CREATE POLICY daily_lectures_update ON daily_lectures
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin' AND daily_lectures.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user' AND daily_lectures.school_id = up.school_id AND daily_lectures.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND daily_lectures.school_id = up.school_id)
          )
     )
   )
@@ -130,8 +127,7 @@ CREATE POLICY daily_lectures_update ON daily_lectures
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin' AND daily_lectures.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user' AND daily_lectures.school_id = up.school_id AND daily_lectures.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND daily_lectures.school_id = up.school_id)
          )
     )
   );
@@ -145,8 +141,7 @@ CREATE POLICY daily_lectures_delete ON daily_lectures
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin' AND daily_lectures.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user' AND daily_lectures.school_id = up.school_id AND daily_lectures.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND daily_lectures.school_id = up.school_id)
          )
     )
   );

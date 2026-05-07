@@ -84,16 +84,13 @@ export async function GET(req: NextRequest) {
           .eq("school_id", context.value.targetSchoolId),
         branchScope.value,
       ).maybeSingle(),
-      applyBranchScopeToQuery(
-        context.value.actorSupabase
-          .from("daily_lectures")
-          .select("price")
-          .eq("teacher_id", teacherId)
-          .eq("school_id", context.value.targetSchoolId)
-          .gte("lecture_date", range.from)
-          .lte("lecture_date", range.to),
-        branchScope.value,
-      ),
+      context.value.actorSupabase
+        .from("daily_lectures")
+        .select("price")
+        .eq("teacher_id", teacherId)
+        .eq("school_id", context.value.targetSchoolId)
+        .gte("lecture_date", range.from)
+        .lte("lecture_date", range.to),
     ]);
 
     if (teacherError || !teacher?.id) {
@@ -121,16 +118,13 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const { data, error } = await applyBranchScopeToQuery(
-    context.value.actorSupabase
-      .from("daily_lectures")
-      .select("lecture_date")
-      .eq("school_id", context.value.targetSchoolId)
-      .gte("lecture_date", range.from)
-      .lte("lecture_date", range.to)
-      .order("lecture_date", { ascending: false }),
-    branchScope.value,
-  );
+  const { data, error } = await context.value.actorSupabase
+    .from("daily_lectures")
+    .select("lecture_date")
+    .eq("school_id", context.value.targetSchoolId)
+    .gte("lecture_date", range.from)
+    .lte("lecture_date", range.to)
+    .order("lecture_date", { ascending: false });
 
   if (error) {
     return jsonError(error.message || "تعذر تحميل تقويم المحاضرات.", 500);
