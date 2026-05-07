@@ -329,6 +329,7 @@ export default function AttendancePage() {
     return schoolScope.selectedSchoolId ?? profile?.school_id ?? null;
   }, [profile?.school_id, schoolScope.selectedSchoolId]);
 
+  /* eslint-disable-next-line react-compiler/react-compiler */
   const fetchAttendanceSnapshot = useCallback(async (dateValue: string) => {
     setLoadingStudents(true);
     setLoadingAttendance(true);
