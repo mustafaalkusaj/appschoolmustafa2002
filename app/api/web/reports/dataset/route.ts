@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
       query = query.eq("section", sectionName);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.limit(10_000);
     if (error) throw error;
     const students = data ?? [];
 
@@ -169,7 +169,8 @@ export async function GET(req: NextRequest) {
         .from("payments")
         .select("id, amount, created_at, payment_method, receipt_number, notes, students(full_name,class_name)")
         .eq("school_id", targetSchoolId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(10_000),
       branchScope.value,
     );
     if (error) throw error;
@@ -185,7 +186,8 @@ export async function GET(req: NextRequest) {
         .from("expenses")
         .select("id, amount, expense_date, recipient, receipt_number, notes, expense_types(name)")
         .eq("school_id", targetSchoolId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(10_000),
       branchScope.value,
     );
     if (error) throw error;
@@ -201,7 +203,8 @@ export async function GET(req: NextRequest) {
         .from("salaries")
         .select("id, gross_salary, deductions, month, paid_at, is_paid, teachers(full_name,subject)")
         .eq("school_id", targetSchoolId)
-        .order("paid_at", { ascending: false }),
+        .order("paid_at", { ascending: false })
+        .limit(10_000),
       branchScope.value,
     );
     if (error) throw error;

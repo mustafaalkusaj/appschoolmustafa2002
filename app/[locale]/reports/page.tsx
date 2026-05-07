@@ -236,12 +236,14 @@ export default function ReportsPage() {
   }>({});
   const [metrics, setMetrics] = useState<ReportsMetrics>(EMPTY_REPORTS_METRICS);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<DatasetType | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!profile) return;
 
     setLoading(true);
+    setFetchError(null);
     try {
       const schoolId = await resolveSchoolIdForProfile(profile, {
         selectedSchoolId: schoolScope.selectedSchoolId,
@@ -256,20 +258,21 @@ export default function ReportsPage() {
       const params = new URLSearchParams({ schoolId });
       if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
 
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics }>(
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics; error?: { message?: string } }>(
         `/api/web/reports/overview?${params.toString()}&t=${Date.now()}`,
         { cache: "no-store" }
       );
 
       if (!response.ok) {
-        throw new Error(reportCopy.loadReportsFailed);
+        throw new Error((payload as { error?: { message?: string } })?.error?.message || reportCopy.loadReportsFailed);
       }
 
       datasetCacheRef.current = {};
       setMetrics(payload?.metrics ?? EMPTY_REPORTS_METRICS);
-    } catch {
+    } catch (err) {
       datasetCacheRef.current = {};
       setMetrics(EMPTY_REPORTS_METRICS);
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadReportsFailed);
     } finally {
       setLoading(false);
     }
@@ -479,14 +482,19 @@ export default function ReportsPage() {
           [reportCopy.totalFees]: item.total_fee || 0,
           [reportCopy.paid]: item.paid_fee || 0,
           [reportCopy.remaining]: item.remaining_fee || 0,
+          [reportCopy.phone]: item.phone || "",
+          [reportCopy.address]: item.address || "",
         })),
       },
       {
         name: reportCopy.paymentsSheet,
         rows: payments.map((item) => ({
           [reportCopy.student]: item.students?.full_name || "—",
+          [reportCopy.className]: item.students?.class_name || "—",
           [reportCopy.amount]: item.amount || 0,
+          [reportCopy.paymentMethod]: paymentMethodLabel(item.payment_method),
           [reportCopy.date]: formatDate(item.created_at ?? ""),
+          [reportCopy.receiptNumber]: item.receipt_number || "—",
         })),
       },
       {
@@ -495,15 +503,20 @@ export default function ReportsPage() {
           [reportCopy.type]: item.expense_types?.name || "—",
           [reportCopy.amount]: item.amount || 0,
           [reportCopy.date]: formatDate(item.expense_date ?? ""),
+          [reportCopy.recipient]: item.recipient || "—",
+          [reportCopy.receiptNumber]: item.receipt_number || "—",
         })),
       },
       {
         name: reportCopy.salariesSheet,
         rows: salaries.map((item) => ({
           [reportCopy.teacher]: item.teachers?.full_name || "—",
+          [reportCopy.subject]: item.teachers?.subject || "—",
           [reportCopy.month]: item.month || "—",
+          [reportCopy.gross]: item.gross_salary || 0,
+          [reportCopy.deductions]: item.deductions || 0,
           [reportCopy.net]: (item.gross_salary || 0) - (item.deductions || 0),
-          [reportCopy.paidAt.replaceAll(" ", "_")]: item.paid_at ? formatDate(item.paid_at) : "—",
+          [reportCopy.paidAt]: item.paid_at ? formatDate(item.paid_at) : "—",
         })),
       },
     ];
@@ -745,6 +758,21 @@ export default function ReportsPage() {
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <div className="h-12 w-12 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
                   <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">{reportCopy.analyzing}</span>
+                </div>
+              ) : fetchError ? (
+                <div className="rounded-2xl border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-6 flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-[var(--danger)]/10 flex items-center justify-center text-[var(--danger)] shrink-0">
+                    <span className="text-lg font-black">!</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-black text-[var(--danger)]">{fetchError}</div>
+                  </div>
+                  <button
+                    className="shrink-0 h-9 px-4 rounded-xl bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-black hover:bg-[var(--danger)]/20 transition-colors"
+                    onClick={() => void fetchAll()}
+                  >
+                    {isEnglish ? "Retry" : "إعادة المحاولة"}
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-8">

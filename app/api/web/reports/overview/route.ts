@@ -60,10 +60,8 @@ async function loadFallbackMetrics(
   schoolId: string,
   branchScope: ResolvedBranchScope,
   currentMonth: string,
-  todayKey: string,
+  todayDate: string,
 ) {
-  console.log("[loadFallbackMetrics DEBUG] Starting - schoolId:", schoolId, "branchScope:", branchScope);
-
   const [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult] = await Promise.allSettled([
     applyBranchScopeToQuery(
       actorSupabase
@@ -103,56 +101,40 @@ async function loadFallbackMetrics(
     ),
   ]);
 
-  console.log("[loadFallbackMetrics DEBUG] Query results status:", {
-    students: studentsResult.status,
-    classFees: classFeesResult.status,
-    payments: paymentsResult.status,
-    expenses: expensesResult.status,
-    salaries: salariesResult.status,
-  });
-
   const students =
     studentsResult.status === "fulfilled"
       ? studentsResult.value.error
-        ? (console.log("[loadFallbackMetrics DEBUG] Students query error:", studentsResult.value.error), [])
+        ? []
         : ((studentsResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : (console.log("[loadFallbackMetrics DEBUG] Students query rejected"), []);
+      : [];
 
   const classFees =
     classFeesResult.status === "fulfilled"
       ? classFeesResult.value.error
-        ? (console.log("[loadFallbackMetrics DEBUG] ClassFees query error:", classFeesResult.value.error), [])
+        ? []
         : ((classFeesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : (console.log("[loadFallbackMetrics DEBUG] ClassFees query rejected"), []);
+      : [];
 
   const payments =
     paymentsResult.status === "fulfilled"
       ? paymentsResult.value.error
-        ? (console.log("[loadFallbackMetrics DEBUG] Payments query error:", paymentsResult.value.error), [])
+        ? []
         : ((paymentsResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : (console.log("[loadFallbackMetrics DEBUG] Payments query rejected"), []);
+      : [];
 
   const expenses =
     expensesResult.status === "fulfilled"
       ? expensesResult.value.error
-        ? (console.log("[loadFallbackMetrics DEBUG] Expenses query error:", expensesResult.value.error), [])
+        ? []
         : ((expensesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : (console.log("[loadFallbackMetrics DEBUG] Expenses query rejected"), []);
+      : [];
 
   const salaries =
     salariesResult.status === "fulfilled"
       ? salariesResult.value.error
-        ? (console.log("[loadFallbackMetrics DEBUG] Salaries query error:", salariesResult.value.error), [])
+        ? []
         : ((salariesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : (console.log("[loadFallbackMetrics DEBUG] Salaries query rejected"), []);
-
-  console.log("[loadFallbackMetrics DEBUG] Data counts:", {
-    students: students.length,
-    classFees: classFees.length,
-    payments: payments.length,
-    expenses: expenses.length,
-    salaries: salaries.length,
-  });
+      : [];
 
   // Build class_name -> total_fee map
   const classFeeMap = new Map<string, number>();
@@ -198,7 +180,7 @@ async function loadFallbackMetrics(
     totalRemaining,
     paymentsCount: payments.length,
     paymentVolume: payments.reduce((sum, item) => sum + Number(item.amount ?? 0), 0),
-    todayPayments: payments.filter((item) => new Date(String(item.created_at ?? "")).toDateString() === todayKey).length,
+    todayPayments: payments.filter((item) => String(item.created_at ?? "").slice(0, 10) === todayDate).length,
     expensesCount: expenses.length,
     expenseVolume: expenses.reduce((sum, item) => sum + Number(item.amount ?? 0), 0),
     expenseTypeCount,
@@ -214,8 +196,6 @@ async function loadFallbackMetrics(
     ...metrics,
     netBalance: metrics.paymentVolume - metrics.expenseVolume - metrics.salaryVolume,
   } satisfies ReportsMetrics;
-
-  console.log("[loadFallbackMetrics DEBUG] Calculated metrics:", finalMetrics);
 
   return {
     metrics: finalMetrics,
@@ -316,11 +296,10 @@ export async function GET(req: NextRequest) {
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const todayDate = new Date().toISOString().slice(0, 10);
-  const todayKey = new Date().toDateString();
 
   try {
     const payload = await rememberWithTtl(
-      `reports-overview:${targetSchoolId}:${branchScope.value.cacheKeySuffix}`,
+      `reports-overview:${targetSchoolId}:${branchScope.value.cacheKeySuffix}:${todayDate}`,
       30_000,
       async () => {
         // Use service role client for data queries (authorization already validated above)
@@ -342,7 +321,7 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        const fallback = await loadFallbackMetrics(dataSupabase, targetSchoolId, branchScope.value, currentMonth, todayKey);
+        const fallback = await loadFallbackMetrics(dataSupabase, targetSchoolId, branchScope.value, currentMonth, todayDate);
         return {
           metrics: fallback.metrics,
           warnings: [
@@ -362,16 +341,6 @@ export async function GET(req: NextRequest) {
     const totalTime = tEnd - t0;
     const authTime = tAuthEnd - tAuthStart;
     const dataTime = tEnd - tAuthEnd;
-
-    console.log("[reports/overview] Performance metrics", {
-      endpoint: "/api/web/reports/overview",
-      targetSchoolId,
-      totalTimeMs: Math.round(totalTime),
-      authTimeMs: Math.round(authTime),
-      dataTimeMs: Math.round(dataTime),
-      studentsCount: payload.metrics.studentsCount,
-      responseSize: JSON.stringify(payload).length,
-    });
 
     return NextResponse.json(
       {
