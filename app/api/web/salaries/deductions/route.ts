@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -49,14 +49,11 @@ export async function GET(req: NextRequest) {
     return rateLimited;
   }
 
-  const { data, error } = await applyBranchScopeToQuery(
-    actorSupabase
-      .from("deductions")
-      .select("id, teacher_id, amount, notes, deduction_date, teachers(full_name)")
-      .eq("school_id", targetSchoolId)
-      .order("deduction_date", { ascending: false }),
-    branchScope.value,
-  );
+  const { data, error } = await actorSupabase
+    .from("deductions")
+    .select("id, teacher_id, amount, notes, deduction_date, teachers(full_name)")
+    .eq("school_id", targetSchoolId)
+    .order("deduction_date", { ascending: false });
 
   if (error) {
     return jsonError(error.message || "تعذر تحميل سجل السحوبات.", 500);
@@ -137,16 +134,10 @@ export async function POST(req: NextRequest) {
     return jsonError("الأستاذ المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  const writeBranch = resolveBranchIdForWrite(branchScope.value, branchId);
-  if (!writeBranch.ok) {
-    return jsonError(writeBranch.message, writeBranch.status);
-  }
-  const resolvedBranchId = writeBranch.value ?? branchScope.value.branchId;
   const { data, error } = await context.value.actorSupabase
     .from("deductions")
     .insert({
       school_id: context.value.targetSchoolId,
-      branch_id: resolvedBranchId,
       teacher_id: teacherId,
       amount,
       notes,
