@@ -35,3 +35,6 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          JWT_SECRET: ci-test-secret-for-build-only-12345678
+          NODE_ENV: production
