@@ -51,11 +51,16 @@ export function AddStudentModal({
   const t = useTranslations("students.modals");
   const commonT = useTranslations("common");
   const paginationT = useTranslations("students.pagination");
+  // Filter class fees by the selected branch when branch selector is shown
+  const filteredClassFees = showBranchSelector && form.branch_id
+    ? classFees.filter((cf) => cf.branch_id === form.branch_id)
+    : classFees;
+
   const classOptions = [
-    ...classFees,
+    ...filteredClassFees,
     ...(form.class_name &&
     form.class_name !== "__manual__" &&
-    !classFees.some((item) => item.class_name === form.class_name)
+    !filteredClassFees.some((item) => item.class_name === form.class_name)
       ? [{ id: `custom-${form.class_name}`, class_name: form.class_name }]
       : []),
   ];
@@ -152,7 +157,7 @@ export function AddStudentModal({
                     value={form.class_name}
                     onChange={(e) => {
                       const cls = e.target.value;
-                      const cf = classFees.find((x) => x.class_name === cls);
+                      const cf = filteredClassFees.find((x) => x.class_name === cls);
                       setForm({ ...form, class_name: cls, total_fee: cf ? String(cf.total_fee ?? "") : form.total_fee });
                     }}
                   >
@@ -172,7 +177,7 @@ export function AddStudentModal({
                     />
                   )}
                   {form.class_name && form.class_name !== "__manual__" && (() => {
-                    const cf = classFees.find((x) => x.class_name === form.class_name);
+                    const cf = filteredClassFees.find((x) => x.class_name === form.class_name);
                     if (!cf) return null;
                     return (
                       <div className="mt-2 p-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-xs font-semibold text-[var(--primary)]">
@@ -200,7 +205,7 @@ export function AddStudentModal({
                       id="branch_id"
                       required
                       value={form.branch_id}
-                      onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
+                      onChange={(e) => setForm({ ...form, branch_id: e.target.value, class_name: "", total_fee: "" })}
                     >
                       <option value="">{t("form.selectBranch")}</option>
                       {branches.map((b) => (
@@ -250,7 +255,7 @@ export function AddStudentModal({
                   label={t("form.totalFee", { currency: commonT("currency") })}
                   htmlFor="total_fee"
                   required
-                  helpText={form.class_name && classFees.find((x) => x.class_name === form.class_name) ? t("form.autoFromClass") : undefined}
+                  helpText={form.class_name && filteredClassFees.find((x) => x.class_name === form.class_name) ? t("form.autoFromClass") : undefined}
                 >
                   <Input
                     id="total_fee"
