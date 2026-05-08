@@ -123,6 +123,12 @@ export default function StudentsPage() {
 
   const modals = useStudentsModals();
 
+  // Use runtimeBranding.branchId if available; fall back to branchesForForm[0] when
+  // there is exactly one branch (single-branch school or single-branch admin account).
+  const effectiveBranchId =
+    runtimeBranding.branchId ??
+    (branchesForForm.length === 1 ? branchesForForm[0].id : null);
+
   const operations = useStudentsOperations({
     profile,
     selectedSchoolId: schoolScope.selectedSchoolId,
@@ -134,7 +140,7 @@ export default function StudentsPage() {
     setActiveTab,
     locale,
     runtimeBranding,
-    currentBranchId: runtimeBranding.branchId,
+    currentBranchId: effectiveBranchId,
     modals: {
       setError: modals.setError,
       setSuccess: modals.setSuccess,
