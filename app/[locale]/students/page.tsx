@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
+import { useBranchScope } from "@/hooks/useBranchScope";
 import { useRuntimeBranding } from "@/hooks/brand";
 import { supabase } from "@/lib/supabase";
 import { getLocaleFromPath } from "@/lib/locale-routing";
@@ -43,6 +44,7 @@ export default function StudentsPage() {
   const t = useTranslations("students");
   const { profile, can } = useRole();
   const schoolScope = useSchoolScope(profile);
+  const branchScope = useBranchScope(profile);
   const runtimeBranding = useRuntimeBranding();
 
 
@@ -64,8 +66,9 @@ export default function StudentsPage() {
 
   // Branches for multi-branch users who don't have a pre-selected branch from context
   const [branchesForForm, setBranchesForForm] = useState<BranchOption[]>([]);
-  // Show branch selector only when no branch is pre-selected from URL and user has no fixed branch in their profile
-  const showBranchSelector = !runtimeBranding.branchId && !profile?.branch_id;
+  // Show branch selector only when no branch is pre-selected from any context
+  // (subdomain branding, profile fixed branch, or sidebar branch scope selection)
+  const showBranchSelector = !runtimeBranding.branchId && !profile?.branch_id && !branchScope.selectedBranchId;
 
   useEffect(() => {
     if (!showBranchSelector || !profile || !schoolScope.selectedSchoolId) return;
@@ -119,16 +122,18 @@ export default function StudentsPage() {
     filterSection,
     pageSize,
     page,
-    currentBranchId: runtimeBranding.branchId ?? undefined,
+    currentBranchId: runtimeBranding.branchId ?? branchScope.selectedBranchId ?? undefined,
   });
 
   const modals = useStudentsModals();
 
-  // Use runtimeBranding.branchId if available; then profile fixed branch; then branchesForForm[0] when
-  // there is exactly one branch (single-branch school or single-branch admin account).
+  // Use runtimeBranding.branchId if available; then profile fixed branch;
+  // then the sidebar-selected branch (for multi-branch admins who pick from sidebar);
+  // finally branchesForForm[0] when there is exactly one branch.
   const effectiveBranchId =
     runtimeBranding.branchId ??
     profile?.branch_id ??
+    branchScope.selectedBranchId ??
     (branchesForForm.length === 1 ? branchesForForm[0].id : null);
 
   const operations = useStudentsOperations({
