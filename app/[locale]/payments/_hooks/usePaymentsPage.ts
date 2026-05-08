@@ -9,9 +9,7 @@ import { useRole } from "@/hooks/useRole";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { buildStyledReceiptHtml } from "@/lib/print/receipt-styled";
-import { loadXLSX } from "@/lib/xlsx-loader";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
-import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 
 import { usePaymentsMeta } from "./usePaymentsMeta";
 import { useStudentsPage } from "./useStudentsPage";
@@ -252,33 +250,30 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
         quickFilter,
         sort: filterSort,
         dir: filterDir,
+        format: "excel",
       });
       if (search) params.set("search", search);
       if (filterClass) params.set("className", filterClass);
       if (currentBranchId) params.set("branchId", currentBranchId);
 
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{
-        students?: Student[];
-        error?: { message?: string };
-      }>(`/api/web/payments/export?${params.toString()}`);
+      const { fetchWithAuthorizedSession } = await import("@/lib/authorized-api");
+      const response = await fetchWithAuthorizedSession(`/api/web/payments/export?${params.toString()}`);
 
-      if (!response.ok) throw new Error(payload?.error?.message || "تعذر تحميل بيانات التصدير.");
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(json?.error?.message || "تعذر تحميل بيانات التصدير.");
+      }
 
-      const XLSX = await loadXLSX();
-      const rows = (payload?.students ?? []).map((s) => ({
-        "اسم الطالب": s.full_name,
-        "الصف": s.class_name,
-        "الهاتف": s.phone || "",
-        "المبلغ الكلي": s.total_fee,
-        "المدفوع": s.paid_fee,
-        "الخصم": s.discount_value || 0,
-        "المتبقي": s.remaining_fee,
-        "الحالة": s.status,
-      }));
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "فواتير الطلاب");
-      await XLSX.writeFile(wb, `فواتير_${formatDate(new Date())}.xlsx`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dateStr = new Date().toLocaleDateString("ar-IQ").replace(/\//g, "_");
+      a.href = url;
+      a.download = `فواتير_اقساط_الطلاب_${dateStr}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : "تعذر تصدير البيانات.");
     } finally {
