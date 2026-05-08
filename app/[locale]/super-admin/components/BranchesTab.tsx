@@ -63,6 +63,7 @@ type BranchRecord = {
   accent_color?: string | null;
   text_color?: string | null;
   logo_url?: string | null;
+  receipt_bg_url?: string | null;
   schools?: { name: string | null } | null;
   [key: string]: unknown;
 };
@@ -81,6 +82,7 @@ type BranchFormData = {
   accent_color: string;
   text_color: string;
   logo_url: string;
+  receipt_bg_url: string;
 };
 
 function createInitialFormState(): BranchFormData {
@@ -98,6 +100,7 @@ function createInitialFormState(): BranchFormData {
     accent_color: DEFAULT_SCHOOL_BRANDING.accent_color,
     text_color: DEFAULT_SCHOOL_BRANDING.text_color,
     logo_url: "",
+    receipt_bg_url: "",
   };
 }
 
@@ -191,6 +194,9 @@ export function BranchesTab({
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [receiptBgUploading, setReceiptBgUploading] = useState(false);
+  const [receiptBgError, setReceiptBgError] = useState<string | null>(null);
+  const receiptBgInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<BranchFormData>(createInitialFormState());
 
@@ -247,6 +253,7 @@ export function BranchesTab({
       accent_color: branch.accent_color || suggested.accent_color,
       text_color: branch.text_color || suggested.text_color,
       logo_url: branch.logo_url || "",
+      receipt_bg_url: (branch.receipt_bg_url as string | null | undefined) || "",
     });
     setFormNotice("");
   }, []);
@@ -394,6 +401,54 @@ export function BranchesTab({
     }
   };
 
+  const handleReceiptBgUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validation = await validateLogoUpload(file, file.type);
+    if (!validation.ok) {
+      setReceiptBgError(buildUploadErrorMessage(validation.message));
+      if (receiptBgInputRef.current) receiptBgInputRef.current.value = "";
+      return;
+    }
+
+    setReceiptBgUploading(true);
+    setReceiptBgError(null);
+    try {
+      const schoolScope = formData.school_id.trim();
+      if (!schoolScope) {
+        throw new Error("اختر المدرسة أولاً قبل رفع خلفية الإيصال.");
+      }
+      const uploadForm = new FormData();
+      uploadForm.set("school_id", schoolScope);
+      uploadForm.set("file", file);
+
+      const response = await fetch("/api/web/super-admin/branches/receipt-bg", {
+        method: "POST",
+        body: uploadForm,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { url?: string; error?: { message?: string } }
+        | null;
+      const uploadedUrl = payload?.url;
+
+      if (!response.ok || typeof uploadedUrl !== "string" || !uploadedUrl) {
+        throw new Error(buildUploadErrorMessage(payload?.error?.message));
+      }
+
+      setFormData((current) => ({ ...current, receipt_bg_url: uploadedUrl }));
+    } catch (err) {
+      setReceiptBgError(
+        err instanceof Error
+          ? buildUploadErrorMessage(err.message.replace(/^تعذر رفع الصورة:\s*/, ""))
+          : buildUploadErrorMessage(),
+      );
+    } finally {
+      setReceiptBgUploading(false);
+      if (receiptBgInputRef.current) receiptBgInputRef.current.value = "";
+    }
+  };
+
   const applyPreset = (preset: BrandThemePreset) => {
     setFormData((current) => ({
       ...current,
@@ -415,6 +470,7 @@ export function BranchesTab({
         phone: formData.phone.trim() || null,
         is_active: formData.is_active,
         logo_url: formData.logo_url.trim() || null,
+        receipt_bg_url: formData.receipt_bg_url.trim() || null,
       };
 
       if (branchColorsEnabled) {
@@ -863,6 +919,79 @@ export function BranchesTab({
                           className="text-[11px] font-bold text-rose-600"
                         >
                           {logoError}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Receipt background upload — super admin only */}
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-black">
+                        خلفية الإيصال المطبوع (اختياري — سوبر أدمن فقط)
+                      </label>
+                      <p className="text-[10.5px] font-semibold text-[var(--text-tertiary)]">
+                        صورة تُعرض كخلفية شفافة خلف الوصل المطبوع لهذا الفرع. يفضل PNG أو JPEG.
+                      </p>
+                      <div className="flex items-center gap-3">
+                        {formData.receipt_bg_url ? (
+                          <Image
+                            src={formData.receipt_bg_url}
+                            alt="خلفية الإيصال"
+                            width={64}
+                            height={40}
+                            className="rounded-[10px] border border-[var(--border)] bg-white object-cover"
+                          />
+                        ) : (
+                          <div className="inline-flex h-10 w-16 items-center justify-center rounded-[10px] border border-dashed border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-tertiary)] text-[10px] font-bold">
+                            بدون خلفية
+                          </div>
+                        )}
+                        <div className="flex-1 space-y-1">
+                          <input
+                            type="text"
+                            className="ui-input text-xs"
+                            placeholder="رابط الصورة (URL) أو ارفع صورة"
+                            value={formData.receipt_bg_url}
+                            onChange={(event) =>
+                              setFormData((current) => ({
+                                ...current,
+                                receipt_bg_url: event.target.value,
+                              }))
+                            }
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => receiptBgInputRef.current?.click()}
+                              disabled={receiptBgUploading}
+                              className="ui-button ui-button--secondary h-7 px-3 text-[11px] inline-flex items-center gap-1"
+                            >
+                              <Upload size={12} />
+                              {receiptBgUploading ? "جاري الرفع..." : "رفع صورة"}
+                            </button>
+                            {formData.receipt_bg_url && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setFormData((current) => ({ ...current, receipt_bg_url: "" }))
+                                }
+                                className="text-[11px] font-bold text-rose-500 hover:underline"
+                              >
+                                إزالة
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <input
+                          ref={receiptBgInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleReceiptBgUpload}
+                        />
+                      </div>
+                      {receiptBgError && (
+                        <p role="alert" className="text-[11px] font-bold text-rose-600">
+                          {receiptBgError}
                         </p>
                       )}
                     </div>

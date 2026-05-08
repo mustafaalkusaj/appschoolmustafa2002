@@ -30,6 +30,7 @@ type RuntimeBrandingState = {
   branchId: string | null;
   branchName: string | null;
   branchLogoUrl: string | null;
+  receiptBgUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
   themePreset: string | null;
@@ -49,6 +50,7 @@ type SchoolBrandingRecord = {
 type BranchBrandingRecord = {
   name?: string | null;
   logo_url?: string | null;
+  receipt_bg_url?: string | null;
   primary_color?: string | null;
   secondary_color?: string | null;
   sidebar_color?: string | null;
@@ -64,6 +66,7 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   branchId: null,
   branchName: null,
   branchLogoUrl: null,
+  receiptBgUrl: null,
   primaryColor: null,
   secondaryColor: null,
   themePreset: null,
@@ -79,6 +82,7 @@ function createEmptyBrandingState(): RuntimeBrandingState {
     branchId: null,
     branchName: null,
     branchLogoUrl: null,
+    receiptBgUrl: null,
     primaryColor: null,
     secondaryColor: null,
     themePreset: null,
@@ -208,6 +212,10 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         branchColumns.push("logo_url");
       }
 
+      if (compat.branchReceiptBg) {
+        branchColumns.push("receipt_bg_url");
+      }
+
       const schoolQuery = compat.schoolColors
         ? supabase
             .from("schools")
@@ -240,6 +248,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           : null;
       const resolvedBranchLogoUrl = sanitizeImageUrl(
         compat.branchLogo && typeof branchRecord?.logo_url === "string" ? branchRecord.logo_url : null,
+      );
+      const resolvedReceiptBgUrl = sanitizeImageUrl(
+        compat.branchReceiptBg && typeof branchRecord?.receipt_bg_url === "string" ? branchRecord.receipt_bg_url : null,
       );
       const branchPrimaryColor =
         compat.branchColors && typeof branchRecord?.primary_color === "string"
@@ -300,6 +311,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           branchId: scopedBranchId,
           branchName: resolvedBranchName,
           branchLogoUrl: resolvedBranchLogoUrl,
+          receiptBgUrl: resolvedReceiptBgUrl,
           primaryColor: resolvedPrimaryColor,
           secondaryColor: resolvedSecondaryColor,
           themePreset: hasBranchOverride ? null : storedBranding?.themePreset ?? null,
@@ -384,6 +396,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         branchId: scopedBranchId,
         branchName: resolvedBranchName,
         branchLogoUrl: resolvedBranchLogoUrl,
+        receiptBgUrl: resolvedReceiptBgUrl,
         primaryColor: resolvedPrimaryColor,
         secondaryColor: resolvedSecondaryColor,
         themePreset: resolvedThemePreset,
@@ -425,6 +438,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       branchId: branding.branchId,
       branchName,
       branchLogoUrl: branding.branchLogoUrl,
+      receiptBgUrl: branding.receiptBgUrl,
       primaryColor: branding.primaryColor,
       secondaryColor: branding.secondaryColor,
       themePreset: branding.themePreset,
@@ -451,6 +465,7 @@ export function useRuntimeBranding() {
       branchId: null,
       branchName: null,
       branchLogoUrl: null,
+      receiptBgUrl: null,
       primaryColor: null,
       secondaryColor: null,
       themePreset: null,
@@ -465,6 +480,7 @@ export function useRuntimeBranding() {
     branchId: context.branchId,
     branchName: context.branchName,
     branchLogoUrl: context.branchLogoUrl,
+    receiptBgUrl: context.receiptBgUrl,
     primaryColor: context.primaryColor,
     secondaryColor: context.secondaryColor,
     themePreset: context.themePreset,

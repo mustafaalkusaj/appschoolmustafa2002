@@ -102,25 +102,48 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     (p: Payment, student: Student) => {
       const effectiveFee = Math.max((student.total_fee ?? 0) - (student.discount_value ?? 0), 0);
       const remaining = Math.max(effectiveFee - (student.paid_fee ?? 0), 0);
-      printHtmlDocument(
-        buildStyledReceiptHtml({
-          schoolName: runtimeBranding.schoolName,
-          logoUrl: runtimeBranding.logoUrl,
-          branchName: runtimeBranding.branchName,
-          primaryColor: runtimeBranding.primaryColor,
-          receiptNumber: p.receipt_number || "",
-          amount: Number(p.amount) || 0,
-          paymentMethod: p.payment_method as string,
-          date: p.created_at,
-          notes: p.notes,
-          studentName: student.full_name || "",
-          className: student.class_name || "",
-          totalFee: student.total_fee ?? 0,
-          discountValue: student.discount_value ?? 0,
-          remainingFee: remaining,
-          isEnglish,
-        })
-      );
+      const logoUrl = runtimeBranding.logoUrl;
+      void (async () => {
+        // Convert logo to base64 so it loads correctly inside the print iframe
+        let resolvedLogoUrl: string | null = null;
+        if (logoUrl) {
+          try {
+            const res = await fetch(logoUrl);
+            if (res.ok) {
+              const blob = await res.blob();
+              resolvedLogoUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+            }
+          } catch {
+            // fall back to direct URL
+            resolvedLogoUrl = logoUrl;
+          }
+        }
+        printHtmlDocument(
+          buildStyledReceiptHtml({
+            schoolName: runtimeBranding.schoolName,
+            logoUrl: resolvedLogoUrl,
+            branchName: runtimeBranding.branchName,
+            primaryColor: runtimeBranding.primaryColor,
+            receiptNumber: p.receipt_number || "",
+            amount: Number(p.amount) || 0,
+            paymentMethod: p.payment_method as string,
+            date: p.created_at,
+            notes: p.notes,
+            studentName: student.full_name || "",
+            className: student.class_name || "",
+            totalFee: student.total_fee ?? 0,
+            discountValue: student.discount_value ?? 0,
+            remainingFee: remaining,
+            isEnglish,
+            backgroundImageUrl: runtimeBranding.receiptBgUrl,
+          })
+        );
+      })();
     },
     [isEnglish, runtimeBranding]
   );

@@ -16,6 +16,8 @@ export type StyledReceiptData = {
   discountValue: number;
   remainingFee: number;
   isEnglish: boolean;
+  /** Optional custom background image URL for the receipt card (per-branch design) */
+  backgroundImageUrl?: string | null;
 };
 
 function fmt(n: number) {
@@ -94,6 +96,7 @@ export function buildStyledReceiptHtml(data: StyledReceiptData): string {
     discountValue,
     remainingFee,
     isEnglish,
+    backgroundImageUrl,
   } = data;
 
   const methodMap: Record<string, string> = {
@@ -103,16 +106,21 @@ export function buildStyledReceiptHtml(data: StyledReceiptData): string {
   };
   const methodLabel = methodMap[paymentMethod] || paymentMethod;
 
+  // Logo: img element with fallback div (fallback hidden by default, shown on error)
   const logoHtml = logoUrl
-    ? `<img src="${escapeHtml(logoUrl)}" alt="logo" class="school-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="school-logo logo-fallback">${escapeHtml((schoolName || "م").charAt(0))}</div>`
+    ? `<img src="${escapeHtml(logoUrl)}" alt="logo" class="school-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="school-logo logo-fallback" style="display:none">${escapeHtml((schoolName || "م").charAt(0))}</div>`
     : `<div class="school-logo logo-fallback">${escapeHtml((schoolName || "م").charAt(0))}</div>`;
 
   const ornamentLine = `<div class="ornament-line"><div class="ornament-rule"></div><span class="ornament-gem">❖</span><div class="ornament-rule"></div></div>`;
-  const ornamentInline = `<span class="ornament-inline">— ❖ —</span>`;
 
   const remainingColor = remainingFee <= 0 ? "#16a34a" : "#dc2626";
   const effectiveFee = Math.max(totalFee - discountValue, 0);
   const currency = isEnglish ? "IQD" : "د.ع";
+
+  // Background image style for custom branch design
+  const bgImageStyle = backgroundImageUrl
+    ? `background-image:url(${escapeHtml(backgroundImageUrl)});background-size:cover;background-position:center;background-repeat:no-repeat;`
+    : "";
 
   return `<!DOCTYPE html>
 <html dir="${dir}" lang="${lang}">
@@ -126,26 +134,32 @@ body{
   background:#E8EAF4;
   font-family:"Noto Sans Arabic",Segoe UI,Tahoma,Arial,sans-serif;
   display:flex;justify-content:center;align-items:flex-start;
-  min-height:100vh;padding:28px 16px;
+  min-height:100vh;padding:20px 12px;
   color:${primary};
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
+  direction:${dir};
 }
 .receipt{
   position:relative;
-  width:100%;max-width:500px;
+  width:100%;max-width:480px;
   background:#F5F6FC;
+  ${bgImageStyle}
   border:1.5px solid ${primary}30;
-  border-radius:18px;
+  border-radius:14px;
   overflow:hidden;
-  padding:28px 22px 22px;
+  padding:20px 18px 16px;
 }
+/* Overlay for custom bg image readability */
+${backgroundImageUrl ? `.receipt::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,0.82);z-index:0;pointer-events:none;}
+.receipt>*{position:relative;z-index:1;}` : ""}
 /* Watermarks */
 .wm{
   position:absolute;
   color:${primary};
   opacity:0.07;
   pointer-events:none;
+  z-index:0;
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
 }
@@ -153,61 +167,61 @@ body{
 .ribbon{
   position:absolute;
   top:0;
-  ${dir === "rtl" ? "right" : "left"}:22px;
+  ${dir === "rtl" ? "right" : "left"}:18px;
   background:${primary};
   color:white;
-  font-size:14px;
+  font-size:13px;
   font-weight:900;
-  padding:10px 20px 20px;
+  padding:8px 16px 16px;
   clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%);
   text-align:center;
   letter-spacing:1px;
-  min-width:68px;
+  min-width:60px;
   line-height:1.4;
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
 }
-.ribbon-dots{font-size:9px;opacity:0.7;margin-top:3px;letter-spacing:3px;}
+.ribbon-dots{font-size:8px;opacity:0.7;margin-top:2px;letter-spacing:3px;}
 /* School header */
 .school-header{
   text-align:center;
   display:flex;flex-direction:column;align-items:center;
-  gap:10px;padding-bottom:14px;
-  padding-top:4px;
+  gap:7px;padding-bottom:10px;
+  padding-top:2px;
 }
 .school-logo{
-  width:78px;height:78px;
+  width:64px;height:64px;
   border-radius:50%;
   object-fit:contain;
   border:2px solid ${primary}30;
   background:white;
+  display:block;
 }
 .logo-fallback{
   display:flex;
   align-items:center;justify-content:center;
-  font-size:30px;font-weight:900;
+  font-size:26px;font-weight:900;
   color:${primary};
   background:white;
 }
-.school-name{font-size:21px;font-weight:900;letter-spacing:0.3px;}
-.branch-name{font-size:13px;opacity:0.55;margin-top:2px;}
-.receipt-num{font-size:11px;opacity:0.5;letter-spacing:0.3px;margin-top:2px;}
+.school-name{font-size:18px;font-weight:900;letter-spacing:0.3px;text-align:center;}
+.branch-name{font-size:12px;opacity:0.55;margin-top:1px;text-align:center;}
+.receipt-num{font-size:10.5px;opacity:0.5;letter-spacing:0.3px;margin-top:1px;text-align:center;}
 /* Ornaments */
 .ornament-line{
-  display:flex;align-items:center;gap:10px;
-  margin:14px 0;
+  display:flex;align-items:center;gap:8px;
+  margin:10px 0;
   color:${primary};opacity:0.3;
 }
 .ornament-rule{flex:1;height:1px;background:currentColor;}
-.ornament-gem{font-size:13px;}
-.ornament-inline{font-size:11px;opacity:0.45;color:${primary};}
+.ornament-gem{font-size:12px;}
 /* Info grid */
 .info-grid{
   border:1.5px solid ${primary}25;
-  border-radius:12px;
+  border-radius:10px;
   overflow:hidden;
   background:white;
-  margin-bottom:14px;
+  margin-bottom:10px;
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
 }
@@ -217,28 +231,21 @@ body{
   border-bottom:1px solid ${primary}12;
 }
 .info-row:last-child{border-bottom:none;}
-.info-cell{padding:11px 14px;}
+.info-cell{padding:8px 12px;text-align:start;}
 .info-cell+.info-cell{border-inline-start:1px solid ${primary}12;}
 .cell-label{
-  font-size:10.5px;
+  font-size:10px;
   opacity:0.5;
-  margin-bottom:5px;
-  display:flex;align-items:center;gap:3px;
+  margin-bottom:4px;
 }
-.cell-value{font-size:15px;font-weight:800;}
-.info-row-full{
-  border-bottom:1px solid ${primary}12;
-  padding:10px 14px;
-  display:grid;grid-template-columns:1fr 1fr;
-}
-.info-row-full:last-child{border-bottom:none;}
+.cell-value{font-size:14px;font-weight:800;text-align:start;}
 /* Amount box */
 .amount-box{
   border:1.5px solid ${primary}35;
-  border-radius:12px;
-  padding:18px 14px;
+  border-radius:10px;
+  padding:14px 12px;
   text-align:center;
-  margin-bottom:14px;
+  margin-bottom:10px;
   background:white;
   position:relative;
   overflow:hidden;
@@ -253,64 +260,71 @@ body{
     radial-gradient(circle at 100% 0%, transparent 40%, ${primary}04 41%, transparent 55%),
     radial-gradient(circle at 0% 100%, transparent 40%, ${primary}04 41%, transparent 55%),
     radial-gradient(circle at 100% 100%, transparent 40%, ${primary}04 41%, transparent 55%);
-  background-size:60px 60px, 60px 60px, 60px 60px, 60px 60px, 60px 60px;
+  background-size:50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px;
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
 }
 .amount-inner{position:relative;z-index:1;}
-.amount-label{font-size:12px;opacity:0.55;margin-bottom:8px;}
-.amount-value{font-size:42px;font-weight:900;letter-spacing:-1px;line-height:1;}
+.amount-label{font-size:11px;opacity:0.55;margin-bottom:6px;}
+.amount-value{font-size:36px;font-weight:900;letter-spacing:-1px;line-height:1;}
 /* Footer */
 .system-note{
   border:1px solid ${primary}20;
-  border-radius:20px;
-  padding:7px 16px;
+  border-radius:16px;
+  padding:5px 14px;
   text-align:center;
-  font-size:11.5px;
+  font-size:10.5px;
   opacity:0.55;
-  margin-bottom:14px;
+  margin-bottom:10px;
   background:white;
 }
 .notes-box{
   border:1px dashed ${primary}25;
-  border-radius:10px;
-  padding:9px 14px;
-  margin-bottom:14px;
-  font-size:12.5px;
+  border-radius:8px;
+  padding:7px 12px;
+  margin-bottom:10px;
+  font-size:12px;
   opacity:0.65;
   background:white;
+  text-align:start;
 }
 /* Bottom section */
 .bottom-section{
   position:relative;
-  padding-top:6px;
+  padding-top:4px;
   text-align:center;
 }
 .thanks-wrap{
-  display:flex;flex-direction:column;align-items:center;gap:4px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
 }
-.thanks-icon{font-size:22px;}
-.thanks-text{font-size:20px;font-weight:900;letter-spacing:0.5px;}
+.thanks-icon{font-size:18px;}
+.thanks-text{font-size:17px;font-weight:900;letter-spacing:0.5px;}
 /* Print */
 @media print{
-  @page{size:A5;margin:0.7cm;}
-  body{
+  @page{size:A5 portrait;margin:0.6cm;}
+  html,body{
+    width:100%;height:100%;
     background:white!important;
     padding:0!important;
+    margin:0!important;
     display:block!important;
     min-height:auto!important;
   }
   .receipt{
+    width:100%!important;
     max-width:none!important;
     border:none!important;
     border-radius:0!important;
     background:#F5F6FC!important;
+    padding:12px 14px 10px!important;
     -webkit-print-color-adjust:exact!important;
     print-color-adjust:exact!important;
+    page-break-inside:avoid;
   }
   .wm{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
   .ribbon{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
   .amount-box{background:white!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .amount-bg{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
   .info-grid{background:white!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
   .system-note{background:white!important;}
   .notes-box{background:white!important;}
@@ -321,7 +335,7 @@ body{
 <div class="receipt">
 
   <!-- Watermark: Building (top-end) -->
-  <div class="wm" style="${dir === "rtl" ? "left" : "right"}:-8px;top:-8px;width:130px;height:148px;">
+  <div class="wm" style="${dir === "rtl" ? "left" : "right"}:-6px;top:-6px;width:110px;height:124px;">
     ${SVG_BUILDING}
   </div>
 
@@ -347,40 +361,40 @@ body{
   <div class="info-grid">
     <div class="info-row">
       <div class="info-cell">
-        <div class="cell-label">${ornamentInline} ${isEnglish ? "Student name" : "اسم الطالب"} ${ornamentInline}</div>
+        <div class="cell-label">${isEnglish ? "Student name" : "اسم الطالب"}</div>
         <div class="cell-value">${escapeHtml(studentName || "—")}</div>
       </div>
       <div class="info-cell">
-        <div class="cell-label">${ornamentInline} ${isEnglish ? "Class" : "الصف"} ${ornamentInline}</div>
+        <div class="cell-label">${isEnglish ? "Class" : "الصف"}</div>
         <div class="cell-value">${escapeHtml(className || "—")}</div>
       </div>
     </div>
     <div class="info-row">
       <div class="info-cell">
-        <div class="cell-label">${ornamentInline} ${isEnglish ? "Date" : "التاريخ"} ${ornamentInline}</div>
+        <div class="cell-label">${isEnglish ? "Date" : "التاريخ"}</div>
         <div class="cell-value">${fmtDate(date)}</div>
       </div>
       <div class="info-cell">
-        <div class="cell-label">${ornamentInline} ${isEnglish ? "Payment method" : "طريقة الدفع"} ${ornamentInline}</div>
+        <div class="cell-label">${isEnglish ? "Payment method" : "طريقة الدفع"}</div>
         <div class="cell-value">${escapeHtml(methodLabel)}</div>
       </div>
     </div>
     ${effectiveFee > 0 ? `
     <div class="info-row">
       <div class="info-cell">
-        <div class="cell-label">${ornamentInline} ${isEnglish ? "Total fee" : "المبلغ الكلي"} ${ornamentInline}</div>
-        <div class="cell-value" style="font-size:13px;">${fmt(totalFee)} ${currency}</div>
+        <div class="cell-label">${isEnglish ? "Total fee" : "المبلغ الكلي"}</div>
+        <div class="cell-value" style="font-size:12px;">${fmt(totalFee)} ${currency}</div>
       </div>
       <div class="info-cell">
-        <div class="cell-label">${ornamentInline} ${isEnglish ? "Remaining" : "المتبقي"} ${ornamentInline}</div>
-        <div class="cell-value" style="font-size:13px;color:${remainingColor};">${fmt(remainingFee)} ${currency}</div>
+        <div class="cell-label">${isEnglish ? "Remaining" : "المتبقي"}</div>
+        <div class="cell-value" style="font-size:12px;color:${remainingColor};">${fmt(remainingFee)} ${currency}</div>
       </div>
     </div>` : ""}
     ${discountValue > 0 ? `
     <div class="info-row" style="background:${primary}04;">
       <div class="info-cell">
-        <div class="cell-label">${ornamentInline} ${isEnglish ? "Discount" : "التخفيض"} ${ornamentInline}</div>
-        <div class="cell-value" style="font-size:13px;color:#d97706;">${fmt(discountValue)} ${currency}</div>
+        <div class="cell-label">${isEnglish ? "Discount" : "التخفيض"}</div>
+        <div class="cell-value" style="font-size:12px;color:#d97706;">${fmt(discountValue)} ${currency}</div>
       </div>
       <div class="info-cell"></div>
     </div>` : ""}
@@ -390,7 +404,7 @@ body{
   <div class="amount-box">
     <div class="amount-bg"></div>
     <div class="amount-inner">
-      <div class="amount-label">${ornamentInline} ${isEnglish ? "Amount received" : "المبلغ المستلم"} ${ornamentInline}</div>
+      <div class="amount-label">${isEnglish ? "Amount received" : "المبلغ المستلم"}</div>
       <div class="amount-value">${currency} ${fmt(amount)}</div>
     </div>
   </div>
@@ -405,11 +419,11 @@ body{
   <!-- Bottom section -->
   <div class="bottom-section">
     <!-- Watermark: Books (bottom-start) -->
-    <div class="wm" style="${dir === "rtl" ? "right" : "left"}:-10px;bottom:-10px;width:90px;height:90px;">
+    <div class="wm" style="${dir === "rtl" ? "right" : "left"}:-8px;bottom:-8px;width:76px;height:76px;">
       ${SVG_BOOKS}
     </div>
     <!-- Watermark: Globe (bottom-end) -->
-    <div class="wm" style="${dir === "rtl" ? "left" : "right"}:-10px;bottom:-10px;width:90px;height:90px;">
+    <div class="wm" style="${dir === "rtl" ? "left" : "right"}:-8px;bottom:-8px;width:76px;height:76px;">
       ${SVG_GLOBE}
     </div>
 
