@@ -129,6 +129,27 @@ export function useBranchScope(profile: UserProfile | null): BranchScopeState {
     };
   }, [pathname]);
 
+  // Auto-select the only branch when exactly one is available (safe: no ambiguity)
+  useEffect(() => {
+    if (
+      isMultiBranchScope &&
+      !scopeLoading &&
+      branches.length === 1 &&
+      !requestedBranchId
+    ) {
+      const params = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
+      params.set(BRANCH_SCOPE_QUERY_PARAM, branches[0].id);
+      const nextSearch = params.toString();
+      setRequestedBranchId(branches[0].id);
+      // Use replaceState to avoid adding a history entry for auto-selection
+      if (typeof window !== "undefined") {
+        const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname;
+        window.history.replaceState(null, "", nextUrl);
+        window.dispatchEvent(new Event(BRANCH_SCOPE_CHANGE_EVENT));
+      }
+    }
+  }, [isMultiBranchScope, scopeLoading, branches, requestedBranchId]);
+
   const selectedBranch = useMemo(() => {
     if (!isMultiBranchScope || !requestedBranchId) return null;
     return branches.find((branch) => branch.id === requestedBranchId) ?? null;

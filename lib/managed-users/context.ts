@@ -286,6 +286,8 @@ export async function resolveManagedUsersActorContext(
       actorUserId: context.value.actorUserId,
       actorRole: context.value.actorRole as "super_admin" | "admin",
       targetSchoolId: context.value.targetSchoolId,
+      actorBranchId: context.value.actorBranchId,
+      allowedBranchIds: context.value.allowedBranchIds,
     },
   };
 }

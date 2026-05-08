@@ -825,7 +825,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId, actorBranchId, allowedBranchIds } = context.value;
   const rateLimited = await enforceRateLimit(req, {
     namespace: "dashboard-managed-users-post",
     windowMs: 10 * 60_000,
@@ -852,8 +852,14 @@ export async function POST(req: NextRequest) {
     if (!profileError && actorProfile?.branch_id) {
       // Single-branch user: only their assigned branch
       actorAccessibleBranches = [actorProfile.branch_id];
+    } else if (actorBranchId) {
+      // JWT-level branch restriction (actorBranchId from RBAC session)
+      actorAccessibleBranches = [actorBranchId];
+    } else if (Array.isArray(allowedBranchIds) && allowedBranchIds.length > 0) {
+      // Multi-branch user with explicit allowed branches from JWT
+      actorAccessibleBranches = allowedBranchIds;
     } else {
-      // School-wide admin or multi-branch: fetch all school branches
+      // School-wide admin: fetch all school branches
       const { data: allBranches, error: branchesError } = await actorSupabase
         .from("branches")
         .select("id")

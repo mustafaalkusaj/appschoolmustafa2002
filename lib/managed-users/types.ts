@@ -38,6 +38,8 @@ export type ManagedUsersActorContext = {
   actorUserId: string;
   actorRole: "super_admin" | "admin";
   targetSchoolId: string;
+  actorBranchId: string | null;
+  allowedBranchIds: string[];
 };
 
 export type SchoolScopedActorContext = {
