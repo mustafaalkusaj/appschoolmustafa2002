@@ -54,6 +54,7 @@ export default function PaymentsPage() {
     openStudentDetail,
     handleExportExcel,
     printReceipt,
+    printStatement,
     handleArchiveExport,
     handleDeletePayment,
     handlePaymentSubmit,
@@ -203,6 +204,7 @@ export default function PaymentsPage() {
           onAddPayment={openPaymentForStudent}
           onDeletePayment={(paymentId) => paymentOpsHook.setPendingDeletePaymentId(paymentId)}
           onPrintReceipt={printReceipt}
+          onPrintStatement={(student) => printStatement(student, selectedStudent ? paymentOpsHook.paymentsByStudent[selectedStudent.id] ?? [] : [])}
           canAddPayments={canAddPayments}
           canDeletePayments={canDeletePayments}
         />

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Student, Payment } from "../_types";
-import { User, Wallet, CreditCard, Printer, Trash2, Calendar, FileText, Hash, MessageSquare } from "lucide-react";
+import { User, Wallet, CreditCard, Printer, Trash2, Calendar, FileText, Hash, MessageSquare, BookOpen } from "lucide-react";
 
 interface StudentDetailPanelProps {
   student: Student | null;
@@ -21,6 +21,7 @@ interface StudentDetailPanelProps {
   onAddPayment: (student: Student) => void;
   onDeletePayment: (paymentId: string) => void;
   onPrintReceipt: (payment: Payment, student: Student) => void;
+  onPrintStatement: (student: Student, payments: Payment[]) => void;
   canAddPayments: boolean;
   canDeletePayments: boolean;
 }
@@ -35,6 +36,7 @@ export function StudentDetailPanel({
   onAddPayment,
   onDeletePayment,
   onPrintReceipt,
+  onPrintStatement,
   canAddPayments,
   canDeletePayments,
 }: StudentDetailPanelProps) {
@@ -169,6 +171,14 @@ export function StudentDetailPanel({
       <ModalFooter>
         <Button variant="secondary" onClick={onClose}>
           {t("payments.detailPanel.close")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPrintStatement(student, payments)}
+        >
+          <BookOpen className="h-4 w-4 me-1" />
+          {t("payments.detailPanel.printStatement")}
         </Button>
       </ModalFooter>
     </Modal>

@@ -840,6 +840,7 @@
       "emptyPaymentsDescription": "قم بإضافة دفعة جديدة لهذا الطالب",
       "close": "إغلاق",
       "printReceipt": "طباعة الإيصال",
+      "printStatement": "كشف الحساب الكامل",
       "deletePayment": "حذف الدفعة",
       "date": "التاريخ",
       "paperReceipt": "الإيصال الورقي",

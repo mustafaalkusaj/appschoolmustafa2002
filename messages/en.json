@@ -840,6 +840,7 @@
       "emptyPaymentsDescription": "Add a new payment for this student.",
       "close": "Close",
       "printReceipt": "Print receipt",
+      "printStatement": "Full account statement",
       "deletePayment": "Delete payment",
       "date": "Date",
       "paperReceipt": "Paper receipt",
