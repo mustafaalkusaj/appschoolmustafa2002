@@ -17,7 +17,6 @@ import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useBranchScope } from "@/hooks/useBranchScope";
 import { useRuntimeBranding } from "@/hooks/brand";
-import { supabase } from "@/lib/supabase";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
