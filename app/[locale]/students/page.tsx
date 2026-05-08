@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { StudentWithFees, StudentActionItem } from "./_types";
-import type { BranchOption } from "./_components/AddStudentModal";
 import { useStudentsData } from "./_hooks/useStudentsData";
 import { useStudentsModals } from "./_hooks/useStudentsModals";
 import { useStudentsOperations } from "./_hooks/useStudentsOperations";
@@ -18,7 +17,6 @@ import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useBranchScope } from "@/hooks/useBranchScope";
 import { useRuntimeBranding } from "@/hooks/brand";
-import { supabase } from "@/lib/supabase";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
@@ -64,25 +62,6 @@ export default function StudentsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showBulkImport, setShowBulkImport] = useState(false);
 
-  // Branches for multi-branch users who don't have a pre-selected branch from context
-  const [branchesForForm, setBranchesForForm] = useState<BranchOption[]>([]);
-  // Show branch selector only when no branch is pre-selected from any context
-  // (subdomain branding, profile fixed branch, or sidebar branch scope selection)
-  const showBranchSelector = !runtimeBranding.branchId && !profile?.branch_id && !branchScope.selectedBranchId;
-
-  useEffect(() => {
-    if (!showBranchSelector || !profile || !schoolScope.selectedSchoolId) return;
-    const schoolId = schoolScope.selectedSchoolId;
-    void (async () => {
-      const { data } = await supabase
-        .from("branches")
-        .select("id, name")
-        .eq("school_id", schoolId)
-        .order("name", { ascending: true });
-      const rows = (data ?? []) as { id: string; name: string }[];
-      setBranchesForForm(rows.map((b) => ({ id: b.id, name: b.name })));
-    })();
-  }, [showBranchSelector, profile, schoolScope.selectedSchoolId]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -96,6 +75,13 @@ export default function StudentsPage() {
     setPage(1);
     setDebouncedSearch("");
   }, [activeTab]);
+
+  // Resolve branch from: runtime branding subdomain > profile fixed branch > URL ?branch= param
+  const effectiveBranchId =
+    runtimeBranding.branchId ??
+    profile?.branch_id ??
+    branchScope.selectedBranchId ??
+    null;
 
   const {
     pagedStudents,
@@ -122,19 +108,10 @@ export default function StudentsPage() {
     filterSection,
     pageSize,
     page,
-    currentBranchId: runtimeBranding.branchId ?? branchScope.selectedBranchId ?? undefined,
+    currentBranchId: effectiveBranchId ?? undefined,
   });
 
   const modals = useStudentsModals();
-
-  // Use runtimeBranding.branchId if available; then profile fixed branch;
-  // then the sidebar-selected branch (for multi-branch admins who pick from sidebar);
-  // finally branchesForForm[0] when there is exactly one branch.
-  const effectiveBranchId =
-    runtimeBranding.branchId ??
-    profile?.branch_id ??
-    branchScope.selectedBranchId ??
-    (branchesForForm.length === 1 ? branchesForForm[0].id : null);
 
   const operations = useStudentsOperations({
     profile,
@@ -352,6 +329,12 @@ export default function StudentsPage() {
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
                         onPrintAllCards={printAllStudentCards}
                         onAddStudent={() => {
+                          if (!effectiveBranchId) {
+                            modals.setError(locale === "ar"
+                              ? "لم يتم تحديد الفرع الحالي، يرجى إعادة اختيار الفرع"
+                              : "No branch selected. Please select a branch first.");
+                            return;
+                          }
                           modals.resetForm();
                           modals.setShowModal(true);
                         }}
@@ -403,8 +386,6 @@ export default function StudentsPage() {
             modals.resetForm();
           }}
           onSubmit={operations.handleAdd}
-          branches={branchesForForm}
-          showBranchSelector={showBranchSelector && branchesForForm.length > 1}
         />
         <EditStudentModal
           show={modals.showEdit}

@@ -223,11 +223,11 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     modals.setError("");
 
     // Resolve branch: form selection > UI context (sidebar/header) > profile fixed branch
-    const resolvedBranchId = modals.form.branch_id || activeBranchIdFromUI || profile?.branch_id || null;
+    const resolvedBranchId = activeBranchIdFromUI || profile?.branch_id || null;
     if (!resolvedBranchId) {
       const errorMsg = locale === "en"
-        ? "Please select a branch first to add a student."
-        : "يرجى اختيار الفرع المطلوب أولاً لإضافة الطالب.";
+        ? "No branch selected. Please select a branch first."
+        : "لم يتم تحديد الفرع الحالي، يرجى إعادة اختيار الفرع";
       modals.setError(errorMsg);
       modals.setSaving(false);
       modals.setAddStep(1); // Return to Step 1 where the branch selector is visible

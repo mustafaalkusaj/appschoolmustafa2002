@@ -11,8 +11,6 @@ import { cn } from "@/lib/brand/brand-utils";
 import { formatNumber } from "@/lib/formatting";
 import type { StudentFormData, ClassFee } from "../_types";
 
-export type BranchOption = { id: string; name: string };
-
 interface AddStudentModalProps {
   show: boolean;
   isReadOnlyView: boolean;
@@ -26,10 +24,6 @@ interface AddStudentModalProps {
   error: string;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
-  /** Branches to show for selection; only shown when length > 1 and no branch is pre-selected from context */
-  branches?: BranchOption[];
-  /** When true, the user must pick a branch in the form (no branch pre-selected from context) */
-  showBranchSelector?: boolean;
 }
 
 export function AddStudentModal({
@@ -45,16 +39,12 @@ export function AddStudentModal({
   error,
   onClose,
   onSubmit,
-  branches = [],
-  showBranchSelector = false,
 }: AddStudentModalProps) {
   const t = useTranslations("students.modals");
   const commonT = useTranslations("common");
   const paginationT = useTranslations("students.pagination");
-  // Filter class fees by the selected branch when branch selector is shown
-  const filteredClassFees = showBranchSelector && form.branch_id
-    ? classFees.filter((cf) => cf.branch_id === form.branch_id)
-    : classFees;
+  // classFees already filtered by currentBranchId from useStudentsData
+  const filteredClassFees = classFees;
 
   const classOptions = [
     ...filteredClassFees,
@@ -199,23 +189,6 @@ export function AddStudentModal({
                   />
                 </FormField>
 
-                {showBranchSelector && branches.length > 0 && (
-                  <FormField label={t("form.branch")} htmlFor="branch_id" required className="sm:col-span-2">
-                    <Select
-                      id="branch_id"
-                      required
-                      value={form.branch_id}
-                      onChange={(e) => setForm({ ...form, branch_id: e.target.value, class_name: "", total_fee: "" })}
-                    >
-                      <option value="">{t("form.selectBranch")}</option>
-                      {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                )}
               </>
             )}
 
