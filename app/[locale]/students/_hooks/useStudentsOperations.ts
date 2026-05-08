@@ -102,7 +102,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     runtimeBranding: _runtimeBranding,
     currentBranchId: activeBranchIdFromUI,
     modals,
-    reload,
+    reload: _reload,
     backgroundReload,
     addStudentOptimistically,
     updateStudentOptimistically,
