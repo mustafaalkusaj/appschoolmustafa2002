@@ -67,6 +67,8 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
   const [allStudentsDataset, setAllStudentsDataset] = useState<StudentWithFees[]>([]);
   const [datasetLoading, setDatasetLoading] = useState(false);
   const datasetFilterKeyRef = useRef<string>("");
+  // Tracks latest class fees request to prevent stale results overwriting newer ones
+  const classFeesRequestRef = useRef(0);
 
   const fetchPagedStudents = useCallback(
     async (from: number): Promise<PagedFetchResult<StudentWithFees>> => {
@@ -147,10 +149,12 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     const effectiveBranchId = currentBranchId || profile?.branch_id || null;
     // If scope is still loading and we have no branchId yet, wait — it will re-run when scopeLoading becomes false
     if (scopeLoading && !effectiveBranchId) return;
+    // Track this request to avoid stale results overwriting newer ones (race condition fix)
+    const requestId = ++classFeesRequestRef.current;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
     const compat = await detectAppSchemaCompat();
     if (!schoolId && compat.classFeesSchoolScope) {
-      setClassFees([]);
+      if (requestId === classFeesRequestRef.current) setClassFees([]);
       return;
     }
     let query = supabase.from("class_fees").select("id, class_name, total_fee, installments, installment_amount, school_id, branch_id").order("class_name", { ascending: true });
@@ -161,7 +165,10 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       query = query.eq("branch_id", effectiveBranchId);
     }
     const { data } = await query;
-    setClassFees(data || []);
+    // Only apply results if this is still the latest fetch (prevents stale overwrites)
+    if (requestId === classFeesRequestRef.current) {
+      setClassFees(data || []);
+    }
   }, [profile, selectedSchoolId, currentBranchId, scopeLoading]);
 
   useEffect(() => {
