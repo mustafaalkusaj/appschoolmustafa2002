@@ -60,6 +60,7 @@ export type ClassFee = {
   total_fee?: number;
   installment_amount?: number;
   installments?: number;
+  branch_id?: string | null;
 };
 
 export type PrintCardOptions = {
