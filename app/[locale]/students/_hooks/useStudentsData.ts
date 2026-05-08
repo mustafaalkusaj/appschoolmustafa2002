@@ -142,6 +142,11 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
   // Fetch class fees
   const fetchClassFees = useCallback(async () => {
     if (!profile) return;
+    // Filter by branch: use currentBranchId (from runtimeBranding) first,
+    // fallback to profile.branch_id (available immediately, before loadBranding finishes)
+    const effectiveBranchId = currentBranchId || profile?.branch_id || null;
+    // If scope is still loading and we have no branchId yet, wait — it will re-run when scopeLoading becomes false
+    if (scopeLoading && !effectiveBranchId) return;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
     const compat = await detectAppSchemaCompat();
     if (!schoolId && compat.classFeesSchoolScope) {
@@ -152,15 +157,12 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     if (compat.classFeesSchoolScope && schoolId) {
       query = query.eq("school_id", schoolId);
     }
-    // Filter by branch: use currentBranchId (from runtimeBranding) first,
-    // fallback to profile.branch_id (available immediately, before loadBranding finishes)
-    const effectiveBranchId = currentBranchId || profile?.branch_id || null;
     if (effectiveBranchId) {
       query = query.eq("branch_id", effectiveBranchId);
     }
     const { data } = await query;
     setClassFees(data || []);
-  }, [profile, selectedSchoolId, currentBranchId]);
+  }, [profile, selectedSchoolId, currentBranchId, scopeLoading]);
 
   useEffect(() => {
     void fetchClassFees();
