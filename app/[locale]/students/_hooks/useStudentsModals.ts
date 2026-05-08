@@ -133,6 +133,7 @@ export function useStudentsModals(): UseStudentsModalsReturn {
       paid_fee: student.paid_fee?.toString() || "0",
       discount_value: student.discount_value?.toString() || "",
       status: student.status,
+      branch_id: student.branch_id || "",
     });
     setShowEdit(true);
     setActiveMenu(null);

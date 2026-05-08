@@ -222,13 +222,12 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     modals.setSaving(true);
     modals.setError("");
 
-    // Use current active branch from UI context (sidebar/header)
-    // Priority: UI context > profile.branch_id (for single-branch users)
-    const resolvedBranchId = activeBranchIdFromUI ?? profile?.branch_id ?? null;
+    // Resolve branch: form selection > UI context (sidebar/header) > profile fixed branch
+    const resolvedBranchId = modals.form.branch_id || activeBranchIdFromUI || profile?.branch_id || null;
     if (!resolvedBranchId) {
       const errorMsg = locale === "en"
-        ? "Could not determine the current branch. Please ensure a branch is selected in the sidebar."
-        : "تعذر تحديد الفرع الحالي. يرجى التأكد من اختيار فرع في القائمة الجانبية.";
+        ? "Could not determine the current branch. Please select a branch before adding a student."
+        : "تعذر تحديد الفرع. يرجى اختيار الفرع قبل إضافة الطالب.";
       modals.setError(errorMsg);
       modals.setSaving(false);
       return;

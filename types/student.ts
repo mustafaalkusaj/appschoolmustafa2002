@@ -10,6 +10,7 @@ export type StudentStatus =
 export interface Student {
   id: string;
   school_id: string;
+  branch_id?: string | null;
   full_name: string;
   class_name: string;
   section: string | null;

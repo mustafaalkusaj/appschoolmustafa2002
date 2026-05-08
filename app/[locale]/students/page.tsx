@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { StudentWithFees, StudentActionItem } from "./_types";
+import type { BranchOption } from "./_components/AddStudentModal";
 import { useStudentsData } from "./_hooks/useStudentsData";
 import { useStudentsModals } from "./_hooks/useStudentsModals";
 import { useStudentsOperations } from "./_hooks/useStudentsOperations";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRuntimeBranding } from "@/hooks/brand";
+import { supabase } from "@/lib/supabase";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
@@ -59,6 +61,24 @@ export default function StudentsPage() {
   const [filterSection, setFilterSection] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showBulkImport, setShowBulkImport] = useState(false);
+
+  // Branches for multi-branch users who don't have a pre-selected branch from context
+  const [branchesForForm, setBranchesForForm] = useState<BranchOption[]>([]);
+  const showBranchSelector = !runtimeBranding.branchId; // true when no branch is pre-selected
+
+  useEffect(() => {
+    if (!showBranchSelector || !profile || !schoolScope.selectedSchoolId) return;
+    const schoolId = schoolScope.selectedSchoolId;
+    void (async () => {
+      const { data } = await supabase
+        .from("branches")
+        .select("id, name")
+        .eq("school_id", schoolId)
+        .order("name", { ascending: true });
+      const rows = (data ?? []) as { id: string; name: string }[];
+      setBranchesForForm(rows.map((b) => ({ id: b.id, name: b.name })));
+    })();
+  }, [showBranchSelector, profile, schoolScope.selectedSchoolId]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -370,6 +390,8 @@ export default function StudentsPage() {
             modals.resetForm();
           }}
           onSubmit={operations.handleAdd}
+          branches={branchesForForm}
+          showBranchSelector={showBranchSelector && branchesForForm.length > 1}
         />
         <EditStudentModal
           show={modals.showEdit}
