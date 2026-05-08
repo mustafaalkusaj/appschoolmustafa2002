@@ -64,7 +64,8 @@ export default function StudentsPage() {
 
   // Branches for multi-branch users who don't have a pre-selected branch from context
   const [branchesForForm, setBranchesForForm] = useState<BranchOption[]>([]);
-  const showBranchSelector = !runtimeBranding.branchId; // true when no branch is pre-selected
+  // Show branch selector only when no branch is pre-selected from URL and user has no fixed branch in their profile
+  const showBranchSelector = !runtimeBranding.branchId && !profile?.branch_id;
 
   useEffect(() => {
     if (!showBranchSelector || !profile || !schoolScope.selectedSchoolId) return;
@@ -123,10 +124,11 @@ export default function StudentsPage() {
 
   const modals = useStudentsModals();
 
-  // Use runtimeBranding.branchId if available; fall back to branchesForForm[0] when
+  // Use runtimeBranding.branchId if available; then profile fixed branch; then branchesForForm[0] when
   // there is exactly one branch (single-branch school or single-branch admin account).
   const effectiveBranchId =
     runtimeBranding.branchId ??
+    profile?.branch_id ??
     (branchesForForm.length === 1 ? branchesForForm[0].id : null);
 
   const operations = useStudentsOperations({
