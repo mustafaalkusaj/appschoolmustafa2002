@@ -79,11 +79,15 @@ export function parseEnvFile(filePath) {
   return parsed;
 }
 
-export function loadProductionEnv(cwd = process.cwd()) {
+export function loadProductionEnv(cwd = process.cwd(), { skipLocalOverrides = false } = {}) {
   const env = {};
   const loadedFiles = [];
 
-  for (const fileName of ENV_FILE_ORDER) {
+  const filesToLoad = skipLocalOverrides
+    ? ENV_FILE_ORDER.filter((f) => f !== ".env.local" && f !== ".env.production.local")
+    : ENV_FILE_ORDER;
+
+  for (const fileName of filesToLoad) {
     const filePath = path.join(cwd, fileName);
     if (!fs.existsSync(filePath)) {
       continue;

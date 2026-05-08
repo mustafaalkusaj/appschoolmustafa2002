@@ -48,6 +48,8 @@ export function ClassesModal({
   const [editingSection, setEditingSection] = useState<SectionItem | null>(null);
   const [classForm, setClassForm] = useState<ClassForm>({ name: "", sections: [] });
   const [sectionForm, setSectionForm] = useState<SectionForm>({ class_id: "", name: "" });
+  const [confirmDeleteClassId, setConfirmDeleteClassId] = useState<string | null>(null);
+  const [confirmDeleteSectionId, setConfirmDeleteSectionId] = useState<string | null>(null);
 
   const resetClassForm = useCallback(() => {
     onClearFeedback();
@@ -256,7 +258,15 @@ export function ClassesModal({
                         <td style={{ padding: ".65rem" }}>{clsSections.length} شعبة</td>
                         <td style={{ padding: ".65rem", textAlign: "center" }}>
                           <button className="action-btn edit-btn" onClick={() => handleEditClass(cls)}>تعديل</button>
-                          <button className="action-btn del-btn" onClick={() => void onDeleteClass(cls.id)} style={{ marginInlineStart: ".3rem" }}>حذف</button>
+                          {confirmDeleteClassId === cls.id ? (
+                            <>
+                              <span style={{ fontSize: ".75rem", color: "var(--danger)", marginInlineStart: ".3rem" }}>تأكيد؟</span>
+                              <button className="action-btn del-btn" onClick={() => { setConfirmDeleteClassId(null); void onDeleteClass(cls.id); }} style={{ marginInlineStart: ".3rem" }}>نعم</button>
+                              <button className="action-btn" onClick={() => setConfirmDeleteClassId(null)} style={{ marginInlineStart: ".2rem" }}>لا</button>
+                            </>
+                          ) : (
+                            <button className="action-btn del-btn" onClick={() => setConfirmDeleteClassId(cls.id)} style={{ marginInlineStart: ".3rem" }}>حذف</button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -289,7 +299,15 @@ export function ClassesModal({
                           <td style={{ padding: ".5rem" }}>{cls?.name || "—"}</td>
                           <td style={{ padding: ".5rem", textAlign: "center" }}>
                             <button className="action-btn edit-btn" onClick={() => handleEditSection(sec)}>تعديل</button>
-                            <button className="action-btn del-btn" onClick={() => void onDeleteSection(sec.id)} style={{ marginInlineStart: ".3rem" }}>حذف</button>
+                          {confirmDeleteSectionId === sec.id ? (
+                            <>
+                              <span style={{ fontSize: ".75rem", color: "var(--danger)", marginInlineStart: ".3rem" }}>تأكيد؟</span>
+                              <button className="action-btn del-btn" onClick={() => { setConfirmDeleteSectionId(null); void onDeleteSection(sec.id); }} style={{ marginInlineStart: ".3rem" }}>نعم</button>
+                              <button className="action-btn" onClick={() => setConfirmDeleteSectionId(null)} style={{ marginInlineStart: ".2rem" }}>لا</button>
+                            </>
+                          ) : (
+                            <button className="action-btn del-btn" onClick={() => setConfirmDeleteSectionId(sec.id)} style={{ marginInlineStart: ".3rem" }}>حذف</button>
+                          )}
                           </td>
                         </tr>
                       );

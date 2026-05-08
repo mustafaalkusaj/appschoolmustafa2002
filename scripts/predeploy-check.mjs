@@ -15,7 +15,7 @@ const recommendedEnvKeys = [
   "UPSTASH_REDIS_REST_TOKEN",
 ];
 
-const { env, loadedFiles } = loadProductionEnv();
+const { env, loadedFiles } = loadProductionEnv(process.cwd(), { skipLocalOverrides: true });
 
 function hasValue(key) {
   return typeof env[key] === "string" && env[key].trim().length > 0;

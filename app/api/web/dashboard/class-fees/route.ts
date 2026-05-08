@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    invalidateSchoolCacheDomains(context.value.targetSchoolId, ["dashboard-overview"]);
+    invalidateSchoolCacheDomains(context.value.targetSchoolId, ["dashboard-overview", "dashboard-structure"]);
     return NextResponse.json({ ok: true });
   } catch (error) {
     logRouteError("dashboard-class-fees-write", error, {
