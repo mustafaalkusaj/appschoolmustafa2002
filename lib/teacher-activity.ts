@@ -354,6 +354,11 @@ export function validateFeeNotificationInput(body: unknown) {
     return { ok: false as const, message: "نص الإشعار مطلوب.", fieldErrors: { message: "نص الإشعار مطلوب." } };
   }
 
+  const schoolId = asNullableString(data.school_id ?? data.schoolId);
+  if (!schoolId) {
+    return { ok: false as const, message: "معرف المدرسة مطلوب.", fieldErrors: { school_id: "معرف المدرسة مطلوب." } };
+  }
+
   if (!FEE_NOTIFICATION_TARGET_MODES.includes(targetMode)) {
     return { ok: false as const, message: "نوع الاستهداف غير مدعوم.", fieldErrors: { target_mode: "نوع الاستهداف غير مدعوم." } };
   }
@@ -387,7 +392,7 @@ export function validateFeeNotificationInput(body: unknown) {
   return {
     ok: true as const,
     value: {
-      schoolId: asNullableString(data.school_id ?? data.schoolId),
+      schoolId,
       title,
       message,
       note: asNullableString(data.note),

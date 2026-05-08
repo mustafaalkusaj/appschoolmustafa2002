@@ -10,6 +10,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  ReceiptText,
   Sparkles,
   Trash2,
   Upload,
@@ -35,6 +36,7 @@ import {
   type BrandThemePresetId,
 } from "@/lib/brand/themes";
 import { DEFAULT_SCHOOL_BRANDING } from "../_components/types";
+import { BranchReceiptConfigModal } from "../_components/BranchReceiptConfigModal";
 import { SectionCard, EmptyState, MigrationNotice, cx } from "./UI";
 import { logAction } from "@/lib/audit";
 
@@ -193,6 +195,7 @@ export function BranchesTab({
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<BranchFormData>(createInitialFormState());
+  const [receiptConfigBranch, setReceiptConfigBranch] = useState<{ id: string; name: string } | null>(null);
 
   const branchColorsEnabled = Boolean(schemaCompat?.branchColors);
   const branchUiColorsEnabled = Boolean(schemaCompat?.branchUiColors);
@@ -667,6 +670,13 @@ export function BranchesTab({
                   </div>
 
                   <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
+                    <button
+                      onClick={() => setReceiptConfigBranch({ id: branch.id, name: branch.name })}
+                      className="ui-button ui-button--secondary h-8 px-3 text-xs"
+                    >
+                      <ReceiptText size={14} className="me-1" />
+                      إيصال الفرع
+                    </button>
                     <button
                       onClick={() => {
                         setEditingBranch(branch);
@@ -1304,6 +1314,13 @@ export function BranchesTab({
           </div>
         </div>
       ) : null}
+
+      {receiptConfigBranch && (
+        <BranchReceiptConfigModal
+          branch={receiptConfigBranch}
+          onClose={() => setReceiptConfigBranch(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={Boolean(branchToDelete)}

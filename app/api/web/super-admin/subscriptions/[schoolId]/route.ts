@@ -33,7 +33,7 @@ export async function POST(
         .maybeSingle(),
       dataSupabase
         .from("subscriptions")
-        .select("id, plan")
+        .select("id, plan, end_date")
         .eq("school_id", normalizedSchoolId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -48,7 +48,14 @@ export async function POST(
     return jsonError(subscriptionLookupError.message || "تعذر الوصول إلى الاشتراك الحالي.", 500);
   }
 
-  const endDate = new Date(Date.now() + 365 * DAY_IN_MS).toISOString().split("T")[0];
+  // Extend from existing end_date if still in the future; otherwise extend from today.
+  // This preserves unused subscription time and never deletes user data.
+  const now = Date.now();
+  const existingEndMs = latestSubscription?.end_date
+    ? new Date(latestSubscription.end_date).getTime()
+    : 0;
+  const baseMs = existingEndMs > now ? existingEndMs : now;
+  const endDate = new Date(baseMs + 365 * DAY_IN_MS).toISOString().split("T")[0];
   const startDate = new Date().toISOString().split("T")[0];
 
   const response = latestSubscription?.id

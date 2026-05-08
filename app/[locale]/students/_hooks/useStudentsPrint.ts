@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import type { StudentWithFees, ManagedUserAccountCard } from "../_types";
-import { buildPrintableCardHtml, buildSingleStudentPrintHtml, buildStudentPrintCardHtml } from "../_utils";
+import { buildPrintableCardHtml, buildSingleStudentPrintHtml, buildStudentPrintCardHtml, buildStudentIdCardsHtml } from "../_utils";
 import { formatNumber } from "@/lib/formatting";
 import { printHtmlDocument, wrapPrintDocument } from "@/lib/print/branding";
 
@@ -10,9 +10,12 @@ export interface UseStudentsPrintOptions {
   locale: "ar" | "en";
   runtimeBranding: {
     schoolName?: string;
+    branchName?: string | null;
     logoUrl?: string | null;
+    branchLogoUrl?: string | null;
     primaryColor?: string | null;
     secondaryColor?: string | null;
+    [key: string]: unknown;
   };
   setError: (error: string) => void;
 }
@@ -84,6 +87,23 @@ export function useStudentsPrint(options: UseStudentsPrintOptions) {
     );
   }, [locale, printOptions, runtimeBranding, setError]);
 
+  const printIdCards = useCallback((students: StudentWithFees[]) => {
+    if (students.length === 0) {
+      setError(locale === "en" ? "No students to print." : "لا يوجد طلاب للطباعة بعد تطبيق الفلاتر.");
+      return;
+    }
+    setError("");
+    const html = buildStudentIdCardsHtml(students, {
+      locale,
+      schoolName: runtimeBranding.schoolName,
+      branchName: runtimeBranding.branchName ?? undefined,
+      logoUrl: runtimeBranding.branchLogoUrl || runtimeBranding.logoUrl,
+      primaryColor: runtimeBranding.primaryColor,
+      secondaryColor: runtimeBranding.secondaryColor,
+    });
+    printHtmlDocument(html);
+  }, [locale, runtimeBranding, setError]);
+
   const openAccountCardWindow = useCallback((card: ManagedUserAccountCard, autoPrint = true, revealedPassword?: string | null) => {
     // Use the revealed password if available, otherwise the card's password (which may be a placeholder)
     const passwordToShow = revealedPassword && revealedPassword !== "••••••••"
@@ -113,7 +133,8 @@ export function useStudentsPrint(options: UseStudentsPrintOptions) {
   return useMemo(() => ({
     handlePrint,
     printFilteredStudents,
+    printIdCards,
     openAccountCardWindow,
     copyAccountCardCredentials,
-  }), [handlePrint, printFilteredStudents, openAccountCardWindow, copyAccountCardCredentials]);
+  }), [handlePrint, printFilteredStudents, printIdCards, openAccountCardWindow, copyAccountCardCredentials]);
 }

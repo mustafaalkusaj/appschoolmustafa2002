@@ -4,6 +4,7 @@ import {
   restoreSchoolArchivePayload,
   type SchoolArchivePayload,
 } from "@/lib/school-archives";
+import { logger } from "@/lib/logger";
 import { resolveSuperAdminActorContext } from "@/lib/super-admin-server";
 
 function jsonError(message: string, status: number) {
@@ -44,7 +45,7 @@ export async function POST(
       ...restoreResult,
     });
   } catch (error) {
-    console.error("school import error", error);
+    logger.error("school import error", error instanceof Error ? error : new Error(String(error)));
     return jsonError(
       error instanceof Error ? error.message : "تعذر استيراد ملف الأرشيف.",
       500,
