@@ -704,7 +704,6 @@ export function useTeachersData(
     }
 
     try {
-      const XLSX = await loadXLSX();
       const response = await fetchWithAuthorizedSession(`/api/dashboard/users?${buildUsersQueryParams().toString()}`, {
         method: "GET",
         cache: "no-store",
@@ -717,22 +716,38 @@ export function useTeachersData(
 
       const exportUsers = Array.isArray(payload?.users) ? (payload.users as ManagedUserRecord[]) : filteredUsers;
       const rows = exportUsers.map((user) => ({
-        "الاسم الكامل": user.full_name,
-        الدور: "مدرس",
-        الهاتف: user.phone || "",
-        "معرّف الدخول": user.app_account?.login_identifier || user.email,
-        البريد: user.email,
-        الصف: user.teacher?.assignments[0]?.class_name || "",
-        الشعبة: user.teacher?.assignments[0]?.section_name || "",
-        المادة: user.teacher?.assignments[0]?.subject_name || "",
-        الحالة: user.is_active ? "نشط" : "غير نشط",
-        "تاريخ الإنشاء": formatDateLabel(user.created_at),
+        name:       user.full_name,
+        phone:      user.phone || "",
+        login:      user.app_account?.login_identifier || user.email || "",
+        email:      user.email || "",
+        class:      user.teacher?.assignments[0]?.class_name || "",
+        section:    user.teacher?.assignments[0]?.section_name || "",
+        subject:    user.teacher?.assignments[0]?.subject_name || "",
+        status:     user.is_active ? "نشط" : "غير نشط",
+        created_at: formatDateLabel(user.created_at),
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(rows);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "teachers");
-      await XLSX.writeFile(workbook, `حسابات_الاساتذة_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const { downloadExcelExport } = await import("@/lib/excel-client");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadExcelExport({
+        filename: `حسابات_الاساتذة_${dateStr}.xlsx`,
+        sheets: [{
+          name:     "حسابات الأساتذة",
+          title:    "حسابات الأساتذة",
+          columns: [
+            { header: "الاسم الكامل",      key: "name",       width: 28 },
+            { header: "الهاتف",            key: "phone",      width: 18 },
+            { header: "معرّف الدخول",      key: "login",      width: 26 },
+            { header: "البريد",            key: "email",      width: 26 },
+            { header: "الصف",              key: "class",      width: 14 },
+            { header: "الشعبة",            key: "section",    width: 10 },
+            { header: "المادة",            key: "subject",    width: 16 },
+            { header: "الحالة",            key: "status",     width: 12 },
+            { header: "تاريخ الإنشاء",    key: "created_at", width: 18 },
+          ],
+          rows,
+        }],
+      });
     } catch {
       setError("تعذر تجهيز ملف التصدير حالياً.");
     }

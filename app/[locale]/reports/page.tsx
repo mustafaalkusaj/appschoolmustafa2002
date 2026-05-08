@@ -11,7 +11,6 @@ import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolSco
 import { useRuntimeBranding } from "@/hooks/brand";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
-import { loadXLSX } from "@/lib/xlsx-loader";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
@@ -392,142 +391,204 @@ export default function ReportsPage() {
     }
   }, [getScopedSchoolId, reportCopy.loadComprehensiveFailed, runtimeBranding.branchId]);
 
-  async function exportRows(rows: Record<string, unknown>[], sheetName: string, fileName: string) {
-    const XLSX = await loadXLSX();
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    await XLSX.writeFile(wb, `${fileName}_${formatDate(new Date())}.xlsx`);
-  }
-
   async function exportStudentsExcel() {
     const students = await loadDataset("students");
-    await exportRows(
-      students.map((item) => ({
-        [reportCopy.studentName]: item.full_name,
-        [reportCopy.className]: item.class_name || "—",
-        [reportCopy.status]: studentStatusLabel(item.status),
-        [reportCopy.totalFees]: item.total_fee || 0,
-        [reportCopy.paid]: item.paid_fee || 0,
-        [reportCopy.remaining]: item.remaining_fee || 0,
-        [reportCopy.phone]: item.phone || "",
-        [reportCopy.address]: item.address || "",
-      })),
-      reportCopy.studentsSheet,
-      reportCopy.studentsFile,
-    );
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: `${reportCopy.studentsFile}_${formatDate(new Date())}.xlsx`,
+      sheets: [{
+        name:  reportCopy.studentsSheet,
+        title: reportCopy.studentsSheet,
+        columns: [
+          { header: reportCopy.studentName, key: "name",      width: 28 },
+          { header: reportCopy.className,   key: "class",     width: 16 },
+          { header: reportCopy.status,      key: "status",    width: 12 },
+          { header: reportCopy.totalFees,   key: "total",     width: 18, numFmt: "#,##0" },
+          { header: reportCopy.paid,        key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
+          { header: reportCopy.remaining,   key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
+          { header: reportCopy.phone,       key: "phone",     width: 16 },
+          { header: reportCopy.address,     key: "address",   width: 22 },
+        ],
+        rows: students.map((item) => ({
+          name:      item.full_name,
+          class:     item.class_name || "—",
+          status:    studentStatusLabel(item.status),
+          total:     item.total_fee || 0,
+          paid:      item.paid_fee || 0,
+          remaining: item.remaining_fee || 0,
+          phone:     item.phone || "",
+          address:   item.address || "",
+        })),
+      }],
+    });
   }
 
   async function exportPaymentsExcel() {
     const payments = await loadDataset("payments");
-    await exportRows(
-      payments.map((item) => ({
-        [reportCopy.student]: item.students?.full_name || "—",
-        [reportCopy.className]: item.students?.class_name || "—",
-        [reportCopy.amount]: item.amount || 0,
-        [reportCopy.paymentMethod]: paymentMethodLabel(item.payment_method),
-        [reportCopy.date]: formatDate(item.created_at ?? ""),
-        [reportCopy.receiptNumber]: item.receipt_number || "—",
-        [reportCopy.notes]: item.notes || "",
-      })),
-      reportCopy.paymentsSheet,
-      reportCopy.paymentsFile,
-    );
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: `${reportCopy.paymentsFile}_${formatDate(new Date())}.xlsx`,
+      sheets: [{
+        name:  reportCopy.paymentsSheet,
+        title: reportCopy.paymentsSheet,
+        columns: [
+          { header: reportCopy.student,       key: "name",    width: 28 },
+          { header: reportCopy.className,     key: "class",   width: 16 },
+          { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
+          { header: reportCopy.paymentMethod, key: "method",  width: 16 },
+          { header: reportCopy.date,          key: "date",    width: 16 },
+          { header: reportCopy.receiptNumber, key: "receipt", width: 22 },
+          { header: reportCopy.notes,         key: "notes",   width: 22 },
+        ],
+        rows: payments.map((item) => ({
+          name:    item.students?.full_name || "—",
+          class:   item.students?.class_name || "—",
+          amount:  item.amount || 0,
+          method:  paymentMethodLabel(item.payment_method),
+          date:    formatDate(item.created_at ?? ""),
+          receipt: item.receipt_number || "—",
+          notes:   item.notes || "",
+        })),
+      }],
+    });
   }
 
   async function exportExpensesExcel() {
     const expenses = await loadDataset("expenses");
-    await exportRows(
-      expenses.map((item) => ({
-        [reportCopy.type]: item.expense_types?.name || "—",
-        [reportCopy.amount]: item.amount || 0,
-        [reportCopy.date]: formatDate(item.expense_date ?? ""),
-        [reportCopy.recipient]: item.recipient || "—",
-        [reportCopy.receiptNumber]: item.receipt_number || "—",
-        [reportCopy.notes]: item.notes || "",
-      })),
-      reportCopy.expensesSheet,
-      reportCopy.expensesFile,
-    );
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: `${reportCopy.expensesFile}_${formatDate(new Date())}.xlsx`,
+      sheets: [{
+        name:  reportCopy.expensesSheet,
+        title: reportCopy.expensesSheet,
+        columns: [
+          { header: reportCopy.type,          key: "type",      width: 20 },
+          { header: reportCopy.amount,        key: "amount",    width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+          { header: reportCopy.date,          key: "date",      width: 16 },
+          { header: reportCopy.recipient,     key: "recipient", width: 20 },
+          { header: reportCopy.receiptNumber, key: "receipt",   width: 20 },
+          { header: reportCopy.notes,         key: "notes",     width: 24 },
+        ],
+        rows: expenses.map((item) => ({
+          type:      item.expense_types?.name || "—",
+          amount:    item.amount || 0,
+          date:      formatDate(item.expense_date ?? ""),
+          recipient: item.recipient || "—",
+          receipt:   item.receipt_number || "—",
+          notes:     item.notes || "",
+        })),
+      }],
+    });
   }
 
   async function exportSalariesExcel() {
     const salaries = await loadDataset("salaries");
-    await exportRows(
-      salaries.map((item) => ({
-        [reportCopy.teacher]: item.teachers?.full_name || "—",
-        [reportCopy.subject]: item.teachers?.subject || "—",
-        [reportCopy.month]: item.month || "—",
-        [reportCopy.gross]: item.gross_salary || 0,
-        [reportCopy.deductions]: item.deductions || 0,
-        [reportCopy.net]: (item.gross_salary || 0) - (item.deductions || 0),
-        [reportCopy.paidAt]: item.paid_at ? formatDate(item.paid_at) : "—",
-      })),
-      reportCopy.salariesSheet,
-      reportCopy.salariesFile,
-    );
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: `${reportCopy.salariesFile}_${formatDate(new Date())}.xlsx`,
+      sheets: [{
+        name:  reportCopy.salariesSheet,
+        title: reportCopy.salariesSheet,
+        columns: [
+          { header: reportCopy.teacher,    key: "teacher",    width: 24 },
+          { header: reportCopy.subject,    key: "subject",    width: 16 },
+          { header: reportCopy.month,      key: "month",      width: 14 },
+          { header: reportCopy.gross,      key: "gross",      width: 16, numFmt: "#,##0" },
+          { header: reportCopy.deductions, key: "deductions", width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+          { header: reportCopy.net,        key: "net",        width: 16, numFmt: "#,##0", fixedColor: "green" as const },
+          { header: reportCopy.paidAt,     key: "paid_at",    width: 16 },
+        ],
+        rows: salaries.map((item) => ({
+          teacher:    item.teachers?.full_name || "—",
+          subject:    item.teachers?.subject || "—",
+          month:      item.month || "—",
+          gross:      item.gross_salary || 0,
+          deductions: item.deductions || 0,
+          net:        Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+          paid_at:    item.paid_at ? formatDate(item.paid_at) : "—",
+        })),
+      }],
+    });
   }
 
   async function exportAllExcel() {
-    const XLSX = await loadXLSX();
     const { students, payments, expenses, salaries } = await loadAllDatasets();
-    const wb = XLSX.utils.book_new();
+    const { downloadExcelExport } = await import("@/lib/excel-client");
     const sheets = [
       {
-        name: reportCopy.studentsSheet,
+        name: reportCopy.studentsSheet, title: reportCopy.studentsSheet,
+        columns: [
+          { header: reportCopy.studentName, key: "name",      width: 28 },
+          { header: reportCopy.className,   key: "class",     width: 16 },
+          { header: reportCopy.status,      key: "status",    width: 12 },
+          { header: reportCopy.totalFees,   key: "total",     width: 18, numFmt: "#,##0" },
+          { header: reportCopy.paid,        key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
+          { header: reportCopy.remaining,   key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
+          { header: reportCopy.phone,       key: "phone",     width: 16 },
+          { header: reportCopy.address,     key: "address",   width: 22 },
+        ],
         rows: students.map((item) => ({
-          [reportCopy.studentName]: item.full_name,
-          [reportCopy.className]: item.class_name || "—",
-          [reportCopy.status]: studentStatusLabel(item.status),
-          [reportCopy.totalFees]: item.total_fee || 0,
-          [reportCopy.paid]: item.paid_fee || 0,
-          [reportCopy.remaining]: item.remaining_fee || 0,
-          [reportCopy.phone]: item.phone || "",
-          [reportCopy.address]: item.address || "",
+          name: item.full_name, class: item.class_name || "—", status: studentStatusLabel(item.status),
+          total: item.total_fee || 0, paid: item.paid_fee || 0, remaining: item.remaining_fee || 0,
+          phone: item.phone || "", address: item.address || "",
         })),
       },
       {
-        name: reportCopy.paymentsSheet,
+        name: reportCopy.paymentsSheet, title: reportCopy.paymentsSheet,
+        columns: [
+          { header: reportCopy.student,       key: "name",    width: 28 },
+          { header: reportCopy.className,     key: "class",   width: 16 },
+          { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
+          { header: reportCopy.paymentMethod, key: "method",  width: 16 },
+          { header: reportCopy.date,          key: "date",    width: 16 },
+          { header: reportCopy.receiptNumber, key: "receipt", width: 22 },
+        ],
         rows: payments.map((item) => ({
-          [reportCopy.student]: item.students?.full_name || "—",
-          [reportCopy.className]: item.students?.class_name || "—",
-          [reportCopy.amount]: item.amount || 0,
-          [reportCopy.paymentMethod]: paymentMethodLabel(item.payment_method),
-          [reportCopy.date]: formatDate(item.created_at ?? ""),
-          [reportCopy.receiptNumber]: item.receipt_number || "—",
+          name: item.students?.full_name || "—", class: item.students?.class_name || "—",
+          amount: item.amount || 0, method: paymentMethodLabel(item.payment_method),
+          date: formatDate(item.created_at ?? ""), receipt: item.receipt_number || "—",
         })),
       },
       {
-        name: reportCopy.expensesSheet,
+        name: reportCopy.expensesSheet, title: reportCopy.expensesSheet,
+        columns: [
+          { header: reportCopy.type,          key: "type",      width: 20 },
+          { header: reportCopy.amount,        key: "amount",    width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+          { header: reportCopy.date,          key: "date",      width: 16 },
+          { header: reportCopy.recipient,     key: "recipient", width: 20 },
+          { header: reportCopy.receiptNumber, key: "receipt",   width: 20 },
+        ],
         rows: expenses.map((item) => ({
-          [reportCopy.type]: item.expense_types?.name || "—",
-          [reportCopy.amount]: item.amount || 0,
-          [reportCopy.date]: formatDate(item.expense_date ?? ""),
-          [reportCopy.recipient]: item.recipient || "—",
-          [reportCopy.receiptNumber]: item.receipt_number || "—",
+          type: item.expense_types?.name || "—", amount: item.amount || 0,
+          date: formatDate(item.expense_date ?? ""), recipient: item.recipient || "—",
+          receipt: item.receipt_number || "—",
         })),
       },
       {
-        name: reportCopy.salariesSheet,
+        name: reportCopy.salariesSheet, title: reportCopy.salariesSheet,
+        columns: [
+          { header: reportCopy.teacher,    key: "teacher",    width: 24 },
+          { header: reportCopy.subject,    key: "subject",    width: 16 },
+          { header: reportCopy.month,      key: "month",      width: 14 },
+          { header: reportCopy.gross,      key: "gross",      width: 16, numFmt: "#,##0" },
+          { header: reportCopy.deductions, key: "deductions", width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+          { header: reportCopy.net,        key: "net",        width: 16, numFmt: "#,##0", fixedColor: "green" as const },
+          { header: reportCopy.paidAt,     key: "paid_at",    width: 16 },
+        ],
         rows: salaries.map((item) => ({
-          [reportCopy.teacher]: item.teachers?.full_name || "—",
-          [reportCopy.subject]: item.teachers?.subject || "—",
-          [reportCopy.month]: item.month || "—",
-          [reportCopy.gross]: item.gross_salary || 0,
-          [reportCopy.deductions]: item.deductions || 0,
-          [reportCopy.net]: (item.gross_salary || 0) - (item.deductions || 0),
-          [reportCopy.paidAt]: item.paid_at ? formatDate(item.paid_at) : "—",
+          teacher: item.teachers?.full_name || "—", subject: item.teachers?.subject || "—",
+          month: item.month || "—", gross: item.gross_salary || 0, deductions: item.deductions || 0,
+          net: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+          paid_at: item.paid_at ? formatDate(item.paid_at) : "—",
         })),
       },
-    ];
+    ].filter((s) => s.rows.length > 0);
 
-    sheets.forEach((sheet) => {
-      if (sheet.rows.length > 0) {
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet.rows), sheet.name);
-      }
+    if (!sheets.length) { return; }
+    await downloadExcelExport({
+      filename: `${reportCopy.allFile}_${formatDate(new Date())}.xlsx`,
+      sheets,
     });
-
-    await XLSX.writeFile(wb, `${reportCopy.allFile}_${formatDate(new Date())}.xlsx`);
   }
 
   function printDocument(title: string, subtitle: string, bodyHtml: string) {

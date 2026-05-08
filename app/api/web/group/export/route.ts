@@ -1,5 +1,5 @@
-import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
+import { buildStyledWorkbook } from "@/lib/excel-builder";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { resolveSchoolManagerOverview, type SchoolManagerBranchSummary } from "@/lib/school-manager/overview";
@@ -167,69 +167,48 @@ export async function GET(req: NextRequest) {
   }
 
   if (format === "excel") {
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = "School Iraq";
-    workbook.created = new Date();
-
-    const summarySheet = workbook.addWorksheet("ملخص", {
-      views: [{ rightToLeft: true }],
-    });
-
-    summarySheet.columns = [
-      { header: "البند", key: "label", width: 34 },
-      { header: "القيمة", key: "value", width: 28 },
+    const sheets = [
+      {
+        name:  "ملخص",
+        title: target.title,
+        columns: [
+          { header: "البند",   key: "label", width: 34 },
+          { header: "القيمة", key: "value", width: 28 },
+        ],
+        rows: target.rows.map(([label, value]) => ({ label, value })),
+      },
+      ...(!selectedBranch ? [{
+        name:  "الفروع",
+        title: "الفروع",
+        columns: [
+          { header: "الفرع",         key: "branch",    width: 24 },
+          { header: "قبل التخفيض",  key: "before",    width: 20, numFmt: "#,##0" },
+          { header: "بعد التخفيض",  key: "after",     width: 20, numFmt: "#,##0" },
+          { header: "المدفوع",      key: "paid",      width: 20, numFmt: "#,##0", fixedColor: "green" as const },
+          { header: "المتبقي",      key: "remaining", width: 20, numFmt: "#,##0", semanticColor: "remaining" as const },
+          { header: "المصروفات",    key: "expenses",  width: 20, numFmt: "#,##0", fixedColor: "red" as const },
+          { header: "الطلاب",       key: "students",  width: 14 },
+          { header: "نسبة السداد",  key: "rate",      width: 16 },
+        ],
+        rows: overview.branches.map((branch) => ({
+          branch:    branch.branchName,
+          before:    branch.totalFeesBeforeDiscount,
+          after:     branch.totalFeesAfterDiscount,
+          paid:      branch.totalPaid,
+          remaining: branch.totalRemaining,
+          expenses:  branch.totalExpenses,
+          students:  branch.studentsCount,
+          rate:      `${branch.paidPercentage}%`,
+        })),
+      }] : []),
     ];
 
-    summarySheet.getRow(1).eachCell((cell) => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2446E8" } };
-      cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
-      cell.alignment = { horizontal: "center" };
-    });
-
-    target.rows.forEach(([label, value]) => {
-      summarySheet.addRow({ label, value });
-    });
-
-    if (!selectedBranch) {
-      const branchesSheet = workbook.addWorksheet("الفروع", {
-        views: [{ rightToLeft: true }],
-      });
-      branchesSheet.columns = [
-        { header: "الفرع", key: "branch", width: 24 },
-        { header: "قبل التخفيض", key: "before", width: 20 },
-        { header: "بعد التخفيض", key: "after", width: 20 },
-        { header: "المدفوع", key: "paid", width: 20 },
-        { header: "المتبقي", key: "remaining", width: 20 },
-        { header: "المصروفات", key: "expenses", width: 20 },
-        { header: "الطلاب", key: "students", width: 14 },
-        { header: "نسبة السداد", key: "rate", width: 16 },
-      ];
-
-      branchesSheet.getRow(1).eachCell((cell) => {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
-        cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
-        cell.alignment = { horizontal: "center" };
-      });
-
-      overview.branches.forEach((branch) => {
-        branchesSheet.addRow({
-          branch: branch.branchName,
-          before: formatCurrency(branch.totalFeesBeforeDiscount),
-          after: formatCurrency(branch.totalFeesAfterDiscount),
-          paid: formatCurrency(branch.totalPaid),
-          remaining: formatCurrency(branch.totalRemaining),
-          expenses: formatCurrency(branch.totalExpenses),
-          students: formatNumber(branch.studentsCount),
-          rate: `${formatNumber(branch.paidPercentage)}%`,
-        });
-      });
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
+    const buffer = await buildStyledWorkbook({ sheets });
+    const filename = `ملخص_المدرسة_${Date.now()}.xlsx`;
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="school-manager-${Date.now()}.xlsx"`,
+        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
       },
     });
   }

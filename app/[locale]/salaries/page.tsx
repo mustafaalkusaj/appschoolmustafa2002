@@ -16,7 +16,6 @@ import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
-import { loadXLSX } from "@/lib/xlsx-loader";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useSalariesData } from "./_hooks";
 import {
@@ -541,109 +540,117 @@ export default function SalariesPage() {
       exportLectures = reportTeacher ? dailyLectures.filter((lecture) => lecture.teacher_id === reportTeacher) : dailyLectures;
     }
 
-    const XLSX = await loadXLSX();
-    const workbook = XLSX.utils.book_new();
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    const sheets = [];
 
     if (exportOptions.teachers) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          teachers.map((teacher) => ({
-            الاسم: teacher.full_name,
-            المسمى: teacher.job_title || "",
-            المادة: teacher.subject || "",
-            الراتب: teacher.base_salary,
-            "سعر المحاضرة": teacher.lecture_price || 0,
-          }))
-        ),
-        "الأساتذة"
-      );
+      sheets.push({
+        name: "الأساتذة", title: "الأساتذة",
+        columns: [
+          { header: "الاسم",        key: "name",    width: 26 },
+          { header: "المسمى",       key: "title",   width: 18 },
+          { header: "المادة",       key: "subject", width: 16 },
+          { header: "الراتب",       key: "salary",  width: 16, numFmt: "#,##0" },
+          { header: "سعر المحاضرة",key: "price",   width: 16, numFmt: "#,##0" },
+        ],
+        rows: teachers.map((teacher) => ({
+          name: teacher.full_name, title: teacher.job_title || "",
+          subject: teacher.subject || "", salary: teacher.base_salary,
+          price: teacher.lecture_price || 0,
+        })),
+      });
     }
 
     if (exportOptions.subjects) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(subjectsList.map((subject) => ({ المادة: subject.name }))),
-        "المواد"
-      );
+      sheets.push({
+        name: "المواد", title: "المواد",
+        columns: [{ header: "المادة", key: "name", width: 28 }],
+        rows: subjectsList.map((subject) => ({ name: subject.name })),
+      });
     }
 
     if (exportOptions.classes) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(classes.map((classroom) => ({ الصف: classroom.grade, الشعبة: classroom.section }))),
-        "الصفوف"
-      );
+      sheets.push({
+        name: "الصفوف", title: "الصفوف",
+        columns: [
+          { header: "الصف",   key: "grade",   width: 16 },
+          { header: "الشعبة", key: "section", width: 12 },
+        ],
+        rows: classes.map((classroom) => ({ grade: classroom.grade, section: classroom.section })),
+      });
     }
 
     if (exportOptions.prices) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          lecturePrices.map((entry) => ({
-            الصف: entry.grade,
-            السعر: entry.price_per_lecture,
-          }))
-        ),
-        "الأسعار"
-      );
+      sheets.push({
+        name: "الأسعار", title: "أسعار المحاضرات",
+        columns: [
+          { header: "الصف",  key: "grade", width: 16 },
+          { header: "السعر", key: "price", width: 16, numFmt: "#,##0" },
+        ],
+        rows: lecturePrices.map((entry) => ({ grade: entry.grade, price: entry.price_per_lecture })),
+      });
     }
 
     if (exportOptions.fixed_salaries) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          salaries.map((salary) => ({
-            الأستاذ: salary.teachers?.full_name || "",
-            الشهر: salary.month,
-            الإجمالي: salary.gross_salary,
-            الخصومات: salary.deductions || 0,
-            الصافي: Math.max(0, (salary.gross_salary || 0) - (salary.deductions || 0)),
-          }))
-        ),
-        "الرواتب"
-      );
+      sheets.push({
+        name: "الرواتب", title: "الرواتب الشهرية",
+        columns: [
+          { header: "الأستاذ",   key: "teacher",    width: 24 },
+          { header: "الشهر",     key: "month",      width: 14 },
+          { header: "الإجمالي",  key: "gross",      width: 16, numFmt: "#,##0" },
+          { header: "الخصومات",  key: "deductions", width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+          { header: "الصافي",    key: "net",        width: 16, numFmt: "#,##0", fixedColor: "green" as const },
+        ],
+        rows: salaries.map((salary) => ({
+          teacher: salary.teachers?.full_name || "", month: salary.month,
+          gross: salary.gross_salary, deductions: salary.deductions || 0,
+          net: Math.max(0, (salary.gross_salary || 0) - (salary.deductions || 0)),
+        })),
+      });
     }
 
     if (exportOptions.lectures) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          exportLectures.map((lecture) => ({
-            الأستاذ: lecture.teachers?.full_name || "",
-            التاريخ: lecture.lecture_date,
-            الصف: lecture.grade,
-            الشعبة: lecture.section,
-            الدرس: lecture.period,
-            النوع: lecture.session_type,
-            السعر: lecture.price,
-          }))
-        ),
-        "المحاضرات"
-      );
+      sheets.push({
+        name: "المحاضرات", title: "سجل المحاضرات",
+        columns: [
+          { header: "الأستاذ", key: "teacher", width: 24 },
+          { header: "التاريخ", key: "date",    width: 14 },
+          { header: "الصف",    key: "grade",   width: 12 },
+          { header: "الشعبة",  key: "section", width: 10 },
+          { header: "الدرس",   key: "period",  width: 10 },
+          { header: "النوع",   key: "type",    width: 12 },
+          { header: "السعر",   key: "price",   width: 14, numFmt: "#,##0" },
+        ],
+        rows: exportLectures.map((lecture) => ({
+          teacher: lecture.teachers?.full_name || "", date: lecture.lecture_date,
+          grade: lecture.grade, section: lecture.section,
+          period: lecture.period, type: lecture.session_type, price: lecture.price,
+        })),
+      });
     }
 
     if (exportOptions.lesson_times) {
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(
-          lessonTimes.map((lessonTime) => ({
-            الفترة: lessonTime.session_type === "morning" ? "صباحي" : "ظهري",
-            الدرس: lessonTime.period,
-            البداية: lessonTime.start_time,
-            النهاية: lessonTime.end_time,
-          }))
-        ),
-        "التوقيتات"
-      );
+      sheets.push({
+        name: "التوقيتات", title: "توقيتات الدروس",
+        columns: [
+          { header: "الفترة",  key: "session", width: 12 },
+          { header: "الدرس",   key: "period",  width: 10 },
+          { header: "البداية", key: "start",   width: 12 },
+          { header: "النهاية", key: "end",     width: 12 },
+        ],
+        rows: lessonTimes.map((lessonTime) => ({
+          session: lessonTime.session_type === "morning" ? "صباحي" : "ظهري",
+          period: lessonTime.period, start: lessonTime.start_time, end: lessonTime.end_time,
+        })),
+      });
     }
 
-    if (workbook.SheetNames.length === 0) {
+    if (sheets.length === 0) {
       setError("اختر بيانات للتصدير");
       return;
     }
 
-    await XLSX.writeFile(workbook, `تصدير_${formatDate(new Date())}.xlsx`);
+    await downloadExcelExport({ filename: `تصدير_${formatDate(new Date())}.xlsx`, sheets });
     setShowExport(false);
   };
 

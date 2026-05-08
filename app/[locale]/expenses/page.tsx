@@ -12,7 +12,6 @@ import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolSco
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { useRuntimeBranding } from "@/hooks/brand";
-import { loadXLSX } from "@/lib/xlsx-loader";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
 import { usePathname } from "next/navigation";
@@ -610,7 +609,6 @@ export default function ExpensesPage() {
       return;
     }
 
-    const XLSX = await loadXLSX();
     const exportRows: ExpenseRow[] = [];
     let page = 1;
     let totalPages = 1;
@@ -642,34 +640,57 @@ export default function ExpensesPage() {
       page += 1;
     } while (page <= totalPages);
 
-    const rows = exportRows.map((item, index) => ({
-      "#": index + 1,
-      [copy.exportRows.type]: item.expense_types?.name || "—",
-      [copy.exportRows.amount]: item.amount,
-      [copy.exportRows.date]: item.expense_date,
-      [copy.exportRows.recipient]: item.recipient || "—",
-      [copy.exportRows.receipt]: item.receipt_number || "—",
-      [copy.exportRows.note]: item.notes || "",
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, copy.exportSheet);
-    await XLSX.writeFile(wb, copy.exportFile);
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: copy.exportFile,
+      sheets: [{
+        name:  copy.exportSheet,
+        title: copy.exportSheet,
+        columns: [
+          { header: "#",                      key: "index",     width: 6 },
+          { header: copy.exportRows.type,     key: "type",      width: 22 },
+          { header: copy.exportRows.amount,   key: "amount",    width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+          { header: copy.exportRows.date,     key: "date",      width: 14 },
+          { header: copy.exportRows.recipient,key: "recipient", width: 20 },
+          { header: copy.exportRows.receipt,  key: "receipt",   width: 20 },
+          { header: copy.exportRows.note,     key: "note",      width: 24 },
+        ],
+        rows: exportRows.map((item, index) => ({
+          index:     index + 1,
+          type:      item.expense_types?.name || "—",
+          amount:    item.amount,
+          date:      item.expense_date,
+          recipient: item.recipient || "—",
+          receipt:   item.receipt_number || "—",
+          note:      item.notes || "",
+        })),
+      }],
+    });
   }
 
   async function exportTypesExcel() {
-    const XLSX = await loadXLSX();
-    const rows = expenseTypes.map((t, i) => ({
-      "#": i + 1,
-      [copy.exportTypeRows.name]: t.name,
-      [copy.exportTypeRows.notes]: t.notes || "",
-      [copy.exportTypeRows.usageCount]: t.usage_count,
-      [copy.exportTypeRows.usageTotal]: t.usage_total,
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, copy.exportTypesSheet);
-    await XLSX.writeFile(wb, copy.exportTypesFile);
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: copy.exportTypesFile,
+      sheets: [{
+        name:  copy.exportTypesSheet,
+        title: copy.exportTypesSheet,
+        columns: [
+          { header: "#",                            key: "index",       width: 6 },
+          { header: copy.exportTypeRows.name,       key: "name",        width: 24 },
+          { header: copy.exportTypeRows.notes,      key: "notes",       width: 26 },
+          { header: copy.exportTypeRows.usageCount, key: "usageCount",  width: 16 },
+          { header: copy.exportTypeRows.usageTotal, key: "usageTotal",  width: 18, numFmt: "#,##0" },
+        ],
+        rows: expenseTypes.map((t, i) => ({
+          index:      i + 1,
+          name:       t.name,
+          notes:      t.notes || "",
+          usageCount: t.usage_count,
+          usageTotal: t.usage_total,
+        })),
+      }],
+    });
   }
 
   const filteredTypes = useMemo(() => expenseTypes.filter((t) => !typeSearch || t.name.includes(typeSearch)), [expenseTypes, typeSearch]);

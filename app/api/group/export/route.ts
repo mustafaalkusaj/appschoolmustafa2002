@@ -1,5 +1,5 @@
-import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
+import { buildStyledWorkbook } from "@/lib/excel-builder";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { jsonError } from "@/lib/route-utils";
@@ -83,53 +83,41 @@ export async function GET(req: NextRequest) {
   });
 
   if (format === "excel") {
-    const wb = new ExcelJS.Workbook();
-    wb.creator = "منظومة المدارس";
-    wb.created = new Date();
-
-    const ws = wb.addWorksheet("ملخص المدرسة", { views: [{ rightToLeft: true }] });
-    ws.columns = [
-      { header: "الفرع", key: "name", width: 25 },
-      { header: "الطلاب", key: "students", width: 12 },
-      { header: "الإيرادات", key: "collected", width: 20 },
-      { header: "المصاريف", key: "expenses", width: 20 },
-      { header: "الصافي", key: "net", width: 20 },
-      { header: "نسبة التحصيل", key: "collectionRate", width: 18 },
-    ];
-
-    ws.getRow(1).eachCell((cell) => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF7C3AED" } };
-      cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
-      cell.alignment = { horizontal: "center" };
+    const buf = await buildStyledWorkbook({
+      sheets: [{
+        name:  "ملخص المدرسة",
+        title: "ملخص المدرسة",
+        columns: [
+          { header: "الفرع",          key: "name",          width: 25 },
+          { header: "الطلاب",         key: "students",      width: 12 },
+          { header: "الإيرادات",      key: "collected",     width: 20, numFmt: "#,##0", fixedColor: "green" },
+          { header: "المصاريف",       key: "expenses",      width: 20, numFmt: "#,##0", fixedColor: "red" },
+          { header: "الصافي",         key: "net",           width: 20, numFmt: "#,##0" },
+          { header: "نسبة التحصيل",   key: "collectionRate",width: 18 },
+        ],
+        rows: branchStats.map((branch) => ({
+          name:           branch.name,
+          students:       branch.students,
+          collected:      branch.collected,
+          expenses:       branch.expenses,
+          net:            branch.net,
+          collectionRate: `${branch.collectionRate}%`,
+        })),
+        totals: {
+          name:      "المجموع الكلي",
+          students:  overview.totals.studentsCount,
+          collected: overview.totals.totalPaid,
+          expenses:  overview.totals.totalExpenses,
+          net:       overview.totals.totalPaid - overview.totals.totalExpenses,
+        },
+        totalsLabel: "المجموع الكلي",
+      }],
     });
-
-    branchStats.forEach((branch) => {
-      ws.addRow({
-        name: branch.name,
-        students: branch.students,
-        collected: fmtIQD(branch.collected),
-        expenses: fmtIQD(branch.expenses),
-        net: fmtIQD(branch.net),
-        collectionRate: `${branch.collectionRate}%`,
-      });
-    });
-
-    const totalRow = ws.addRow({
-      name: "المجموع الكلي",
-      students: overview.totals.studentsCount,
-      collected: fmtIQD(overview.totals.totalPaid),
-      expenses: fmtIQD(overview.totals.totalExpenses),
-      net: fmtIQD(overview.totals.totalPaid - overview.totals.totalExpenses),
-      collectionRate: "",
-    });
-    totalRow.font = { bold: true };
-    totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDE9FE" } };
-
-    const buf = await wb.xlsx.writeBuffer();
+    const filename = `ملخص_المدرسة_${Date.now()}.xlsx`;
     return new NextResponse(buf as ArrayBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="group-report-${Date.now()}.xlsx"`,
+        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
       },
     });
   }

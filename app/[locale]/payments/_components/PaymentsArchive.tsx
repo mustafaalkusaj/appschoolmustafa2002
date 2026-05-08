@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentArchive } from "../_types";
 import { getPaymentMethodLabel, getArchiveStudents, getArchivePayments } from "../_hooks/useArchiveOperations";
-import { loadXLSX } from "@/lib/xlsx-loader";
 import { Archive, Calendar, CreditCard, Download, Eye } from "lucide-react";
 
 interface PaymentsArchiveProps {
@@ -195,56 +194,93 @@ export async function exportArchiveExcel(
 ) {
   setExportingId(archive.id);
   try {
-    const XLSX = await loadXLSX();
-    const wb = XLSX.utils.book_new();
     const archiveStudents = getArchiveStudents(archive);
     const archivePayments = getArchivePayments(archive);
     const studentsById = Object.fromEntries(archiveStudents.map((student) => [student.id, student]));
 
-    const summarySheet = XLSX.utils.json_to_sheet([
-      {
-        "السنة المؤرشفة": archive.archive_year,
-        "عدد الطلاب": archive.total_students || archiveStudents.length,
-        "عدد الدفعات": archive.total_payments || archivePayments.length,
-        "إجمالي المبالغ": archive.total_amount || 0,
-        "تاريخ الأرشفة": formatDate(archive.archive_date),
-      },
-    ]);
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    const title = `أرشيف حسابات ${archive.archive_year}`;
 
-    XLSX.utils.book_append_sheet(wb, summarySheet, "الملخص");
+    const sheets = [];
 
+    // Summary sheet
+    sheets.push({
+      name: "الملخص",
+      title,
+      columns: [
+        { header: "السنة المؤرشفة",  key: "year",     width: 18 },
+        { header: "عدد الطلاب",      key: "students", width: 14 },
+        { header: "عدد الدفعات",     key: "payments", width: 14 },
+        { header: "إجمالي المبالغ",  key: "total",    width: 20, numFmt: "#,##0", semanticColor: "paid" as const },
+        { header: "تاريخ الأرشفة",   key: "date",     width: 18 },
+      ],
+      rows: [{
+        year:     archive.archive_year,
+        students: archive.total_students || archiveStudents.length,
+        payments: archive.total_payments || archivePayments.length,
+        total:    archive.total_amount || 0,
+        date:     formatDate(archive.archive_date),
+      }],
+    });
+
+    // Students sheet
     if (archiveStudents.length) {
-      const studentsSheet = XLSX.utils.json_to_sheet(
-        archiveStudents.map((student) => ({
-          "اسم الطالب": student.full_name || "—",
-          "الصف": student.class_name || "—",
-          "الحالة": student.status || "—",
-          "إجمالي الرسوم": student.total_fee || 0,
-          "المدفوع": student.paid_fee || 0,
-          "المتبقي": student.remaining_fee || 0,
-          "الهاتف": student.phone || "",
-        }))
-      );
-      XLSX.utils.book_append_sheet(wb, studentsSheet, "الطلاب");
+      sheets.push({
+        name: "الطلاب",
+        title,
+        columns: [
+          { header: "اسم الطالب",    key: "name",      width: 28 },
+          { header: "الصف",          key: "class",     width: 16 },
+          { header: "الحالة",        key: "status",    width: 12 },
+          { header: "إجمالي الرسوم", key: "total",     width: 18, numFmt: "#,##0" },
+          { header: "المدفوع",       key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
+          { header: "المتبقي",       key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
+          { header: "الهاتف",        key: "phone",     width: 16 },
+        ],
+        rows: archiveStudents.map((student) => ({
+          name:      student.full_name || "—",
+          class:     student.class_name || "—",
+          status:    student.status || "—",
+          total:     student.total_fee || 0,
+          paid:      student.paid_fee || 0,
+          remaining: student.remaining_fee || 0,
+          phone:     student.phone || "",
+        })),
+      });
     }
 
+    // Payments sheet
     if (archivePayments.length) {
-      const paymentsSheet = XLSX.utils.json_to_sheet(
-        archivePayments.map((payment) => ({
-          "اسم الطالب": studentsById[payment.student_id]?.full_name || "—",
-          "الصف": studentsById[payment.student_id]?.class_name || "—",
-          "المبلغ": payment.amount || 0,
-          "طريقة الدفع": getPaymentMethodLabel(payment.payment_method),
-          "تاريخ الدفعة": formatDate(payment.created_at),
-          "رقم الإيصال الإلكتروني": payment.receipt_number || "—",
-          "رقم الإيصال الورقي": payment.manual_receipt_number || "—",
-          "ملاحظات": payment.notes || "",
-        }))
-      );
-      XLSX.utils.book_append_sheet(wb, paymentsSheet, "الدفعات");
+      sheets.push({
+        name: "الدفعات",
+        title,
+        columns: [
+          { header: "اسم الطالب",              key: "name",           width: 28 },
+          { header: "الصف",                    key: "class",          width: 16 },
+          { header: "المبلغ",                  key: "amount",         width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
+          { header: "طريقة الدفع",             key: "method",         width: 16 },
+          { header: "تاريخ الدفعة",            key: "date",           width: 16 },
+          { header: "رقم الإيصال الإلكتروني", key: "receipt",        width: 22 },
+          { header: "رقم الإيصال الورقي",      key: "manual_receipt", width: 20 },
+          { header: "ملاحظات",                 key: "notes",          width: 22 },
+        ],
+        rows: archivePayments.map((payment) => ({
+          name:           studentsById[payment.student_id]?.full_name || "—",
+          class:          studentsById[payment.student_id]?.class_name || "—",
+          amount:         payment.amount || 0,
+          method:         getPaymentMethodLabel(payment.payment_method),
+          date:           formatDate(payment.created_at),
+          receipt:        payment.receipt_number || "—",
+          manual_receipt: payment.manual_receipt_number || "—",
+          notes:          payment.notes || "",
+        })),
+      });
     }
 
-    await XLSX.writeFile(wb, `أرشيف_حسابات_${archive.archive_year}_${formatDate(new Date())}.xlsx`);
+    await downloadExcelExport({
+      filename: `أرشيف_حسابات_${archive.archive_year}_${formatDate(new Date())}.xlsx`,
+      sheets,
+    });
   } finally {
     setExportingId(null);
   }
