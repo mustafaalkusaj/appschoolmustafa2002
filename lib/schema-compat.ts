@@ -78,11 +78,23 @@ async function probeColumnWithClient(client: SchemaCompatClient, table: string, 
   }
 }
 
+const SCHEMA_COMPAT_SESSION_KEY = "schema-compat:v1";
+
 async function fetchCompatFromApi(): Promise<AppSchemaCompat> {
+  // Fast path: sessionStorage cache (avoids HTTP round trip on every page)
+  try {
+    const stored = sessionStorage.getItem(SCHEMA_COMPAT_SESSION_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as AppSchemaCompat;
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {
+    // sessionStorage unavailable (SSR guard, private mode) — continue
+  }
+
   try {
     const response = await fetch("/api/web/schema-compat", {
       credentials: "include",
-      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -90,7 +102,15 @@ async function fetchCompatFromApi(): Promise<AppSchemaCompat> {
     }
 
     const payload = (await response.json().catch(() => null)) as { compat?: AppSchemaCompat } | null;
-    return payload?.compat ?? DEFAULT_COMPAT;
+    const compat = payload?.compat ?? DEFAULT_COMPAT;
+
+    try {
+      sessionStorage.setItem(SCHEMA_COMPAT_SESSION_KEY, JSON.stringify(compat));
+    } catch {
+      // sessionStorage write failed — ignore
+    }
+
+    return compat;
   } catch {
     return DEFAULT_COMPAT;
   }
@@ -169,6 +189,9 @@ export async function detectAppSchemaCompat(): Promise<AppSchemaCompat> {
 export function resetAppSchemaCompatCache() {
   compatPromise = null;
   serverSideCacheEntry = null;
+  if (typeof window !== "undefined") {
+    try { sessionStorage.removeItem(SCHEMA_COMPAT_SESSION_KEY); } catch { /* ignore */ }
+  }
 }
 
 // For testing purposes: reset all caches

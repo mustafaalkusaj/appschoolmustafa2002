@@ -46,14 +46,7 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
 
-function isMissingReportsSummaryFunction(error: { code?: string | null; message?: string | null } | null | undefined) {
-  return error?.code === "42883" || error?.message?.includes("school_reports_summary") || false;
-}
 
-function normalizeMetricNumber(value: unknown) {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 async function loadFallbackMetrics(
   actorSupabase: RouteSupabaseClient,
@@ -71,13 +64,10 @@ async function loadFallbackMetrics(
         .neq("status", "deleted"),
       branchScope,
     ),
-    applyBranchScopeToQuery(
-      actorSupabase
-        .from("class_fees")
-        .select("class_name, total_fee")
-        .eq("school_id", schoolId),
-      branchScope,
-    ),
+    actorSupabase
+      .from("class_fees")
+      .select("class_name, total_fee")
+      .eq("school_id", schoolId),
     applyBranchScopeToQuery(
       actorSupabase
         .from("payments")
@@ -210,46 +200,6 @@ async function loadFallbackMetrics(
   };
 }
 
-async function loadSummaryMetrics(
-  actorSupabase: RouteSupabaseClient,
-  schoolId: string,
-  currentMonth: string,
-  todayDate: string,
-) {
-  const { data, error } = await actorSupabase.rpc("school_reports_summary", {
-    p_school_id: schoolId,
-    p_current_month: currentMonth,
-    p_today: todayDate,
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  const record = Array.isArray(data) ? data[0] : data;
-  if (!record || typeof record !== "object") {
-    return null;
-  }
-
-  const source = record as Record<string, unknown>;
-  return {
-    studentsCount: normalizeMetricNumber(source.students_count),
-    activeStudents: normalizeMetricNumber(source.active_students),
-    totalFees: normalizeMetricNumber(source.total_fees),
-    totalPaid: normalizeMetricNumber(source.total_paid),
-    totalRemaining: normalizeMetricNumber(source.total_remaining),
-    paymentsCount: normalizeMetricNumber(source.payments_count),
-    paymentVolume: normalizeMetricNumber(source.payment_volume),
-    todayPayments: normalizeMetricNumber(source.today_payments),
-    expensesCount: normalizeMetricNumber(source.expenses_count),
-    expenseVolume: normalizeMetricNumber(source.expense_volume),
-    expenseTypeCount: normalizeMetricNumber(source.expense_type_count),
-    salariesCount: normalizeMetricNumber(source.salaries_count),
-    salaryVolume: normalizeMetricNumber(source.salary_volume),
-    currentMonthSalaryCount: normalizeMetricNumber(source.current_month_salary_count),
-    netBalance: normalizeMetricNumber(source.net_balance),
-  } satisfies ReportsMetrics;
-}
 
 export async function GET(req: NextRequest) {
   const t0 = performance.now();
@@ -305,31 +255,10 @@ export async function GET(req: NextRequest) {
         // Use service role client for data queries (authorization already validated above)
         const dataSupabase = createServiceSupabaseClient();
 
-        if (branchScope.value.branchIds.length === 0) {
-          try {
-            const metrics = await loadSummaryMetrics(dataSupabase, targetSchoolId, currentMonth, todayDate);
-            if (metrics) {
-              return {
-                metrics,
-                warnings: [],
-              };
-            }
-          } catch (error) {
-            if (!isMissingReportsSummaryFunction(error as { code?: string | null; message?: string | null })) {
-              throw error;
-            }
-          }
-        }
-
         const fallback = await loadFallbackMetrics(dataSupabase, targetSchoolId, branchScope.value, currentMonth, todayDate);
         return {
           metrics: fallback.metrics,
-          warnings: [
-            branchScope.value.branchIds.length > 0
-              ? "تم تعطيل دالة ملخص المدرسة الواسعة تلقائياً داخل نطاق الفرع لمنع خلط بيانات الفروع."
-              : "ملخص التقارير يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدالة school_reports_summary لتحسين الأداء.",
-            ...fallback.warnings,
-          ],
+          warnings: fallback.warnings,
         };
       },
       {

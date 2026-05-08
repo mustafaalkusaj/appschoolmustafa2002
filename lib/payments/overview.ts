@@ -288,19 +288,31 @@ async function fetchClassOptions(
   schoolId: string,
   branchScope: ResolvedBranchScope,
 ) {
-  const { data, error } = await applyBranchScopeToQuery(
-    actorSupabase
-      .from("classes")
-      .select("name, grade")
-      .eq("school_id", schoolId)
-      .order("created_at", { ascending: true }),
-    branchScope,
-  );
+  // Run both queries in parallel — use classes table result if non-empty, fall back to students
+  const [classesResult, studentsResult] = await Promise.all([
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("classes")
+        .select("name, grade")
+        .eq("school_id", schoolId)
+        .order("created_at", { ascending: true }),
+      branchScope,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("students")
+        .select("class_name")
+        .eq("school_id", schoolId)
+        .neq("status", "deleted")
+        .order("class_name", { ascending: true }),
+      branchScope,
+    ),
+  ]);
 
-  if (!error) {
+  if (!classesResult.error) {
     const values = Array.from(
       new Set(
-        ((data ?? []) as Array<{ name?: string | null; grade?: string | null }>)
+        ((classesResult.data ?? []) as Array<{ name?: string | null; grade?: string | null }>)
           .map((item) => getClassOptionName(item))
           .filter(Boolean),
       ),
@@ -308,23 +320,13 @@ async function fetchClassOptions(
     if (values.length > 0) return values;
   }
 
-  const fallback = await applyBranchScopeToQuery(
-    actorSupabase
-      .from("students")
-      .select("class_name")
-      .eq("school_id", schoolId)
-      .neq("status", "deleted")
-      .order("class_name", { ascending: true }),
-    branchScope,
-  );
-
-  if (fallback.error) {
+  if (studentsResult.error) {
     return [];
   }
 
   return Array.from(
     new Set(
-      ((fallback.data ?? []) as Array<{ class_name: string | null }>)
+      ((studentsResult.data ?? []) as Array<{ class_name: string | null }>)
         .map((row) => (typeof row.class_name === "string" ? row.class_name.trim() : ""))
         .filter(Boolean),
     ),
@@ -544,49 +546,72 @@ async function fetchPaymentYears(
   branchScope: ResolvedBranchScope,
 ) {
   const years = new Set<number>();
-  let from = 0;
   let totalPaymentCount = 0;
-  let counted = false;
 
-  while (true) {
-    const { data, error, count } = await applyBranchScopeToQuery(
+  // Run COUNT and first data batch in parallel to hide latency
+  const [countResult, firstBatchResult] = await Promise.all([
+    applyBranchScopeToQuery(
       actorSupabase
         .from("payments")
-        .select("id, created_at", { count: counted ? undefined : "exact" })
+        .select("id", { count: "exact", head: true })
+        .eq("school_id", schoolId)
+        .is("deleted_at", null),
+      branchScope,
+    ),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("payments")
+        .select("created_at")
         .eq("school_id", schoolId)
         .is("deleted_at", null)
-        .order("id", { ascending: true })
+        .order("created_at", { ascending: false })
+        .range(0, QUERY_BATCH_SIZE - 1),
+      branchScope,
+    ),
+  ]);
+
+  if (firstBatchResult.error) {
+    return {
+      totalPaymentCount: 0,
+      paymentYears: [],
+      paymentNotice:
+        (firstBatchResult.error as { message?: string }).message ||
+        "تعذر تحميل فهرس الدفعات الكامل، لذلك عُرضت القائمة بدون العدادات الزمنية.",
+    };
+  }
+
+  totalPaymentCount = typeof countResult.count === "number" ? countResult.count : 0;
+
+  const addBatchYears = (batch: Array<{ created_at: string | null }>) => {
+    batch.forEach((row) => {
+      if (!row.created_at) return;
+      const year = new Date(row.created_at).getFullYear();
+      if (Number.isFinite(year)) years.add(year);
+    });
+  };
+
+  const firstBatch = (firstBatchResult.data ?? []) as Array<{ created_at: string | null }>;
+  addBatchYears(firstBatch);
+
+  // Fetch remaining pages only if needed
+  let from = QUERY_BATCH_SIZE;
+  while (firstBatch.length === QUERY_BATCH_SIZE && from < totalPaymentCount) {
+    const { data, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("payments")
+        .select("created_at")
+        .eq("school_id", schoolId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
         .range(from, from + QUERY_BATCH_SIZE - 1),
       branchScope,
     );
 
-    if (error) {
-      return {
-        totalPaymentCount: 0,
-        paymentYears: [],
-        paymentNotice:
-          error.message || "تعذر تحميل فهرس الدفعات الكامل، لذلك عُرضت القائمة بدون العدادات الزمنية.",
-      };
-    }
-
-    if (!counted) {
-      totalPaymentCount = typeof count === "number" ? count : 0;
-      counted = true;
-    }
+    if (error) break;
 
     const batch = (data ?? []) as Array<{ created_at: string | null }>;
-    batch.forEach((row) => {
-      if (!row.created_at) return;
-      const year = new Date(row.created_at).getFullYear();
-      if (Number.isFinite(year)) {
-        years.add(year);
-      }
-    });
-
-    if (batch.length < QUERY_BATCH_SIZE) {
-      break;
-    }
-
+    addBatchYears(batch);
+    if (batch.length < QUERY_BATCH_SIZE) break;
     from += QUERY_BATCH_SIZE;
   }
 
@@ -912,16 +937,15 @@ export async function resolvePaymentsStudentsPage(
     throw new Error(error.message || "تعذر تحميل قائمة الطلاب.");
   }
 
-  // Resolve class fees for the fetched students
-  const classFeeMap = await resolvePaymentFeesFromClassFees(actorSupabase, data ?? [], schoolId);
+  // Resolve class fees and payment counts in parallel
+  const studentData = (data ?? []) as Array<Record<string, unknown>>;
+  const studentIds = studentData.map((s) => (s as { id: string }).id);
+  const [classFeeMap, paymentCountsByStudent] = await Promise.all([
+    resolvePaymentFeesFromClassFees(actorSupabase, data ?? [], schoolId),
+    fetchPaymentCountsByStudent(actorSupabase, schoolId, branchScope, studentIds),
+  ]);
 
-  const rows = buildStudentRowsPayload((data ?? []) as Array<Record<string, unknown>>, classFeeMap);
-  const paymentCountsByStudent = await fetchPaymentCountsByStudent(
-    actorSupabase,
-    schoolId,
-    branchScope,
-    rows.map((student) => student.id),
-  );
+  const rows = buildStudentRowsPayload(studentData, classFeeMap);
   const totalCount = typeof count === "number" ? count : rows.length;
 
   return {

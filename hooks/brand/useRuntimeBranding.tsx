@@ -159,8 +159,10 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
   const scopedSchoolId =
     profile?.role === "super_admin" ? schoolScope.selectedSchoolId : profile?.school_id ?? null;
+  const isGroupOverview = isGroupOverviewPath(pathname);
+  const isOnAuthPage = isAuthPage(pathname);
   const scopedBranchId =
-    profile?.role === "super_admin" || isGroupOverviewPath(pathname)
+    profile?.role === "super_admin" || isGroupOverview
       ? null
       : branchScope.isMultiBranchScope
         ? branchScope.selectedBranchId
@@ -173,7 +175,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       try {
         // Skip branding load on auth pages (login, forgot-password, register)
         // These pages don't need custom branding and load faster without it
-        if (isAuthPage(pathname)) {
+        if (isOnAuthPage) {
           if (active) {
             setBranding(createEmptyBrandingState());
           }
@@ -423,7 +425,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       active = false;
       window.removeEventListener(RUNTIME_BRANDING_REFRESH_EVENT, refreshListener);
     };
-  }, [scopedBranchId, scopedSchoolId, branchScope.isMultiBranchScope, branchScope.selectedBranchId, pathname]);
+  }, [scopedBranchId, scopedSchoolId, branchScope.isMultiBranchScope, branchScope.selectedBranchId, isGroupOverview, isOnAuthPage]);
 
   useEffect(() => {
     applyBrandingToCssVars(branding, resolvedTheme === "dark");

@@ -33,6 +33,8 @@ export function usePaymentOperations(
   currentBranchId?: string | null
 ) {
   const [paymentsByStudent, setPaymentsByStudent] = useState<Record<string, Payment[]>>({});
+  const paymentsByStudentRef = useRef(paymentsByStudent);
+  paymentsByStudentRef.current = paymentsByStudent;
   const [paymentsLoadingStudentId, setPaymentsLoadingStudentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -169,8 +171,8 @@ export function usePaymentOperations(
   const loadStudentPayments = useCallback(
     async (studentId: string, options?: { force?: boolean }) => {
       if (!resolvedSchoolId) return [];
-      if (!options?.force && paymentsByStudent[studentId]) {
-        return paymentsByStudent[studentId];
+      if (!options?.force && paymentsByStudentRef.current[studentId]) {
+        return paymentsByStudentRef.current[studentId];
       }
 
       setPaymentsLoadingStudentId(studentId);
@@ -201,7 +203,7 @@ export function usePaymentOperations(
         setPaymentsLoadingStudentId((current) => (current === studentId ? null : current));
       }
     },
-    [paymentsByStudent, resolvedSchoolId, onError, currentBranchId]
+    [resolvedSchoolId, onError, currentBranchId]
   );
 
   // Calculate actual paid amount by summing student's payments

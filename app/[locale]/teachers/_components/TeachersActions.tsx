@@ -3,6 +3,7 @@
 // Teachers actions section - create, import, export buttons
 
 import { BookOpen, Download, FileSpreadsheet, Sparkles, Upload } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 
 type TeachersActionsProps = {
   onAddTeacher: () => void;
@@ -55,14 +56,15 @@ export function TeachersActions({
               <Upload size={15} />
               استيراد إكسل
             </button>
-            <button
-              type="button"
-              className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-4 text-sm"
+            <Button
+              variant="outline"
+              size="sm"
+              className="inline-flex items-center justify-center gap-2"
               onClick={onExport}
             >
               <Download size={15} />
               تصدير إكسل
-            </button>
+            </Button>
             <button
               type="button"
               className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-4 text-sm"

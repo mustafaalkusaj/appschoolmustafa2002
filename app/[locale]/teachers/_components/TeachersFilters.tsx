@@ -3,6 +3,7 @@
 // Teachers filters component
 
 import { BookOpen, CircleOff, Download, Filter, Loader2, Search, ShieldCheck, Upload, Users } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 import type { TeachersFilterProps } from "../_types";
 
 export function TeachersFilters({
@@ -46,14 +47,14 @@ export function TeachersFilters({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onExport}
           >
             <Download size={16} />
             تصدير إكسل
-          </button>
+          </Button>
           <button
             type="button"
             className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4"

@@ -579,23 +579,38 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
   }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab]);
 
   const exportExcel = useCallback(async (data: StudentWithFees[]) => {
-    const XLSX = await loadXLSX();
-    const rows = data.map((s) => ({
-      [copy.exportColumns.name]: s.full_name,
-      [copy.exportColumns.className]: s.class_name,
-      [copy.exportColumns.section]: s.section || "",
-      [copy.exportColumns.address]: s.address || "",
-      [copy.exportColumns.phone]: s.phone || "",
-      [copy.exportColumns.totalFees]: s.total_fee,
-      [copy.exportColumns.paid]: s.paid_fee,
-      [copy.exportColumns.remaining]: s.remaining_fee,
-      [copy.exportColumns.status]: copy.statusLabels[s.status],
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, copy.exportSheet);
-    await XLSX.writeFile(wb, copy.exportFile);
-  }, [copy]);
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: copy.exportFile,
+      sheets: [{
+        name:  copy.exportSheet,
+        title: copy.exportSheet,
+        columns: [
+          { header: copy.exportColumns.name,      key: "name",      width: 30 },
+          { header: copy.exportColumns.className, key: "className", width: 20 },
+          { header: copy.exportColumns.section,   key: "section",   width: 12 },
+          { header: copy.exportColumns.address,   key: "address",   width: 24 },
+          { header: copy.exportColumns.phone,     key: "phone",     width: 16 },
+          { header: copy.exportColumns.totalFees, key: "totalFees", width: 18, numFmt: "#,##0" },
+          { header: copy.exportColumns.paid,      key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
+          { header: copy.exportColumns.remaining, key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
+          { header: copy.exportColumns.status,    key: "status",    width: 14 },
+        ],
+        rows: data.map((s) => ({
+          name:      s.full_name,
+          className: s.class_name ?? "",
+          section:   s.section ?? "",
+          address:   s.address ?? "",
+          phone:     s.phone ?? "",
+          totalFees: s.total_fee ?? 0,
+          paid:      s.paid_fee ?? 0,
+          remaining: s.remaining_fee ?? 0,
+          status:    copy.statusLabels[s.status],
+        })),
+        totalsLabel: isEnglish ? `Total (${data.length} students)` : `المجموع (${data.length} طالب)`,
+      }],
+    });
+  }, [copy, isEnglish]);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     modals.setImportError("");
