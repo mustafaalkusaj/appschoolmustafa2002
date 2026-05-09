@@ -51,6 +51,7 @@ import { HealthMonitoringTab } from "./components/HealthMonitoringTab";
 import { BulkOperationsTab } from "./components/BulkOperationsTab";
 import { ActivityTimelineTab } from "./components/ActivityTimelineTab";
 import { PaymentArchivesTab } from "./components/PaymentArchivesTab";
+import { StudentCountsTab } from "./components/StudentCountsTab";
 
 import {
   OverviewTab,
@@ -124,6 +125,7 @@ export default function SuperAdminPage() {
     { id: "schools", label: t("tabs.schools.label"), hint: t("tabs.schools.hint"), icon: School },
     { id: "users", label: t("tabs.users.label"), hint: t("tabs.users.hint"), icon: Users },
     { id: "subscriptions", label: t("tabs.subscriptions.label"), hint: t("tabs.subscriptions.hint"), icon: CreditCard },
+    { id: "student-counts", label: "أعداد الطلاب", hint: "عدد الطلاب لكل مدرسة وفرع", icon: Users },
     { id: "analytics", label: "التحليلات", hint: "رسوم بيانية وإحصائيات متقدمة", icon: TrendingUp },
     { id: "health", label: "صحة النظام", hint: "مراقبة الأداء والموارد", icon: Activity },
     { id: "bulk", label: "عمليات جماعية", hint: "استيراد وتحديث جماعي", icon: Plus },
@@ -400,6 +402,15 @@ export default function SuperAdminPage() {
   }, [deleteUserTarget, flashError, flashSuccess, refreshDashboard]);
 
   const clearSpotlightFilter = useCallback(() => setSpotlightFilter(null), []);
+
+  const handleResetUserPassword = useCallback(async (userId: string) => {
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; temporaryPassword?: string; error?: { message?: string } }>(`/api/web/super-admin/users/${userId}/reset-password`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      if (!response.ok) { toast.error(payload?.error?.message || "تعذر إعادة تعيين كلمة المرور"); return; }
+      toast.success(`كلمة المرور الجديدة: ${payload?.temporaryPassword}`);
+    } catch { toast.error("تعذر إعادة تعيين كلمة المرور"); }
+  }, [toast]);
+
   const availableTabs = useMemo(() => TAB_ITEMS.filter((i) => isTabAvailable(i.id, infrastructure)), [infrastructure, TAB_ITEMS]);
 
   const filteredSchools = useMemo(() => schools.filter(s => {
@@ -549,8 +560,9 @@ export default function SuperAdminPage() {
                   <div className="space-y-6">
                     {activeTab === "overview" && <OverviewTab schools={schools} users={users} subscriptions={subscriptions} loading={loading} overviewDiagnostics={overviewDiagnostics} spotlightFilter={spotlightFilter} onClearSpotlightFilter={clearSpotlightFilter} onFocusSpotlight={focusSpotlight} onOpenCreateSchool={openCreateSchool} onOpenCreateUser={openCreateUser} onSetActiveTab={setActiveTab} ROLE_LABELS={ROLE_LABELS} PLAN_LABELS={PLAN_LABELS} />}
                     {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onPermanentlyDeleteSchool={setPermanentDeleteSchoolTarget} onExportSchool={handleExportSchool} onImportSchoolData={handleImportSchoolData} importingSchoolId={importingSchoolId} onRefresh={refreshDashboard} />}
-                    {activeTab === "users" && <UsersTab users={users} schools={schools} branches={branches} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} />}
+                    {activeTab === "users" && <UsersTab users={users} schools={schools} branches={branches} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} onResetPassword={(userId) => void handleResetUserPassword(userId)} />}
                     {activeTab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} filteredSubscriptions={filteredSubscriptions} onExtendSubscription={handleExtendSubscription} />}
+                    {activeTab === "student-counts" && <StudentCountsTab />}
                     {activeTab === "audit" && <AuditLogTab infrastructure={infrastructure} />}
                     {activeTab === "roles" && <RolesTab infrastructure={infrastructure} schools={schools.map(s => ({ id: s.id, name: s.name }))} />}
                     {activeTab === "trash" && <TrashTab infrastructure={infrastructure} />}

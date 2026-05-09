@@ -37,6 +37,11 @@ type RuntimeBrandingState = {
   sidebarColor: string | null;
   accentColor: string | null;
   textColor: string | null;
+  fontFamily: string | null;
+  topbarColor: string | null;
+  receiptFooterText: string | null;
+  cardBgUrl: string | null;
+  shortName: string | null;
 };
 
 type SchoolBrandingRecord = {
@@ -56,6 +61,11 @@ type BranchBrandingRecord = {
   sidebar_color?: string | null;
   accent_color?: string | null;
   text_color?: string | null;
+  font_family?: string | null;
+  topbar_color?: string | null;
+  receipt_footer_text?: string | null;
+  card_bg_url?: string | null;
+  short_name?: string | null;
 };
 
 export const RUNTIME_BRANDING_REFRESH_EVENT = "runtime-branding-refresh";
@@ -73,6 +83,11 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   sidebarColor: null,
   accentColor: null,
   textColor: null,
+  fontFamily: null,
+  topbarColor: null,
+  receiptFooterText: null,
+  cardBgUrl: null,
+  shortName: null,
 });
 
 function createEmptyBrandingState(): RuntimeBrandingState {
@@ -89,6 +104,11 @@ function createEmptyBrandingState(): RuntimeBrandingState {
     sidebarColor: null,
     accentColor: null,
     textColor: null,
+    fontFamily: null,
+    topbarColor: null,
+    receiptFooterText: null,
+    cardBgUrl: null,
+    shortName: null,
   };
 }
 
@@ -135,6 +155,27 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean)
   } else {
     root.style.removeProperty("--sidebar-bg");
     root.style.removeProperty("--topbar-bg");
+  }
+
+  // Apply font family
+  const existingFontStyle = document.getElementById("branch-font-style");
+  const fontFamily = branding.fontFamily;
+  if (fontFamily && fontFamily !== "noto") {
+    const fontName = fontFamily === "cairo" ? "Cairo" : fontFamily === "tajawal" ? "Tajawal" : fontFamily === "amiri" ? "Amiri" : null;
+    if (fontName) {
+      if (!existingFontStyle || existingFontStyle.getAttribute("data-font") !== fontFamily) {
+        const style = existingFontStyle ?? document.createElement("style");
+        style.id = "branch-font-style";
+        style.setAttribute("data-font", fontFamily);
+        style.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=${fontName}:wght@400;600;700;800;900&display=swap');
+        body, * { font-family: '${fontName}', 'Noto Sans Arabic', sans-serif !important; }
+      `;
+        if (!existingFontStyle) document.head.appendChild(style);
+      }
+    }
+  } else if (existingFontStyle) {
+    existingFontStyle.remove();
   }
 }
 
@@ -218,6 +259,8 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         branchColumns.push("receipt_bg_url");
       }
 
+      branchColumns.push("font_family", "topbar_color", "receipt_footer_text", "card_bg_url", "short_name");
+
       const schoolQuery = compat.schoolColors
         ? supabase
             .from("schools")
@@ -274,6 +317,16 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         compat.branchUiColors && typeof branchRecord?.text_color === "string"
           ? branchRecord.text_color
           : null;
+      const branchFontFamily =
+        typeof branchRecord?.font_family === "string" ? branchRecord.font_family : null;
+      const branchTopbarColor =
+        typeof branchRecord?.topbar_color === "string" ? branchRecord.topbar_color : null;
+      const branchReceiptFooterText =
+        typeof branchRecord?.receipt_footer_text === "string" ? branchRecord.receipt_footer_text : null;
+      const branchCardBgUrl =
+        typeof branchRecord?.card_bg_url === "string" ? branchRecord.card_bg_url : null;
+      const branchShortName =
+        typeof branchRecord?.short_name === "string" ? branchRecord.short_name : null;
       const hasBranchOverride = Boolean(
         branchPrimaryColor ||
           branchSecondaryColor ||
@@ -320,6 +373,11 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           sidebarColor: fallbackSidebarColor,
           accentColor: fallbackAccentColor,
           textColor: fallbackTextColor,
+          fontFamily: branchFontFamily,
+          topbarColor: branchTopbarColor,
+          receiptFooterText: branchReceiptFooterText,
+          cardBgUrl: branchCardBgUrl,
+          shortName: branchShortName,
         });
         return;
       }
@@ -405,6 +463,11 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         sidebarColor: resolvedSidebarColor,
         accentColor: resolvedAccentColor,
         textColor: resolvedTextColor,
+        fontFamily: branchFontFamily,
+        topbarColor: branchTopbarColor,
+        receiptFooterText: branchReceiptFooterText,
+        cardBgUrl: branchCardBgUrl,
+        shortName: branchShortName,
       });
       } catch (err) {
         if (active) {
@@ -447,6 +510,11 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       sidebarColor: branding.sidebarColor,
       accentColor: branding.accentColor,
       textColor: branding.textColor,
+      fontFamily: branding.fontFamily,
+      topbarColor: branding.topbarColor,
+      receiptFooterText: branding.receiptFooterText,
+      cardBgUrl: branding.cardBgUrl,
+      shortName: branding.shortName,
     };
   }, [branding]);
 
@@ -474,6 +542,11 @@ export function useRuntimeBranding() {
       sidebarColor: null,
       accentColor: null,
       textColor: null,
+      fontFamily: null,
+      topbarColor: null,
+      receiptFooterText: null,
+      cardBgUrl: null,
+      shortName: null,
     };
   }
   return {
@@ -489,5 +562,10 @@ export function useRuntimeBranding() {
     sidebarColor: context.sidebarColor,
     accentColor: context.accentColor,
     textColor: context.textColor,
+    fontFamily: context.fontFamily,
+    topbarColor: context.topbarColor,
+    receiptFooterText: context.receiptFooterText,
+    cardBgUrl: context.cardBgUrl,
+    shortName: context.shortName,
   };
 }

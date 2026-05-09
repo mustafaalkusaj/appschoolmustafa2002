@@ -64,6 +64,11 @@ type BranchRecord = {
   text_color?: string | null;
   logo_url?: string | null;
   receipt_bg_url?: string | null;
+  font_family?: string | null;
+  topbar_color?: string | null;
+  receipt_footer_text?: string | null;
+  card_bg_url?: string | null;
+  short_name?: string | null;
   schools?: { name: string | null } | null;
   [key: string]: unknown;
 };
@@ -83,6 +88,11 @@ type BranchFormData = {
   text_color: string;
   logo_url: string;
   receipt_bg_url: string;
+  font_family: string;
+  topbar_color: string;
+  receipt_footer_text: string;
+  card_bg_url: string;
+  short_name: string;
 };
 
 function createInitialFormState(): BranchFormData {
@@ -101,6 +111,11 @@ function createInitialFormState(): BranchFormData {
     text_color: DEFAULT_SCHOOL_BRANDING.text_color,
     logo_url: "",
     receipt_bg_url: "",
+    font_family: "",
+    topbar_color: "",
+    receipt_footer_text: "",
+    card_bg_url: "",
+    short_name: "",
   };
 }
 
@@ -254,6 +269,11 @@ export function BranchesTab({
       text_color: branch.text_color || suggested.text_color,
       logo_url: branch.logo_url || "",
       receipt_bg_url: (branch.receipt_bg_url as string | null | undefined) || "",
+      font_family: branch.font_family ?? "",
+      topbar_color: branch.topbar_color ?? "",
+      receipt_footer_text: branch.receipt_footer_text ?? "",
+      card_bg_url: branch.card_bg_url ?? "",
+      short_name: branch.short_name ?? "",
     });
     setFormNotice("");
   }, []);
@@ -483,6 +503,12 @@ export function BranchesTab({
         payload.accent_color = formData.accent_color || null;
         payload.text_color = formData.text_color || null;
       }
+
+      payload.font_family = formData.font_family.trim() || null;
+      payload.topbar_color = formData.topbar_color.trim() || null;
+      payload.receipt_footer_text = formData.receipt_footer_text.trim() || null;
+      payload.card_bg_url = formData.card_bg_url.trim() || null;
+      payload.short_name = formData.short_name.trim() || null;
 
       if (editingBranch) {
         const { error } = await supabase
@@ -994,6 +1020,92 @@ export function BranchesTab({
                           {receiptBgError}
                         </p>
                       )}
+                    </div>
+
+                    {/* Advanced settings */}
+                    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-muted)] p-4 space-y-4">
+                      <div className="text-sm font-black text-[var(--text-primary)]">إعدادات متقدمة</div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black">الاسم المختصر</label>
+                        <input
+                          type="text"
+                          className="ui-input"
+                          placeholder="مثال: فرع المنصور"
+                          value={formData.short_name}
+                          onChange={(event) =>
+                            setFormData((current) => ({
+                              ...current,
+                              short_name: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black">الخط العربي</label>
+                        <select
+                          className="ui-input"
+                          value={formData.font_family}
+                          onChange={(event) =>
+                            setFormData((current) => ({
+                              ...current,
+                              font_family: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">الافتراضي (Noto Sans Arabic)</option>
+                          <option value="cairo">Cairo</option>
+                          <option value="tajawal">Tajawal</option>
+                          <option value="amiri">Amiri</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black">لون الشريط العلوي</label>
+                        <input
+                          type="color"
+                          className="ui-input"
+                          value={formData.topbar_color || "#4f8cff"}
+                          onChange={(event) =>
+                            setFormData((current) => ({
+                              ...current,
+                              topbar_color: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black">نص تذييل الإيصال</label>
+                        <textarea
+                          className="ui-input min-h-[72px] resize-y"
+                          placeholder="مثال: شكراً لثقتكم - هاتف: 07xxxxxxxx"
+                          value={formData.receipt_footer_text}
+                          onChange={(event) =>
+                            setFormData((current) => ({
+                              ...current,
+                              receipt_footer_text: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black">رابط خلفية بطاقات الطلاب</label>
+                        <input
+                          type="text"
+                          className="ui-input"
+                          placeholder="https://..."
+                          value={formData.card_bg_url}
+                          onChange={(event) =>
+                            setFormData((current) => ({
+                              ...current,
+                              card_bg_url: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
 

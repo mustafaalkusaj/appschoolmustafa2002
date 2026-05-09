@@ -1,4 +1,5 @@
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { decompressArchiveData } from "@/lib/payments/archive-compression";
 import { applyBranchScopeToQuery, type ResolvedBranchScope } from "@/lib/branch-scope";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 import type { RouteSupabaseClient } from "@/lib/managed-users/types";
@@ -506,7 +507,7 @@ function normalizeArchiveRows(rows: Array<Record<string, unknown>>): PaymentArch
     total_students: row.total_students === null || row.total_students === undefined ? null : Number(row.total_students ?? 0),
     total_payments: row.total_payments === null || row.total_payments === undefined ? null : Number(row.total_payments ?? 0),
     total_amount: row.total_amount === null || row.total_amount === undefined ? null : Number(row.total_amount ?? 0),
-    data: typeof row.data === "undefined" ? null : (row.data as unknown),
+    data: typeof row.data === "undefined" ? null : decompressArchiveData(row.data),
   }));
 }
 

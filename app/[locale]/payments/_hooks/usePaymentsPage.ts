@@ -143,6 +143,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
             remainingFee: remaining,
             isEnglish,
             backgroundImageUrl: runtimeBranding.receiptBgUrl,
+            receiptFooterText: runtimeBranding.receiptFooterText,
           })
         );
       })();

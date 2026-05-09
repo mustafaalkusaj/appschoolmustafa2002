@@ -11,7 +11,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentArchive } from "../_types";
 import { getPaymentMethodLabel, getArchiveStudents, getArchivePayments } from "../_hooks/useArchiveOperations";
 import { ArchiveCompareModal } from "./ArchiveCompareModal";
-import { Archive, Calendar, CreditCard, Download, Eye, GitCompareArrows } from "lucide-react";
+import { StudentArchiveSearch } from "./StudentArchiveSearch";
+import { Archive, Calendar, CreditCard, Download, Eye, GitCompareArrows, History } from "lucide-react";
 
 interface PaymentsArchiveProps {
   archives: PaymentArchive[];
@@ -27,6 +28,7 @@ interface PaymentsArchiveProps {
   archiveExportingId: string | null;
   onViewYear: (year: number) => void;
   activeArchiveYear: number | null;
+  currentStudents?: import("../_types").Student[];
 }
 
 export function PaymentsArchive({
@@ -43,6 +45,7 @@ export function PaymentsArchive({
   archiveExportingId,
   onViewYear,
   activeArchiveYear,
+  currentStudents = [],
 }: PaymentsArchiveProps) {
   const t = useTranslations();
   const [compareA, setCompareA] = useState<PaymentArchive | null>(null);
@@ -168,6 +171,21 @@ export function PaymentsArchive({
           </Button>
         )}
       </div>
+
+      {/* Cross-archive student search */}
+      {archives.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-[var(--primary)]" />
+            <span className="text-sm font-bold text-[var(--text-primary)]">سجل الطالب عبر السنوات</span>
+          </div>
+          <StudentArchiveSearch
+            archives={archives}
+            currentStudents={currentStudents}
+            currentYear={new Date().getFullYear()}
+          />
+        </div>
+      )}
 
       {/* Archive List */}
       {archives.length === 0 ? (

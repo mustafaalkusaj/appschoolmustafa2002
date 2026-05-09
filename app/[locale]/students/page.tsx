@@ -251,6 +251,7 @@ export default function StudentsPage() {
         logoUrl: runtimeBranding.logoUrl,
         primaryColor: runtimeBranding.primaryColor,
         secondaryColor: runtimeBranding.secondaryColor,
+        cardBgUrl: runtimeBranding.cardBgUrl,
       });
       printHtmlDocument(html);
     } catch {

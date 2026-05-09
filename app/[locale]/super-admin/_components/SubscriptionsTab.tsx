@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { CreditCard, RefreshCw } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { formatDate, calculateDaysLeft, isSubscriptionExpired, relationName } from "./utils";
@@ -17,12 +18,34 @@ export function SubscriptionsTab({
   filteredSubscriptions,
   onExtendSubscription,
 }: SubscriptionsTabProps) {
+  const [showExpiringOnly, setShowExpiringOnly] = useState(false);
+
+  const displayedSubscriptions = useMemo(
+    () =>
+      showExpiringOnly
+        ? filteredSubscriptions.filter((s) => {
+            const daysLeft = calculateDaysLeft(s.end_date);
+            return daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+          })
+        : filteredSubscriptions,
+    [filteredSubscriptions, showExpiringOnly],
+  );
+
   return (
     <SectionCard
-      title={`الاشتراكات (${filteredSubscriptions.length})`}
+      title={`الاشتراكات (${displayedSubscriptions.length})`}
       description="جدول متابعة مركزي لتجديد الاشتراكات ورؤية المدارس القريبة من الانتهاء."
+      actions={
+        <button
+          type="button"
+          className={`ui-button inline-flex items-center gap-2 ${showExpiringOnly ? "ui-button--primary" : "ui-button--secondary"}`}
+          onClick={() => setShowExpiringOnly((v) => !v)}
+        >
+          منتهية قريباً فقط (30 يوم)
+        </button>
+      }
     >
-      {filteredSubscriptions.length === 0 ? (
+      {displayedSubscriptions.length === 0 ? (
         <EmptyState
           icon={CreditCard}
           title="لا توجد نتائج للاشتراكات"
@@ -43,13 +66,14 @@ export function SubscriptionsTab({
                 </tr>
               </thead>
               <tbody>
-                {filteredSubscriptions.map((subscription) => {
+                {displayedSubscriptions.map((subscription) => {
                   const daysLeft = calculateDaysLeft(subscription.end_date);
                   const expired = isSubscriptionExpired(subscription);
-                  const tone = expired ? "ui-pill ui-pill--danger" : daysLeft !== null && daysLeft <= 30 ? "ui-pill ui-pill--warning" : "ui-pill ui-pill--success";
+                  const isExpiringSoon = !expired && daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+                  const tone = expired ? "ui-pill ui-pill--danger" : isExpiringSoon ? "ui-pill ui-pill--warning" : "ui-pill ui-pill--success";
 
                   return (
-                    <tr key={subscription.id}>
+                    <tr key={subscription.id} className={isExpiringSoon ? "bg-amber-50/60 dark:bg-amber-950/20" : ""}>
                       <td>
                         <div className="space-y-1">
                           <div className="font-black text-[var(--text-primary)]">{relationName(subscription.schools) || "—"}</div>

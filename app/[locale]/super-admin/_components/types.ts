@@ -7,6 +7,7 @@ export type ActiveTab =
   | "schools"
   | "users"
   | "subscriptions"
+  | "student-counts"
   | "audit"
   | "roles"
   | "trash"
@@ -73,6 +74,11 @@ export interface BranchOptionRecord {
   sidebar_color?: string | null;
   accent_color?: string | null;
   text_color?: string | null;
+  font_family?: string | null;
+  topbar_color?: string | null;
+  receipt_footer_text?: string | null;
+  card_bg_url?: string | null;
+  short_name?: string | null;
   schools?: SchoolRelation;
   created_at?: string | null;
 }

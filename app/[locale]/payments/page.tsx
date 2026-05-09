@@ -229,6 +229,7 @@ export default function PaymentsPage() {
                       archiveExportingId={archiveOpsHook.archiveExportingId}
                       onViewYear={activateArchiveYear}
                       activeArchiveYear={activeArchiveYear}
+                      currentStudents={studentsHook.students}
                     />
                   </Card>
                 </div>

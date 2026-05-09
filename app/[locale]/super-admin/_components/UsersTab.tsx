@@ -1,6 +1,7 @@
 "use client";
 
-import { Users, UserRoundPlus, FileDown, PencilLine, Trash2 } from "@/lib/icons";
+import { useState, useMemo } from "react";
+import { Users, UserRoundPlus, FileDown, PencilLine, Trash2, KeyRound } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { formatDate, relationName } from "./utils";
 import type { BranchOptionRecord, SchoolRecord, UserRecord } from "./types";
@@ -15,6 +16,7 @@ interface UsersTabProps {
   onOpenCreateUser: () => void;
   onOpenEditUser: (user: UserRecord) => void;
   onDeleteUser: (user: UserRecord) => void;
+  onResetPassword: (userId: string) => void;
 }
 
 export function UsersTab({
@@ -25,15 +27,29 @@ export function UsersTab({
   onOpenCreateUser,
   onOpenEditUser,
   onDeleteUser,
+  onResetPassword,
 }: UsersTabProps) {
+  const [showInactiveOnly, setShowInactiveOnly] = useState(false);
   const branchNames = new Map(branches.map((branch) => [branch.id, branch.name]));
+
+  const displayedUsers = useMemo(
+    () => showInactiveOnly ? filteredUsers.filter((u) => !u.is_active) : filteredUsers,
+    [filteredUsers, showInactiveOnly],
+  );
 
   return (
     <SectionCard
-      title={`إدارة المستخدمين (${filteredUsers.length})`}
+      title={`إدارة المستخدمين (${displayedUsers.length})`}
       description="إدارة المستخدمين مع إظهار المدرسة، الفرع، المسمى الوظيفي، ونمط الوصول المقيّد للصفحات عندما يكون ذلك مطلوباً."
       actions={
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`ui-button inline-flex items-center gap-2 ${showInactiveOnly ? "ui-button--primary" : "ui-button--secondary"}`}
+            onClick={() => setShowInactiveOnly((v) => !v)}
+          >
+            غير نشطين فقط
+          </button>
           <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => exportToCSV(filteredUsers, "users")}>
             <FileDown size={16} />
             تصدير
@@ -45,7 +61,7 @@ export function UsersTab({
         </div>
       }
     >
-      {filteredUsers.length === 0 ? (
+      {displayedUsers.length === 0 ? (
         <EmptyState
           icon={Users}
           title="لا توجد نتائج للمستخدمين"
@@ -70,7 +86,7 @@ export function UsersTab({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((user) => {
+                  {displayedUsers.map((user) => {
                     const roleColor = ROLE_COLORS[user.role] ?? { bg: "rgba(79,140,255,0.12)", color: "#4F8CFF" };
                     const customPermissionsCount = user.custom_permissions?.length ?? 0;
                     const branchName = user.branch_id ? branchNames.get(user.branch_id) ?? "—" : null;
@@ -118,6 +134,9 @@ export function UsersTab({
                               <PencilLine size={16} />
                               تعديل
                             </button>
+                            <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4" title="إعادة تعيين كلمة المرور" onClick={() => onResetPassword(user.id)}>
+                              <KeyRound size={16} />
+                            </button>
                             <button type="button" className="ui-button ui-button--danger inline-flex items-center gap-2 px-4" onClick={() => onDeleteUser(user)}>
                               <Trash2 size={16} />
                               أرشفة
@@ -133,7 +152,7 @@ export function UsersTab({
           </div>
 
           <div className="space-y-3 lg:hidden">
-            {filteredUsers.map((user) => {
+            {displayedUsers.map((user) => {
               const roleColor = ROLE_COLORS[user.role] ?? { bg: "rgba(79,140,255,0.12)", color: "#4F8CFF" };
               const branchName = user.branch_id ? branchNames.get(user.branch_id) ?? "—" : null;
 
@@ -163,6 +182,9 @@ export function UsersTab({
                     <button type="button" className="ui-button ui-button--secondary inline-flex flex-1 items-center justify-center gap-2" onClick={() => onOpenEditUser(user)}>
                       <PencilLine size={16} />
                       تعديل
+                    </button>
+                    <button type="button" className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-3" title="إعادة تعيين كلمة المرور" onClick={() => onResetPassword(user.id)}>
+                      <KeyRound size={16} />
                     </button>
                     <button type="button" className="ui-button ui-button--danger inline-flex flex-1 items-center justify-center gap-2" onClick={() => onDeleteUser(user)}>
                       <Trash2 size={16} />

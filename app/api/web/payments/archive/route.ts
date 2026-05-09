@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { compressArchiveData } from "@/lib/payments/archive-compression";
 import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
   const { data: archiveStudents, error: studentsError } = await applyBranchScopeToQuery(
     actorSupabase
       .from("students")
-      .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, status, phone")
+      .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status, phone")
       .eq("school_id", targetSchoolId)
       .in("id", studentIds),
     branchScope.value,
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
     total_students: studentIds.length,
     total_payments: yearPayments.length,
     total_amount: totalAmount,
-    data: snapshot,
+    data: compressArchiveData(snapshot),
     archive_date: new Date().toISOString(),
   };
 

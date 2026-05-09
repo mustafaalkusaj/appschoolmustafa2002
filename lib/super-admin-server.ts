@@ -93,6 +93,11 @@ export type SuperAdminBranchRecord = {
   sidebar_color: string | null;
   accent_color: string | null;
   text_color: string | null;
+  font_family?: string | null;
+  topbar_color?: string | null;
+  receipt_footer_text?: string | null;
+  card_bg_url?: string | null;
+  short_name?: string | null;
   schools?: SuperAdminSchoolRelation;
   created_at?: string | null;
 };
@@ -124,6 +129,8 @@ function buildSuperAdminBranchSelect(schemaCompat: AppSchemaCompat, includeSchoo
   if (schemaCompat.branchUiColors) {
     columns.push("sidebar_color", "accent_color", "text_color");
   }
+
+  columns.push("font_family", "topbar_color", "receipt_footer_text", "card_bg_url", "short_name");
 
   if (includeSchoolRelation) {
     columns.push("schools(name)");
@@ -406,6 +413,11 @@ export async function loadSuperAdminOverview(actorSupabase: SuperAdminDataSupaba
             sidebar_color: typeof branch.sidebar_color === "string" ? branch.sidebar_color : null,
             accent_color: typeof branch.accent_color === "string" ? branch.accent_color : null,
             text_color: typeof branch.text_color === "string" ? branch.text_color : null,
+            font_family: typeof branch.font_family === "string" ? branch.font_family : null,
+            topbar_color: typeof branch.topbar_color === "string" ? branch.topbar_color : null,
+            receipt_footer_text: typeof branch.receipt_footer_text === "string" ? branch.receipt_footer_text : null,
+            card_bg_url: typeof branch.card_bg_url === "string" ? branch.card_bg_url : null,
+            short_name: typeof branch.short_name === "string" ? branch.short_name : null,
             schools: normalizeSchoolRelation(branch.schools),
             created_at: typeof branch.created_at === "string" ? branch.created_at : null,
           })),

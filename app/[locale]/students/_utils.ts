@@ -226,11 +226,13 @@ export function buildBulkLoginCardsHtml(
     logoUrl?: string | null;
     primaryColor?: string | null;
     secondaryColor?: string | null;
+    cardBgUrl?: string | null;
   },
 ): string {
   const { locale } = options;
   const dir = locale === "en" ? "ltr" : "rtl";
   const primary = options.primaryColor || "#3b5bdb";
+  const cardBgUrl = options.cardBgUrl ? escapeHtml(options.cardBgUrl) : null;
   const schoolName = escapeHtml(options.schoolName || (locale === "en" ? "School" : "المدرسة"));
   const logoUrl = options.logoUrl ? escapeHtml(options.logoUrl) : "";
   const logoFallback = (options.schoolName || "م").charAt(0);
@@ -339,6 +341,7 @@ export function buildBulkLoginCardsHtml(
     }
     .student-card {
       background: #fff;
+      ${cardBgUrl ? `background-image: url(${cardBgUrl}); background-size: cover; background-position: center;` : ""}
       border-radius: 16px;
       overflow: hidden;
       border: 1.5px solid ${primary}30;
@@ -346,7 +349,10 @@ export function buildBulkLoginCardsHtml(
       display: flex;
       flex-direction: column;
       min-height: 240px;
+      position: relative;
     }
+    ${cardBgUrl ? `.student-card::before { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.82); z-index: 0; pointer-events: none; }
+    .student-card > * { position: relative; z-index: 1; }` : ""}
     /* Card header */
     .card-header {
       background: ${primary};
