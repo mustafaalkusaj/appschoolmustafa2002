@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -124,18 +125,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
     return jsonError("نطاق التاريخ كبير جدًا. يرجى تقليص الفترة إلى سنة واحدة كحد أقصى.", 400);
   }
 
-  let studentQuery = context.value.actorSupabase
-    .from("students")
-    .select("id, full_name, class_name, section, branch_id")
-    .eq("school_id", context.value.targetSchoolId)
-    .eq("id", studentId);
-
-  // Branch admin: restrict to their branch only
-  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
-    studentQuery = studentQuery.eq("branch_id", context.value.actorBranchId);
+  const branchScope = resolveBranchScope(context.value);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
   }
 
-  const { data: student, error: studentError } = await studentQuery.maybeSingle<StudentPreview>();
+  const { data: student, error: studentError } = await applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("students")
+      .select("id, full_name, class_name, section, branch_id")
+      .eq("school_id", context.value.targetSchoolId)
+      .eq("id", studentId),
+    branchScope.value,
+  ).maybeSingle<StudentPreview>();
 
   if (studentError) {
     return jsonError(studentError.message || "تعذر تحميل بيانات الطالب.", 500);
@@ -146,14 +148,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
   }
 
   // Summary: fetch statuses only (bounded range), then reduce.
-  let summaryQuery = context.value.actorSupabase
-    .from("attendance_records")
-    .select("attendance_date, status")
-    .eq("school_id", context.value.targetSchoolId)
-    .eq("student_id", studentId)
-    .gte("attendance_date", fromDate)
-    .lte("attendance_date", toDate)
-    .order("attendance_date", { ascending: false });
+  let summaryQuery = applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("attendance_records")
+      .select("attendance_date, status")
+      .eq("school_id", context.value.targetSchoolId)
+      .eq("student_id", studentId)
+      .gte("attendance_date", fromDate)
+      .lte("attendance_date", toDate)
+      .order("attendance_date", { ascending: false }),
+    branchScope.value,
+  );
 
   if (status !== "all") {
     summaryQuery = summaryQuery.eq("status", status);
@@ -178,14 +183,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
   const from = Math.max(0, (page - 1) * pageSize);
   const to = from + pageSize - 1;
 
-  let detailsQuery = context.value.actorSupabase
-    .from("attendance_records")
-    .select("attendance_date, status, note", { count: "exact" })
-    .eq("school_id", context.value.targetSchoolId)
-    .eq("student_id", studentId)
-    .gte("attendance_date", fromDate)
-    .lte("attendance_date", toDate)
-    .order("attendance_date", { ascending: false });
+  let detailsQuery = applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("attendance_records")
+      .select("attendance_date, status, note", { count: "exact" })
+      .eq("school_id", context.value.targetSchoolId)
+      .eq("student_id", studentId)
+      .gte("attendance_date", fromDate)
+      .lte("attendance_date", toDate)
+      .order("attendance_date", { ascending: false }),
+    branchScope.value,
+  );
 
   if (status !== "all") {
     detailsQuery = detailsQuery.eq("status", status);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { compressArchiveData } from "@/lib/payments/archive-compression";
-import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
+import { applyBranchScopeToQuery, resolveBranchScope, resolveBranchIdForWrite } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildStudentPromotionPlan } from "@/lib/students/promotion";
@@ -50,21 +50,34 @@ export async function POST(req: NextRequest) {
     return jsonError(branchScope.message, branchScope.status);
   }
 
-  // Enforce max 5 archives per school
+  const branchIdResult = resolveBranchIdForWrite(branchScope.value, requestedBranchId);
+  if (!branchIdResult.ok) {
+    return jsonError(branchIdResult.message, branchIdResult.status);
+  }
+  const archiveBranchId = branchIdResult.value;
+
+  // Enforce max 5 archives per (school, branch) scope
   const MAX_ARCHIVES = 5;
-  const { count: archiveCount } = await actorSupabase
+  const archiveCountQuery = actorSupabase
     .from("account_archives")
     .select("id", { count: "exact", head: true })
     .eq("school_id", targetSchoolId);
 
+  const { count: archiveCount } = archiveBranchId
+    ? await archiveCountQuery.eq("branch_id", archiveBranchId)
+    : await archiveCountQuery.is("branch_id", null);
+
   if ((archiveCount ?? 0) >= MAX_ARCHIVES) {
     // Allow update of an existing year — only block truly new archives
-    const { data: existingForYear } = await actorSupabase
+    const existingQuery = actorSupabase
       .from("account_archives")
       .select("id")
       .eq("school_id", targetSchoolId)
-      .eq("archive_year", archiveYear)
-      .maybeSingle();
+      .eq("archive_year", archiveYear);
+
+    const { data: existingForYear } = archiveBranchId
+      ? await existingQuery.eq("branch_id", archiveBranchId).maybeSingle()
+      : await existingQuery.is("branch_id", null).maybeSingle();
 
     if (!existingForYear) {
       return jsonError(
@@ -145,6 +158,7 @@ export async function POST(req: NextRequest) {
 
   const payload = {
     school_id: targetSchoolId,
+    branch_id: archiveBranchId,
     archive_year: archiveYear,
     total_students: studentIds.length,
     total_payments: yearPayments.length,
@@ -153,14 +167,17 @@ export async function POST(req: NextRequest) {
     archive_date: new Date().toISOString(),
   };
 
-  const { data: existingArchive, error: existingError } = await actorSupabase
+  const existingQuery = actorSupabase
     .from("account_archives")
     .select("id")
     .eq("school_id", targetSchoolId)
     .eq("archive_year", archiveYear)
     .order("archive_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const { data: existingArchive, error: existingError } = archiveBranchId
+    ? await existingQuery.eq("branch_id", archiveBranchId).maybeSingle()
+    : await existingQuery.is("branch_id", null).maybeSingle();
 
   if (existingError && !isMissingTableError(existingError, "account_archives")) {
     return jsonError(existingError.message || "تعذر التحقق من الأرشيف الحالي.", 500);

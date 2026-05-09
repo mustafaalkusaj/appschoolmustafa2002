@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { CreditCard, RefreshCw, History, PencilLine, X, Loader2 } from "@/lib/icons";
 import { SectionCard, EmptyState, ModalFrame } from "./ui";
 import { formatDate, calculateDaysLeft, isSubscriptionExpired, relationName } from "./utils";
@@ -13,6 +13,7 @@ interface SubscriptionsTabProps {
   filteredSubscriptions: SubscriptionRecord[];
   onExtendSubscription: (schoolId: string) => void;
   onEditPlan?: (schoolId: string, plan: string, endDate: string, status: string) => Promise<void>;
+  onBulkRenew?: (schoolIds: string[]) => Promise<void>;
 }
 
 interface HistoryEntry {
@@ -137,7 +138,7 @@ function HistoryModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useMemo(() => {
+  useEffect(() => {
     void (async () => {
       setLoading(true);
       setError(null);
@@ -158,7 +159,6 @@ function HistoryModal({
         setLoading(false);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId]);
 
   return (
@@ -208,10 +208,12 @@ export function SubscriptionsTab({
   filteredSubscriptions,
   onExtendSubscription,
   onEditPlan,
+  onBulkRenew,
 }: SubscriptionsTabProps) {
   const [showExpiringOnly, setShowExpiringOnly] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<SubscriptionRecord | null>(null);
   const [historySchool, setHistorySchool] = useState<{ id: string; name: string } | null>(null);
+  const [bulkRenewing, setBulkRenewing] = useState(false);
 
   const displayedSubscriptions = useMemo(
     () =>
@@ -229,19 +231,51 @@ export function SubscriptionsTab({
     await onEditPlan(editingSubscription.school_id, plan, endDate, status);
   }, [editingSubscription, onEditPlan]);
 
+  const expiringSchoolIds = useMemo(() => {
+    return filteredSubscriptions
+      .filter((s) => {
+        const daysLeft = calculateDaysLeft(s.end_date);
+        return daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+      })
+      .map((s) => s.school_id);
+  }, [filteredSubscriptions]);
+
+  const handleBulkRenew = useCallback(async () => {
+    if (!onBulkRenew || expiringSchoolIds.length === 0) return;
+    setBulkRenewing(true);
+    try {
+      await onBulkRenew(expiringSchoolIds);
+    } finally {
+      setBulkRenewing(false);
+    }
+  }, [onBulkRenew, expiringSchoolIds]);
+
   return (
     <>
       <SectionCard
         title={`الاشتراكات (${displayedSubscriptions.length})`}
         description="جدول متابعة مركزي لتجديد الاشتراكات ورؤية المدارس القريبة من الانتهاء."
         actions={
-          <button
-            type="button"
-            className={`ui-button inline-flex items-center gap-2 ${showExpiringOnly ? "ui-button--primary" : "ui-button--secondary"}`}
-            onClick={() => setShowExpiringOnly((v) => !v)}
-          >
-            منتهية قريباً فقط (30 يوم)
-          </button>
+          <div className="flex items-center gap-2">
+            {onBulkRenew && expiringSchoolIds.length > 0 && (
+              <button
+                type="button"
+                className="ui-button ui-button--primary inline-flex items-center gap-2"
+                onClick={() => void handleBulkRenew()}
+                disabled={bulkRenewing}
+              >
+                {bulkRenewing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                تجديد الكل ({expiringSchoolIds.length})
+              </button>
+            )}
+            <button
+              type="button"
+              className={`ui-button inline-flex items-center gap-2 ${showExpiringOnly ? "ui-button--primary" : "ui-button--secondary"}`}
+              onClick={() => setShowExpiringOnly((v) => !v)}
+            >
+              منتهية قريباً فقط (30 يوم)
+            </button>
+          </div>
         }
       >
         {displayedSubscriptions.length === 0 ? (

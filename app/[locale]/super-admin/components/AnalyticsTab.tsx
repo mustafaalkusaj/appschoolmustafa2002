@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { TrendingUp, Users, School, CreditCard, Activity } from "@/lib/icons";
+import { TrendingUp, Users, School, CreditCard, Activity, DollarSign } from "@/lib/icons";
+
+// Estimated monthly prices in USD (illustrative)
+const PLAN_PRICE_USD: Record<string, number> = {
+  basic: 50,
+  premium: 150,
+  enterprise: 400,
+};
 import type { SchoolRecord, UserRecord, SubscriptionRecord } from "../_components";
 
 interface AnalyticsDashboardProps {
@@ -56,6 +63,27 @@ export function AnalyticsTab({
       {} as Record<string, number>
     );
 
+    // Revenue estimate: based on active subscriptions plan
+    const activeSubsBySchool = new Map<string, string>();
+    for (const sub of subscriptions) {
+      if (sub.status === "active") {
+        activeSubsBySchool.set(sub.school_id, sub.plan);
+      }
+    }
+    const monthlyRevenue = Array.from(activeSubsBySchool.values()).reduce(
+      (sum, plan) => sum + (PLAN_PRICE_USD[plan] ?? 0),
+      0,
+    );
+    const yearlyRevenue = monthlyRevenue * 12;
+
+    // Subscriptions expiring in 30 days
+    const now = Date.now();
+    const expiringSoon = subscriptions.filter((s) => {
+      if (!s.end_date) return false;
+      const diff = new Date(s.end_date).getTime() - now;
+      return diff >= 0 && diff <= 30 * 24 * 60 * 60 * 1000;
+    }).length;
+
     return {
       activeSchools,
       totalSchools,
@@ -68,6 +96,9 @@ export function AnalyticsTab({
       subGrowth,
       planDist,
       roleDist,
+      monthlyRevenue,
+      yearlyRevenue,
+      expiringSoon,
     };
   }, [schools, users, subscriptions]);
 
@@ -216,6 +247,44 @@ export function AnalyticsTab({
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Revenue Estimate */}
+      <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-[16px] bg-green-100 text-green-600">
+            <DollarSign size={18} />
+          </div>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">الإيرادات المتوقعة</h3>
+          <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--surface-muted)] px-2 py-1 rounded-full">تقديرية</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-2xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 p-4">
+            <p className="text-xs font-bold text-green-700 dark:text-green-400 mb-1">الإيراد الشهري</p>
+            <p className="text-2xl font-black text-green-800 dark:text-green-300">${analytics.monthlyRevenue.toLocaleString()}</p>
+          </div>
+          <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 p-4">
+            <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">الإيراد السنوي</p>
+            <p className="text-2xl font-black text-blue-800 dark:text-blue-300">${analytics.yearlyRevenue.toLocaleString()}</p>
+          </div>
+          <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 p-4">
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">ينتهي خلال 30 يوم</p>
+            <p className="text-2xl font-black text-amber-800 dark:text-amber-300">{analytics.expiringSoon} مدرسة</p>
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          {Object.entries(analytics.planDist).map(([plan, count]) => {
+            const price = PLAN_PRICE_USD[plan] ?? 0;
+            return (
+              <div key={plan} className="flex items-center justify-between text-sm">
+                <span className="font-bold text-[var(--text-secondary)]">
+                  {plan === "basic" ? "أساسية" : plan === "premium" ? "مميزة" : "مؤسسية"} × {count}
+                </span>
+                <span className="font-black text-[var(--text-primary)]">${(price * count).toLocaleString()}/شهر</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

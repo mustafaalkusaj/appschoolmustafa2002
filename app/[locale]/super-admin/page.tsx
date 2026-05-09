@@ -121,6 +121,8 @@ export default function SuperAdminPage() {
   const [importingSchoolId, setImportingSchoolId] = useState<string | null>(null);
   const [copyClassesSource, setCopyClassesSource] = useState<SchoolRecord | null>(null);
   const [copyClassesTargetId, setCopyClassesTargetId] = useState("");
+  const [copySettingsSource, setCopySettingsSource] = useState<SchoolRecord | null>(null);
+  const [copySettingsTargetId, setCopySettingsTargetId] = useState("");
 
   const TAB_ITEMS: Array<{ id: ActiveTab; label: string; hint: string; icon: LucideIcon }> = useMemo(() => [
     { id: "overview", label: t("tabs.overview.label"), hint: t("tabs.overview.hint"), icon: LayoutDashboard },
@@ -434,6 +436,40 @@ export default function SuperAdminPage() {
     await refreshDashboard();
   }, [flashSuccess, refreshDashboard]);
 
+  const handleCopySettings = useCallback(async () => {
+    if (!copySettingsSource || !copySettingsTargetId.trim()) return;
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; copied?: string[]; targetSchoolName?: string; error?: { message?: string } }>(
+        `/api/web/super-admin/schools/${copySettingsSource.id}/copy-settings`,
+        { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ targetSchoolId: copySettingsTargetId.trim() }) },
+      );
+      if (!response.ok) throw new Error(payload?.error?.message || "تعذر نسخ الإعدادات.");
+      flashSuccess(`تم نسخ إعدادات التصميم إلى ${payload?.targetSchoolName ?? "المدرسة الهدف"} ✓`);
+      setCopySettingsSource(null);
+      setCopySettingsTargetId("");
+      await refreshDashboard();
+    } catch (e) { flashError(getErrorMessage(e, "تعذر نسخ الإعدادات.")); }
+  }, [copySettingsSource, copySettingsTargetId, flashSuccess, flashError, refreshDashboard]);
+
+  const handleBulkRenewSubscriptions = useCallback(async (schoolIds: string[]) => {
+    const results = await Promise.allSettled(
+      schoolIds.map((id) =>
+        fetchJsonWithAuthorizedSession<{ ok: boolean; error?: { message?: string } }>(
+          `/api/web/super-admin/subscriptions/${id}`,
+          { method: "POST", headers: withJsonHeaders() },
+        ),
+      ),
+    );
+    const succeeded = results.filter((r) => r.status === "fulfilled" && r.value.response.ok).length;
+    const failed = results.length - succeeded;
+    if (failed > 0) {
+      flashError(`تم تجديد ${succeeded} اشتراك. فشل ${failed}.`);
+    } else {
+      flashSuccess(`تم تجديد ${succeeded} اشتراك بنجاح ✓`);
+    }
+    await refreshDashboard();
+  }, [flashError, flashSuccess, refreshDashboard]);
+
   const handleCopyClasses = useCallback(async () => {
     if (!copyClassesSource || !copyClassesTargetId.trim()) return;
     try {
@@ -596,9 +632,9 @@ export default function SuperAdminPage() {
                 ) : (
                   <div className="space-y-6">
                     {activeTab === "overview" && <OverviewTab schools={schools} users={users} subscriptions={subscriptions} loading={loading} overviewDiagnostics={overviewDiagnostics} spotlightFilter={spotlightFilter} onClearSpotlightFilter={clearSpotlightFilter} onFocusSpotlight={focusSpotlight} onOpenCreateSchool={openCreateSchool} onOpenCreateUser={openCreateUser} onSetActiveTab={setActiveTab} ROLE_LABELS={ROLE_LABELS} PLAN_LABELS={PLAN_LABELS} />}
-                    {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onPermanentlyDeleteSchool={setPermanentDeleteSchoolTarget} onExportSchool={handleExportSchool} onImportSchoolData={handleImportSchoolData} importingSchoolId={importingSchoolId} onRefresh={refreshDashboard} onCopyClasses={(school) => { setCopyClassesSource(school); setCopyClassesTargetId(""); }} />}
+                    {activeTab === "schools" && <SchoolsTab schools={schools} subscriptions={subscriptions} filteredSchools={filteredSchools} onOpenCreateSchool={openCreateSchool} onOpenEditSchool={openEditSchool} onToggleSchool={handleToggleSchool} onExtendSubscription={handleExtendSubscription} onDeleteSchool={setDeleteSchoolTarget} onPermanentlyDeleteSchool={setPermanentDeleteSchoolTarget} onExportSchool={handleExportSchool} onImportSchoolData={handleImportSchoolData} importingSchoolId={importingSchoolId} onRefresh={refreshDashboard} onCopyClasses={(school) => { setCopyClassesSource(school); setCopyClassesTargetId(""); }} onCopySettings={(school) => { setCopySettingsSource(school); setCopySettingsTargetId(""); }} />}
                     {activeTab === "users" && <UsersTab users={users} schools={schools} branches={branches} filteredUsers={filteredUsers} onOpenCreateUser={openCreateUser} onOpenEditUser={openEditUser} onDeleteUser={setDeleteUserTarget} onResetPassword={(userId) => void handleResetUserPassword(userId)} onImpersonate={(userId) => void handleImpersonateUser(userId)} />}
-                    {activeTab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} filteredSubscriptions={filteredSubscriptions} onExtendSubscription={handleExtendSubscription} onEditPlan={handleEditSubscriptionPlan} />}
+                    {activeTab === "subscriptions" && <SubscriptionsTab subscriptions={subscriptions} filteredSubscriptions={filteredSubscriptions} onExtendSubscription={handleExtendSubscription} onEditPlan={handleEditSubscriptionPlan} onBulkRenew={handleBulkRenewSubscriptions} />}
                     {activeTab === "student-counts" && <StudentCountsTab />}
                     {activeTab === "audit" && <AuditLogTab infrastructure={infrastructure} />}
                     {activeTab === "roles" && <RolesTab infrastructure={infrastructure} schools={schools.map(s => ({ id: s.id, name: s.name }))} />}
@@ -632,6 +668,43 @@ export default function SuperAdminPage() {
           onConfirm={() => void handlePermanentlyDeleteSchool()}
         />
         <DeleteUserDialog user={deleteUserTarget} onClose={() => setDeleteUserTarget(null)} onConfirm={() => void handleDeleteUser()} />
+
+        {/* Copy Settings Modal */}
+        {copySettingsSource && (
+          <div className="ui-backdrop flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setCopySettingsSource(null)}>
+            <div className="ui-dialog w-full max-w-md overflow-hidden" role="dialog" aria-modal="true">
+              <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-6 py-5">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-black text-[var(--text-primary)]">نسخ إعدادات التصميم</h2>
+                  <p className="text-sm text-[var(--text-secondary)]">من: {copySettingsSource.name}</p>
+                </div>
+                <button className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]" onClick={() => setCopySettingsSource(null)}>
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="px-6 py-5 space-y-4">
+                <p className="text-sm text-[var(--text-secondary)]">سيتم نسخ الألوان والشعار من <strong>{copySettingsSource.name}</strong> إلى المدرسة المحددة.</p>
+                <div className="space-y-1">
+                  <label className="text-sm font-black text-[var(--text-secondary)]">المدرسة الهدف</label>
+                  <select
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-bold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                    value={copySettingsTargetId}
+                    onChange={(e) => setCopySettingsTargetId(e.target.value)}
+                  >
+                    <option value="">— اختر المدرسة الهدف —</option>
+                    {schools.filter((s) => s.id !== copySettingsSource.id && !s.deleted_at).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-3">
+                  <button className="ui-button ui-button--secondary flex-1" onClick={() => setCopySettingsSource(null)}>إلغاء</button>
+                  <button className="ui-button ui-button--primary flex-1" disabled={!copySettingsTargetId} onClick={() => void handleCopySettings()}>نسخ الإعدادات</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Copy Classes Modal */}
         {copyClassesSource && (

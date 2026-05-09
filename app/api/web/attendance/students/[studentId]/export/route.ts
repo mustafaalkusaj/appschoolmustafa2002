@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -122,29 +123,39 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
     return jsonError("نطاق التاريخ كبير جدًا. يرجى تقليص الفترة إلى سنة واحدة كحد أقصى.", 400);
   }
 
-  const { data: student, error: studentError } = await context.value.actorSupabase
-    .from("students")
-    .select("id, full_name, class_name, section")
-    .eq("school_id", context.value.targetSchoolId)
-    .eq("id", studentId)
-    .maybeSingle<StudentPreview>();
+  const branchScope = resolveBranchScope(context.value);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
+  const { data: student, error: studentError } = await applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("students")
+      .select("id, full_name, class_name, section")
+      .eq("school_id", context.value.targetSchoolId)
+      .eq("id", studentId),
+    branchScope.value,
+  ).maybeSingle<StudentPreview>();
 
   if (studentError) {
     return jsonError(studentError.message || "تعذر تحميل بيانات الطالب.", 500);
   }
 
   if (!student?.id) {
-    return jsonError("الطالب غير موجود ضمن المدرسة الحالية.", 404);
+    return jsonError("الطالب غير موجود أو ليس ضمن نطاق صلاحيات المستخدم.", 404);
   }
 
-  let query = context.value.actorSupabase
-    .from("attendance_records")
-    .select("attendance_date, status, note")
-    .eq("school_id", context.value.targetSchoolId)
-    .eq("student_id", studentId)
-    .gte("attendance_date", fromDate)
-    .lte("attendance_date", toDate)
-    .order("attendance_date", { ascending: false });
+  let query = applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("attendance_records")
+      .select("attendance_date, status, note")
+      .eq("school_id", context.value.targetSchoolId)
+      .eq("student_id", studentId)
+      .gte("attendance_date", fromDate)
+      .lte("attendance_date", toDate)
+      .order("attendance_date", { ascending: false }),
+    branchScope.value,
+  );
 
   if (status !== "all") query = query.eq("status", status);
 

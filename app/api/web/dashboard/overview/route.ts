@@ -157,12 +157,14 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorUserId, targetSchoolId, allowedBranchIds, actorBranchId } = context.value;
-  const effectiveBranchId = branchId?.trim() || null;
+  // Branch users always see their own branch — fallback to actorBranchId if no param sent
+  const requestedBranchId = branchId?.trim() || null;
+  const effectiveBranchId = requestedBranchId || actorBranchId || null;
   if (
-    effectiveBranchId &&
-    effectiveBranchId !== actorBranchId &&
+    requestedBranchId &&
+    requestedBranchId !== actorBranchId &&
     allowedBranchIds && allowedBranchIds.length > 0 &&
-    !allowedBranchIds.includes(effectiveBranchId)
+    !allowedBranchIds.includes(requestedBranchId)
   ) {
     return jsonError("لا يمكنك الوصول إلى بيانات هذا الفرع.", 403);
   }

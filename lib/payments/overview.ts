@@ -64,6 +64,7 @@ export type PaymentsMetaPayload = {
 export type PaymentArchive = {
   id: string;
   school_id: string;
+  branch_id: string | null;
   archive_year: number;
   archive_date: string;
   total_students: number | null;
@@ -502,6 +503,7 @@ function normalizeArchiveRows(rows: Array<Record<string, unknown>>): PaymentArch
   return (rows ?? []).map((row) => ({
     id: String(row.id),
     school_id: String(row.school_id ?? ""),
+    branch_id: typeof row.branch_id === "string" ? row.branch_id : null,
     archive_year: Math.trunc(Number(row.archive_year ?? 0)),
     archive_date: typeof row.archive_date === "string" ? row.archive_date : "",
     total_students: row.total_students === null || row.total_students === undefined ? null : Number(row.total_students ?? 0),
@@ -512,19 +514,23 @@ function normalizeArchiveRows(rows: Array<Record<string, unknown>>): PaymentArch
 }
 
 async function fetchArchives(actorSupabase: RouteSupabaseClient, schoolId: string, branchScope: ResolvedBranchScope) {
-  if (branchScope.branchIds.length > 0) {
-    return {
-      archives: [],
-      archiveNotice: "الأرشيف السنوي الكامل متاح على مستوى المدرسة فقط، لذلك تم إخفاؤه داخل نطاق الفرع.",
-    };
-  }
-
-  const { data, error } = await actorSupabase
+  let query = actorSupabase
     .from("account_archives")
-    .select("id, school_id, archive_year, total_students, total_payments, total_amount, data, archive_date")
+    .select("id, school_id, branch_id, archive_year, total_students, total_payments, total_amount, data, archive_date")
     .eq("school_id", schoolId)
     .order("archive_year", { ascending: false })
     .order("archive_date", { ascending: false });
+
+  // Branch-scoped users: show their branch archives + school-wide archives (branch_id IS NULL)
+  if (branchScope.branchIds.length === 1) {
+    query = query.or(`branch_id.eq.${branchScope.branchIds[0]},branch_id.is.null`);
+  } else if (branchScope.branchIds.length > 1) {
+    const inList = branchScope.branchIds.join(",");
+    query = query.or(`branch_id.in.(${inList}),branch_id.is.null`);
+  }
+  // School-wide admins (branchIds.length === 0): no extra filter — see all archives
+
+  const { data, error } = await query;
 
   if (error) {
     return {

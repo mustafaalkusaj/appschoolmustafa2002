@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -61,17 +62,20 @@ export async function GET(req: NextRequest) {
     return jsonError("ليس لديك صلاحية البحث في بيانات الحضور.", 403);
   }
 
-  let query = context.value.actorSupabase
-    .from("students")
-    .select("id, full_name, class_name, section")
-    .eq("school_id", context.value.targetSchoolId)
-    .neq("status", "deleted")
-    .limit(20);
-
-  // Branch admin: restrict to their branch only
-  if (context.value.scopeLevel === "branch_user" && context.value.actorBranchId) {
-    query = query.eq("branch_id", context.value.actorBranchId);
+  const branchScope = resolveBranchScope(context.value);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
   }
+
+  let query = applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("students")
+      .select("id, full_name, class_name, section")
+      .eq("school_id", context.value.targetSchoolId)
+      .neq("status", "deleted")
+      .limit(20),
+    branchScope.value,
+  );
 
   if (className) query = query.eq("class_name", className);
   if (section) query = query.eq("section", section);

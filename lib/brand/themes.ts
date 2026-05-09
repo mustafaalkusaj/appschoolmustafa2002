@@ -10,7 +10,13 @@ export type BrandThemeFamilyId =
   | "emerald"
   | "amber"
   | "classic"
-  | "dark";
+  | "dark"
+  | "navy"
+  | "rose"
+  | "slate"
+  | "sky"
+  | "earth"
+  | "gold";
 
 export type BrandThemePresetId =
   | "blue-academic"
@@ -47,7 +53,27 @@ export type BrandThemePresetId =
   | "minimal-grey"
   | "high-contrast"
   | "pastel-soft"
-  | "dark-professional";
+  | "dark-professional"
+  | "navy-deep"
+  | "navy-royal"
+  | "navy-classic"
+  | "rose-elegant"
+  | "rose-soft"
+  | "rose-bloom"
+  | "slate-corporate"
+  | "slate-modern"
+  | "slate-business"
+  | "sky-fresh"
+  | "sky-light"
+  | "sky-academic"
+  | "earth-warm"
+  | "earth-classic"
+  | "earth-academic"
+  | "gold-regal"
+  | "gold-executive"
+  | "gold-ceremony"
+  | "dark-midnight"
+  | "dark-carbon";
 
 export interface BrandThemePreset {
   id: BrandThemePresetId;
@@ -693,6 +719,360 @@ const PRESETS: BrandThemePreset[] = [
     logoIdea: "لوغو مضيء على خلفية داكنة",
     schoolNameIdea: "معهد التميز الاحترافي",
   },
+
+  // ── NAVY ──────────────────────────────────────────────────────────────────
+  {
+    id: "navy-deep",
+    familyId: "navy",
+    familyLabel: "العائلة البحرية",
+    label: "Deep Navy",
+    description: "أزرق بحري داكن راسخ ذو هيبة وجدية، يناسب الكليات والمعاهد.",
+    primaryColor: "#1a3a5c",
+    secondaryColor: "#4a90e2",
+    accentColor: "#f0b429",
+    backgroundColor: "#f0f5fb",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#dde8f5",
+    sidebarColor: "#ccdaf0",
+    textColor: "#0b1e31",
+    logoIdea: "مرساة أو سفينة أو نجمة بحرية",
+    schoolNameIdea: "معهد الشواطئ المعرفية",
+  },
+  {
+    id: "navy-royal",
+    familyId: "navy",
+    familyLabel: "العائلة البحرية",
+    label: "Royal Navy",
+    description: "بحري ملكي داكن بتفاصيل ذهبية راقية، لمدارس ذات هيبة وتاريخ.",
+    primaryColor: "#0f2d5a",
+    secondaryColor: "#3a7bd5",
+    accentColor: "#f4c542",
+    backgroundColor: "#f2f6fc",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#dce7f6",
+    sidebarColor: "#cad9f1",
+    textColor: "#090e1c",
+    logoIdea: "شعار ملكي أو تاج بحري",
+    schoolNameIdea: "الأكاديمية الملكية البحرية",
+  },
+  {
+    id: "navy-classic",
+    familyId: "navy",
+    familyLabel: "العائلة البحرية",
+    label: "Navy Classic",
+    description: "بحري كلاسيكي أنيق بلمسات فاتحة، يعكس الجدية والالتزام الأكاديمي.",
+    primaryColor: "#1e3a6e",
+    secondaryColor: "#60a5fa",
+    accentColor: "#fbbf24",
+    backgroundColor: "#f4f8fe",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#e1ecfb",
+    sidebarColor: "#d3e4f9",
+    textColor: "#0c1c35",
+    logoIdea: "درع نجمي أو حرف N هندسي",
+    schoolNameIdea: "مدرسة الأفق الأزرق",
+  },
+
+  // ── ROSE ──────────────────────────────────────────────────────────────────
+  {
+    id: "rose-elegant",
+    familyId: "rose",
+    familyLabel: "العائلة الوردية",
+    label: "Rose Elegant",
+    description: "وردي أنيق هادئ يناسب مدارس البنات والمؤسسات التعليمية النسائية.",
+    primaryColor: "#9d174d",
+    secondaryColor: "#f9a8d4",
+    accentColor: "#fbbf24",
+    backgroundColor: "#fff7fa",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#fce7f3",
+    sidebarColor: "#fbdaee",
+    textColor: "#3d071e",
+    logoIdea: "وردة أو فراشة أو شكل دائري أنثوي",
+    schoolNameIdea: "مدرسة الوردة البيضاء",
+  },
+  {
+    id: "rose-soft",
+    familyId: "rose",
+    familyLabel: "العائلة الوردية",
+    label: "Soft Blossom",
+    description: "ألوان ناعمة مزهرة مناسبة للروضات ومدارس المرحلة الابتدائية.",
+    primaryColor: "#be185d",
+    secondaryColor: "#fecdd3",
+    accentColor: "#818cf8",
+    backgroundColor: "#fff5f8",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#fce7f0",
+    sidebarColor: "#fbd5e8",
+    textColor: "#4a0725",
+    logoIdea: "بتلات زهرة أو قلب مع كتاب",
+    schoolNameIdea: "روضة زهرة الربيع",
+  },
+  {
+    id: "rose-bloom",
+    familyId: "rose",
+    familyLabel: "العائلة الوردية",
+    label: "Deep Rose",
+    description: "وردي عميق ومشرق يعكس الحيوية والطاقة لمدارس البنات الثانوية.",
+    primaryColor: "#881337",
+    secondaryColor: "#fb7185",
+    accentColor: "#6ee7b7",
+    backgroundColor: "#fff1f4",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#ffe4e8",
+    sidebarColor: "#ffd5dc",
+    textColor: "#340717",
+    logoIdea: "نجمة خماسية وردية أو تاج بسيط",
+    schoolNameIdea: "ثانوية الياسمين",
+  },
+
+  // ── SLATE ─────────────────────────────────────────────────────────────────
+  {
+    id: "slate-corporate",
+    familyId: "slate",
+    familyLabel: "العائلة الرمادية الراقية",
+    label: "Corporate Slate",
+    description: "رمادي مؤسسي راقٍ يعكس الجدية والمهنية العالية للمدارس التجارية.",
+    primaryColor: "#334155",
+    secondaryColor: "#94a3b8",
+    accentColor: "#3b82f6",
+    backgroundColor: "#f8fafc",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#f1f5f9",
+    sidebarColor: "#e8edf4",
+    textColor: "#0f172a",
+    logoIdea: "مكعب أو مستطيل هندسي بلا حواف",
+    schoolNameIdea: "الأكاديمية التجارية",
+  },
+  {
+    id: "slate-modern",
+    familyId: "slate",
+    familyLabel: "العائلة الرمادية الراقية",
+    label: "Modern Slate",
+    description: "رمادي داكن حديث مع تفاصيل فيروزية، لمدارس التقنية والإعلام.",
+    primaryColor: "#1e293b",
+    secondaryColor: "#64748b",
+    accentColor: "#22d3ee",
+    backgroundColor: "#f7f9fb",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#eef2f7",
+    sidebarColor: "#e2e8f0",
+    textColor: "#0a0f1a",
+    logoIdea: "خطوط هندسية متوازية أو مسار رقمي",
+    schoolNameIdea: "مدرسة الإعلام والتقنية",
+  },
+  {
+    id: "slate-business",
+    familyId: "slate",
+    familyLabel: "العائلة الرمادية الراقية",
+    label: "Business Pro",
+    description: "رمادي أعمال احترافي بلمسات ذهبية للتميز في بيئة تعليمية مهنية.",
+    primaryColor: "#475569",
+    secondaryColor: "#cbd5e1",
+    accentColor: "#f59e0b",
+    backgroundColor: "#f8fafc",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#f1f5f9",
+    sidebarColor: "#e8edf3",
+    textColor: "#1e293b",
+    logoIdea: "حقيبة أعمال أو مبنى زجاجي مبسط",
+    schoolNameIdea: "كلية الأعمال والإدارة",
+  },
+
+  // ── SKY ───────────────────────────────────────────────────────────────────
+  {
+    id: "sky-fresh",
+    familyId: "sky",
+    familyLabel: "العائلة السماوية",
+    label: "Sky Fresh",
+    description: "سماوي منعش ونظيف يوحي بالانفتاح والتجديد، للمدارس الحديثة.",
+    primaryColor: "#0369a1",
+    secondaryColor: "#7dd3fc",
+    accentColor: "#f97316",
+    backgroundColor: "#f0f9ff",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#e0f2fe",
+    sidebarColor: "#cce8fb",
+    textColor: "#0c2d40",
+    logoIdea: "سحابة مع كتاب أو طائرة ورقية",
+    schoolNameIdea: "مدارس السماء المفتوحة",
+  },
+  {
+    id: "sky-light",
+    familyId: "sky",
+    familyLabel: "العائلة السماوية",
+    label: "Light Horizon",
+    description: "أفق فاتح وواسع، أزرق سماوي ناعم مناسب للمدارس الصغيرة والودية.",
+    primaryColor: "#0284c7",
+    secondaryColor: "#bae6fd",
+    accentColor: "#a21caf",
+    backgroundColor: "#f5fbff",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#dff0fd",
+    sidebarColor: "#cce6fb",
+    textColor: "#0a2233",
+    logoIdea: "شروق شمس فوق خط الأفق",
+    schoolNameIdea: "مدرسة الأفق المضيء",
+  },
+  {
+    id: "sky-academic",
+    familyId: "sky",
+    familyLabel: "العائلة السماوية",
+    label: "Sky Academic",
+    description: "سماوي أكاديمي رصين بدرجة وسطية لمدارس التعليم العام الحديث.",
+    primaryColor: "#0891b2",
+    secondaryColor: "#a5f3fc",
+    accentColor: "#f59e0b",
+    backgroundColor: "#f0fdfe",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#cdfafd",
+    sidebarColor: "#bbf0f8",
+    textColor: "#083242",
+    logoIdea: "كوكب أو نظام شمسي مبسط",
+    schoolNameIdea: "أكاديمية الفضاء المعرفي",
+  },
+
+  // ── EARTH ─────────────────────────────────────────────────────────────────
+  {
+    id: "earth-warm",
+    familyId: "earth",
+    familyLabel: "العائلة الترابية",
+    label: "Warm Earth",
+    description: "ترابي دافئ أصيل يعكس الانتماء للأرض والجذور الثقافية العميقة.",
+    primaryColor: "#7c2d12",
+    secondaryColor: "#d97706",
+    accentColor: "#065f46",
+    backgroundColor: "#fdf8f3",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#f5e9dc",
+    sidebarColor: "#eddccc",
+    textColor: "#2c1008",
+    logoIdea: "شجرة نخيل أو قلعة تاريخية",
+    schoolNameIdea: "مدارس الجذور والأصالة",
+  },
+  {
+    id: "earth-classic",
+    familyId: "earth",
+    familyLabel: "العائلة الترابية",
+    label: "Earth Classic",
+    description: "بني كلاسيكي راسخ يناسب مدارس التراث والتاريخ والهوية المحلية.",
+    primaryColor: "#6b3a1f",
+    secondaryColor: "#b45309",
+    accentColor: "#1d4ed8",
+    backgroundColor: "#fdf5ee",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#f3e5d8",
+    sidebarColor: "#eed9c9",
+    textColor: "#271508",
+    logoIdea: "آثار أو أعمدة تراثية مبسطة",
+    schoolNameIdea: "دار التراث والمعرفة",
+  },
+  {
+    id: "earth-academic",
+    familyId: "earth",
+    familyLabel: "العائلة الترابية",
+    label: "Earth Academic",
+    description: "ترابي مؤسسي يجمع بين الأصالة والمهنية للمدارس الرسمية العريقة.",
+    primaryColor: "#713f12",
+    secondaryColor: "#ca8a04",
+    accentColor: "#4338ca",
+    backgroundColor: "#fefce8",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#fef9c3",
+    sidebarColor: "#fde68a",
+    textColor: "#291a04",
+    logoIdea: "كتاب مع إطار ذهبي أو شعلة برونزية",
+    schoolNameIdea: "مدرسة الأصالة الأكاديمية",
+  },
+
+  // ── GOLD ──────────────────────────────────────────────────────────────────
+  {
+    id: "gold-regal",
+    familyId: "gold",
+    familyLabel: "العائلة الذهبية الراقية",
+    label: "Regal Gold",
+    description: "ذهبي فاخر بتدرجات ملكية راقية لمؤسسات التعليم الراقية والنخبوية.",
+    primaryColor: "#7c5a08",
+    secondaryColor: "#fbbf24",
+    accentColor: "#312e81",
+    backgroundColor: "#fffdf0",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#fef9c3",
+    sidebarColor: "#fde68a",
+    textColor: "#2d1c04",
+    logoIdea: "تاج ذهبي أو شعلة معرفة ذهبية",
+    schoolNameIdea: "مدرسة الذهب الأكاديمي",
+  },
+  {
+    id: "gold-executive",
+    familyId: "gold",
+    familyLabel: "العائلة الذهبية الراقية",
+    label: "Executive Gold",
+    description: "ذهبي تنفيذي فاخر يجمع بين القيادة والتميز للإدارات الأكاديمية.",
+    primaryColor: "#92540c",
+    secondaryColor: "#fde68a",
+    accentColor: "#1e40af",
+    backgroundColor: "#fffcf0",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#fef3c7",
+    sidebarColor: "#fde89a",
+    textColor: "#352006",
+    logoIdea: "قلم حبر ذهبي أو Crest مذهب",
+    schoolNameIdea: "الأكاديمية التنفيذية",
+  },
+  {
+    id: "gold-ceremony",
+    familyId: "gold",
+    familyLabel: "العائلة الذهبية الراقية",
+    label: "Ceremony Gold",
+    description: "ذهبي احتفالي يُبرز المناسبات والتخرج، مناسب للمدارس ذات الطابع الرسمي.",
+    primaryColor: "#854d0e",
+    secondaryColor: "#fcd34d",
+    accentColor: "#6d28d9",
+    backgroundColor: "#fff8e8",
+    surfaceColor: "#ffffff",
+    surfaceMutedColor: "#fef3c7",
+    sidebarColor: "#fde89e",
+    textColor: "#301b05",
+    logoIdea: "وسام أو ميدالية ذهبية مبسطة",
+    schoolNameIdea: "مدرسة الشرف والتميز",
+  },
+
+  // ── DARK (additional) ─────────────────────────────────────────────────────
+  {
+    id: "dark-midnight",
+    familyId: "dark",
+    familyLabel: "العائلة الداكنة",
+    label: "Midnight Tech",
+    description: "أسود منتصف الليل بنبضات أرجوانية تقنية، للمعاهد الرقمية المتقدمة.",
+    primaryColor: "#7c3aed",
+    secondaryColor: "#c4b5fd",
+    accentColor: "#34d399",
+    backgroundColor: "#0d0d1a",
+    surfaceColor: "#1a1a2e",
+    surfaceMutedColor: "#2d2d4e",
+    sidebarColor: "#1e1e3a",
+    textColor: "#f0eeff",
+    logoIdea: "circuit board أو شبكة نقاط مضيئة",
+    schoolNameIdea: "أكاديمية الفضاء الرقمي",
+  },
+  {
+    id: "dark-carbon",
+    familyId: "dark",
+    familyLabel: "العائلة الداكنة",
+    label: "Carbon Dark",
+    description: "كربون داكن حديث بلمسات فيروزية، للمدارس التقنية والهندسية المتقدمة.",
+    primaryColor: "#0e7490",
+    secondaryColor: "#22d3ee",
+    accentColor: "#f97316",
+    backgroundColor: "#0a0f14",
+    surfaceColor: "#111827",
+    surfaceMutedColor: "#1f2937",
+    sidebarColor: "#161e27",
+    textColor: "#f8fafc",
+    logoIdea: "gear مبسط أو بنية هندسية داكنة",
+    schoolNameIdea: "معهد الهندسة والتقنية",
+  },
 ];
 
 export const BRAND_THEME_PRESETS = PRESETS;
@@ -769,6 +1149,42 @@ export const BRAND_THEME_FAMILIES: BrandThemeFamily[] = [
     label: "العائلة الداكنة",
     description: "وضع احترافي داكن للعمل في الإضاءة المنخفضة.",
     presets: PRESETS.filter((p) => p.familyId === "dark"),
+  },
+  {
+    id: "navy",
+    label: "العائلة البحرية",
+    description: "أزرق بحري داكن يعكس الهيبة والرسوخ والجدية الأكاديمية.",
+    presets: PRESETS.filter((p) => p.familyId === "navy"),
+  },
+  {
+    id: "rose",
+    label: "العائلة الوردية",
+    description: "ألوان وردية أنيقة وناعمة، مناسبة لمدارس البنات والروضات.",
+    presets: PRESETS.filter((p) => p.familyId === "rose"),
+  },
+  {
+    id: "slate",
+    label: "العائلة الرمادية الراقية",
+    description: "رمادي احترافي بلمسات ملونة، للمدارس التجارية والمهنية.",
+    presets: PRESETS.filter((p) => p.familyId === "slate"),
+  },
+  {
+    id: "sky",
+    label: "العائلة السماوية",
+    description: "سماوي منعش وفاتح يوحي بالانفتاح والتجديد للمدارس الحديثة.",
+    presets: PRESETS.filter((p) => p.familyId === "sky"),
+  },
+  {
+    id: "earth",
+    label: "العائلة الترابية",
+    description: "ترابي دافئ أصيل يعبر عن الجذور والتراث والانتماء.",
+    presets: PRESETS.filter((p) => p.familyId === "earth"),
+  },
+  {
+    id: "gold",
+    label: "العائلة الذهبية الراقية",
+    description: "ذهبي فاخر راقٍ للمؤسسات التعليمية النخبوية والاحتفالية.",
+    presets: PRESETS.filter((p) => p.familyId === "gold"),
   },
 ];
 

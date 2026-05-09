@@ -48,6 +48,11 @@ export function SchoolBrandingPanel({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const activeFamilyId = BRAND_THEME_FAMILIES.find(f =>
+    f.presets.some(p => p.id === brandingForm.theme_preset)
+  )?.id ?? "blue";
+  const [selectedFamilyId, setSelectedFamilyId] = useState<string>(activeFamilyId);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -205,64 +210,96 @@ export function SchoolBrandingPanel({
             <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
               <Info size={14} className="text-[var(--primary)]" />
               <span>{t("themeFamilies")}</span>
+              <span className="ms-auto text-[10px] font-normal text-[var(--text-muted)]">
+                {BRAND_THEME_FAMILIES.reduce((s, f) => s + f.presets.length, 0)} ثيم
+              </span>
             </div>
-            
-            <div className="grid gap-4 max-h-[280px] overflow-y-auto">
-              {BRAND_THEME_FAMILIES.map((family) => (
-                <div key={family.id} className="space-y-3 p-3 rounded-xl bg-[var(--surface-muted)]/50 border border-[var(--border)]">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-[var(--text-primary)]">
-                      {t(`families.${family.id}.label`)}
-                    </span>
-                    <span className="text-[10px] text-[var(--text-muted)] font-medium mt-0.5">
-                      {t(`families.${family.id}.description`)}
-                    </span>
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    {family.presets.map((preset) => {
-                      const active = brandingForm.theme_preset === preset.id;
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => onApplyTheme(preset.id)}
-                          className={cn(
-                            "w-full text-start p-2.5 rounded-xl border transition-colors group relative overflow-hidden",
-                            active 
-                              ? "bg-[var(--card-bg)] shadow-sm border-[var(--primary)]/30" 
-                              : "bg-[var(--card-bg)]/50 border-[var(--border)] hover:border-[var(--primary)]/20"
-                          )}
-                        >
-                          {active && (
-                            <div className="absolute top-0 end-0 w-1 h-full bg-[var(--primary)]" />
-                          )}
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className={cn("text-xs font-semibold", active ? "text-[var(--primary)]" : "text-[var(--text-primary)]")}>
-                                  {preset.label}
-                                </span>
-                                {active && <Check size={12} className="text-[var(--primary)]" />}
-                              </div>
-                              <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">{preset.description}</p>
-                            </div>
-                            <div className="flex -space-x-1.5 shrink-0">
-                              {[preset.primaryColor, preset.secondaryColor, preset.accentColor].map((swatch, idx) => (
-                                <span 
-                                  key={idx} 
-                                  className="w-4 h-4 rounded-full border-2 border-[var(--card-bg)] shadow-sm"
-                                  style={{ background: swatch }} 
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+
+            {/* Family tabs */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-hide">
+              {BRAND_THEME_FAMILIES.map((family) => {
+                const isActiveFam = selectedFamilyId === family.id;
+                const famPreset = family.presets[0];
+                return (
+                  <button
+                    key={family.id}
+                    type="button"
+                    onClick={() => setSelectedFamilyId(family.id)}
+                    className={cn(
+                      "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border",
+                      isActiveFam
+                        ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm"
+                        : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--primary)]/30 hover:text-[var(--text-primary)]"
+                    )}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ background: famPreset?.primaryColor ?? "#888" }}
+                    />
+                    {family.label.replace("العائلة ", "")}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Family description */}
+            {(() => {
+              const fam = BRAND_THEME_FAMILIES.find(f => f.id === selectedFamilyId);
+              return fam ? (
+                <p className="text-[10px] text-[var(--text-muted)] font-medium">{fam.description}</p>
+              ) : null;
+            })()}
+
+            {/* Theme grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[360px] overflow-y-auto pr-1">
+              {BRAND_THEME_FAMILIES.find(f => f.id === selectedFamilyId)?.presets.map((preset) => {
+                const active = brandingForm.theme_preset === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => onApplyTheme(preset.id)}
+                    className={cn(
+                      "text-start rounded-xl border overflow-hidden transition-all group",
+                      active
+                        ? "border-[var(--primary)]/50 shadow-[0_0_0_2px_color-mix(in_srgb,var(--primary)_15%,transparent)]"
+                        : "border-[var(--border)] hover:border-[var(--primary)]/25 hover:shadow-sm"
+                    )}
+                  >
+                    {/* Gradient strip */}
+                    <div
+                      className="h-1.5 w-full"
+                      style={{
+                        background: `linear-gradient(to right, ${preset.primaryColor}, ${preset.secondaryColor}, ${preset.accentColor})`
+                      }}
+                    />
+                    {/* Card body */}
+                    <div className="p-2.5 bg-[var(--card-bg)]">
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <span className={cn(
+                          "text-xs font-bold leading-tight",
+                          active ? "text-[var(--primary)]" : "text-[var(--text-primary)]"
+                        )}>
+                          {preset.label}
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {[preset.primaryColor, preset.secondaryColor, preset.accentColor].map((c, i) => (
+                            <span
+                              key={i}
+                              className="w-4 h-4 rounded-full border border-white/60 shadow-sm shrink-0"
+                              style={{ background: c }}
+                            />
+                          ))}
+                          {active && <Check size={12} className="text-[var(--primary)] ms-0.5" />}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] leading-snug line-clamp-2">
+                        {preset.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

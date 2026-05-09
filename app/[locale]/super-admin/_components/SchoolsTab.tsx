@@ -22,6 +22,7 @@ interface SchoolsTabProps {
   importingSchoolId?: string | null;
   onRefresh: () => void;
   onCopyClasses?: (school: SchoolRecord) => void;
+  onCopySettings?: (school: SchoolRecord) => void;
 }
 
 export function SchoolsTab({
@@ -39,6 +40,7 @@ export function SchoolsTab({
   importingSchoolId,
   onRefresh,
   onCopyClasses,
+  onCopySettings,
 }: SchoolsTabProps) {
   return (
     <SectionCard
@@ -168,6 +170,12 @@ export function SchoolsTab({
                         <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onCopyClasses(school)}>
                           <Copy size={16} />
                           نسخ الصفوف
+                        </button>
+                      )}
+                      {onCopySettings && (
+                        <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onCopySettings(school)}>
+                          <Copy size={16} />
+                          نسخ التصميم
                         </button>
                       )}
                       <button type="button" className="ui-button ui-button--danger inline-flex items-center gap-2" onClick={() => onDeleteSchool(school)}>
