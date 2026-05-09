@@ -76,6 +76,10 @@ export function usePaymentsMeta(resolvedSchoolId: string | null, currentBranchId
       } satisfies PaymentsMetaState;
 
       paymentsMetaCache.set(cacheKey, nextMeta);
+      if (paymentsMetaCache.size > 20) {
+        const firstKey = paymentsMetaCache.keys().next().value;
+        if (firstKey !== undefined) paymentsMetaCache.delete(firstKey);
+      }
       setSummary(nextMeta.summary);
       setClasses(nextMeta.classOptions);
       setPaymentYears(nextMeta.paymentYears);
@@ -123,6 +127,12 @@ export function usePaymentsMeta(resolvedSchoolId: string | null, currentBranchId
     });
   }, []);
 
+  const patchArchiveData = useCallback((archiveId: string, data: PaymentArchive["data"]) => {
+    setArchives((current) =>
+      current.map((a) => (a.id === archiveId ? { ...a, data } : a))
+    );
+  }, []);
+
   const decrementPaymentCount = useCallback(() => {
     setTotalPaymentCount((current) => Math.max(0, current - 1));
   }, []);
@@ -142,6 +152,7 @@ export function usePaymentsMeta(resolvedSchoolId: string | null, currentBranchId
     decrementPaymentCount,
     addPaymentYear,
     updateArchives,
+    patchArchiveData,
     setError,
-  }), [summary, classes, paymentYears, totalPaymentCount, archives, archiveNotice, metaLoading, error, fetchMeta, refreshMeta, incrementPaymentCount, decrementPaymentCount, addPaymentYear, updateArchives, setError]);
+  }), [summary, classes, paymentYears, totalPaymentCount, archives, archiveNotice, metaLoading, error, fetchMeta, refreshMeta, incrementPaymentCount, decrementPaymentCount, addPaymentYear, updateArchives, patchArchiveData, setError]);
 }
