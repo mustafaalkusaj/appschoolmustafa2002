@@ -14,7 +14,7 @@ import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
-import { CalendarDays, Search, Filter, Save, RotateCcw, Download, AlertTriangle, Lock, LockOpen, TrendingUp, BarChart3 } from "@/lib/icons";
+import { CalendarDays, Search, Filter, Save, RotateCcw, Download, AlertTriangle, Lock, LockOpen, TrendingUp, BarChart3, ChevronLeft, ChevronRight } from "@/lib/icons";
 import { StudentAttendanceInsight } from "@/app/[locale]/attendance/_components/StudentAttendanceInsight";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
@@ -650,85 +650,158 @@ export default function AttendancePage() {
 
   const controlClasses = "h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm font-bold text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/10 w-full";
 
+  function goPrevDay() {
+    const d = new Date(`${selectedDate}T00:00:00`);
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(getLocalIsoDate(d));
+    setLockOverride(false);
+  }
+  function goNextDay() {
+    const d = new Date(`${selectedDate}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    const next = getLocalIsoDate(d);
+    if (next <= todayIso) { setSelectedDate(next); setLockOverride(false); }
+  }
+  const isToday = selectedDate === todayIso;
+  const statusRowMeta: Record<AttendanceStatus, { border: string; rowBg: string }> = {
+    present: { border: "border-s-[3px] border-s-emerald-500", rowBg: "bg-emerald-50/40 dark:bg-emerald-900/10" },
+    absent:  { border: "border-s-[3px] border-s-rose-500",    rowBg: "bg-rose-50/40 dark:bg-rose-900/10" },
+    late:    { border: "border-s-[3px] border-s-amber-500",   rowBg: "bg-amber-50/40 dark:bg-amber-900/10" },
+    excused: { border: "border-s-[3px] border-s-blue-400",    rowBg: "bg-blue-50/40 dark:bg-blue-900/10" },
+  };
+
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
       <div className="flex min-h-screen bg-[var(--surface-muted)]">
         <AppSidebar currentPath="/attendance" />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <AppShellTopbar 
+          <AppShellTopbar
             title={copy.topbarTitle}
             subtitle={copy.topbarSubtitle}
-            scope={schoolScope} 
-            fixed 
+            scope={schoolScope}
+            fixed
           />
 
           <main className="app-shell-frame--with-fixed-topbar flex-1 overflow-y-auto custom-scrollbar">
-            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-              {/* Header Card */}
-              <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
-                <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Attendance Center</div>
-                    <h1 className="text-3xl font-black text-[var(--text-primary)]">{copy.heroTitle}</h1>
-                    <p className="text-sm text-[var(--text-muted)] max-w-2xl leading-relaxed">
-                      {copy.heroDescription}
-                    </p>
+            <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+              {/* ── Command Bar ─────────────────────────────────────────────── */}
+              <section className="rounded-[28px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                {/* Top row: date nav + title + save */}
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Date navigation */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={goPrevDay}
+                      className="h-10 w-10 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] flex items-center justify-center text-[var(--text-secondary)] transition hover:bg-[var(--border)] hover:text-[var(--text-primary)] shrink-0"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                    <div className="relative">
+                      <CalendarDays size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+                      <input
+                        type="date"
+                        className="h-10 ps-9 pe-3 rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] text-sm font-black text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/10"
+                        value={selectedDate}
+                        onChange={(e) => { setSelectedDate(e.target.value); setLockOverride(false); }}
+                      />
+                    </div>
+                    <button
+                      onClick={goNextDay}
+                      disabled={isToday}
+                      className="h-10 w-10 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] flex items-center justify-center text-[var(--text-secondary)] transition hover:bg-[var(--border)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    {isToday ? (
+                      <span className="hidden sm:flex h-7 items-center rounded-full bg-[var(--primary)]/10 px-3 text-[11px] font-black text-[var(--primary)]">اليوم</span>
+                    ) : (
+                      <button
+                        onClick={() => { setSelectedDate(todayIso); setLockOverride(false); }}
+                        className="hidden sm:flex h-7 items-center rounded-full border border-[var(--border)] px-3 text-[11px] font-black text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)]"
+                      >
+                        اليوم
+                      </button>
+                    )}
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 xl:w-auto">
-                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-5 py-4 flex flex-col justify-center">
-                      <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">{copy.activeDate}</div>
-                      <div className="text-sm font-black text-[var(--text-primary)] mt-1">{heroDateLabel}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      {isLocked && isAdmin && (
-                        <button
-                          className="h-full px-4 py-4 rounded-2xl font-black border border-[var(--warning)]/30 bg-[var(--warning)]/10 text-[var(--warning)] text-xs flex flex-col items-center justify-center gap-1 transition hover:bg-[var(--warning)]/20"
-                          onClick={() => setLockOverride(true)}
-                          title="فتح التعديل"
-                        >
-                          <LockOpen size={18} />
-                          <span>فتح</span>
-                        </button>
-                      )}
-                      {lockOverride && (
-                        <button
-                          className="h-full px-4 py-4 rounded-2xl font-black border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs flex flex-col items-center justify-center gap-1 transition hover:bg-[var(--border)]"
-                          onClick={() => setLockOverride(false)}
-                          title="إعادة القفل"
-                        >
-                          <Lock size={18} />
-                          <span>قفل</span>
-                        </button>
-                      )}
+                  {/* Date label */}
+                  <div className="hidden lg:block text-center">
+                    <p className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">{copy.activeDate}</p>
+                    <p className="text-base font-black text-[var(--text-primary)]">{heroDateLabel}</p>
+                  </div>
+
+                  {/* Save area */}
+                  <div className="flex items-center gap-2">
+                    {isLocked && isAdmin && (
                       <button
-                        className={cn(
-                          "h-full px-6 py-4 rounded-2xl font-black transition-all shadow-lg flex flex-col items-center justify-center gap-1 md:min-w-[180px] border",
-                          isLocked
-                            ? "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] cursor-not-allowed opacity-50"
-                            : changedCount > 0
-                              ? "bg-[var(--primary)] text-white border-transparent shadow-[0_16px_30px_color-mix(in_srgb,var(--primary)_24%,transparent)] hover:-translate-y-0.5 active:translate-y-0"
-                              : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] cursor-not-allowed opacity-60"
-                        )}
-                        onClick={saveAttendance}
-                        disabled={saving || changedCount === 0 || isLocked}
+                        onClick={() => setLockOverride(true)}
+                        className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning)]/8 text-[var(--warning)] text-xs font-black transition hover:bg-[var(--warning)]/15"
                       >
-                        <Save size={20} />
-                        <span className="text-sm">{saving ? copy.saving : copy.saveChanges(changedCount)}</span>
+                        <LockOpen size={14} /> فتح التعديل
                       </button>
-                    </div>
+                    )}
+                    {lockOverride && (
+                      <button
+                        onClick={() => setLockOverride(false)}
+                        className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-black transition hover:bg-[var(--border)]"
+                      >
+                        <Lock size={14} /> قفل
+                      </button>
+                    )}
+                    <button
+                      onClick={resetUnsavedChanges}
+                      className="h-10 w-10 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] flex items-center justify-center text-[var(--text-muted)] transition hover:text-[var(--danger)] hover:bg-[var(--danger)]/8 shrink-0"
+                      title={copy.refreshData}
+                    >
+                      <RotateCcw size={15} />
+                    </button>
+                    <button
+                      onClick={saveAttendance}
+                      disabled={saving || changedCount === 0 || isLocked}
+                      className={cn(
+                        "inline-flex items-center gap-2 h-10 px-5 rounded-xl font-black text-sm transition-all",
+                        isLocked
+                          ? "bg-[var(--surface-muted)] text-[var(--text-muted)] border border-[var(--border)] opacity-50 cursor-not-allowed"
+                          : changedCount > 0
+                            ? "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/25 hover:scale-[1.02] active:scale-95"
+                            : "bg-[var(--surface-muted)] text-[var(--text-muted)] border border-[var(--border)] cursor-not-allowed opacity-60"
+                      )}
+                    >
+                      <Save size={16} />
+                      {saving ? copy.saving : copy.saveChanges(changedCount)}
+                    </button>
                   </div>
                 </div>
+
+                {/* Stats strip */}
+                {!schoolScope.shouldBlockContent && (
+                  <div className="border-t border-[var(--border)] grid grid-cols-3 sm:grid-cols-6 divide-x divide-x-reverse divide-[var(--border)]">
+                    {[
+                      { label: copy.stats.total,   value: stats.total,   color: "text-[var(--text-primary)]", bg: "" },
+                      { label: copy.stats.present, value: stats.present, color: "text-emerald-600 dark:text-emerald-400", bg: "" },
+                      { label: copy.stats.absent,  value: stats.absent,  color: "text-rose-600 dark:text-rose-400", bg: "" },
+                      { label: copy.stats.late,    value: stats.late,    color: "text-amber-600 dark:text-amber-400", bg: "" },
+                      { label: copy.stats.excused, value: stats.excused, color: "text-blue-600 dark:text-blue-400", bg: "" },
+                      { label: copy.stats.rate,    value: `${stats.attendanceRate}%`, color: "text-[var(--primary)]", bg: "" },
+                    ].map((s, i) => (
+                      <div key={i} className="flex flex-col items-center justify-center py-3 px-2">
+                        <div className={cn("text-xl font-black tabular-nums", s.color)}>{typeof s.value === "number" ? formatNumber(s.value) : s.value}</div>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] mt-0.5">{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
 
               {success && (
-                <div className="rounded-2xl border border-[var(--success)]/20 bg-[var(--success)]/10 p-4 text-[var(--success)] font-bold">
+                <div className="rounded-2xl border border-[var(--success)]/20 bg-[var(--success)]/10 p-4 text-[var(--success)] font-bold text-sm">
                   {success}
                 </div>
               )}
               {error && (
-                <div className="rounded-2xl border border-[var(--danger)]/20 bg-[var(--danger)]/10 p-4 text-[var(--danger)] font-bold">
+                <div className="rounded-2xl border border-[var(--danger)]/20 bg-[var(--danger)]/10 p-4 text-[var(--danger)] font-bold text-sm">
                   {error}
                 </div>
               )}
@@ -736,411 +809,373 @@ export default function AttendancePage() {
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />
 
               {schoolScope.shouldBlockContent ? (
-                <div className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
-                  <SchoolScopeEmptyState
-                    scope={schoolScope}
-                    title={copy.emptyStateTitle}
-                    description={copy.emptyStateDescription}
-                  />
+                <div className="rounded-[28px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
+                  <SchoolScopeEmptyState scope={schoolScope} title={copy.emptyStateTitle} description={copy.emptyStateDescription} />
                 </div>
               ) : (
-                <div className="space-y-8">
-                  {/* Filters & Bulk Actions */}
-                  <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
-                    <div className="flex flex-col gap-8">
-                      <div className="flex items-center justify-between border-b border-[var(--border)] pb-6">
-                        <div className="flex items-center gap-2">
-                          <Filter size={18} className="text-[var(--primary)]" />
-                          <h2 className="text-lg font-black text-[var(--text-primary)]">{copy.filtersTitle}</h2>
+                <div className="space-y-6">
+
+                  {/* ── Filters ─────────────────────────────────────────────── */}
+                  <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">
+                    <div className="flex flex-wrap items-end gap-3">
+                      {/* Class */}
+                      <div className="space-y-1 min-w-[130px] flex-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.className}</label>
+                        <select className={controlClasses} value={filterClass} onChange={(e) => { setFilterClass(e.target.value); setFilterSection(""); }}>
+                          <option value="">{copy.allClasses}</option>
+                          {classes.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      {/* Section */}
+                      <div className="space-y-1 min-w-[110px] flex-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.section}</label>
+                        <select className={controlClasses} value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
+                          <option value="">{copy.allSections}</option>
+                          {sections.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      {/* Search */}
+                      <div className="space-y-1 min-w-[160px] flex-[2]">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.search}</label>
+                        <div className="relative">
+                          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+                          <input placeholder={copy.searchPlaceholder} className={cn(controlClasses, "ps-9")} value={search} onChange={(e) => setSearch(e.target.value)} />
                         </div>
-                        <button className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-xs font-black text-[var(--danger)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--surface-muted)]" onClick={resetUnsavedChanges}>
-                          <RotateCcw size={14} />
-                          {copy.refreshData}
+                      </div>
+                      {/* Status filter pills */}
+                      <div className="space-y-1 flex-[3]">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.status}</label>
+                        <div className="flex flex-wrap gap-1.5 h-11 items-center">
+                          {(["all", "present", "absent", "late", "excused", "unrecorded"] as AttendanceStatusFilter[]).map((s) => {
+                            const label = s === "all" ? copy.allStatuses : s === "unrecorded" ? copy.unrecorded : copy.statusLabels[s as AttendanceStatus];
+                            const active = filterStatus === s;
+                            return (
+                              <button
+                                key={s}
+                                onClick={() => setFilterStatus(s)}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all",
+                                  active
+                                    ? s === "all" ? "bg-[var(--primary)] text-white border-transparent"
+                                      : s === "present" ? "bg-emerald-500 text-white border-transparent"
+                                        : s === "absent" ? "bg-rose-500 text-white border-transparent"
+                                          : s === "late" ? "bg-amber-500 text-white border-transparent"
+                                            : s === "excused" ? "bg-blue-500 text-white border-transparent"
+                                              : "bg-[var(--surface-strong)] text-[var(--text-primary)] border-[var(--border)]"
+                                    : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
+                                )}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bulk assign */}
+                    <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[var(--border)]">
+                      <Filter size={13} className="text-[var(--text-muted)]" />
+                      <span className="text-[10px] font-black uppercase text-[var(--text-muted)] me-1">{copy.bulkAssign}</span>
+                      {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => applyStatusToFiltered(status)}
+                          className={cn("px-3 py-1.5 rounded-xl text-[11px] font-black border transition hover:-translate-y-0.5", statusMeta[status].bg, statusMeta[status].color, statusMeta[status].border)}
+                        >
+                          {statusMeta[status].label}
                         </button>
-                      </div>
-
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                        <div className="space-y-1.5 lg:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{copy.day}</label>
-                          <div className="relative">
-                            <CalendarDays size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-                            <input type="date" className={cn(controlClasses, "ps-10")} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{copy.className}</label>
-                          <select className={controlClasses} value={filterClass} onChange={(e) => { setFilterClass(e.target.value); setFilterSection(""); }}>
-                            <option value="">{copy.allClasses}</option>
-                            {classes.map((c) => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{copy.section}</label>
-                          <select className={controlClasses} value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
-                            <option value="">{copy.allSections}</option>
-                            {sections.map((s) => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{copy.status}</label>
-                          <select className={controlClasses} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as AttendanceStatusFilter)}>
-                            <option value="all">{copy.allStatuses}</option>
-                            <option value="present">{copy.statusLabels.present}</option>
-                            <option value="absent">{copy.statusLabels.absent}</option>
-                            <option value="late">{copy.statusLabels.late}</option>
-                            <option value="excused">{copy.statusLabels.excused}</option>
-                            <option value="unrecorded">{copy.unrecorded}</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1.5 lg:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] px-1">{copy.search}</label>
-                          <div className="relative">
-                            <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                            <input placeholder={copy.searchPlaceholder} className={cn(controlClasses, "ps-10")} value={search} onChange={(e) => setSearch(e.target.value)} />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border)]">
-                        <span className="text-[10px] font-black uppercase text-[var(--text-muted)] self-center me-2">{copy.bulkAssign}</span>
-                        {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => (
-                          <button
-                            key={status}
-                            className={cn(
-                              "px-4 py-2 rounded-xl text-[11px] font-black border shadow-sm transition-all hover:-translate-y-0.5",
-                              statusMeta[status].bg, statusMeta[status].color, statusMeta[status].border
-                            )}
-                            onClick={() => applyStatusToFiltered(status)}
-                          >
-                            {copy.assignAll} {statusMeta[status].label}
-                          </button>
-                        ))}
-                      </div>
+                      ))}
                     </div>
                   </section>
 
-                  {/* Stats Row */}
-                  <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-6">
-                    {[
-                      { label: copy.stats.total, value: formatNumber(stats.total), color: "text-[var(--text-primary)]" },
-                      { label: copy.stats.present, value: formatNumber(stats.present), color: "text-[var(--success)]" },
-                      { label: copy.stats.absent, value: formatNumber(stats.absent), color: "text-[var(--danger)]" },
-                      { label: copy.stats.late, value: formatNumber(stats.late), color: "text-[var(--warning)]" },
-                      { label: copy.stats.excused, value: formatNumber(stats.excused), color: "text-[var(--info)]" },
-                      { label: copy.stats.rate, value: `${stats.attendanceRate}%`, color: "text-[var(--primary)]" },
-                    ].map((card, i) => (
-                      <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-4 shadow-[var(--card-shadow)]">
-                        <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">{card.label}</div>
-                        <div className={cn("text-xl font-black mt-1", card.color)}>{card.value}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Class Breakdown Stats */}
+                  {/* ── Class breakdown ─────────────────────────────────────── */}
                   {classStats.length > 1 && (
-                    <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-2 border-b border-[var(--border)] pb-5">
-                          <BarChart3 size={18} className="text-[var(--primary)]" />
-                          <h2 className="text-lg font-black text-[var(--text-primary)]">نسبة الحضور حسب الصف</h2>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                          {classStats.map((cls) => (
-                            <div key={cls.class_name} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-black text-[var(--text-primary)] truncate">{cls.class_name}</span>
-                                <span className={cn("text-sm font-black", cls.rate >= 80 ? "text-[var(--success)]" : cls.rate >= 60 ? "text-[var(--warning)]" : "text-[var(--danger)]")}>{cls.rate}%</span>
-                              </div>
-                              <div className="w-full bg-[var(--border)] rounded-full h-2 overflow-hidden">
-                                <div
-                                  className={cn("h-full rounded-full transition-all", cls.rate >= 80 ? "bg-[var(--success)]" : cls.rate >= 60 ? "bg-[var(--warning)]" : "bg-[var(--danger)]")}
-                                  style={{ width: `${cls.rate}%` }}
-                                />
-                              </div>
-                              <div className="flex gap-3 text-[10px] font-bold text-[var(--text-muted)]">
-                                <span className="text-[var(--success)]">↑{cls.present}</span>
-                                <span className="text-[var(--danger)]">↓{cls.absent}</span>
-                                <span className="text-[var(--warning)]">~{cls.late}</span>
-                                <span className="ms-auto opacity-60">{cls.total} طالب</span>
-                              </div>
+                    <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">
+                      <div className="flex items-center gap-2 mb-4">
+                        <BarChart3 size={15} className="text-[var(--primary)]" />
+                        <h2 className="text-sm font-black text-[var(--text-primary)]">حضور بالصف</h2>
+                      </div>
+                      <div className="space-y-2.5">
+                        {classStats.map((cls) => (
+                          <div key={cls.class_name} className="flex items-center gap-3">
+                            <span className="text-xs font-black text-[var(--text-secondary)] w-28 shrink-0 truncate">{cls.class_name}</span>
+                            <div className="flex-1 h-5 bg-[var(--surface-muted)] rounded-full overflow-hidden relative">
+                              <div
+                                className={cn("h-full rounded-full transition-all", cls.rate >= 80 ? "bg-emerald-500" : cls.rate >= 60 ? "bg-amber-500" : "bg-rose-500")}
+                                style={{ width: `${cls.rate}%` }}
+                              />
                             </div>
-                          ))}
-                        </div>
+                            <span className={cn("text-xs font-black w-10 text-end shrink-0", cls.rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : cls.rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400")}>{cls.rate}%</span>
+                            <span className="text-[10px] text-[var(--text-muted)] font-bold w-16 shrink-0 hidden sm:block">
+                              ↑{cls.present} ↓{cls.absent}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </section>
                   )}
 
-                  {/* Main Attendance Grid */}
-                  <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
-                    <div className="space-y-8">
-                      {/* Lock Banner */}
-                      {isLocked && (
-                        <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/8 px-5 py-4">
-                          <Lock size={16} className="text-[var(--warning)] shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-[var(--warning)]">يوم مقفل — للمراجعة فقط</p>
-                            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">سجلات {selectedDate} لا يمكن تعديلها بعد انتهاء اليوم.</p>
-                          </div>
-                          {isAdmin && (
-                            <button onClick={() => setLockOverride(true)} className="shrink-0 px-3 py-1.5 rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 text-[var(--warning)] text-xs font-black transition hover:bg-[var(--warning)]/20">
-                              فتح التعديل
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between border-b border-[var(--border)] pb-6">
-                        <h2 className="text-xl font-black text-[var(--text-primary)]">{copy.studentsList}</h2>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={exportDailyCsv}
-                            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-xs font-black text-[var(--text-secondary)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--surface-muted)]"
-                          >
-                            <Download size={13} /> تصدير CSV
-                          </button>
-                          <div className="px-3 py-1 rounded-full bg-[var(--surface-muted)] text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                            {copy.studentCount(filteredStudents.length)}
-                          </div>
-                        </div>
+                  {/* ── Main Attendance Table ────────────────────────────────── */}
+                  <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                    {/* Table header */}
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+                      <div className="flex items-center gap-3">
+                        {isLocked ? (
+                          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--warning)]/10 border border-[var(--warning)]/30 text-[var(--warning)] text-[11px] font-black">
+                            <Lock size={11} /> مقفل
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--success)]/10 border border-[var(--success)]/20 text-[var(--success)] text-[11px] font-black">
+                            قابل للتعديل
+                          </span>
+                        )}
+                        <span className="text-sm font-black text-[var(--text-primary)]">{copy.studentsList}</span>
+                        <span className="text-[10px] font-black text-[var(--text-muted)] bg-[var(--surface-muted)] border border-[var(--border)] rounded-full px-2 py-0.5">{copy.studentCount(filteredStudents.length)}</span>
                       </div>
-
-                      {loadingStudents || loadingAttendance ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                          <div className="h-12 w-12 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
-                          <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">{copy.syncing}</span>
-                        </div>
-                      ) : filteredStudents.length === 0 ? (
-                        <div className="py-20 text-center text-[var(--text-muted)] font-bold border-2 border-dashed border-[var(--border)] rounded-3xl">
-                          {copy.noResults}
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto rounded-2xl border border-[var(--border)]">
-                          <table className="w-full text-start border-collapse">
-                            <thead>
-                              <tr className="bg-[var(--surface-muted)] text-start">
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.studentName}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.classSection}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.chooseStatus}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.note}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.updatedAt}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border)]">
-                              {filteredStudents.map((student) => {
-                                const draft = attendanceDrafts[student.id] || { status: "", note: "", touched: false };
-                                return (
-                                  <tr key={student.id} className="hover:bg-[var(--surface-muted)]/50 transition-colors">
-                                    <td className="p-4">
-                                      <div className="font-black text-[var(--text-primary)]">{student.full_name}</div>
-                                    </td>
-                                    <td className="p-4">
-                                      <div className="flex gap-1.5">
-                                        <span className="text-xs font-bold text-[var(--text-secondary)]">{student.class_name}</span>
-                                        {student.section && <span className="text-xs font-bold text-[var(--text-muted)]">· {student.section}</span>}
-                                      </div>
-                                    </td>
-                                    <td className="p-4">
-                                      <div className="flex flex-wrap gap-2 sm:min-w-[260px]">
-                                        {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => {
-                                          const isActive = draft.status === status;
-                                          return (
-                                            <button
-                                              key={status}
-                                            className={cn(
-                                                "px-3 py-1.5 rounded-lg text-[11px] font-black border shadow-sm transition-all",
-                                                isLocked
-                                                  ? isActive
-                                                    ? `${statusMeta[status].bg} ${statusMeta[status].color} ${statusMeta[status].border} opacity-60`
-                                                    : "bg-[var(--surface-strong)] border-[var(--border)] text-[var(--text-muted)] opacity-30 cursor-not-allowed"
-                                                  : isActive
-                                                    ? `${statusMeta[status].bg} ${statusMeta[status].color} ${statusMeta[status].border} shadow-[0_10px_22px_color-mix(in_srgb,var(--primary)_15%,transparent)] scale-[1.03]`
-                                                    : "bg-[var(--surface-strong)] border-[var(--border)] text-[var(--text-muted)] grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:-translate-y-0.5"
-                                              )}
-                                              onClick={() => !isLocked && setRowStatus(student.id, status)}
-                                              disabled={isLocked}
-                                            >
-                                              {statusMeta[status].label}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </td>
-                                    <td className="p-4">
-                                      <input
-                                        className={cn(controlClasses, "h-9 text-xs py-1", isLocked && "opacity-50 cursor-not-allowed")}
-                                        placeholder={copy.addNote}
-                                        value={draft.note}
-                                        onChange={(e) => !isLocked && setRowNote(student.id, e.target.value)}
-                                        readOnly={isLocked}
-                                      />
-                                    </td>
-                                    <td className="p-4 text-[10px] font-bold text-[var(--text-muted)] whitespace-nowrap">
-                                      {draft.updated_at ? new Date(draft.updated_at).toLocaleTimeString(locale === "en" ? "en-US" : "ar-IQ", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
+                      <button
+                        onClick={exportDailyCsv}
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] text-[11px] font-black text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)]"
+                      >
+                        <Download size={13} /> CSV
+                      </button>
                     </div>
-                  </section>
 
-                  {/* Repeated Absences Report */}
-                  <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
-                    <div className="space-y-6">
-                      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--border)] pb-6">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle size={18} className="text-[var(--danger)]" />
-                          <div>
-                            <h2 className="text-lg font-black text-[var(--text-primary)]">تقرير الغياب المتكرر</h2>
-                            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">آخر 30 يوماً — طلاب تجاوزوا حد الغياب</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-black text-[var(--text-muted)]">الحد الأدنى:</span>
-                          {[2, 3, 5, 7, 10].map((n) => (
-                            <button
-                              key={n}
-                              onClick={() => setAbsenceThreshold(n)}
-                              className={cn(
-                                "h-8 w-8 rounded-lg text-xs font-black border transition",
-                                absenceThreshold === n
-                                  ? "bg-[var(--danger)] text-white border-transparent"
-                                  : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
-                              )}
-                            >
-                              {n}
-                            </button>
-                          ))}
-                          <button
-                            onClick={() => void fetchRepeatedAbsences(absenceThreshold)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-xs font-black text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)]"
-                          >
-                            <RotateCcw size={12} /> تحديث
-                          </button>
-                        </div>
+                    {loadingStudents || loadingAttendance ? (
+                      <div className="flex flex-col items-center justify-center py-20 gap-4">
+                        <div className="h-10 w-10 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
+                        <span className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">{copy.syncing}</span>
                       </div>
-
-                      {loadingRepeated ? (
-                        <div className="flex justify-center py-10">
-                          <div className="h-8 w-8 border-4 border-[var(--danger)]/20 border-t-[var(--danger)] rounded-full animate-spin" />
-                        </div>
-                      ) : repeatedAbsences.length === 0 ? (
-                        <div className="flex flex-col items-center gap-2 py-12 text-center">
-                          <TrendingUp size={32} className="text-[var(--success)] opacity-40" />
-                          <p className="text-sm font-black text-[var(--text-muted)]">لا يوجد طلاب تجاوزوا {absenceThreshold} أيام غياب في آخر 30 يوم</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto rounded-2xl border border-[var(--border)]">
-                          <table className="w-full text-start border-collapse">
-                            <thead>
-                              <tr className="bg-[var(--surface-muted)]">
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الطالب</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الصف / الشعبة</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">عدد الغيابات</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">آخر 3 أيام</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border)]">
-                              {repeatedAbsences.map((s) => (
-                                <tr key={s.id} className="hover:bg-[var(--surface-muted)]/50 transition-colors">
-                                  <td className="p-4 font-black text-[var(--text-primary)] text-sm">{s.full_name}</td>
-                                  <td className="p-4 text-xs font-bold text-[var(--text-secondary)]">
-                                    {s.class_name}{s.section ? ` · ${s.section}` : ""}
+                    ) : filteredStudents.length === 0 ? (
+                      <div className="py-20 text-center text-[var(--text-muted)] font-bold border-2 border-dashed border-[var(--border)] rounded-2xl mx-5 my-5">
+                        {copy.noResults}
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-start border-collapse">
+                          <thead>
+                            <tr className="bg-[var(--surface-muted)]">
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">#</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.studentName}</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.classSection}</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.chooseStatus}</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden md:table-cell">{copy.note}</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden lg:table-cell">{copy.updatedAt}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border)]">
+                            {filteredStudents.map((student, idx) => {
+                              const draft = attendanceDrafts[student.id] || { status: "", note: "", touched: false };
+                              const rowStyle = draft.status && isAttendanceStatus(draft.status) ? statusRowMeta[draft.status] : null;
+                              return (
+                                <tr
+                                  key={student.id}
+                                  className={cn(
+                                    "transition-colors",
+                                    rowStyle?.border ?? "",
+                                    rowStyle ? rowStyle.rowBg : "hover:bg-[var(--surface-muted)]/40",
+                                    draft.touched && !isLocked && "ring-1 ring-inset ring-[var(--primary)]/20",
+                                  )}
+                                >
+                                  <td className="px-4 py-3 text-[11px] font-black text-[var(--text-muted)] w-8">{idx + 1}</td>
+                                  <td className="px-4 py-3">
+                                    <span className="font-black text-[var(--text-primary)] text-sm">{student.full_name}</span>
                                   </td>
-                                  <td className="p-4 text-center">
-                                    <span className={cn(
-                                      "inline-flex h-7 min-w-7 items-center justify-center rounded-full text-xs font-black px-2",
-                                      s.absent_count >= 7 ? "bg-[var(--danger)] text-white" : s.absent_count >= 5 ? "bg-[var(--warning)]/20 text-[var(--warning)]" : "bg-[var(--danger)]/10 text-[var(--danger)]"
-                                    )}>
-                                      {s.absent_count}
-                                    </span>
+                                  <td className="px-4 py-3">
+                                    <span className="text-xs font-bold text-[var(--text-secondary)]">{student.class_name}</span>
+                                    {student.section && <span className="text-xs text-[var(--text-muted)] ms-1">· {student.section}</span>}
                                   </td>
-                                  <td className="p-4">
-                                    <div className="flex flex-wrap gap-1">
-                                      {s.absent_dates.slice(-3).map((d) => (
-                                        <span key={d} className="text-[10px] font-bold bg-[var(--surface-muted)] border border-[var(--border)] rounded-lg px-2 py-0.5 text-[var(--text-muted)]">{d}</span>
-                                      ))}
+                                  <td className="px-4 py-3">
+                                    <div className="inline-flex rounded-xl border border-[var(--border)] overflow-hidden bg-[var(--surface-strong)]">
+                                      {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => {
+                                        const isActive = draft.status === status;
+                                        return (
+                                          <button
+                                            key={status}
+                                            disabled={isLocked}
+                                            onClick={() => !isLocked && setRowStatus(student.id, status)}
+                                            className={cn(
+                                              "px-3 py-2 text-[11px] font-black transition-all border-e last:border-e-0 border-[var(--border)]",
+                                              isLocked
+                                                ? isActive
+                                                  ? `${statusMeta[status].bg} ${statusMeta[status].color} opacity-70`
+                                                  : "text-[var(--text-muted)] opacity-25 cursor-not-allowed"
+                                                : isActive
+                                                  ? `${statusMeta[status].bg} ${statusMeta[status].color} shadow-sm`
+                                                  : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                                            )}
+                                          >
+                                            {statusMeta[status].label}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   </td>
+                                  <td className="px-4 py-3 hidden md:table-cell">
+                                    <input
+                                      className={cn("h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] px-3 text-xs font-bold text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 w-full max-w-[200px]", isLocked && "opacity-40 cursor-not-allowed")}
+                                      placeholder={copy.addNote}
+                                      value={draft.note}
+                                      onChange={(e) => !isLocked && setRowNote(student.id, e.target.value)}
+                                      readOnly={isLocked}
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3 text-[10px] font-bold text-[var(--text-muted)] whitespace-nowrap hidden lg:table-cell">
+                                    {draft.updated_at ? new Date(draft.updated_at).toLocaleTimeString(locale === "en" ? "en-US" : "ar-IQ", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                  </td>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </section>
 
-                  <StudentAttendanceInsight
-                    schoolId={resolvedSchoolIdForInsights}
-                    className={filterClass}
-                    section={filterSection}
-                  />
-
-                  {/* History Section */}
-                  {historyRows.length > 0 && (
-                    <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
-                      <div className="space-y-8">
-                        <div className="flex flex-col gap-1 border-b border-[var(--border)] pb-6">
-                          <h2 className="text-xl font-black text-[var(--text-primary)]">آخر 30 يوماً</h2>
-                          <p className="text-sm text-[var(--text-muted)]">{copy.historyDescription}</p>
+                  {/* ── Repeated Absences ───────────────────────────────────── */}
+                  <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-[var(--border)]">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={15} className="text-rose-500 shrink-0" />
+                        <div>
+                          <span className="text-sm font-black text-[var(--text-primary)]">الغياب المتكرر</span>
+                          <span className="text-[11px] text-[var(--text-muted)] ms-2">آخر 30 يوم</span>
                         </div>
+                        {repeatedAbsences.length > 0 && (
+                          <span className="h-5 min-w-5 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center px-1">
+                            {repeatedAbsences.length}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-black text-[var(--text-muted)]">حد:</span>
+                        {[2, 3, 5, 7, 10].map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => setAbsenceThreshold(n)}
+                            className={cn(
+                              "h-7 w-7 rounded-lg text-[11px] font-black border transition",
+                              absenceThreshold === n ? "bg-rose-500 text-white border-transparent" : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
+                            )}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                        <button onClick={() => void fetchRepeatedAbsences(absenceThreshold)} className="h-7 w-7 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] flex items-center justify-center text-[var(--text-muted)] transition hover:bg-[var(--border)]">
+                          <RotateCcw size={12} />
+                        </button>
+                      </div>
+                    </div>
 
-                        {/* Weekly Comparison */}
-                        <div className="grid gap-4 sm:grid-cols-3">
-                          {[
-                            { label: "هذا الأسبوع", rate: weeklyComparison.thisRate, color: weeklyComparison.diff >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
-                            { label: "الأسبوع الماضي", rate: weeklyComparison.lastRate, color: "text-[var(--text-primary)]" },
-                            {
-                              label: "الفرق",
-                              rate: Math.abs(weeklyComparison.diff),
-                              suffix: weeklyComparison.diff > 0 ? "↑" : weeklyComparison.diff < 0 ? "↓" : "—",
-                              color: weeklyComparison.diff > 0 ? "text-[var(--success)]" : weeklyComparison.diff < 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]",
-                            },
-                          ].map((card) => (
-                            <div key={card.label} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-5 flex flex-col gap-1">
-                              <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{card.label}</div>
-                              <div className={cn("text-2xl font-black", card.color)}>
-                                {"suffix" in card ? card.suffix !== "—" ? `${card.suffix} ${card.rate}%` : "—" : `${card.rate}%`}
-                              </div>
+                    {loadingRepeated ? (
+                      <div className="flex justify-center py-10">
+                        <div className="h-8 w-8 border-4 border-rose-200 border-t-rose-500 rounded-full animate-spin" />
+                      </div>
+                    ) : repeatedAbsences.length === 0 ? (
+                      <div className="flex items-center justify-center gap-3 py-10 text-[var(--text-muted)]">
+                        <TrendingUp size={20} className="text-emerald-500 opacity-50" />
+                        <span className="text-sm font-bold">لا يوجد طلاب تجاوزوا {absenceThreshold} غيابات</span>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-start border-collapse">
+                          <thead>
+                            <tr className="bg-[var(--surface-muted)]">
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الطالب</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الصف</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center w-24">غيابات</th>
+                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden sm:table-cell">آخر 3 أيام</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border)]">
+                            {repeatedAbsences.map((s) => (
+                              <tr key={s.id} className="hover:bg-rose-50/30 dark:hover:bg-rose-900/10 transition-colors border-s-[3px] border-s-transparent hover:border-s-rose-400">
+                                <td className="px-4 py-3 font-black text-[var(--text-primary)] text-sm">{s.full_name}</td>
+                                <td className="px-4 py-3 text-xs font-bold text-[var(--text-secondary)]">{s.class_name}{s.section ? ` · ${s.section}` : ""}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className={cn(
+                                    "inline-flex h-7 min-w-7 items-center justify-center rounded-full text-xs font-black px-2",
+                                    s.absent_count >= 7 ? "bg-rose-500 text-white" : s.absent_count >= 5 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400"
+                                  )}>
+                                    {s.absent_count}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 hidden sm:table-cell">
+                                  <div className="flex flex-wrap gap-1">
+                                    {s.absent_dates.slice(-3).map((d) => (
+                                      <span key={d} className="text-[10px] font-bold bg-[var(--surface-muted)] border border-[var(--border)] rounded-lg px-2 py-0.5 text-[var(--text-muted)]">{d}</span>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+
+                  <StudentAttendanceInsight schoolId={resolvedSchoolIdForInsights} className={filterClass} section={filterSection} />
+
+                  {/* ── History / Trend ─────────────────────────────────────── */}
+                  {historyRows.length > 0 && (
+                    <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                      <div className="px-5 py-4 border-b border-[var(--border)]">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h2 className="text-sm font-black text-[var(--text-primary)]">آخر 30 يوم</h2>
+                            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{copy.historyDescription}</p>
+                          </div>
+                          {/* Weekly comparison */}
+                          <div className="hidden sm:flex items-center gap-4">
+                            <div className="text-center">
+                              <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">هذا الأسبوع</div>
+                              <div className={cn("text-lg font-black", weeklyComparison.diff >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>{weeklyComparison.thisRate}%</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">الأسبوع الماضي</div>
+                              <div className="text-lg font-black text-[var(--text-primary)]">{weeklyComparison.lastRate}%</div>
+                            </div>
+                            <div className={cn(
+                              "flex items-center gap-1 h-8 px-3 rounded-xl text-xs font-black border",
+                              weeklyComparison.diff > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/40"
+                                : weeklyComparison.diff < 0 ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800/40"
+                                  : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)]"
+                            )}>
+                              {weeklyComparison.diff > 0 ? "↑" : weeklyComparison.diff < 0 ? "↓" : "—"} {weeklyComparison.diff !== 0 ? `${Math.abs(weeklyComparison.diff)}%` : "لا تغيير"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bar chart */}
+                      <div className="p-5 space-y-1.5">
+                        {historyRows.slice(0, 14).map((row) => (
+                          <div key={row.date} className="flex items-center gap-3 group">
+                            <span className="text-[10px] font-black text-[var(--text-muted)] w-24 shrink-0 group-hover:text-[var(--text-primary)] transition-colors">{row.date}</span>
+                            <div className="flex-1 h-5 bg-[var(--surface-muted)] rounded-full overflow-hidden flex">
+                              {row.total > 0 && (
+                                <>
+                                  <div className="bg-emerald-500 h-full transition-all" style={{ width: `${(row.present / row.total) * 100}%` }} title={`حاضر: ${row.present}`} />
+                                  <div className="bg-amber-400 h-full transition-all" style={{ width: `${(row.late / row.total) * 100}%` }} title={`متأخر: ${row.late}`} />
+                                  <div className="bg-blue-400 h-full transition-all" style={{ width: `${(row.excused / row.total) * 100}%` }} title={`بعذر: ${row.excused}`} />
+                                  <div className="bg-rose-400 h-full transition-all" style={{ width: `${(row.absent / row.total) * 100}%` }} title={`غائب: ${row.absent}`} />
+                                </>
+                              )}
+                            </div>
+                            <span className={cn(
+                              "text-xs font-black w-10 text-end shrink-0",
+                              row.rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : row.rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"
+                            )}>{row.rate}%</span>
+                          </div>
+                        ))}
+                        <div className="flex items-center gap-4 pt-3 mt-2 border-t border-[var(--border)]">
+                          {[{ color: "bg-emerald-500", label: "حاضر" }, { color: "bg-amber-400", label: "متأخر" }, { color: "bg-blue-400", label: "بعذر" }, { color: "bg-rose-400", label: "غائب" }].map((l) => (
+                            <div key={l.label} className="flex items-center gap-1.5">
+                              <div className={cn("h-2.5 w-2.5 rounded-full", l.color)} />
+                              <span className="text-[10px] font-bold text-[var(--text-muted)]">{l.label}</span>
                             </div>
                           ))}
-                        </div>
-
-                        <div className="overflow-x-auto rounded-2xl border border-[var(--border)]">
-                          <table className="w-full text-start border-collapse">
-                            <thead>
-                              <tr className="bg-[var(--surface-muted)] text-start">
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.date}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">{copy.stats.present}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">{copy.stats.absent}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">{copy.stats.late}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">{copy.stats.excused}</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">{copy.stats.rate}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border)] text-center">
-                              {historyRows.map((row) => (
-                                <tr key={row.date} className="hover:bg-[var(--surface-muted)]/50 transition-colors">
-                                  <td className="p-4 text-start text-xs font-black text-[var(--text-primary)]">{row.date}</td>
-                                  <td className="p-4 text-[var(--success)] font-bold text-xs">{formatNumber(row.present)}</td>
-                                  <td className="p-4 text-[var(--danger)] font-bold text-xs">{formatNumber(row.absent)}</td>
-                                  <td className="p-4 text-[var(--warning)] font-bold text-xs">{formatNumber(row.late)}</td>
-                                  <td className="p-4 text-[var(--info)] font-bold text-xs">{formatNumber(row.excused)}</td>
-                                  <td className="p-4">
-                                    <div className="flex flex-col items-center gap-1.5">
-                                      <div className="w-24 bg-[var(--surface-muted)] rounded-full h-1.5 overflow-hidden">
-                                        <div className="bg-[var(--primary)] h-full rounded-full transition-all" style={{ width: `${row.rate}%` }} />
-                                      </div>
-                                      <span className="text-[10px] font-black text-[var(--text-primary)]">{row.rate}%</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
                         </div>
                       </div>
                     </section>
