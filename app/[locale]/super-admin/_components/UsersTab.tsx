@@ -1,12 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Users, UserRoundPlus, FileDown, PencilLine, Trash2, KeyRound, ExternalLink } from "@/lib/icons";
+import { useState, useMemo, type ElementType } from "react";
+import { Users, UserRoundPlus, FileDown, PencilLine, Trash2, KeyRound, ExternalLink, GraduationCap, BookOpen, ShieldCheck } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { formatDate, relationName } from "./utils";
 import type { BranchOptionRecord, SchoolRecord, UserRecord } from "./types";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/auth";
 import { exportToCSV } from "@/lib/export";
+import { cn } from "@/lib/brand/brand-utils";
+
+type UserSegment = "staff" | "students" | "teachers";
+
+function classifyUser(user: UserRecord): UserSegment {
+  const email = (user.email ?? "").toLowerCase();
+  if (email.startsWith("student.") && email.endsWith("@schoolapp.local")) return "students";
+  if (email.startsWith("teacher.") && email.endsWith("@schoolapp.local")) return "teachers";
+  return "staff";
+}
 
 interface UsersTabProps {
   users: UserRecord[];
@@ -32,16 +42,29 @@ export function UsersTab({
   onImpersonate,
 }: UsersTabProps) {
   const [showInactiveOnly, setShowInactiveOnly] = useState(false);
+  const [segment, setSegment] = useState<UserSegment>("staff");
   const branchNames = new Map(branches.map((branch) => [branch.id, branch.name]));
 
+  const staffUsers = useMemo(() => filteredUsers.filter(u => classifyUser(u) === "staff"), [filteredUsers]);
+  const studentUsers = useMemo(() => filteredUsers.filter(u => classifyUser(u) === "students"), [filteredUsers]);
+  const teacherUsers = useMemo(() => filteredUsers.filter(u => classifyUser(u) === "teachers"), [filteredUsers]);
+
+  const segmentedUsers = segment === "staff" ? staffUsers : segment === "students" ? studentUsers : teacherUsers;
+
   const displayedUsers = useMemo(
-    () => showInactiveOnly ? filteredUsers.filter((u) => !u.is_active) : filteredUsers,
-    [filteredUsers, showInactiveOnly],
+    () => showInactiveOnly ? segmentedUsers.filter((u) => !u.is_active) : segmentedUsers,
+    [segmentedUsers, showInactiveOnly],
   );
+
+  const SEGMENT_TABS: { key: UserSegment; label: string; icon: ElementType; count: number }[] = [
+    { key: "staff", label: "الموظفون والمدراء", icon: ShieldCheck, count: staffUsers.length },
+    { key: "students", label: "حسابات الطلاب", icon: GraduationCap, count: studentUsers.length },
+    { key: "teachers", label: "حسابات المعلمين", icon: BookOpen, count: teacherUsers.length },
+  ];
 
   return (
     <SectionCard
-      title={`إدارة المستخدمين (${displayedUsers.length})`}
+      title={`إدارة المستخدمين (${segmentedUsers.length})`}
       description="إدارة المستخدمين مع إظهار المدرسة، الفرع، المسمى الوظيفي، ونمط الوصول المقيّد للصفحات عندما يكون ذلك مطلوباً."
       actions={
         <div className="flex items-center gap-2">
@@ -52,7 +75,7 @@ export function UsersTab({
           >
             غير نشطين فقط
           </button>
-          <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => exportToCSV(filteredUsers, "users")}>
+          <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => exportToCSV(displayedUsers, `users-${segment}`)}>
             <FileDown size={16} />
             تصدير
           </button>
@@ -63,13 +86,37 @@ export function UsersTab({
         </div>
       }
     >
+      {/* Segment tabs */}
+      <div className="flex gap-2 border-b border-[var(--border)] pb-3 mb-4 overflow-x-auto">
+        {SEGMENT_TABS.map(({ key, label, icon: Icon, count }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setSegment(key)}
+            className={cn(
+              "shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border",
+              segment === key
+                ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm"
+                : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-primary)]"
+            )}
+          >
+            <Icon size={15} />
+            <span>{label}</span>
+            <span className={cn(
+              "rounded-full px-2 py-0.5 text-xs font-black",
+              segment === key ? "bg-white/20 text-white" : "bg-[var(--border)] text-[var(--text-secondary)]"
+            )}>{count}</span>
+          </button>
+        ))}
+      </div>
+
       {displayedUsers.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="لا توجد نتائج للمستخدمين"
-          description="جرّب تعديل البحث الحالي أو أضف مستخدماً جديداً لتخصيص الوصول."
-          actionLabel="إضافة مستخدم"
-          onAction={onOpenCreateUser}
+          title="لا توجد نتائج"
+          description={segment === "students" ? "لا توجد حسابات طلاب مضافة بعد." : segment === "teachers" ? "لا توجد حسابات معلمين مضافة بعد." : "جرّب تعديل البحث الحالي أو أضف مستخدماً جديداً لتخصيص الوصول."}
+          actionLabel={segment === "staff" ? "إضافة مستخدم" : undefined}
+          onAction={segment === "staff" ? onOpenCreateUser : undefined}
         />
       ) : (
         <>
