@@ -138,25 +138,23 @@ export function PaymentsArchive({
         </Card>
       </div>
 
-      {/* Archive limit indicator */}
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-[var(--radius-md)] text-sm font-semibold w-fit ${
-        isAtLimit
-          ? "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)]"
-          : archivedYearsCount >= MAX_ARCHIVES - 1
-          ? "bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)]"
-          : "bg-[var(--surface-soft)] text-[var(--text-muted)]"
-      }`}>
-        <Archive className="h-4 w-4" />
-        <span>{archivedYearsCount} / {MAX_ARCHIVES} أرشيفات</span>
-        {isAtLimit && <span>— وصلت الحد الأقصى</span>}
-      </div>
-
-      {/* Archive Controls */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Archive Controls + limit indicator — same row */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-[var(--radius-md)] text-sm font-semibold ${
+          isAtLimit
+            ? "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)]"
+            : archivedYearsCount >= MAX_ARCHIVES - 1
+            ? "bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)]"
+            : "bg-[var(--surface-soft)] text-[var(--text-muted)]"
+        }`}>
+          <Archive className="h-4 w-4" />
+          <span>{archivedYearsCount} / {MAX_ARCHIVES} أرشيفات</span>
+          {isAtLimit && <span>— وصلت الحد الأقصى</span>}
+        </div>
         <Select
           value={archiveYear}
           onChange={(e) => setArchiveYear(e.target.value)}
-          className="sm:w-48"
+          className="w-40"
         >
           {archiveYearOptions.map((year) => (
             <option key={year} value={year}>

@@ -109,17 +109,6 @@ export function StudentsToolbar({
         <Button
           variant="outline"
           size="sm"
-          onClick={onExportCurrentPage}
-          title={t("exportCurrentTitle")}
-          className="w-full justify-center xl:w-auto"
-        >
-          <Upload className="h-4 w-4" />
-          <span>{t("exportCurrent")}</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
           onClick={onExportAll}
           disabled={datasetLoading}
           title={t("exportAllTitle")}
