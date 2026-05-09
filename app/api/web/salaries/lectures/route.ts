@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       applyBranchScopeToQuery(
         context.value.actorSupabase
           .from("teachers")
-          .select(hasLecturePrice ? "id, lecture_price" : "id")
+          .select((hasLecturePrice ? "id, lecture_price" : "id") as unknown as "id, lecture_price")
           .eq("id", teacherId)
           .eq("school_id", context.value.targetSchoolId),
         branchScope.value,

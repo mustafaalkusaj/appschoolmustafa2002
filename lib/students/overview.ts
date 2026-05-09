@@ -119,6 +119,7 @@ async function resolveStudentFeesFromClassFees(
   actorSupabase: RouteSupabaseClient,
   students: Array<Record<string, unknown>>,
   schoolId: string,
+  branchScope?: ResolvedBranchScope,
 ): Promise<Map<string, number>> {
   // Get unique class names from students
   const classNames = Array.from(
@@ -133,12 +134,20 @@ async function resolveStudentFeesFromClassFees(
     return new Map();
   }
 
-  // Fetch class_fees for these classes
-  const { data: classFees } = await actorSupabase
+  // Fetch class_fees for these classes, scoped to branch when available
+  let query = actorSupabase
     .from("class_fees")
     .select("class_name, total_fee")
     .eq("school_id", schoolId)
     .in("class_name", classNames);
+
+  if (branchScope?.branchId) {
+    query = query.eq("branch_id", branchScope.branchId);
+  } else if (branchScope && branchScope.branchIds.length > 0) {
+    query = query.in("branch_id", branchScope.branchIds);
+  }
+
+  const { data: classFees } = await query;
 
   // Build map of class_name -> total_fee
   const feeMap = new Map<string, number>();
@@ -224,7 +233,7 @@ async function fetchSummary(
     applyBranchScopeToQuery(
       actorSupabase
         .from("students")
-        .select("id, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .select("id, class_name, total_fee, paid_fee, discount_value, status")
         .eq("school_id", schoolId),
       branchScope,
     ),
@@ -236,7 +245,7 @@ async function fetchSummary(
   }
 
   // Resolve class fees for accurate total calculation
-  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, data ?? [], schoolId);
+  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, data ?? [], schoolId, branchScope);
 
   return normalizeStudentRows(data ?? [], classFeeMap).reduce<StudentsSummary>(
     (acc, student) => {
@@ -316,7 +325,7 @@ export async function resolveStudentsListPage(
       actorSupabase
         .from("students")
         .select(
-          "id, school_id, auth_user_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, remaining_fee, status, created_at",
+          "id, school_id, auth_user_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status, created_at",
           { count: "exact" },
         )
         .eq("school_id", schoolId),
@@ -332,7 +341,7 @@ export async function resolveStudentsListPage(
   }
 
   // Resolve class fees for the fetched students
-  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, data ?? [], schoolId);
+  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, data ?? [], schoolId, branchScope);
 
   const rows = normalizeStudentRows(data ?? [], classFeeMap);
   const totalCount = typeof count === "number" ? count : rows.length;
