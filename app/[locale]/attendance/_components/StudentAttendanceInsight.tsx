@@ -473,7 +473,7 @@ export function StudentAttendanceInsight(props: {
     setTimeout(() => {
       try {
         w.print();
-      } catch (e) {
+      } catch {
         console.error("Print failed");
       }
     }, 500);
