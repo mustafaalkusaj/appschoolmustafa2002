@@ -6,6 +6,14 @@ import { primaryFont } from "./fonts";
 export const metadata: Metadata = {
   title: "School Management Platform",
   description: "School Management System",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "1024x1024" },
+    ],
+    apple: { url: "/icon.png", sizes: "1024x1024" },
+    shortcut: "/favicon.ico",
+  },
   other: {
     google: "notranslate",
   },

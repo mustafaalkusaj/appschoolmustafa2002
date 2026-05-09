@@ -169,6 +169,7 @@ export async function GET(req: NextRequest) {
         .from("payments")
         .select("id, amount, created_at, payment_method, receipt_number, notes, students(full_name,class_name)")
         .eq("school_id", targetSchoolId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(10_000),
       branchScope.value,
@@ -186,6 +187,7 @@ export async function GET(req: NextRequest) {
         .from("expenses")
         .select("id, amount, expense_date, recipient, receipt_number, notes, expense_types(name)")
         .eq("school_id", targetSchoolId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(10_000),
       branchScope.value,

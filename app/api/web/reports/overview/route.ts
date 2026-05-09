@@ -72,14 +72,16 @@ async function loadFallbackMetrics(
       actorSupabase
         .from("payments")
         .select("id, amount, created_at")
-        .eq("school_id", schoolId),
+        .eq("school_id", schoolId)
+        .is("deleted_at", null),
       branchScope,
     ),
     applyBranchScopeToQuery(
       actorSupabase
         .from("expenses")
         .select("id, amount, expense_types(name)")
-        .eq("school_id", schoolId),
+        .eq("school_id", schoolId)
+        .is("deleted_at", null),
       branchScope,
     ),
     applyBranchScopeToQuery(

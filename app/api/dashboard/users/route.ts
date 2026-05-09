@@ -838,28 +838,19 @@ export async function POST(req: NextRequest) {
 
   const serviceSupabase = createServiceSupabaseClient();
 
-  // Resolve actor's accessible branches from user_profiles (source of truth)
+  // Resolve actor's accessible branches from RBAC session (refreshed every 8h)
+  // Fall back to DB only for school-wide admins with no branch restriction in JWT
   let actorAccessibleBranches: string[] = [];
 
   try {
-    const { data: actorProfile, error: profileError } = await actorSupabase
-      .from("user_profiles")
-      .select("branch_id")
-      .eq("id", actorUserId)
-      .eq("school_id", targetSchoolId)
-      .maybeSingle();
-
-    if (!profileError && actorProfile?.branch_id) {
-      // Single-branch user: only their assigned branch
-      actorAccessibleBranches = [actorProfile.branch_id];
-    } else if (actorBranchId) {
-      // JWT-level branch restriction (actorBranchId from RBAC session)
+    if (actorBranchId) {
+      // Branch-restricted user: JWT has their branch
       actorAccessibleBranches = [actorBranchId];
     } else if (Array.isArray(allowedBranchIds) && allowedBranchIds.length > 0) {
       // Multi-branch user with explicit allowed branches from JWT
       actorAccessibleBranches = allowedBranchIds;
     } else {
-      // School-wide admin: fetch all school branches
+      // School-wide admin: fetch all school branches (no branch restriction in JWT)
       const { data: allBranches, error: branchesError } = await actorSupabase
         .from("branches")
         .select("id")
@@ -980,7 +971,13 @@ export async function POST(req: NextRequest) {
   });
   const temporaryPassword = validation.value.password || generateTemporaryPassword();
   const linkTable = validation.value.role === "student" ? "students" : "teachers";
-  const linkColumnProbe = await actorSupabase.from(linkTable).select("auth_user_id").limit(1);
+
+  // Run column probe, school brand fetch, and teacher capabilities in parallel
+  const [linkColumnProbe, schoolBrand, teacherTableCapabilities] = await Promise.all([
+    actorSupabase.from(linkTable).select("auth_user_id").limit(1),
+    fetchManagedAccountSchoolBrand(actorSupabase, targetSchoolId),
+    validation.value.role === "teacher" ? getTeacherTableCapabilities(actorSupabase) : Promise.resolve(null),
+  ]);
 
   if (isMissingColumnError(linkColumnProbe.error, linkTable, "auth_user_id")) {
     return jsonError(
@@ -992,10 +989,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const teacherTableCapabilities =
-    validation.value.role === "teacher" ? await getTeacherTableCapabilities(actorSupabase) : null;
   const createdAt = new Date().toISOString();
-  const schoolBrand = await fetchManagedAccountSchoolBrand(actorSupabase, targetSchoolId);
 
   if (validation.value.role === "student" && !branchId) {
     return jsonError("يجب إضافة فرع واحد على الأقل للمدرسة قبل إنشاء حساب طالب.", 400, {
@@ -1388,29 +1382,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (validation.value.role === "student" && relatedRecordId) {
-      try {
-        await syncStudentTeacherLinks(actorSupabase, {
-          schoolId: targetSchoolId,
-          studentId: relatedRecordId,
-          className: validation.value.student!.class_name,
-          section: validation.value.student!.section,
-        });
-      } catch {
-        // Ignore auto-link failures to avoid blocking account creation.
-      }
-    }
-
     let decoratedUser: ManagedUserRecord | null = null;
     let accountCard: ManagedUserAccountCard | null = null;
 
-    try {
-      decoratedUser = await fetchManagedUserByAuthUserId(actorSupabase, {
-        authUserId,
+    // Run teacher link sync and user fetch in parallel
+    const syncAndFetchResults = await Promise.allSettled([
+      validation.value.role === "student" && relatedRecordId
+        ? syncStudentTeacherLinks(actorSupabase, {
+            schoolId: targetSchoolId,
+            studentId: relatedRecordId,
+            className: validation.value.student!.class_name,
+            section: validation.value.student!.section,
+          })
+        : Promise.resolve(),
+      fetchManagedUserByAuthUserId(actorSupabase, {
+        authUserId: authUserId!,
         schoolId: targetSchoolId,
-      });
-    } catch {
-      decoratedUser = null;
+      }),
+    ]);
+
+    if (syncAndFetchResults[1].status === "fulfilled") {
+      decoratedUser = syncAndFetchResults[1].value as ManagedUserRecord | null;
     }
 
     if (!decoratedUser) {
