@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await context.value.dataSupabase
       .from("audit_logs")
-      .select("id, action, table_name, record_id, user_id, created_at, changes")
+      .select("id, action_type, entity_type, entity_id, actor_user_id, actor_name, created_at, metadata, summary")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
 
     const logs = (data || []).map((log) => ({
       id: log.id,
-      action: log.action || "create",
-      target: log.table_name?.replace("public.", "").toLowerCase() || "school",
-      targetName: log.record_id || "unknown",
-      actor: log.user_id || "system",
+      action: log.action_type || "create",
+      target: log.entity_type?.toLowerCase() || "school",
+      targetName: log.entity_id || "unknown",
+      actor: log.actor_name || log.actor_user_id || "system",
       timestamp: new Date(log.created_at),
-      details: log.changes ? JSON.stringify(log.changes).substring(0, 100) : "تحديث",
+      details: log.summary || (log.metadata ? JSON.stringify(log.metadata).substring(0, 100) : "تحديث"),
     }));
 
     return NextResponse.json({ logs });

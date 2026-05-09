@@ -95,13 +95,14 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
     setEditingRate(false);
   }, [rateInput]);
 
-  // Live price preview while editing
+  // Live price preview while editing (yearly = students × price)
   const livePrice = useMemo(() => {
     if (!editingPrice) return null;
     const v = parseFloat(priceInput);
     if (isNaN(v)) return null;
     const students = studentCounts.find((s) => s.school_id === editingPrice)?.total_students ?? 0;
-    return { students, price: v, total: students * v };
+    const yearlyTotal = students * v;
+    return { students, price: v, yearlyTotal };
   }, [editingPrice, priceInput, studentCounts]);
 
   // Build rows
@@ -112,19 +113,17 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
       .map((school) => {
         const students       = countMap.get(school.id) ?? 0;
         const price          = prices[school.id] ?? 0;
-        const monthlyUSD     = students * price;
-        const yearlyUSD      = monthlyUSD * 12;
+        const yearlyUSD      = students * price;
         const collectedUSD   = collected[school.id] ?? 0;
-        const remainingUSD   = Math.max(0, monthlyUSD - collectedUSD);
+        const remainingUSD   = Math.max(0, yearlyUSD - collectedUSD);
         const sub = subscriptions.find((s) => s.school_id === school.id);
-        return { school, students, price, monthlyUSD, yearlyUSD, collectedUSD, remainingUSD, sub };
+        return { school, students, price, yearlyUSD, collectedUSD, remainingUSD, sub };
       })
-      .sort((a, b) => b.monthlyUSD - a.monthlyUSD);
+      .sort((a, b) => b.yearlyUSD - a.yearlyUSD);
   }, [schools, studentCounts, prices, collected, subscriptions]);
 
   const totals = useMemo(() => ({
     students:   rows.reduce((s, r) => s + r.students, 0),
-    monthly:    rows.reduce((s, r) => s + r.monthlyUSD, 0),
     yearly:     rows.reduce((s, r) => s + r.yearlyUSD, 0),
     collected:  rows.reduce((s, r) => s + r.collectedUSD, 0),
     remaining:  rows.reduce((s, r) => s + r.remainingUSD, 0),
@@ -258,7 +257,7 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ school, students, price, monthlyUSD, yearlyUSD, collectedUSD, remainingUSD }) => (
+              {rows.map(({ school, students, price, yearlyUSD, collectedUSD, remainingUSD }) => (
                 <tr key={school.id}>
                   {/* School */}
                   <td>
@@ -295,7 +294,7 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                         </div>
                         {livePrice && livePrice.students > 0 && (
                           <p className="text-[10px] font-black text-[var(--text-muted)]">
-                            {livePrice.students.toLocaleString("ar-IQ")} × ${livePrice.price} = {fmtUSD(livePrice.total)}
+                            {livePrice.students.toLocaleString("ar-IQ")} × ${livePrice.price} = {fmtUSD(livePrice.yearlyTotal)}
                           </p>
                         )}
                       </div>
@@ -311,9 +310,14 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                     )}
                   </td>
 
-                  {/* Yearly */}
-                  <td className={yearlyUSD > 0 ? "font-black text-blue-600 dark:text-blue-400" : "text-[var(--text-muted)]"}>
-                    {yearlyUSD > 0 ? fmt(yearlyUSD, showIQD, ratePer100) : "—"}
+                  {/* Yearly — USD + IQD */}
+                  <td>
+                    {yearlyUSD > 0 ? (
+                      <div>
+                        <span className="font-black text-blue-600 dark:text-blue-400">{fmtUSD(yearlyUSD)}</span>
+                        <p className="text-[10px] font-bold text-[var(--text-muted)] mt-0.5">{fmtIQD(usdToIqd(yearlyUSD, ratePer100))}</p>
+                      </div>
+                    ) : <span className="text-[var(--text-muted)]">—</span>}
                   </td>
 
                   {/* Collected — editable */}
@@ -347,12 +351,17 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                     )}
                   </td>
 
-                  {/* Remaining */}
+                  {/* Remaining — USD + IQD */}
                   <td>
-                    {monthlyUSD > 0 ? (
-                      <span className={`font-black ${remainingUSD > 0 ? "text-amber-600 dark:text-amber-400" : "text-[var(--success)]"}`}>
-                        {remainingUSD > 0 ? fmt(remainingUSD, showIQD, ratePer100) : "مكتمل ✓"}
-                      </span>
+                    {yearlyUSD > 0 ? (
+                      remainingUSD > 0 ? (
+                        <div>
+                          <span className="font-black text-amber-600 dark:text-amber-400">{fmtUSD(remainingUSD)}</span>
+                          <p className="text-[10px] font-bold text-[var(--text-muted)] mt-0.5">{fmtIQD(usdToIqd(remainingUSD, ratePer100))}</p>
+                        </div>
+                      ) : (
+                        <span className="font-black text-[var(--success)]">مكتمل ✓</span>
+                      )
                     ) : <span className="text-[var(--text-muted)]">—</span>}
                   </td>
                 </tr>
@@ -365,10 +374,18 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                   <td className="font-black text-[var(--text-primary)]">الإجمالي</td>
                   <td className="font-black">{totals.students.toLocaleString("ar-IQ")}</td>
                   <td />
-                  <td className="font-black text-blue-600 dark:text-blue-400">{fmt(totals.yearly, showIQD, ratePer100)}</td>
-                  <td className="font-black text-violet-600 dark:text-violet-400">{fmt(totals.collected, showIQD, ratePer100)}</td>
-                  <td className={`font-black ${totals.remaining > 0 ? "text-amber-600 dark:text-amber-400" : "text-[var(--success)]"}`}>
-                    {totals.remaining > 0 ? fmt(totals.remaining, showIQD, ratePer100) : "—"}
+                  <td>
+                    <span className="font-black text-blue-600 dark:text-blue-400">{fmtUSD(totals.yearly)}</span>
+                    <p className="text-[10px] font-bold text-[var(--text-muted)] mt-0.5">{fmtIQD(usdToIqd(totals.yearly, ratePer100))}</p>
+                  </td>
+                  <td className="font-black text-violet-600 dark:text-violet-400">{fmtUSD(totals.collected)}</td>
+                  <td>
+                    {totals.remaining > 0 ? (
+                      <>
+                        <span className="font-black text-amber-600 dark:text-amber-400">{fmtUSD(totals.remaining)}</span>
+                        <p className="text-[10px] font-bold text-[var(--text-muted)] mt-0.5">{fmtIQD(usdToIqd(totals.remaining, ratePer100))}</p>
+                      </>
+                    ) : <span className="font-black text-[var(--success)]">—</span>}
                   </td>
                 </tr>
               </tfoot>
