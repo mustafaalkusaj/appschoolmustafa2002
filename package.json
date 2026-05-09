@@ -60,5 +60,11 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri": ">=3.1.2",
+      "postcss": ">=8.5.10"
+    }
   }
 }
