@@ -44,10 +44,9 @@ import { AuditLogTab } from "./components/AuditLogTab";
 import { RolesTab } from "./components/RolesTab";
 import { TrashTab } from "./components/TrashTab";
 import { NotificationsTab } from "./components/NotificationsTab";
-import { MonitoringTab } from "./components/MonitoringTab";
+import { SystemMonitoringTab } from "./components/SystemMonitoringTab";
 import { BranchesTab } from "./components/BranchesTab";
 import { AnalyticsTab } from "./components/AnalyticsTab";
-import { HealthMonitoringTab } from "./components/HealthMonitoringTab";
 import { BulkOperationsTab } from "./components/BulkOperationsTab";
 import { ActivityTimelineTab } from "./components/ActivityTimelineTab";
 import { PaymentArchivesTab } from "./components/PaymentArchivesTab";
@@ -131,7 +130,6 @@ export default function SuperAdminPage() {
     { id: "subscriptions", label: t("tabs.subscriptions.label"), hint: t("tabs.subscriptions.hint"), icon: CreditCard },
     { id: "student-counts", label: "أعداد الطلاب", hint: "عدد الطلاب لكل مدرسة وفرع", icon: Users },
     { id: "analytics", label: "التحليلات", hint: "رسوم بيانية وإحصائيات متقدمة", icon: TrendingUp },
-    { id: "health", label: "صحة النظام", hint: "مراقبة الأداء والموارد", icon: Activity },
     { id: "bulk", label: "عمليات جماعية", hint: "استيراد وتحديث جماعي", icon: Plus },
     { id: "activity", label: "سجل النشاط", hint: "تتبع العمليات والأحداث", icon: History },
     { id: "payment-archives", label: "أرشيفات الحسابات", hint: "إدارة وحذف أرشيفات الحسابات السنوية", icon: Archive },
@@ -640,10 +638,9 @@ export default function SuperAdminPage() {
                     {activeTab === "roles" && <RolesTab infrastructure={infrastructure} schools={schools.map(s => ({ id: s.id, name: s.name }))} />}
                     {activeTab === "trash" && <TrashTab infrastructure={infrastructure} />}
                     {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
-                    {activeTab === "monitoring" && <MonitoringTab infrastructure={infrastructure} />}
+                    {activeTab === "monitoring" && <SystemMonitoringTab infrastructure={infrastructure} />}
                     {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} />}
                     {activeTab === "analytics" && <AnalyticsTab schools={schools} users={users} subscriptions={subscriptions} />}
-                    {activeTab === "health" && <HealthMonitoringTab />}
                     {activeTab === "bulk" && <BulkOperationsTab />}
                     {activeTab === "activity" && <ActivityTimelineTab />}
                     {activeTab === "payment-archives" && <PaymentArchivesTab />}

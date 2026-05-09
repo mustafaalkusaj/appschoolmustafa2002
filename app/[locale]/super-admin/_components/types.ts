@@ -15,7 +15,6 @@ export type ActiveTab =
   | "monitoring"
   | "branches"
   | "analytics"
-  | "health"
   | "bulk"
   | "activity"
   | "payment-archives";

@@ -3,6 +3,7 @@ import {
   Activity,
   AlertTriangle,
   Archive,
+  HardDrive,
   ArrowDown,
   ArrowLeftRight,
   ArrowUp,
@@ -108,6 +109,7 @@ import {
   UserX,
   Users,
   Wallet,
+  Wifi,
   X,
   XCircle,
 } from "lucide-react";
@@ -223,6 +225,8 @@ export {
   UserX,
   Users,
   Wallet,
+  Wifi,
+  HardDrive,
   X,
   XCircle,
 };
