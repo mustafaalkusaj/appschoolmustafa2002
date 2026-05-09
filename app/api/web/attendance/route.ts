@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await actorSupabase
     .from("attendance_records")
-    .upsert(payload, { onConflict: "student_id,attendance_date" });
+    .upsert(payload, { onConflict: "school_id,student_id,attendance_date" });
 
   if (error) {
     return jsonError(error.message || "تعذر حفظ سجلات الحضور.", 500);

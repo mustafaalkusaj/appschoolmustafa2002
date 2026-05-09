@@ -244,6 +244,7 @@ export function StudentAttendanceInsight(props: {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<StudentSearchItem[]>([]);
   const [searchError, setSearchError] = useState("");
+  const searchAbortRef = useRef<AbortController | null>(null);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StudentSearchItem | null>(null);
   const [rangeFrom, setRangeFrom] = useState(() => {
@@ -357,30 +358,39 @@ export function StudentAttendanceInsight(props: {
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current);
     }
+    searchAbortRef.current?.abort();
 
     setLoading(true);
-    debounceRef.current = window.setTimeout(async () => {
-      try {
-        const url = new URL("/api/web/attendance/student-search", window.location.origin);
-        url.searchParams.set("schoolId", resolvedSchoolId);
-        url.searchParams.set("q", q);
-        const response = await fetch(url.toString(), { credentials: "include" });
-        const payload = (await response.json().catch(() => null)) as { items?: StudentSearchItem[] } | null;
-        if (!response.ok || !payload) {
-          setSearchError(locale === "ar" ? "خطأ في البحث. الرجاء المحاولة مجدداً." : "Search failed. Please try again.");
+    debounceRef.current = window.setTimeout(() => {
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      void (async () => {
+        try {
+          const url = new URL("/api/web/attendance/student-search", window.location.origin);
+          url.searchParams.set("schoolId", resolvedSchoolId);
+          url.searchParams.set("q", q);
+          const response = await fetch(url.toString(), { credentials: "include", signal: controller.signal });
+          const payload = (await response.json().catch(() => null)) as { items?: StudentSearchItem[] } | null;
+          if (controller.signal.aborted) return;
+          if (!response.ok || !payload) {
+            setSearchError(locale === "ar" ? "خطأ في البحث. الرجاء المحاولة مجدداً." : "Search failed. Please try again.");
+            setItems([]);
+            return;
+          }
+          setItems(Array.isArray(payload?.items) ? payload!.items : []);
+        } catch (err) {
+          if (err instanceof Error && err.name === "AbortError") return;
+          setSearchError(locale === "ar" ? "خطأ في تحميل البيانات." : "Failed to load data.");
           setItems([]);
-          return;
+        } finally {
+          if (!controller.signal.aborted) setLoading(false);
         }
-        setItems(Array.isArray(payload?.items) ? payload!.items : []);
-      } catch {
-        setSearchError(locale === "ar" ? "خطأ في تحميل البيانات." : "Failed to load data."); setItems([]);
-      } finally {
-        setLoading(false);
-      }
+      })();
     }, 250);
 
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
+      searchAbortRef.current?.abort();
     };
   }, [query, resolvedSchoolId, locale]);
 
@@ -464,7 +474,7 @@ export function StudentAttendanceInsight(props: {
       try {
         w.print();
       } catch (e) {
-        console.error("Print failed:", e);
+        console.error("Print failed");
       }
     }, 500);
   }

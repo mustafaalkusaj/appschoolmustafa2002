@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const rateLimited = await enforceRateLimit(req, {
     namespace: "attendance-repeated-absences",
     windowMs: 60_000,
-    maxHits: 30,
+    maxHits: 10,
     identifier: context.value.actorUserId,
   });
   if (rateLimited) return rateLimited;
