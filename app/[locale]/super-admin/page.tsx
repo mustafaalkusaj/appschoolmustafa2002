@@ -105,6 +105,7 @@ export default function SuperAdminPage() {
   const hasLoadedOnceRef = useRef(false);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+  const [monitoringAlertCount, setMonitoringAlertCount] = useState(0);
   const [query, setQuery] = useState("");
   const [spotlightFilter, setSpotlightFilter] = useState<SpotlightFilter | null>(null);
   const [success, setSuccess] = useState("");
@@ -539,10 +540,15 @@ export default function SuperAdminPage() {
                     onClick={() => setActiveTab(tab.id)}
                   >
                     <tab.icon size={18} className={cn(activeTab === tab.id ? "text-white" : "text-[var(--text-muted)] group-hover:text-[var(--primary)]")} />
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex flex-col min-w-0 flex-1">
                       <span className="text-sm truncate">{tab.label}</span>
                       <span className={cn("text-[10px] truncate opacity-70", activeTab === tab.id ? "text-white" : "text-[var(--text-muted)]")}>{tab.hint}</span>
                     </div>
+                    {tab.id === "monitoring" && monitoringAlertCount > 0 && (
+                      <span className="ms-auto h-5 min-w-5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center px-1 shrink-0">
+                        {monitoringAlertCount}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -581,6 +587,11 @@ export default function SuperAdminPage() {
                       >
                         <tab.icon size={16} />
                         <span>{tab.label}</span>
+                        {tab.id === "monitoring" && monitoringAlertCount > 0 && (
+                          <span className="h-4 min-w-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center px-1">
+                            {monitoringAlertCount}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -638,7 +649,7 @@ export default function SuperAdminPage() {
                     {activeTab === "roles" && <RolesTab infrastructure={infrastructure} schools={schools.map(s => ({ id: s.id, name: s.name }))} />}
                     {activeTab === "trash" && <TrashTab infrastructure={infrastructure} />}
                     {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
-                    {activeTab === "monitoring" && <SystemMonitoringTab infrastructure={infrastructure} />}
+                    {activeTab === "monitoring" && <SystemMonitoringTab infrastructure={infrastructure} onAlertCountChange={setMonitoringAlertCount} />}
                     {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} />}
                     {activeTab === "analytics" && <AnalyticsTab schools={schools} users={users} subscriptions={subscriptions} />}
                     {activeTab === "bulk" && <BulkOperationsTab />}
