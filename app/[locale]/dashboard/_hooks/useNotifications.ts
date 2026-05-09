@@ -19,6 +19,7 @@ export function useNotifications({ profile, scopeLoading }: UseNotificationsProp
   const fetchDashboardNotifications = useCallback(async () => {
     if (!profile || (profile.role !== "super_admin" && profile.role !== "admin")) {
       setNotifications([]);
+      setNotificationsEnabled(false);
       setError(null);
       return;
     }

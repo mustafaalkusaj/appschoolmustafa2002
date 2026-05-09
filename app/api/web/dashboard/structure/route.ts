@@ -25,7 +25,8 @@ const baseMutationSchema = z.object({
 
 const saveClassSchema = baseMutationSchema.extend({
   action: z.literal("save_class"),
-  editing_class_id: z.string().trim().uuid("معرّف الصف غير صالح.").optional().nullable(),
+  // editing_class_id may be a legacy synthetic id like "legacy:grade" — accept any non-empty string
+  editing_class_id: z.string().trim().min(1).optional().nullable(),
   legacy_class_ids: z.array(z.string().trim()).optional().default([]),
   name: z.string().trim().min(1, "اسم الصف مطلوب."),
   sections: z.array(z.string()).optional().default([]),
@@ -33,14 +34,16 @@ const saveClassSchema = baseMutationSchema.extend({
 
 const deleteClassSchema = baseMutationSchema.extend({
   action: z.literal("delete_class"),
-  class_id: z.string().trim().uuid("معرّف الصف غير صالح."),
+  // class_id may be a legacy synthetic id like "legacy:grade" — actual deletion uses legacy_class_ids
+  class_id: z.string().trim().min(1, "معرّف الصف مطلوب."),
   legacy_class_ids: z.array(z.string().trim()).optional().default([]),
 });
 
 const saveSectionSchema = baseMutationSchema.extend({
   action: z.literal("save_section"),
   section_id: z.string().trim().uuid("معرّف الشعبة غير صالح.").optional().nullable(),
-  class_id: z.string().trim().uuid("معرّف الصف غير صالح."),
+  // class_id may be a legacy synthetic id like "legacy:grade"
+  class_id: z.string().trim().min(1, "معرّف الصف مطلوب."),
   class_name: z.string().trim().optional().nullable(),
   name: z.string().trim().min(1, "اسم الشعبة مطلوب."),
 });
@@ -178,13 +181,14 @@ export async function POST(req: NextRequest) {
     return rateLimited;
   }
 
-  let effectiveBranchId = parsed.data.branch_id ?? null;
+  // Only resolve branch when explicitly branch-scoped — never trust raw branch_id from body
+  let effectiveBranchId: string | null = null;
   if (parsed.data.branch_scoped) {
     const branchScope = resolveBranchScope(context.value, parsed.data.branch_id ?? null);
     if (!branchScope.ok) {
       return jsonError(branchScope.message, branchScope.status);
     }
-    effectiveBranchId = branchScope.value.branchId ?? parsed.data.branch_id ?? null;
+    effectiveBranchId = branchScope.value.branchId ?? null;
   }
 
   const serviceSupabase = createServiceSupabaseClient();
@@ -215,6 +219,7 @@ export async function POST(req: NextRequest) {
         await saveDashboardSection(serviceSupabase, {
           schoolId: context.value.targetSchoolId,
           branchId: effectiveBranchId,
+          branchScoped: parsed.data.branch_scoped,
           classId: parsed.data.class_id,
           className: parsed.data.class_name,
           sectionId: parsed.data.section_id,
@@ -224,6 +229,8 @@ export async function POST(req: NextRequest) {
       case "delete_section":
         await deleteDashboardSection(serviceSupabase, {
           schoolId: context.value.targetSchoolId,
+          branchId: effectiveBranchId,
+          branchScoped: parsed.data.branch_scoped,
           sectionId: parsed.data.section_id,
         });
         break;

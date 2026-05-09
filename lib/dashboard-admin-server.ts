@@ -55,6 +55,10 @@ function buildLegacySections(sectionNames: string[]) {
   return normalized.length > 0 ? normalized : [""];
 }
 
+// Module-level cache for schema compat — 10 min TTL, avoids 5 extra queries per mutation
+let schemaCompatCache: { value: DashboardSchemaCompat; expiresAt: number } | null = null;
+const SCHEMA_COMPAT_TTL_MS = 10 * 60 * 1000;
+
 async function probeColumn(client: DashboardServiceSupabase, table: string, column: string) {
   try {
     const { error } = await client.from(table).select(`id, ${column}`).limit(1);
@@ -73,6 +77,11 @@ async function probeColumn(client: DashboardServiceSupabase, table: string, colu
 }
 
 async function detectDashboardSchemaCompat(client: DashboardServiceSupabase): Promise<DashboardSchemaCompat> {
+  const now = Date.now();
+  if (schemaCompatCache && now < schemaCompatCache.expiresAt) {
+    return schemaCompatCache.value;
+  }
+
   const [
     classFeesBranchScope,
     classesBranchScope,
@@ -87,13 +96,16 @@ async function detectDashboardSchemaCompat(client: DashboardServiceSupabase): Pr
     probeColumn(client, "sections", "school_id"),
   ]);
 
-  return {
+  const value: DashboardSchemaCompat = {
     classFeesBranchScope,
     classesBranchScope,
     classFeesSchoolScope,
     classesNameColumn,
     sectionsSchoolScope,
   };
+
+  schemaCompatCache = { value, expiresAt: now + SCHEMA_COMPAT_TTL_MS };
+  return value;
 }
 
 export async function loadDashboardStructure(
@@ -324,7 +336,7 @@ export async function saveDashboardClass(
   for (const sectionName of buildLegacySections(options.sections)) {
     const { error: insertLegacyError } = await client.from("classes").insert({
       school_id: options.schoolId,
-      branch_id: normalizedBranchId,
+      branch_id: options.branchScoped ? normalizedBranchId : null,
       grade: normalizedClassName,
       section: sectionName,
     });
@@ -388,11 +400,41 @@ export async function deleteDashboardClass(
   }
 }
 
+// Verifies a section's parent class belongs to the expected branch.
+// Sections table has no branch_id column — isolation enforced via parent class.
+async function assertSectionBranchOwnership(
+  client: DashboardServiceSupabase,
+  sectionId: string,
+  branchId: string,
+): Promise<void> {
+  const { data: sectionRow } = await client
+    .from("sections")
+    .select("class_id")
+    .eq("id", sectionId)
+    .maybeSingle();
+
+  if (!sectionRow?.class_id) {
+    throw new Error("الشعبة غير موجودة.");
+  }
+
+  const { data: classRow } = await client
+    .from("classes")
+    .select("id")
+    .eq("id", sectionRow.class_id)
+    .eq("branch_id", branchId)
+    .maybeSingle();
+
+  if (!classRow) {
+    throw new Error("الشعبة لا تنتمي إلى فرعك.");
+  }
+}
+
 export async function saveDashboardSection(
   client: DashboardServiceSupabase,
   options: {
     schoolId: string;
     branchId?: string | null;
+    branchScoped?: boolean;
     classId: string;
     className?: string | null;
     sectionId?: string | null;
@@ -411,6 +453,11 @@ export async function saveDashboardSection(
 
   if (compat.classesNameColumn) {
     if (options.sectionId) {
+      // Verify branch ownership before updating a section in branch-scoped mode
+      if (options.branchScoped && normalizedBranchId && compat.classesBranchScope) {
+        await assertSectionBranchOwnership(client, options.sectionId, normalizedBranchId);
+      }
+
       let updateQuery = client
         .from("sections")
         .update({ name: normalizedSectionName })
@@ -455,9 +502,23 @@ export async function saveDashboardSection(
     throw new Error("تعذر تحديد الصف الحالي لهذه الشعبة.");
   }
 
+  // Check for duplicate grade+section before inserting (legacy schema has no unique constraint)
+  const { data: existing } = await client
+    .from("classes")
+    .select("id")
+    .eq("school_id", options.schoolId)
+    .eq("grade", gradeName)
+    .eq("section", normalizedSectionName)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    throw new Error("هذه الشعبة مضافة مسبقاً لهذا الصف.");
+  }
+
   const { error } = await client.from("classes").insert({
     school_id: options.schoolId,
-    branch_id: normalizedBranchId,
+    branch_id: options.branchScoped ? normalizedBranchId : null,
     grade: gradeName,
     section: normalizedSectionName,
   });
@@ -471,11 +532,22 @@ export async function deleteDashboardSection(
   options: {
     schoolId: string;
     sectionId: string;
+    branchId?: string | null;
+    branchScoped?: boolean;
   },
 ) {
   const compat = await detectDashboardSchemaCompat(client);
+  const normalizedBranchId = typeof options.branchId === "string" && options.branchId.trim().length > 0
+    ? options.branchId.trim()
+    : null;
 
   if (compat.classesNameColumn) {
+    // Verify branch ownership before deleting — sections have no branch_id column,
+    // isolation is enforced through the parent class
+    if (options.branchScoped && normalizedBranchId && compat.classesBranchScope) {
+      await assertSectionBranchOwnership(client, options.sectionId, normalizedBranchId);
+    }
+
     let deleteQuery = client.from("sections").delete().eq("id", options.sectionId);
     if (compat.sectionsSchoolScope) {
       deleteQuery = deleteQuery.eq("school_id", options.schoolId);
@@ -620,9 +692,8 @@ export async function saveDashboardClassFee(
     notes,
   };
 
-  if (options.branchScoped && normalizedBranchId) {
-    payload.branch_id = normalizedBranchId;
-  } else if (compat.classFeesBranchScope && normalizedBranchId) {
+  // Only write branch_id when explicitly operating in branch-scoped mode
+  if (options.branchScoped && compat.classFeesBranchScope && normalizedBranchId) {
     payload.branch_id = normalizedBranchId;
   }
 

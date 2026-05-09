@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { deduplicatedFetch } from "@/lib/request-cache";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
@@ -21,6 +21,7 @@ interface UseBrandingProps {
 }
 
 export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBrandingProps) {
+  const fetchGenRef = useRef(0);
   const [brandingSchoolId, setBrandingSchoolId] = useState<string | null>(null);
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingDeriving, setBrandingDeriving] = useState(false);
@@ -37,7 +38,11 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
 
   const fetchSchoolBranding = useCallback(async () => {
     if (profile?.role !== "super_admin") return;
+    const gen = ++fetchGenRef.current;
+
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
+    if (gen !== fetchGenRef.current) return;
+
     setBrandingSchoolId(schoolId);
     if (!schoolId) {
       setBrandingForm((prev) => ({
@@ -67,6 +72,8 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
       }>(`/api/web/dashboard/branding?schoolId=${encodeURIComponent(schoolId)}`)
     );
 
+    if (gen !== fetchGenRef.current) return;
+
     if (!response.ok || !payload?.school) {
       setBrandingNotice(payload?.error?.message || "تعذر تحميل الهوية البصرية.");
       return;
@@ -93,6 +100,7 @@ export function useBranding({ profile, selectedSchoolId, scopeLoading }: UseBran
         typeof school.logo_url === "string" ? school.logo_url : null,
         typeof school.name === "string" ? school.name : "",
       );
+      if (gen !== fetchGenRef.current) return;
       primaryColor = primaryColor || derivedPalette.primaryColor;
       secondaryColor = secondaryColor || derivedPalette.secondaryColor;
     }

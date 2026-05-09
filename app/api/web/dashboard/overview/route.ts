@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { dashboardOverviewQuerySchema } from "@/lib/api-schemas";
+import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
@@ -156,18 +157,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorUserId, targetSchoolId, allowedBranchIds, actorBranchId } = context.value;
-  // Branch users always see their own branch — fallback to actorBranchId if no param sent
-  const requestedBranchId = branchId?.trim() || null;
-  const effectiveBranchId = requestedBranchId || actorBranchId || null;
-  if (
-    requestedBranchId &&
-    requestedBranchId !== actorBranchId &&
-    allowedBranchIds && allowedBranchIds.length > 0 &&
-    !allowedBranchIds.includes(requestedBranchId)
-  ) {
-    return jsonError("لا يمكنك الوصول إلى بيانات هذا الفرع.", 403);
+  const { actorUserId, targetSchoolId } = context.value;
+  // Resolve branch access via resolveBranchScope — handles all cases: school-level, branch-level, multi-branch
+  const branchScope = resolveBranchScope(context.value, branchId ?? null);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
   }
+  const effectiveBranchId = branchScope.value.branchId;
 
   const rateLimited = await enforceRateLimit(req, {
     namespace: "dashboard-overview",

@@ -83,14 +83,6 @@ export function useClassesSections({
     setSections(payload?.sections ?? []);
   }, [branchScoped, profile, selectedSchoolId]);
 
-  const fetchClasses = useCallback(async () => {
-    await fetchStructure();
-  }, [fetchStructure]);
-
-  const fetchSections = useCallback(async () => {
-    await fetchStructure();
-  }, [fetchStructure]);
-
   const handleSaveClass = useCallback(async (
     classForm: { name: string; sections: string[] },
     editingClass: ClassItem | null,
@@ -314,11 +306,9 @@ export function useClassesSections({
     mutationSuccess,
     mutationLoading,
     clearMutationFeedback,
-    fetchClasses,
-    fetchSections,
     handleSaveClass,
     handleDeleteClass,
     handleSaveSection,
     handleDeleteSection,
-  }), [classes, sections, mutationError, mutationSuccess, mutationLoading, clearMutationFeedback, fetchClasses, fetchSections, handleSaveClass, handleDeleteClass, handleSaveSection, handleDeleteSection]);
+  }), [classes, sections, mutationError, mutationSuccess, mutationLoading, clearMutationFeedback, handleSaveClass, handleDeleteClass, handleSaveSection, handleDeleteSection]);
 }

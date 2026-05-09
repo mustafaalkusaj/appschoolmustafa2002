@@ -85,7 +85,29 @@ export async function resolveBranchIdForProfile(
 
 export async function resolveSchoolBranchForProfile(profile: ScopedProfile, options?: SchoolScopeOptions) {
   const schoolId = await resolveSchoolIdForProfile(profile, options);
-  const branchId = await resolveBranchIdForProfile(profile, options);
+
+  // Reuse already-resolved schoolId — avoids calling resolveSchoolIdForProfile twice
+  // for non-super_admin users with no assigned branches
+  let branchId: string | null;
+  if (profile?.role !== "super_admin") {
+    const assignedBranchId =
+      typeof profile?.branch_id === "string" && profile.branch_id.trim().length > 0
+        ? profile.branch_id.trim()
+        : null;
+    if (assignedBranchId) {
+      branchId = assignedBranchId;
+    } else {
+      const allowedBranchId =
+        Array.isArray(profile?.allowed_branch_ids)
+          ? profile.allowed_branch_ids.find(
+              (value): value is string => typeof value === "string" && value.trim().length > 0,
+            ) ?? null
+          : null;
+      branchId = allowedBranchId ?? await resolveBranchIdForSchool(schoolId);
+    }
+  } else {
+    branchId = await resolveBranchIdForSchool(schoolId);
+  }
 
   return {
     school_id: schoolId,

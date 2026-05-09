@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { sanitizeImageUrl } from "@/lib/brand/asset-url";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { detectAppSchemaCompatWithClient } from "@/lib/schema-compat";
 
 function jsonError(message: string, status: number) {
@@ -30,6 +31,14 @@ export async function GET(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "dashboard-branding-read",
+    windowMs: 60_000,
+    maxHits: 60,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) return rateLimited;
+
   const schemaCompat = await detectAppSchemaCompatWithClient(context.value.actorSupabase);
   const schoolQuery = schemaCompat.schoolColors
     ? context.value.actorSupabase
@@ -41,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   const { data: school, error } = await schoolQuery.eq("id", context.value.targetSchoolId).maybeSingle();
   if (error || !school) {
-    return jsonError(error?.message || "تعذر تحميل بيانات الهوية البصرية.", 500);
+    return jsonError("تعذر تحميل بيانات الهوية البصرية.", 500);
   }
 
   return NextResponse.json({
@@ -77,6 +86,14 @@ export async function PATCH(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "dashboard-branding-write",
+    windowMs: 60_000,
+    maxHits: 20,
+    identifier: context.value.actorUserId,
+  });
+  if (rateLimited) return rateLimited;
+
   const schemaCompat = await detectAppSchemaCompatWithClient(context.value.actorSupabase);
   const payload = {
     name,
@@ -111,7 +128,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: school, error } = await schoolQuery.maybeSingle();
   if (error || !school) {
-    return jsonError(error?.message || "تعذر حفظ الهوية البصرية.", 500);
+    return jsonError("تعذر حفظ الهوية البصرية.", 500);
   }
 
   return NextResponse.json({

@@ -72,7 +72,6 @@ export function useDashboardData({
 
     try {
       const searchParams = new URLSearchParams({ schoolId });
-      searchParams.set("fresh", "1");
       if (branchScoped && branchId) {
         searchParams.set("branchId", branchId);
       }
@@ -141,6 +140,5 @@ export function useDashboardData({
     error,
     warning,
     refetch: fetchAll,
-    setClassFees,
-  }), [dashboardTotals, recentPayments, overdueStudents, studentCountByClass, classFees, loading, error, warning, fetchAll, setClassFees]);
+  }), [dashboardTotals, recentPayments, overdueStudents, studentCountByClass, classFees, loading, error, warning, fetchAll]);
 }

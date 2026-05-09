@@ -107,7 +107,7 @@ export function DashboardExperience({
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
   const canCustomizeBranding = profile?.role === "super_admin";
 
-  const dashboardSummary = !branchScoped && schoolScope.shouldBlockContent
+  const dashboardSummary = schoolScope.shouldBlockContent
     ? t("summary.empty")
     : schoolScope.isSuperAdminScope
       ? t("summary.superAdmin")
@@ -144,9 +144,7 @@ export function DashboardExperience({
                 {dashboardData.warning ? (
                   <Card className="border-amber-200 bg-amber-50/80">
                     <CardContent className="py-3 text-sm text-amber-900">
-                      {locale === "en"
-                        ? "Dashboard widgets were loaded in fallback mode and currently display zero values until branch data becomes available."
-                        : "تم تحميل بطاقات لوحة الفرع بوضع احتياطي، لذلك ستظهر القيم بصفر إلى أن تتوفر بيانات الفرع."}
+                      {t("errors.degradedWarning")}
                     </CardContent>
                   </Card>
                 ) : null}
@@ -251,6 +249,7 @@ export function DashboardExperience({
 
                   {!dashboardData.loading &&
                   !dashboardData.error &&
+                  !dashboardData.warning &&
                   dashboardData.dashboardTotals.studentsCount === 0 &&
                   dashboardData.classFees.length === 0 &&
                   dashboardData.recentPayments.length === 0 &&

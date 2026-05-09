@@ -24,19 +24,15 @@ export async function deduplicatedFetch<T>(
     return cached.promise;
   }
   
-  const promise = fetcher()
-    .catch((error) => {
+  const promise = fetcher().catch((error) => {
+    // Only evict our own entry — a concurrent request may have set a newer one
+    const entry = requestCache.get(key);
+    if (entry && entry.createdAt === now) {
       requestCache.delete(key);
-      throw error;
-    })
-    .then((result) => {
-      // Clean up after a longer period
-      setTimeout(() => {
-        requestCache.delete(key);
-      }, ttlMs * 2);
-      return result;
-    });
-  
+    }
+    throw error;
+  });
+
   requestCache.set(key, { promise, createdAt: now });
   return promise;
 }

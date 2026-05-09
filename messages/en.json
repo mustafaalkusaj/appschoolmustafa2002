@@ -235,7 +235,8 @@
       "activityTitle": "Recent activity is unavailable",
       "activityDescription": "Messages, homework, and fee alerts could not be loaded for this widget.",
       "notificationsTitle": "Notifications are unavailable",
-      "notificationsDescription": "The notifications panel could not load right now. Retry to refresh this widget."
+      "notificationsDescription": "The notifications panel could not load right now. Retry to refresh this widget.",
+      "degradedWarning": "Dashboard widgets were loaded in fallback mode and currently display zero values until branch data becomes available."
     },
     "branding": {
       "title": "School Branding (Super Admin)",

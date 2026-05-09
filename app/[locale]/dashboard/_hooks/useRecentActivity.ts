@@ -130,7 +130,8 @@ export function useRecentActivity({
 
       const sortedActivities = combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6);
       setActivities(sortedActivities);
-      setError(failedSources === requests.length && combined.length === 0 ? "dashboard_activity_failed" : null);
+      // Show error only when we have nothing to display — partial failures with loaded items show what we have
+      setError(combined.length === 0 && failedSources > 0 ? "dashboard_activity_failed" : null);
     } catch (err) {
       console.error("Failed to fetch recent activities", err);
       setActivities([]);
