@@ -21,6 +21,8 @@ import {
   PaymentModal,
   ArchiveModeBanner,
 } from "./_components";
+import { AcademicYearModal } from "../students/_components/AcademicYearModal";
+import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { usePaymentsPage } from "./_hooks";
 import { getArchivePayments } from "./_hooks/useArchiveOperations";
 import "./_components/payments.css";
@@ -29,6 +31,7 @@ export default function PaymentsPage() {
   const t = useTranslations();
   const runtimeBranding = useRuntimeBranding();
   const [pendingArchiveConfirm, setPendingArchiveConfirm] = React.useState(false);
+  const [showPromoteYearModal, setShowPromoteYearModal] = React.useState(false);
   const {
     canAddPayments,
     canDeletePayments,
@@ -230,6 +233,8 @@ export default function PaymentsPage() {
                       onViewYear={activateArchiveYear}
                       activeArchiveYear={activeArchiveYear}
                       currentStudents={studentsHook.students}
+                      canPromoteYear={canDeletePayments}
+                      onPromoteYear={() => setShowPromoteYearModal(true)}
                     />
                   </Card>
                 </div>
@@ -324,6 +329,15 @@ export default function PaymentsPage() {
               await handleDeletePayment(targetId);
             }
           }}
+        />
+
+        {/* Promote Year Modal */}
+        <AcademicYearModal
+          isOpen={showPromoteYearModal}
+          schoolId={schoolScope.selectedSchoolId ?? ""}
+          branchId={runtimeBranding.branchId ?? null}
+          onClose={() => setShowPromoteYearModal(false)}
+          fetchWithAuth={(url, options) => fetchJsonWithAuthorizedSession(url, options)}
         />
       </div>
     </ProtectedRoute>

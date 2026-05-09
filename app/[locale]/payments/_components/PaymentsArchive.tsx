@@ -12,7 +12,7 @@ import { PaymentArchive } from "../_types";
 import { getPaymentMethodLabel, getArchiveStudents, getArchivePayments } from "../_hooks/useArchiveOperations";
 import { ArchiveCompareModal } from "./ArchiveCompareModal";
 import { StudentArchiveSearch } from "./StudentArchiveSearch";
-import { Archive, Calendar, CreditCard, Download, Eye, GitCompareArrows, History } from "lucide-react";
+import { Archive, Calendar, CreditCard, Download, Eye, GitCompareArrows, History, GraduationCap } from "lucide-react";
 
 interface PaymentsArchiveProps {
   archives: PaymentArchive[];
@@ -29,6 +29,8 @@ interface PaymentsArchiveProps {
   onViewYear: (year: number) => void;
   activeArchiveYear: number | null;
   currentStudents?: import("../_types").Student[];
+  onPromoteYear?: () => void;
+  canPromoteYear?: boolean;
 }
 
 export function PaymentsArchive({
@@ -46,6 +48,8 @@ export function PaymentsArchive({
   onViewYear,
   activeArchiveYear,
   currentStudents = [],
+  onPromoteYear,
+  canPromoteYear = false,
 }: PaymentsArchiveProps) {
   const t = useTranslations();
   const [compareA, setCompareA] = useState<PaymentArchive | null>(null);
@@ -166,6 +170,17 @@ export function PaymentsArchive({
           <Button variant="primary" onClick={onArchive} loading={archiving}>
             <AppIcon token="🗃️" size={14} />
             {archiving ? t("payments.archive.archiving") : t("payments.archive.archiveAction")}
+          </Button>
+        )}
+        {canPromoteYear && onPromoteYear && (
+          <Button
+            variant="outline"
+            onClick={onPromoteYear}
+            className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+            title="ترحيل السنة الدراسية وتحديث الصفوف"
+          >
+            <GraduationCap className="h-4 w-4" />
+            ترحيل السنة
           </Button>
         )}
       </div>

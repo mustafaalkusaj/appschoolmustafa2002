@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   }
 
   const includeLecturePrice = await tableHasColumn(context.value.actorSupabase, "teachers", "lecture_price").catch(
-    () => true,
+    () => false,
   );
   const teacherSelect = buildTeacherSelect(includeLecturePrice);
   const writeBranch = resolveBranchIdForWrite(branchScope.value, branchId);

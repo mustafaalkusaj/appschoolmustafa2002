@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Search, Upload, Download, Printer, CreditCard, Plus, KeyRound, GraduationCap } from "lucide-react";
+import { Search, Upload, Download, Printer, CreditCard, Plus, GraduationCap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,12 @@ interface StudentsToolbarProps {
   canManageStudentAccounts: boolean;
   datasetLoading: boolean;
   printingCards: boolean;
-  resettingPasswords: boolean;
   onPromoteYear: () => void;
   filtered: StudentWithFees[];
   onExportCurrentPage: () => void;
   onExportAll: () => void;
   onPrintFiltered: () => void;
   onPrintAllCards: () => void;
-  onBulkResetPasswords: () => void;
   onAddStudent: () => void;
   onBulkImport: () => void;
 }
@@ -47,12 +45,10 @@ export function StudentsToolbar({
   canManageStudentAccounts,
   datasetLoading,
   printingCards,
-  resettingPasswords,
   onExportCurrentPage,
   onExportAll,
   onPrintFiltered,
   onPrintAllCards,
-  onBulkResetPasswords,
   onPromoteYear,
   onAddStudent,
   onBulkImport,
@@ -138,32 +134,6 @@ export function StudentsToolbar({
           >
             <CreditCard className="h-4 w-4" />
             {printingCards ? t("preparingCards") : t("printAllCards")}
-          </Button>
-        )}
-
-        {canManageStudentAccounts && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onBulkResetPasswords}
-            disabled={resettingPasswords}
-            className="w-full justify-center xl:w-auto border-amber-300 text-amber-700 hover:bg-amber-50"
-          >
-            <KeyRound className="h-4 w-4" />
-            {resettingPasswords ? "جاري التعيين..." : "إعادة تعيين كلمات المرور"}
-          </Button>
-        )}
-
-        {activeTab === "active" && !isReadOnlyView && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onPromoteYear}
-            className="w-full justify-center border-indigo-300 text-indigo-700 hover:bg-indigo-50 xl:w-auto"
-            title="ترحيل السنة الدراسية وتحديث الصفوف"
-          >
-            <GraduationCap className="h-4 w-4" />
-            <span>ترحيل السنة</span>
           </Button>
         )}
 

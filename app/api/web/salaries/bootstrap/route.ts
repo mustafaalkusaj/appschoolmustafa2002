@@ -74,8 +74,8 @@ export async function GET(req: NextRequest) {
   const includeArchive = scope === "all" || scope === "archive";
 
   const includeLecturePrice = includeCore
-    ? await tableHasColumn(actorSupabase, "teachers", "lecture_price").catch(() => true)
-    : true;
+    ? await tableHasColumn(actorSupabase, "teachers", "lecture_price").catch(() => false)
+    : false;
   const teacherSelect = includeLecturePrice
     ? "id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, lecture_price, weekly_hours, classes_taught, status"
     : "id, school_id, branch_id, full_name, subject, job_title, salary_type, phone, address, base_salary, weekly_hours, classes_taught, status";

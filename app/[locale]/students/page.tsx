@@ -413,13 +413,11 @@ export default function StudentsPage() {
                         canManageStudentAccounts={canManageStudentAccounts}
                         datasetLoading={datasetLoading}
                         printingCards={modals.printingCards}
-                        resettingPasswords={resettingPasswords}
                         filtered={filtered}
                         onExportCurrentPage={() => operations.exportExcel(filtered)}
                         onExportAll={exportAllStudentsExcel}
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
                         onPrintAllCards={printAllStudentCards}
-                        onBulkResetPasswords={bulkResetPasswords}
                         onPromoteYear={() => setShowAcademicYearModal(true)}
                         onAddStudent={() => {
                           if (!effectiveBranchId) {
