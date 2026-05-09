@@ -95,19 +95,22 @@ async function resolveStudentContext(
   permission: "edit_students" | "delete_students",
   requestedBranchId?: string | null,
 ) {
-  const permissionCheck = await requireStudentPermission(req, permission);
+  // Run permission check and auth context resolution in parallel
+  const [permissionCheck, context] = await Promise.all([
+    requireStudentPermission(req, permission),
+    resolveSchoolScopedActorContext(
+      schoolId,
+      {
+        allowedRoles: ["super_admin", "admin", "employee"],
+        roleDeniedMessage: "إدارة الطلاب متاحة ضمن نطاق المدرسة الحالية فقط.",
+      },
+      req.headers.get("authorization"),
+    ),
+  ]);
+
   if (!permissionCheck.ok) {
     return permissionCheck;
   }
-
-  const context = await resolveSchoolScopedActorContext(
-    schoolId,
-    {
-      allowedRoles: ["super_admin", "admin", "employee"],
-      roleDeniedMessage: "إدارة الطلاب متاحة ضمن نطاق المدرسة الحالية فقط.",
-    },
-    req.headers.get("authorization"),
-  );
 
   if (!context.ok) {
     return {

@@ -53,29 +53,24 @@ export async function POST(req: NextRequest) {
     return rateLimited;
   }
 
-  const canRecordPayments = await routeUserHasPermission(actorSupabase, actorUserId, "add_payments");
-  if (!canRecordPayments) {
-    return jsonError("ليس لديك صلاحية تسجيل دفعات جديدة.", 403);
-  }
-
-  // Load student FIRST to get real branch_id from DB (not client-provided)
-  let student: any;
-  let studentError: any;
-  let studentBranchId: string | null;
-
-  try {
-    const studentResult = await actorSupabase
+  // Run permission check and student lookup in parallel
+  const [canRecordPayments, studentResult] = await Promise.all([
+    routeUserHasPermission(actorSupabase, actorUserId, "add_payments"),
+    actorSupabase
       .from("students")
       .select("id, school_id, branch_id")
       .eq("id", studentId)
       .eq("school_id", targetSchoolId)
-      .maybeSingle();
+      .maybeSingle(),
+  ]);
 
-    ({ data: student, error: studentError } = studentResult);
-    studentBranchId = student?.branch_id ?? null;
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
+  if (!canRecordPayments) {
+    return jsonError("ليس لديك صلاحية تسجيل دفعات جديدة.", 403);
   }
+
+  const student = studentResult.data as { id: string; school_id: string; branch_id: string | null } | null;
+  const studentError = studentResult.error;
+  const studentBranchId: string | null = student?.branch_id ?? null;
 
   if (studentError || !student?.id) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
