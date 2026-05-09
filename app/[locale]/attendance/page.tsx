@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { formatNumber } from "@/lib/formatting";
@@ -338,6 +338,7 @@ export default function AttendancePage() {
   const [repeatedAbsences, setRepeatedAbsences] = useState<RepeatedAbsenceStudent[]>([]);
   const [loadingRepeated, setLoadingRepeated] = useState(false);
   const [absenceThreshold, setAbsenceThreshold] = useState(3);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Lock past days
   const [lockOverride, setLockOverride] = useState(false);
@@ -417,6 +418,12 @@ export default function AttendancePage() {
   }, [profile, schoolScope.selectedSchoolId, copy, runtimeBranding.branchId, locale]);
 
   useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (schoolScope.scopeLoading) return;
     if (schoolScope.shouldBlockContent) {
       setStudents([]);
@@ -461,23 +468,37 @@ export default function AttendancePage() {
     });
   }
 
+  function clearSuccessAfter(ms: number) {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    successTimerRef.current = setTimeout(() => setSuccess(""), ms);
+  }
+
   function resetUnsavedChanges() {
     void fetchAttendanceSnapshot(selectedDate);
     setSuccess(copy.reloadSuccess);
-    setTimeout(() => setSuccess(""), 2500);
+    clearSuccessAfter(2500);
   }
 
   const fetchRepeatedAbsences = useCallback(async (threshold: number) => {
     const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
     if (!scopedSchoolId) return;
     setLoadingRepeated(true);
-    const params = new URLSearchParams({ schoolId: scopedSchoolId, threshold: String(threshold) });
-    if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
-    const { payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; students: RepeatedAbsenceStudent[] }>(
-      `/api/web/attendance/repeated-absences?${params.toString()}`,
-    );
-    setRepeatedAbsences(payload?.students ?? []);
-    setLoadingRepeated(false);
+    try {
+      const params = new URLSearchParams({ schoolId: scopedSchoolId, threshold: String(threshold) });
+      if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; students: RepeatedAbsenceStudent[] }>(
+        `/api/web/attendance/repeated-absences?${params.toString()}`,
+      );
+      if (!response.ok) {
+        setRepeatedAbsences([]);
+        return;
+      }
+      setRepeatedAbsences(payload?.students ?? []);
+    } catch {
+      setRepeatedAbsences([]);
+    } finally {
+      setLoadingRepeated(false);
+    }
   }, [profile, schoolScope.selectedSchoolId, runtimeBranding.branchId]);
 
   useEffect(() => {
@@ -538,7 +559,7 @@ export default function AttendancePage() {
     }
 
     setSuccess(copy.saveSuccess(payload.length));
-    setTimeout(() => setSuccess(""), 3000);
+    clearSuccessAfter(3000);
     await fetchAttendanceSnapshot(selectedDate);
     setSaving(false);
   }

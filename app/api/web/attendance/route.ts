@@ -134,7 +134,8 @@ export async function GET(req: NextRequest) {
       .eq("school_id", targetSchoolId)
       .neq("status", "deleted")
       .order("class_name", { ascending: true })
-      .order("full_name", { ascending: true }),
+      .order("full_name", { ascending: true })
+      .limit(3000),
       branchScope.value,
     ),
     applyBranchScopeToQuery(
