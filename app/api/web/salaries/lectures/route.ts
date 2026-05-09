@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
-import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 
@@ -75,11 +75,12 @@ export async function GET(req: NextRequest) {
       return jsonError("الأستاذ المطلوب غير صالح.", 400);
     }
 
+    const hasLecturePrice = await tableHasColumn(context.value.actorSupabase, "teachers", "lecture_price").catch(() => false);
     const [{ data: teacher, error: teacherError }, { data: lectures, error: lecturesError }] = await Promise.all([
       applyBranchScopeToQuery(
         context.value.actorSupabase
           .from("teachers")
-          .select("id, lecture_price")
+          .select(hasLecturePrice ? "id, lecture_price" : "id")
           .eq("id", teacherId)
           .eq("school_id", context.value.targetSchoolId),
         branchScope.value,
