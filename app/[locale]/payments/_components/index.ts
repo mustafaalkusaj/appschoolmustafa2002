@@ -7,3 +7,4 @@ export { StudentDetailPanel } from "./StudentDetailPanel";
 export { ArchiveDetailModal } from "./ArchiveDetailModal";
 export { PaymentModal } from "./PaymentModal";
 export { ArchiveModeBanner } from "./ArchiveModeBanner";
+export { ArchiveCompareModal } from "./ArchiveCompareModal";

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { AppIcon } from "@/components/AppIcon";
@@ -9,7 +10,8 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentArchive } from "../_types";
 import { getPaymentMethodLabel, getArchiveStudents, getArchivePayments } from "../_hooks/useArchiveOperations";
-import { Archive, Calendar, CreditCard, Download, Eye } from "lucide-react";
+import { ArchiveCompareModal } from "./ArchiveCompareModal";
+import { Archive, Calendar, CreditCard, Download, Eye, GitCompareArrows } from "lucide-react";
 
 interface PaymentsArchiveProps {
   archives: PaymentArchive[];
@@ -43,15 +45,36 @@ export function PaymentsArchive({
   activeArchiveYear,
 }: PaymentsArchiveProps) {
   const t = useTranslations();
+  const [compareA, setCompareA] = useState<PaymentArchive | null>(null);
+  const [compareB, setCompareB] = useState<PaymentArchive | null>(null);
+  const [showCompare, setShowCompare] = useState(false);
+
+  const handleCompareSelect = (archive: PaymentArchive) => {
+    if (!compareA) {
+      setCompareA(archive);
+    } else if (!compareB && archive.id !== compareA.id) {
+      setCompareB(archive);
+      setShowCompare(true);
+    } else {
+      // Reset and start over
+      setCompareA(archive);
+      setCompareB(null);
+      setShowCompare(false);
+    }
+  };
+
   const archiveYearOptions = Array.from(
     new Set([...paymentYears, ...archives.map((a) => a.archive_year), new Date().getFullYear()])
   ).sort((a, b) => b - a);
 
+  const MAX_ARCHIVES = 5;
   const archivedYearsCount = archives.length;
   const totalArchivedAmount = archives.reduce((sum, a) => sum + (a.total_amount || 0), 0);
   const latestArchive = archives[0] || null;
+  const isAtLimit = archivedYearsCount >= MAX_ARCHIVES;
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -110,6 +133,19 @@ export function PaymentsArchive({
             </div>
           </div>
         </Card>
+      </div>
+
+      {/* Archive limit indicator */}
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-[var(--radius-md)] text-sm font-semibold w-fit ${
+        isAtLimit
+          ? "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)]"
+          : archivedYearsCount >= MAX_ARCHIVES - 1
+          ? "bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)]"
+          : "bg-[var(--surface-soft)] text-[var(--text-muted)]"
+      }`}>
+        <Archive className="h-4 w-4" />
+        <span>{archivedYearsCount} / {MAX_ARCHIVES} أرشيفات</span>
+        {isAtLimit && <span>— وصلت الحد الأقصى</span>}
       </div>
 
       {/* Archive Controls */}
@@ -195,12 +231,34 @@ export function PaymentsArchive({
                     {t("payments.archive.export")}
                   </Button>
                 </div>
+                {archives.length >= 2 && (
+                  <Button
+                    variant={compareA?.id === archive.id ? "primary" : "ghost"}
+                    size="sm"
+                    onClick={() => handleCompareSelect(archive)}
+                    className="w-full justify-center text-xs"
+                  >
+                    <GitCompareArrows className="h-3.5 w-3.5" />
+                    {compareA?.id === archive.id ? "✓ محدد للمقارنة — اختر سنة أخرى" : "مقارنة مع سنة أخرى"}
+                  </Button>
+                )}
               </div>
             </Card>
           ))}
         </div>
       )}
     </div>
+      <ArchiveCompareModal
+        archiveA={compareA}
+        archiveB={compareB}
+        show={showCompare}
+        onClose={() => {
+          setShowCompare(false);
+          setCompareA(null);
+          setCompareB(null);
+        }}
+      />
+    </>
   );
 }
 

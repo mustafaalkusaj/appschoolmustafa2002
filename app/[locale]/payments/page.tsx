@@ -22,6 +22,7 @@ import {
   ArchiveModeBanner,
 } from "./_components";
 import { usePaymentsPage } from "./_hooks";
+import { getArchivePayments } from "./_hooks/useArchiveOperations";
 import "./_components/payments.css";
 
 export default function PaymentsPage() {
@@ -65,6 +66,7 @@ export default function PaymentsPage() {
     showDetail,
     setShowDetail,
     openStudentDetail,
+    openArchiveStudentDetail,
     handleExportExcel,
     printReceipt,
     printStatement,
@@ -75,6 +77,15 @@ export default function PaymentsPage() {
   } = usePaymentsPage({
     currentBranchId: runtimeBranding.branchId,
   });
+
+  // Payments shown in detail panel — archive mode uses snapshot, otherwise live data
+  const detailPayments = React.useMemo(() => {
+    if (!selectedStudent) return [];
+    if (isArchiveMode && activeArchive) {
+      return getArchivePayments(activeArchive).filter((p) => p.student_id === selectedStudent.id);
+    }
+    return paymentOpsHook.paymentsByStudent[selectedStudent.id] ?? [];
+  }, [isArchiveMode, activeArchive, selectedStudent, paymentOpsHook.paymentsByStudent]);
 
   // Calculate actual paid fee from payment records
   const actualPaidFee = paymentOpsHook.payStudent
@@ -196,7 +207,7 @@ export default function PaymentsPage() {
                         totalPages={effectiveTotalPages}
                         totalCount={effectiveTotalCount}
                         onPageChange={studentsHook.setPage}
-                        onStudentClick={isArchiveMode ? () => {} : openStudentDetail}
+                        onStudentClick={isArchiveMode ? openArchiveStudentDetail : openStudentDetail}
                         onAddPayment={isArchiveMode ? undefined : paymentOpsHook.openPaymentModal}
                       />
                     </div>
@@ -229,17 +240,17 @@ export default function PaymentsPage() {
         {/* Student Detail Panel (Drawer) */}
         <StudentDetailPanel
           student={selectedStudent}
-          payments={selectedStudent ? paymentOpsHook.paymentsByStudent[selectedStudent.id] ?? [] : []}
-          paymentsLoading={paymentOpsHook.paymentsLoadingStudentId === selectedStudent?.id}
-          paymentCount={selectedStudent ? studentsHook.paymentCountsByStudent[selectedStudent.id] ?? 0 : 0}
+          payments={detailPayments}
+          paymentsLoading={!isArchiveMode && paymentOpsHook.paymentsLoadingStudentId === selectedStudent?.id}
+          paymentCount={selectedStudent ? (effectivePaymentCounts[selectedStudent.id] ?? 0) : 0}
           show={showDetail}
           onClose={() => setShowDetail(false)}
           onAddPayment={openPaymentForStudent}
           onDeletePayment={(paymentId) => paymentOpsHook.setPendingDeletePaymentId(paymentId)}
           onPrintReceipt={printReceipt}
-          onPrintStatement={(student) => printStatement(student, selectedStudent ? paymentOpsHook.paymentsByStudent[selectedStudent.id] ?? [] : [])}
-          canAddPayments={canAddPayments}
-          canDeletePayments={canDeletePayments}
+          onPrintStatement={(student) => printStatement(student, detailPayments)}
+          canAddPayments={isArchiveMode ? false : canAddPayments}
+          canDeletePayments={isArchiveMode ? false : canDeletePayments}
         />
 
         {/* Archive Detail Modal */}

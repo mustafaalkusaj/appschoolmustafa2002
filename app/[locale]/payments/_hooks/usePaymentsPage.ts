@@ -382,6 +382,15 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     [paymentOpsHook]
   );
 
+  const openArchiveStudentDetail = useCallback(
+    (student: Student) => {
+      setSelectedStudent(student);
+      setShowDetail(true);
+      // Payments injected from archive data — no API call needed
+    },
+    []
+  );
+
   const handleExportExcel = useCallback(async () => {
     if (!resolvedSchoolId) return;
     setExporting(true);
@@ -547,6 +556,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
 
     // Handlers
     openStudentDetail,
+    openArchiveStudentDetail,
     handleExportExcel,
     printReceipt,
     printStatement,
@@ -555,5 +565,5 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     handlePaymentSubmit,
     openPaymentForStudent,
     updateStudentFinancials,
-  }), [canAddPayments, canDeletePayments, schoolScope, resolvedSchoolId, success, error, searchInput, setSearchInput, exporting, quickFilter, setQuickFilter, filterClass, setFilterClass, filterSort, setFilterSort, filterDir, setFilterDir, metaHook, studentsHook, paymentOpsHook, archiveOpsHook, isArchiveMode, activeArchiveYear, activeArchive, activateArchiveYear, exitArchiveMode, effectiveSummary, effectiveStudents, effectivePaymentCounts, effectiveLoading, effectiveTotalCount, effectiveTotalPages, effectiveClasses, selectedStudent, setSelectedStudent, showDetail, setShowDetail, openStudentDetail, handleExportExcel, printReceipt, printStatement, handleArchiveExport, handleDeletePayment, handlePaymentSubmit, openPaymentForStudent, updateStudentFinancials]);
+  }), [canAddPayments, canDeletePayments, schoolScope, resolvedSchoolId, success, error, searchInput, setSearchInput, exporting, quickFilter, setQuickFilter, filterClass, setFilterClass, filterSort, setFilterSort, filterDir, setFilterDir, metaHook, studentsHook, paymentOpsHook, archiveOpsHook, isArchiveMode, activeArchiveYear, activeArchive, activateArchiveYear, exitArchiveMode, effectiveSummary, effectiveStudents, effectivePaymentCounts, effectiveLoading, effectiveTotalCount, effectiveTotalPages, effectiveClasses, selectedStudent, setSelectedStudent, showDetail, setShowDetail, openStudentDetail, openArchiveStudentDetail, handleExportExcel, printReceipt, printStatement, handleArchiveExport, handleDeletePayment, handlePaymentSubmit, openPaymentForStudent, updateStudentFinancials]);
 }

@@ -49,6 +49,30 @@ export async function POST(req: NextRequest) {
     return jsonError(branchScope.message, branchScope.status);
   }
 
+  // Enforce max 5 archives per school
+  const MAX_ARCHIVES = 5;
+  const { count: archiveCount } = await actorSupabase
+    .from("account_archives")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", targetSchoolId);
+
+  if ((archiveCount ?? 0) >= MAX_ARCHIVES) {
+    // Allow update of an existing year — only block truly new archives
+    const { data: existingForYear } = await actorSupabase
+      .from("account_archives")
+      .select("id")
+      .eq("school_id", targetSchoolId)
+      .eq("archive_year", archiveYear)
+      .maybeSingle();
+
+    if (!existingForYear) {
+      return jsonError(
+        `وصل عدد الأرشيفات للحد الأقصى (${MAX_ARCHIVES} سنوات). يرجى حذف أرشيف قديم للمتابعة.`,
+        400,
+      );
+    }
+  }
+
   const fromDate = `${archiveYear}-01-01`;
   const toDate = `${archiveYear}-12-31`;
 

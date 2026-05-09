@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { LucideIcon } from "@/lib/icons";
 import {
   AlertTriangle,
+  Archive,
   Bell,
   CreditCard,
   LayoutDashboard,
@@ -49,6 +50,7 @@ import { AnalyticsTab } from "./components/AnalyticsTab";
 import { HealthMonitoringTab } from "./components/HealthMonitoringTab";
 import { BulkOperationsTab } from "./components/BulkOperationsTab";
 import { ActivityTimelineTab } from "./components/ActivityTimelineTab";
+import { PaymentArchivesTab } from "./components/PaymentArchivesTab";
 
 import {
   OverviewTab,
@@ -126,6 +128,7 @@ export default function SuperAdminPage() {
     { id: "health", label: "صحة النظام", hint: "مراقبة الأداء والموارد", icon: Activity },
     { id: "bulk", label: "عمليات جماعية", hint: "استيراد وتحديث جماعي", icon: Plus },
     { id: "activity", label: "سجل النشاط", hint: "تتبع العمليات والأحداث", icon: History },
+    { id: "payment-archives", label: "أرشيفات الحسابات", hint: "إدارة وحذف أرشيفات الحسابات السنوية", icon: Archive },
     { id: "audit", label: t("tabs.audit.label"), hint: t("tabs.audit.hint"), icon: History },
     { id: "roles", label: t("tabs.roles.label"), hint: t("tabs.roles.hint"), icon: ShieldCheck },
     { id: "trash", label: t("tabs.trash.label"), hint: t("tabs.trash.hint"), icon: Trash2 },
@@ -558,6 +561,7 @@ export default function SuperAdminPage() {
                     {activeTab === "health" && <HealthMonitoringTab />}
                     {activeTab === "bulk" && <BulkOperationsTab />}
                     {activeTab === "activity" && <ActivityTimelineTab />}
+                    {activeTab === "payment-archives" && <PaymentArchivesTab />}
                   </div>
                 )}
               </div>

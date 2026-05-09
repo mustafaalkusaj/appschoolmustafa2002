@@ -16,7 +16,8 @@ export type ActiveTab =
   | "analytics"
   | "health"
   | "bulk"
-  | "activity";
+  | "activity"
+  | "payment-archives";
 
 export type SchoolPlan = "basic" | "premium" | "enterprise";
 export type SubscriptionStatus = "active" | "suspended" | "inactive" | "expired";
