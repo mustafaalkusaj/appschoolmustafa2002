@@ -55,16 +55,19 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "expenses-list",
-    windowMs: 60_000,
-    maxHits: 120,
-    identifier: actorUserId,
-  });
+  // Run rate limit and permission check in parallel
+  const [rateLimited, canViewExpenses] = await Promise.all([
+    enforceRateLimit(req, {
+      namespace: "expenses-list",
+      windowMs: 60_000,
+      maxHits: 120,
+      identifier: actorUserId,
+    }),
+    routeUserHasPermission(actorSupabase, actorUserId, "view_expenses"),
+  ]);
   if (rateLimited) {
     return rateLimited;
   }
-  const canViewExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "view_expenses");
   if (!canViewExpenses) {
     return jsonError("ليس لديك صلاحية عرض المصروفات.", 403);
   }

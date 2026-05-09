@@ -1,4 +1,5 @@
 {
+  "regions": ["bah1"],
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30

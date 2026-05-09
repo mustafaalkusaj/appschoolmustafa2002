@@ -120,13 +120,11 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  const canViewAttendance = await routeUserHasPermission(actorSupabase, context.value.actorUserId, "view_attendance");
-  if (!canViewAttendance) {
-    return jsonError("ليس لديك صلاحية عرض الحضور.", 403);
-  }
   const fromDate = getLocalIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 30 * 24 * 60 * 60 * 1000));
 
-  const [studentsResult, recordsResult, historyResult] = await Promise.all([
+  // Run permission check and all data queries in parallel
+  const [canViewAttendance, studentsResult, recordsResult, historyResult] = await Promise.all([
+    routeUserHasPermission(actorSupabase, context.value.actorUserId, "view_attendance"),
     applyBranchScopeToQuery(
       actorSupabase
       .from("students")
@@ -156,6 +154,10 @@ export async function GET(req: NextRequest) {
       branchScope.value,
     ),
   ]);
+
+  if (!canViewAttendance) {
+    return jsonError("ليس لديك صلاحية عرض الحضور.", 403);
+  }
 
   if (studentsResult.error) {
     return jsonError(studentsResult.error.message || "تعذر تحميل قائمة الطلاب.", 500);

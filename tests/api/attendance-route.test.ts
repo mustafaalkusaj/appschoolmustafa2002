@@ -136,7 +136,7 @@ describe("attendance route branch scoping", () => {
       method: "POST",
       body: JSON.stringify({
         school_id: "school-1",
-        attendance_date: new Date().toISOString().slice(0, 10),
+        attendance_date: "2099-01-01",
         entries: [{ student_id: "student-1", status: "present", note: "ok" }],
       }),
       headers: { "content-type": "application/json" },
