@@ -230,9 +230,8 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-[var(--border)] divide-x divide-x-reverse divide-[var(--border)]">
+        <div className="grid grid-cols-3 border-b border-[var(--border)] divide-x divide-x-reverse divide-[var(--border)]">
           {[
-            { label: "الإيراد الشهري الكلي",   val: totals.monthly,   color: "text-emerald-600 dark:text-emerald-400" },
             { label: "الإيراد السنوي المتوقع",  val: totals.yearly,    color: "text-blue-600 dark:text-blue-400" },
             { label: "المبلغ المستحصل",         val: totals.collected, color: "text-violet-600 dark:text-violet-400" },
             { label: "المبلغ المتبقي",          val: totals.remaining, color: totals.remaining > 0 ? "text-amber-600 dark:text-amber-400" : "text-[var(--text-muted)]" },
@@ -253,7 +252,6 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                 <th>المدرسة</th>
                 <th>الطلاب</th>
                 <th>سعر الطالب</th>
-                <th>الإيراد الشهري</th>
                 <th>الإيراد السنوي</th>
                 <th>المستحصل</th>
                 <th>المتبقي</th>
@@ -313,18 +311,6 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                     )}
                   </td>
 
-                  {/* Monthly — with formula */}
-                  <td>
-                    {monthlyUSD > 0 ? (
-                      <div>
-                        <span className="font-black text-emerald-600 dark:text-emerald-400">{fmt(monthlyUSD, showIQD, ratePer100)}</span>
-                        <p className="text-[10px] font-bold text-[var(--text-muted)]">
-                          {students.toLocaleString("ar-IQ")} × ${price}
-                        </p>
-                      </div>
-                    ) : <span className="text-[var(--text-muted)]">—</span>}
-                  </td>
-
                   {/* Yearly */}
                   <td className={yearlyUSD > 0 ? "font-black text-blue-600 dark:text-blue-400" : "text-[var(--text-muted)]"}>
                     {yearlyUSD > 0 ? fmt(yearlyUSD, showIQD, ratePer100) : "—"}
@@ -379,7 +365,6 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                   <td className="font-black text-[var(--text-primary)]">الإجمالي</td>
                   <td className="font-black">{totals.students.toLocaleString("ar-IQ")}</td>
                   <td />
-                  <td className="font-black text-emerald-600 dark:text-emerald-400">{fmt(totals.monthly, showIQD, ratePer100)}</td>
                   <td className="font-black text-blue-600 dark:text-blue-400">{fmt(totals.yearly, showIQD, ratePer100)}</td>
                   <td className="font-black text-violet-600 dark:text-violet-400">{fmt(totals.collected, showIQD, ratePer100)}</td>
                   <td className={`font-black ${totals.remaining > 0 ? "text-amber-600 dark:text-amber-400" : "text-[var(--success)]"}`}>
