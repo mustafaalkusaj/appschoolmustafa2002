@@ -35,10 +35,6 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
-  if (!canManageSalaries) {
-    return jsonError("ليس لديك صلاحية الوصول إلى سجل السحوبات.", 403);
-  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "salaries-deductions-read",
     windowMs: 60_000,
@@ -47,6 +43,10 @@ export async function GET(req: NextRequest) {
   });
   if (rateLimited) {
     return rateLimited;
+  }
+  const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
+  if (!canManageSalaries) {
+    return jsonError("ليس لديك صلاحية الوصول إلى سجل السحوبات.", 403);
   }
 
   const { data, error } = await applyBranchScopeToQuery(

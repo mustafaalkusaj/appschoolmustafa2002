@@ -310,7 +310,7 @@ export default function SalariesPage() {
     else if (selectedTeacher.salary_type === "hourly") gross = lectureSalaryCalc.total;
     else if (selectedTeacher.salary_type === "mixed") gross = (Number(selectedTeacher.base_salary) || 0) + lectureSalaryCalc.total;
     else gross = parseFloat(salaryForm.gross_salary) || Number(selectedTeacher.base_salary) || 0;
-    const { response, payload } = await fetchJsonWithAuthorizedSession<SalaryPaymentResponse>("/api/web/salaries/pay", { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ school_id: schoolId, teacher_id: selectedTeacher.id, gross_salary: gross, deductions: parseFloat(salaryForm.deductions) || 0, month: salaryForm.month, notes: salaryForm.notes || null }) });
+    const { response, payload } = await fetchJsonWithAuthorizedSession<SalaryPaymentResponse>("/api/web/salaries/pay", { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ school_id: schoolId, teacher_id: selectedTeacher.id, gross_salary: gross, deductions: parseFloat(salaryForm.deductions) || 0, month: salaryForm.month, notes: salaryForm.notes || null, branch_id: runtimeBranding.branchId || null }) });
     if (!response.ok) setError(payload?.error?.message || "تعذر صرف الراتب.");
     else { setSuccess(`تم دفع الراتب بنجاح ✓`); setShowPaySalary(false); fetchAll(); setTimeout(() => setSuccess(""), 3000); }
     setSavingSalary(false);
@@ -318,20 +318,18 @@ export default function SalariesPage() {
 
   const fetchSchedule = async (grade: string, section: string) => {
     if (!schoolId) return;
-    const { data, error: scheduleError } = await supabase
-      .from("weekly_schedule")
-      .select("*")
-      .eq("school_id", schoolId)
-      .eq("grade", grade)
-      .eq("section", section);
-
-    if (scheduleError) {
-      setError(scheduleError.message || "تعذر تحميل الجدول.");
+    const params = new URLSearchParams({ schoolId, grade, section });
+    if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
+      schedule?: { day: string; period: number; session_type: string; teacher_id: string | null }[];
+      error?: { message?: string };
+    }>(`/api/web/salaries/schedule?${params.toString()}`);
+    if (!response.ok) {
+      setError(payload?.error?.message || "تعذر تحميل الجدول.");
       return;
     }
-
     const grid: Record<string, string> = {};
-    data?.forEach((entry: { day: string; period: number; session_type: string; teacher_id: string | null }) => {
+    payload?.schedule?.forEach((entry) => {
       grid[`${entry.day}-${entry.period}-${entry.session_type}`] = entry.teacher_id || "";
     });
     setScheduleGrid(grid);
@@ -343,41 +341,28 @@ export default function SalariesPage() {
     setError("");
 
     try {
-      const { error: deleteError } = await supabase
-        .from("weekly_schedule")
-        .delete()
-        .eq("school_id", schoolId)
-        .eq("grade", scheduleGrade)
-        .eq("section", scheduleSection);
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      const branchId = await getBranchId();
       const rows = Object.entries(scheduleGrid)
         .filter(([, teacherId]) => Boolean(teacherId))
         .map(([key, teacherId]) => {
           const [day, period, sessionType] = key.split("-");
-          return {
-            school_id: schoolId,
-            branch_id: branchId,
-            grade: scheduleGrade,
-            section: scheduleSection,
-            day,
-            period: parseInt(period, 10),
-            session_type: sessionType,
-            teacher_id: teacherId,
-          };
+          return { day, period: parseInt(period, 10), session_type: sessionType, teacher_id: teacherId };
         });
 
-      if (rows.length > 0) {
-        const { error: insertError } = await supabase.from("weekly_schedule").insert(rows);
-        if (insertError) {
-          throw insertError;
-        }
-      }
-
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(
+        "/api/web/salaries/schedule",
+        {
+          method: "PUT",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({
+            school_id: schoolId,
+            branch_id: runtimeBranding.branchId || null,
+            grade: scheduleGrade,
+            section: scheduleSection,
+            rows,
+          }),
+        },
+      );
+      if (!response.ok) throw new Error(payload?.error?.message || "تعذر حفظ الجدول.");
       setSuccess("تم حفظ الجدول ✓");
       setTimeout(() => setSuccess(""), 3000);
     } catch (scheduleError) {
@@ -392,27 +377,16 @@ export default function SalariesPage() {
     setError("");
 
     try {
-      for (const grade of gradeOptions) {
-        const price = priceEdits[grade] || 0;
-        const existing = lecturePrices.find((entry) => entry.grade === grade);
-        if (existing) {
-          const { error: updateError } = await supabase
-            .from("lecture_prices")
-            .update({ price_per_lecture: price })
-            .eq("id", existing.id);
-          if (updateError) {
-            throw updateError;
-          }
-        } else {
-          const { error: insertError } = await supabase
-            .from("lecture_prices")
-            .insert({ school_id: schoolId, grade, price_per_lecture: price });
-          if (insertError) {
-            throw insertError;
-          }
-        }
-      }
-
+      const entries = gradeOptions.map((grade) => ({ grade, price: priceEdits[grade] || 0 }));
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(
+        "/api/web/salaries/prices",
+        {
+          method: "PUT",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({ school_id: schoolId, entries }),
+        },
+      );
+      if (!response.ok) throw new Error(payload?.error?.message || "تعذر حفظ الأسعار.");
       setSuccess("تم حفظ الأسعار ✓");
       setShowPrices(false);
       await fetchAll();
@@ -423,21 +397,25 @@ export default function SalariesPage() {
   };
 
   const saveLessonTimes = async () => {
+    if (!schoolId) return;
     setError("");
 
     try {
-      for (const lessonTime of lessonTimes) {
-        const start = timeEdits[`${lessonTime.period}-${lessonTime.session_type}-start`];
-        const end = timeEdits[`${lessonTime.period}-${lessonTime.session_type}-end`];
-        const { error: updateError } = await supabase
-          .from("lesson_times")
-          .update({ start_time: start, end_time: end })
-          .eq("id", lessonTime.id);
-        if (updateError) {
-          throw updateError;
-        }
-      }
+      const updates = lessonTimes.map((lessonTime) => ({
+        id: lessonTime.id,
+        start_time: timeEdits[`${lessonTime.period}-${lessonTime.session_type}-start`] ?? lessonTime.start_time ?? null,
+        end_time: timeEdits[`${lessonTime.period}-${lessonTime.session_type}-end`] ?? lessonTime.end_time ?? null,
+      }));
 
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ error?: { message?: string } }>(
+        "/api/web/salaries/lesson-times",
+        {
+          method: "PATCH",
+          headers: withJsonHeaders(),
+          body: JSON.stringify({ school_id: schoolId, updates }),
+        },
+      );
+      if (!response.ok) throw new Error(payload?.error?.message || "تعذر حفظ التوقيتات.");
       setSuccess("تم حفظ توقيتات الدروس ✓");
       setShowLessonTimes(false);
       setTimeout(() => setSuccess(""), 3000);
@@ -509,7 +487,7 @@ export default function SalariesPage() {
         body: JSON.stringify({
           school_id: schoolId,
           teacher_id: deductionTeacher,
-          amount: parseInt(deductionAmount, 10) || 0,
+          amount: parseFloat(deductionAmount) || 0,
           notes: deductionNotes || null,
           deduction_date: new Date().toISOString().split("T")[0],
         }),

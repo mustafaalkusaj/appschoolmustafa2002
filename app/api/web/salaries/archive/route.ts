@@ -156,6 +156,19 @@ export async function POST(req: NextRequest) {
     return jsonError(existingArchiveError.message || "تعذر التحقق من أرشيف الرواتب الحالي.", 500);
   }
 
+  // Capture old archive state before update (needed for correct rollback if lecture deletion fails)
+  let oldArchiveSnapshot: Record<string, unknown> | null = null;
+  if (existingArchive?.id) {
+    const { data: snap } = await actorSupabase
+      .from("salary_archives")
+      .select("*")
+      .eq("id", existingArchive.id)
+      .eq("school_id", targetSchoolId)
+      .single();
+    oldArchiveSnapshot = snap ?? null;
+  }
+
+  const wasInserted = !existingArchive?.id;
   const archiveWriteResult = existingArchive?.id
     ? await actorSupabase
         .from("salary_archives")
@@ -190,12 +203,23 @@ export async function POST(req: NextRequest) {
   );
 
   if (purgeLecturesError) {
-    // Rollback: remove the archive we just wrote to keep state consistent
-    await actorSupabase
-      .from("salary_archives")
-      .delete()
-      .eq("id", archive!.id)
-      .eq("school_id", targetSchoolId);
+    // Rollback: restore previous state.
+    // If we did an INSERT, delete the new record.
+    // If we did an UPDATE, restore the old snapshot to avoid destroying previous archive data.
+    if (wasInserted) {
+      await actorSupabase
+        .from("salary_archives")
+        .delete()
+        .eq("id", archive!.id)
+        .eq("school_id", targetSchoolId);
+    } else if (oldArchiveSnapshot) {
+      const { id: _id, ...restorePayload } = oldArchiveSnapshot as Record<string, unknown>;
+      await actorSupabase
+        .from("salary_archives")
+        .update(restorePayload)
+        .eq("id", existingArchive!.id)
+        .eq("school_id", targetSchoolId);
+    }
     return jsonError(purgeLecturesError.message || "تعذر تصفير سجل المحاضرات — تم التراجع عن الأرشفة.", 500);
   }
 
