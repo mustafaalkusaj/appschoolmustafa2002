@@ -19,7 +19,7 @@ interface PaymentsFiltersProps {
   onExport: () => void;
   onAddPayment: () => void;
   exporting: boolean;
-  resolvedSchoolId: string | null;
+  resolvedSchoolId: boolean;
   canAddPayments: boolean;
 }
 

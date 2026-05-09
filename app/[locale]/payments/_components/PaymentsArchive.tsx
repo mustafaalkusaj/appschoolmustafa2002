@@ -23,10 +23,10 @@ interface PaymentsArchiveProps {
   paymentYears: number[];
   canDeletePayments: boolean;
   onArchive: () => void;
-  onViewDetail: (archive: PaymentArchive) => void;
+  onViewDetail: (archive: PaymentArchive) => void | Promise<void>;
   onExportArchive: (archive: PaymentArchive) => void;
   archiveExportingId: string | null;
-  onViewYear: (year: number) => void;
+  onViewYear: (year: number) => void | Promise<void>;
   activeArchiveYear: number | null;
   currentStudents?: import("../_types").Student[];
   onPromoteYear?: () => void;

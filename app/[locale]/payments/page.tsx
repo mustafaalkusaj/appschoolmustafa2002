@@ -166,7 +166,7 @@ export default function PaymentsPage() {
                         : handleExportExcel}
                       onAddPayment={() => paymentOpsHook.openPaymentModal()}
                       exporting={exporting}
-                      resolvedSchoolId={effectiveSummary.totalStudents > 0 || effectiveClasses.length > 0 ? "resolved" : null}
+                      resolvedSchoolId={effectiveSummary.totalStudents > 0 || effectiveClasses.length > 0}
                       canAddPayments={isArchiveMode ? false : canAddPayments}
                     />
                   </Card>
@@ -275,7 +275,6 @@ export default function PaymentsPage() {
           payForm={paymentOpsHook.payForm}
           setPayForm={paymentOpsHook.setPayForm}
           saving={paymentOpsHook.saving}
-          totalPaymentCount={metaHook.totalPaymentCount}
           onClose={paymentOpsHook.closePaymentModal}
           onSubmit={handlePaymentSubmit}
           error={error}

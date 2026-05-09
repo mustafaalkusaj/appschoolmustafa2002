@@ -7,6 +7,10 @@ import { deduplicatedFetch } from "@/lib/request-cache";
 
 const paymentsPageCache = new Map<string, PaymentsPageState>();
 
+export function invalidatePaymentsPageCache() {
+  paymentsPageCache.clear();
+}
+
 export function useStudentsPage(
   resolvedSchoolId: string | null,
   quickFilter: string,
@@ -86,6 +90,10 @@ export function useStudentsPage(
       } satisfies PaymentsPageState;
 
       paymentsPageCache.set(cacheKey, nextPage);
+      if (paymentsPageCache.size > 50) {
+        const firstKey = paymentsPageCache.keys().next().value;
+        if (firstKey !== undefined) paymentsPageCache.delete(firstKey);
+      }
       setStudents(nextPage.students);
       setPaymentCountsByStudent(nextPage.paymentCountsByStudent);
       setTotalCount(nextPage.totalCount);

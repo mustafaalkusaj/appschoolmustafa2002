@@ -3,13 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPaymentSchema } from "@/lib/api-schemas";
 import { resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
-import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies"; // ✅ cache strategies
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
-import { resolveStudentFeeTotal } from "@/lib/students/financials";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -69,7 +66,7 @@ export async function POST(req: NextRequest) {
   try {
     const studentResult = await actorSupabase
       .from("students")
-      .select("id, school_id, paid_fee, total_fee, discount_value, class_name, branch_id")
+      .select("id, school_id, branch_id")
       .eq("id", studentId)
       .eq("school_id", targetSchoolId)
       .maybeSingle();
@@ -90,99 +87,27 @@ export async function POST(req: NextRequest) {
     return jsonError(studentBranchScope.message, studentBranchScope.status);
   }
 
-  // Get authoritative paid fee from ALL payments across actor's allowed branches
-  // (not just student's branch, to account for cross-branch payments)
+  // Use student's actual branch_id from DB; fall back to actor's accessible branch
   const actorBranchScope = resolveBranchScope(context.value);
-  let authoritativePaidFee: number;
-  try {
-    authoritativePaidFee = await resolveAuthoritativeStudentPaidFee(
-      actorSupabase,
-      targetSchoolId,
-      studentId,
-      undefined,
-      actorBranchScope.ok ? actorBranchScope.value : undefined,
-    );
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر التحقق من بيانات الطالب.", 500);
-  }
+  const finalBranchId: string | null = studentBranchId
+    ?? (actorBranchScope.ok ? actorBranchScope.value.branchId : null);
 
-  // Resolve effective total_fee from class_fees (same logic as frontend)
-  let classFeeTotal: number | undefined;
-  if (student.class_name) {
-    const { data: classFeeRow } = await actorSupabase
-      .from("class_fees")
-      .select("total_fee")
-      .eq("school_id", targetSchoolId)
-      .eq("class_name", student.class_name)
-      .maybeSingle();
-    if (classFeeRow?.total_fee) {
-      classFeeTotal = Number(classFeeRow.total_fee);
-    }
-  }
-
-  const effectiveTotalFee = resolveStudentFeeTotal(Number(student.total_fee ?? 0), classFeeTotal);
-  const effectiveDiscount = Number(student.discount_value ?? 0);
-  const remainingBeforePayment = Math.max(effectiveTotalFee - authoritativePaidFee - effectiveDiscount, 0);
-
-  // VALIDATION: Reject if student already paid in full
-  if (remainingBeforePayment <= 0) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "PAID_IN_FULL",
-          message: "تم تسديد المبلغ بالكامل، لا يمكن تسجيل دفعة جديدة.",
-        },
-      },
-      { status: 400, headers: getCacheHeaders(CACHE_STRATEGIES.PAYMENTS_LIST) }
-    );
-  }
-
-  // VALIDATION: Reject if payment exceeds remaining amount
-  if (amount > remainingBeforePayment) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "PAYMENT_EXCEEDS_REMAINING",
-          message: "قيمة الدفعة أكبر من المبلغ المتبقي.",
-        },
-        details: {
-          amount,
-          remainingBeforePayment,
-        },
-      },
-      { status: 400, headers: getCacheHeaders(CACHE_STRATEGIES.PAYMENTS_LIST) }
-    );
-  }
-
-  // Use student's actual branch_id from DB; ignore client-provided requestedBranchId
-  let finalBranchId: string | null;
-
-  if (studentBranchId) {
-    // Student has a branch_id - use it
-    finalBranchId = studentBranchId;
-  } else {
-    // Student has no branch_id - assign from actor's accessible branch
-    finalBranchId = actorBranchScope.ok ? actorBranchScope.value.branchId : null;
-  }
   const paymentTimestamp = receiptDate ?? new Date().toISOString();
-  const { data: createdPayment, error: paymentError } = await actorSupabase
-    .from("payments")
-    .insert({
-      school_id: targetSchoolId,
-      branch_id: finalBranchId,
-      student_id: studentId,
-      amount,
-      payment_method: paymentMethod,
-      notes,
-      created_at: paymentTimestamp,
-      receipt_number: receiptNumber,
-      manual_receipt_number: manualReceiptNumber,
-    })
-    .select("id, school_id, branch_id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
-    .single();
 
-  if (paymentError || !createdPayment) {
-    logRouteError("payments-records-create", paymentError ?? new Error("Payment insert failed"), {
+  const { data: rpcRows, error: rpcError } = await actorSupabase.rpc("create_payment_atomic", {
+    p_school_id: targetSchoolId,
+    p_student_id: studentId,
+    p_branch_id: finalBranchId,
+    p_amount: amount,
+    p_payment_method: paymentMethod,
+    p_notes: notes ?? null,
+    p_created_at: paymentTimestamp,
+    p_receipt_number: receiptNumber,
+    p_manual_receipt_number: manualReceiptNumber ?? null,
+  });
+
+  if (rpcError) {
+    logRouteError("payments-records-create", rpcError, {
       actorUserId,
       schoolId: targetSchoolId,
       studentId,
@@ -190,11 +115,48 @@ export async function POST(req: NextRequest) {
     return jsonError("تعذر تسجيل الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
   }
 
-  // Calculate updated student values from payment insertion
-  const newPaidFee = authoritativePaidFee + amount;
+  const row = Array.isArray(rpcRows) ? rpcRows[0] : null;
 
-  // Use same effective total as validation (class_fee resolved)
-  const newRemainingFee = Math.max(effectiveTotalFee - newPaidFee - effectiveDiscount, 0);
+  if (!row) {
+    return jsonError("تعذر تسجيل الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
+  }
+
+  if (row.error_code === "STUDENT_NOT_FOUND") {
+    return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
+  }
+
+  if (row.error_code === "PAID_IN_FULL") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "PAID_IN_FULL",
+          message: "تم تسديد المبلغ بالكامل، لا يمكن تسجيل دفعة جديدة.",
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  if (row.error_code === "PAYMENT_EXCEEDS_REMAINING") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "PAYMENT_EXCEEDS_REMAINING",
+          message: "قيمة الدفعة أكبر من المبلغ المتبقي.",
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  if (row.error_code) {
+    logRouteError("payments-records-create", new Error(`Unexpected RPC error_code: ${row.error_code}`), {
+      actorUserId,
+      schoolId: targetSchoolId,
+      studentId,
+    });
+    return jsonError("تعذر تسجيل الدفعة حالياً. حاول مرة أخرى بعد قليل.", 500);
+  }
 
   invalidateSchoolCacheDomains(targetSchoolId, [
     "dashboard-overview",
@@ -204,13 +166,22 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    payment: createdPayment,
+    payment: {
+      id: row.id,
+      school_id: row.school_id,
+      branch_id: row.branch_id,
+      student_id: row.student_id,
+      amount: row.amount,
+      payment_method: row.payment_method,
+      notes: row.notes,
+      created_at: row.created_at,
+      receipt_number: row.receipt_number,
+      manual_receipt_number: row.manual_receipt_number,
+    },
     studentUpdate: {
       id: studentId,
-      paid_fee: newPaidFee,
-      remaining_fee: newRemainingFee,
-      discount_value: effectiveDiscount,
-      total_fee: effectiveTotalFee,
+      paid_fee: row.paid_fee_after,
+      remaining_fee: row.remaining_fee_after,
     },
   });
 }

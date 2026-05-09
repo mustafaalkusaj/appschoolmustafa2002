@@ -31,6 +31,7 @@ export function useArchiveOperations(
 ) {
   const [archiveYear, setArchiveYear] = useState(new Date().getFullYear().toString());
   const [archiving, setArchiving] = useState(false);
+  const [archiveDataLoading, setArchiveDataLoading] = useState(false);
   const [selectedArchive, setSelectedArchive] = useState<PaymentArchive | null>(null);
   const [showArchiveDetail, setShowArchiveDetail] = useState(false);
   const [archiveExportingId, setArchiveExportingId] = useState<string | null>(null);
@@ -94,10 +95,42 @@ export function useArchiveOperations(
     [archiveYear, canDeletePayments, resolvedSchoolId, onError, onSuccess, currentBranchId]
   );
 
-  const openArchiveDetail = useCallback((archive: PaymentArchive) => {
-    setSelectedArchive(archive);
-    setShowArchiveDetail(true);
-  }, []);
+  const loadArchiveData = useCallback(
+    async (archive: PaymentArchive): Promise<PaymentArchive | null> => {
+      if (archive.data !== null && archive.data !== undefined) return archive;
+      if (!resolvedSchoolId) return null;
+      setArchiveDataLoading(true);
+      try {
+        const params = new URLSearchParams({ archiveId: archive.id, schoolId: resolvedSchoolId });
+        if (currentBranchId) params.set("branchId", currentBranchId);
+        const { response, payload } = await fetchJsonWithAuthorizedSession<{
+          archive?: PaymentArchive;
+          error?: { message?: string };
+        }>(`/api/web/payments/archive?${params.toString()}`);
+        if (!response.ok) {
+          onError?.(payload?.error?.message || "تعذر تحميل بيانات الأرشيف.");
+          return null;
+        }
+        return payload?.archive ?? null;
+      } catch (e) {
+        onError?.(e instanceof Error ? e.message : "تعذر تحميل بيانات الأرشيف.");
+        return null;
+      } finally {
+        setArchiveDataLoading(false);
+      }
+    },
+    [resolvedSchoolId, currentBranchId, onError]
+  );
+
+  const openArchiveDetail = useCallback(
+    async (archive: PaymentArchive) => {
+      const loaded = await loadArchiveData(archive);
+      if (!loaded) return;
+      setSelectedArchive(loaded);
+      setShowArchiveDetail(true);
+    },
+    [loadArchiveData]
+  );
 
   const closeArchiveDetail = useCallback(() => {
     setShowArchiveDetail(false);
@@ -108,12 +141,14 @@ export function useArchiveOperations(
     archiveYear,
     setArchiveYear,
     archiving,
+    archiveDataLoading,
     selectedArchive,
     showArchiveDetail,
     archiveExportingId,
     setArchiveExportingId,
     archiveAccountsYear,
+    loadArchiveData,
     openArchiveDetail,
     closeArchiveDetail,
-  }), [archiveYear, setArchiveYear, archiving, selectedArchive, showArchiveDetail, archiveExportingId, setArchiveExportingId, archiveAccountsYear, openArchiveDetail, closeArchiveDetail]);
+  }), [archiveYear, setArchiveYear, archiving, archiveDataLoading, selectedArchive, showArchiveDetail, archiveExportingId, setArchiveExportingId, archiveAccountsYear, loadArchiveData, openArchiveDetail, closeArchiveDetail]);
 }

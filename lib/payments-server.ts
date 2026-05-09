@@ -117,12 +117,6 @@ export async function recomputeStudentPaymentTotalsAfterDelete(
 
   if (studentError || !student) {
     const err = studentError || new Error("Student not found");
-    console.error("[recompute] Student load error:", {
-      studentId,
-      schoolId,
-      error: studentError?.message || "Student not found",
-      errorCode: studentError?.code,
-    });
     throw err;
   }
 
@@ -135,14 +129,6 @@ export async function recomputeStudentPaymentTotalsAfterDelete(
       .eq("school_id", student.school_id)
       .eq("class_name", student.class_name)
       .maybeSingle();
-    if (classFeeError) {
-      console.error("[recompute] Class fee load error:", {
-        studentId,
-        className: student.class_name,
-        error: classFeeError.message,
-        errorCode: classFeeError.code,
-      });
-    }
     if (classFeeRow?.total_fee) {
       effectiveTotalFee = Number(classFeeRow.total_fee);
     }
@@ -151,15 +137,6 @@ export async function recomputeStudentPaymentTotalsAfterDelete(
   // Calculate remaining_fee
   const discountValue = Number(student.discount_value ?? 0);
   const remainingFee = Math.max(effectiveTotalFee - activePaidFee - discountValue, 0);
-
-  console.log("[recompute] Before UPDATE students:", {
-    studentId,
-    schoolId,
-    activePaidFee,
-    effectiveTotalFee,
-    discountValue,
-    remainingFee,
-  });
 
   // Update students table with recalculated values
   const { error: updateError } = await actorSupabase
@@ -173,21 +150,8 @@ export async function recomputeStudentPaymentTotalsAfterDelete(
     .eq("school_id", schoolId);
 
   if (updateError) {
-    console.error("[recompute] UPDATE students error:", {
-      studentId,
-      schoolId,
-      error: updateError.message,
-      errorCode: updateError.code,
-      details: updateError,
-    });
     throw updateError;
   }
-
-  console.log("[recompute] UPDATE students succeeded:", {
-    studentId,
-    paid_fee: activePaidFee,
-    remaining_fee: remainingFee,
-  });
 
   return {
     paid_fee: activePaidFee,

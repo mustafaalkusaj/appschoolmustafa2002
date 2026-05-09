@@ -17,7 +17,6 @@ interface PaymentModalProps {
   payForm: PayFormState;
   setPayForm: (form: PayFormState) => void;
   saving: boolean;
-  totalPaymentCount: number;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   error: string;
@@ -39,7 +38,6 @@ export function PaymentModal({
   payForm,
   setPayForm,
   saving,
-  totalPaymentCount,
   onClose,
   onSubmit,
   error,
@@ -54,7 +52,6 @@ export function PaymentModal({
   onSelectStudent,
 }: PaymentModalProps) {
   const t = useTranslations("payments.modal");
-  const nextReceiptNum = `REC-${(totalPaymentCount + 1001).toString()}`;
 
   // Calculate remaining based on actual paid amount (including discount)
   const displayedPaidFee = actualPaidFee ?? payStudent?.paid_fee ?? 0;
@@ -67,7 +64,7 @@ export function PaymentModal({
     : 0;
 
   // Calculate preview amounts AFTER this payment is submitted
-  const enteredAmount = parseInt(payForm.amount) || 0;
+  const enteredAmount = parseFloat(payForm.amount) || 0;
   const previewPaidFee = displayedPaidFee + enteredAmount;
   const previewRemainingFee = payStudent
     ? Math.max(
@@ -237,7 +234,7 @@ export function PaymentModal({
 
             <FormField label={t("electronicReceiptNumber")}>
               <div className="rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] p-3 text-center">
-                <span className="block break-all text-sm font-bold text-[var(--primary)]">{nextReceiptNum}</span>
+                <span className="block break-all text-sm font-bold text-[var(--primary)]">سيتم توليده تلقائياً</span>
               </div>
             </FormField>
 

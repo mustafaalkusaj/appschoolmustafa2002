@@ -509,14 +509,14 @@ function normalizeArchiveRows(rows: Array<Record<string, unknown>>): PaymentArch
     total_students: row.total_students === null || row.total_students === undefined ? null : Number(row.total_students ?? 0),
     total_payments: row.total_payments === null || row.total_payments === undefined ? null : Number(row.total_payments ?? 0),
     total_amount: row.total_amount === null || row.total_amount === undefined ? null : Number(row.total_amount ?? 0),
-    data: typeof row.data === "undefined" ? null : decompressArchiveData(row.data),
+    data: (row.data === null || row.data === undefined) ? null : decompressArchiveData(row.data),
   }));
 }
 
 async function fetchArchives(actorSupabase: RouteSupabaseClient, schoolId: string, branchScope: ResolvedBranchScope) {
   let query = actorSupabase
     .from("account_archives")
-    .select("id, school_id, branch_id, archive_year, total_students, total_payments, total_amount, data, archive_date")
+    .select("id, school_id, branch_id, archive_year, total_students, total_payments, total_amount, archive_date")
     .eq("school_id", schoolId)
     .order("archive_year", { ascending: false })
     .order("archive_date", { ascending: false });
@@ -629,7 +629,7 @@ async function fetchPaymentYears(
   };
 }
 
-async function fetchStudentsPageViaRpc(actorSupabase: RouteSupabaseClient, schoolId: string, filters: PaymentsListFilters) {
+async function fetchStudentsPageViaRpc(actorSupabase: RouteSupabaseClient, schoolId: string, filters: PaymentsListFilters, branchIds?: string[]) {
   const { data, error } = await actorSupabase.rpc("school_payment_students_page", {
     p_school_id: schoolId,
     p_search: filters.search,
@@ -639,6 +639,7 @@ async function fetchStudentsPageViaRpc(actorSupabase: RouteSupabaseClient, schoo
     p_dir: filters.dir,
     p_page: filters.page,
     p_page_size: filters.pageSize,
+    p_branch_ids: branchIds && branchIds.length > 0 ? branchIds : null,
   });
 
   if (error) {
@@ -893,13 +894,16 @@ export async function resolvePaymentsStudentsPage(
   branchScope: ResolvedBranchScope,
   filters: PaymentsListFilters,
 ) {
-  if (branchScope.branchIds.length === 0) {
-    try {
-      return await fetchStudentsPageViaRpc(actorSupabase, schoolId, filters);
-    } catch (error) {
-      if (!isMissingPaymentsStudentsPageFunction(error as { code?: string | null; message?: string | null })) {
-        throw new Error(error instanceof Error ? error.message : "تعذر تحميل قائمة الطلاب.");
-      }
+  try {
+    return await fetchStudentsPageViaRpc(
+      actorSupabase,
+      schoolId,
+      filters,
+      branchScope.branchIds.length > 0 ? branchScope.branchIds : undefined,
+    );
+  } catch (error) {
+    if (!isMissingPaymentsStudentsPageFunction(error as { code?: string | null; message?: string | null })) {
+      throw new Error(error instanceof Error ? error.message : "تعذر تحميل قائمة الطلاب.");
     }
   }
 

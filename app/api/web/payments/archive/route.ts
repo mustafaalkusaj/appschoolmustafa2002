@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
-import { compressArchiveData } from "@/lib/payments/archive-compression";
+import { compressArchiveData, decompressArchiveData } from "@/lib/payments/archive-compression";
 import { applyBranchScopeToQuery, resolveBranchScope, resolveBranchIdForWrite } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -10,6 +10,72 @@ import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function GET(req: NextRequest) {
+  const archiveId = req.nextUrl.searchParams.get("archiveId") ?? "";
+  const schoolId = req.nextUrl.searchParams.get("schoolId") ?? "";
+  const branchIdParam = req.nextUrl.searchParams.get("branchId") ?? "";
+
+  if (!UUID_REGEX.test(archiveId)) {
+    return jsonError("معرّف الأرشيف غير صالح.", 400);
+  }
+
+  const context = await resolveSchoolScopedActorContext(
+    schoolId,
+    {
+      allowedRoles: ["super_admin", "admin", "employee"],
+      roleDeniedMessage: "بيانات الأرشيف متاحة ضمن المدرسة الحالية فقط.",
+    },
+    req.headers.get("authorization"),
+  );
+
+  if (!context.ok) {
+    return jsonError(
+      "message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.",
+      "status" in context ? context.status : 500,
+    );
+  }
+
+  const { actorSupabase, targetSchoolId } = context.value;
+
+  const branchScope = resolveBranchScope(context.value, branchIdParam || null);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
+  let query = actorSupabase
+    .from("account_archives")
+    .select("id, school_id, branch_id, archive_year, total_students, total_payments, total_amount, data, archive_date")
+    .eq("id", archiveId)
+    .eq("school_id", targetSchoolId);
+
+  if (branchScope.value.branchIds.length === 1) {
+    query = query.eq("branch_id", branchScope.value.branchIds[0]);
+  }
+
+  const { data: archive, error } = await query.maybeSingle();
+
+  if (error || !archive) {
+    return jsonError("تعذر العثور على الأرشيف المطلوب.", 404);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    archive: {
+      id: archive.id,
+      school_id: archive.school_id,
+      branch_id: archive.branch_id,
+      archive_year: archive.archive_year,
+      archive_date: archive.archive_date,
+      total_students: archive.total_students,
+      total_payments: archive.total_payments,
+      total_amount: archive.total_amount,
+      data: archive.data === null || archive.data === undefined ? null : decompressArchiveData(archive.data),
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {

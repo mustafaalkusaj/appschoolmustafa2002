@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -34,7 +35,17 @@ export async function GET(
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, targetSchoolId, actorUserId } = context.value;
+
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "payments-student-detail",
+    windowMs: 60_000,
+    maxHits: 120,
+    identifier: actorUserId,
+  });
+  if (rateLimited) {
+    return rateLimited;
+  }
 
   // Load student FIRST to get real branch_id from DB (not client-provided)
   const { data: student, error: studentError } = await actorSupabase

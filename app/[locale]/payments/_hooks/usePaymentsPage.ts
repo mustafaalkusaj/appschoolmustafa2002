@@ -10,6 +10,7 @@ import { getLocaleFromPath } from "@/lib/locale-routing";
 import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { buildStyledReceiptHtml } from "@/lib/print/receipt-styled";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
+import { normalizeArabicText } from "@/lib/normalization";
 
 import { usePaymentsMeta } from "./usePaymentsMeta";
 import { useStudentsPage } from "./useStudentsPage";
@@ -260,10 +261,19 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   // ── Archive mode ──────────────────────────────────────────────
   const [activeArchiveYear, setActiveArchiveYearState] = useState<number | null>(null);
 
-  const activateArchiveYear = useCallback((year: number) => {
-    setActiveArchiveYearState(year);
-    studentsHook.setPage(1);
-  }, [studentsHook]);
+  const activateArchiveYear = useCallback(
+    async (year: number) => {
+      const archive = metaHook.archives.find((a) => a.archive_year === year) ?? null;
+      if (archive && (archive.data === null || archive.data === undefined)) {
+        const loaded = await archiveOpsHook.loadArchiveData(archive);
+        if (!loaded) return;
+        metaHook.patchArchiveData(archive.id, loaded.data);
+      }
+      setActiveArchiveYearState(year);
+      studentsHook.setPage(1);
+    },
+    [studentsHook, metaHook, archiveOpsHook]
+  );
 
   const exitArchiveMode = useCallback(() => {
     setActiveArchiveYearState(null);
@@ -298,8 +308,8 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     let result = archiveStudentsRaw as Student[];
 
     if (search) {
-      const q = search.toLowerCase();
-      result = result.filter((s) => s.full_name?.toLowerCase().includes(q));
+      const q = normalizeArabicText(search);
+      result = result.filter((s) => normalizeArabicText(s.full_name ?? "").includes(q));
     }
 
     if (filterClass) {

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Student, Payment, PayFormState, SEARCH_DEBOUNCE_MS } from "../_types";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { resolveBranchIdForSchool } from "@/lib/school/context";
+import { invalidatePaymentsPageCache } from "./useStudentsPage";
 
 export function buildReceiptNumber() {
   const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
@@ -206,12 +207,6 @@ export function usePaymentOperations(
     [resolvedSchoolId, onError, currentBranchId]
   );
 
-  // Calculate actual paid amount by summing student's payments
-  const _calculateActualPaidFee = (studentId: string): number => {
-    const payments = paymentsByStudent[studentId] ?? [];
-    return payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  };
-
   const handlePayment = useCallback(
     async (
       e: React.FormEvent,
@@ -291,6 +286,7 @@ export function usePaymentOperations(
         if (payload?.payment) {
           const newPayment = payload.payment;
           onIncrementCount();
+          invalidatePaymentsPageCache();
           const createdYear = payload.payment.created_at ? new Date(payload.payment.created_at).getFullYear() : null;
           if (typeof createdYear === "number" && Number.isFinite(createdYear)) {
             onAddYear(createdYear);
@@ -367,6 +363,7 @@ export function usePaymentOperations(
         }));
 
         onDecrementCount();
+        invalidatePaymentsPageCache();
 
         if (payload?.warning) {
           onError?.(`تم حذف الدفعة لكن تعذر مزامنة رصيد الطالب بالكامل: ${payload.warning}`);
@@ -380,7 +377,7 @@ export function usePaymentOperations(
         onError?.(errMsg);
       }
     },
-    [canDeletePayments, resolvedSchoolId, onError, setPaymentsByStudent]
+    [canDeletePayments, resolvedSchoolId, currentBranchId, onError, onSuccess, setPaymentsByStudent]
   );
 
   const openPaymentModal = useCallback(
