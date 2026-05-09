@@ -873,9 +873,6 @@ export async function resolvePaymentsMeta(
   ]);
 
   const compatibilityWarnings = [
-    branchScope.branchIds.length > 0
-      ? "تم تعطيل دوال المدرسة الواسعة تلقائياً داخل نطاق الفرع لمنع تسرب بيانات الفروع الأخرى."
-      : "ملخص المدفوعات يعمل حالياً بوضع التوافق البرمجي. طبّق migration الخاصة بدوال school_payments_summary و school_payment_students_page لتحسين الأداء.",
     paymentsResult.paymentNotice,
     archiveResult.archiveNotice,
   ].filter(Boolean);
