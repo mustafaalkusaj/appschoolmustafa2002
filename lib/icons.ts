@@ -2,6 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   AlertTriangle,
+  Lock,
+  LockOpen,
   Archive,
   HardDrive,
   ArrowDown,
@@ -119,6 +121,8 @@ export type { LucideIcon } from "lucide-react";
 export {
   Activity,
   AlertTriangle,
+  Lock,
+  LockOpen,
   Archive,
   ArrowDown,
   ArrowLeftRight,

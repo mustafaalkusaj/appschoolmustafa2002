@@ -14,7 +14,7 @@ import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
-import { CalendarDays, Search, Filter, Save, RotateCcw } from "@/lib/icons";
+import { CalendarDays, Search, Filter, Save, RotateCcw, Download, AlertTriangle, Lock, LockOpen, TrendingUp, BarChart3 } from "@/lib/icons";
 import { StudentAttendanceInsight } from "@/app/[locale]/attendance/_components/StudentAttendanceInsight";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
@@ -67,6 +67,15 @@ type HistorySummary = {
   excused: number;
   total: number;
   rate: number;
+};
+
+type RepeatedAbsenceStudent = {
+  id: string;
+  full_name: string;
+  class_name: string;
+  section: string | null;
+  absent_count: number;
+  absent_dates: string[];
 };
 
 type AttendanceSnapshotResponse = {
@@ -325,6 +334,17 @@ export default function AttendancePage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
+  // Repeated absences
+  const [repeatedAbsences, setRepeatedAbsences] = useState<RepeatedAbsenceStudent[]>([]);
+  const [loadingRepeated, setLoadingRepeated] = useState(false);
+  const [absenceThreshold, setAbsenceThreshold] = useState(3);
+
+  // Lock past days
+  const [lockOverride, setLockOverride] = useState(false);
+  const isAdmin = profile?.role === "super_admin" || profile?.role === "admin";
+  const todayIso = getLocalIsoDate(new Date());
+  const isLocked = selectedDate < todayIso && !lockOverride;
+
   const resolvedSchoolIdForInsights = useMemo(() => {
     return schoolScope.selectedSchoolId ?? profile?.school_id ?? null;
   }, [profile?.school_id, schoolScope.selectedSchoolId]);
@@ -447,6 +467,24 @@ export default function AttendancePage() {
     setTimeout(() => setSuccess(""), 2500);
   }
 
+  const fetchRepeatedAbsences = useCallback(async (threshold: number) => {
+    const scopedSchoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    if (!scopedSchoolId) return;
+    setLoadingRepeated(true);
+    const params = new URLSearchParams({ schoolId: scopedSchoolId, threshold: String(threshold) });
+    if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
+    const { payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; students: RepeatedAbsenceStudent[] }>(
+      `/api/web/attendance/repeated-absences?${params.toString()}`,
+    );
+    setRepeatedAbsences(payload?.students ?? []);
+    setLoadingRepeated(false);
+  }, [profile, schoolScope.selectedSchoolId, runtimeBranding.branchId]);
+
+  useEffect(() => {
+    if (schoolScope.scopeLoading || schoolScope.shouldBlockContent) return;
+    void fetchRepeatedAbsences(absenceThreshold);
+  }, [fetchRepeatedAbsences, absenceThreshold, schoolScope.scopeLoading, schoolScope.shouldBlockContent]);
+
   async function saveAttendance() {
     setSaving(true);
     setError("");
@@ -538,6 +576,67 @@ export default function AttendancePage() {
   }, [students, attendanceDrafts, search, filterClass, filterSection, filterStatus]);
 
   const changedCount = useMemo(() => Object.values(attendanceDrafts).filter((draft) => draft.touched && draft.status).length, [attendanceDrafts]);
+
+  // Class breakdown stats
+  const classStats = useMemo(() => {
+    const map = new Map<string, { present: number; absent: number; late: number; excused: number; total: number }>();
+    for (const student of students) {
+      const cls = student.class_name || "—";
+      const draft = attendanceDrafts[student.id];
+      const status = draft?.status || "";
+      if (!map.has(cls)) map.set(cls, { present: 0, absent: 0, late: 0, excused: 0, total: 0 });
+      const entry = map.get(cls)!;
+      entry.total++;
+      if (status === "present") entry.present++;
+      else if (status === "absent") entry.absent++;
+      else if (status === "late") entry.late++;
+      else if (status === "excused") entry.excused++;
+    }
+    return Array.from(map.entries())
+      .map(([cls, c]) => ({ class_name: cls, ...c, rate: c.total ? Math.round(((c.present + c.late) / c.total) * 100) : 0 }))
+      .sort((a, b) => a.rate - b.rate);
+  }, [students, attendanceDrafts]);
+
+  // Weekly comparison from 30-day history
+  const weeklyComparison = useMemo(() => {
+    const now = new Date();
+    const dow = now.getDay(); // 0=Sun
+    const weekStartDate = new Date(now.getTime() - dow * 86400000);
+    const weekStartStr = getLocalIsoDate(weekStartDate);
+    const lastWeekStartStr = getLocalIsoDate(new Date(weekStartDate.getTime() - 7 * 86400000));
+
+    const thisWeek = { present: 0, late: 0, total: 0 };
+    const lastWeek = { present: 0, late: 0, total: 0 };
+
+    for (const row of historyRows) {
+      if (row.date >= weekStartStr) {
+        thisWeek.present += row.present; thisWeek.late += row.late; thisWeek.total += row.total;
+      } else if (row.date >= lastWeekStartStr) {
+        lastWeek.present += row.present; lastWeek.late += row.late; lastWeek.total += row.total;
+      }
+    }
+    const thisRate = thisWeek.total ? Math.round(((thisWeek.present + thisWeek.late) / thisWeek.total) * 100) : 0;
+    const lastRate = lastWeek.total ? Math.round(((lastWeek.present + lastWeek.late) / lastWeek.total) * 100) : 0;
+    return { thisRate, lastRate, diff: thisRate - lastRate };
+  }, [historyRows]);
+
+  // Export current day CSV
+  function exportDailyCsv() {
+    const statusLabelMap: Record<string, string> = { present: "حاضر", absent: "غائب", late: "متأخر", excused: "بعذر" };
+    const header = "الاسم,الصف,الشعبة,الحالة,الملاحظة";
+    const rows = filteredStudents.map((s) => {
+      const d = attendanceDrafts[s.id];
+      const vals = [s.full_name, s.class_name, s.section ?? "", statusLabelMap[d?.status || ""] ?? "—", d?.note || ""];
+      return vals.map((v) => (v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v)).join(",");
+    });
+    const csv = "\uFEFF" + [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `حضور_${selectedDate}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const heroDateLabel = useMemo(
     () =>
       new Date(`${selectedDate}T00:00:00`).toLocaleDateString(locale === "en" ? "en-US" : "ar-IQ", {
@@ -582,19 +681,43 @@ export default function AttendancePage() {
                       <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">{copy.activeDate}</div>
                       <div className="text-sm font-black text-[var(--text-primary)] mt-1">{heroDateLabel}</div>
                     </div>
-                    <button
-                      className={cn(
-                        "h-full px-6 py-4 rounded-2xl font-black transition-all shadow-lg flex flex-col items-center justify-center gap-1 md:min-w-[180px] border",
-                        changedCount > 0
-                          ? "bg-[var(--primary)] text-white border-transparent shadow-[0_16px_30px_color-mix(in_srgb,var(--primary)_24%,transparent)] hover:-translate-y-0.5 active:translate-y-0"
-                          : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] cursor-not-allowed opacity-60"
+                    <div className="flex gap-2">
+                      {isLocked && isAdmin && (
+                        <button
+                          className="h-full px-4 py-4 rounded-2xl font-black border border-[var(--warning)]/30 bg-[var(--warning)]/10 text-[var(--warning)] text-xs flex flex-col items-center justify-center gap-1 transition hover:bg-[var(--warning)]/20"
+                          onClick={() => setLockOverride(true)}
+                          title="فتح التعديل"
+                        >
+                          <LockOpen size={18} />
+                          <span>فتح</span>
+                        </button>
                       )}
-                      onClick={saveAttendance}
-                      disabled={saving || changedCount === 0}
-                    >
-                      <Save size={20} />
-                      <span className="text-sm">{saving ? copy.saving : copy.saveChanges(changedCount)}</span>
-                    </button>
+                      {lockOverride && (
+                        <button
+                          className="h-full px-4 py-4 rounded-2xl font-black border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs flex flex-col items-center justify-center gap-1 transition hover:bg-[var(--border)]"
+                          onClick={() => setLockOverride(false)}
+                          title="إعادة القفل"
+                        >
+                          <Lock size={18} />
+                          <span>قفل</span>
+                        </button>
+                      )}
+                      <button
+                        className={cn(
+                          "h-full px-6 py-4 rounded-2xl font-black transition-all shadow-lg flex flex-col items-center justify-center gap-1 md:min-w-[180px] border",
+                          isLocked
+                            ? "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] cursor-not-allowed opacity-50"
+                            : changedCount > 0
+                              ? "bg-[var(--primary)] text-white border-transparent shadow-[0_16px_30px_color-mix(in_srgb,var(--primary)_24%,transparent)] hover:-translate-y-0.5 active:translate-y-0"
+                              : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] cursor-not-allowed opacity-60"
+                        )}
+                        onClick={saveAttendance}
+                        disabled={saving || changedCount === 0 || isLocked}
+                      >
+                        <Save size={20} />
+                        <span className="text-sm">{saving ? copy.saving : copy.saveChanges(changedCount)}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -713,13 +836,70 @@ export default function AttendancePage() {
                     ))}
                   </div>
 
+                  {/* Class Breakdown Stats */}
+                  {classStats.length > 1 && (
+                    <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-2 border-b border-[var(--border)] pb-5">
+                          <BarChart3 size={18} className="text-[var(--primary)]" />
+                          <h2 className="text-lg font-black text-[var(--text-primary)]">نسبة الحضور حسب الصف</h2>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          {classStats.map((cls) => (
+                            <div key={cls.class_name} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-black text-[var(--text-primary)] truncate">{cls.class_name}</span>
+                                <span className={cn("text-sm font-black", cls.rate >= 80 ? "text-[var(--success)]" : cls.rate >= 60 ? "text-[var(--warning)]" : "text-[var(--danger)]")}>{cls.rate}%</span>
+                              </div>
+                              <div className="w-full bg-[var(--border)] rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={cn("h-full rounded-full transition-all", cls.rate >= 80 ? "bg-[var(--success)]" : cls.rate >= 60 ? "bg-[var(--warning)]" : "bg-[var(--danger)]")}
+                                  style={{ width: `${cls.rate}%` }}
+                                />
+                              </div>
+                              <div className="flex gap-3 text-[10px] font-bold text-[var(--text-muted)]">
+                                <span className="text-[var(--success)]">↑{cls.present}</span>
+                                <span className="text-[var(--danger)]">↓{cls.absent}</span>
+                                <span className="text-[var(--warning)]">~{cls.late}</span>
+                                <span className="ms-auto opacity-60">{cls.total} طالب</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
                   {/* Main Attendance Grid */}
                   <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
                     <div className="space-y-8">
+                      {/* Lock Banner */}
+                      {isLocked && (
+                        <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/8 px-5 py-4">
+                          <Lock size={16} className="text-[var(--warning)] shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black text-[var(--warning)]">يوم مقفل — للمراجعة فقط</p>
+                            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">سجلات {selectedDate} لا يمكن تعديلها بعد انتهاء اليوم.</p>
+                          </div>
+                          {isAdmin && (
+                            <button onClick={() => setLockOverride(true)} className="shrink-0 px-3 py-1.5 rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 text-[var(--warning)] text-xs font-black transition hover:bg-[var(--warning)]/20">
+                              فتح التعديل
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center justify-between border-b border-[var(--border)] pb-6">
                         <h2 className="text-xl font-black text-[var(--text-primary)]">{copy.studentsList}</h2>
-                        <div className="px-3 py-1 rounded-full bg-[var(--surface-muted)] text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                          {copy.studentCount(filteredStudents.length)}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={exportDailyCsv}
+                            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-xs font-black text-[var(--text-secondary)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--surface-muted)]"
+                          >
+                            <Download size={13} /> تصدير CSV
+                          </button>
+                          <div className="px-3 py-1 rounded-full bg-[var(--surface-muted)] text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                            {copy.studentCount(filteredStudents.length)}
+                          </div>
                         </div>
                       </div>
 
@@ -767,11 +947,16 @@ export default function AttendancePage() {
                                               key={status}
                                             className={cn(
                                                 "px-3 py-1.5 rounded-lg text-[11px] font-black border shadow-sm transition-all",
-                                                isActive 
-                                                  ? `${statusMeta[status].bg} ${statusMeta[status].color} ${statusMeta[status].border} shadow-[0_10px_22px_color-mix(in_srgb,var(--primary)_15%,transparent)] scale-[1.03]` 
-                                                  : "bg-[var(--surface-strong)] border-[var(--border)] text-[var(--text-muted)] grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:-translate-y-0.5"
+                                                isLocked
+                                                  ? isActive
+                                                    ? `${statusMeta[status].bg} ${statusMeta[status].color} ${statusMeta[status].border} opacity-60`
+                                                    : "bg-[var(--surface-strong)] border-[var(--border)] text-[var(--text-muted)] opacity-30 cursor-not-allowed"
+                                                  : isActive
+                                                    ? `${statusMeta[status].bg} ${statusMeta[status].color} ${statusMeta[status].border} shadow-[0_10px_22px_color-mix(in_srgb,var(--primary)_15%,transparent)] scale-[1.03]`
+                                                    : "bg-[var(--surface-strong)] border-[var(--border)] text-[var(--text-muted)] grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:-translate-y-0.5"
                                               )}
-                                              onClick={() => setRowStatus(student.id, status)}
+                                              onClick={() => !isLocked && setRowStatus(student.id, status)}
+                                              disabled={isLocked}
                                             >
                                               {statusMeta[status].label}
                                             </button>
@@ -780,11 +965,12 @@ export default function AttendancePage() {
                                       </div>
                                     </td>
                                     <td className="p-4">
-                                      <input 
-                                        className={cn(controlClasses, "h-9 text-xs py-1")} 
+                                      <input
+                                        className={cn(controlClasses, "h-9 text-xs py-1", isLocked && "opacity-50 cursor-not-allowed")}
                                         placeholder={copy.addNote}
-                                        value={draft.note} 
-                                        onChange={(e) => setRowNote(student.id, e.target.value)} 
+                                        value={draft.note}
+                                        onChange={(e) => !isLocked && setRowNote(student.id, e.target.value)}
+                                        readOnly={isLocked}
                                       />
                                     </td>
                                     <td className="p-4 text-[10px] font-bold text-[var(--text-muted)] whitespace-nowrap">
@@ -793,6 +979,93 @@ export default function AttendancePage() {
                                   </tr>
                                 );
                               })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Repeated Absences Report */}
+                  <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
+                    <div className="space-y-6">
+                      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--border)] pb-6">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle size={18} className="text-[var(--danger)]" />
+                          <div>
+                            <h2 className="text-lg font-black text-[var(--text-primary)]">تقرير الغياب المتكرر</h2>
+                            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">آخر 30 يوماً — طلاب تجاوزوا حد الغياب</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-black text-[var(--text-muted)]">الحد الأدنى:</span>
+                          {[2, 3, 5, 7, 10].map((n) => (
+                            <button
+                              key={n}
+                              onClick={() => setAbsenceThreshold(n)}
+                              className={cn(
+                                "h-8 w-8 rounded-lg text-xs font-black border transition",
+                                absenceThreshold === n
+                                  ? "bg-[var(--danger)] text-white border-transparent"
+                                  : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
+                              )}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => void fetchRepeatedAbsences(absenceThreshold)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-xs font-black text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)]"
+                          >
+                            <RotateCcw size={12} /> تحديث
+                          </button>
+                        </div>
+                      </div>
+
+                      {loadingRepeated ? (
+                        <div className="flex justify-center py-10">
+                          <div className="h-8 w-8 border-4 border-[var(--danger)]/20 border-t-[var(--danger)] rounded-full animate-spin" />
+                        </div>
+                      ) : repeatedAbsences.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-12 text-center">
+                          <TrendingUp size={32} className="text-[var(--success)] opacity-40" />
+                          <p className="text-sm font-black text-[var(--text-muted)]">لا يوجد طلاب تجاوزوا {absenceThreshold} أيام غياب في آخر 30 يوم</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-2xl border border-[var(--border)]">
+                          <table className="w-full text-start border-collapse">
+                            <thead>
+                              <tr className="bg-[var(--surface-muted)]">
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الطالب</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الصف / الشعبة</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">عدد الغيابات</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">آخر 3 أيام</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--border)]">
+                              {repeatedAbsences.map((s) => (
+                                <tr key={s.id} className="hover:bg-[var(--surface-muted)]/50 transition-colors">
+                                  <td className="p-4 font-black text-[var(--text-primary)] text-sm">{s.full_name}</td>
+                                  <td className="p-4 text-xs font-bold text-[var(--text-secondary)]">
+                                    {s.class_name}{s.section ? ` · ${s.section}` : ""}
+                                  </td>
+                                  <td className="p-4 text-center">
+                                    <span className={cn(
+                                      "inline-flex h-7 min-w-7 items-center justify-center rounded-full text-xs font-black px-2",
+                                      s.absent_count >= 7 ? "bg-[var(--danger)] text-white" : s.absent_count >= 5 ? "bg-[var(--warning)]/20 text-[var(--warning)]" : "bg-[var(--danger)]/10 text-[var(--danger)]"
+                                    )}>
+                                      {s.absent_count}
+                                    </span>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="flex flex-wrap gap-1">
+                                      {s.absent_dates.slice(-3).map((d) => (
+                                        <span key={d} className="text-[10px] font-bold bg-[var(--surface-muted)] border border-[var(--border)] rounded-lg px-2 py-0.5 text-[var(--text-muted)]">{d}</span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
                             </tbody>
                           </table>
                         </div>
@@ -811,8 +1084,29 @@ export default function AttendancePage() {
                     <section className="rounded-[40px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
                       <div className="space-y-8">
                         <div className="flex flex-col gap-1 border-b border-[var(--border)] pb-6">
-                          <h2 className="text-xl font-black text-[var(--text-primary)]">{copy.historyTitle}</h2>
+                          <h2 className="text-xl font-black text-[var(--text-primary)]">آخر 30 يوماً</h2>
                           <p className="text-sm text-[var(--text-muted)]">{copy.historyDescription}</p>
+                        </div>
+
+                        {/* Weekly Comparison */}
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          {[
+                            { label: "هذا الأسبوع", rate: weeklyComparison.thisRate, color: weeklyComparison.diff >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
+                            { label: "الأسبوع الماضي", rate: weeklyComparison.lastRate, color: "text-[var(--text-primary)]" },
+                            {
+                              label: "الفرق",
+                              rate: Math.abs(weeklyComparison.diff),
+                              suffix: weeklyComparison.diff > 0 ? "↑" : weeklyComparison.diff < 0 ? "↓" : "—",
+                              color: weeklyComparison.diff > 0 ? "text-[var(--success)]" : weeklyComparison.diff < 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]",
+                            },
+                          ].map((card) => (
+                            <div key={card.label} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-5 flex flex-col gap-1">
+                              <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{card.label}</div>
+                              <div className={cn("text-2xl font-black", card.color)}>
+                                {"suffix" in card ? card.suffix !== "—" ? `${card.suffix} ${card.rate}%` : "—" : `${card.rate}%`}
+                              </div>
+                            </div>
+                          ))}
                         </div>
 
                         <div className="overflow-x-auto rounded-2xl border border-[var(--border)]">

@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
   if (!canViewAttendance) {
     return jsonError("ليس لديك صلاحية عرض الحضور.", 403);
   }
-  const fromDate = getLocalIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 14 * 24 * 60 * 60 * 1000));
+  const fromDate = getLocalIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 30 * 24 * 60 * 60 * 1000));
 
   const [studentsResult, recordsResult, historyResult] = await Promise.all([
     applyBranchScopeToQuery(
@@ -232,6 +232,20 @@ export async function POST(req: NextRequest) {
   const canSaveAttendance = await routeUserHasPermission(actorSupabase, context.value.actorUserId, "take_attendance");
   if (!canSaveAttendance) {
     return jsonError("ليس لديك صلاحية تسجيل الحضور.", 403);
+  }
+
+  // Lock: employees cannot edit attendance for past dates
+  const todayDate = getLocalIsoDate(new Date());
+  if (attendanceDate < todayDate) {
+    const { data: actorProfile } = await actorSupabase
+      .from("user_profiles")
+      .select("role")
+      .eq("id", context.value.actorUserId)
+      .maybeSingle();
+    const actorRole = (actorProfile as { role?: string } | null)?.role ?? "employee";
+    if (actorRole === "employee") {
+      return jsonError("لا يمكن تعديل سجلات الحضور لأيام سابقة. تواصل مع المشرف.", 403);
+    }
   }
   const studentIds = entries.map((entry) => entry.student_id);
   const { data: students, error: studentsError } = await applyBranchScopeToQuery(
