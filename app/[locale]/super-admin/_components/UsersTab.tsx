@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Users, UserRoundPlus, FileDown, PencilLine, Trash2, KeyRound } from "@/lib/icons";
+import { Users, UserRoundPlus, FileDown, PencilLine, Trash2, KeyRound, ExternalLink } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { formatDate, relationName } from "./utils";
 import type { BranchOptionRecord, SchoolRecord, UserRecord } from "./types";
@@ -17,6 +17,7 @@ interface UsersTabProps {
   onOpenEditUser: (user: UserRecord) => void;
   onDeleteUser: (user: UserRecord) => void;
   onResetPassword: (userId: string) => void;
+  onImpersonate?: (userId: string) => void;
 }
 
 export function UsersTab({
@@ -28,6 +29,7 @@ export function UsersTab({
   onOpenEditUser,
   onDeleteUser,
   onResetPassword,
+  onImpersonate,
 }: UsersTabProps) {
   const [showInactiveOnly, setShowInactiveOnly] = useState(false);
   const branchNames = new Map(branches.map((branch) => [branch.id, branch.name]));
@@ -137,6 +139,11 @@ export function UsersTab({
                             <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4" title="إعادة تعيين كلمة المرور" onClick={() => onResetPassword(user.id)}>
                               <KeyRound size={16} />
                             </button>
+                            {onImpersonate && (
+                              <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2 px-4" title="تسجيل الدخول كهذا المستخدم" onClick={() => onImpersonate(user.id)}>
+                                <ExternalLink size={16} />
+                              </button>
+                            )}
                             <button type="button" className="ui-button ui-button--danger inline-flex items-center gap-2 px-4" onClick={() => onDeleteUser(user)}>
                               <Trash2 size={16} />
                               أرشفة
@@ -186,6 +193,11 @@ export function UsersTab({
                     <button type="button" className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-3" title="إعادة تعيين كلمة المرور" onClick={() => onResetPassword(user.id)}>
                       <KeyRound size={16} />
                     </button>
+                    {onImpersonate && (
+                      <button type="button" className="ui-button ui-button--secondary inline-flex items-center justify-center gap-2 px-3" title="تسجيل الدخول كهذا المستخدم" onClick={() => onImpersonate(user.id)}>
+                        <ExternalLink size={16} />
+                      </button>
+                    )}
                     <button type="button" className="ui-button ui-button--danger inline-flex flex-1 items-center justify-center gap-2" onClick={() => onDeleteUser(user)}>
                       <Trash2 size={16} />
                       أرشفة

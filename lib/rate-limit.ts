@@ -121,11 +121,11 @@ function logProductionRateLimitBackendFailure(namespace: string, reason: Product
 
   const baseMessage = `Production rate limiting backend failed for namespace="${namespace}" reason="${reason}". TODO: ${RATE_LIMIT_FAIL_OPEN_TODO}.`;
   if (error) {
-    console.error(baseMessage, error);
+    console.warn(baseMessage, error);
     return;
   }
 
-  console.error(baseMessage);
+  console.warn(baseMessage);
 }
 
 function productionConfigurationResponse() {

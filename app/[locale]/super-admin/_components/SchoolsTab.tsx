@@ -1,6 +1,6 @@
 "use client";
 
-import { School, Plus, RefreshCw, FileDown, PencilLine, Trash2, Ban, BadgeCheck, Upload, Download } from "@/lib/icons";
+import { School, Plus, RefreshCw, FileDown, PencilLine, Trash2, Ban, BadgeCheck, Upload, Download, Copy } from "@/lib/icons";
 import { SectionCard, EmptyState } from "./ui";
 import { cx, formatDate, statusTone, calculateDaysLeft, isSubscriptionExpired } from "./utils";
 import type { SchoolRecord, SubscriptionRecord } from "./types";
@@ -21,6 +21,7 @@ interface SchoolsTabProps {
   onImportSchoolData: (school: SchoolRecord, file: File) => void;
   importingSchoolId?: string | null;
   onRefresh: () => void;
+  onCopyClasses?: (school: SchoolRecord) => void;
 }
 
 export function SchoolsTab({
@@ -37,6 +38,7 @@ export function SchoolsTab({
   onImportSchoolData,
   importingSchoolId,
   onRefresh,
+  onCopyClasses,
 }: SchoolsTabProps) {
   return (
     <SectionCard
@@ -162,6 +164,12 @@ export function SchoolsTab({
                           }}
                         />
                       </label>
+                      {onCopyClasses && (
+                        <button type="button" className="ui-button ui-button--secondary inline-flex items-center gap-2" onClick={() => onCopyClasses(school)}>
+                          <Copy size={16} />
+                          نسخ الصفوف
+                        </button>
+                      )}
                       <button type="button" className="ui-button ui-button--danger inline-flex items-center gap-2" onClick={() => onDeleteSchool(school)}>
                         <Trash2 size={16} />
                         أرشفة
