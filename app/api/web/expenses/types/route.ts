@@ -77,10 +77,6 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const canViewExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "view_expenses");
-  if (!canViewExpenses) {
-    return jsonError("ليس لديك صلاحية عرض أنواع المصروفات.", 403);
-  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-list",
     windowMs: 60_000,
@@ -89,6 +85,10 @@ export async function GET(req: NextRequest) {
   });
   if (rateLimited) {
     return rateLimited;
+  }
+  const canViewExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "view_expenses");
+  if (!canViewExpenses) {
+    return jsonError("ليس لديك صلاحية عرض أنواع المصروفات.", 403);
   }
 
   try {
@@ -139,10 +139,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
-  if (!canAddExpenses) {
-    return jsonError("ليس لديك صلاحية إضافة أنواع المصروفات.", 403);
-  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-create",
     windowMs: 60_000,
@@ -151,6 +147,10 @@ export async function POST(req: NextRequest) {
   });
   if (rateLimited) {
     return rateLimited;
+  }
+  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
+  if (!canAddExpenses) {
+    return jsonError("ليس لديك صلاحية إضافة أنواع المصروفات.", 403);
   }
 
   try {

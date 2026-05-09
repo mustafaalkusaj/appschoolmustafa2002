@@ -131,11 +131,14 @@ export async function GET(req: NextRequest) {
 
     const classFeeMap = new Map<string, number>();
     if (classNames.length > 0) {
-      const { data: classFees } = await actorSupabase
-        .from("class_fees")
-        .select("class_name, total_fee")
-        .eq("school_id", targetSchoolId)
-        .in("class_name", classNames);
+      const { data: classFees } = await applyBranchScopeToQuery(
+        actorSupabase
+          .from("class_fees")
+          .select("class_name, total_fee")
+          .eq("school_id", targetSchoolId)
+          .in("class_name", classNames),
+        branchScope.value,
+      );
 
       (classFees ?? []).forEach((cf: any) => {
         if (cf.class_name && typeof cf.total_fee === "number") {
@@ -250,7 +253,7 @@ export async function GET(req: NextRequest) {
       expenses,
       salaries,
     }, { headers: noStoreHeaders });
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر تجهيز بيانات التقرير المطلوبة.", 500);
+  } catch {
+    return jsonError("تعذر تجهيز بيانات التقرير المطلوبة.", 500);
   }
 }

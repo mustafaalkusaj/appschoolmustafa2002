@@ -17,7 +17,7 @@ import { useStudentsPage } from "./useStudentsPage";
 import { usePaymentOperations } from "./usePaymentOperations";
 import { useArchiveOperations } from "./useArchiveOperations";
 
-import { Student, Payment, PaymentArchive, SEARCH_DEBOUNCE_MS, PAGE_SIZE, EMPTY_SUMMARY, PaymentsSummary } from "../_types";
+import { Student, Payment, PaymentArchive, SEARCH_DEBOUNCE_MS, PAGE_SIZE, PaymentsSummary } from "../_types";
 import { getArchiveStudents, getArchivePayments } from "./useArchiveOperations";
 
 export function usePaymentsPage(options?: { currentBranchId?: string | null }) {

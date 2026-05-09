@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { CreditCard, RefreshCw, History, PencilLine, X, Loader2 } from "@/lib/icons";
+import { CreditCard, RefreshCw, History, PencilLine, Loader2 } from "@/lib/icons";
 import { SectionCard, EmptyState, ModalFrame } from "./ui";
 import { formatDate, calculateDaysLeft, isSubscriptionExpired, relationName } from "./utils";
 import type { SubscriptionRecord } from "./types";
 import { PLAN_LABELS, SUBSCRIPTION_STATUS_LABELS } from "./types";
-import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 
 interface SubscriptionsTabProps {
   subscriptions: SubscriptionRecord[];

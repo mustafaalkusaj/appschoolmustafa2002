@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Search, Upload, Download, Printer, CreditCard, Plus, GraduationCap } from "lucide-react";
+import { Search, Upload, Download, Printer, CreditCard, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -45,11 +45,11 @@ export function StudentsToolbar({
   canManageStudentAccounts,
   datasetLoading,
   printingCards,
-  onExportCurrentPage,
+  onExportCurrentPage: _onExportCurrentPage,
   onExportAll,
   onPrintFiltered,
   onPrintAllCards,
-  onPromoteYear,
+  onPromoteYear: _onPromoteYear,
   onAddStudent,
   onBulkImport,
 }: StudentsToolbarProps) {

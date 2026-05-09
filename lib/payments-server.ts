@@ -123,7 +123,7 @@ export async function recomputeStudentPaymentTotalsAfterDelete(
   // Resolve effective total_fee from class_fees if available
   let effectiveTotalFee = Number(student.total_fee ?? 0);
   if (student.class_name && student.school_id) {
-    const { data: classFeeRow, error: classFeeError } = await actorSupabase
+    const { data: classFeeRow } = await actorSupabase
       .from("class_fees")
       .select("total_fee")
       .eq("school_id", student.school_id)

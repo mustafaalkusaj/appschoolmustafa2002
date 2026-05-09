@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     // Find header row: first row that has at least 2 recognizable column aliases
     // (search first 15 rows to handle files with title/logo rows at top)
-    const { findColumnIndex: findCol, COLUMN_ALIASES } = await import("@/lib/students/import-engine");
+    const { findColumnIndex: _findCol, COLUMN_ALIASES } = await import("@/lib/students/import-engine");
     const requiredFields = ["fullName", "className"] as const;
 
     let headerRowIdx = 0;

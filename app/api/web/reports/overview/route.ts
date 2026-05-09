@@ -64,10 +64,13 @@ async function loadFallbackMetrics(
         .neq("status", "deleted"),
       branchScope,
     ),
-    actorSupabase
-      .from("class_fees")
-      .select("class_name, total_fee")
-      .eq("school_id", schoolId),
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("class_fees")
+        .select("class_name, total_fee")
+        .eq("school_id", schoolId),
+      branchScope,
+    ),
     applyBranchScopeToQuery(
       actorSupabase
         .from("payments")
@@ -286,7 +289,7 @@ export async function GET(req: NextRequest) {
         },
       },
     );
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر تحميل ملخص التقارير.", 500);
+  } catch {
+    return jsonError("تعذر تحميل ملخص التقارير.", 500);
   }
 }

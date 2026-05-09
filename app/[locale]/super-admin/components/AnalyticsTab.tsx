@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { TrendingUp, Users, School, CreditCard, Activity, DollarSign, RefreshCw, PencilLine, Check, AlertTriangle, FileDown } from "@/lib/icons";
+import { Users, School, CreditCard, DollarSign, RefreshCw, PencilLine, Check, AlertTriangle, FileDown } from "@/lib/icons";
 import type { SchoolRecord, UserRecord, SubscriptionRecord } from "../_components";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { PLAN_LABELS } from "../_components/types";
@@ -39,8 +39,8 @@ interface AnalyticsDashboardProps {
 }
 
 const ROLE_NAMES: Record<string, string> = { super_admin: "مسؤول عام", admin: "مسؤول", employee: "مستخدم" };
-const PLAN_COLORS: Record<string, string> = { basic: "bg-blue-500", premium: "bg-purple-500", enterprise: "bg-amber-500" };
-const ROLE_COLORS: Record<string, string> = { super_admin: "bg-red-500", admin: "bg-blue-500", employee: "bg-green-500" };
+const _PLAN_COLORS: Record<string, string> = { basic: "bg-blue-500", premium: "bg-purple-500", enterprise: "bg-amber-500" };
+const _ROLE_COLORS: Record<string, string> = { super_admin: "bg-red-500", admin: "bg-blue-500", employee: "bg-green-500" };
 
 function DonutChart({ segments }: { segments: { label: string; count: number; color: string }[] }) {
   const total = segments.reduce((s, x) => s + x.count, 0);

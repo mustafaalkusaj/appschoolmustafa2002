@@ -106,7 +106,7 @@ export default function ReportsPage() {
   const dashboardT = useTranslations("dashboard");
   const navT = useTranslations("nav");
   const isEnglish = locale === "en";
-  const reportCopy = isEnglish
+  const reportCopy = useMemo(() => isEnglish
     ? {
         loadReportsFailed: "Failed to load reports.",
         loadDatasetFailed: "Failed to prepare the dataset.",
@@ -204,27 +204,28 @@ export default function ReportsPage() {
         net: "الصافي",
         paidAt: "تاريخ الدفع",
         allFile: "تقرير_شامل",
-      };
+      }, [isEnglish]);
   const currency = commonT("currency");
   const { profile } = useRole();
 
-  function paymentMethodLabel(method: string | null | undefined) {
+  const paymentMethodLabel = useCallback((method: string | null | undefined) => {
     if (!method) return "—";
     try {
       return commonT(`paymentMethods.${method}`);
     } catch {
       return method;
     }
-  }
+  }, [commonT]);
 
-  function studentStatusLabel(status: string | null | undefined) {
+  const studentStatusLabel = useCallback((status: string | null | undefined) => {
     if (!status) return "—";
     try {
       return commonT(`studentStatus.${status}`);
     } catch {
       return status;
     }
-  }
+  }, [commonT]);
+
   const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
   const datasetCacheRef = useRef<{
@@ -258,8 +259,7 @@ export default function ReportsPage() {
       if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
 
       const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics; error?: { message?: string } }>(
-        `/api/web/reports/overview?${params.toString()}&t=${Date.now()}`,
-        { cache: "no-store" }
+        `/api/web/reports/overview?${params.toString()}`,
       );
 
       if (!response.ok) {
@@ -391,207 +391,227 @@ export default function ReportsPage() {
     }
   }, [getScopedSchoolId, reportCopy.loadComprehensiveFailed, runtimeBranding.branchId]);
 
-  async function exportStudentsExcel() {
-    const students = await loadDataset("students");
-    const { downloadExcelExport } = await import("@/lib/excel-client");
-    await downloadExcelExport({
-      filename: `${reportCopy.studentsFile}_${formatDate(new Date())}.xlsx`,
-      sheets: [{
-        name:  reportCopy.studentsSheet,
-        title: reportCopy.studentsSheet,
-        columns: [
-          { header: reportCopy.studentName, key: "name",      width: 28 },
-          { header: reportCopy.className,   key: "class",     width: 16 },
-          { header: reportCopy.status,      key: "status",    width: 12 },
-          { header: reportCopy.totalFees,   key: "total",     width: 18, numFmt: "#,##0" },
-          { header: reportCopy.paid,        key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
-          { header: reportCopy.remaining,   key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
-          { header: reportCopy.phone,       key: "phone",     width: 16 },
-          { header: reportCopy.address,     key: "address",   width: 22 },
-        ],
-        rows: students.map((item) => ({
-          name:      item.full_name,
-          class:     item.class_name || "—",
-          status:    studentStatusLabel(item.status),
-          total:     item.total_fee || 0,
-          paid:      item.paid_fee || 0,
-          remaining: item.remaining_fee || 0,
-          phone:     item.phone || "",
-          address:   item.address || "",
-        })),
-      }],
-    });
-  }
+  const exportStudentsExcel = useCallback(async () => {
+    try {
+      const students = await loadDataset("students");
+      const { downloadExcelExport } = await import("@/lib/excel-client");
+      await downloadExcelExport({
+        filename: `${reportCopy.studentsFile}_${formatDate(new Date())}.xlsx`,
+        sheets: [{
+          name:  reportCopy.studentsSheet,
+          title: reportCopy.studentsSheet,
+          columns: [
+            { header: reportCopy.studentName, key: "name",      width: 28 },
+            { header: reportCopy.className,   key: "class",     width: 16 },
+            { header: reportCopy.status,      key: "status",    width: 12 },
+            { header: reportCopy.totalFees,   key: "total",     width: 18, numFmt: "#,##0" },
+            { header: reportCopy.paid,        key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
+            { header: reportCopy.remaining,   key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
+            { header: reportCopy.phone,       key: "phone",     width: 16 },
+            { header: reportCopy.address,     key: "address",   width: 22 },
+          ],
+          rows: students.map((item) => ({
+            name:      item.full_name,
+            class:     item.class_name || "—",
+            status:    studentStatusLabel(item.status),
+            total:     item.total_fee || 0,
+            paid:      item.paid_fee || 0,
+            remaining: item.remaining_fee || 0,
+            phone:     item.phone || "",
+            address:   item.address || "",
+          })),
+        }],
+      });
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, reportCopy, studentStatusLabel]);
 
-  async function exportPaymentsExcel() {
-    const payments = await loadDataset("payments");
-    const { downloadExcelExport } = await import("@/lib/excel-client");
-    await downloadExcelExport({
-      filename: `${reportCopy.paymentsFile}_${formatDate(new Date())}.xlsx`,
-      sheets: [{
-        name:  reportCopy.paymentsSheet,
-        title: reportCopy.paymentsSheet,
-        columns: [
-          { header: reportCopy.student,       key: "name",    width: 28 },
-          { header: reportCopy.className,     key: "class",   width: 16 },
-          { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
-          { header: reportCopy.paymentMethod, key: "method",  width: 16 },
-          { header: reportCopy.date,          key: "date",    width: 16 },
-          { header: reportCopy.receiptNumber, key: "receipt", width: 22 },
-          { header: reportCopy.notes,         key: "notes",   width: 22 },
-        ],
-        rows: payments.map((item) => ({
-          name:    item.students?.full_name || "—",
-          class:   item.students?.class_name || "—",
-          amount:  item.amount || 0,
-          method:  paymentMethodLabel(item.payment_method),
-          date:    formatDate(item.created_at ?? ""),
-          receipt: item.receipt_number || "—",
-          notes:   item.notes || "",
-        })),
-      }],
-    });
-  }
+  const exportPaymentsExcel = useCallback(async () => {
+    try {
+      const payments = await loadDataset("payments");
+      const { downloadExcelExport } = await import("@/lib/excel-client");
+      await downloadExcelExport({
+        filename: `${reportCopy.paymentsFile}_${formatDate(new Date())}.xlsx`,
+        sheets: [{
+          name:  reportCopy.paymentsSheet,
+          title: reportCopy.paymentsSheet,
+          columns: [
+            { header: reportCopy.student,       key: "name",    width: 28 },
+            { header: reportCopy.className,     key: "class",   width: 16 },
+            { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
+            { header: reportCopy.paymentMethod, key: "method",  width: 16 },
+            { header: reportCopy.date,          key: "date",    width: 16 },
+            { header: reportCopy.receiptNumber, key: "receipt", width: 22 },
+            { header: reportCopy.notes,         key: "notes",   width: 22 },
+          ],
+          rows: payments.map((item) => ({
+            name:    item.students?.full_name || "—",
+            class:   item.students?.class_name || "—",
+            amount:  item.amount || 0,
+            method:  paymentMethodLabel(item.payment_method),
+            date:    formatDate(item.created_at ?? ""),
+            receipt: item.receipt_number || "—",
+            notes:   item.notes || "",
+          })),
+        }],
+      });
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, reportCopy, paymentMethodLabel]);
 
-  async function exportExpensesExcel() {
-    const expenses = await loadDataset("expenses");
-    const { downloadExcelExport } = await import("@/lib/excel-client");
-    await downloadExcelExport({
-      filename: `${reportCopy.expensesFile}_${formatDate(new Date())}.xlsx`,
-      sheets: [{
-        name:  reportCopy.expensesSheet,
-        title: reportCopy.expensesSheet,
-        columns: [
-          { header: reportCopy.type,          key: "type",      width: 20 },
-          { header: reportCopy.amount,        key: "amount",    width: 16, numFmt: "#,##0", fixedColor: "red" as const },
-          { header: reportCopy.date,          key: "date",      width: 16 },
-          { header: reportCopy.recipient,     key: "recipient", width: 20 },
-          { header: reportCopy.receiptNumber, key: "receipt",   width: 20 },
-          { header: reportCopy.notes,         key: "notes",     width: 24 },
-        ],
-        rows: expenses.map((item) => ({
-          type:      item.expense_types?.name || "—",
-          amount:    item.amount || 0,
-          date:      formatDate(item.expense_date ?? ""),
-          recipient: item.recipient || "—",
-          receipt:   item.receipt_number || "—",
-          notes:     item.notes || "",
-        })),
-      }],
-    });
-  }
+  const exportExpensesExcel = useCallback(async () => {
+    try {
+      const expenses = await loadDataset("expenses");
+      const { downloadExcelExport } = await import("@/lib/excel-client");
+      await downloadExcelExport({
+        filename: `${reportCopy.expensesFile}_${formatDate(new Date())}.xlsx`,
+        sheets: [{
+          name:  reportCopy.expensesSheet,
+          title: reportCopy.expensesSheet,
+          columns: [
+            { header: reportCopy.type,          key: "type",      width: 20 },
+            { header: reportCopy.amount,        key: "amount",    width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+            { header: reportCopy.date,          key: "date",      width: 16 },
+            { header: reportCopy.recipient,     key: "recipient", width: 20 },
+            { header: reportCopy.receiptNumber, key: "receipt",   width: 20 },
+            { header: reportCopy.notes,         key: "notes",     width: 24 },
+          ],
+          rows: expenses.map((item) => ({
+            type:      item.expense_types?.name || "—",
+            amount:    item.amount || 0,
+            date:      formatDate(item.expense_date ?? ""),
+            recipient: item.recipient || "—",
+            receipt:   item.receipt_number || "—",
+            notes:     item.notes || "",
+          })),
+        }],
+      });
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, reportCopy]);
 
-  async function exportSalariesExcel() {
-    const salaries = await loadDataset("salaries");
-    const { downloadExcelExport } = await import("@/lib/excel-client");
-    await downloadExcelExport({
-      filename: `${reportCopy.salariesFile}_${formatDate(new Date())}.xlsx`,
-      sheets: [{
-        name:  reportCopy.salariesSheet,
-        title: reportCopy.salariesSheet,
-        columns: [
-          { header: reportCopy.teacher,    key: "teacher",    width: 24 },
-          { header: reportCopy.subject,    key: "subject",    width: 16 },
-          { header: reportCopy.month,      key: "month",      width: 14 },
-          { header: reportCopy.gross,      key: "gross",      width: 16, numFmt: "#,##0" },
-          { header: reportCopy.deductions, key: "deductions", width: 16, numFmt: "#,##0", fixedColor: "red" as const },
-          { header: reportCopy.net,        key: "net",        width: 16, numFmt: "#,##0", fixedColor: "green" as const },
-          { header: reportCopy.paidAt,     key: "paid_at",    width: 16 },
-        ],
-        rows: salaries.map((item) => ({
-          teacher:    item.teachers?.full_name || "—",
-          subject:    item.teachers?.subject || "—",
-          month:      item.month || "—",
-          gross:      item.gross_salary || 0,
-          deductions: item.deductions || 0,
-          net:        Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
-          paid_at:    item.paid_at ? formatDate(item.paid_at) : "—",
-        })),
-      }],
-    });
-  }
+  const exportSalariesExcel = useCallback(async () => {
+    try {
+      const salaries = await loadDataset("salaries");
+      const { downloadExcelExport } = await import("@/lib/excel-client");
+      await downloadExcelExport({
+        filename: `${reportCopy.salariesFile}_${formatDate(new Date())}.xlsx`,
+        sheets: [{
+          name:  reportCopy.salariesSheet,
+          title: reportCopy.salariesSheet,
+          columns: [
+            { header: reportCopy.teacher,    key: "teacher",    width: 24 },
+            { header: reportCopy.subject,    key: "subject",    width: 16 },
+            { header: reportCopy.month,      key: "month",      width: 14 },
+            { header: reportCopy.gross,      key: "gross",      width: 16, numFmt: "#,##0" },
+            { header: reportCopy.deductions, key: "deductions", width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+            { header: reportCopy.net,        key: "net",        width: 16, numFmt: "#,##0", fixedColor: "green" as const },
+            { header: reportCopy.paidAt,     key: "paid_at",    width: 16 },
+          ],
+          rows: salaries.map((item) => ({
+            teacher:    item.teachers?.full_name || "—",
+            subject:    item.teachers?.subject || "—",
+            month:      item.month || "—",
+            gross:      item.gross_salary || 0,
+            deductions: item.deductions || 0,
+            net:        Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+            paid_at:    item.paid_at ? formatDate(item.paid_at) : "—",
+          })),
+        }],
+      });
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, reportCopy]);
 
-  async function exportAllExcel() {
-    const { students, payments, expenses, salaries } = await loadAllDatasets();
-    const { downloadExcelExport } = await import("@/lib/excel-client");
-    const sheets = [
-      {
-        name: reportCopy.studentsSheet, title: reportCopy.studentsSheet,
-        columns: [
-          { header: reportCopy.studentName, key: "name",      width: 28 },
-          { header: reportCopy.className,   key: "class",     width: 16 },
-          { header: reportCopy.status,      key: "status",    width: 12 },
-          { header: reportCopy.totalFees,   key: "total",     width: 18, numFmt: "#,##0" },
-          { header: reportCopy.paid,        key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
-          { header: reportCopy.remaining,   key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
-          { header: reportCopy.phone,       key: "phone",     width: 16 },
-          { header: reportCopy.address,     key: "address",   width: 22 },
-        ],
-        rows: students.map((item) => ({
-          name: item.full_name, class: item.class_name || "—", status: studentStatusLabel(item.status),
-          total: item.total_fee || 0, paid: item.paid_fee || 0, remaining: item.remaining_fee || 0,
-          phone: item.phone || "", address: item.address || "",
-        })),
-      },
-      {
-        name: reportCopy.paymentsSheet, title: reportCopy.paymentsSheet,
-        columns: [
-          { header: reportCopy.student,       key: "name",    width: 28 },
-          { header: reportCopy.className,     key: "class",   width: 16 },
-          { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
-          { header: reportCopy.paymentMethod, key: "method",  width: 16 },
-          { header: reportCopy.date,          key: "date",    width: 16 },
-          { header: reportCopy.receiptNumber, key: "receipt", width: 22 },
-        ],
-        rows: payments.map((item) => ({
-          name: item.students?.full_name || "—", class: item.students?.class_name || "—",
-          amount: item.amount || 0, method: paymentMethodLabel(item.payment_method),
-          date: formatDate(item.created_at ?? ""), receipt: item.receipt_number || "—",
-        })),
-      },
-      {
-        name: reportCopy.expensesSheet, title: reportCopy.expensesSheet,
-        columns: [
-          { header: reportCopy.type,          key: "type",      width: 20 },
-          { header: reportCopy.amount,        key: "amount",    width: 16, numFmt: "#,##0", fixedColor: "red" as const },
-          { header: reportCopy.date,          key: "date",      width: 16 },
-          { header: reportCopy.recipient,     key: "recipient", width: 20 },
-          { header: reportCopy.receiptNumber, key: "receipt",   width: 20 },
-        ],
-        rows: expenses.map((item) => ({
-          type: item.expense_types?.name || "—", amount: item.amount || 0,
-          date: formatDate(item.expense_date ?? ""), recipient: item.recipient || "—",
-          receipt: item.receipt_number || "—",
-        })),
-      },
-      {
-        name: reportCopy.salariesSheet, title: reportCopy.salariesSheet,
-        columns: [
-          { header: reportCopy.teacher,    key: "teacher",    width: 24 },
-          { header: reportCopy.subject,    key: "subject",    width: 16 },
-          { header: reportCopy.month,      key: "month",      width: 14 },
-          { header: reportCopy.gross,      key: "gross",      width: 16, numFmt: "#,##0" },
-          { header: reportCopy.deductions, key: "deductions", width: 16, numFmt: "#,##0", fixedColor: "red" as const },
-          { header: reportCopy.net,        key: "net",        width: 16, numFmt: "#,##0", fixedColor: "green" as const },
-          { header: reportCopy.paidAt,     key: "paid_at",    width: 16 },
-        ],
-        rows: salaries.map((item) => ({
-          teacher: item.teachers?.full_name || "—", subject: item.teachers?.subject || "—",
-          month: item.month || "—", gross: item.gross_salary || 0, deductions: item.deductions || 0,
-          net: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
-          paid_at: item.paid_at ? formatDate(item.paid_at) : "—",
-        })),
-      },
-    ].filter((s) => s.rows.length > 0);
+  const exportAllExcel = useCallback(async () => {
+    try {
+      const { students, payments, expenses, salaries } = await loadAllDatasets();
+      const { downloadExcelExport } = await import("@/lib/excel-client");
+      const sheets = [
+        {
+          name: reportCopy.studentsSheet, title: reportCopy.studentsSheet,
+          columns: [
+            { header: reportCopy.studentName, key: "name",      width: 28 },
+            { header: reportCopy.className,   key: "class",     width: 16 },
+            { header: reportCopy.status,      key: "status",    width: 12 },
+            { header: reportCopy.totalFees,   key: "total",     width: 18, numFmt: "#,##0" },
+            { header: reportCopy.paid,        key: "paid",      width: 18, numFmt: "#,##0", semanticColor: "paid" as const },
+            { header: reportCopy.remaining,   key: "remaining", width: 18, numFmt: "#,##0", semanticColor: "remaining" as const },
+            { header: reportCopy.phone,       key: "phone",     width: 16 },
+            { header: reportCopy.address,     key: "address",   width: 22 },
+          ],
+          rows: students.map((item) => ({
+            name: item.full_name, class: item.class_name || "—", status: studentStatusLabel(item.status),
+            total: item.total_fee || 0, paid: item.paid_fee || 0, remaining: item.remaining_fee || 0,
+            phone: item.phone || "", address: item.address || "",
+          })),
+        },
+        {
+          name: reportCopy.paymentsSheet, title: reportCopy.paymentsSheet,
+          columns: [
+            { header: reportCopy.student,       key: "name",    width: 28 },
+            { header: reportCopy.className,     key: "class",   width: 16 },
+            { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
+            { header: reportCopy.paymentMethod, key: "method",  width: 16 },
+            { header: reportCopy.date,          key: "date",    width: 16 },
+            { header: reportCopy.receiptNumber, key: "receipt", width: 22 },
+          ],
+          rows: payments.map((item) => ({
+            name: item.students?.full_name || "—", class: item.students?.class_name || "—",
+            amount: item.amount || 0, method: paymentMethodLabel(item.payment_method),
+            date: formatDate(item.created_at ?? ""), receipt: item.receipt_number || "—",
+          })),
+        },
+        {
+          name: reportCopy.expensesSheet, title: reportCopy.expensesSheet,
+          columns: [
+            { header: reportCopy.type,          key: "type",      width: 20 },
+            { header: reportCopy.amount,        key: "amount",    width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+            { header: reportCopy.date,          key: "date",      width: 16 },
+            { header: reportCopy.recipient,     key: "recipient", width: 20 },
+            { header: reportCopy.receiptNumber, key: "receipt",   width: 20 },
+          ],
+          rows: expenses.map((item) => ({
+            type: item.expense_types?.name || "—", amount: item.amount || 0,
+            date: formatDate(item.expense_date ?? ""), recipient: item.recipient || "—",
+            receipt: item.receipt_number || "—",
+          })),
+        },
+        {
+          name: reportCopy.salariesSheet, title: reportCopy.salariesSheet,
+          columns: [
+            { header: reportCopy.teacher,    key: "teacher",    width: 24 },
+            { header: reportCopy.subject,    key: "subject",    width: 16 },
+            { header: reportCopy.month,      key: "month",      width: 14 },
+            { header: reportCopy.gross,      key: "gross",      width: 16, numFmt: "#,##0" },
+            { header: reportCopy.deductions, key: "deductions", width: 16, numFmt: "#,##0", fixedColor: "red" as const },
+            { header: reportCopy.net,        key: "net",        width: 16, numFmt: "#,##0", fixedColor: "green" as const },
+            { header: reportCopy.paidAt,     key: "paid_at",    width: 16 },
+          ],
+          rows: salaries.map((item) => ({
+            teacher: item.teachers?.full_name || "—", subject: item.teachers?.subject || "—",
+            month: item.month || "—", gross: item.gross_salary || 0, deductions: item.deductions || 0,
+            net: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
+            paid_at: item.paid_at ? formatDate(item.paid_at) : "—",
+          })),
+        },
+      ].filter((s) => s.rows.length > 0);
 
-    if (!sheets.length) { return; }
-    await downloadExcelExport({
-      filename: `${reportCopy.allFile}_${formatDate(new Date())}.xlsx`,
-      sheets,
-    });
-  }
+      if (!sheets.length) return;
+      await downloadExcelExport({
+        filename: `${reportCopy.allFile}_${formatDate(new Date())}.xlsx`,
+        sheets,
+      });
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadComprehensiveFailed);
+    }
+  }, [loadAllDatasets, reportCopy, studentStatusLabel, paymentMethodLabel]);
 
-  function printDocument(title: string, subtitle: string, bodyHtml: string) {
+  const printDocument = useCallback((title: string, subtitle: string, bodyHtml: string) => {
     printHtmlDocument(
       wrapPrintDocument({
         title,
@@ -615,85 +635,101 @@ export default function ReportsPage() {
         autoPrint: false,
       }),
     );
-  }
+  }, [runtimeBranding, isEnglish]);
 
-  async function printStudents() {
-    const students = await loadDataset("students");
-    printDocument(
-      isEnglish ? "Students report" : "تقرير الطلاب",
-      isEnglish ? `${students.length} students` : `${students.length} طالب`,
-      `
-        <table>
-          <thead><tr><th>#</th><th>${isEnglish ? "Name" : "الاسم"}</th><th>${isEnglish ? "Class" : "الصف"}</th><th>${isEnglish ? "Status" : "الحالة"}</th><th>${isEnglish ? "Total fees" : "إجمالي الرسوم"}</th><th>${isEnglish ? "Paid" : "المدفوع"}</th><th>${isEnglish ? "Remaining" : "المتبقي"}</th></tr></thead>
-          <tbody>${students
-            .map(
-              (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.class_name || "—")}</td><td>${escapeHtml(studentStatusLabel(item.status))}</td><td>${currency} ${formatNumber(item.total_fee || 0)}</td><td>${currency} ${formatNumber(item.paid_fee || 0)}</td><td>${currency} ${formatNumber(item.remaining_fee || 0)}</td></tr>`,
-            )
-            .join("")}</tbody>
-        </table>
-      `,
-    );
-  }
+  const printStudents = useCallback(async () => {
+    try {
+      const students = await loadDataset("students");
+      printDocument(
+        isEnglish ? "Students report" : "تقرير الطلاب",
+        isEnglish ? `${students.length} students` : `${students.length} طالب`,
+        `
+          <table>
+            <thead><tr><th>#</th><th>${isEnglish ? "Name" : "الاسم"}</th><th>${isEnglish ? "Class" : "الصف"}</th><th>${isEnglish ? "Status" : "الحالة"}</th><th>${isEnglish ? "Total fees" : "إجمالي الرسوم"}</th><th>${isEnglish ? "Paid" : "المدفوع"}</th><th>${isEnglish ? "Remaining" : "المتبقي"}</th></tr></thead>
+            <tbody>${students
+              .map(
+                (item, index) =>
+                  `<tr><td>${index + 1}</td><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.class_name || "—")}</td><td>${escapeHtml(studentStatusLabel(item.status))}</td><td>${currency} ${formatNumber(item.total_fee || 0)}</td><td>${currency} ${formatNumber(item.paid_fee || 0)}</td><td>${currency} ${formatNumber(item.remaining_fee || 0)}</td></tr>`,
+              )
+              .join("")}</tbody>
+          </table>
+        `,
+      );
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, printDocument, isEnglish, currency, studentStatusLabel, reportCopy.loadDatasetFailed]);
 
-  async function printPayments() {
-    const payments = await loadDataset("payments");
-    printDocument(
-      isEnglish ? "Payments report" : "تقرير الحسابات",
-      isEnglish ? `${payments.length} payments` : `${payments.length} دفعة`,
-      `
-        <table>
-          <thead><tr><th>#</th><th>${isEnglish ? "Student" : "الطالب"}</th><th>${isEnglish ? "Class" : "الصف"}</th><th>${isEnglish ? "Amount" : "المبلغ"}</th><th>${isEnglish ? "Method" : "طريقة الدفع"}</th><th>${isEnglish ? "Date" : "التاريخ"}</th></tr></thead>
-          <tbody>${payments
-            .map(
-              (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.students?.full_name || "—")}</td><td>${escapeHtml(item.students?.class_name || "—")}</td><td>${currency} ${formatNumber(item.amount || 0)}</td><td>${escapeHtml(paymentMethodLabel(item.payment_method))}</td><td>${formatDate(item.created_at ?? "")}</td></tr>`,
-            )
-            .join("")}</tbody>
-        </table>
-      `,
-    );
-  }
+  const printPayments = useCallback(async () => {
+    try {
+      const payments = await loadDataset("payments");
+      printDocument(
+        isEnglish ? "Payments report" : "تقرير الحسابات",
+        isEnglish ? `${payments.length} payments` : `${payments.length} دفعة`,
+        `
+          <table>
+            <thead><tr><th>#</th><th>${isEnglish ? "Student" : "الطالب"}</th><th>${isEnglish ? "Class" : "الصف"}</th><th>${isEnglish ? "Amount" : "المبلغ"}</th><th>${isEnglish ? "Method" : "طريقة الدفع"}</th><th>${isEnglish ? "Date" : "التاريخ"}</th></tr></thead>
+            <tbody>${payments
+              .map(
+                (item, index) =>
+                  `<tr><td>${index + 1}</td><td>${escapeHtml(item.students?.full_name || "—")}</td><td>${escapeHtml(item.students?.class_name || "—")}</td><td>${currency} ${formatNumber(item.amount || 0)}</td><td>${escapeHtml(paymentMethodLabel(item.payment_method))}</td><td>${formatDate(item.created_at ?? "")}</td></tr>`,
+              )
+              .join("")}</tbody>
+          </table>
+        `,
+      );
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, printDocument, isEnglish, currency, paymentMethodLabel, reportCopy.loadDatasetFailed]);
 
-  async function printExpenses() {
-    const expenses = await loadDataset("expenses");
-    printDocument(
-      isEnglish ? "Expenses report" : "تقرير المصروفات",
-      isEnglish ? `${expenses.length} expenses` : `${expenses.length} مصروف`,
-      `
-        <table>
-          <thead><tr><th>#</th><th>${isEnglish ? "Type" : "النوع"}</th><th>${isEnglish ? "Amount" : "المبلغ"}</th><th>${isEnglish ? "Date" : "التاريخ"}</th><th>${isEnglish ? "Recipient" : "المستلم"}</th></tr></thead>
-          <tbody>${expenses
-            .map(
-              (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.expense_types?.name || "—")}</td><td>${currency} ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.expense_date ?? "")}</td><td>${escapeHtml(item.recipient || "—")}</td></tr>`,
-            )
-            .join("")}</tbody>
-        </table>
-      `,
-    );
-  }
+  const printExpenses = useCallback(async () => {
+    try {
+      const expenses = await loadDataset("expenses");
+      printDocument(
+        isEnglish ? "Expenses report" : "تقرير المصروفات",
+        isEnglish ? `${expenses.length} expenses` : `${expenses.length} مصروف`,
+        `
+          <table>
+            <thead><tr><th>#</th><th>${isEnglish ? "Type" : "النوع"}</th><th>${isEnglish ? "Amount" : "المبلغ"}</th><th>${isEnglish ? "Date" : "التاريخ"}</th><th>${isEnglish ? "Recipient" : "المستلم"}</th></tr></thead>
+            <tbody>${expenses
+              .map(
+                (item, index) =>
+                  `<tr><td>${index + 1}</td><td>${escapeHtml(item.expense_types?.name || "—")}</td><td>${currency} ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.expense_date ?? "")}</td><td>${escapeHtml(item.recipient || "—")}</td></tr>`,
+              )
+              .join("")}</tbody>
+          </table>
+        `,
+      );
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, printDocument, isEnglish, currency, reportCopy.loadDatasetFailed]);
 
-  async function printSalaries() {
-    const salaries = await loadDataset("salaries");
-    printDocument(
-      isEnglish ? "Salaries report" : "تقرير الرواتب",
-      isEnglish ? `${salaries.length} salary records` : `${salaries.length} سجل راتب`,
-      `
-        <table>
-          <thead><tr><th>#</th><th>${isEnglish ? "Teacher" : "الأستاذ"}</th><th>${isEnglish ? "Subject" : "المادة"}</th><th>${isEnglish ? "Month" : "الشهر"}</th><th>${isEnglish ? "Net" : "الصافي"}</th><th>${isEnglish ? "Paid at" : "تاريخ الدفع"}</th></tr></thead>
-          <tbody>${salaries
-            .map(
-              (item, index) =>
-                `<tr><td>${index + 1}</td><td>${escapeHtml(item.teachers?.full_name || "—")}</td><td>${escapeHtml(item.teachers?.subject || "—")}</td><td>${escapeHtml(item.month || "—")}</td><td>${currency} ${formatNumber((item.gross_salary || 0) - (item.deductions || 0))}</td><td>${item.paid_at ? formatDate(item.paid_at) : "—"}</td></tr>`,
-            )
-            .join("")}</tbody>
-        </table>
-      `,
-    );
-  }
+  const printSalaries = useCallback(async () => {
+    try {
+      const salaries = await loadDataset("salaries");
+      printDocument(
+        isEnglish ? "Salaries report" : "تقرير الرواتب",
+        isEnglish ? `${salaries.length} salary records` : `${salaries.length} سجل راتب`,
+        `
+          <table>
+            <thead><tr><th>#</th><th>${isEnglish ? "Teacher" : "الأستاذ"}</th><th>${isEnglish ? "Subject" : "المادة"}</th><th>${isEnglish ? "Month" : "الشهر"}</th><th>${isEnglish ? "Net" : "الصافي"}</th><th>${isEnglish ? "Paid at" : "تاريخ الدفع"}</th></tr></thead>
+            <tbody>${salaries
+              .map(
+                (item, index) =>
+                  `<tr><td>${index + 1}</td><td>${escapeHtml(item.teachers?.full_name || "—")}</td><td>${escapeHtml(item.teachers?.subject || "—")}</td><td>${escapeHtml(item.month || "—")}</td><td>${currency} ${formatNumber((item.gross_salary || 0) - (item.deductions || 0))}</td><td>${item.paid_at ? formatDate(item.paid_at) : "—"}</td></tr>`,
+              )
+              .join("")}</tbody>
+          </table>
+        `,
+      );
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, printDocument, isEnglish, currency, reportCopy.loadDatasetFailed]);
 
-  function printSummary() {
+  const printSummary = useCallback(() => {
     printDocument(
       isEnglish ? "Financial summary" : "الملخص المالي",
       isEnglish ? "School financial snapshot" : "ملخص مالي سريع للمدرسة",
@@ -709,7 +745,7 @@ export default function ReportsPage() {
         </div>
       `,
     );
-  }
+  }, [printDocument, metrics, isEnglish, currency]);
 
   function renderReportIcon(iconId: string) {
     switch (iconId) {
@@ -796,11 +832,11 @@ export default function ReportsPage() {
         <AppSidebar currentPath="/reports" />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <AppShellTopbar 
-            title={t("title")} 
+          <AppShellTopbar
+            title={t("title")}
             subtitle={reportCopy.subtitle}
-            scope={schoolScope} 
-            fixed 
+            scope={schoolScope}
+            fixed
           />
 
           <main className="app-shell-frame--with-fixed-topbar flex-1 overflow-y-auto custom-scrollbar">
@@ -842,7 +878,7 @@ export default function ReportsPage() {
                     <div className="absolute top-0 end-0 p-8 opacity-10">
                       <TrendingUp size={160} />
                     </div>
-                    
+
                     <div className="relative z-10">
                       <div className="flex items-center gap-2 mb-6">
                         <div className="h-8 w-8 rounded-lg bg-white/30 flex items-center justify-center">
@@ -873,7 +909,7 @@ export default function ReportsPage() {
                           </div>
                         </div>
                         <div className="flex gap-3">
-                          <button 
+                          <button
                             className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-white text-[var(--primary)] font-black shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                             onClick={exportAllExcel}
                             disabled={actionLoading !== null}
@@ -881,7 +917,7 @@ export default function ReportsPage() {
                             {actionLoading === "all" ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                             {t("exportAll")}
                           </button>
-                          <button 
+                          <button
                             className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-black/30 text-white border border-white/20 font-black transition-all hover:bg-black/40"
                             onClick={printSummary}
                           >
@@ -940,7 +976,7 @@ export default function ReportsPage() {
                         </div>
 
                         <div className="flex gap-3 pt-4 border-t border-[var(--border)]">
-                          <button 
+                          <button
                             className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[var(--success)]/10 text-[var(--success)] text-xs font-black transition-all hover:bg-[var(--success)]/20"
                             onClick={card.onExcel}
                             disabled={actionLoading !== null}
@@ -948,7 +984,7 @@ export default function ReportsPage() {
                             {actionLoading === card.id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                             {t("excel")}
                           </button>
-                          <button 
+                          <button
                             className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[var(--surface-muted)] text-[var(--text-secondary)] text-xs font-black transition-all hover:bg-[var(--border)]"
                             onClick={card.onPrint}
                             disabled={actionLoading !== null}

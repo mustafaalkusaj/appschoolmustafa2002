@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 
   // Build lookup maps
   const schoolNameById = new Map(schools.map((s) => [s.id, s.name]));
-  const branchNameById = new Map(branches.map((b) => [b.id, b.name]));
+  const _branchNameById = new Map(branches.map((b) => [b.id, b.name]));
   const branchesBySchool = new Map<string, Array<{ id: string; name: string }>>();
   for (const branch of branches) {
     const list = branchesBySchool.get(branch.school_id) ?? [];

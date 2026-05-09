@@ -262,11 +262,11 @@ export default function StudentsPage() {
     }
   }, [profile, schoolScope.selectedSchoolId, effectiveBranchId, locale, modals, runtimeBranding]);
 
-  const [resettingPasswords, setResettingPasswords] = useState(false);
+  const [_resettingPasswords, setResettingPasswords] = useState(false);
   const bulkResetConfirmedRef = useRef(false);
   const [showAcademicYearModal, setShowAcademicYearModal] = useState(false);
 
-  const bulkResetPasswords = useCallback(async () => {
+  const _bulkResetPasswords = useCallback(async () => {
     if (!profile) return;
     if (!bulkResetConfirmedRef.current) {
       const confirmed = window.confirm(

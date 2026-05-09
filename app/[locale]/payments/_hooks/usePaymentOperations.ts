@@ -35,7 +35,7 @@ export function usePaymentOperations(
 ) {
   const [paymentsByStudent, setPaymentsByStudent] = useState<Record<string, Payment[]>>({});
   const paymentsByStudentRef = useRef(paymentsByStudent);
-  paymentsByStudentRef.current = paymentsByStudent;
+  useEffect(() => { paymentsByStudentRef.current = paymentsByStudent; }, [paymentsByStudent]);
   const [paymentsLoadingStudentId, setPaymentsLoadingStudentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 

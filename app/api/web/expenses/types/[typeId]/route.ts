@@ -20,6 +20,7 @@ async function hasDuplicateTypeName(
     .from("expense_types")
     .select("id, name")
     .eq("school_id", schoolId)
+    .is("deleted_at", null)
     .order("name", { ascending: true });
 
   if (error) {
@@ -65,10 +66,6 @@ export async function PATCH(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
-  if (!canAddExpenses) {
-    return jsonError("ليس لديك صلاحية تعديل أنواع المصروفات.", 403);
-  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-update",
     windowMs: 60_000,
@@ -77,6 +74,10 @@ export async function PATCH(
   });
   if (rateLimited) {
     return rateLimited;
+  }
+  const canAddExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "add_expenses");
+  if (!canAddExpenses) {
+    return jsonError("ليس لديك صلاحية تعديل أنواع المصروفات.", 403);
   }
 
   try {
@@ -156,10 +157,6 @@ export async function DELETE(
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const canDeleteExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "delete_expenses");
-  if (!canDeleteExpenses) {
-    return jsonError("ليس لديك صلاحية حذف أنواع المصروفات.", 403);
-  }
   const rateLimited = await enforceRateLimit(req, {
     namespace: "expense-types-delete",
     windowMs: 60_000,
@@ -168,6 +165,10 @@ export async function DELETE(
   });
   if (rateLimited) {
     return rateLimited;
+  }
+  const canDeleteExpenses = await routeUserHasPermission(actorSupabase, actorUserId, "delete_expenses");
+  if (!canDeleteExpenses) {
+    return jsonError("ليس لديك صلاحية حذف أنواع المصروفات.", 403);
   }
 
   try {
