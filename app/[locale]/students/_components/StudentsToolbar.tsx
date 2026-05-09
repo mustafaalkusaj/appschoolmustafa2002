@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Search, Upload, Download, Printer, CreditCard, Plus, KeyRound } from "lucide-react";
+import { Search, Upload, Download, Printer, CreditCard, Plus, KeyRound, GraduationCap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ interface StudentsToolbarProps {
   datasetLoading: boolean;
   printingCards: boolean;
   resettingPasswords: boolean;
+  onPromoteYear: () => void;
   filtered: StudentWithFees[];
   onExportCurrentPage: () => void;
   onExportAll: () => void;
@@ -52,6 +53,7 @@ export function StudentsToolbar({
   onPrintFiltered,
   onPrintAllCards,
   onBulkResetPasswords,
+  onPromoteYear,
   onAddStudent,
   onBulkImport,
 }: StudentsToolbarProps) {
@@ -160,6 +162,19 @@ export function StudentsToolbar({
           >
             <KeyRound className="h-4 w-4" />
             {resettingPasswords ? "جاري التعيين..." : "إعادة تعيين كلمات المرور"}
+          </Button>
+        )}
+
+        {activeTab === "active" && !isReadOnlyView && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPromoteYear}
+            className="w-full justify-center border-indigo-300 text-indigo-700 hover:bg-indigo-50 xl:w-auto"
+            title="ترحيل السنة الدراسية وتحديث الصفوف"
+          >
+            <GraduationCap className="h-4 w-4" />
+            <span>ترحيل السنة</span>
           </Button>
         )}
 

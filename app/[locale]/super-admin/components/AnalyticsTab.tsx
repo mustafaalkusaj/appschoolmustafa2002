@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { TrendingUp, Users, School, CreditCard, Activity, DollarSign, RefreshCw, PencilLine, Check, AlertTriangle } from "@/lib/icons";
+import { TrendingUp, Users, School, CreditCard, Activity, DollarSign, RefreshCw, PencilLine, Check, AlertTriangle, FileDown } from "@/lib/icons";
 import type { SchoolRecord, UserRecord, SubscriptionRecord } from "../_components";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { PLAN_LABELS } from "../_components/types";
@@ -35,13 +35,57 @@ interface AnalyticsDashboardProps {
   schools: SchoolRecord[];
   users: UserRecord[];
   subscriptions: SubscriptionRecord[];
+  onSwitchTab?: (tab: string) => void;
 }
 
 const ROLE_NAMES: Record<string, string> = { super_admin: "مسؤول عام", admin: "مسؤول", employee: "مستخدم" };
 const PLAN_COLORS: Record<string, string> = { basic: "bg-blue-500", premium: "bg-purple-500", enterprise: "bg-amber-500" };
 const ROLE_COLORS: Record<string, string> = { super_admin: "bg-red-500", admin: "bg-blue-500", employee: "bg-green-500" };
 
-export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboardProps) {
+function DonutChart({ segments }: { segments: { label: string; count: number; color: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.count, 0);
+  if (total === 0) return null;
+  const r = 40; const cx = 50; const cy = 50;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <div className="flex items-center gap-6">
+      <svg viewBox="0 0 100 100" className="w-24 h-24 shrink-0 -rotate-90">
+        {segments.map(({ label, count, color }) => {
+          const pct = count / total;
+          const dash = pct * circumference;
+          const gap = circumference - dash;
+          const el = (
+            <circle
+              key={label}
+              cx={cx} cy={cy} r={r}
+              fill="none"
+              stroke={color}
+              strokeWidth="18"
+              strokeDasharray={`${dash} ${gap}`}
+              strokeDashoffset={-offset * circumference}
+            />
+          );
+          offset += pct;
+          return el;
+        })}
+      </svg>
+      <div className="space-y-2 flex-1">
+        {segments.map(({ label, count, color }) => (
+          <div key={label} className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ background: color }} />
+              <span className="text-sm font-bold text-[var(--text-secondary)]">{label}</span>
+            </div>
+            <span className="text-sm font-black text-[var(--text-primary)]">{count} ({Math.round((count / total) * 100)}%)</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AnalyticsTab({ schools, users, subscriptions, onSwitchTab }: AnalyticsDashboardProps) {
   const [studentCounts, setStudentCounts] = useState<SchoolCount[]>([]);
   const [loadingCounts, setLoadingCounts] = useState(true);
 
@@ -129,6 +173,27 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
     remaining:  rows.reduce((s, r) => s + r.remainingUSD, 0),
   }), [rows]);
 
+  const exportRevenueCSV = useCallback(() => {
+    const headers = ["المدرسة", "الطلاب", "سعر الطالب ($)", "الإيراد السنوي ($)", "المستحصل ($)", "المتبقي ($)", "نسبة التحصيل (%)"];
+    const csvRows = [
+      headers.join(","),
+      ...rows.map(r => [
+        `"${r.school.name}"`,
+        r.students,
+        r.price,
+        r.yearlyUSD,
+        r.collectedUSD,
+        r.remainingUSD,
+        r.yearlyUSD > 0 ? Math.round((r.collectedUSD / r.yearlyUSD) * 100) : 0,
+      ].join(","))
+    ];
+    const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "revenues.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }, [rows]);
+
   // General stats
   const stats = useMemo(() => {
     const active   = schools.filter((s) => s.is_active && !s.deleted_at).length;
@@ -152,12 +217,17 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
       {/* KPI Row */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {[
-          { label: "المدارس النشطة",       value: `${stats.active}/${stats.total}`,            icon: School,        color: "#4f8cff", bg: "rgba(79,140,255,0.10)"  },
-          { label: "المستخدمون النشطون",   value: `${stats.uActive}/${stats.totalUsers}`,       icon: Users,         color: "#22c55e", bg: "rgba(34,197,94,0.10)"   },
-          { label: "الاشتراكات النشطة",    value: stats.activeSubs,                             icon: CreditCard,    color: "#a855f7", bg: "rgba(168,85,247,0.10)"  },
-          { label: "ينتهي خلال 30 يوم",   value: `${stats.expiring} مدرسة`,                   icon: AlertTriangle, color: "#f59e0b", bg: "rgba(245,158,11,0.10)"  },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">
+          { label: "المدارس النشطة",       value: `${stats.active}/${stats.total}`,            icon: School,        color: "#4f8cff", bg: "rgba(79,140,255,0.10)",  tab: "schools"       },
+          { label: "المستخدمون النشطون",   value: `${stats.uActive}/${stats.totalUsers}`,       icon: Users,         color: "#22c55e", bg: "rgba(34,197,94,0.10)",   tab: "users"         },
+          { label: "الاشتراكات النشطة",    value: stats.activeSubs,                             icon: CreditCard,    color: "#a855f7", bg: "rgba(168,85,247,0.10)",  tab: "subscriptions" },
+          { label: "ينتهي خلال 30 يوم",   value: `${stats.expiring} مدرسة`,                   icon: AlertTriangle, color: "#f59e0b", bg: "rgba(245,158,11,0.10)",  tab: "subscriptions" },
+        ].map(({ label, value, icon: Icon, color, bg, tab }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => onSwitchTab?.(tab)}
+            className={`rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] text-start w-full transition-all ${onSwitchTab ? "hover:border-[var(--primary)] hover:shadow-md cursor-pointer" : ""}`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-bold text-[var(--text-tertiary)] mb-1">{label}</p>
@@ -167,7 +237,7 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                 <Icon size={20} />
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -220,6 +290,12 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
               )}
             </div>
 
+            <button type="button" title="تصدير CSV"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] hover:text-[var(--primary)]"
+              onClick={exportRevenueCSV}>
+              <FileDown size={14} />
+            </button>
+
             <button type="button" title="تحديث عدد الطلاب"
               className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] hover:text-[var(--primary)]"
               onClick={() => void fetchCounts()}>
@@ -229,19 +305,28 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-3 border-b border-[var(--border)] divide-x divide-x-reverse divide-[var(--border)]">
-          {[
-            { label: "الإيراد السنوي المتوقع",  val: totals.yearly,    color: "text-blue-600 dark:text-blue-400" },
-            { label: "المبلغ المستحصل",         val: totals.collected, color: "text-violet-600 dark:text-violet-400" },
-            { label: "المبلغ المتبقي",          val: totals.remaining, color: totals.remaining > 0 ? "text-amber-600 dark:text-amber-400" : "text-[var(--text-muted)]" },
-          ].map(({ label, val, color }) => (
-            <div key={label} className="p-5 text-center">
-              <p className="text-xs font-bold text-[var(--text-muted)] mb-2">{label}</p>
-              <p className={`text-2xl font-black ${color}`}>{fmt(val, showIQD, ratePer100)}</p>
-              {showIQD && <p className="mt-0.5 text-xs text-[var(--text-muted)]">{fmtUSD(val)}</p>}
+        {(() => {
+          const collectionPct = totals.yearly > 0 ? Math.round((totals.collected / totals.yearly) * 100) : 0;
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-[var(--border)] divide-x divide-x-reverse divide-[var(--border)]">
+              {[
+                { label: "الإيراد السنوي المتوقع", val: totals.yearly,    pct: null, color: "text-blue-600 dark:text-blue-400" },
+                { label: "المبلغ المستحصل",        val: totals.collected, pct: null, color: "text-violet-600 dark:text-violet-400" },
+                { label: "المبلغ المتبقي",         val: totals.remaining, pct: null, color: totals.remaining > 0 ? "text-amber-600 dark:text-amber-400" : "text-[var(--text-muted)]" },
+                { label: "نسبة التحصيل",           val: null,             pct: collectionPct, color: collectionPct >= 100 ? "text-[var(--success)]" : collectionPct >= 80 ? "text-blue-600 dark:text-blue-400" : collectionPct >= 50 ? "text-amber-600 dark:text-amber-400" : "text-[var(--danger)]" },
+              ].map(({ label, val, pct, color }) => (
+                <div key={label} className="p-5 text-center">
+                  <p className="text-xs font-bold text-[var(--text-muted)] mb-2">{label}</p>
+                  {pct !== null
+                    ? <p className={`text-2xl font-black ${color}`}>{pct}%</p>
+                    : <p className={`text-2xl font-black ${color}`}>{fmt(val!, showIQD, ratePer100)}</p>
+                  }
+                  {pct === null && showIQD && val !== null && <p className="mt-0.5 text-xs text-[var(--text-muted)]">{fmtUSD(val)}</p>}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
 
         {/* Table */}
         <div className="overflow-auto max-h-[460px]">
@@ -254,6 +339,7 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                 <th>الإيراد السنوي</th>
                 <th>المستحصل</th>
                 <th>المتبقي</th>
+                <th>% التحصيل</th>
               </tr>
             </thead>
             <tbody>
@@ -364,6 +450,22 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                       )
                     ) : <span className="text-[var(--text-muted)]">—</span>}
                   </td>
+
+                  {/* Collection % */}
+                  <td>
+                    {yearlyUSD > 0 ? (() => {
+                      const pct = Math.round((collectedUSD / yearlyUSD) * 100);
+                      const color = pct >= 100 ? "text-[var(--success)]" : pct >= 80 ? "text-blue-600 dark:text-blue-400" : pct >= 50 ? "text-amber-600 dark:text-amber-400" : "text-[var(--danger)]";
+                      return (
+                        <div>
+                          <span className={`font-black text-sm ${color}`}>{pct}%</span>
+                          <div className="mt-1 h-1.5 w-16 rounded-full bg-[var(--surface-muted)] overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-[var(--success)]" : pct >= 80 ? "bg-blue-500" : pct >= 50 ? "bg-amber-500" : "bg-[var(--danger)]"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })() : <span className="text-[var(--text-muted)]">—</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -387,6 +489,13 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
                       </>
                     ) : <span className="font-black text-[var(--success)]">—</span>}
                   </td>
+                  <td className="font-black">
+                    {totals.yearly > 0 ? (() => {
+                      const pct = Math.round((totals.collected / totals.yearly) * 100);
+                      const color = pct >= 100 ? "text-[var(--success)]" : pct >= 80 ? "text-blue-600 dark:text-blue-400" : pct >= 50 ? "text-amber-600 dark:text-amber-400" : "text-[var(--danger)]";
+                      return <span className={color}>{pct}%</span>;
+                    })() : "—"}
+                  </td>
                 </tr>
               </tfoot>
             )}
@@ -404,44 +513,25 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
           <h3 className="text-base font-black text-[var(--text-primary)] mb-4">توزيع الباقات (اشتراكات نشطة)</h3>
           {Object.keys(stats.planDist).length === 0
             ? <p className="text-sm font-bold text-[var(--text-muted)]">لا توجد اشتراكات نشطة</p>
-            : <div className="space-y-3">
-                {Object.entries(stats.planDist).map(([plan, count]) => {
-                  const total = Object.values(stats.planDist).reduce((a, b) => a + b, 0);
-                  const pct = Math.round((count / (total || 1)) * 100);
-                  return (
-                    <div key={plan}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="text-sm font-bold text-[var(--text-secondary)]">{PLAN_LABELS[plan as keyof typeof PLAN_LABELS] ?? plan}</span>
-                        <span className="text-sm font-black text-[var(--text-primary)]">{count} ({pct}%)</span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-[var(--surface-muted)]">
-                        <div className={`h-full rounded-full ${PLAN_COLORS[plan] ?? "bg-gray-400"}`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            : <DonutChart
+                segments={Object.entries(stats.planDist).map(([plan, count]) => ({
+                  label: PLAN_LABELS[plan as keyof typeof PLAN_LABELS] ?? plan,
+                  count,
+                  color: plan === "basic" ? "#3b82f6" : plan === "premium" ? "#a855f7" : "#f59e0b",
+                }))}
+              />
           }
         </div>
 
         <div className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
           <h3 className="text-base font-black text-[var(--text-primary)] mb-4">توزيع أدوار المستخدمين</h3>
-          <div className="space-y-3">
-            {Object.entries(stats.roleDist).map(([role, count]) => {
-              const pct = Math.round((count / (stats.totalUsers || 1)) * 100);
-              return (
-                <div key={role}>
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-bold text-[var(--text-secondary)]">{ROLE_NAMES[role] ?? role}</span>
-                    <span className="text-sm font-black text-[var(--text-primary)]">{count} ({pct}%)</span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-[var(--surface-muted)]">
-                    <div className={`h-full rounded-full ${ROLE_COLORS[role] ?? "bg-gray-400"}`} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DonutChart
+            segments={Object.entries(stats.roleDist).map(([role, count]) => ({
+              label: ROLE_NAMES[role] ?? role,
+              count,
+              color: role === "super_admin" ? "#ef4444" : role === "admin" ? "#3b82f6" : "#22c55e",
+            }))}
+          />
         </div>
       </div>
 
@@ -451,7 +541,7 @@ export function AnalyticsTab({ schools, users, subscriptions }: AnalyticsDashboa
           { label: "إجمالي المدارس",       value: stats.total },
           { label: "إجمالي المستخدمين",    value: stats.totalUsers },
           { label: "إجمالي الاشتراكات",   value: subscriptions.length },
-          { label: "معدل فعالية المدارس",  value: `${Math.round((stats.active / (stats.total || 1)) * 100)}%` },
+          { label: "متوسط الطلاب لكل مدرسة", value: rows.length > 0 ? Math.round(rows.reduce((s, r) => s + r.students, 0) / rows.length).toLocaleString("ar-IQ") : "—" },
         ].map(({ label, value }) => (
           <div key={label} className="rounded-[20px] border border-[var(--border)] bg-[var(--card-bg)] p-4 text-center shadow-[var(--card-shadow)]">
             <p className="text-xs font-bold text-[var(--text-tertiary)] mb-2">{label}</p>

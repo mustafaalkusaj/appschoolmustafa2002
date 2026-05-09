@@ -39,6 +39,7 @@ import { TransferStudentModal } from "./_components/TransferStudentModal";
 import { ImportExcelModal } from "./_components/ImportExcelModal";
 import { AccountCardModal } from "./_components/AccountCardModal";
 import { BulkImportModal } from "@/components/students/BulkImportModal";
+import { AcademicYearModal } from "./_components/AcademicYearModal";
 
 export default function StudentsPage() {
   const pathname = usePathname();
@@ -263,6 +264,7 @@ export default function StudentsPage() {
 
   const [resettingPasswords, setResettingPasswords] = useState(false);
   const bulkResetConfirmedRef = useRef(false);
+  const [showAcademicYearModal, setShowAcademicYearModal] = useState(false);
 
   const bulkResetPasswords = useCallback(async () => {
     if (!profile) return;
@@ -418,6 +420,7 @@ export default function StudentsPage() {
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
                         onPrintAllCards={printAllStudentCards}
                         onBulkResetPasswords={bulkResetPasswords}
+                        onPromoteYear={() => setShowAcademicYearModal(true)}
                         onAddStudent={() => {
                           if (!effectiveBranchId) {
                             modals.setError(locale === "ar"
@@ -546,6 +549,16 @@ export default function StudentsPage() {
           onImportComplete={reload}
           schoolId={schoolScope.selectedSchoolId}
           branchId={effectiveBranchId}
+        />
+
+        <AcademicYearModal
+          isOpen={showAcademicYearModal}
+          schoolId={schoolScope.selectedSchoolId ?? ""}
+          branchId={effectiveBranchId}
+          onClose={() => { setShowAcademicYearModal(false); void reload(); }}
+          fetchWithAuth={(url, options) =>
+            fetchJsonWithAuthorizedSession(url, options)
+          }
         />
       </div>
     </ProtectedRoute>

@@ -104,6 +104,15 @@ export default function SuperAdminPage() {
   const [infrastructureNotice, setInfrastructureNotice] = useState("");
   const hasLoadedOnceRef = useRef(false);
 
+  const expiringSubscriptionsCount = useMemo(() => {
+    const now = Date.now();
+    return subscriptions.filter((s) => {
+      if (!s.end_date) return false;
+      const d = new Date(s.end_date).getTime() - now;
+      return d >= 0 && d <= 30 * 86400000;
+    }).length;
+  }, [subscriptions]);
+
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [monitoringAlertCount, setMonitoringAlertCount] = useState(0);
   const [query, setQuery] = useState("");
@@ -549,6 +558,11 @@ export default function SuperAdminPage() {
                         {monitoringAlertCount}
                       </span>
                     )}
+                    {tab.id === "subscriptions" && expiringSubscriptionsCount > 0 && (
+                      <span className="ms-auto h-5 min-w-5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center px-1 shrink-0">
+                        {expiringSubscriptionsCount}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -590,6 +604,11 @@ export default function SuperAdminPage() {
                         {tab.id === "monitoring" && monitoringAlertCount > 0 && (
                           <span className="h-4 min-w-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center px-1">
                             {monitoringAlertCount}
+                          </span>
+                        )}
+                        {tab.id === "subscriptions" && expiringSubscriptionsCount > 0 && (
+                          <span className="h-4 min-w-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center px-1">
+                            {expiringSubscriptionsCount}
                           </span>
                         )}
                       </button>
@@ -651,7 +670,7 @@ export default function SuperAdminPage() {
                     {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
                     {activeTab === "monitoring" && <SystemMonitoringTab infrastructure={infrastructure} onAlertCountChange={setMonitoringAlertCount} />}
                     {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} />}
-                    {activeTab === "analytics" && <AnalyticsTab schools={schools} users={users} subscriptions={subscriptions} />}
+                    {activeTab === "analytics" && <AnalyticsTab schools={schools} users={users} subscriptions={subscriptions} onSwitchTab={(tab) => setActiveTab(tab as ActiveTab)} />}
                     {activeTab === "bulk" && <BulkOperationsTab />}
                     {activeTab === "activity" && <ActivityTimelineTab />}
                     {activeTab === "payment-archives" && <PaymentArchivesTab />}
