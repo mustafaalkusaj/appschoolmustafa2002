@@ -147,5 +147,5 @@ export const primaryFont = localFont({
   ],
   variable: '--font-primary-next',
   display: 'swap',
-  preload: false,
+  preload: true,
 });

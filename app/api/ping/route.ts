@@ -2,6 +2,8 @@
  * Lightweight public liveness endpoint.
  * Use /api/health for authenticated dependency probes.
  */
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const pong = Date.now();
   const timestamp = new Date().toISOString();
