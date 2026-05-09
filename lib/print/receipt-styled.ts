@@ -5,6 +5,8 @@ export type StyledReceiptData = {
   logoUrl: string | null;
   branchName: string | null;
   primaryColor: string | null;
+  /** Text/font color for content (labels, values, names). Defaults to primaryColor. */
+  textColor?: string | null;
   receiptNumber: string;
   amount: number;
   paymentMethod: string;
@@ -22,7 +24,7 @@ export type StyledReceiptData = {
 
 function fmt(n: number) {
   try {
-    return new Intl.NumberFormat("ar-IQ").format(n);
+    return new Intl.NumberFormat("en-US").format(n);
   } catch {
     return String(n);
   }
@@ -30,7 +32,7 @@ function fmt(n: number) {
 
 function fmtDate(d: string) {
   try {
-    return new Intl.DateTimeFormat("ar-IQ", {
+    return new Intl.DateTimeFormat("en-US", {
       day: "numeric",
       month: "numeric",
       year: "numeric",
@@ -78,6 +80,7 @@ const SVG_BUILDING = `<svg viewBox="0 0 160 180" fill="none" xmlns="http://www.w
 
 export function buildStyledReceiptHtml(data: StyledReceiptData): string {
   const primary = data.primaryColor || "#1B2B72";
+  const text = data.textColor || primary;
   const dir = data.isEnglish ? "ltr" : "rtl";
   const lang = data.isEnglish ? "en" : "ar";
 
@@ -135,7 +138,7 @@ body{
   font-family:"Noto Sans Arabic",Segoe UI,Tahoma,Arial,sans-serif;
   display:flex;justify-content:center;align-items:flex-start;
   min-height:100vh;padding:20px 12px;
-  color:${primary};
+  color:${text};
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
   direction:${dir};
@@ -204,7 +207,7 @@ ${backgroundImageUrl ? `.receipt::before{content:'';position:absolute;inset:0;ba
   color:${primary};
   background:white;
 }
-.school-name{font-size:18px;font-weight:900;letter-spacing:0.3px;text-align:center;}
+.school-name{font-size:18px;font-weight:900;letter-spacing:0.3px;text-align:center;color:${text};}
 .branch-name{font-size:12px;opacity:0.55;margin-top:1px;text-align:center;}
 .receipt-num{font-size:10.5px;opacity:0.5;letter-spacing:0.3px;margin-top:1px;text-align:center;}
 /* Ornaments */
@@ -238,7 +241,7 @@ ${backgroundImageUrl ? `.receipt::before{content:'';position:absolute;inset:0;ba
   opacity:0.5;
   margin-bottom:4px;
 }
-.cell-value{font-size:14px;font-weight:800;text-align:start;}
+.cell-value{font-size:14px;font-weight:800;text-align:start;color:${text};}
 /* Amount box */
 .amount-box{
   border:1.5px solid ${primary}35;
@@ -266,7 +269,7 @@ ${backgroundImageUrl ? `.receipt::before{content:'';position:absolute;inset:0;ba
 }
 .amount-inner{position:relative;z-index:1;}
 .amount-label{font-size:11px;opacity:0.55;margin-bottom:6px;}
-.amount-value{font-size:36px;font-weight:900;letter-spacing:-1px;line-height:1;}
+.amount-value{font-size:36px;font-weight:900;letter-spacing:-1px;line-height:1;color:${text};}
 /* Footer */
 .system-note{
   border:1px solid ${primary}20;
@@ -298,7 +301,7 @@ ${backgroundImageUrl ? `.receipt::before{content:'';position:absolute;inset:0;ba
   display:flex;flex-direction:column;align-items:center;gap:3px;
 }
 .thanks-icon{font-size:18px;}
-.thanks-text{font-size:17px;font-weight:900;letter-spacing:0.5px;}
+.thanks-text{font-size:17px;font-weight:900;letter-spacing:0.5px;color:${text};}
 /* Print */
 @media print{
   @page{size:A5 portrait;margin:0.6cm;}

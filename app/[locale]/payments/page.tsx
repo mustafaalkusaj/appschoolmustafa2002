@@ -19,6 +19,7 @@ import {
   StudentDetailPanel,
   ArchiveDetailModal,
   PaymentModal,
+  ArchiveModeBanner,
 } from "./_components";
 import { usePaymentsPage } from "./_hooks";
 import "./_components/payments.css";
@@ -48,6 +49,18 @@ export default function PaymentsPage() {
     studentsHook,
     paymentOpsHook,
     archiveOpsHook,
+    isArchiveMode,
+    activeArchiveYear,
+    activeArchive,
+    activateArchiveYear,
+    exitArchiveMode,
+    effectiveSummary,
+    effectiveStudents,
+    effectivePaymentCounts,
+    effectiveLoading,
+    effectiveTotalCount,
+    effectiveTotalPages,
+    effectiveClasses,
     selectedStudent,
     showDetail,
     setShowDetail,
@@ -107,8 +120,20 @@ export default function PaymentsPage() {
                 </Card>
               ) : (
                 <div className="space-y-6">
+                  {/* Archive Mode Banner */}
+                  {isArchiveMode && activeArchive && (
+                    <ArchiveModeBanner
+                      year={activeArchive.archive_year}
+                      archiveDate={activeArchive.archive_date}
+                      onExit={exitArchiveMode}
+                    />
+                  )}
+
                   {/* Stats Section */}
-                  <PaymentsStats summary={metaHook.summary} loading={metaHook.metaLoading} />
+                  <PaymentsStats
+                    summary={effectiveSummary}
+                    loading={isArchiveMode ? false : metaHook.metaLoading}
+                  />
 
                   {/* Filters Section */}
                   <Card className="p-6">
@@ -121,12 +146,14 @@ export default function PaymentsPage() {
                       setFilterSort={setFilterSort}
                       filterDir={filterDir}
                       setFilterDir={setFilterDir}
-                      classes={metaHook.classes}
-                      onExport={handleExportExcel}
+                      classes={effectiveClasses}
+                      onExport={isArchiveMode && activeArchive
+                        ? () => handleArchiveExport(activeArchive)
+                        : handleExportExcel}
                       onAddPayment={() => paymentOpsHook.openPaymentModal()}
                       exporting={exporting}
-                      resolvedSchoolId={metaHook.summary.totalStudents > 0 || metaHook.classes.length > 0 ? "resolved" : null}
-                      canAddPayments={canAddPayments}
+                      resolvedSchoolId={effectiveSummary.totalStudents > 0 || effectiveClasses.length > 0 ? "resolved" : null}
+                      canAddPayments={isArchiveMode ? false : canAddPayments}
                     />
                   </Card>
 
@@ -137,10 +164,14 @@ export default function PaymentsPage() {
                       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between border-b border-[var(--border)] pb-4">
                         <div>
                           <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                            {t("payments.sections.currentLedgerTitle")}
+                            {isArchiveMode
+                              ? `أرشيف سنة ${activeArchiveYear}`
+                              : t("payments.sections.currentLedgerTitle")}
                           </h2>
                           <p className="text-sm text-[var(--text-muted)] mt-1">
-                            {t("payments.sections.currentLedgerDescription")}
+                            {isArchiveMode
+                              ? `${effectiveTotalCount} طالب · للقراءة فقط`
+                              : t("payments.sections.currentLedgerDescription")}
                           </p>
                         </div>
                         <div className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
@@ -152,21 +183,21 @@ export default function PaymentsPage() {
                       <PaymentsToolbar
                         searchInput={searchInput}
                         setSearchInput={setSearchInput}
-                        totalCount={studentsHook.totalCount}
-                        loading={studentsHook.loading}
+                        totalCount={effectiveTotalCount}
+                        loading={effectiveLoading}
                       />
 
                       {/* Table */}
                       <PaymentsTable
-                        students={studentsHook.students}
-                        paymentCountsByStudent={studentsHook.paymentCountsByStudent}
-                        loading={studentsHook.loading}
+                        students={effectiveStudents}
+                        paymentCountsByStudent={effectivePaymentCounts}
+                        loading={effectiveLoading}
                         page={studentsHook.page}
-                        totalPages={studentsHook.totalPages}
-                        totalCount={studentsHook.totalCount}
+                        totalPages={effectiveTotalPages}
+                        totalCount={effectiveTotalCount}
                         onPageChange={studentsHook.setPage}
-                        onStudentClick={openStudentDetail}
-                        onAddPayment={paymentOpsHook.openPaymentModal}
+                        onStudentClick={isArchiveMode ? () => {} : openStudentDetail}
+                        onAddPayment={isArchiveMode ? undefined : paymentOpsHook.openPaymentModal}
                       />
                     </div>
                   </Card>
@@ -185,6 +216,8 @@ export default function PaymentsPage() {
                       onViewDetail={archiveOpsHook.openArchiveDetail}
                       onExportArchive={handleArchiveExport}
                       archiveExportingId={archiveOpsHook.archiveExportingId}
+                      onViewYear={activateArchiveYear}
+                      activeArchiveYear={activeArchiveYear}
                     />
                   </Card>
                 </div>

@@ -23,6 +23,8 @@ interface PaymentsArchiveProps {
   onViewDetail: (archive: PaymentArchive) => void;
   onExportArchive: (archive: PaymentArchive) => void;
   archiveExportingId: string | null;
+  onViewYear: (year: number) => void;
+  activeArchiveYear: number | null;
 }
 
 export function PaymentsArchive({
@@ -37,6 +39,8 @@ export function PaymentsArchive({
   onViewDetail,
   onExportArchive,
   archiveExportingId,
+  onViewYear,
+  activeArchiveYear,
 }: PaymentsArchiveProps) {
   const t = useTranslations();
   const archiveYearOptions = Array.from(
@@ -158,27 +162,39 @@ export function PaymentsArchive({
                   date: formatDate(archive.archive_date),
                 })}
               </p>
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2">
                 <Button
-                  variant="primary"
+                  variant={activeArchiveYear === archive.archive_year ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => onViewDetail(archive)}
-                  className="flex-1"
+                  onClick={() => onViewYear(archive.archive_year)}
+                  className="w-full justify-center"
                 >
                   <Eye className="h-4 w-4" />
-                  {t("payments.archive.view")}
+                  {activeArchiveYear === archive.archive_year
+                    ? "تعرض هذه السنة الآن ✓"
+                    : "عرض بيانات هذه السنة"}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onExportArchive(archive)}
-                  disabled={archiveExportingId === archive.id}
-                  loading={archiveExportingId === archive.id}
-                  className="flex-1"
-                >
-                  <Download className="h-4 w-4" />
-                  {t("payments.archive.export")}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onViewDetail(archive)}
+                    className="flex-1"
+                  >
+                    {t("payments.archive.view")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onExportArchive(archive)}
+                    disabled={archiveExportingId === archive.id}
+                    loading={archiveExportingId === archive.id}
+                    className="flex-1"
+                  >
+                    <Download className="h-4 w-4" />
+                    {t("payments.archive.export")}
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}

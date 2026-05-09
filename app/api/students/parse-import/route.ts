@@ -59,15 +59,57 @@ export async function POST(request: NextRequest) {
       return jsonError("الملف يجب أن يكون Excel (.xlsx, .xls) أو CSV", 400);
     }
 
-    // Parse Excel file
+    // Parse Excel file — use raw array mode to support files with title rows above headers
     const XLSX = await loadXLSX();
     const buffer = await file.arrayBuffer();
     const wb = await XLSX.read(buffer, { type: "array" });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws);
 
-    if (rows.length === 0) {
+    // Get raw rows as arrays so we can find the real header row regardless of its position
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawRows = (XLSX.utils.sheet_to_json as any)(ws, { header: 1, defval: "" }) as unknown[][];
+
+    if (rawRows.length === 0) {
       return jsonError("الملف فارغ أو لا يحتوي على بيانات", 400);
+    }
+
+    // Find header row: first row that has at least 2 recognizable column aliases
+    // (search first 15 rows to handle files with title/logo rows at top)
+    const { findColumnIndex: findCol, COLUMN_ALIASES } = await import("@/lib/students/import-engine");
+    const requiredFields = ["fullName", "className"] as const;
+
+    let headerRowIdx = 0;
+    for (let i = 0; i < Math.min(15, rawRows.length); i++) {
+      const rowCells = (rawRows[i] as unknown[]).map((v) => String(v ?? "").trim());
+      const matchCount = requiredFields.filter((field) =>
+        rowCells.some((cell) => {
+          const aliases = COLUMN_ALIASES[field] ?? [];
+          const cellNorm = cell.toLowerCase();
+          return aliases.some((alias) => cellNorm === alias.toLowerCase() ||
+            cellNorm.replace(/\s+/g, "") === alias.toLowerCase().replace(/\s+/g, ""));
+        })
+      ).length;
+      if (matchCount >= 2) {
+        headerRowIdx = i;
+        break;
+      }
+    }
+
+    // Build header→column map from detected header row
+    const headerCells = (rawRows[headerRowIdx] as unknown[]).map((v) => String(v ?? "").trim());
+
+    // Convert raw rows to objects using detected headers
+    const rows = rawRows.slice(headerRowIdx).map((rawRow) => {
+      const cells = rawRow as unknown[];
+      const obj: Record<string, string> = {};
+      headerCells.forEach((header, colIdx) => {
+        if (header) obj[header] = String(cells[colIdx] ?? "").trim();
+      });
+      return obj;
+    });
+
+    if (rows.length <= 1) {
+      return jsonError("الملف لا يحتوي على بيانات بعد رأس الأعمدة", 400);
     }
 
     // Load classes for current school/branch

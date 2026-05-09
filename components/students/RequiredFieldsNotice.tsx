@@ -13,7 +13,6 @@ export function RequiredFieldsNotice() {
           <ul className="mr-4 list-disc list-inside text-gray-700 dark:text-gray-300 space-y-0.5">
             <li>الاسم الكامل (3 أحرف على الأقل)</li>
             <li>الصف (يجب أن يكون موجوداً في النظام)</li>
-            <li>الشعبة (يجب أن تكون تابعة للصف المختار)</li>
           </ul>
         </div>
         <div>
@@ -21,13 +20,14 @@ export function RequiredFieldsNotice() {
             الحقول الاختيارية (يمكن تركها فارغة):
           </span>
           <ul className="mr-4 list-disc list-inside text-gray-500 dark:text-gray-400 space-y-0.5">
+            <li>الشعبة (إذا كان الصف يحتوي على شعب، يجب مطابقة الاسم)</li>
             <li>رقم الهاتف، تاريخ الميلاد، الجنس</li>
             <li>العنوان، اسم ولي الأمر، رقم هاتف ولي الأمر</li>
             <li>ملاحظات</li>
           </ul>
         </div>
         <div className="text-xs text-purple-600 dark:text-purple-400 italic">
-          * ملاحظة: إذا قمت بملء حقل اختياري (مثل رقم الهاتف)، فيجب أن يكون بتنسيق صحيح.
+          * النظام يكتشف أسماء الأعمدة تلقائياً بالعربية أو الإنجليزية
         </div>
       </div>
     </div>

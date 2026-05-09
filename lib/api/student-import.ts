@@ -8,7 +8,7 @@ const optionalTrimmedString = (maxLength: number) =>
 export const studentImportRowSchema = z.object({
   fullName: z.string().trim().min(3).max(160),
   className: z.string().trim().min(1).max(120),
-  sectionName: z.string().trim().min(1).max(120),
+  sectionName: z.union([z.string().trim().max(120), z.null(), z.undefined()]).transform(v => (typeof v === 'string' && v.length > 0 ? v : null)),
   phoneNumber: optionalTrimmedString(32),
   dateOfBirth: optionalTrimmedString(32),
   gender: optionalTrimmedString(32),
@@ -22,9 +22,10 @@ export const studentImportRequestSchema = z.object({
   chunk: z.array(studentImportRowSchema).min(1).max(1000),
 });
 
-export type StudentImportRow = z.infer<typeof studentImportRowSchema> & {
-  classId?: string; // UUID of matched class (added by validator)
-  sectionId?: string; // UUID of matched section (added by validator)
+export type StudentImportRow = Omit<z.infer<typeof studentImportRowSchema>, 'sectionName'> & {
+  sectionName?: string | null;
+  classId?: string;
+  sectionId?: string;
 };
 
 export type StudentInsertPayload = {

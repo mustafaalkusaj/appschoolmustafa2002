@@ -15,6 +15,7 @@ import {
   buildManagedAuthIdentityPayload,
   buildTeacherClassesTaught,
   decorateManagedUsers,
+  ensureManagedUserProfileLink,
   findManagedProfileByLinkedRecord,
   fetchManagedUserByAuthUserId,
   fetchManagedAccountSchoolBrand,
@@ -24,7 +25,6 @@ import {
   normalizeManagedUserRecords,
   replaceTeacherAssignments,
   resolveManagedUsersActorContext,
-  syncManagedUserAccountState,
   syncStudentTeacherLinks,
   getTeacherTableCapabilities,
   tableHasColumn,
@@ -1327,7 +1327,10 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      await syncManagedUserAccountState(actorSupabase, {
+      // For new users, skip redundant Auth Admin API calls (upsertManagedUserCredential +
+      // syncManagedAuthIdentityMetadata). All metadata was already embedded in createUser via
+      // buildManagedAuthIdentityPayload. Only the DB profile link needs to be written.
+      await ensureManagedUserProfileLink(actorSupabase, {
         authUserId,
         schoolId: targetSchoolId,
         role: validation.value.role,
@@ -1338,7 +1341,6 @@ export async function POST(req: NextRequest) {
         studentId: validation.value.role === "student" ? relatedRecordId : null,
         teacherId: validation.value.role === "teacher" ? relatedRecordId : null,
         createdBy: actorUserId,
-        temporaryPassword,
       });
     } catch (profileError) {
       await cleanupCreatedUser({

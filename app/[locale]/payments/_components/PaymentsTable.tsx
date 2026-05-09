@@ -17,7 +17,7 @@ interface PaymentsTableProps {
   totalCount: number;
   onPageChange: (page: number) => void;
   onStudentClick: (student: Student) => void;
-  onAddPayment: (student: Student) => void;
+  onAddPayment?: (student: Student) => void;
 }
 
 export function PaymentsTable({
@@ -150,10 +150,12 @@ export function PaymentsTable({
               </div>
 
               {/* Actions */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Button variant="primary" size="sm" onClick={() => onAddPayment(s)}>
-                  {t("payments.table.addPayment")}
-                </Button>
+              <div className={`grid grid-cols-1 gap-3 ${onAddPayment ? "sm:grid-cols-2" : ""}`}>
+                {onAddPayment && (
+                  <Button variant="primary" size="sm" onClick={() => onAddPayment(s)}>
+                    {t("payments.table.addPayment")}
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => onStudentClick(s)}>
                   {t("payments.table.viewDetails")}
                 </Button>
@@ -266,14 +268,16 @@ export function PaymentsTable({
                   </td>
                   <td className="p-3 border-b border-[var(--border)]">
                     <div className="flex items-center gap-2">
-                      <IconButton
-                        variant="primary"
-                        size="sm"
-                        aria-label={t("payments.table.addPayment")}
-                        onClick={() => onAddPayment(s)}
-                      >
-                        <CreditCard className="h-4 w-4" />
-                      </IconButton>
+                      {onAddPayment && (
+                        <IconButton
+                          variant="primary"
+                          size="sm"
+                          aria-label={t("payments.table.addPayment")}
+                          onClick={() => onAddPayment(s)}
+                        >
+                          <CreditCard className="h-4 w-4" />
+                        </IconButton>
+                      )}
                       <IconButton
                         variant="ghost"
                         size="sm"

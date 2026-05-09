@@ -87,6 +87,7 @@ export async function GET(req: NextRequest) {
           .from("teachers")
           .select(teacherSelect)
           .eq("school_id", targetSchoolId)
+          .neq("status", "deleted")
           .order("full_name"),
           branchScope.value,
         )

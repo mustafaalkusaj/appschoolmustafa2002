@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { formatNumber, formatDate } from "@/lib/formatting";
 import { useRuntimeBranding } from "@/hooks/brand";
@@ -16,7 +16,8 @@ import { useStudentsPage } from "./useStudentsPage";
 import { usePaymentOperations } from "./usePaymentOperations";
 import { useArchiveOperations } from "./useArchiveOperations";
 
-import { Student, Payment, PaymentArchive, SEARCH_DEBOUNCE_MS } from "../_types";
+import { Student, Payment, PaymentArchive, SEARCH_DEBOUNCE_MS, PAGE_SIZE, EMPTY_SUMMARY, PaymentsSummary } from "../_types";
+import { getArchiveStudents, getArchivePayments } from "./useArchiveOperations";
 
 export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   const pathname = usePathname();
@@ -129,6 +130,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
             logoUrl: resolvedLogoUrl,
             branchName: runtimeBranding.branchName,
             primaryColor: runtimeBranding.primaryColor,
+            textColor: runtimeBranding.textColor,
             receiptNumber: p.receipt_number || "",
             amount: Number(p.amount) || 0,
             paymentMethod: p.payment_method as string,
@@ -253,6 +255,121 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     setError,
     currentBranchId
   );
+
+  // ── Archive mode ──────────────────────────────────────────────
+  const [activeArchiveYear, setActiveArchiveYearState] = useState<number | null>(null);
+
+  const activateArchiveYear = useCallback((year: number) => {
+    setActiveArchiveYearState(year);
+    studentsHook.setPage(1);
+  }, [studentsHook]);
+
+  const exitArchiveMode = useCallback(() => {
+    setActiveArchiveYearState(null);
+    studentsHook.setPage(1);
+  }, [studentsHook]);
+
+  // Reset archive mode if the archive disappears (e.g. school change)
+  const prevResolvedSchoolId = useRef(resolvedSchoolId);
+  useEffect(() => {
+    if (prevResolvedSchoolId.current !== resolvedSchoolId) {
+      prevResolvedSchoolId.current = resolvedSchoolId;
+      setActiveArchiveYearState(null);
+    }
+  }, [resolvedSchoolId]);
+
+  const activeArchive = useMemo(
+    () => (activeArchiveYear !== null
+      ? (metaHook.archives.find((a) => a.archive_year === activeArchiveYear) ?? null)
+      : null),
+    [activeArchiveYear, metaHook.archives]
+  );
+
+  // Raw students from archive
+  const archiveStudentsRaw = useMemo(
+    () => (activeArchive ? getArchiveStudents(activeArchive) : []),
+    [activeArchive]
+  );
+
+  // Filtered + sorted archive students
+  const archiveStudentsFiltered = useMemo<Student[]>(() => {
+    if (!activeArchive) return [];
+    let result = archiveStudentsRaw as Student[];
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((s) => s.full_name?.toLowerCase().includes(q));
+    }
+
+    if (filterClass) {
+      result = result.filter((s) => s.class_name === filterClass);
+    }
+
+    switch (quickFilter) {
+      case "no_invoice":  result = result.filter((s) => (s.paid_fee ?? 0) === 0); break;
+      case "collected":   result = result.filter((s) => (s.remaining_fee ?? 0) <= 0); break;
+      case "discounted":  result = result.filter((s) => (s.discount_value ?? 0) > 0); break;
+      case "transferred": result = result.filter((s) => s.status === "transferred"); break;
+      case "graduated":   result = result.filter((s) => s.status === "graduated"); break;
+      case "suspended":   result = result.filter((s) => s.status === "suspended"); break;
+      case "deleted":     result = result.filter((s) => s.status === "deleted"); break;
+    }
+
+    return [...result].sort((a, b) => {
+      let cmp = 0;
+      switch (filterSort) {
+        case "class":     cmp = (a.class_name ?? "").localeCompare(b.class_name ?? ""); break;
+        case "paid":      cmp = (a.paid_fee ?? 0) - (b.paid_fee ?? 0); break;
+        case "remaining": cmp = (a.remaining_fee ?? 0) - (b.remaining_fee ?? 0); break;
+        default:          cmp = (a.full_name ?? "").localeCompare(b.full_name ?? "");
+      }
+      return filterDir === "desc" ? -cmp : cmp;
+    });
+  }, [activeArchive, archiveStudentsRaw, search, filterClass, quickFilter, filterSort, filterDir]);
+
+  // Paginated archive students
+  const archiveStudentsPaged = useMemo<Student[]>(() => {
+    const start = (studentsHook.page - 1) * PAGE_SIZE;
+    return archiveStudentsFiltered.slice(start, start + PAGE_SIZE);
+  }, [archiveStudentsFiltered, studentsHook.page]);
+
+  // Payment counts from archive
+  const archivePaymentCounts = useMemo<Record<string, number>>(() => {
+    if (!activeArchive) return {};
+    return getArchivePayments(activeArchive).reduce((acc, p) => {
+      acc[p.student_id] = (acc[p.student_id] ?? 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [activeArchive]);
+
+  // Summary from archive
+  const archiveSummary = useMemo<PaymentsSummary>(() => {
+    if (!activeArchive) return { ...EMPTY_SUMMARY };
+    const students = archiveStudentsRaw as Student[];
+    return {
+      totalStudents: students.length,
+      totalFee:       students.reduce<number>((s, st) => s + (Number(st.total_fee)     || 0), 0),
+      totalPaid:      students.reduce<number>((s, st) => s + (Number(st.paid_fee)      || 0), 0),
+      totalRemaining: students.reduce<number>((s, st) => s + (Number(st.remaining_fee) || 0), 0),
+      collectedCount: students.filter((st) => (Number(st.remaining_fee) || 0) <= 0).length,
+    };
+  }, [activeArchive, archiveStudentsRaw]);
+
+  // Classes from archive
+  const archiveClasses = useMemo<string[]>(() => {
+    if (!activeArchive) return [];
+    return Array.from(new Set(archiveStudentsRaw.map((s) => s.class_name).filter((c): c is string => Boolean(c)))).sort();
+  }, [activeArchive, archiveStudentsRaw]);
+
+  // Effective data (archive mode overrides live data)
+  const isArchiveMode = activeArchiveYear !== null;
+  const effectiveSummary      = isArchiveMode ? archiveSummary       : metaHook.summary;
+  const effectiveStudents     = isArchiveMode ? archiveStudentsPaged : studentsHook.students;
+  const effectivePaymentCounts= isArchiveMode ? archivePaymentCounts : studentsHook.paymentCountsByStudent;
+  const effectiveLoading      = isArchiveMode ? false                : studentsHook.loading;
+  const effectiveTotalCount   = isArchiveMode ? archiveStudentsFiltered.length : studentsHook.totalCount;
+  const effectiveTotalPages   = isArchiveMode ? Math.ceil(archiveStudentsFiltered.length / PAGE_SIZE) : studentsHook.totalPages;
+  const effectiveClasses      = isArchiveMode ? archiveClasses       : metaHook.classes;
 
   // Handlers
   const openStudentDetail = useCallback(
@@ -396,7 +513,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     // Meta hook
     metaHook,
 
-    // Students hook
+    // Students hook (raw — use effective* below for rendering)
     studentsHook,
 
     // Payment operations hook
@@ -404,6 +521,22 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
 
     // Archive operations hook
     archiveOpsHook,
+
+    // Archive mode
+    isArchiveMode,
+    activeArchiveYear,
+    activeArchive,
+    activateArchiveYear,
+    exitArchiveMode,
+
+    // Effective data — always use these for rendering
+    effectiveSummary,
+    effectiveStudents,
+    effectivePaymentCounts,
+    effectiveLoading,
+    effectiveTotalCount,
+    effectiveTotalPages,
+    effectiveClasses,
 
     // Selected student
     selectedStudent,
@@ -421,5 +554,5 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     handlePaymentSubmit,
     openPaymentForStudent,
     updateStudentFinancials,
-  }), [canAddPayments, canDeletePayments, schoolScope, resolvedSchoolId, success, error, searchInput, setSearchInput, exporting, quickFilter, setQuickFilter, filterClass, setFilterClass, filterSort, setFilterSort, filterDir, setFilterDir, metaHook, studentsHook, paymentOpsHook, archiveOpsHook, selectedStudent, setSelectedStudent, showDetail, setShowDetail, openStudentDetail, handleExportExcel, printReceipt, printStatement, handleArchiveExport, handleDeletePayment, handlePaymentSubmit, openPaymentForStudent, updateStudentFinancials]);
+  }), [canAddPayments, canDeletePayments, schoolScope, resolvedSchoolId, success, error, searchInput, setSearchInput, exporting, quickFilter, setQuickFilter, filterClass, setFilterClass, filterSort, setFilterSort, filterDir, setFilterDir, metaHook, studentsHook, paymentOpsHook, archiveOpsHook, isArchiveMode, activeArchiveYear, activeArchive, activateArchiveYear, exitArchiveMode, effectiveSummary, effectiveStudents, effectivePaymentCounts, effectiveLoading, effectiveTotalCount, effectiveTotalPages, effectiveClasses, selectedStudent, setSelectedStudent, showDetail, setShowDetail, openStudentDetail, handleExportExcel, printReceipt, printStatement, handleArchiveExport, handleDeletePayment, handlePaymentSubmit, openPaymentForStudent, updateStudentFinancials]);
 }

@@ -12,6 +12,7 @@ export type CredentialRow = {
   auth_user_id: string;
   login_identifier: string;
   temporary_password_hash: string | null;
+  temporary_password_plain: string | null;
   has_pending_setup: boolean;
   password_last_reset_at: string | null;
   card_last_printed_at: string | null;

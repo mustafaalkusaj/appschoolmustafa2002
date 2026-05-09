@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -38,6 +39,7 @@ function escapeCsv(value: unknown) {
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
+  const requestedBranchId = req.nextUrl.searchParams.get("branchId");
   const className = normalizeText(req.nextUrl.searchParams.get("className"), 60);
   const section = normalizeText(req.nextUrl.searchParams.get("section"), 20);
 
@@ -80,6 +82,11 @@ export async function GET(req: NextRequest) {
     return jsonError("اسم الصف مطلوب للتصدير.", 400);
   }
 
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const today = new Date();
   const defaultTo = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const defaultFromDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -97,14 +104,17 @@ export async function GET(req: NextRequest) {
   }
 
   // 1) Resolve students for the class/section within the target school.
-  let studentsQuery = context.value.actorSupabase
-    .from("students")
-    .select("id, full_name, class_name, section")
-    .eq("school_id", context.value.targetSchoolId)
-    .eq("class_name", className)
-    .neq("status", "deleted")
-    .order("full_name", { ascending: true })
-    .limit(10_000);
+  let studentsQuery = applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("students")
+      .select("id, full_name, class_name, section")
+      .eq("school_id", context.value.targetSchoolId)
+      .eq("class_name", className)
+      .neq("status", "deleted")
+      .order("full_name", { ascending: true })
+      .limit(10_000),
+    branchScope.value,
+  );
 
   if (section) studentsQuery = studentsQuery.eq("section", section);
 
@@ -137,16 +147,19 @@ export async function GET(req: NextRequest) {
   const studentIds = students.map((s) => s.id);
 
   // 2) Fetch attendance rows (absent + late) for the class range.
-  const { data: attendanceData, error: attendanceError } = await context.value.actorSupabase
-    .from("attendance_records")
-    .select("student_id, attendance_date, status")
-    .eq("school_id", context.value.targetSchoolId)
-    .in("student_id", studentIds)
-    .gte("attendance_date", fromDate)
-    .lte("attendance_date", toDate)
-    .in("status", ["absent", "late"] satisfies AttendanceStatus[])
-    .order("attendance_date", { ascending: false })
-    .limit(200_000);
+  const { data: attendanceData, error: attendanceError } = await applyBranchScopeToQuery(
+    context.value.actorSupabase
+      .from("attendance_records")
+      .select("student_id, attendance_date, status")
+      .eq("school_id", context.value.targetSchoolId)
+      .in("student_id", studentIds)
+      .gte("attendance_date", fromDate)
+      .lte("attendance_date", toDate)
+      .in("status", ["absent", "late"] satisfies AttendanceStatus[])
+      .order("attendance_date", { ascending: false })
+      .limit(200_000),
+    branchScope.value,
+  );
 
   if (attendanceError) {
     return jsonError(attendanceError.message || "تعذر تحميل سجلات الغياب.", 500);

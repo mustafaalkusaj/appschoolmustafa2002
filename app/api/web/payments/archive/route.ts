@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildStudentPromotionPlan } from "@/lib/students/promotion";
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id.trim() : "";
   const archiveYear = Number(body?.archive_year ?? 0);
+  const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id.trim() || null : null;
 
   const currentYear = new Date().getFullYear();
   if (!schoolId || !Number.isInteger(archiveYear) || archiveYear <= 0 || archiveYear > currentYear) {
@@ -41,16 +43,25 @@ export async function POST(req: NextRequest) {
   if (!canArchivePayments) {
     return jsonError("ليس لديك صلاحية أرشفة الحسابات.", 403);
   }
+
+  const branchScope = resolveBranchScope(context.value, requestedBranchId);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
   const fromDate = `${archiveYear}-01-01`;
   const toDate = `${archiveYear}-12-31`;
 
-  const { data: yearPayments, error: paymentsError } = await actorSupabase
-    .from("payments")
-    .select("id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
-    .eq("school_id", targetSchoolId)
-    .gte("created_at", fromDate)
-    .lte("created_at", `${toDate}T23:59:59.999Z`)
-    .order("created_at", { ascending: false });
+  const { data: yearPayments, error: paymentsError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("payments")
+      .select("id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
+      .eq("school_id", targetSchoolId)
+      .gte("created_at", fromDate)
+      .lte("created_at", `${toDate}T23:59:59.999Z`)
+      .order("created_at", { ascending: false }),
+    branchScope.value,
+  );
 
   if (paymentsError) {
     return jsonError(paymentsError.message || "تعذر تحميل دفعات السنة المطلوبة.", 500);
@@ -61,22 +72,28 @@ export async function POST(req: NextRequest) {
   }
 
   const studentIds = Array.from(new Set(yearPayments.map((payment) => payment.student_id).filter(Boolean)));
-  const { data: archiveStudents, error: studentsError } = await actorSupabase
-    .from("students")
-    .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, status, phone")
-    .eq("school_id", targetSchoolId)
-    .in("id", studentIds);
+  const { data: archiveStudents, error: studentsError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, status, phone")
+      .eq("school_id", targetSchoolId)
+      .in("id", studentIds),
+    branchScope.value,
+  );
 
   if (studentsError) {
     return jsonError(studentsError.message || "تعذر تحميل بيانات الطلاب للأرشفة.", 500);
   }
 
   const totalAmount = yearPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
-  const { data: promotableStudents, error: promotableStudentsError } = await actorSupabase
-    .from("students")
-    .select("id, class_name, status")
-    .eq("school_id", targetSchoolId)
-    .not("status", "in", "(deleted,withdrawn,archived,graduated)");
+  const { data: promotableStudents, error: promotableStudentsError } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("id, class_name, status")
+      .eq("school_id", targetSchoolId)
+      .not("status", "in", "(deleted,withdrawn,archived,graduated)"),
+    branchScope.value,
+  );
 
   if (promotableStudentsError) {
     return jsonError(promotableStudentsError.message || "تعذر تجهيز خطة ترحيل الطلاب قبل الأرشفة.", 500);

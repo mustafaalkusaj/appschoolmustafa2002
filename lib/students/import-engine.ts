@@ -267,7 +267,7 @@ export function matchClass(
   const contextClasses = availableClasses.filter((c) => {
     if (c.schoolId !== schoolId) return false;
     if (!branchId) return true;
-    return c.branchId === branchId;
+    return c.branchId === branchId || !c.branchId;
   });
 
   // Try exact match on normalized names
@@ -385,16 +385,6 @@ export function generateImportPreview(
       continue;
     }
 
-    // Required: Section
-    if (!mapped.sectionName || !mapped.sectionName.trim()) {
-      invalidRows.push({
-        rowIndex: i + 1,
-        rawData: rawRow,
-        errors: ['الشعبة مطلوبة'],
-      });
-      continue;
-    }
-
     // Try to match class
     const matchedClass = matchClass(mapped.className!, availableClasses, schoolId, branchId);
     if (!matchedClass) {
@@ -434,38 +424,28 @@ export function generateImportPreview(
     mapped.classId = sectionAlignedClass.id;
     matchedClasses.set(mapped.className!, sectionAlignedClass.id);
 
-    // Section validation: if class has defined sections, section must match one of them
-    // If class has no sections defined, allow any section value (will be null in DB if empty)
-    const classDbSections = sectionAlignedClass.sections || [];
-    const excelSection = normalizeSectionName(mapped.sectionName!);
-    const classSection = normalizeSectionName(String((sectionAlignedClass as any).section || ""));
+    // Section validation: only if row has a section value AND class has defined sections
+    if (mapped.sectionName && mapped.sectionName.trim()) {
+      const classDbSections = sectionAlignedClass.sections || [];
+      const excelSection = normalizeSectionName(mapped.sectionName);
+      const classSection = normalizeSectionName(String((sectionAlignedClass as any).section || ""));
+      const hasSectionsConfigured = classDbSections.length > 0 || (classSection && classSection.length > 0);
 
-    const hasSectionsConfigured = classDbSections.length > 0 || (classSection && classSection.length > 0);
+      const sectionExists = !hasSectionsConfigured ||
+        classDbSections.some((s: any) => {
+          const dbSec = normalizeSectionName(String(s.name || s));
+          return dbSec === excelSection || dbSec.includes(excelSection) || excelSection.includes(dbSec);
+        }) || (classSection && classSection === excelSection);
 
-    const sectionExists = !hasSectionsConfigured ||
-      classDbSections.some((s: any) => {
-        const dbSec = normalizeSectionName(String(s.name || s));
-        return dbSec === excelSection || dbSec.includes(excelSection) || excelSection.includes(dbSec);
-      }) || (classSection && classSection === excelSection);
-
-    if (!sectionExists && hasSectionsConfigured) {
-      // Debug: log why section failed (only if class has sections configured)
-      const dbSectionNames = classDbSections.map((s: any) => s.name || s);
-      console.log(`[ImportEngine] Row ${i + 1} section mismatch:`, {
-        excelSection: mapped.sectionName,
-        className: mapped.className,
-        classId: sectionAlignedClass.id,
-        availableSections: dbSectionNames,
-        normalizedExcel: excelSection,
-        normalizedDb: dbSectionNames.map((s: any) => normalizeSectionName(String(s))),
-      });
-
-      invalidRows.push({
-        rowIndex: i + 1,
-        rawData: rawRow,
-        errors: ['الشعبة غير موجودة داخل الصف المحدد'],
-      });
-      continue;
+      if (!sectionExists && hasSectionsConfigured) {
+        const dbSectionNames = classDbSections.map((s: any) => s.name || s);
+        invalidRows.push({
+          rowIndex: i + 1,
+          rawData: rawRow,
+          errors: [`الشعبة "${mapped.sectionName}" غير موجودة في الصف المحدد. الشعب المتاحة: ${dbSectionNames.join(', ')}`],
+        });
+        continue;
+      }
     }
 
     // Row passed all validation

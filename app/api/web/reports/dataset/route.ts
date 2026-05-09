@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
       query = query.eq("section", sectionName);
     }
 
-    const { data, error } = await query.limit(10_000);
+    const { data, error } = await query.limit(50_000);
     if (error) throw error;
     const students = data ?? [];
 
@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
         .eq("school_id", targetSchoolId)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
-        .limit(10_000),
+        .limit(50_000),
       branchScope.value,
     );
     if (error) throw error;
@@ -189,7 +189,7 @@ export async function GET(req: NextRequest) {
         .eq("school_id", targetSchoolId)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
-        .limit(10_000),
+        .limit(50_000),
       branchScope.value,
     );
     if (error) throw error;
@@ -206,7 +206,7 @@ export async function GET(req: NextRequest) {
         .select("id, gross_salary, deductions, month, paid_at, is_paid, teachers(full_name,subject)")
         .eq("school_id", targetSchoolId)
         .order("paid_at", { ascending: false })
-        .limit(10_000),
+        .limit(50_000),
       branchScope.value,
     );
     if (error) throw error;

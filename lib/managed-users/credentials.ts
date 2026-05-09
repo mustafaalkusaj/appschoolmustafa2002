@@ -97,6 +97,7 @@ function toAuthCredentialRow(authUserId: string, user: { app_metadata?: Record<s
     auth_user_id: authUserId,
     login_identifier: loginIdentifier,
     temporary_password_hash: nullableText(managedCredentials.temporary_password_hash),
+    temporary_password_plain: nullableText(managedCredentials.temporary_password_plain),
     has_pending_setup: Boolean(managedCredentials.has_pending_setup),
     password_last_reset_at: normalizeNullableTimestamp(managedCredentials.password_last_reset_at),
     card_last_printed_at: normalizeNullableTimestamp(managedCredentials.card_last_printed_at),
@@ -168,6 +169,7 @@ async function patchManagedCredentialMetadata(
   patch: {
     login_identifier?: string;
     temporary_password_hash?: string | null;
+    temporary_password_plain?: string | null;
     has_pending_setup?: boolean;
     password_last_reset_at?: string | null;
     card_last_printed_at?: string | null;
@@ -185,6 +187,7 @@ async function patchManagedCredentialMetadata(
     ...existingManagedCredentials,
     ...(patch.login_identifier !== undefined ? { login_identifier: patch.login_identifier } : {}),
     ...(patch.temporary_password_hash !== undefined ? { temporary_password_hash: patch.temporary_password_hash } : {}),
+    ...(patch.temporary_password_plain !== undefined ? { temporary_password_plain: patch.temporary_password_plain } : {}),
     ...(patch.has_pending_setup !== undefined ? { has_pending_setup: patch.has_pending_setup } : {}),
     ...(patch.password_last_reset_at !== undefined ? { password_last_reset_at: patch.password_last_reset_at } : {}),
     ...(patch.card_last_printed_at !== undefined ? { card_last_printed_at: patch.card_last_printed_at } : {}),
@@ -219,6 +222,7 @@ async function patchManagedCredentialMetadata(
       nullableText(data.user.email) ??
       "",
     temporary_password_hash: nullableText(nextManagedCredentials.temporary_password_hash),
+    temporary_password_plain: nullableText(nextManagedCredentials.temporary_password_plain),
     has_pending_setup: Boolean(nextManagedCredentials.has_pending_setup),
     password_last_reset_at: normalizeNullableTimestamp(nextManagedCredentials.password_last_reset_at),
     card_last_printed_at: normalizeNullableTimestamp(nextManagedCredentials.card_last_printed_at),
@@ -343,7 +347,7 @@ export async function fetchManagedUserCredentials(
 
   const { data, error } = await actorSupabase
     .from("managed_user_credentials")
-    .select("auth_user_id, login_identifier, temporary_password_hash, has_pending_setup, password_last_reset_at, card_last_printed_at")
+    .select("auth_user_id, login_identifier, temporary_password_hash, temporary_password_plain, has_pending_setup, password_last_reset_at, card_last_printed_at")
     .in("auth_user_id", uniqueIds);
 
   if (error) {
@@ -413,6 +417,7 @@ export async function upsertManagedUserCredential(
       school_id: options.schoolId,
       login_identifier: options.loginIdentifier,
       temporary_password_hash: passwordHash,
+      temporary_password_plain: options.temporaryPassword,
       has_pending_setup: true,
       password_last_reset_at: now,
       ...(options.touchPrintTimestamp ? { card_last_printed_at: now } : {}),
@@ -427,6 +432,7 @@ export async function upsertManagedUserCredential(
   await patchManagedCredentialMetadata(options.authUserId, {
     login_identifier: options.loginIdentifier,
     temporary_password_hash: passwordHash,
+    temporary_password_plain: options.temporaryPassword,
     has_pending_setup: true,
     password_last_reset_at: now,
     ...(options.touchPrintTimestamp ? { card_last_printed_at: now } : {}),

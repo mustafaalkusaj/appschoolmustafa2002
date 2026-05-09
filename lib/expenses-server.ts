@@ -179,7 +179,8 @@ async function fetchExpenseSummaryFallback(
     actorSupabase
       .from("expenses")
       .select("amount, expense_date")
-      .eq("school_id", schoolId),
+      .eq("school_id", schoolId)
+      .is("deleted_at", null),
     branchScope,
   );
 
@@ -188,7 +189,8 @@ async function fetchExpenseSummaryFallback(
       actorSupabase
         .from("expenses")
         .select("amount, expense_date", { count: "exact" })
-        .eq("school_id", schoolId),
+        .eq("school_id", schoolId)
+        .is("deleted_at", null),
       branchScope,
     ),
     filters,
@@ -233,7 +235,8 @@ export async function resolveExpensesPage(
       actorSupabase
         .from("expenses")
         .select(EXPENSE_SELECT, { count: "exact" })
-        .eq("school_id", schoolId),
+        .eq("school_id", schoolId)
+        .is("deleted_at", null),
       branchScope,
     ),
     filters,
@@ -329,6 +332,7 @@ async function fetchExpenseTypesOverviewFallback(
     .from("expense_types")
     .select("id, school_id, name, notes")
     .eq("school_id", schoolId)
+    .is("deleted_at", null)
     .order("name", { ascending: true });
 
   if (typesError) {

@@ -27,6 +27,7 @@ async function hasDuplicateTypeName(
     .from("expense_types")
     .select("id, name")
     .eq("school_id", schoolId)
+    .is("deleted_at", null)
     .order("name", { ascending: true });
 
   if (error) {

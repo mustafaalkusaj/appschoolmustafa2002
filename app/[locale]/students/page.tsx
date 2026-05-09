@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import type { StudentWithFees, StudentActionItem } from "./_types";
 import { useStudentsData } from "./_hooks/useStudentsData";
 import { useStudentsModals } from "./_hooks/useStudentsModals";
@@ -18,6 +18,10 @@ import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useBranchScope } from "@/hooks/useBranchScope";
 import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
+import { resolveSchoolIdForProfile } from "@/lib/school/context";
+import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { printHtmlDocument } from "@/lib/print/branding";
+import { buildBulkLoginCardsHtml, type BulkCardItem } from "./_utils";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 
@@ -215,14 +219,97 @@ export default function StudentsPage() {
   }, [loadStudentsDataset, locale, modals, operations]);
 
   const printAllStudentCards = useCallback(async () => {
-    const fullDataset = await loadStudentsDataset();
-    if (fullDataset.length === 0) {
-      modals.setError(locale === "en" ? "Could not load the students for printing." : "تعذر تحميل بيانات الطلاب للطباعة");
-      return;
-    }
+    if (!profile) return;
+    modals.setPrintingCards(true);
     modals.setError("");
-    print.printFilteredStudents(fullDataset);
-  }, [loadStudentsDataset, locale, modals, print]);
+    try {
+      const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+      if (!schoolId) {
+        modals.setError(locale === "en" ? "No school selected." : "لم يتم تحديد المدرسة.");
+        return;
+      }
+      const params = new URLSearchParams({ schoolId });
+      if (effectiveBranchId) params.set("branchId", effectiveBranchId);
+
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok?: boolean; cards?: BulkCardItem[]; error?: { message?: string } }>(
+        `/api/dashboard/students/bulk-cards?${params.toString()}`,
+      );
+
+      if (!response.ok || !payload?.cards) {
+        modals.setError(payload?.error?.message || (locale === "en" ? "Could not load student cards." : "تعذر تحميل بطاقات الطلاب."));
+        return;
+      }
+
+      if (payload.cards.length === 0) {
+        modals.setError(locale === "en" ? "No students with active accounts found." : "لا يوجد طلاب بحسابات نشطة.");
+        return;
+      }
+
+      const html = buildBulkLoginCardsHtml(payload.cards, {
+        locale,
+        schoolName: runtimeBranding.schoolName,
+        logoUrl: runtimeBranding.logoUrl,
+        primaryColor: runtimeBranding.primaryColor,
+        secondaryColor: runtimeBranding.secondaryColor,
+      });
+      printHtmlDocument(html);
+    } catch {
+      modals.setError(locale === "en" ? "Failed to prepare cards." : "حدث خطأ أثناء تجهيز البطاقات.");
+    } finally {
+      modals.setPrintingCards(false);
+    }
+  }, [profile, schoolScope.selectedSchoolId, effectiveBranchId, locale, modals, runtimeBranding]);
+
+  const [resettingPasswords, setResettingPasswords] = useState(false);
+  const bulkResetConfirmedRef = useRef(false);
+
+  const bulkResetPasswords = useCallback(async () => {
+    if (!profile) return;
+    if (!bulkResetConfirmedRef.current) {
+      const confirmed = window.confirm(
+        locale === "en"
+          ? "This will reset passwords for ALL students with accounts. Students will need to use their new passwords to log in. Continue?"
+          : "سيتم إعادة تعيين كلمات مرور جميع الطلاب الذين لديهم حسابات. سيحتاج الطلاب لاستخدام الكلمة الجديدة للدخول. هل تريد المتابعة؟"
+      );
+      if (!confirmed) return;
+    }
+    bulkResetConfirmedRef.current = false;
+    setResettingPasswords(true);
+    modals.setError("");
+    try {
+      const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+      if (!schoolId) {
+        modals.setError(locale === "en" ? "No school selected." : "لم يتم تحديد المدرسة.");
+        return;
+      }
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok?: boolean; count?: number; error?: { message?: string } }>(
+        "/api/dashboard/students/bulk-reset-passwords",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            school_id: schoolId,
+            ...(effectiveBranchId ? { branch_id: effectiveBranchId } : {}),
+          }),
+        }
+      );
+      if (!response.ok) {
+        modals.setError(payload?.error?.message || (locale === "en" ? "Failed to reset passwords." : "تعذر إعادة تعيين كلمات المرور."));
+        return;
+      }
+      const count = payload?.count ?? 0;
+      modals.setSuccess(
+        locale === "en"
+          ? `Passwords reset for ${count} students.`
+          : `تمت إعادة تعيين كلمات مرور ${count} طالب بنجاح.`
+      );
+      setTimeout(() => modals.setSuccess(""), 4000);
+    } catch {
+      modals.setError(locale === "en" ? "Failed to reset passwords." : "حدث خطأ أثناء إعادة التعيين.");
+    } finally {
+      setResettingPasswords(false);
+    }
+  }, [profile, schoolScope.selectedSchoolId, effectiveBranchId, locale, modals]);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
@@ -323,11 +410,13 @@ export default function StudentsPage() {
                         canManageStudentAccounts={canManageStudentAccounts}
                         datasetLoading={datasetLoading}
                         printingCards={modals.printingCards}
+                        resettingPasswords={resettingPasswords}
                         filtered={filtered}
                         onExportCurrentPage={() => operations.exportExcel(filtered)}
                         onExportAll={exportAllStudentsExcel}
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
                         onPrintAllCards={printAllStudentCards}
+                        onBulkResetPasswords={bulkResetPasswords}
                         onAddStudent={() => {
                           if (!effectiveBranchId) {
                             modals.setError(locale === "ar"
@@ -454,6 +543,8 @@ export default function StudentsPage() {
           show={showBulkImport}
           onClose={() => setShowBulkImport(false)}
           onImportComplete={reload}
+          schoolId={schoolScope.selectedSchoolId}
+          branchId={effectiveBranchId}
         />
       </div>
     </ProtectedRoute>
