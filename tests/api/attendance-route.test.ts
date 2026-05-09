@@ -35,6 +35,8 @@ function createThenableQuery(result: { data: unknown; error: unknown }) {
     gte: vi.fn(() => query),
     lte: vi.fn(() => query),
     in: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
     upsert: vi.fn(() => Promise.resolve(result)),
     then: (resolve: (value: { data: unknown; error: unknown }) => unknown) => Promise.resolve(resolve(result)),
   };
@@ -134,7 +136,7 @@ describe("attendance route branch scoping", () => {
       method: "POST",
       body: JSON.stringify({
         school_id: "school-1",
-        attendance_date: "2026-04-28",
+        attendance_date: new Date().toISOString().slice(0, 10),
         entries: [{ student_id: "student-1", status: "present", note: "ok" }],
       }),
       headers: { "content-type": "application/json" },

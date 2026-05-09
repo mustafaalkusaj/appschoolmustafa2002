@@ -47,6 +47,7 @@ function request() {
 describe("Rate Limiting", () => {
   const testClientId = "test-client-123";
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.useRealTimers();
@@ -54,6 +55,7 @@ describe("Rate Limiting", () => {
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
     setNodeEnv("test");
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     upstashMocks.incr.mockClear();
     upstashMocks.expire.mockClear();
     upstashMocks.ttl.mockClear();
@@ -70,6 +72,7 @@ describe("Rate Limiting", () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
     vi.unstubAllEnvs();
   });
 
@@ -151,7 +154,7 @@ describe("Rate Limiting", () => {
         error: "too_many_attempts",
         message: "محاولات كثيرة، حاول لاحقاً",
       });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Production rate limiting backend failed for namespace="auth-login" reason="missing-config".'),
       );
     });
@@ -257,7 +260,7 @@ describe("Rate Limiting", () => {
       });
 
       expect(response?.status).toBe(429);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Production rate limiting backend failed for namespace="auth-login" reason="init-error".'),
         initError,
       );
@@ -301,7 +304,7 @@ describe("Rate Limiting", () => {
       });
 
       expect(response?.status).toBe(429);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Production rate limiting backend failed for namespace="auth-login" reason="runtime-error".'),
         runtimeError,
       );

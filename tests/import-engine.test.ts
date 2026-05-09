@@ -483,16 +483,15 @@ describe('generateImportPreview - Strict Validation', () => {
     expect(preview.invalidRows[0].errors[0]).toContain('غير موجود في هذا الفرع');
   });
 
-  it('rejects rows with missing section', () => {
+  it('accepts rows with missing section (section is optional)', () => {
     const rows: Record<string, unknown>[] = [
       { 'الاسم الكامل': 'اسم الطالب', 'الصف': 'الصف', 'الشعبة': 'الشعبة' }, // Header
       { 'الاسم الكامل': 'أحمد', 'الصف': 'الأول متوسط', 'الشعبة': '' },
     ];
     const preview = generateImportPreview(rows, mockClasses, mockSchoolId, mockBranchId);
 
-    expect(preview.validRows.length).toBe(0);
-    expect(preview.invalidRows.length).toBe(1);
-    expect(preview.invalidRows[0].errors[0]).toContain('الشعبة مطلوبة');
+    expect(preview.validRows.length).toBe(1);
+    expect(preview.invalidRows.length).toBe(0);
   });
 
   it('rejects rows with invalid section in matched class', () => {
@@ -504,7 +503,7 @@ describe('generateImportPreview - Strict Validation', () => {
 
     expect(preview.validRows.length).toBe(0);
     expect(preview.invalidRows.length).toBe(1);
-    expect(preview.invalidRows[0].errors[0]).toContain('الشعبة غير موجودة داخل الصف');
+    expect(preview.invalidRows[0].errors[0]).toContain('غير موجودة في الصف المحدد');
   });
 
   it('accepts rows with valid name, class, and section', () => {
