@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
+
+// weekly_schedule has no branch_id column — school-level table only.
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_SESSION_TYPES = new Set(["morning", "afternoon"]);
@@ -28,10 +29,6 @@ export async function GET(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
-  const requestedBranchId = req.nextUrl.searchParams.get("branchId") ?? req.nextUrl.searchParams.get("branch_id");
-  const branchScope = resolveBranchScope(context.value, requestedBranchId);
-  if (!branchScope.ok) return jsonError(branchScope.message, branchScope.status);
-
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
 
   const rateLimited = await enforceRateLimit(req, {
@@ -45,14 +42,11 @@ export async function GET(req: NextRequest) {
   const canManage = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
   if (!canManage) return jsonError("ليس لديك صلاحية الوصول إلى الجدول.", 403);
 
-  let query = applyBranchScopeToQuery(
-    actorSupabase
-      .from("weekly_schedule")
-      .select("day, period, session_type, teacher_id")
-      .eq("school_id", targetSchoolId)
-      .eq("grade", grade),
-    branchScope.value,
-  );
+  let query = actorSupabase
+    .from("weekly_schedule")
+    .select("day, period, session_type, teacher_id")
+    .eq("school_id", targetSchoolId)
+    .eq("grade", grade);
   if (section) query = query.eq("section", section);
 
   const { data, error } = await query;
@@ -66,7 +60,6 @@ export async function PUT(req: NextRequest) {
   const schoolId = typeof body?.school_id === "string" ? body.school_id.trim() : "";
   const grade = typeof body?.grade === "string" ? body.grade.trim() : "";
   const section = typeof body?.section === "string" ? body.section.trim() : "";
-  const branchIdFromBody = typeof body?.branch_id === "string" && body.branch_id.trim() ? body.branch_id.trim() : null;
   const rows = Array.isArray(body?.rows) ? body.rows : [];
 
   if (!schoolId || !grade) {
@@ -82,9 +75,6 @@ export async function PUT(req: NextRequest) {
     return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
   }
 
-  const branchScope = resolveBranchScope(context.value, branchIdFromBody);
-  if (!branchScope.ok) return jsonError(branchScope.message, branchScope.status);
-
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
 
   const rateLimited = await enforceRateLimit(req, {
@@ -98,10 +88,6 @@ export async function PUT(req: NextRequest) {
   const canManage = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
   if (!canManage) return jsonError("ليس لديك صلاحية إدارة الجداول.", 403);
 
-  const writeBranch = resolveBranchIdForWrite(branchScope.value, branchIdFromBody);
-  if (!writeBranch.ok) return jsonError(writeBranch.message, writeBranch.status);
-  const resolvedBranchId = writeBranch.value ?? branchScope.value.branchId;
-
   const sanitizedRows = (rows as unknown[])
     .filter((row): row is Record<string, unknown> => row !== null && typeof row === "object")
     .filter((row) => {
@@ -113,7 +99,6 @@ export async function PUT(req: NextRequest) {
     })
     .map((row) => ({
       school_id: targetSchoolId,
-      branch_id: resolvedBranchId,
       grade,
       section: section || null,
       day: row.day as string,
@@ -122,14 +107,11 @@ export async function PUT(req: NextRequest) {
       teacher_id: row.teacher_id as string,
     }));
 
-  let deleteQuery = applyBranchScopeToQuery(
-    actorSupabase
-      .from("weekly_schedule")
-      .delete()
-      .eq("school_id", targetSchoolId)
-      .eq("grade", grade),
-    branchScope.value,
-  );
+  let deleteQuery = actorSupabase
+    .from("weekly_schedule")
+    .delete()
+    .eq("school_id", targetSchoolId)
+    .eq("grade", grade);
   if (section) deleteQuery = deleteQuery.eq("section", section);
   const { error: deleteError } = await deleteQuery;
   if (deleteError) return jsonError(deleteError.message || "تعذر حذف الجدول القديم.", 500);

@@ -80,7 +80,7 @@ CREATE POLICY salaries_delete ON salaries
   );
 
 -- ============================================================
--- 2. WEEKLY_SCHEDULE (branch-level)
+-- 2. WEEKLY_SCHEDULE (school-level only — no branch_id column)
 -- ============================================================
 ALTER TABLE weekly_schedule ENABLE ROW LEVEL SECURITY;
 
@@ -93,8 +93,7 @@ CREATE POLICY weekly_schedule_select ON weekly_schedule
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin'  AND weekly_schedule.school_id = up.school_id)
-           OR (up.scope_level IN ('branch_user', 'restricted') AND weekly_schedule.school_id = up.school_id AND weekly_schedule.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user', 'restricted') AND weekly_schedule.school_id = up.school_id)
          )
     )
   );
@@ -108,8 +107,7 @@ CREATE POLICY weekly_schedule_insert ON weekly_schedule
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin'  AND weekly_schedule.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user'  AND weekly_schedule.school_id = up.school_id AND weekly_schedule.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND weekly_schedule.school_id = up.school_id)
          )
     )
   );
@@ -123,8 +121,7 @@ CREATE POLICY weekly_schedule_update ON weekly_schedule
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin' AND weekly_schedule.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user' AND weekly_schedule.school_id = up.school_id AND weekly_schedule.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND weekly_schedule.school_id = up.school_id)
          )
     )
   )
@@ -134,8 +131,7 @@ CREATE POLICY weekly_schedule_update ON weekly_schedule
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin' AND weekly_schedule.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user' AND weekly_schedule.school_id = up.school_id AND weekly_schedule.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND weekly_schedule.school_id = up.school_id)
          )
     )
   );
@@ -149,8 +145,7 @@ CREATE POLICY weekly_schedule_delete ON weekly_schedule
        WHERE up.id = auth.uid()
          AND (
            up.scope_level = 'super_admin'
-           OR (up.scope_level = 'group_admin' AND weekly_schedule.school_id = up.school_id)
-           OR (up.scope_level = 'branch_user' AND weekly_schedule.school_id = up.school_id AND weekly_schedule.branch_id = up.branch_id)
+           OR (up.scope_level IN ('group_admin', 'branch_user') AND weekly_schedule.school_id = up.school_id)
          )
     )
   );
