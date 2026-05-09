@@ -1,5 +1,5 @@
 {
-  "regions": ["syd1"],
+  "regions": ["fra1"],
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
