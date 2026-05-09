@@ -343,8 +343,9 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   }, [activeArchive]);
 
   // Summary from archive
-  const archiveSummary = useMemo<PaymentsSummary>(() => {
-    if (!activeArchive) return { ...EMPTY_SUMMARY };
+  const archiveSummary = useMemo(() => {
+    const empty = { totalStudents: 0, totalFee: 0, totalPaid: 0, totalRemaining: 0, collectedCount: 0 };
+    if (!activeArchive) return empty;
     const students = archiveStudentsRaw as Student[];
     return {
       totalStudents: students.length,
@@ -353,7 +354,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
       totalRemaining: students.reduce<number>((s, st) => s + (Number(st.remaining_fee) || 0), 0),
       collectedCount: students.filter((st) => (Number(st.remaining_fee) || 0) <= 0).length,
     };
-  }, [activeArchive, archiveStudentsRaw]);
+  }, [activeArchive, archiveStudentsRaw]) as PaymentsSummary;
 
   // Classes from archive
   const archiveClasses = useMemo<string[]>(() => {
