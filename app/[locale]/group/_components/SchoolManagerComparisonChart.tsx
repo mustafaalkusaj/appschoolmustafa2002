@@ -21,6 +21,7 @@ type SchoolManagerChartPoint = {
   totalPaid: number;
   totalRemaining: number;
   totalExpenses: number;
+  totalIncomes?: number;
 };
 
 type Props = {
@@ -30,6 +31,7 @@ type Props = {
     totalPaid: number;
     totalRemaining: number;
     totalExpenses: number;
+    totalIncomes: number;
     studentsCount: number;
     paidPercentage: number;
   };
@@ -41,6 +43,7 @@ const GREEN = "#10b981";
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
 const PURPLE = "#8b5cf6";
+const TEAL = "#20B96B";
 
 function fmtCurrency(value: number) {
   return value.toLocaleString("en-US") + " IQD";
@@ -148,6 +151,12 @@ export function SchoolManagerComparisonChart({ points, totals }: Props) {
                   dataKey="totalExpenses"
                   name={t("kpis.expenses")}
                   fill={RED}
+                  radius={[6, 6, 0, 0]}
+                />
+                <Bar
+                  dataKey="totalIncomes"
+                  name={t("kpis.income")}
+                  fill={TEAL}
                   radius={[6, 6, 0, 0]}
                 />
               </BarChart>

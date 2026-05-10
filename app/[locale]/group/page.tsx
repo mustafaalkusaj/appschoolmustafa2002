@@ -35,7 +35,9 @@ const COPY = {
     schoolTotalLabel: "إجمالي المدرسة",
     export: "تصدير",
     viewStudents: "عرض الطلاب",
+    income: "الإيرادات",
     net: "الصافي",
+    netWithIncome: "الصافي الشامل",
     collectionRate: "معدل التحصيل",
     totalBranches: "فرع",
   },
@@ -65,7 +67,9 @@ const COPY = {
     schoolTotalLabel: "School Total",
     export: "Export",
     viewStudents: "View Students",
+    income: "Revenue",
     net: "Net",
+    netWithIncome: "Net (incl. Revenue)",
     collectionRate: "Collection Rate",
     totalBranches: "branches",
   },
@@ -122,13 +126,16 @@ function BranchCard({ locale, branch }: { locale: Locale; branch: SchoolManagerB
   const copy = COPY[locale];
   const pct = branch.paidPercentage;
   const net = branch.totalPaid - branch.totalExpenses;
+  const netWithIncome = branch.totalPaid + branch.totalIncomes - branch.totalExpenses;
 
   const stats = [
     { label: copy.afterDiscount, value: fmtCurrency(branch.totalFeesAfterDiscount), cls: "text-[var(--text-primary)]" },
     { label: copy.paid,          value: fmtCurrency(branch.totalPaid),              cls: "text-[var(--success)]" },
     { label: copy.remaining,     value: fmtCurrency(branch.totalRemaining),         cls: branch.totalRemaining > 0 ? "text-[var(--danger)]" : "text-[var(--success)]" },
     { label: copy.expenses,      value: fmtCurrency(branch.totalExpenses),          cls: "text-[var(--warning)]" },
+    { label: copy.income,        value: fmtCurrency(branch.totalIncomes),           cls: "text-[#20B96B]" },
     { label: copy.net,           value: fmtCurrency(net),                           cls: net >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
+    { label: copy.netWithIncome, value: fmtCurrency(netWithIncome),                 cls: netWithIncome >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
     { label: copy.discount,      value: fmtCurrency(branch.totalDiscount),          cls: "text-[var(--info)]" },
   ];
 
@@ -252,6 +259,7 @@ export default async function GroupDashboardPage({
 
   const totals = overview.totals;
   const net = totals.totalPaid - totals.totalExpenses;
+  const netWithIncome = totals.totalPaid + totals.totalIncomes - totals.totalExpenses;
 
   const chartPoints = overview.branches.map((branch) => ({
     branchName: branch.branchName,
@@ -259,6 +267,7 @@ export default async function GroupDashboardPage({
     totalPaid: branch.totalPaid,
     totalRemaining: branch.totalRemaining,
     totalExpenses: branch.totalExpenses,
+    totalIncomes: branch.totalIncomes,
   }));
 
   return (
@@ -280,11 +289,12 @@ export default async function GroupDashboardPage({
           <p className="mt-3 max-w-lg text-sm leading-7 text-white/70">{copy.subtitle}</p>
 
           {/* KPI strip */}
-          <div className="mt-8 grid w-full max-w-3xl gap-3 sm:grid-cols-4">
+          <div className="mt-8 grid w-full max-w-4xl gap-3 sm:grid-cols-5">
             {[
               { label: copy.paid,         value: fmtCurrency(totals.totalPaid) },
               { label: copy.remaining,    value: fmtCurrency(totals.totalRemaining) },
               { label: copy.expenses,     value: fmtCurrency(totals.totalExpenses) },
+              { label: copy.income,       value: fmtCurrency(totals.totalIncomes) },
               { label: copy.collectionRate, value: `${fmt(totals.paidPercentage)}%` },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 backdrop-blur-sm">
@@ -352,8 +362,14 @@ export default async function GroupDashboardPage({
               : "border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]"} />
           <KpiCard label={copy.expenses} value={fmtCurrency(totals.totalExpenses)}
             accent="border-[var(--border)] bg-[var(--warning-soft)] text-[var(--warning)]" />
+          <KpiCard label={copy.income} value={fmtCurrency(totals.totalIncomes)}
+            accent="border-[var(--border)] bg-[var(--success-soft)] text-[#20B96B]" />
           <KpiCard label={copy.net} value={fmtCurrency(net)}
             accent={net >= 0
+              ? "border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]"
+              : "border-[var(--border)] bg-[var(--danger-soft)] text-[var(--danger)]"} />
+          <KpiCard label={copy.netWithIncome} value={fmtCurrency(netWithIncome)}
+            accent={netWithIncome >= 0
               ? "border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]"
               : "border-[var(--border)] bg-[var(--danger-soft)] text-[var(--danger)]"} />
           <KpiCard label={copy.discount} value={fmtCurrency(totals.totalDiscount)}

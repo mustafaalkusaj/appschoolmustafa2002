@@ -41,6 +41,11 @@ export type SchoolManagerExpenseRecord = {
   amount: number | null;
 };
 
+export type SchoolManagerIncomeRecord = {
+  branch_id: string | null;
+  amount: number | null;
+};
+
 export type SchoolManagerClassFeeRecord = {
   branch_id: string | null;
   class_name: string;
@@ -58,6 +63,7 @@ export type SchoolManagerBranchSummary = {
   totalPaid: number;
   totalRemaining: number;
   totalExpenses: number;
+  totalIncomes: number;
   paidPercentage: number;
 };
 
@@ -69,6 +75,7 @@ export type SchoolManagerTotals = {
   totalPaid: number;
   totalRemaining: number;
   totalExpenses: number;
+  totalIncomes: number;
   paidPercentage: number;
 };
 
@@ -104,6 +111,7 @@ function buildEmptySummary(branchId: string | null, branchName: string, logoUrl:
     totalPaid: 0,
     totalRemaining: 0,
     totalExpenses: 0,
+    totalIncomes: 0,
     paidPercentage: 0,
   };
 }
@@ -140,6 +148,7 @@ export function buildSchoolManagerOverview(input: {
   branches: SchoolManagerBranchRecord[];
   students: SchoolManagerStudentRecord[];
   expenses: SchoolManagerExpenseRecord[];
+  incomes: SchoolManagerIncomeRecord[];
   classFees: SchoolManagerClassFeeRecord[];
 }): SchoolManagerOverview {
   // Build class fee lookup: "branchId:className" → fee amount
@@ -242,7 +251,28 @@ export function buildSchoolManagerOverview(input: {
     current.totalExpenses += toAmount(expense.amount);
   }
 
-  if (hasOrphanStudents || hasOrphanExpenses) {
+  // Process incomes — skip incomes from excluded branches entirely
+  let hasOrphanIncomes = false;
+  for (const income of input.incomes) {
+    const branchKey = income.branch_id ?? "__unassigned__";
+
+    // Income belongs to an excluded branch → discard completely
+    if (excludedBranchIdSet.has(branchKey)) continue;
+
+    if (!summaries.has(branchKey)) {
+      hasOrphanIncomes = true;
+      summaries.set(
+        branchKey,
+        buildEmptySummary(income.branch_id ?? null, "سجلات غير مرتبطة بفرع"),
+      );
+    }
+
+    const current = summaries.get(branchKey);
+    if (!current) continue;
+    current.totalIncomes += toAmount(income.amount);
+  }
+
+  if (hasOrphanStudents || hasOrphanExpenses || hasOrphanIncomes) {
     warnings.push(
       "توجد سجلات طلابية أو مالية غير مرتبطة بأي فرع محدد، ولم يتم احتسابها في الإجمالي.",
     );
@@ -278,6 +308,7 @@ export function buildSchoolManagerOverview(input: {
         totalPaid: acc.totalPaid + branch.totalPaid,
         totalRemaining: acc.totalRemaining + branch.totalRemaining,
         totalExpenses: acc.totalExpenses + branch.totalExpenses,
+        totalIncomes: acc.totalIncomes + branch.totalIncomes,
         paidPercentage: 0,
       }),
       buildEmptySummary(null, "إجمالي المدرسة"),
@@ -316,6 +347,7 @@ export async function resolveSchoolManagerOverview(
     { data: branches, error: branchesError },
     { data: students, error: studentsError },
     { data: expenses, error: expensesError },
+    { data: incomes, error: incomesError },
     { data: classFees, error: classFeesError },
   ] = await Promise.all([
     actorSupabase
@@ -333,6 +365,11 @@ export async function resolveSchoolManagerOverview(
       .select("branch_id, amount")
       .eq("school_id", schoolId),
     actorSupabase
+      .from("incomes")
+      .select("branch_id, amount")
+      .eq("school_id", schoolId)
+      .is("deleted_at", null),
+    actorSupabase
       .from("class_fees")
       .select("branch_id, class_name, total_fee")
       .eq("school_id", schoolId),
@@ -347,15 +384,19 @@ export async function resolveSchoolManagerOverview(
   if (expensesError) {
     throw new Error(expensesError.message || "تعذر تحميل بيانات المصروفات.");
   }
-  // class_fees errors are non-fatal — we degrade gracefully
+  // class_fees and incomes errors are non-fatal — we degrade gracefully
   if (classFeesError) {
     console.warn("[resolveSchoolManagerOverview] class_fees query error:", classFeesError.message);
+  }
+  if (incomesError) {
+    console.warn("[resolveSchoolManagerOverview] incomes query error:", incomesError.message);
   }
 
   return buildSchoolManagerOverview({
     branches: (branches ?? []) as SchoolManagerBranchRecord[],
     students: (students ?? []) as SchoolManagerStudentRecord[],
     expenses: (expenses ?? []) as SchoolManagerExpenseRecord[],
+    incomes: (incomes ?? []) as SchoolManagerIncomeRecord[],
     classFees: (classFees ?? []) as SchoolManagerClassFeeRecord[],
   });
 }

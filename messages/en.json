@@ -1010,7 +1010,8 @@
       "paid": "Paid",
       "paidAmount": "Paid Amount",
       "remainingAmount": "Remaining Amount",
-      "totalRequired": "Total Required"
+      "totalRequired": "Total Required",
+      "income": "Revenue"
     },
     "branches": {
       "title": "Branch Summary",

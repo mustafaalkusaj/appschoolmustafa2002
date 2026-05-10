@@ -1035,7 +1035,8 @@
       "paid": "المدفوع",
       "paidAmount": "المبلغ المدفوع",
       "remainingAmount": "المبلغ المتبقي",
-      "totalRequired": "إجمالي المبلغ المطلوب"
+      "totalRequired": "إجمالي المبلغ المطلوب",
+      "income": "الإيرادات"
     },
     "branches": {
       "title": "ملخص الفروع",
