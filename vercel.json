@@ -37,7 +37,7 @@
   "crons": [
     {
       "path": "/api/ops/warm",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/ops/daily-report",
