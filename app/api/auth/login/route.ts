@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const rateLimited = await enforceRateLimit(req, {
       namespace: "auth-login",
       windowMs: 10 * 60_000,
-      maxHits: 5,
+      maxHits: 20,
       identifier: buildAuthRateLimitIdentifier(req, normalizedEmail),
       productionFailureMode: "memory-fallback",
       onRateLimited: {
