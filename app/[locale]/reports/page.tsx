@@ -16,7 +16,7 @@ import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/br
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { cn } from "@/lib/brand/brand-utils";
-import { Download, Printer, TrendingUp, Users, CreditCard, Wallet, Briefcase, LayoutGrid, Loader2 } from "@/lib/icons";
+import { Download, Printer, TrendingUp, Users, CreditCard, Wallet, Briefcase, Banknote, LayoutGrid, Loader2 } from "@/lib/icons";
 import { FinancialDashboard } from "./_components/FinancialDashboard";
 
 type StudentRow = {
@@ -49,6 +49,16 @@ type ExpenseRow = {
   receipt_number: string | null;
   notes: string | null;
   expense_types?: { name: string | null } | null;
+};
+
+type IncomeRow = {
+  id: string;
+  amount: number | null;
+  income_date: string | null;
+  source: string | null;
+  receipt_number: string | null;
+  notes: string | null;
+  income_types?: { name: string | null } | null;
 };
 
 type SalaryRow = {
@@ -94,12 +104,13 @@ type ReportsMetrics = {
   transferredStudentsDiscounts: number;
   transferredStudentsRemaining: number;
 
+  incomesCount: number;
   otherRevenueTotal: number;
 
   expensesByType: Array<{ name: string; total: number }>;
 };
 
-type DatasetType = "students" | "payments" | "expenses" | "salaries" | "all";
+type DatasetType = "students" | "payments" | "expenses" | "salaries" | "incomes" | "all";
 
 const EMPTY_REPORTS_METRICS: ReportsMetrics = {
   studentsCount: 0,
@@ -134,6 +145,7 @@ const EMPTY_REPORTS_METRICS: ReportsMetrics = {
   transferredStudentsDiscounts: 0,
   transferredStudentsRemaining: 0,
 
+  incomesCount: 0,
   otherRevenueTotal: 0,
 
   expensesByType: [],
@@ -195,6 +207,14 @@ export default function ReportsPage() {
         deductions: "Deductions",
         net: "Net",
         paidAt: "Paid at",
+        incomesSheet: "Incomes",
+        incomesFile: "incomes_report",
+        incomeType: "Type",
+        source: "Source",
+        incomeDate: "Date",
+        incomesMetric: "Incomes",
+        incomeRecords: "Income records",
+        incomeTotalAmount: "Total amount",
         allFile: "full_report",
       }
     : {
@@ -244,6 +264,14 @@ export default function ReportsPage() {
         deductions: "الخصومات",
         net: "الصافي",
         paidAt: "تاريخ الدفع",
+        incomesSheet: "الإيرادات",
+        incomesFile: "تقرير_الإيرادات",
+        incomeType: "النوع",
+        source: "المصدر",
+        incomeDate: "التاريخ",
+        incomesMetric: "الإيرادات",
+        incomeRecords: "سجلات الإيرادات",
+        incomeTotalAmount: "إجمالي المبلغ",
         allFile: "تقرير_شامل",
       }, [isEnglish]);
   const currency = commonT("currency");
@@ -274,6 +302,7 @@ export default function ReportsPage() {
     payments?: PaymentRow[];
     expenses?: ExpenseRow[];
     salaries?: SalaryRow[];
+    incomes?: IncomeRow[];
   }>({});
   const [metrics, setMetrics] = useState<ReportsMetrics>(EMPTY_REPORTS_METRICS);
   const [loading, setLoading] = useState(true);
@@ -336,6 +365,7 @@ export default function ReportsPage() {
       T extends "payments" ? PaymentRow[] :
       T extends "expenses" ? ExpenseRow[] :
       T extends "salaries" ? SalaryRow[] :
+      T extends "incomes" ? IncomeRow[] :
       never
     > => {
       const cached = datasetCacheRef.current[type];
@@ -354,6 +384,7 @@ export default function ReportsPage() {
           payments?: PaymentRow[];
           expenses?: ExpenseRow[];
           salaries?: SalaryRow[];
+          incomes?: IncomeRow[];
           error?: { message?: string };
         }>(`/api/web/reports/dataset?${params.toString()}`);
 
@@ -368,7 +399,9 @@ export default function ReportsPage() {
               ? payload?.payments ?? []
               : type === "expenses"
                 ? payload?.expenses ?? []
-                : payload?.salaries ?? [];
+                : type === "incomes"
+                  ? payload?.incomes ?? []
+                  : payload?.salaries ?? [];
 
         datasetCacheRef.current[type] = nextRows as never;
         return nextRows as never;
@@ -384,19 +417,21 @@ export default function ReportsPage() {
       datasetCacheRef.current.students &&
       datasetCacheRef.current.payments &&
       datasetCacheRef.current.expenses &&
-      datasetCacheRef.current.salaries
+      datasetCacheRef.current.salaries &&
+      datasetCacheRef.current.incomes
     ) {
       return {
         students: datasetCacheRef.current.students ?? [],
         payments: datasetCacheRef.current.payments ?? [],
         expenses: datasetCacheRef.current.expenses ?? [],
         salaries: datasetCacheRef.current.salaries ?? [],
+        incomes: datasetCacheRef.current.incomes ?? [],
       };
     }
 
     const schoolId = await getScopedSchoolId();
     if (!schoolId) {
-      return { students: [], payments: [], expenses: [], salaries: [] };
+      return { students: [], payments: [], expenses: [], salaries: [], incomes: [] };
     }
 
     setActionLoading("all");
@@ -409,6 +444,7 @@ export default function ReportsPage() {
         payments?: PaymentRow[];
         expenses?: ExpenseRow[];
         salaries?: SalaryRow[];
+        incomes?: IncomeRow[];
         error?: { message?: string };
       }>(`/api/web/reports/dataset?${params.toString()}`);
 
@@ -419,6 +455,7 @@ export default function ReportsPage() {
         payments: payload?.payments ?? [],
         expenses: payload?.expenses ?? [],
         salaries: payload?.salaries ?? [],
+        incomes: payload?.incomes ?? [],
       };
 
       return {
@@ -426,6 +463,7 @@ export default function ReportsPage() {
         payments: datasetCacheRef.current.payments ?? [],
         expenses: datasetCacheRef.current.expenses ?? [],
         salaries: datasetCacheRef.current.salaries ?? [],
+        incomes: datasetCacheRef.current.incomes ?? [],
       };
     } finally {
       setActionLoading((current) => (current === "all" ? null : current));
@@ -568,9 +606,41 @@ export default function ReportsPage() {
     }
   }, [loadDataset, reportCopy]);
 
+  const exportIncomesExcel = useCallback(async () => {
+    try {
+      const incomes = await loadDataset("incomes");
+      const { downloadExcelExport } = await import("@/lib/excel-client");
+      await downloadExcelExport({
+        filename: `${reportCopy.incomesFile}_${formatDate(new Date())}.xlsx`,
+        sheets: [{
+          name:  reportCopy.incomesSheet,
+          title: reportCopy.incomesSheet,
+          columns: [
+            { header: reportCopy.incomeType,    key: "type",    width: 20 },
+            { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
+            { header: reportCopy.incomeDate,    key: "date",    width: 16 },
+            { header: reportCopy.source,        key: "source",  width: 20 },
+            { header: reportCopy.receiptNumber, key: "receipt", width: 20 },
+            { header: reportCopy.notes,         key: "notes",   width: 24 },
+          ],
+          rows: incomes.map((item) => ({
+            type:    item.income_types?.name || "—",
+            amount:  item.amount || 0,
+            date:    formatDate(item.income_date ?? ""),
+            source:  item.source || "—",
+            receipt: item.receipt_number || "—",
+            notes:   item.notes || "",
+          })),
+        }],
+      });
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, reportCopy]);
+
   const exportAllExcel = useCallback(async () => {
     try {
-      const { students, payments, expenses, salaries } = await loadAllDatasets();
+      const { students, payments, expenses, salaries, incomes } = await loadAllDatasets();
       const { downloadExcelExport } = await import("@/lib/excel-client");
       const sheets = [
         {
@@ -638,6 +708,22 @@ export default function ReportsPage() {
             month: item.month || "—", gross: item.gross_salary || 0, deductions: item.deductions || 0,
             net: Math.max(0, (item.gross_salary || 0) - (item.deductions || 0)),
             paid_at: item.paid_at ? formatDate(item.paid_at) : "—",
+          })),
+        },
+        {
+          name: reportCopy.incomesSheet, title: reportCopy.incomesSheet,
+          columns: [
+            { header: reportCopy.incomeType,    key: "type",    width: 20 },
+            { header: reportCopy.amount,        key: "amount",  width: 16, numFmt: "#,##0", semanticColor: "paid" as const },
+            { header: reportCopy.incomeDate,    key: "date",    width: 16 },
+            { header: reportCopy.source,        key: "source",  width: 20 },
+            { header: reportCopy.receiptNumber, key: "receipt", width: 20 },
+            { header: reportCopy.notes,         key: "notes",   width: 24 },
+          ],
+          rows: incomes.map((item) => ({
+            type: item.income_types?.name || "—", amount: item.amount || 0,
+            date: formatDate(item.income_date ?? ""), source: item.source || "—",
+            receipt: item.receipt_number || "—", notes: item.notes || "",
           })),
         },
       ].filter((s) => s.rows.length > 0);
@@ -770,6 +856,29 @@ export default function ReportsPage() {
     }
   }, [loadDataset, printDocument, isEnglish, currency, reportCopy.loadDatasetFailed]);
 
+  const printIncomes = useCallback(async () => {
+    try {
+      const incomes = await loadDataset("incomes");
+      printDocument(
+        isEnglish ? "Incomes report" : "تقرير الإيرادات",
+        isEnglish ? `${incomes.length} income records` : `${incomes.length} سجل إيراد`,
+        `
+          <table>
+            <thead><tr><th>#</th><th>${isEnglish ? "Type" : "النوع"}</th><th>${isEnglish ? "Amount" : "المبلغ"}</th><th>${isEnglish ? "Date" : "التاريخ"}</th><th>${isEnglish ? "Source" : "المصدر"}</th></tr></thead>
+            <tbody>${incomes
+              .map(
+                (item, index) =>
+                  `<tr><td>${index + 1}</td><td>${escapeHtml(item.income_types?.name || "—")}</td><td>${currency} ${formatNumber(item.amount || 0)}</td><td>${formatDate(item.income_date ?? "")}</td><td>${escapeHtml(item.source || "—")}</td></tr>`,
+              )
+              .join("")}</tbody>
+          </table>
+        `,
+      );
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : reportCopy.loadDatasetFailed);
+    }
+  }, [loadDataset, printDocument, isEnglish, currency, reportCopy.loadDatasetFailed]);
+
   const printSummary = useCallback(() => {
     printDocument(
       isEnglish ? "Financial summary" : "الملخص المالي",
@@ -798,6 +907,8 @@ export default function ReportsPage() {
         return <Wallet size={28} />;
       case "salaries":
         return <Briefcase size={28} />;
+      case "incomes":
+        return <Banknote size={28} />;
       default:
         return null;
     }
@@ -868,7 +979,21 @@ export default function ReportsPage() {
       onExcel: exportSalariesExcel,
       onPrint: printSalaries,
     },
-  ], [metrics, t, dashboardT, commonT, currency, reportCopy, exportStudentsExcel, printStudents, exportPaymentsExcel, printPayments, exportExpensesExcel, printExpenses, exportSalariesExcel, printSalaries]);
+    {
+      id: "incomes",
+      title: t("cards.incomes.title"),
+      iconId: "incomes",
+      color: "text-[var(--warning)]",
+      bg: "bg-[var(--warning)]/10",
+      description: t("cards.incomes.description"),
+      stats: [
+        { label: reportCopy.incomeRecords, value: formatNumber(metrics.incomesCount) },
+        { label: reportCopy.incomeTotalAmount, value: `${currency} ${formatNumber(metrics.otherRevenueTotal)}` },
+      ],
+      onExcel: exportIncomesExcel,
+      onPrint: printIncomes,
+    },
+  ], [metrics, t, dashboardT, commonT, currency, reportCopy, exportStudentsExcel, printStudents, exportPaymentsExcel, printPayments, exportExpensesExcel, printExpenses, exportSalariesExcel, printSalaries, exportIncomesExcel, printIncomes]);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin"]}>
@@ -985,7 +1110,7 @@ export default function ReportsPage() {
                       { label: navT("students"), value: metrics.studentsCount, icon: Users, color: "text-[var(--info)]", bg: "bg-[var(--info)]/10" },
                       { label: navT("payments"), value: metrics.paymentsCount, icon: CreditCard, color: "text-[var(--success)]", bg: "bg-[var(--success)]/10" },
                       { label: reportCopy.expensesMetric, value: metrics.expensesCount, icon: Wallet, color: "text-[var(--danger)]", bg: "bg-[var(--danger)]/10" },
-                      { label: navT("reports"), value: metrics.salariesCount, icon: Briefcase, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
+                      { label: reportCopy.salariesMetric, value: metrics.salariesCount, icon: Briefcase, color: "text-[var(--primary)]", bg: "bg-[var(--primary)]/10" },
                     ].map((card, i) => (
                       <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)] flex items-center gap-4">
                         <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center", card.bg, card.color)}>

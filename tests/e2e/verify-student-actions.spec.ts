@@ -1,22 +1,7 @@
 import { test } from "@playwright/test";
 
 const PROD_URL = "https://school-iraq.com";
-const _QA_EMAIL = process.env.QA_EMAIL || "";
-const _QA_PASSWORD = process.env.QA_PASSWORD || "";
-
 test.describe("Student Actions Verification - Production", () => {
-  test.beforeEach(async ({ _page, _context }) => {
-    // Load existing auth state if available
-    if (process.env.STORAGE_STATE) {
-      await context.addInitScript(() => {
-        const state = JSON.parse(process.env.STORAGE_STATE || "{}");
-        Object.entries(state.cookies || {}).forEach(([name, value]) => {
-          document.cookie = `${name}=${value}`;
-        });
-      });
-    }
-  });
-
   test("suspend active student", async ({ page }) => {
     console.log("TEST: Suspend active student");
     

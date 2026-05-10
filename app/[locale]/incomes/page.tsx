@@ -901,7 +901,7 @@ export default function IncomesPage() {
                           <span className="px-3 py-1 rounded-full bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-wider">{formatRecordCount(activeTab === "invoices" ? incomeTotalCount : filteredTypes.length, locale)}</span>
                           <h2 className="text-xl font-black text-[var(--text-primary)]">{activeTab === "invoices" ? copy.incomesList : copy.categoriesList}</h2>
                         </div>
-                        <button aria-label={copy.refreshLabel} title={copy.refreshLabel} className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--surface-muted)] text-[var(--success)] transition-all hover:bg-[var(--border)]" onClick={fetchAll}>
+                        <button aria-label={copy.refreshLabel} title={copy.refreshLabel} className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--surface-muted)] text-[var(--primary)] transition-all hover:bg-[var(--border)]" onClick={fetchAll}>
                           <RefreshCw size={18} />
                         </button>
                       </div>
@@ -918,7 +918,7 @@ export default function IncomesPage() {
 
                       {incomesLoading && activeTab === "invoices" ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-4">
-                          <div className="h-12 w-12 border-4 border-[var(--success)]/20 border-t-[var(--success)] rounded-full animate-spin" />
+                          <div className="h-12 w-12 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
                           <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">{copy.loading}</span>
                         </div>
                       ) : activeTab === "invoices" && incomes.length === 0 ? (
@@ -944,7 +944,7 @@ export default function IncomesPage() {
                                     {Math.max(1, incomeTotalCount - ((incomePage - 1) * INCOMES_PAGE_SIZE + i))}
                                   </td>
                                   <td className="p-4">
-                                    <span className="px-2.5 py-1 rounded-lg bg-[var(--success)]/10 text-[var(--success)] text-[11px] font-black">
+                                    <span className="px-2.5 py-1 rounded-lg bg-[var(--info)]/10 text-[var(--info)] text-[11px] font-black">
                                       {e.income_types?.name || "—"}
                                     </span>
                                   </td>
@@ -1033,7 +1033,7 @@ export default function IncomesPage() {
           <div className="w-full max-w-lg bg-[var(--surface-strong)] rounded-[32px] shadow-2xl border border-[var(--border)] overflow-hidden">
             <div className="px-8 py-6 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface-muted)]">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-[var(--success)]/10 text-[var(--success)] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center">
                   <FileText size={20} />
                 </div>
                 <h3 className="text-lg font-black text-[var(--text-primary)]">{editIncome ? tx("تعديل الإيراد", locale) : tx("إضافة إيراد جديد", locale)}</h3>
@@ -1075,7 +1075,7 @@ export default function IncomesPage() {
                 <textarea id="form-notes" className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("أي ملاحظات...", locale)} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 h-12 bg-[var(--success)] text-white rounded-2xl font-black shadow-lg shadow-[var(--success)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={saving}>
+                <button type="submit" className="flex-1 h-12 bg-[var(--primary)] text-white rounded-2xl font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={saving}>
                   {saving ? tx("جارٍ الحفظ...", locale) : (editIncome ? tx("تعديل السجل", locale) : tx("إضافة السجل", locale))}
                 </button>
                 <button type="button" className="px-8 h-12 bg-[var(--surface-muted)] text-[var(--text-secondary)] rounded-2xl font-black" onClick={() => setShowIncomeForm(false)}>{copy.cancel}</button>
@@ -1090,7 +1090,7 @@ export default function IncomesPage() {
           <div className="w-full max-w-md bg-[var(--surface-strong)] rounded-[32px] shadow-2xl border border-[var(--border)] overflow-hidden">
             <div className="px-8 py-6 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface-muted)]">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-[var(--success)]/10 text-[var(--success)] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center">
                   <Tags size={20} />
                 </div>
                 <h3 className="text-lg font-black text-[var(--text-primary)]">{editType ? tx("تعديل النوع", locale) : tx("إضافة نوع جديد", locale)}</h3>
@@ -1109,7 +1109,7 @@ export default function IncomesPage() {
                 <textarea id="form-type-notes" className={cn(inputClasses, "h-24 resize-none")} placeholder={tx("اختياري...", locale)} value={typeForm.notes} onChange={e => setTypeForm({ ...typeForm, notes: e.target.value })} />
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 h-12 bg-[var(--success)] text-white rounded-2xl font-black shadow-lg shadow-[var(--success)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={savingType}>
+                <button type="submit" className="flex-1 h-12 bg-[var(--primary)] text-white rounded-2xl font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50" disabled={savingType}>
                   {savingType ? tx("جارٍ الحفظ...", locale) : (editType ? tx("حفظ التغييرات", locale) : tx("إضافة نوع", locale))}
                 </button>
                 <button type="button" className="px-8 h-12 bg-[var(--surface-muted)] text-[var(--text-secondary)] rounded-2xl font-black" onClick={() => setShowTypeForm(false)}>{copy.cancel}</button>

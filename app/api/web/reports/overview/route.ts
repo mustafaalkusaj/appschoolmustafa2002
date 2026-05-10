@@ -50,6 +50,7 @@ type ReportsMetrics = {
   transferredStudentsRemaining: number;
 
   // Other revenue (incomes)
+  incomesCount: number;
   otherRevenueTotal: number;
 
   // Expenses by type
@@ -283,6 +284,7 @@ async function loadFallbackMetrics(
     salariesCount: salaries.length,
     salaryVolume,
     currentMonthSalaryCount: salaries.filter((item) => item.month === currentMonth).length,
+    incomesCount: incomes.length,
 
     netRevenue,
     netPayments,

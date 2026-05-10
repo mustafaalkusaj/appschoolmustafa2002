@@ -7,7 +7,7 @@ import { routeUserHasPermission } from "@/lib/route-permissions";
 import { applyEffectiveSalaryDeductions, loadSchoolDeductionIndex } from "@/lib/salaries/effective-deductions";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
-type DatasetType = "students" | "payments" | "expenses" | "salaries" | "all";
+type DatasetType = "students" | "payments" | "expenses" | "salaries" | "incomes" | "all";
 type StudentDatasetStatus = "active" | "transferred" | "suspended" | "deleted";
 
 function jsonError(message: string, status: number) {
@@ -20,7 +20,7 @@ function normalizeRelation<T>(value: T | T[] | null | undefined): T | null {
 }
 
 function normalizeDatasetType(value: string | null): DatasetType | null {
-  if (value === "students" || value === "payments" || value === "expenses" || value === "salaries" || value === "all") {
+  if (value === "students" || value === "payments" || value === "expenses" || value === "salaries" || value === "incomes" || value === "all") {
     return value;
   }
   return null;
@@ -202,6 +202,24 @@ export async function GET(req: NextRequest) {
     }));
   };
 
+  const loadIncomes = async () => {
+    const { data, error } = await applyBranchScopeToQuery(
+      actorSupabase
+        .from("incomes")
+        .select("id, amount, income_date, source, receipt_number, notes, income_types(name)")
+        .eq("school_id", targetSchoolId)
+        .is("deleted_at", null)
+        .order("income_date", { ascending: false })
+        .limit(50_000),
+      branchScope.value,
+    );
+    if (error) throw error;
+    return (data ?? []).map((item) => ({
+      ...item,
+      income_types: normalizeRelation(item.income_types),
+    }));
+  };
+
   const loadSalaries = async () => {
     const { data, error } = await applyBranchScopeToQuery(
       actorSupabase
@@ -238,12 +256,16 @@ export async function GET(req: NextRequest) {
     if (dataset === "salaries") {
       return NextResponse.json({ ok: true, salaries: await loadSalaries() }, { headers: noStoreHeaders });
     }
+    if (dataset === "incomes") {
+      return NextResponse.json({ ok: true, incomes: await loadIncomes() }, { headers: noStoreHeaders });
+    }
 
-    const [students, payments, expenses, salaries] = await Promise.all([
+    const [students, payments, expenses, salaries, incomes] = await Promise.all([
       loadStudents(),
       loadPayments(),
       loadExpenses(),
       loadSalaries(),
+      loadIncomes(),
     ]);
 
     return NextResponse.json({
@@ -252,6 +274,7 @@ export async function GET(req: NextRequest) {
       payments,
       expenses,
       salaries,
+      incomes,
     }, { headers: noStoreHeaders });
   } catch {
     return jsonError("تعذر تجهيز بيانات التقرير المطلوبة.", 500);

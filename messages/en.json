@@ -468,6 +468,10 @@
         "title": "Salaries Report",
         "description": "Monthly teacher salaries with net entitlement after deductions."
       },
+      "incomes": {
+        "title": "Incomes Report",
+        "description": "Other revenue by type, source, and date."
+      },
       "financialSummary": {
         "title": "Financial Summary",
         "description": "Summary of revenues, expenses, and net financial movement."

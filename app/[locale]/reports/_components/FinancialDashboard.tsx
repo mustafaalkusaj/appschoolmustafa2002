@@ -89,43 +89,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
 
   return (
     <div className="space-y-6">
-      {/* Section 1: Top 3 Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* صافي الواردات */}
-        <div className="rounded-2xl p-6 bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] text-white shadow-lg relative overflow-hidden">
-          <div className="absolute top-2 end-3 opacity-20">
-            <TrendingUp size={48} />
-          </div>
-          <div className="relative z-10">
-            <p className="text-xs font-bold opacity-80 mb-1">صافي الواردات</p>
-            <p className="text-2xl font-black">{currency} {formatNumber(metrics.netRevenue)}</p>
-          </div>
-        </div>
-
-        {/* صافي المدفوعات */}
-        <div className="rounded-2xl p-6 bg-gradient-to-br from-[#6366F1] to-[#818CF8] text-white shadow-lg relative overflow-hidden">
-          <div className="absolute top-2 end-3 opacity-20">
-            <Wallet size={48} />
-          </div>
-          <div className="relative z-10">
-            <p className="text-xs font-bold opacity-80 mb-1">صافي المدفوعات</p>
-            <p className="text-2xl font-black">{currency} {formatNumber(metrics.netPayments)}</p>
-          </div>
-        </div>
-
-        {/* الرصيد الكلي */}
-        <div className="rounded-2xl p-6 bg-[var(--card-bg)] border border-[var(--border)] shadow-[var(--card-shadow)] relative overflow-hidden">
-          <div className="absolute top-2 end-3 opacity-10 text-[var(--primary)]">
-            <DollarSign size={48} />
-          </div>
-          <div className="relative z-10">
-            <p className="text-xs font-bold text-[var(--text-muted)] mb-1">الرصيد الكلي</p>
-            <p className="text-2xl font-black text-[var(--text-primary)]">{currency} {formatNumber(metrics.totalBalance)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Section 2: Salaries by Month */}
+      {/* Section 1: Salaries by Month */}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
         <div className="flex items-center gap-2 mb-4">
           <div className="h-8 w-8 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
