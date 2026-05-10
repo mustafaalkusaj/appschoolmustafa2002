@@ -342,7 +342,7 @@ describe("POST /api/auth/login", () => {
       {
         namespace: "auth-login",
         windowMs: 10 * 60_000,
-        maxHits: 5,
+        maxHits: 20,
         identifier: "127.0.0.1:rate-limit-hash",
         productionFailureMode: "memory-fallback",
         onRateLimited: {
