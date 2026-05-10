@@ -139,19 +139,6 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
             currency={currency}
           />
 
-          {/* الطلاب المنقولين */}
-          <RevenueCard
-            title="الطلاب المنقولين"
-            subtitle="واردات الطلاب المنقولين"
-            icon={<ArrowLeftRight size={20} />}
-            iconBg="bg-violet-500"
-            totalFees={metrics.transferredStudentsTotalFees}
-            collected={metrics.transferredStudentsCollected}
-            discounts={metrics.transferredStudentsDiscounts}
-            remaining={metrics.transferredStudentsRemaining}
-            currency={currency}
-          />
-
           {/* واردات أخرى */}
           <RevenueCard
             title="واردات أخرى"
