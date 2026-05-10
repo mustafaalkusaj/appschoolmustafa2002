@@ -47,17 +47,13 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "salaries-pay",
-    windowMs: 60_000,
-    maxHits: 40,
-    identifier: actorUserId,
-  });
+  const [rateLimited, canManageSalaries] = await Promise.all([
+    enforceRateLimit(req, { namespace: "salaries-pay", windowMs: 60_000, maxHits: 40, identifier: actorUserId }),
+    routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries"),
+  ]);
   if (rateLimited) {
     return rateLimited;
   }
-
-  const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
   if (!canManageSalaries) {
     return jsonError("ليس لديك صلاحية صرف الرواتب.", 403);
   }

@@ -166,17 +166,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const canManage = await hasAnyStructureManagementPermission(context.value.actorUserId, context.value.actorSupabase);
+  const [canManage, rateLimited] = await Promise.all([
+    hasAnyStructureManagementPermission(context.value.actorUserId, context.value.actorSupabase),
+    enforceRateLimit(req, { namespace: "dashboard-structure-write", windowMs: 60_000, maxHits: 60, identifier: context.value.actorUserId }),
+  ]);
   if (!canManage) {
     return jsonError("لا تملك صلاحية إدارة الصفوف والشعب.", 403);
   }
-
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "dashboard-structure-write",
-    windowMs: 60_000,
-    maxHits: 60,
-    identifier: context.value.actorUserId,
-  });
   if (rateLimited) {
     return rateLimited;
   }

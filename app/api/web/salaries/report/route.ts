@@ -37,16 +37,13 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
+  const [canManageSalaries, rateLimited] = await Promise.all([
+    routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries"),
+    enforceRateLimit(req, { namespace: "salaries-report", windowMs: 60_000, maxHits: 75, identifier: actorUserId }),
+  ]);
   if (!canManageSalaries) {
     return jsonError("ليس لديك صلاحية الوصول إلى تقارير الرواتب.", 403);
   }
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "salaries-report",
-    windowMs: 60_000,
-    maxHits: 75,
-    identifier: actorUserId,
-  });
   if (rateLimited) {
     return rateLimited;
   }

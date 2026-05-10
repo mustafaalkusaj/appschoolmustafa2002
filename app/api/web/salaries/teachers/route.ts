@@ -101,28 +101,22 @@ export async function POST(req: NextRequest) {
     return jsonError(branchScope.message, branchScope.status);
   }
 
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "salaries-teachers-create",
-    windowMs: 60_000,
-    maxHits: 35,
-    identifier: context.value.actorUserId,
-  });
+  const [rateLimited, canManageSalaries, includeLecturePrice] = await Promise.all([
+    enforceRateLimit(req, {
+      namespace: "salaries-teachers-create",
+      windowMs: 60_000,
+      maxHits: 35,
+      identifier: context.value.actorUserId,
+    }),
+    routeUserHasPermission(context.value.actorSupabase, context.value.actorUserId, "manage_salaries"),
+    tableHasColumn(context.value.actorSupabase, "teachers", "lecture_price").catch(() => false),
+  ]);
   if (rateLimited) {
     return rateLimited;
   }
-
-  const canManageSalaries = await routeUserHasPermission(
-    context.value.actorSupabase,
-    context.value.actorUserId,
-    "manage_salaries",
-  );
   if (!canManageSalaries) {
     return jsonError("ليس لديك صلاحية إدارة الأساتذة.", 403);
   }
-
-  const includeLecturePrice = await tableHasColumn(context.value.actorSupabase, "teachers", "lecture_price").catch(
-    () => false,
-  );
   const teacherSelect = buildTeacherSelect(includeLecturePrice);
   const writeBranch = resolveBranchIdForWrite(branchScope.value, branchId);
   if (!writeBranch.ok) {
