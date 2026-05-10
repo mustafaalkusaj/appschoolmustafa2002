@@ -880,18 +880,20 @@ export default function ReportsPage() {
   }, [loadDataset, printDocument, isEnglish, currency, reportCopy.loadDatasetFailed]);
 
   const printSummary = useCallback(() => {
+    const netProfit = metrics.totalPaid + metrics.otherRevenueTotal + metrics.transferredStudentsCollected - metrics.expenseVolume - metrics.salaryVolume;
     printDocument(
       isEnglish ? "Financial summary" : "الملخص المالي",
       isEnglish ? "School financial snapshot" : "ملخص مالي سريع للمدرسة",
       `
         <div class="totals">
           <div class="total-item"><span class="total-label">${isEnglish ? "Total fees" : "إجمالي الرسوم"}: </span><span class="total-val">${currency} ${formatNumber(metrics.totalFees)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Paid" : "المدفوع"}: </span><span class="total-val">${currency} ${formatNumber(metrics.totalPaid)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Collected" : "المبالغ المستحصلة"}: </span><span class="total-val">${currency} ${formatNumber(metrics.totalPaid)}</span></div>
           <div class="total-item"><span class="total-label">${isEnglish ? "Remaining" : "المتبقي"}: </span><span class="total-val">${currency} ${formatNumber(metrics.totalRemaining)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Recorded payments" : "الحسابات المسجلة"}: </span><span class="total-val">${currency} ${formatNumber(metrics.paymentVolume)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Net salaries" : "صافي الرواتب"}: </span><span class="total-val">${currency} ${formatNumber(metrics.salaryVolume)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "All revenue" : "جميع الواردات"}: </span><span class="total-val">${currency} ${formatNumber(metrics.otherRevenueTotal)}</span></div>
           <div class="total-item"><span class="total-label">${isEnglish ? "Expenses" : "المصروفات"}: </span><span class="total-val">${currency} ${formatNumber(metrics.expenseVolume)}</span></div>
-          <div class="total-item"><span class="total-label">${isEnglish ? "Net balance" : "الصافي"}: </span><span class="total-val">${currency} ${formatNumber(metrics.netBalance)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Net salaries" : "صافي الرواتب"}: </span><span class="total-val">${currency} ${formatNumber(metrics.salaryVolume)}</span></div>
+          <div class="total-item"><span class="total-label">${isEnglish ? "Transferred students revenue" : "إيراد الطلاب المنقولين"}: </span><span class="total-val">${currency} ${formatNumber(metrics.transferredStudentsCollected)}</span></div>
+          <div class="total-item" style="border-top:2px solid #333;padding-top:8px;margin-top:8px"><span class="total-label" style="font-size:1.2em"><strong>${isEnglish ? "Net Profit" : "صافي الربح"}: </strong></span><span class="total-val" style="font-size:1.3em;color:${netProfit >= 0 ? "#10b981" : "#ef4444"}"><strong>${currency} ${formatNumber(netProfit)}</strong></span></div>
         </div>
       `,
     );
@@ -1056,14 +1058,27 @@ export default function ReportsPage() {
                         <h2 className="text-lg font-black uppercase tracking-widest opacity-90">{t("summary.title")}</h2>
                       </div>
 
+                      {/* Row 1: Fees, Collected, Remaining, All Revenue */}
                       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                         {[
                           { label: t("summary.totalFees"), value: metrics.totalFees },
                           { label: t("summary.totalPaid"), value: metrics.totalPaid },
                           { label: t("summary.remaining"), value: metrics.totalRemaining },
-                          { label: t("summary.totalIncome"), value: metrics.paymentVolume },
+                          { label: t("summary.totalIncome"), value: metrics.otherRevenueTotal },
+                        ].map((item, idx) => (
+                          <div key={idx} className="space-y-1">
+                            <div className="text-[10px] font-black uppercase tracking-widest opacity-70">{item.label}</div>
+                            <div className="text-2xl font-black">{commonT("currency")} {formatNumber(item.value)}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Row 2: Expenses, Net Salaries, Transferred Revenue, Net Balance */}
+                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mt-6">
+                        {[
                           { label: t("summary.expenses"), value: metrics.expenseVolume },
                           { label: t("summary.netSalaries"), value: metrics.salaryVolume },
+                          { label: t("summary.transferredRevenue"), value: metrics.transferredStudentsCollected },
                           { label: t("summary.netBalance"), value: metrics.netBalance },
                         ].map((item, idx) => (
                           <div key={idx} className="space-y-1">
@@ -1073,31 +1088,40 @@ export default function ReportsPage() {
                         ))}
                       </div>
 
-                      <div className="mt-10 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                          <div className="text-sm font-bold opacity-80">{t("summary.netBalance")}</div>
-                          <div className="text-3xl font-black bg-white/30 px-4 py-1 rounded-2xl">
-                            {commonT("currency")} {formatNumber(metrics.netBalance)}
+                      {/* Net Profit */}
+                      {(() => {
+                        const netProfit = metrics.totalPaid + metrics.otherRevenueTotal + metrics.transferredStudentsCollected - metrics.expenseVolume - metrics.salaryVolume;
+                        return (
+                          <div className="mt-10 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-4">
+                                <div className="text-sm font-bold opacity-80">{t("summary.netProfit")}</div>
+                                <div className={`text-3xl font-black px-5 py-1.5 rounded-2xl ${netProfit >= 0 ? "bg-green-500/30" : "bg-red-500/30"}`}>
+                                  {commonT("currency")} {formatNumber(netProfit)}
+                                </div>
+                              </div>
+                              <div className="text-[10px] font-bold opacity-50">{t("summary.profitDetails")}</div>
+                            </div>
+                            <div className="flex gap-3">
+                              <button
+                                className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-white text-[var(--primary)] font-black shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                                onClick={exportAllExcel}
+                                disabled={actionLoading !== null}
+                              >
+                                {actionLoading === "all" ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                                {t("exportAll")}
+                              </button>
+                              <button
+                                className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-black/30 text-white border border-white/20 font-black transition-all hover:bg-black/40"
+                                onClick={printSummary}
+                              >
+                                <Printer size={18} />
+                                {t("printSummary")}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-white text-[var(--primary)] font-black shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-                            onClick={exportAllExcel}
-                            disabled={actionLoading !== null}
-                          >
-                            {actionLoading === "all" ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                            {t("exportAll")}
-                          </button>
-                          <button
-                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-black/30 text-white border border-white/20 font-black transition-all hover:bg-black/40"
-                            onClick={printSummary}
-                          >
-                            <Printer size={18} />
-                            {t("printSummary")}
-                          </button>
-                        </div>
-                      </div>
+                        );
+                      })()}
                     </div>
                   </section>
 

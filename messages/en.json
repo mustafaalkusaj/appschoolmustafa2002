@@ -440,7 +440,10 @@
       "totalIncome": "Total Income",
       "expenses": "Expenses",
       "netSalaries": "Net Salaries",
-      "netBalance": "Net Balance"
+      "netBalance": "Net Balance",
+      "transferredRevenue": "Transferred Students Revenue",
+      "netProfit": "Net Profit",
+      "profitDetails": "Collected + Revenue + Transferred − Expenses − Salaries"
     },
     "detailedReports": "Detailed Reports",
     "exportAll": "Export All Excel",
