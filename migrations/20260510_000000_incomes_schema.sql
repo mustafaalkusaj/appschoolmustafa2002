@@ -1,31 +1,40 @@
--- ============================================================================
--- Income Types & Incomes tables (mirrors expenses pattern)
--- Full branch isolation via branch_id column
--- ============================================================================
+-- Migration: incomes_schema
+-- Applied: 2026-05-10
+-- Tables: income_types, incomes (with RLS)
 
--- 1. Income Types
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS income_types_select ON income_types;
+DROP POLICY IF EXISTS income_types_insert ON income_types;
+DROP POLICY IF EXISTS income_types_update ON income_types;
+DROP POLICY IF EXISTS income_types_delete ON income_types;
+DROP POLICY IF EXISTS incomes_select ON incomes;
+DROP POLICY IF EXISTS incomes_insert ON incomes;
+DROP POLICY IF EXISTS incomes_update ON incomes;
+DROP POLICY IF EXISTS incomes_delete ON incomes;
+
+-- Income types lookup table
 CREATE TABLE IF NOT EXISTS income_types (
-  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  school_id   TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-  branch_id   TEXT REFERENCES branches(id) ON DELETE CASCADE,
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id   UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  branch_id   UUID REFERENCES branches(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
   notes       TEXT,
   deleted_at  TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_income_types_school ON income_types(school_id);
-CREATE INDEX idx_income_types_branch ON income_types(branch_id);
-CREATE INDEX idx_income_types_school_branch ON income_types(school_id, branch_id);
+CREATE INDEX IF NOT EXISTS idx_income_types_school_id ON income_types(school_id);
+CREATE INDEX IF NOT EXISTS idx_income_types_branch_id ON income_types(branch_id);
+CREATE INDEX IF NOT EXISTS idx_income_types_deleted_at ON income_types(deleted_at);
 
--- 2. Incomes
+-- Incomes records table
 CREATE TABLE IF NOT EXISTS incomes (
-  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  school_id       TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-  branch_id       TEXT REFERENCES branches(id) ON DELETE CASCADE,
-  income_type_id  TEXT NOT NULL REFERENCES income_types(id) ON DELETE RESTRICT,
-  amount          NUMERIC(15,2) NOT NULL CHECK (amount > 0),
-  income_date     DATE NOT NULL,
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id       UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  branch_id       UUID REFERENCES branches(id) ON DELETE CASCADE,
+  income_type_id  UUID REFERENCES income_types(id) ON DELETE SET NULL,
+  amount          NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+  income_date     DATE NOT NULL DEFAULT CURRENT_DATE,
   source          TEXT,
   receipt_number  TEXT,
   notes           TEXT,
@@ -33,79 +42,38 @@ CREATE TABLE IF NOT EXISTS incomes (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_incomes_school ON incomes(school_id);
-CREATE INDEX idx_incomes_branch ON incomes(branch_id);
-CREATE INDEX idx_incomes_school_branch ON incomes(school_id, branch_id);
-CREATE INDEX idx_incomes_type ON incomes(income_type_id);
-CREATE INDEX idx_incomes_date ON incomes(school_id, income_date DESC);
-CREATE INDEX idx_incomes_school_branch_date ON incomes(school_id, branch_id, income_date DESC);
+CREATE INDEX IF NOT EXISTS idx_incomes_school_id ON incomes(school_id);
+CREATE INDEX IF NOT EXISTS idx_incomes_branch_id ON incomes(branch_id);
+CREATE INDEX IF NOT EXISTS idx_incomes_income_type_id ON incomes(income_type_id);
+CREATE INDEX IF NOT EXISTS idx_incomes_income_date ON incomes(income_date);
+CREATE INDEX IF NOT EXISTS idx_incomes_deleted_at ON incomes(deleted_at);
 
--- 3. RLS Policies
+-- Enable RLS
 ALTER TABLE income_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
 
--- income_types: authenticated users with matching school
-CREATE POLICY "income_types_select" ON income_types
-  FOR SELECT TO authenticated
-  USING (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+-- RLS Policies for income_types
+CREATE POLICY income_types_select ON income_types FOR SELECT
+  USING (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
 
-CREATE POLICY "income_types_insert" ON income_types
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+CREATE POLICY income_types_insert ON income_types FOR INSERT
+  WITH CHECK (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
 
-CREATE POLICY "income_types_update" ON income_types
-  FOR UPDATE TO authenticated
-  USING (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+CREATE POLICY income_types_update ON income_types FOR UPDATE
+  USING (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
 
-CREATE POLICY "income_types_delete" ON income_types
-  FOR DELETE TO authenticated
-  USING (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+CREATE POLICY income_types_delete ON income_types FOR DELETE
+  USING (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
 
--- incomes: authenticated users with matching school
-CREATE POLICY "incomes_select" ON incomes
-  FOR SELECT TO authenticated
-  USING (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+-- RLS Policies for incomes
+CREATE POLICY incomes_select ON incomes FOR SELECT
+  USING (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
 
-CREATE POLICY "incomes_insert" ON incomes
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+CREATE POLICY incomes_insert ON incomes FOR INSERT
+  WITH CHECK (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
 
-CREATE POLICY "incomes_update" ON incomes
-  FOR UPDATE TO authenticated
-  USING (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+CREATE POLICY incomes_update ON incomes FOR UPDATE
+  USING (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
 
-CREATE POLICY "incomes_delete" ON incomes
-  FOR DELETE TO authenticated
-  USING (
-    school_id IN (
-      SELECT school_id FROM users WHERE id = auth.uid()::text
-    )
-  );
+CREATE POLICY incomes_delete ON incomes FOR DELETE
+  USING (school_id IN (SELECT school_id FROM users WHERE id = auth.uid()));
