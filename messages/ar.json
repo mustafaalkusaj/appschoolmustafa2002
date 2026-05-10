@@ -159,7 +159,10 @@
       "remaining": "المتبقي",
       "afterDiscountShort": "بعد الخصم",
       "collectedPct": "{pct}% تم تحصيله",
-      "remainingPct": "{pct}% المبالغ المتبقية"
+      "remainingPct": "{pct}% المبالغ المتبقية",
+      "transferredRevenue": "واردات الطلاب المنقولين",
+      "transferredTotalFees": "إجمالي رسوم المنقولين",
+      "transferredCollected": "المستحصل من المنقولين"
     },
     "payments": {
       "recentTitle": "آخر التحصيلات",
