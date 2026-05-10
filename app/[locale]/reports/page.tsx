@@ -17,6 +17,7 @@ import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { cn } from "@/lib/brand/brand-utils";
 import { Download, Printer, TrendingUp, Users, CreditCard, Wallet, Briefcase, LayoutGrid, Loader2 } from "@/lib/icons";
+import { FinancialDashboard } from "./_components/FinancialDashboard";
 
 type StudentRow = {
   id: string;
@@ -76,6 +77,29 @@ type ReportsMetrics = {
   salaryVolume: number;
   currentMonthSalaryCount: number;
   netBalance: number;
+
+  netRevenue: number;
+  netPayments: number;
+  totalBalance: number;
+
+  salaryFixedTotal: number;
+  salaryLecturesTotal: number;
+  salarySupervisionTotal: number;
+  salaryDeductionsTotal: number;
+
+  currentStudentsTotalFees: number;
+  currentStudentsCollected: number;
+  currentStudentsDiscounts: number;
+  currentStudentsRemaining: number;
+
+  transferredStudentsTotalFees: number;
+  transferredStudentsCollected: number;
+  transferredStudentsDiscounts: number;
+  transferredStudentsRemaining: number;
+
+  otherRevenueTotal: number;
+
+  expensesByType: Array<{ name: string; total: number }>;
 };
 
 type DatasetType = "students" | "payments" | "expenses" | "salaries" | "all";
@@ -96,6 +120,29 @@ const EMPTY_REPORTS_METRICS: ReportsMetrics = {
   salaryVolume: 0,
   currentMonthSalaryCount: 0,
   netBalance: 0,
+
+  netRevenue: 0,
+  netPayments: 0,
+  totalBalance: 0,
+
+  salaryFixedTotal: 0,
+  salaryLecturesTotal: 0,
+  salarySupervisionTotal: 0,
+  salaryDeductionsTotal: 0,
+
+  currentStudentsTotalFees: 0,
+  currentStudentsCollected: 0,
+  currentStudentsDiscounts: 0,
+  currentStudentsRemaining: 0,
+
+  transferredStudentsTotalFees: 0,
+  transferredStudentsCollected: 0,
+  transferredStudentsDiscounts: 0,
+  transferredStudentsRemaining: 0,
+
+  otherRevenueTotal: 0,
+
+  expensesByType: [],
 };
 
 export default function ReportsPage() {
@@ -934,6 +981,9 @@ export default function ReportsPage() {
                       </div>
                     </div>
                   </section>
+
+                  {/* Financial Dashboard */}
+                  <FinancialDashboard metrics={metrics} currency={currency} />
 
                   {/* Metrics Strip */}
                   <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
