@@ -55,6 +55,7 @@ const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   attendance: { ar: "الحضور", en: "Attendance" },
   payments: { ar: "الحسابات", en: "Payments" },
   expenses: { ar: "المصروفات", en: "Expenses" },
+  incomes: { ar: "الإيرادات", en: "Incomes" },
   salaries: { ar: "الرواتب", en: "Salaries" },
   monitoring: { ar: "مراقبة الأساتذة", en: "Monitoring" },
   "fee-notifications": { ar: "تنبيهات الأقساط", en: "Fee Alerts" },

@@ -211,3 +211,50 @@ export const expenseTypeMutationSchema = z.object({
   name: z.string().trim().min(1, "اسم النوع مطلوب.").max(120, "اسم النوع طويل جداً."),
   notes: optionalTrimmedString(1000),
 });
+
+// ── Incomes ──────────────────────────────────────────────────────────────────
+
+export const incomesListQuerySchema = z
+  .object({
+    schoolId: entityIdSchema(),
+    page: z.coerce.number().int().min(1).max(100_000).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    search: z.string().trim().max(120).optional().default(""),
+    incomeTypeId: entityIdSchema().optional().nullable(),
+    fromDate: optionalDateOnly("من تاريخ"),
+    toDate: optionalDateOnly("إلى تاريخ"),
+  })
+  .superRefine((value, ctx) => {
+    if (value.fromDate && value.toDate && value.fromDate > value.toDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["toDate"],
+        message: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية.",
+      });
+    }
+  });
+
+export const incomeMutationSchema = z.object({
+  school_id: entityIdSchema(),
+  branch_id: entityIdSchema().optional().nullable(),
+  income_type_id: entityIdSchema(),
+  amount: positiveMoney("المبلغ"),
+  income_date: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ الإيراد يجب أن يكون بالصيغة YYYY-MM-DD."),
+  source: optionalTrimmedString(160),
+  receipt_number: optionalTrimmedString(120),
+  notes: optionalTrimmedString(1000),
+});
+
+export const incomeTypesListQuerySchema = z.object({
+  schoolId: entityIdSchema(),
+  search: z.string().trim().max(120).optional().default(""),
+});
+
+export const incomeTypeMutationSchema = z.object({
+  school_id: entityIdSchema(),
+  name: z.string().trim().min(1, "اسم النوع مطلوب.").max(120, "اسم النوع طويل جداً."),
+  notes: optionalTrimmedString(1000),
+});

@@ -38,6 +38,8 @@ model School {
   academicYears   AcademicYear[]
   attendances     Attendance[]
   auditLogs       AuditLog[]
+  incomeTypes     IncomeType[]
+  incomes         Income[]
 
   @@index([isActive])
   @@index([createdAt])
@@ -68,6 +70,8 @@ model Branch {
   employees    Employee[]
   attendances  Attendance[]
   auditLogs    AuditLog[]
+  incomeTypes  IncomeType[]
+  incomes      Income[]
 
   @@index([schoolId])
   @@index([isActive])
@@ -346,6 +350,53 @@ model Transaction {
   @@index([createdBy])
   @@index([schoolId, branchId, transactionDate])
   @@map("transactions")
+}
+
+// ============================================================================
+// INCOME MANAGEMENT
+// ============================================================================
+
+model IncomeType {
+  id        String    @id @default(cuid())
+  schoolId  String
+  branchId  String?
+  name      String
+  notes     String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch    Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  incomes   Income[]
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([schoolId, branchId])
+  @@map("income_types")
+}
+
+model Income {
+  id            String    @id @default(cuid())
+  schoolId      String
+  branchId      String?
+  incomeTypeId  String
+  amount        Decimal   @db.Decimal(15, 2)
+  incomeDate    String
+  source        String?
+  receiptNumber String?
+  notes         String?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  school        School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch        Branch?    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  incomeType    IncomeType @relation(fields: [incomeTypeId], references: [id])
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([incomeTypeId])
+  @@index([schoolId, branchId])
+  @@map("incomes")
 }
 
 // ============================================================================

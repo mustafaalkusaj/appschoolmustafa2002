@@ -10,6 +10,9 @@ export const CACHE_STRATEGIES = {
   // Expenses endpoints - 5 minutes
   EXPENSES_LIST: 'expenses-list',
 
+  // Incomes endpoints - 5 minutes
+  INCOMES_LIST: 'incomes-list',
+
   // Payments endpoints - 5 minutes
   PAYMENTS_META: 'payments-meta',
   PAYMENTS_LIST: 'payments-list',
@@ -37,6 +40,12 @@ const CACHE_CONFIG: Record<string, CacheConfig> = {
     public: false,
   },
   'expenses-list': {
+    maxAge: 300,
+    sMaxAge: 300,
+    staleWhileRevalidate: 60,
+    public: false,
+  },
+  'incomes-list': {
     maxAge: 300,
     sMaxAge: 300,
     staleWhileRevalidate: 60,
