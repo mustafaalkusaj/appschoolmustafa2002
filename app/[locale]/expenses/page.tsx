@@ -260,8 +260,11 @@ export default function ExpensesPage() {
   // Filters
   const [expenseTypeFilter, setExpenseTypeFilter] = useState("");
   const [search, setSearch] = useState("");
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
+  const [filterFrom, setFilterFrom] = useState(() => {
+    const d = new Date(); d.setDate(1);
+    return d.toISOString().split("T")[0];
+  });
+  const [filterTo, setFilterTo] = useState(() => new Date().toISOString().split("T")[0]);
   const deferredSearch = useDeferredValue(search);
   const [expensePage, setExpensePage] = useState(1);
   const [expenseTotalCount, setExpenseTotalCount] = useState(0);

@@ -260,8 +260,11 @@ export default function IncomesPage() {
   // Filters
   const [incomeTypeFilter, setIncomeTypeFilter] = useState("");
   const [search, setSearch] = useState("");
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
+  const [filterFrom, setFilterFrom] = useState(() => {
+    const d = new Date(); d.setDate(1);
+    return d.toISOString().split("T")[0];
+  });
+  const [filterTo, setFilterTo] = useState(() => new Date().toISOString().split("T")[0]);
   const deferredSearch = useDeferredValue(search);
   const [incomePage, setIncomePage] = useState(1);
   const [incomeTotalCount, setIncomeTotalCount] = useState(0);
@@ -802,7 +805,7 @@ export default function IncomesPage() {
                     <div className="flex flex-col gap-8">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-lg bg-[var(--success)]/10 text-[var(--success)] flex items-center justify-center">
+                          <div className="h-8 w-8 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center">
                             <Plus size={18} />
                           </div>
                           <h2 className="text-lg font-black text-[var(--text-primary)]">{copy.incomeActions}</h2>
@@ -830,7 +833,7 @@ export default function IncomesPage() {
                             PDF
                           </button>
                           <button
-                            className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[var(--success)] text-white text-xs font-black shadow-lg shadow-[var(--success)]/20 transition-all hover:scale-[1.02] active:scale-95"
+                            className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[var(--primary)] text-white text-xs font-black shadow-lg shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-95"
                             onClick={() => {
                               if (activeTab === "invoices") { setEditIncome(null); setForm({ income_type_id: "", amount: "", income_date: new Date().toISOString().split("T")[0], source: "", receipt_number: "", notes: "" }); setShowIncomeForm(true); }
                               else { setEditType(null); setTypeForm({ name: "", notes: "" }); setShowTypeForm(true); }
@@ -869,7 +872,7 @@ export default function IncomesPage() {
                     <button
                       className={cn(
                         "flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-black transition-all",
-                        activeTab === "invoices" ? "bg-[var(--surface-strong)] shadow-sm text-[var(--success)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                        activeTab === "invoices" ? "bg-[var(--surface-strong)] shadow-sm text-[var(--primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                       )}
                       onClick={() => setActiveTab("invoices")}
                     >
@@ -880,7 +883,7 @@ export default function IncomesPage() {
                     <button
                       className={cn(
                         "flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-black transition-all",
-                        activeTab === "types" ? "bg-[var(--surface-strong)] shadow-sm text-[var(--success)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                        activeTab === "types" ? "bg-[var(--surface-strong)] shadow-sm text-[var(--primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                       )}
                       onClick={() => setActiveTab("types")}
                     >
@@ -895,7 +898,7 @@ export default function IncomesPage() {
                     <div className="space-y-8">
                       <div className="flex items-center justify-between border-b border-[var(--border)] pb-6">
                         <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 rounded-full bg-[var(--success)] text-white text-[10px] font-black uppercase tracking-wider">{formatRecordCount(activeTab === "invoices" ? incomeTotalCount : filteredTypes.length, locale)}</span>
+                          <span className="px-3 py-1 rounded-full bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-wider">{formatRecordCount(activeTab === "invoices" ? incomeTotalCount : filteredTypes.length, locale)}</span>
                           <h2 className="text-xl font-black text-[var(--text-primary)]">{activeTab === "invoices" ? copy.incomesList : copy.categoriesList}</h2>
                         </div>
                         <button aria-label={copy.refreshLabel} title={copy.refreshLabel} className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--surface-muted)] text-[var(--success)] transition-all hover:bg-[var(--border)]" onClick={fetchAll}>
