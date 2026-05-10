@@ -234,13 +234,22 @@ export async function PATCH(
   }
 
   const { serviceSupabase, targetSchoolId, actorRole, branchScope } = context.value;
-  const currentStudent = await fetchStudent(serviceSupabase, studentId, targetSchoolId, branchScope);
-  if (!currentStudent) {
-    return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
-  }
 
   // Check if this is a transfer operation
   const transferType = normalizeTransferType(body?.transfer_type);
+
+  // For non-transfer: fetch student and paid fee in parallel
+  // For transfer: just fetch student
+  const [currentStudent, prefetchedPaidFee] = await Promise.all([
+    fetchStudent(serviceSupabase, studentId, targetSchoolId, branchScope),
+    !transferType
+      ? resolveAuthoritativeStudentPaidFee(serviceSupabase, targetSchoolId, studentId, 0).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  if (!currentStudent) {
+    return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
+  }
   if (transferType) {
     // Handle transfer operations
     if (transferType === "class") {
@@ -399,12 +408,10 @@ export async function PATCH(
 
   let nextPaidFee = requestedPaidFee;
   try {
-    nextPaidFee = await resolveAuthoritativeStudentPaidFee(
-      serviceSupabase,
-      targetSchoolId,
-      studentId,
-      requestedPaidFee,
-    );
+    // Use prefetched paid fee if available (was loaded in parallel with fetchStudent)
+    nextPaidFee = prefetchedPaidFee !== null && prefetchedPaidFee !== undefined
+      ? prefetchedPaidFee
+      : await resolveAuthoritativeStudentPaidFee(serviceSupabase, targetSchoolId, studentId, requestedPaidFee);
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر التحقق من إجمالي دفعات الطالب الحالية.", 500);
   }

@@ -43,27 +43,17 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "payments-records-create",
-    windowMs: 60_000,
-    maxHits: 40,
-    identifier: actorUserId,
-  });
+
+  // Run rate limit, permission check, and student lookup ALL in parallel
+  const [rateLimited, canRecordPayments, studentResult] = await Promise.all([
+    enforceRateLimit(req, { namespace: "payments-records-create", windowMs: 60_000, maxHits: 40, identifier: actorUserId }),
+    routeUserHasPermission(actorSupabase, actorUserId, "add_payments"),
+    actorSupabase.from("students").select("id, school_id, branch_id").eq("id", studentId).eq("school_id", targetSchoolId).maybeSingle(),
+  ]);
+
   if (rateLimited) {
     return rateLimited;
   }
-
-  // Run permission check and student lookup in parallel
-  const [canRecordPayments, studentResult] = await Promise.all([
-    routeUserHasPermission(actorSupabase, actorUserId, "add_payments"),
-    actorSupabase
-      .from("students")
-      .select("id, school_id, branch_id")
-      .eq("id", studentId)
-      .eq("school_id", targetSchoolId)
-      .maybeSingle(),
-  ]);
-
   if (!canRecordPayments) {
     return jsonError("ليس لديك صلاحية تسجيل دفعات جديدة.", 403);
   }
