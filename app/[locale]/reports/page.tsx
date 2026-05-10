@@ -887,10 +887,11 @@ export default function ReportsPage() {
                         <h2 className="text-lg font-black uppercase tracking-widest opacity-90">{t("summary.title")}</h2>
                       </div>
 
-                      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
                         {[
                           { label: t("summary.totalFees"), value: metrics.totalFees },
                           { label: t("summary.recordedPayments"), value: metrics.paymentVolume },
+                          { label: t("summary.remaining"), value: metrics.totalRemaining },
                           { label: t("summary.expenses"), value: metrics.expenseVolume },
                           { label: t("summary.netSalaries"), value: metrics.salaryVolume },
                         ].map((item, idx) => (
