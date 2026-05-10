@@ -789,6 +789,9 @@ export default function ReportsPage() {
       stats: [
         { label: dashboardT("finance.paid"), value: formatNumber(metrics.paymentsCount) },
         { label: dashboardT("finance.collectedAmounts"), value: `${commonT("currency")} ${formatNumber(metrics.paymentVolume)}` },
+        { label: t("cards.payments.totalPaid"), value: `${commonT("currency")} ${formatNumber(metrics.totalPaid)}` },
+        { label: t("cards.payments.remaining"), value: `${commonT("currency")} ${formatNumber(metrics.totalRemaining)}` },
+        { label: t("cards.payments.collectionRate"), value: `${metrics.totalFees > 0 ? Math.round((metrics.totalPaid / metrics.totalFees) * 100) : 0}%` },
         { label: reportCopy.todayPayments, value: formatNumber(metrics.todayPayments) },
       ],
       onExcel: exportPaymentsExcel,

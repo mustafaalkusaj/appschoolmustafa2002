@@ -455,7 +455,10 @@
       },
       "payments": {
         "title": "Finance Report",
-        "description": "Record of payments and collections associated with students."
+        "description": "Record of payments and collections associated with students.",
+        "totalPaid": "Total Paid",
+        "remaining": "Remaining",
+        "collectionRate": "Collection Rate"
       },
       "expenses": {
         "title": "Expenses Report",
