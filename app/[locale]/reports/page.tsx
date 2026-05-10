@@ -82,10 +82,7 @@ type ReportsMetrics = {
   netPayments: number;
   totalBalance: number;
 
-  salaryFixedTotal: number;
-  salaryLecturesTotal: number;
-  salarySupervisionTotal: number;
-  salaryDeductionsTotal: number;
+  salaryByMonth: Array<{ month: string; total: number }>;
 
   currentStudentsTotalFees: number;
   currentStudentsCollected: number;
@@ -125,10 +122,7 @@ const EMPTY_REPORTS_METRICS: ReportsMetrics = {
   netPayments: 0,
   totalBalance: 0,
 
-  salaryFixedTotal: 0,
-  salaryLecturesTotal: 0,
-  salarySupervisionTotal: 0,
-  salaryDeductionsTotal: 0,
+  salaryByMonth: [],
 
   currentStudentsTotalFees: 0,
   currentStudentsCollected: 0,

@@ -10,9 +10,7 @@ import {
   HandCoins,
   Wallet,
   DollarSign,
-  Banknote,
-  Eye,
-  Scissors,
+  CalendarDays,
 } from "@/lib/icons";
 
 type ReportsMetrics = {
@@ -24,10 +22,7 @@ type ReportsMetrics = {
   expenseVolume: number;
   salaryVolume: number;
 
-  salaryFixedTotal: number;
-  salaryLecturesTotal: number;
-  salarySupervisionTotal: number;
-  salaryDeductionsTotal: number;
+  salaryByMonth: Array<{ month: string; total: number }>;
 
   currentStudentsTotalFees: number;
   currentStudentsCollected: number;
@@ -47,6 +42,19 @@ type ReportsMetrics = {
 interface FinancialDashboardProps {
   metrics: ReportsMetrics;
   currency: string;
+}
+
+const MONTHS_AR = [
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+];
+
+function formatMonth(month: string) {
+  // month format: "2026-01"
+  const parts = month.split("-");
+  const monthIndex = parseInt(parts[1] ?? "0", 10) - 1;
+  const monthName = MONTHS_AR[monthIndex] ?? month;
+  return `${monthName} ${parts[0] ?? ""}`.trim();
 }
 
 const DONUT_COLORS = [
@@ -117,7 +125,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
         </div>
       </div>
 
-      {/* Section 2: Salaries Breakdown */}
+      {/* Section 2: Salaries by Month */}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
         <div className="flex items-center gap-2 mb-4">
           <div className="h-8 w-8 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
@@ -125,24 +133,23 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
           </div>
           <h3 className="text-base font-black text-[var(--text-primary)]">الرواتب</h3>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "مدفوع", value: metrics.salaryFixedTotal, color: "bg-emerald-500", icon: Banknote },
-            { label: "المحاضرات", value: metrics.salaryLecturesTotal, color: "bg-blue-500", icon: Users },
-            { label: "المراقبة", value: metrics.salarySupervisionTotal, color: "bg-violet-500", icon: Eye },
-            { label: "الخصومات", value: metrics.salaryDeductionsTotal, color: "bg-orange-500", icon: Scissors },
-          ].map((item, idx) => (
-            <div key={idx} className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 flex items-center gap-3">
-              <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center text-white shrink-0", item.color)}>
-                <item.icon size={18} />
+        {metrics.salaryByMonth.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {metrics.salaryByMonth.map((item) => (
+              <div key={item.month} className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-[var(--primary)]/10 text-[var(--primary)] shrink-0">
+                  <CalendarDays size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase text-[var(--text-muted)]">{formatMonth(item.month)}</p>
+                  <p className="text-sm font-black text-[var(--text-primary)]">{currency} {formatNumber(item.total)}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-[var(--text-muted)]">{item.label}</p>
-                <p className="text-sm font-black text-[var(--text-primary)]">{currency} {formatNumber(item.value)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)] text-center py-3">لا توجد رواتب</p>
+        )}
       </div>
 
       {/* Section 3: Revenue Breakdown */}

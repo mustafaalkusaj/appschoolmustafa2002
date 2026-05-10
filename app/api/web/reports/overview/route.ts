@@ -34,11 +34,8 @@ type ReportsMetrics = {
   netPayments: number;
   totalBalance: number;
 
-  // Salary breakdown
-  salaryFixedTotal: number;
-  salaryLecturesTotal: number;
-  salarySupervisionTotal: number;
-  salaryDeductionsTotal: number;
+  // Salary by month
+  salaryByMonth: Array<{ month: string; total: number }>;
 
   // Current students revenue
   currentStudentsTotalFees: number;
@@ -84,7 +81,7 @@ async function loadFallbackMetrics(
   currentMonth: string,
   todayDate: string,
 ) {
-  const [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult, dailyLecturesResult, deductionsResult, incomesResult, teachersResult] = await Promise.allSettled([
+  const [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult, incomesResult] = await Promise.allSettled([
     applyBranchScopeToQuery(
       actorSupabase
         .from("students")
@@ -119,21 +116,7 @@ async function loadFallbackMetrics(
     applyBranchScopeToQuery(
       actorSupabase
         .from("salaries")
-        .select("id, teacher_id, gross_salary, deductions, month")
-        .eq("school_id", schoolId),
-      branchScope,
-    ),
-    applyBranchScopeToQuery(
-      actorSupabase
-        .from("daily_lectures")
-        .select("id, teacher_id, price")
-        .eq("school_id", schoolId),
-      branchScope,
-    ),
-    applyBranchScopeToQuery(
-      actorSupabase
-        .from("deductions")
-        .select("id, teacher_id, amount")
+        .select("id, gross_salary, deductions, month")
         .eq("school_id", schoolId),
       branchScope,
     ),
@@ -143,13 +126,6 @@ async function loadFallbackMetrics(
         .select("id, amount")
         .eq("school_id", schoolId)
         .is("deleted_at", null),
-      branchScope,
-    ),
-    applyBranchScopeToQuery(
-      actorSupabase
-        .from("teachers")
-        .select("id, salary_type, job_title")
-        .eq("school_id", schoolId),
       branchScope,
     ),
   ]);
@@ -189,44 +165,12 @@ async function loadFallbackMetrics(
         : ((salariesResult.value.data ?? []) as Array<Record<string, unknown>>)
       : [];
 
-  const dailyLectures =
-    dailyLecturesResult.status === "fulfilled"
-      ? dailyLecturesResult.value.error
-        ? []
-        : ((dailyLecturesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
-
-  const deductionRows =
-    deductionsResult.status === "fulfilled"
-      ? deductionsResult.value.error
-        ? []
-        : ((deductionsResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
-
   const incomes =
     incomesResult.status === "fulfilled"
       ? incomesResult.value.error
         ? []
         : ((incomesResult.value.data ?? []) as Array<Record<string, unknown>>)
       : [];
-
-  const teachers =
-    teachersResult.status === "fulfilled"
-      ? teachersResult.value.error
-        ? []
-        : ((teachersResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
-
-  // Build teacher lookup map
-  const teacherMap = new Map<string, { salary_type: string; job_title: string }>();
-  teachers.forEach((t: any) => {
-    if (t.id) {
-      teacherMap.set(String(t.id), {
-        salary_type: String(t.salary_type ?? "fixed"),
-        job_title: String(t.job_title ?? ""),
-      });
-    }
-  });
 
   // Build class_name -> total_fee map
   const classFeeMap = new Map<string, number>();
@@ -286,32 +230,18 @@ async function loadFallbackMetrics(
     }
   });
 
-  // Salary breakdown by teacher type
-  let salaryFixedTotal = 0;
-  let salarySupervisionTotal = 0;
-
+  // Salary totals grouped by month
+  const salaryByMonthMap = new Map<string, number>();
   salaries.forEach((s: any) => {
     const net = Math.max(0, Number(s.gross_salary ?? 0) - Number(s.deductions ?? 0));
-    const teacherId = String(s.teacher_id ?? "");
-    const teacher = teacherMap.get(teacherId);
-    if (!teacher) {
-      salaryFixedTotal += net;
-      return;
-    }
-    if (teacher.job_title.includes("مراقب")) {
-      salarySupervisionTotal += net;
-    } else {
-      salaryFixedTotal += net;
+    const month = String(s.month ?? "");
+    if (month) {
+      salaryByMonthMap.set(month, (salaryByMonthMap.get(month) ?? 0) + net);
     }
   });
-
-  const salaryLecturesTotal = dailyLectures.reduce(
-    (sum, item) => sum + Number(item.price ?? 0), 0,
-  );
-
-  const salaryDeductionsTotal = deductionRows.reduce(
-    (sum, item) => sum + Number(item.amount ?? 0), 0,
-  );
+  const salaryByMonth = Array.from(salaryByMonthMap.entries())
+    .map(([month, total]) => ({ month, total }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 
   // Other revenue from incomes table
   const otherRevenueTotal = incomes.reduce(
@@ -358,10 +288,7 @@ async function loadFallbackMetrics(
     netPayments,
     totalBalance: netRevenue - netPayments,
 
-    salaryFixedTotal,
-    salaryLecturesTotal,
-    salarySupervisionTotal,
-    salaryDeductionsTotal,
+    salaryByMonth,
 
     currentStudentsTotalFees,
     currentStudentsCollected,
@@ -385,9 +312,9 @@ async function loadFallbackMetrics(
 
   return {
     metrics: finalMetrics,
-    warnings: [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult, dailyLecturesResult, deductionsResult, incomesResult, teachersResult]
+    warnings: [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult, incomesResult]
       .map((result, index) => {
-        const labels = ["بيانات الطلاب", "بيانات رسوم الفئات", "بيانات الدفعات", "بيانات المصروفات", "بيانات الرواتب", "بيانات المحاضرات", "بيانات الخصومات", "بيانات الواردات", "بيانات الأساتذة"];
+        const labels = ["بيانات الطلاب", "بيانات رسوم الفئات", "بيانات الدفعات", "بيانات المصروفات", "بيانات الرواتب", "بيانات الواردات"];
         if (result.status !== "fulfilled") return `تعذر تحميل ${labels[index]} حالياً.`;
         if (result.value.error) return result.value.error.message || `تعذر تحميل ${labels[index]} حالياً.`;
         return null;
