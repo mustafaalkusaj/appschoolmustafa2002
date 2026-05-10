@@ -15,7 +15,7 @@ import { useRuntimeBranding } from "@/hooks/brand";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
 import { usePathname } from "next/navigation";
-import { Search, RefreshCw, Download, Plus, FileText, Tags, Trash2, Edit2, X } from "@/lib/icons";
+import { Search, RefreshCw, Download, Plus, FileText, Tags, Trash2, Edit2, X, Printer } from "@/lib/icons";
 
 const DEFAULT_INCOME_DATE = new Date().toISOString().split("T")[0];
 const INCOMES_PAGE_SIZE = 20;
@@ -602,43 +602,32 @@ export default function IncomesPage() {
     setShowTypeForm(true);
   }
 
-  async function exportExcel() {
+  async function collectExportRows(): Promise<IncomeRow[] | null> {
     const scopedSchoolId = await resolveScopedSchoolId();
-    if (!scopedSchoolId) {
-      setError(copy.exportSchoolMissing);
-      return;
-    }
-
+    if (!scopedSchoolId) { setError(copy.exportSchoolMissing); return null; }
     const exportRows: IncomeRow[] = [];
-    let page = 1;
-    let totalPages = 1;
-
+    let page = 1, totalPages = 1;
     do {
       const params: Record<string, string | number | null | undefined> = {
-        schoolId: scopedSchoolId,
-        page,
-        pageSize: INCOME_EXPORT_PAGE_SIZE,
-        search: deferredSearch,
-        incomeTypeId: incomeTypeFilter || null,
-        fromDate: filterFrom || null,
-        toDate: filterTo || null,
+        schoolId: scopedSchoolId, page, pageSize: INCOME_EXPORT_PAGE_SIZE,
+        search: deferredSearch, incomeTypeId: incomeTypeFilter || null,
+        fromDate: filterFrom || null, toDate: filterTo || null,
       };
-      if (runtimeBranding.branchId) {
-        params.branchId = runtimeBranding.branchId;
-      }
+      if (runtimeBranding.branchId) params.branchId = runtimeBranding.branchId;
       const { response, payload } = await fetchJsonWithAuthorizedSession<IncomesListResponse>(
         buildIncomesUrl("/api/web/incomes", params),
       );
-
-      if (!response.ok) {
-        setError(getApiErrorMessage(payload, copy.exportError));
-        return;
-      }
-
+      if (!response.ok) { setError(getApiErrorMessage(payload, copy.exportError)); return null; }
       exportRows.push(...(payload?.rows ?? []));
       totalPages = payload?.totalPages ?? 1;
       page += 1;
     } while (page <= totalPages);
+    return exportRows;
+  }
+
+  async function exportExcel() {
+    const exportRows = await collectExportRows();
+    if (!exportRows) return;
 
     const { downloadExcelExport } = await import("@/lib/excel-client");
     await downloadExcelExport({
@@ -691,6 +680,57 @@ export default function IncomesPage() {
         })),
       }],
     });
+  }
+
+  async function exportCsv() {
+    const rows = activeTab === "invoices" ? await collectExportRows() : null;
+    if (activeTab === "invoices") {
+      if (!rows) return;
+      const { exportToCSV } = await import("@/lib/export");
+      exportToCSV(rows.map((item, i) => ({
+        "#": i + 1,
+        [copy.exportRows.type]: item.income_types?.name || "—",
+        [copy.exportRows.amount]: item.amount,
+        [copy.exportRows.date]: item.income_date,
+        [copy.exportRows.source]: item.source || "—",
+        [copy.exportRows.receipt]: item.receipt_number || "—",
+        [copy.exportRows.note]: item.notes || "",
+      })), "incomes");
+    } else {
+      const { exportToCSV } = await import("@/lib/export");
+      exportToCSV(incomeTypes.map((t, i) => ({
+        "#": i + 1,
+        [copy.exportTypeRows.name]: t.name,
+        [copy.exportTypeRows.notes]: t.notes || "",
+        [copy.exportTypeRows.usageCount]: t.usage_count,
+        [copy.exportTypeRows.usageTotal]: t.usage_total,
+      })), "income_types");
+    }
+  }
+
+  async function exportPdf() {
+    const { wrapPrintDocument, printHtmlDocument } = await import("@/lib/print/branding");
+    if (activeTab === "invoices") {
+      const rows = await collectExportRows();
+      if (!rows) return;
+      const html = wrapPrintDocument({
+        title: copy.exportSheet,
+        subtitle: `${rows.length} ${tx("سجل", locale)}`,
+        bodyHtml: `<table><thead><tr><th>#</th><th>${copy.exportRows.type}</th><th>${copy.exportRows.amount}</th><th>${copy.exportRows.date}</th><th>${copy.exportRows.source}</th><th>${copy.exportRows.receipt}</th></tr></thead><tbody>${rows.map((item, i) => `<tr><td>${i + 1}</td><td>${item.income_types?.name || "—"}</td><td>${formatNumber(item.amount || 0)} IQD</td><td>${item.income_date}</td><td>${item.source || "—"}</td><td>${item.receipt_number || "—"}</td></tr>`).join("")}</tbody></table>`,
+        branding: { schoolName: runtimeBranding.schoolName, logoUrl: runtimeBranding.logoUrl, locale },
+        autoPrint: true,
+      });
+      printHtmlDocument(html);
+    } else {
+      const html = wrapPrintDocument({
+        title: copy.exportTypesSheet,
+        subtitle: `${incomeTypes.length} ${tx("نوع", locale)}`,
+        bodyHtml: `<table><thead><tr><th>#</th><th>${copy.exportTypeRows.name}</th><th>${copy.exportTypeRows.notes}</th><th>${copy.exportTypeRows.usageCount}</th><th>${copy.exportTypeRows.usageTotal}</th></tr></thead><tbody>${incomeTypes.map((t, i) => `<tr><td>${i + 1}</td><td>${t.name}</td><td>${t.notes || "—"}</td><td>${t.usage_count}</td><td>${formatNumber(t.usage_total || 0)} IQD</td></tr>`).join("")}</tbody></table>`,
+        branding: { schoolName: runtimeBranding.schoolName, logoUrl: runtimeBranding.logoUrl, locale },
+        autoPrint: true,
+      });
+      printHtmlDocument(html);
+    }
   }
 
   const filteredTypes = useMemo(() => incomeTypes.filter((t) => !typeSearch || t.name.includes(typeSearch)), [incomeTypes, typeSearch]);
@@ -773,7 +813,21 @@ export default function IncomesPage() {
                             onClick={activeTab === "invoices" ? exportExcel : exportTypesExcel}
                           >
                             <Download size={16} />
-                            {tx("تصدير إكسل", locale)}
+                            Excel
+                          </button>
+                          <button
+                            className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[var(--info)]/10 text-[var(--info)] text-xs font-black transition-all hover:bg-[var(--info)]/20"
+                            onClick={exportCsv}
+                          >
+                            <Download size={16} />
+                            CSV
+                          </button>
+                          <button
+                            className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[var(--warning)]/10 text-[var(--warning)] text-xs font-black transition-all hover:bg-[var(--warning)]/20"
+                            onClick={exportPdf}
+                          >
+                            <Printer size={16} />
+                            PDF
                           </button>
                           <button
                             className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[var(--success)] text-white text-xs font-black shadow-lg shadow-[var(--success)]/20 transition-all hover:scale-[1.02] active:scale-95"
