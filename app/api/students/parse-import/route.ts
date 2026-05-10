@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     let classesQuery = adminSupabase
       .from("classes")
-      .select(`id, grade, section, school_id, branch_id`)
+      .select(`id, grade, name, section, school_id, branch_id`)
       .eq("school_id", targetSchoolId);
 
     if (classesHasBranchScope && branchScope.value.branchIds.length > 0) {
@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
               }
             }
             const displayName =
+              String(classRow.name || "").trim() ||
               String(classRow.grade || "").trim() ||
               `الصف ${classRow.id}`;
             return {
