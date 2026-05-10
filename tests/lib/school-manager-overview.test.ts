@@ -49,6 +49,7 @@ describe("school manager overview", () => {
         { branch_id: "branch-b", amount: 50 },
       ],
       classFees: [],
+      incomes: [],
     });
 
     expect(overview.branches).toHaveLength(2);
@@ -102,6 +103,7 @@ describe("school manager overview", () => {
       ],
       expenses: [{ branch_id: null, amount: 25 }],
       classFees: [],
+      incomes: [],
     });
 
     expect(overview.branches).toHaveLength(1);
@@ -148,6 +150,7 @@ describe("school manager overview", () => {
       ],
       expenses: [],
       classFees: [],
+      incomes: [],
     });
 
     expect(overview.branches.map((branch) => branch.branchName)).toEqual([
