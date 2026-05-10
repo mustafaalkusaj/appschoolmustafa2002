@@ -118,6 +118,7 @@ function buildEmptyDashboardOverviewPayload(warning?: string | null) {
       totalRemaining: 0,
       feeNotificationsCount: 0,
       monthlySalaries: 0,
+      totalIncomes: 0,
       afterDiscount: 0,
       paidPct: 0,
       remainingPct: 0,
@@ -254,12 +255,22 @@ export async function GET(req: NextRequest) {
         monthlySalariesPromise = monthlySalariesPromise.eq("branch_id", effectiveBranchId);
       }
 
-      const [studentsResult, recentPaymentsResult, classFeesResult, feeNotificationsResult, monthlySalariesResult] = await Promise.allSettled([
+      let incomesPromise = serviceSupabase
+        .from("incomes")
+        .select("amount")
+        .eq("school_id", targetSchoolId)
+        .is("deleted_at", null);
+      if (effectiveBranchId) {
+        incomesPromise = incomesPromise.eq("branch_id", effectiveBranchId);
+      }
+
+      const [studentsResult, recentPaymentsResult, classFeesResult, feeNotificationsResult, monthlySalariesResult, incomesResult] = await Promise.allSettled([
         studentsPromise,
         recentPaymentsPromise,
         classFeesPromise,
         feeNotificationsCountPromise,
         monthlySalariesPromise,
+        incomesPromise,
       ]);
 
       const studentsFailed = studentsResult.status !== "fulfilled" || Boolean(studentsResult.value?.error);
@@ -416,6 +427,16 @@ export async function GET(req: NextRequest) {
         0,
       );
 
+      const incomeRows =
+        incomesResult.status === "fulfilled" && !incomesResult.value?.error
+          ? (incomesResult.value.data ?? [])
+          : [];
+
+      const totalIncomes = incomeRows.reduce(
+        (sum, row) => sum + Number((row as Record<string, unknown>).amount ?? 0),
+        0,
+      );
+
       const totals = {
         studentsCount: resolvedStudents.length,
         transferredCount: resolvedStudents.filter((student) => student.status === "transferred").length,
@@ -425,6 +446,7 @@ export async function GET(req: NextRequest) {
         totalRemaining: resolvedStudents.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
         feeNotificationsCount,
         monthlySalaries,
+        totalIncomes,
       };
 
       const afterDiscount = totals.totalFees - totals.totalDiscount;

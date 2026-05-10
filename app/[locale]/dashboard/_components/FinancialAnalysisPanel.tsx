@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { formatNumber } from "@/lib/formatting";
-import { BarChart3, TrendingUp, Wallet, Banknote, Tag, AlertTriangle } from "@/lib/icons";
+import { BarChart3, TrendingUp, Wallet, Banknote, Tag, AlertTriangle, ArrowUp } from "@/lib/icons";
 import { DashboardTotals } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/brand/brand-utils";
@@ -52,6 +52,7 @@ export function FinancialAnalysisPanel({ dashboardTotals }: FinancialAnalysisPan
     { label: t("afterDiscount"), value: afterDiscount, icon: TrendingUp, variant: "primary" as const },
     { label: t("collectedAmounts"), value: totalPaid, icon: Wallet, variant: "success" as const },
     { label: t("remainingAmount"), value: totalRemaining, icon: AlertTriangle, variant: "danger" as const },
+    { label: t("incomes"), value: dashboardTotals.totalIncomes, icon: ArrowUp, variant: "success" as const },
   ];
 
   const variantStyles = {
@@ -73,7 +74,7 @@ export function FinancialAnalysisPanel({ dashboardTotals }: FinancialAnalysisPan
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {finCards.map((card, i) => (
           <div key={i} className="group relative p-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-bg)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 h-full">
             <div className="flex flex-col gap-3 h-full">

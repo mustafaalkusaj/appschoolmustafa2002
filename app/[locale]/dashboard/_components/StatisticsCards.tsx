@@ -2,13 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { formatNumber } from "@/lib/formatting";
-import { 
-  Users, 
-  CheckCircle2, 
-  Banknote, 
+import {
+  Users,
+  CheckCircle2,
+  Banknote,
   AlertTriangle,
   Wallet,
-  TrendingUp
+  TrendingUp,
+  ArrowUp
 } from "@/lib/icons";
 import { DashboardTotals } from "./types";
 import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
@@ -101,11 +102,18 @@ export function StatisticsCards({ dashboardTotals, loading, error, onRetry }: St
 
       {/* Secondary Stats Grid */}
       <KPIGrid className="grid-cols-2 lg:grid-cols-4">
-        <StatsCard 
+        <StatsCard
+          label={t("incomes")}
+          value={`${commonT("currency")} ${formatNumber(dashboardTotals.totalIncomes)}`}
+          icon={ArrowUp}
+          variant="success"
+          description={t("totalRevenue")}
+        />
+        <StatsCard
           label={t("monitoring")}
           value={formatNumber(dashboardTotals.transferredCount)}
-          icon={TrendingUp} 
-          variant="warning" 
+          icon={TrendingUp}
+          variant="warning"
           description={t("teacherActivity")}
         />
         <StatsCard
@@ -121,7 +129,6 @@ export function StatisticsCards({ dashboardTotals, loading, error, onRetry }: St
           icon={Wallet}
           variant="info"
           description={t("currentSalaries")}
-          className="col-span-2"
         />
       </KPIGrid>
     </div>
