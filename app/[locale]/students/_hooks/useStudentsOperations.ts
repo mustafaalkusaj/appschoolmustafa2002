@@ -60,14 +60,14 @@ export interface UseStudentsOperationsOptions {
 }
 
 const IMPORT_COLUMN_ALIASES = {
-  fullName: ["اسم الطالب", "Student name", "Name"],
-  className: ["الصف", "Class"],
-  section: ["الشعبة", "Section"],
-  phone: ["الهاتف", "Phone"],
-  address: ["العنوان", "Address"],
-  totalFee: ["إجمالي الرسوم", "Total fees"],
-  paidFee: ["المدفوع", "Paid"],
-  discountValue: ["التخفيض", "Discount"],
+  fullName: ["اسم الطالب", "الأسم", "الاسم", "الإسم", "اسم", "Student name", "Name", "name", "الاسم الكامل"],
+  className: ["الصف", "الصف ", "Class", "class", "الفصل", "المرحلة"],
+  section: ["الشعبة", "القاعة", "Section", "section", "الفرع", "الصعبة"],
+  phone: ["الهاتف", "Phone", "phone", "رقم الهاتف", "الموبايل"],
+  address: ["العنوان", "Address", "address"],
+  totalFee: ["إجمالي الرسوم", "Total fees", "الرسوم", "المبلغ"],
+  paidFee: ["المدفوع", "Paid", "paid"],
+  discountValue: ["التخفيض", "Discount", "الخصم"],
 } as const;
 
 function getImportCell(
@@ -628,11 +628,19 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       const buffer = await file.arrayBuffer();
       const wb = await XLSX.read(buffer, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const data: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
-      if (!data.length) {
+      const rawData: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
+      if (!rawData.length) {
         modals.setImportError(copy.emptyFile);
         return;
       }
+      // Normalize keys: trim whitespace from column headers
+      const data = rawData.map((row) => {
+        const clean: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(row)) {
+          clean[k.trim()] = v;
+        }
+        return clean;
+      });
       const hasNameColumn = IMPORT_COLUMN_ALIASES.fullName.some((key) => Object.keys(data[0]).includes(key));
       if (!hasNameColumn) {
         modals.setImportError(copy.nameColumnRequired);
@@ -663,7 +671,15 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       const buffer = await file.arrayBuffer();
       const wb = await XLSX.read(buffer, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const data: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
+      const rawData: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
+      // Normalize keys: trim whitespace from column headers
+      const data = rawData.map((row) => {
+        const clean: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(row)) {
+          clean[k.trim()] = v;
+        }
+        return clean;
+      });
       const rows = data.map((row) => {
         const source = row as Record<string, string | number | null | undefined>;
         const className = String(getImportCell(source, IMPORT_COLUMN_ALIASES.className) || "");
