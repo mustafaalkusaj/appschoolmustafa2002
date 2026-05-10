@@ -6,10 +6,8 @@ import {
   TrendingUp,
   Briefcase,
   Users,
-  ArrowLeftRight,
   HandCoins,
   Wallet,
-  DollarSign,
   CalendarDays,
 } from "@/lib/icons";
 
