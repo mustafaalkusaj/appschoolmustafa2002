@@ -22,6 +22,7 @@ type WorkbookHandle = {
 
 type SheetToJsonOptions = {
   defval?: unknown;
+  header?: 1 | number;
 };
 
 type ExcelLikeModule = {
@@ -128,7 +129,28 @@ function buildWorksheetFromAoa(workbook: ExcelWorkbook, rows: unknown[][], name:
   return worksheet;
 }
 
-function sheetToJson<T extends SheetJsonRow = SheetJsonRow>(worksheet: ExcelWorksheet, options?: SheetToJsonOptions) {
+function sheetToJson<T extends SheetJsonRow = SheetJsonRow>(worksheet: ExcelWorksheet, options?: SheetToJsonOptions): T[] {
+  // AOA mode: header=1 returns array of arrays instead of objects
+  if (options?.header === 1) {
+    const rows: unknown[][] = [];
+    for (let rowIndex = 1; rowIndex <= worksheet.rowCount; rowIndex += 1) {
+      const row = worksheet.getRow(rowIndex);
+      const cells: unknown[] = [];
+      let hasContent = false;
+      for (let colIndex = 1; colIndex <= worksheet.columnCount; colIndex += 1) {
+        const cellValue = normalizeCellValue(row.getCell(colIndex).value);
+        const normalizedValue = cellValue === null || cellValue === undefined || cellValue === ""
+          ? (options?.defval ?? "")
+          : cellValue;
+        if (normalizedValue !== "" && normalizedValue !== null) hasContent = true;
+        cells.push(normalizedValue);
+      }
+      if (hasContent) rows.push(cells);
+    }
+    return rows as unknown as T[];
+  }
+
+  // Default mode: returns array of objects with header keys
   const headerRow = worksheet.getRow(1);
   const columnCount = worksheet.columnCount;
   const headers = Array.from({ length: columnCount }, (_, index) => {
