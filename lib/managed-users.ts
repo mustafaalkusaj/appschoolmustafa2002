@@ -102,6 +102,7 @@ export interface ManagedTeacherAssignmentInput {
 export interface ManagedUserAppAccountSummary {
   login_identifier: string;
   has_temporary_password: boolean;
+  temporary_password_plain: string | null;
   password_last_reset_at: string | null;
   card_last_printed_at: string | null;
 }

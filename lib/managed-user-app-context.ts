@@ -678,6 +678,7 @@ export async function buildManagedAppAccountContext(authUserId: string): Promise
       ? {
           login_identifier: loginIdentifier,
           has_temporary_password: false,
+          temporary_password_plain: null,
           password_last_reset_at: null,
           card_last_printed_at: null,
         }

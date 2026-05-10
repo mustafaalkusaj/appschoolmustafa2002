@@ -274,6 +274,7 @@ function buildImmediateManagedUser(input: {
     app_account: {
       login_identifier: input.loginIdentifier,
       has_temporary_password: true,
+      temporary_password_plain: input.temporaryPassword ?? null,
       password_last_reset_at: input.createdAt,
       card_last_printed_at: null,
     },

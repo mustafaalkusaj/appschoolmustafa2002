@@ -71,6 +71,7 @@ function toCredentialSummary(row: CredentialRow): ManagedUserAppAccountSummary {
   return {
     login_identifier: row.login_identifier,
     has_temporary_password: Boolean(row.temporary_password_hash),
+    temporary_password_plain: row.temporary_password_plain ?? null,
     password_last_reset_at: row.password_last_reset_at,
     card_last_printed_at: row.card_last_printed_at,
   };
