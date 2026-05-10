@@ -887,13 +887,15 @@ export default function ReportsPage() {
                         <h2 className="text-lg font-black uppercase tracking-widest opacity-90">{t("summary.title")}</h2>
                       </div>
 
-                      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                         {[
                           { label: t("summary.totalFees"), value: metrics.totalFees },
-                          { label: t("summary.recordedPayments"), value: metrics.paymentVolume },
+                          { label: t("summary.totalPaid"), value: metrics.totalPaid },
                           { label: t("summary.remaining"), value: metrics.totalRemaining },
+                          { label: t("summary.totalIncome"), value: metrics.paymentVolume },
                           { label: t("summary.expenses"), value: metrics.expenseVolume },
                           { label: t("summary.netSalaries"), value: metrics.salaryVolume },
+                          { label: t("summary.netBalance"), value: metrics.netBalance },
                         ].map((item, idx) => (
                           <div key={idx} className="space-y-1">
                             <div className="text-[10px] font-black uppercase tracking-widest opacity-70">{item.label}</div>

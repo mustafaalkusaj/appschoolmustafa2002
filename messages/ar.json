@@ -435,7 +435,9 @@
       "title": "الملخص المالي الكلي",
       "totalFees": "إجمالي الرسوم",
       "recordedPayments": "الحسابات المسجلة",
+      "totalPaid": "المبالغ المستحصلة",
       "remaining": "المتبقي",
+      "totalIncome": "جميع الواردات",
       "expenses": "المصروفات",
       "netSalaries": "صافي الرواتب",
       "netBalance": "الصافي"

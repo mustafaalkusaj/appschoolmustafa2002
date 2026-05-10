@@ -435,7 +435,9 @@
       "title": "Total Financial Summary",
       "totalFees": "Total Fees",
       "recordedPayments": "Recorded Payments",
+      "totalPaid": "Total Paid",
       "remaining": "Remaining",
+      "totalIncome": "Total Income",
       "expenses": "Expenses",
       "netSalaries": "Net Salaries",
       "netBalance": "Net Balance"
