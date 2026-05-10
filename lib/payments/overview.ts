@@ -192,7 +192,7 @@ function applyStudentFilters<TQuery>(query: TQuery, filters: PaymentsListFilters
   } else if (filters.quickFilter === "collected") {
     nextQuery = nextQuery.lte("remaining_fee", 0).gt("total_fee", 0);
   } else {
-    nextQuery = nextQuery.neq("status", "deleted");
+    nextQuery = nextQuery.neq("status", "deleted").neq("status", "transferred");
   }
 
   if (filters.className) {

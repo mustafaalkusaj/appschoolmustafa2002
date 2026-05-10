@@ -74,6 +74,7 @@ type SalaryRow = {
 type ReportsMetrics = {
   studentsCount: number;
   activeStudents: number;
+  transferredStudentsCount: number;
   totalFees: number;
   totalPaid: number;
   totalRemaining: number;
@@ -115,6 +116,7 @@ type DatasetType = "students" | "payments" | "expenses" | "salaries" | "incomes"
 const EMPTY_REPORTS_METRICS: ReportsMetrics = {
   studentsCount: 0,
   activeStudents: 0,
+  transferredStudentsCount: 0,
   totalFees: 0,
   totalPaid: 0,
   totalRemaining: 0,
@@ -927,6 +929,7 @@ export default function ReportsPage() {
       stats: [
         { label: dashboardT("stats.totalStudents"), value: formatNumber(metrics.studentsCount) },
         { label: commonT("studentStatus.active"), value: formatNumber(metrics.activeStudents) },
+        { label: commonT("studentStatus.transferred"), value: formatNumber(metrics.transferredStudentsCount) },
         { label: dashboardT("stats.totalFees"), value: `${commonT("currency")} ${formatNumber(metrics.totalFees)}` },
         { label: dashboardT("stats.remainingBalance"), value: `${commonT("currency")} ${formatNumber(metrics.totalRemaining)}` },
       ],

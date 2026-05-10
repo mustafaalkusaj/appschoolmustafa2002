@@ -11,6 +11,7 @@ import { formatNumber } from "@/lib/formatting";
 import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { cn } from "@/lib/brand/brand-utils";
+import { printHtmlDocument, wrapPrintDocument, escapeHtml } from "@/lib/print/branding";
 import { Search, Printer, Download, X, CalendarDays } from "@/lib/icons";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
@@ -57,178 +58,8 @@ function normalizeQuery(value: string) {
     .slice(0, 80);
 }
 
-function buildPrintHtml(input: {
-  locale: "ar" | "en";
-  branding: { schoolName: string; logoUrl: string | null };
-  student: StudentSearchItem;
-  range: { from: string; to: string };
-  summary: StudentAttendanceResponse["summary"];
-  records: StudentAttendanceResponse["records"]["items"];
-}) {
-  const dir = input.locale === "ar" ? "rtl" : "ltr";
-  const title = input.locale === "ar" ? "سجل حضور الطالب" : "Student Attendance Record";
-  const summaryLabels =
-    input.locale === "ar"
-      ? { total: "الإجمالي", present: "حضور", absent: "غياب", late: "تأخر", excused: "بعذر" }
-      : { total: "Total", present: "Present", absent: "Absent", late: "Late", excused: "Excused" };
-  const tableLabels =
-    input.locale === "ar"
-      ? { date: "التاريخ", status: "الحالة", note: "ملاحظة" }
-      : { date: "Date", status: "Status", note: "Note" };
-
-  const safe = (value: unknown) =>
-    String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-
-  const rows = input.records
-    .map((row) => {
-      return `
-        <tr>
-          <td>${safe(row.attendance_date)}</td>
-          <td>${safe(statusLabel(input.locale, row.status))}</td>
-          <td>${safe(row.note ?? "")}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  return `<!doctype html>
-  <html lang="${input.locale}" dir="${dir}">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>${safe(title)}</title>
-      <style>
-        @font-face {
-          font-family: "Noto Sans Arabic";
-          src: url("/fonts/noto-sans-arabic/NotoSansArabic-Variable.ttf") format("truetype");
-          font-style: normal;
-          font-weight: 100 900;
-          font-display: swap;
-        }
-        :root { color-scheme: light; }
-        body {
-          font-family: "Noto Sans Arabic", system-ui, -apple-system, Segoe UI, sans-serif;
-          font-optical-sizing: auto;
-          font-variation-settings: "wdth" 100;
-          margin: 24px;
-          color: #0f172a;
-        }
-        .header {
-          display: flex;
-          gap: 16px;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 1px solid rgba(15,23,42,0.10);
-          padding-bottom: 16px;
-          margin-bottom: 16px;
-        }
-        .brand {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-          min-width: 0;
-        }
-        .logo {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          border: 1px solid rgba(15,23,42,0.12);
-          object-fit: contain;
-          background: #fff;
-          padding: 6px;
-        }
-        .brand h1 { margin: 0; font-size: 16px; font-weight: 800; }
-        .brand p { margin: 0; font-size: 12px; color: #475569; font-weight: 700; }
-        .meta { text-align: end; font-size: 12px; color: #475569; font-weight: 700; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
-        .card {
-          border: 1px solid rgba(15,23,42,0.10);
-          border-radius: 16px;
-          padding: 12px 14px;
-          background: #fff;
-        }
-        .card .k { font-size: 11px; color: #64748b; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-        .card .v { font-size: 14px; font-weight: 800; margin-top: 4px; }
-        .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
-        .pill {
-          border: 1px solid rgba(15,23,42,0.10);
-          border-radius: 999px;
-          padding: 6px 10px;
-          font-size: 12px;
-          font-weight: 800;
-          background: rgba(79,140,255,0.06);
-        }
-        table { width: 100%; border-collapse: collapse; border: 1px solid rgba(15,23,42,0.10); border-radius: 14px; overflow: hidden; }
-        thead th {
-          background: rgba(15,23,42,0.04);
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: .10em;
-          color: #64748b;
-          padding: 10px 12px;
-          text-align: start;
-          font-weight: 900;
-        }
-        tbody td { padding: 10px 12px; border-top: 1px solid rgba(15,23,42,0.08); font-size: 12px; vertical-align: top; }
-        tbody tr:nth-child(even) td { background: rgba(15,23,42,0.02); }
-        @media print {
-          body { margin: 0; }
-          .header { break-after: avoid; }
-          table { break-inside: auto; }
-          tr { break-inside: avoid; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <div class="brand">
-          ${
-            input.branding.logoUrl
-              ? `<img class="logo" src="${safe(input.branding.logoUrl)}" alt="${safe(input.branding.schoolName)}" />`
-              : `<div class="logo" aria-hidden="true"></div>`
-          }
-          <div>
-            <h1>${safe(input.branding.schoolName)}</h1>
-            <p>${safe(title)}</p>
-          </div>
-        </div>
-        <div class="meta">
-          <div>${safe(input.student.full_name)}</div>
-          <div>${safe(input.student.class_name)}${input.student.section ? ` · ${safe(input.student.section)}` : ""}</div>
-          <div>${safe(input.range.from)} → ${safe(input.range.to)}</div>
-        </div>
-      </div>
-
-      <div class="grid">
-        <div class="card"><div class="k">${safe(input.locale === "ar" ? "الطالب" : "Student")}</div><div class="v">${safe(input.student.full_name)}</div></div>
-        <div class="card"><div class="k">${safe(input.locale === "ar" ? "الصف/الشعبة" : "Class/Section")}</div><div class="v">${safe(input.student.class_name)}${input.student.section ? ` · ${safe(input.student.section)}` : ""}</div></div>
-      </div>
-
-      <div class="summary">
-        <div class="pill">${safe(summaryLabels.total)}: ${safe(input.summary.total)}</div>
-        <div class="pill">${safe(summaryLabels.present)}: ${safe(input.summary.present)}</div>
-        <div class="pill">${safe(summaryLabels.absent)}: ${safe(input.summary.absent)}</div>
-        <div class="pill">${safe(summaryLabels.late)}: ${safe(input.summary.late)}</div>
-        <div class="pill">${safe(summaryLabels.excused)}: ${safe(input.summary.excused)}</div>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>${safe(tableLabels.date)}</th>
-            <th>${safe(tableLabels.status)}</th>
-            <th>${safe(tableLabels.note)}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || `<tr><td colspan="3">${safe(input.locale === "ar" ? "لا توجد سجلات ضمن الفترة." : "No records in range.")}</td></tr>`}
-        </tbody>
-      </table>
-    </body>
-  </html>`;
+function statusColor(s: AttendanceStatus) {
+  return s === "present" ? "#10b981" : s === "absent" ? "#ef4444" : s === "late" ? "#f59e0b" : "#3b82f6";
 }
 
 export function StudentAttendanceInsight(props: {
@@ -430,6 +261,31 @@ export function StudentAttendanceInsight(props: {
     }
   }
 
+  async function exportStudentExcel() {
+    if (!details || !selected) return;
+    const isAr = locale === "ar";
+    const { downloadExcelExport } = await import("@/lib/excel-client");
+    await downloadExcelExport({
+      filename: `${isAr ? "حضور" : "attendance"}_${selected.full_name}_${rangeFrom}_${rangeTo}.xlsx`,
+      sheets: [{
+        name: isAr ? "سجل الحضور" : "Attendance",
+        title: isAr ? "سجل حضور الطالب" : "Student Attendance Record",
+        columns: [
+          { header: "#", key: "num", width: 6 },
+          { header: isAr ? "التاريخ" : "Date", key: "date", width: 16 },
+          { header: isAr ? "الحالة" : "Status", key: "status", width: 14 },
+          { header: isAr ? "ملاحظة" : "Note", key: "note", width: 28 },
+        ],
+        rows: details.records.items.map((row, i) => ({
+          num: i + 1,
+          date: row.attendance_date,
+          status: statusLabel(locale, row.status),
+          note: row.note || "—",
+        })),
+      }],
+    });
+  }
+
   async function exportStudentCsv() {
     if (!resolvedSchoolId || !selected) return;
     const url = new URL(`/api/web/attendance/students/${encodeURIComponent(selected.id)}/export`, window.location.origin);
@@ -449,34 +305,60 @@ export function StudentAttendanceInsight(props: {
     URL.revokeObjectURL(fileUrl);
   }
 
-  async function printStudentRecord() {
+  function printStudentRecord() {
     if (!details) return;
-    const html = buildPrintHtml({
-      locale,
-      branding: {
-        schoolName: branding.schoolName || (locale === "ar" ? "المدرسة الحالية" : "Current school"),
-        logoUrl: branding.logoUrl ?? null,
-      },
-      student: details.student,
-      range: details.range,
-      summary: details.summary,
-      records: details.records.items,
-    });
-    const w = window.open("", "_blank", "noopener,noreferrer,width=980,height=720");
-    if (!w) return;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    
-    // Trigger print from the parent context after it's fully loaded (approximate)
-    // This complies with CSP better than injecting an inline script in a document.written page
-    setTimeout(() => {
-      try {
-        w.print();
-      } catch {
-        console.error("Print failed");
-      }
-    }, 500);
+    const isAr = locale === "ar";
+    const s = details.summary;
+    const summaryLabels = isAr
+      ? { total: "الإجمالي", present: "حضور", absent: "غياب", late: "تأخر", excused: "بعذر" }
+      : { total: "Total", present: "Present", absent: "Absent", late: "Late", excused: "Excused" };
+    const tableLabels = isAr
+      ? { num: "#", date: "التاريخ", status: "الحالة", note: "ملاحظة" }
+      : { num: "#", date: "Date", status: "Status", note: "Note" };
+
+    const rows = details.records.items
+      .map((row, i) =>
+        `<tr><td>${i + 1}</td><td>${escapeHtml(row.attendance_date)}</td><td><span style="color:${statusColor(row.status)};font-weight:900">${escapeHtml(statusLabel(locale, row.status))}</span></td><td>${escapeHtml(row.note ?? "—")}</td></tr>`)
+      .join("");
+
+    const bodyHtml = `
+      <div class="print-panel" style="margin-bottom:16px">
+        <div class="print-grid">
+          <div><span class="print-label">${isAr ? "الطالب" : "Student"}</span><span class="print-value">${escapeHtml(details.student.full_name)}</span></div>
+          <div><span class="print-label">${isAr ? "الصف / الشعبة" : "Class / Section"}</span><span class="print-value">${escapeHtml(details.student.class_name)}${details.student.section ? ` · ${escapeHtml(details.student.section)}` : ""}</span></div>
+          <div><span class="print-label">${isAr ? "الفترة الزمنية" : "Date Range"}</span><span class="print-value">${escapeHtml(details.range.from)} → ${escapeHtml(details.range.to)}</span></div>
+        </div>
+      </div>
+      <div class="print-panel" style="margin-bottom:16px">
+        <div class="print-grid" style="grid-template-columns:repeat(5,1fr)">
+          <div><span class="print-label">${summaryLabels.total}</span><span class="print-value">${s.total}</span></div>
+          <div><span class="print-label">${summaryLabels.present}</span><span class="print-value" style="color:#10b981">${s.present}</span></div>
+          <div><span class="print-label">${summaryLabels.absent}</span><span class="print-value" style="color:#ef4444">${s.absent}</span></div>
+          <div><span class="print-label">${summaryLabels.late}</span><span class="print-value" style="color:#f59e0b">${s.late}</span></div>
+          <div><span class="print-label">${summaryLabels.excused}</span><span class="print-value" style="color:#3b82f6">${s.excused}</span></div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>${tableLabels.num}</th><th>${tableLabels.date}</th><th>${tableLabels.status}</th><th>${tableLabels.note}</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="4" style="text-align:center">${isAr ? "لا توجد سجلات ضمن الفترة." : "No records in range."}</td></tr>`}</tbody>
+      </table>
+    `;
+
+    printHtmlDocument(
+      wrapPrintDocument({
+        title: isAr ? "سجل حضور الطالب" : "Student Attendance Record",
+        subtitle: `${details.student.full_name} — ${details.range.from} → ${details.range.to}`,
+        bodyHtml,
+        branding: {
+          schoolName: branding.schoolName,
+          logoUrl: branding.logoUrl,
+          primaryColor: branding.primaryColor,
+          secondaryColor: branding.secondaryColor,
+          locale,
+        },
+        autoPrint: false,
+      }),
+    );
   }
 
   async function exportClassAbsences() {
@@ -788,6 +670,10 @@ export function StudentAttendanceInsight(props: {
           <Button variant="outline" onClick={() => void exportStudentCsv()} disabled={!selected}>
             <Download className="h-4 w-4" />
             {labels.exportStudent}
+          </Button>
+          <Button variant="outline" onClick={() => void exportStudentExcel()} disabled={!details}>
+            <Download className="h-4 w-4" />
+            {locale === "ar" ? "إكسل" : "Excel"}
           </Button>
           <Button variant="primary" onClick={() => void printStudentRecord()} disabled={!details}>
             <Printer className="h-4 w-4" />

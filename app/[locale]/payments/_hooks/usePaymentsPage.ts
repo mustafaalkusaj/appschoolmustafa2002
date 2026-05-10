@@ -317,7 +317,8 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     }
 
     switch (quickFilter) {
-      case "no_invoice":  result = result.filter((s) => (s.paid_fee ?? 0) === 0); break;
+      case "all":         result = result.filter((s) => s.status !== "deleted" && s.status !== "transferred"); break;
+      case "no_invoice":  result = result.filter((s) => (s.paid_fee ?? 0) === 0 && s.status !== "deleted" && s.status !== "transferred"); break;
       case "collected":   result = result.filter((s) => (s.remaining_fee ?? 0) <= 0); break;
       case "discounted":  result = result.filter((s) => (s.discount_value ?? 0) > 0); break;
       case "transferred": result = result.filter((s) => s.status === "transferred"); break;

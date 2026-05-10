@@ -15,6 +15,7 @@ export const revalidate = 0;
 type ReportsMetrics = {
   studentsCount: number;
   activeStudents: number;
+  transferredStudentsCount: number;
   totalFees: number;
   totalPaid: number;
   totalRemaining: number;
@@ -271,7 +272,8 @@ async function loadFallbackMetrics(
 
   const metrics = {
     studentsCount: students.length,
-    activeStudents: students.filter((item) => item.status === "active").length,
+    activeStudents: students.filter((item) => item.status !== "transferred" && item.status !== "deleted").length,
+    transferredStudentsCount: students.filter((item) => item.status === "transferred").length,
     totalFees,
     totalPaid,
     totalRemaining,
