@@ -90,7 +90,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       if (currentBranchId) params.set("branchId", currentBranchId);
 
       // ✅ إضافة deduplication للـ request
-      const cacheKey = `students-fetch:${schoolId}:${currentPage}:${pageSize}:${activeTab}:${safeSearch}:${filterClass}:${filterSection}`;
+      const cacheKey = `students-fetch:${schoolId}:${currentPage}:${pageSize}:${activeTab}:${safeSearch}:${filterClass}:${filterSection}:${currentBranchId || ""}`;
       const { response, payload } = await deduplicatedFetch(
         cacheKey,
         () => fetchJsonWithAuthorizedSession<{
