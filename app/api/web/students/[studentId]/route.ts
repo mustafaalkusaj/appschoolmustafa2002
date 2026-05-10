@@ -13,6 +13,7 @@ import type { StudentStatus } from "@/types/student";
 type StudentRow = {
   id: string;
   school_id: string;
+  branch_id?: string | null;
   full_name: string;
   class_name: string;
   section: string | null;
@@ -169,7 +170,7 @@ async function fetchStudent(
   const { data, error } = await applyBranchScopeToQuery(
     serviceSupabase
       .from("students")
-      .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
+      .select("id, school_id, branch_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
       .eq("id", studentId)
       .eq("school_id", schoolId),
     branchScope,
@@ -322,8 +323,62 @@ export async function PATCH(
       const targetClassName = normalizeOptionalText(body?.target_class_name);
       const targetSection = normalizeOptionalText(body?.target_section);
 
-      const updatePayload: Partial<StudentRow> = {
+      const paidAmount = Number(currentStudent.paid_fee ?? 0);
+
+      // If student has paid fees, record them as income and zero out paid_fee
+      if (paidAmount > 0) {
+        // Find or create "إيراد الطلاب المنقولين" income type
+        const TRANSFERRED_TYPE_NAME = "إيراد الطلاب المنقولين";
+        const { data: existingType } = await serviceSupabase
+          .from("income_types")
+          .select("id")
+          .eq("school_id", targetSchoolId)
+          .eq("name", TRANSFERRED_TYPE_NAME)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        let incomeTypeId = existingType?.id;
+
+        if (!incomeTypeId) {
+          const { data: newType, error: typeErr } = await serviceSupabase
+            .from("income_types")
+            .insert({
+              school_id: targetSchoolId,
+              branch_id: currentStudent.branch_id ?? null,
+              name: TRANSFERRED_TYPE_NAME,
+              notes: "نوع تلقائي — يسجل إيرادات الطلاب المنقولين عند نقلهم",
+            })
+            .select("id")
+            .single();
+
+          if (typeErr || !newType?.id) {
+            return jsonError("تعذر إنشاء نوع إيراد الطلاب المنقولين.", 500);
+          }
+          incomeTypeId = newType.id;
+        }
+
+        // Create income record
+        const { error: incomeErr } = await serviceSupabase
+          .from("incomes")
+          .insert({
+            school_id: targetSchoolId,
+            branch_id: currentStudent.branch_id ?? null,
+            income_type_id: incomeTypeId,
+            amount: paidAmount,
+            income_date: new Date().toISOString().split("T")[0],
+            source: currentStudent.full_name,
+            notes: `إيراد منقول — ${currentStudent.full_name} (${currentStudent.class_name})`,
+          });
+
+        if (incomeErr) {
+          return jsonError("تعذر تسجيل إيراد الطالب المنقول.", 500);
+        }
+      }
+
+      const updatePayload: Record<string, unknown> = {
         status: "transferred" satisfies StudentStatus,
+        paid_fee: 0,
+        remaining_fee: Math.max(Number(currentStudent.total_fee ?? 0) - Number(currentStudent.discount_value ?? 0), 0),
       };
 
       if (targetClassName) {
