@@ -74,7 +74,7 @@ AS $$
         OR (p.quick_filter = 'graduated' AND s.status = 'graduated')
         OR (p.quick_filter = 'discounted' AND coalesce(s.discount_value, 0) > 0)
         OR (p.quick_filter = 'collected' AND coalesce(s.remaining_fee, 0) <= 0 AND coalesce(s.total_fee, 0) > 0)
-        OR ((p.quick_filter = 'all' OR p.quick_filter = 'no_invoice') AND coalesce(s.status, 'active') NOT IN ('deleted', 'transferred'))
+        OR ((p.quick_filter = 'all' OR p.quick_filter = 'no_invoice') AND coalesce(s.status, 'active') <> 'deleted')
       )
       AND (p.selected_class_name = '' OR coalesce(s.class_name, '') = p.selected_class_name)
       AND (
