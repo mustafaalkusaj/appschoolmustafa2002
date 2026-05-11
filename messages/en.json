@@ -159,10 +159,7 @@
       "remaining": "Remaining",
       "afterDiscountShort": "After Discount",
       "collectedPct": "{pct}% Collected",
-      "remainingPct": "{pct}% Remaining Amounts",
-      "transferredRevenue": "Transferred Students Revenue",
-      "transferredTotalFees": "Transferred Total Fees",
-      "transferredCollected": "Transferred Collected"
+      "remainingPct": "{pct}% Remaining Amounts"
     },
     "payments": {
       "recentTitle": "Recent Collections",

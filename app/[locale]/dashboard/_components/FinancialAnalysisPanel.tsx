@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { AnalysisSkeleton } from "@/components/skeleton";
 import { formatNumber } from "@/lib/formatting";
-import { BarChart3, TrendingUp, Wallet, Banknote, Tag, AlertTriangle, ArrowUp, ArrowLeftRight } from "@/lib/icons";
+import { BarChart3, TrendingUp, Wallet, Banknote, Tag, AlertTriangle, ArrowUp } from "@/lib/icons";
 import { DashboardTotals } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/brand/brand-utils";
@@ -55,12 +55,6 @@ export function FinancialAnalysisPanel({ dashboardTotals }: FinancialAnalysisPan
     { label: t("incomes"), value: dashboardTotals.totalIncomes, icon: ArrowUp, variant: "success" as const },
   ];
 
-  const hasTransferred = dashboardTotals.transferredCount > 0;
-  const transferredCards = hasTransferred ? [
-    { label: t("transferredTotalFees"), value: dashboardTotals.transferredTotalFees, icon: Banknote, variant: "info" as const },
-    { label: t("transferredCollected"), value: dashboardTotals.transferredCollected, icon: Wallet, variant: "success" as const },
-  ] : [];
-
   const variantStyles = {
     info: "bg-[color-mix(in_srgb,var(--info)_10%,transparent)] text-[var(--info)]",
     warning: "bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)]",
@@ -100,37 +94,6 @@ export function FinancialAnalysisPanel({ dashboardTotals }: FinancialAnalysisPan
           </div>
         ))}
       </div>
-
-      {hasTransferred && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] flex items-center justify-center text-[var(--warning)]">
-              <ArrowLeftRight size={16} />
-            </div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("transferredRevenue")} ({dashboardTotals.transferredCount})</h3>
-          </div>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-            {transferredCards.map((card, i) => (
-              <div key={i} className="group relative p-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-bg)] transition-all hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 h-full">
-                <div className="flex flex-col gap-3 h-full">
-                  <div className={cn(
-                    "h-9 w-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 flex-shrink-0",
-                    variantStyles[card.variant]
-                  )}>
-                    <card.icon size={18} />
-                  </div>
-                  <div className="min-w-0 flex-1 flex flex-col">
-                    <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">{card.label}</div>
-                    <div className="text-xs sm:text-sm font-bold text-[var(--text-primary)] whitespace-normal break-words overflow-visible">
-                      {commonT("currency")} {formatNumber(card.value)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <Card className="bg-[var(--surface-muted)]/30">

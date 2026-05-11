@@ -116,9 +116,6 @@ function buildEmptyDashboardOverviewPayload(warning?: string | null) {
       totalPaid: 0,
       totalDiscount: 0,
       totalRemaining: 0,
-      transferredTotalFees: 0,
-      transferredCollected: 0,
-      transferredRemaining: 0,
       feeNotificationsCount: 0,
       monthlySalaries: 0,
       totalIncomes: 0,
@@ -440,19 +437,13 @@ export async function GET(req: NextRequest) {
         0,
       );
 
-      const currentStudents = resolvedStudents.filter((s) => s.status !== "transferred");
-      const transferredStudents = resolvedStudents.filter((s) => s.status === "transferred");
-
       const totals = {
-        studentsCount: currentStudents.length,
-        transferredCount: transferredStudents.length,
-        totalFees: currentStudents.reduce((sum, student) => sum + Number(student.total_fee ?? 0), 0),
-        totalPaid: currentStudents.reduce((sum, student) => sum + Number(student.paid_fee ?? 0), 0),
-        totalDiscount: currentStudents.reduce((sum, student) => sum + Number(student.discount_value ?? 0), 0),
-        totalRemaining: currentStudents.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
-        transferredTotalFees: transferredStudents.reduce((sum, s) => sum + Number(s.total_fee ?? 0), 0),
-        transferredCollected: transferredStudents.reduce((sum, s) => sum + Number(s.paid_fee ?? 0), 0),
-        transferredRemaining: 0,
+        studentsCount: resolvedStudents.length,
+        transferredCount: resolvedStudents.filter((student) => student.status === "transferred").length,
+        totalFees: resolvedStudents.reduce((sum, student) => sum + Number(student.total_fee ?? 0), 0),
+        totalPaid: resolvedStudents.reduce((sum, student) => sum + Number(student.paid_fee ?? 0), 0),
+        totalDiscount: resolvedStudents.reduce((sum, student) => sum + Number(student.discount_value ?? 0), 0),
+        totalRemaining: resolvedStudents.reduce((sum, student) => sum + Number(student.remaining_fee ?? 0), 0),
         feeNotificationsCount,
         monthlySalaries,
         totalIncomes,
@@ -473,7 +464,7 @@ export async function GET(req: NextRequest) {
           remainingPct: Math.max(0, 100 - paidPct),
         },
         recentPayments,
-        overdueStudents: [...currentStudents]
+        overdueStudents: [...resolvedStudents]
           .filter((student) => Number(student.remaining_fee ?? 0) > 0)
           .sort((left, right) => Number(right.remaining_fee ?? 0) - Number(left.remaining_fee ?? 0))
           .slice(0, 3)
