@@ -61,14 +61,12 @@ const DONUT_COLORS = [
 ];
 
 export function FinancialDashboard({ metrics, currency }: FinancialDashboardProps) {
-  // All revenue totals
-  // Transferred students are excluded from totalFees/totalRemaining — their fees equal what
-  // they actually paid (remaining written off to 0), so they don't inflate the general totals.
+  // All revenue totals — transferred students are completely isolated.
+  // Their fees, collected amounts, and discounts do NOT appear in any general total.
+  // They are shown exclusively in their own dedicated "الطلاب المنقولين" card.
   const allRevenueTotalFees = metrics.currentStudentsTotalFees + metrics.otherRevenueTotal;
-  // Collected still includes transferred students' actual paid amounts
-  const allRevenueCollected = metrics.currentStudentsCollected + metrics.transferredStudentsCollected + metrics.otherRevenueTotal;
-  const allRevenueDiscounts = metrics.currentStudentsDiscounts + metrics.transferredStudentsDiscounts;
-  // Remaining is always 0 for transferred, so only current students matter here
+  const allRevenueCollected = metrics.currentStudentsCollected + metrics.otherRevenueTotal;
+  const allRevenueDiscounts = metrics.currentStudentsDiscounts;
   const allRevenueRemaining = metrics.currentStudentsRemaining;
 
   // Collection rate

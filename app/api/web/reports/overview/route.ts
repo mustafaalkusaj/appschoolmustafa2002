@@ -215,14 +215,13 @@ async function loadFallbackMetrics(
     );
 
     if (student.status === "transferred") {
-      // Transferred students: total_fee = paid amount (remaining is written off as 0)
-      // Their fees are excluded from the global totalFees/totalRemaining
+      // Transferred students: completely isolated from all global accumulators.
+      // Their data only appears in the dedicated "الطلاب المنقولين" card.
       transferredStudentsTotalFees += resolved.paid_fee;
       transferredStudentsCollected += resolved.paid_fee;
       transferredStudentsDiscounts += Number(student.discount_value ?? 0);
       transferredStudentsRemaining += 0; // always 0 — remaining is written off
-      // Only add their actual paid amount to global totalPaid
-      totalPaid += resolved.paid_fee;
+      // Do NOT add to totalPaid — transferred students are excluded from all revenue totals
     } else {
       currentStudentsTotalFees += resolved.resolved_total_fee;
       currentStudentsCollected += resolved.paid_fee;

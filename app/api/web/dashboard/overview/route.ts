@@ -446,8 +446,8 @@ export async function GET(req: NextRequest) {
         transferredCount: transferredStudents.length,
         // totalFees and totalRemaining reflect current students only (transferred are written off)
         totalFees: currentStudents.reduce((sum, s) => sum + Number(s.resolved_total_fee ?? 0), 0),
-        // totalPaid includes all students — their actual collected amounts
-        totalPaid: resolvedStudents.reduce((sum, s) => sum + Number(s.paid_fee ?? 0), 0),
+        // totalPaid reflects current students only — transferred students are completely isolated
+        totalPaid: currentStudents.reduce((sum, s) => sum + Number(s.paid_fee ?? 0), 0),
         totalDiscount: currentStudents.reduce((sum, s) => sum + Number(s.discount_value ?? 0), 0),
         totalRemaining: currentStudents.reduce((sum, s) => sum + Number(s.remaining_fee ?? 0), 0),
         feeNotificationsCount,
