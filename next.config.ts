@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    optimizePackageImports: ["lucide-react", "recharts", "@sentry/nextjs"],
   },
   async headers() {
     return [

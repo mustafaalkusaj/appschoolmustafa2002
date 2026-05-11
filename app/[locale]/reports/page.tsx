@@ -1079,7 +1079,6 @@ export default function ReportsPage() {
                           { label: t("summary.expenses"), value: metrics.expenseVolume },
                           { label: t("summary.netSalaries"), value: metrics.salaryVolume },
                           { label: t("summary.transferredRevenue"), value: metrics.transferredStudentsCollected },
-                          { label: t("summary.netBalance"), value: metrics.netBalance },
                         ].map((item, idx) => (
                           <div key={idx} className="space-y-1">
                             <div className="text-[10px] font-black uppercase tracking-widest opacity-70">{item.label}</div>

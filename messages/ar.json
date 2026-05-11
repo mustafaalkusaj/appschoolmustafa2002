@@ -99,7 +99,7 @@
     "backToLogin": "العودة إلى تسجيل الدخول",
     "loginPage": {
       "heroBadge": "تجربة عربية هادئة ومصقولة لإدارة المدرسة",
-      "heroTitle": "منصة مدرسية أكثر هدوءاً، أوضح في التسلسل، وأفضل في الثقة والاستخدام اليومي.",
+      "heroTitle": "سكول عراق… إدارة مدرسية أسهل، وحسابات أدق، بوقت أقل.",
       "heroDescription": "تسجيل دخول آمن مع واجهة عربية أولاً، ودعم كامل للوضع الفاتح والداكن والتلقائي، وتجربة أهدأ للعمل المدرسي اليومي.",
       "formDescription": "أدخل بياناتك للوصول إلى مساحة المدرسة ومتابعة يومك من دون تشويش.",
       "sessionNote": "جلسة آمنة مع تحكم ثنائي اللغة وتفضيلات مظهر متكيفة"
@@ -138,10 +138,14 @@
       "totalRevenue": "إجمالي الإيرادات والواردات",
       "monthlySalaries": "رواتب هذا الشهر",
       "currentSalaries": "إجمالي مستحقات الرواتب",
-      "monitoring": "مراقبة الأساتذة",
-      "teacherActivity": "نشاط الأستاذ ورسائله",
-      "feeAlerts": "تنبيهات الأقساط",
-      "pendingNotifications": "التنبيهات المرسلة حالياً"
+      "paidWithTransferred": "المدفوع + المنقولين",
+      "paidWithTransferredDesc": "المبلغ المدفوع من الحاليين والمنقولين",
+      "totalDiscount": "التخفيض",
+      "totalDiscountDesc": "إجمالي الخصومات الممنوحة",
+      "feesAfterDiscount": "الرسوم بعد التخفيض",
+      "feesAfterDiscountDesc": "إجمالي الرسوم بعد خصم التخفيضات",
+      "feeAlerts": "اجمالي الرسوم مع المنقولين",
+      "pendingNotifications": "رسوم الطلاب الحاليين + المنقولين"
     },
     "finance": {
       "analysisTitle": "لوحة التحليل المالي",
@@ -200,11 +204,13 @@
       "addLabel": "إضافة صف",
       "empty": "لا توجد أقساط مضافة حتى الآن. ابدأ بإضافة أول صف دراسي.",
       "className": "الصف الدراسي",
-      "students": "الطلاب",
-      "totalAmount": "المبلغ الكلي",
+      "activeStudents": "النشطاء",
+      "transferredStudents": "المنقولين",
+      "totalAmount": "المبلغ المحصل",
+      "transferredAmount": "مبلغ المنقولين",
+      "grandTotal": "المجموع",
+      "totalFeesWithTransferred": "الرسوم مع المنقولين",
       "installments": "الأقساط",
-      "collected": "المحصل",
-      "remaining": "المتبقي",
       "actions": "الإجراءات",
       "installmentsCount": "{count} أقساط",
       "perInstallment": "{amount} للقسط"
@@ -570,11 +576,15 @@
     "stats": {
       "total": "إجمالي الطلاب",
       "activeStudents": "الطلاب النشطون",
+      "transferredCount": "الطلاب المنقولين",
       "boys": "بنين",
       "girls": "بنات",
       "collected": "المحصل",
       "remaining": "الرصيد المتبقي",
       "totalFee": "إجمالي الرسوم",
+      "totalPaid": "المدفوع",
+      "transferredPaid": "المدفوع من المنقولين",
+      "totalFeesWithTransferred": "اجمالي الرسوم مع المنقولين",
       "totalRemaining": "الرصيد المتبقي"
     },
     "toolbar": {
@@ -753,7 +763,15 @@
       "totalFees": "إجمالي الرسوم",
       "totalPaid": "إجمالي المدفوع",
       "totalRemaining": "إجمالي المتبقي",
-      "settledCount": "المسددة بالكامل"
+      "settledCount": "المسددة بالكامل",
+      "paidWithTransferred": "المدفوع + المنقولين",
+      "paidWithTransferredDesc": "المبلغ المدفوع من الحاليين والمنقولين",
+      "totalDiscount": "التخفيض",
+      "totalDiscountDesc": "إجمالي الخصومات الممنوحة",
+      "feesAfterDiscount": "الرسوم بعد التخفيض",
+      "feesAfterDiscountDesc": "إجمالي الرسوم بعد خصم التخفيضات",
+      "totalFeesWithTransferred": "اجمالي المدفوع مع المنقولين",
+      "totalFeesWithTransferredDesc": "المدفوع من الحاليين + المنقولين"
     },
     "toolbar": {
       "searchPlaceholder": "بحث باسم الطالب أو الصف...",

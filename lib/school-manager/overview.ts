@@ -57,10 +57,13 @@ export type SchoolManagerBranchSummary = {
   branchName: string;
   logoUrl: string | null;
   studentsCount: number;
+  transferredCount: number;
   totalFeesBeforeDiscount: number;
   totalDiscount: number;
   totalFeesAfterDiscount: number;
   totalPaid: number;
+  transferredPaid: number;
+  totalPaidWithTransferred: number;
   totalRemaining: number;
   totalExpenses: number;
   totalIncomes: number;
@@ -69,10 +72,13 @@ export type SchoolManagerBranchSummary = {
 
 export type SchoolManagerTotals = {
   studentsCount: number;
+  transferredCount: number;
   totalFeesBeforeDiscount: number;
   totalDiscount: number;
   totalFeesAfterDiscount: number;
   totalPaid: number;
+  transferredPaid: number;
+  totalPaidWithTransferred: number;
   totalRemaining: number;
   totalExpenses: number;
   totalIncomes: number;
@@ -96,7 +102,12 @@ function toAmount(value: unknown) {
 }
 
 function shouldCountStudent(status: string | null | undefined) {
-  return String(status ?? "").toLowerCase() !== "deleted";
+  const s = String(status ?? "").toLowerCase();
+  return s !== "deleted";
+}
+
+function isTransferredStudent(status: string | null | undefined) {
+  return String(status ?? "").toLowerCase() === "transferred";
 }
 
 function buildEmptySummary(branchId: string | null, branchName: string, logoUrl: string | null = null): SchoolManagerBranchSummary {
@@ -105,10 +116,13 @@ function buildEmptySummary(branchId: string | null, branchName: string, logoUrl:
     branchName,
     logoUrl,
     studentsCount: 0,
+    transferredCount: 0,
     totalFeesBeforeDiscount: 0,
     totalDiscount: 0,
     totalFeesAfterDiscount: 0,
     totalPaid: 0,
+    transferredPaid: 0,
+    totalPaidWithTransferred: 0,
     totalRemaining: 0,
     totalExpenses: 0,
     totalIncomes: 0,
@@ -125,6 +139,7 @@ function finalizeSummary(summary: SchoolManagerBranchSummary): SchoolManagerBran
   return {
     ...summary,
     totalFeesAfterDiscount,
+    totalPaidWithTransferred: summary.totalPaid + summary.transferredPaid,
     paidPercentage: calculateStudentPaidPercentage({
       total_fee: summary.totalFeesBeforeDiscount,
       paid_fee: summary.totalPaid,
@@ -223,11 +238,16 @@ export function buildSchoolManagerOverview(input: {
       classFeeTotal,
     );
 
-    current.studentsCount += 1;
-    current.totalFeesBeforeDiscount += resolved.resolved_total_fee;
-    current.totalDiscount += resolved.discount_value;
-    current.totalPaid += resolved.paid_fee;
-    current.totalRemaining += resolved.remaining_fee;
+    if (isTransferredStudent(student.status)) {
+      current.transferredCount += 1;
+      current.transferredPaid += resolved.paid_fee;
+    } else {
+      current.studentsCount += 1;
+      current.totalFeesBeforeDiscount += resolved.resolved_total_fee;
+      current.totalDiscount += resolved.discount_value;
+      current.totalPaid += resolved.paid_fee;
+      current.totalRemaining += resolved.remaining_fee;
+    }
   }
 
   // Process expenses — skip expenses from excluded branches entirely
@@ -301,11 +321,14 @@ export function buildSchoolManagerOverview(input: {
         branchName: "إجمالي المدرسة",
         logoUrl: null,
         studentsCount: acc.studentsCount + branch.studentsCount,
+        transferredCount: acc.transferredCount + branch.transferredCount,
         totalFeesBeforeDiscount:
           acc.totalFeesBeforeDiscount + branch.totalFeesBeforeDiscount,
         totalDiscount: acc.totalDiscount + branch.totalDiscount,
         totalFeesAfterDiscount: 0,
         totalPaid: acc.totalPaid + branch.totalPaid,
+        transferredPaid: acc.transferredPaid + branch.transferredPaid,
+        totalPaidWithTransferred: 0,
         totalRemaining: acc.totalRemaining + branch.totalRemaining,
         totalExpenses: acc.totalExpenses + branch.totalExpenses,
         totalIncomes: acc.totalIncomes + branch.totalIncomes,

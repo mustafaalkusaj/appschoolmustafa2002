@@ -6,10 +6,10 @@ export const BRAND_NAME_PLACEHOLDERS = {
 } as const;
 
 export const BRAND_NAME_DEFAULTS = {
-  nameAr: "منصة إدارة المدرسة",
-  nameEn: "School Management Platform",
-  subtitleAr: "النظام المدرسي الموحد",
-  subtitleEn: "Premium School Administration",
+  nameAr: "School Iraq",
+  nameEn: "School Iraq",
+  subtitleAr: "سكول عراق",
+  subtitleEn: "School Iraq",
 } as const;
 
 export const SCHOOL_BRAND_NAME = {

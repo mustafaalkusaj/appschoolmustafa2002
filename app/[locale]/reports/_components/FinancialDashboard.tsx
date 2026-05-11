@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { formatNumber } from "@/lib/formatting";
 import { cn } from "@/lib/brand/brand-utils";
 import {
@@ -9,7 +10,11 @@ import {
   HandCoins,
   Wallet,
   CalendarDays,
+  Download,
+  Printer,
 } from "@/lib/icons";
+import { downloadExcelExport } from "@/lib/excel-client";
+import { printHtmlDocument, wrapPrintDocument } from "@/lib/print/branding";
 
 type ReportsMetrics = {
   netRevenue: number;
@@ -61,13 +66,11 @@ const DONUT_COLORS = [
 ];
 
 export function FinancialDashboard({ metrics, currency }: FinancialDashboardProps) {
-  // All revenue totals — transferred students are completely isolated.
-  // Their fees, collected amounts, and discounts do NOT appear in any general total.
-  // They are shown exclusively in their own dedicated "الطلاب المنقولين" card.
-  const allRevenueTotalFees = metrics.currentStudentsTotalFees + metrics.otherRevenueTotal;
-  const allRevenueCollected = metrics.currentStudentsCollected + metrics.otherRevenueTotal;
-  const allRevenueDiscounts = metrics.currentStudentsDiscounts;
-  const allRevenueRemaining = metrics.currentStudentsRemaining;
+  // All revenue totals — includes current students + transferred students + other revenue.
+  const allRevenueTotalFees = metrics.currentStudentsTotalFees + metrics.transferredStudentsTotalFees + metrics.otherRevenueTotal;
+  const allRevenueCollected = metrics.currentStudentsCollected + metrics.transferredStudentsCollected + metrics.otherRevenueTotal;
+  const allRevenueDiscounts = metrics.currentStudentsDiscounts + metrics.transferredStudentsDiscounts;
+  const allRevenueRemaining = metrics.currentStudentsRemaining + metrics.transferredStudentsRemaining;
 
   // Collection rate
   const collectionRate = allRevenueTotalFees > 0
@@ -87,8 +90,118 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
     ? `conic-gradient(${conicStops.join(", ")})`
     : `conic-gradient(#E5E7EB 0deg 360deg)`;
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      await downloadExcelExport({
+        filename: `التقرير_المالي_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheets: [
+          {
+            name: "financial_summary",
+            title: "الملخص المالي",
+            columns: [
+              { header: "البند", key: "label", width: 35 },
+              { header: "المبلغ", key: "amount", width: 20, numFmt: "#,##0" },
+            ],
+            rows: [
+              { label: "واردات الطلاب الحاليين - المبالغ الكلية", amount: metrics.currentStudentsTotalFees },
+              { label: "واردات الطلاب الحاليين - المستحصلة", amount: metrics.currentStudentsCollected },
+              { label: "واردات الطلاب الحاليين - الخصومات", amount: metrics.currentStudentsDiscounts },
+              { label: "واردات الطلاب الحاليين - الديون", amount: metrics.currentStudentsRemaining },
+              { label: "واردات المنقولين - المبالغ الكلية", amount: metrics.transferredStudentsTotalFees },
+              { label: "واردات المنقولين - المستحصلة", amount: metrics.transferredStudentsCollected },
+              { label: "واردات أخرى", amount: metrics.otherRevenueTotal },
+              { label: "جميع الواردات - المبالغ الكلية", amount: allRevenueTotalFees },
+              { label: "جميع الواردات - المستحصلة", amount: allRevenueCollected },
+              { label: "جميع الواردات - الخصومات", amount: allRevenueDiscounts },
+              { label: "جميع الواردات - الديون", amount: allRevenueRemaining },
+              { label: "المصروفات", amount: metrics.expenseVolume },
+              { label: "الرواتب", amount: metrics.salaryVolume },
+              { label: "نسبة التحصيل %", amount: collectionRate },
+              { label: "الرصيد المتاح", amount: availableBalance },
+            ],
+          },
+          ...(metrics.salaryByMonth.length > 0
+            ? [{
+                name: "monthly_salaries",
+                title: "الرواتب الشهرية",
+                columns: [
+                  { header: "الشهر", key: "month", width: 20 },
+                  { header: "المبلغ", key: "total", width: 20, numFmt: "#,##0" as const },
+                ],
+                rows: metrics.salaryByMonth.map((s) => ({ month: formatMonth(s.month), total: s.total })),
+              }]
+            : []),
+          ...(metrics.expensesByType.length > 0
+            ? [{
+                name: "expenses_by_type",
+                title: "المصاريف حسب النوع",
+                columns: [
+                  { header: "النوع", key: "name", width: 30 },
+                  { header: "المبلغ", key: "total", width: 20, numFmt: "#,##0" as const },
+                ],
+                rows: metrics.expensesByType.map((e) => ({ name: e.name, total: e.total })),
+              }]
+            : []),
+        ],
+      });
+    } catch {
+      // silent
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handlePrint = () => {
+    const rows = [
+      ["واردات الطلاب الحاليين - المبالغ الكلية", `${currency} ${formatNumber(metrics.currentStudentsTotalFees)}`],
+      ["واردات الطلاب الحاليين - المستحصلة", `${currency} ${formatNumber(metrics.currentStudentsCollected)}`],
+      ["واردات الطلاب الحاليين - الخصومات", `${currency} ${formatNumber(metrics.currentStudentsDiscounts)}`],
+      ["واردات الطلاب الحاليين - الديون", `${currency} ${formatNumber(metrics.currentStudentsRemaining)}`],
+      ["واردات المنقولين - المستحصلة", `${currency} ${formatNumber(metrics.transferredStudentsCollected)}`],
+      ["واردات أخرى", `${currency} ${formatNumber(metrics.otherRevenueTotal)}`],
+      ["جميع الواردات - المبالغ الكلية", `${currency} ${formatNumber(allRevenueTotalFees)}`],
+      ["جميع الواردات - المستحصلة", `${currency} ${formatNumber(allRevenueCollected)}`],
+      ["المصروفات", `${currency} ${formatNumber(metrics.expenseVolume)}`],
+      ["الرواتب", `${currency} ${formatNumber(metrics.salaryVolume)}`],
+      ["نسبة التحصيل", `${collectionRate}%`],
+      ["الرصيد المتاح", `${currency} ${formatNumber(availableBalance)}`],
+    ];
+    const tableHtml = `
+      <table style="width:100%;border-collapse:collapse;direction:rtl;text-align:right">
+        <thead><tr><th style="border:1px solid #ddd;padding:8px;background:#f3f4f6">البند</th><th style="border:1px solid #ddd;padding:8px;background:#f3f4f6">المبلغ</th></tr></thead>
+        <tbody>${rows.map(([label, value]) => `<tr><td style="border:1px solid #ddd;padding:8px">${label}</td><td style="border:1px solid #ddd;padding:8px;font-weight:bold">${value}</td></tr>`).join("")}</tbody>
+      </table>
+    `;
+    const html = wrapPrintDocument({ title: "التقرير المالي", bodyHtml: tableHtml });
+    printHtmlDocument(html);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Export Buttons */}
+      <div className="flex items-center gap-3 justify-end">
+        <button
+          type="button"
+          onClick={handleExportExcel}
+          disabled={exporting}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+        >
+          <Download size={16} />
+          {exporting ? "جارٍ التصدير..." : "تحميل اكسل"}
+        </button>
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] text-white text-sm font-bold hover:opacity-90 transition-colors"
+        >
+          <Printer size={16} />
+          طباعة PDF
+        </button>
+      </div>
+
       {/* Section 1: Salaries by Month */}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
         <div className="flex items-center gap-2 mb-4">

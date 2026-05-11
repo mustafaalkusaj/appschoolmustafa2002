@@ -344,14 +344,20 @@ export async function GET(req: NextRequest) {
       const studentsById = new Map(resolvedStudents.map((student) => [student.id, student]));
       const classStatsByKey = Object.fromEntries(
         Object.entries(
-          resolvedStudents.reduce<Record<string, { className: string; count: number; totalPaid: number; totalRemaining: number }>>((acc, student) => {
+          resolvedStudents.reduce<Record<string, { className: string; activeCount: number; transferredCount: number; count: number; totalPaid: number; totalRemaining: number; transferredPaid: number }>>((acc, student) => {
             const className = normalizeDashboardOverviewName(student.class_name);
             const classKey = normalizeDashboardOverviewKey(className);
             if (!classKey) return acc;
-            const current = acc[classKey] ?? { className, count: 0, totalPaid: 0, totalRemaining: 0 };
-            current.count += 1;
-            current.totalPaid += Number(student.paid_fee ?? 0);
-            current.totalRemaining += Number(student.remaining_fee ?? 0);
+            const current = acc[classKey] ?? { className, activeCount: 0, transferredCount: 0, count: 0, totalPaid: 0, totalRemaining: 0, transferredPaid: 0 };
+            if (student.status === "transferred") {
+              current.transferredCount += 1;
+              current.transferredPaid += Number(student.paid_fee ?? 0);
+            } else {
+              current.activeCount += 1;
+              current.totalPaid += Number(student.paid_fee ?? 0);
+              current.totalRemaining += Number(student.remaining_fee ?? 0);
+            }
+            current.count = current.activeCount + current.transferredCount;
             acc[classKey] = current;
             return acc;
           }, {}),
@@ -387,12 +393,15 @@ export async function GET(req: NextRequest) {
                 const studentStats =
                   classStatsByKey[normalizeDashboardOverviewKey(className)] ?? {
                   className,
+                  activeCount: 0,
+                  transferredCount: 0,
                   count: 0,
                   totalPaid: 0,
                   totalRemaining: 0,
+                  transferredPaid: 0,
                 };
               const feeTotal = Number(fee.total_fee ?? 0);
-              const totalExpected = studentStats.count * feeTotal;
+              const totalExpected = studentStats.activeCount * feeTotal;
               const paidPct = totalExpected > 0 ? Math.round((studentStats.totalPaid / totalExpected) * 100) : 0;
 
               return {
@@ -402,10 +411,13 @@ export async function GET(req: NextRequest) {
                 installments: Number(fee.installments ?? 0),
                 installment_amount: Number(fee.installment_amount ?? 0),
                 stats: {
-                  count: studentStats.count,
+                  count: studentStats.activeCount,
+                  activeCount: studentStats.activeCount,
+                  transferredCount: studentStats.transferredCount,
                   totalExpected,
                   totalPaid: studentStats.totalPaid,
                   totalRemaining: studentStats.totalRemaining,
+                  transferredPaid: studentStats.transferredPaid,
                   paidPct,
                 },
               };
@@ -450,6 +462,9 @@ export async function GET(req: NextRequest) {
         totalPaid: currentStudents.reduce((sum, s) => sum + Number(s.paid_fee ?? 0), 0),
         totalDiscount: currentStudents.reduce((sum, s) => sum + Number(s.discount_value ?? 0), 0),
         totalRemaining: currentStudents.reduce((sum, s) => sum + Number(s.remaining_fee ?? 0), 0),
+        totalFeesWithTransferred:
+          currentStudents.reduce((sum, s) => sum + Number(s.resolved_total_fee ?? 0), 0) +
+          transferredStudents.reduce((sum, s) => sum + Number(s.paid_fee ?? 0), 0),
         feeNotificationsCount,
         monthlySalaries,
         totalIncomes,

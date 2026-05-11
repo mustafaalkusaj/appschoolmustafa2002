@@ -49,6 +49,10 @@ export type PaymentsSummary = {
   totalPaid: number;
   totalRemaining: number;
   collectedCount: number;
+  totalDiscount: number;
+  afterDiscount: number;
+  transferredPaid: number;
+  totalFeesWithTransferred: number;
 };
 
 export type PaymentsMetaPayload = {
@@ -342,6 +346,10 @@ async function fetchSummary(
     totalPaid: 0,
     totalRemaining: 0,
     collectedCount: 0,
+    totalDiscount: 0,
+    afterDiscount: 0,
+    transferredPaid: 0,
+    totalFeesWithTransferred: 0,
   };
 
   // First, fetch all students to resolve class fees
@@ -377,28 +385,34 @@ async function fetchSummary(
 
   // Calculate summary with resolved fees
   allStudents.forEach((student: any) => {
-    if (student.status === "deleted" || student.status === "transferred") {
-      return;
-    }
+    if (student.status === "deleted") return;
 
     const className = student.class_name;
     const classFeeTotal = className ? classFeeMap.get(className) : undefined;
     const studentTotal = Number(student.total_fee ?? 0);
     const totalFee = classFeeTotal ?? (studentTotal > 0 ? studentTotal : 0);
     const paidFee = Number(student.paid_fee ?? 0);
-    const remainingFee = Math.max(
-      totalFee - paidFee - Number(student.discount_value ?? 0),
-      0,
-    );
+    const discountValue = Number(student.discount_value ?? 0);
+
+    if (student.status === "transferred") {
+      summary.transferredPaid += paidFee;
+      return;
+    }
+
+    const remainingFee = Math.max(totalFee - paidFee - discountValue, 0);
 
     summary.totalStudents += 1;
     summary.totalFee += totalFee;
     summary.totalPaid += paidFee;
     summary.totalRemaining += remainingFee;
+    summary.totalDiscount += discountValue;
     if (remainingFee <= 0 && totalFee > 0) {
       summary.collectedCount += 1;
     }
   });
+
+  summary.afterDiscount = Math.max(summary.totalFee - summary.totalDiscount, 0);
+  summary.totalFeesWithTransferred = summary.totalPaid + summary.transferredPaid;
 
   return summary;
 }
@@ -458,6 +472,10 @@ async function fetchSummaryViaRpc(actorSupabase: RouteSupabaseClient, schoolId: 
       totalPaid: normalizeMetricNumber(record.total_paid),
       totalRemaining: normalizeMetricNumber(record.total_remaining),
       collectedCount: normalizeMetricNumber(record.collected_count),
+      totalDiscount: 0,
+      afterDiscount: normalizeMetricNumber(record.total_fee),
+      transferredPaid: 0,
+      totalFeesWithTransferred: normalizeMetricNumber(record.total_paid),
     } satisfies PaymentsSummary,
     totalPaymentCount: normalizeMetricNumber(record.total_payment_count),
     paymentYears: normalizeIntegerArray(record.payment_years),
@@ -491,6 +509,10 @@ async function fetchSummaryViaReportsRpc(actorSupabase: RouteSupabaseClient, sch
       totalPaid: normalizeMetricNumber(source.total_paid),
       totalRemaining: normalizeMetricNumber(source.total_remaining),
       collectedCount: normalizeMetricNumber(source.collected_count),
+      totalDiscount: 0,
+      afterDiscount: normalizeMetricNumber(source.total_fees),
+      transferredPaid: 0,
+      totalFeesWithTransferred: normalizeMetricNumber(source.total_paid),
     } satisfies PaymentsSummary,
     totalPaymentCount: normalizeMetricNumber(source.payments_count),
   };

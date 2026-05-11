@@ -21,6 +21,9 @@ const COPY = {
     discount: "التخفيض",
     remaining: "المتبقي",
     paid: "المحصّل",
+    transferredPaid: "مدفوع المنقولين",
+    paidWithTransferred: "المدفوع + المنقولين",
+    transferredCount: "المنقولين",
     expenses: "المصروفات",
     students: "طالب",
     paidPercentage: "نسبة التحصيل",
@@ -38,6 +41,7 @@ const COPY = {
     income: "الإيرادات",
     net: "الصافي",
     netWithIncome: "الصافي الشامل",
+    feesWithTransferred: "الرسوم مع المنقولين",
     collectionRate: "معدل التحصيل",
     totalBranches: "فرع",
   },
@@ -53,6 +57,9 @@ const COPY = {
     discount: "Discount",
     remaining: "Remaining",
     paid: "Collected",
+    transferredPaid: "Transferred Paid",
+    paidWithTransferred: "Paid + Transferred",
+    transferredCount: "Transferred",
     expenses: "Expenses",
     students: "students",
     paidPercentage: "Collection Rate",
@@ -70,6 +77,7 @@ const COPY = {
     income: "Revenue",
     net: "Net",
     netWithIncome: "Net (incl. Revenue)",
+    feesWithTransferred: "Fees with Transferred",
     collectionRate: "Collection Rate",
     totalBranches: "branches",
   },
@@ -126,17 +134,19 @@ function BranchCard({ locale, branch }: { locale: Locale; branch: SchoolManagerB
   const copy = COPY[locale];
   const pct = branch.paidPercentage;
   const net = branch.totalPaid - branch.totalExpenses;
-  const netWithIncome = branch.totalPaid + branch.totalIncomes - branch.totalExpenses;
+  const netWithIncome = branch.totalPaidWithTransferred + branch.totalIncomes - branch.totalExpenses;
 
   const stats = [
-    { label: copy.afterDiscount, value: fmtCurrency(branch.totalFeesAfterDiscount), cls: "text-[var(--text-primary)]" },
-    { label: copy.paid,          value: fmtCurrency(branch.totalPaid),              cls: "text-[var(--success)]" },
-    { label: copy.remaining,     value: fmtCurrency(branch.totalRemaining),         cls: branch.totalRemaining > 0 ? "text-[var(--danger)]" : "text-[var(--success)]" },
-    { label: copy.expenses,      value: fmtCurrency(branch.totalExpenses),          cls: "text-[var(--warning)]" },
-    { label: copy.income,        value: fmtCurrency(branch.totalIncomes),           cls: "text-[#20B96B]" },
-    { label: copy.net,           value: fmtCurrency(net),                           cls: net >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
-    { label: copy.netWithIncome, value: fmtCurrency(netWithIncome),                 cls: netWithIncome >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
-    { label: copy.discount,      value: fmtCurrency(branch.totalDiscount),          cls: "text-[var(--info)]" },
+    { label: copy.afterDiscount,      value: fmtCurrency(branch.totalFeesAfterDiscount),  cls: "text-[var(--text-primary)]" },
+    { label: copy.paid,               value: fmtCurrency(branch.totalPaid),               cls: "text-[var(--success)]" },
+    { label: copy.transferredPaid,    value: fmtCurrency(branch.transferredPaid),          cls: "text-[var(--warning)]" },
+    { label: copy.paidWithTransferred,value: fmtCurrency(branch.totalPaidWithTransferred), cls: "text-[var(--success)]" },
+    { label: copy.remaining,          value: fmtCurrency(branch.totalRemaining),           cls: branch.totalRemaining > 0 ? "text-[var(--danger)]" : "text-[var(--success)]" },
+    { label: copy.expenses,           value: fmtCurrency(branch.totalExpenses),            cls: "text-[var(--warning)]" },
+    { label: copy.income,             value: fmtCurrency(branch.totalIncomes),             cls: "text-[#20B96B]" },
+    { label: copy.net,                value: fmtCurrency(net),                             cls: net >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
+    { label: copy.netWithIncome,      value: fmtCurrency(netWithIncome),                   cls: netWithIncome >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]" },
+    { label: copy.discount,           value: fmtCurrency(branch.totalDiscount),            cls: "text-[var(--info)]" },
   ];
 
   return (
@@ -151,6 +161,9 @@ function BranchCard({ locale, branch }: { locale: Locale; branch: SchoolManagerB
             <h2 className="truncate text-xl font-black text-[var(--text-primary)] leading-tight">{branch.branchName}</h2>
             <p className="mt-1 text-sm font-bold text-[var(--text-muted)]">
               {fmt(branch.studentsCount)} {copy.students}
+              {branch.transferredCount > 0 && (
+                <span className="text-[var(--warning)] mr-2"> • {fmt(branch.transferredCount)} {copy.transferredCount}</span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -259,7 +272,7 @@ export default async function GroupDashboardPage({
 
   const totals = overview.totals;
   const net = totals.totalPaid - totals.totalExpenses;
-  const netWithIncome = totals.totalPaid + totals.totalIncomes - totals.totalExpenses;
+  const netWithIncome = totals.totalPaidWithTransferred + totals.totalIncomes - totals.totalExpenses;
 
   const chartPoints = overview.branches.map((branch) => ({
     branchName: branch.branchName,
@@ -291,11 +304,12 @@ export default async function GroupDashboardPage({
           {/* KPI strip */}
           <div className="mt-8 grid w-full max-w-4xl gap-3 sm:grid-cols-5">
             {[
-              { label: copy.paid,         value: fmtCurrency(totals.totalPaid) },
-              { label: copy.remaining,    value: fmtCurrency(totals.totalRemaining) },
-              { label: copy.expenses,     value: fmtCurrency(totals.totalExpenses) },
-              { label: copy.income,       value: fmtCurrency(totals.totalIncomes) },
-              { label: copy.collectionRate, value: `${fmt(totals.paidPercentage)}%` },
+              { label: copy.paid,                value: fmtCurrency(totals.totalPaid) },
+              { label: copy.remaining,           value: fmtCurrency(totals.totalRemaining) },
+              { label: copy.expenses,            value: fmtCurrency(totals.totalExpenses) },
+              { label: copy.beforeDiscount,      value: fmtCurrency(totals.totalFeesBeforeDiscount) },
+              { label: copy.feesWithTransferred, value: fmtCurrency(totals.totalFeesBeforeDiscount + totals.transferredPaid) },
+              { label: copy.collectionRate,      value: `${fmt(totals.paidPercentage)}%` },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 backdrop-blur-sm">
                 <div className="text-[10px] font-black uppercase tracking-wider text-white/50">{label}</div>
@@ -352,22 +366,26 @@ export default async function GroupDashboardPage({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <KpiCard label={copy.beforeDiscount} value={fmtCurrency(totals.totalFeesBeforeDiscount)}
+            accent="border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-primary)]" />
           <KpiCard label={copy.afterDiscount} value={fmtCurrency(totals.totalFeesAfterDiscount)}
             accent="border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-primary)]" />
+          <KpiCard label={copy.feesWithTransferred} value={fmtCurrency(totals.totalFeesBeforeDiscount + totals.transferredPaid)}
+            accent="border-[var(--border)] bg-[var(--info-soft)] text-[var(--info)]" />
           <KpiCard label={copy.paid} value={fmtCurrency(totals.totalPaid)}
             accent="border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]" />
           <KpiCard label={copy.remaining} value={fmtCurrency(totals.totalRemaining)}
             accent={totals.totalRemaining > 0
               ? "border-[var(--border)] bg-[var(--danger-soft)] text-[var(--danger)]"
               : "border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]"} />
+          <KpiCard label={copy.transferredPaid} value={fmtCurrency(totals.transferredPaid)}
+            accent="border-[var(--border)] bg-[var(--warning-soft)] text-[var(--warning)]" />
+          <KpiCard label={copy.paidWithTransferred} value={fmtCurrency(totals.totalPaidWithTransferred)}
+            accent="border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]" />
           <KpiCard label={copy.expenses} value={fmtCurrency(totals.totalExpenses)}
             accent="border-[var(--border)] bg-[var(--warning-soft)] text-[var(--warning)]" />
           <KpiCard label={copy.income} value={fmtCurrency(totals.totalIncomes)}
             accent="border-[var(--border)] bg-[var(--success-soft)] text-[#20B96B]" />
-          <KpiCard label={copy.net} value={fmtCurrency(net)}
-            accent={net >= 0
-              ? "border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]"
-              : "border-[var(--border)] bg-[var(--danger-soft)] text-[var(--danger)]"} />
           <KpiCard label={copy.netWithIncome} value={fmtCurrency(netWithIncome)}
             accent={netWithIncome >= 0
               ? "border-[var(--border)] bg-[var(--success-soft)] text-[var(--success)]"

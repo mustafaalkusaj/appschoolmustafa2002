@@ -36,8 +36,12 @@ export type StudentsListFilters = {
 export type StudentsSummary = {
   totalStudents: number;
   activeStudents: number;
+  transferredCount: number;
   totalFee: number;
   totalRemaining: number;
+  totalPaid: number;
+  transferredPaid: number;
+  totalFeesWithTransferred: number;
 };
 
 export type StudentsMetaPayload = {
@@ -46,7 +50,7 @@ export type StudentsMetaPayload = {
   sectionOptions: string[];
 };
 
-const ACTIVE_TAB_STATUSES: StudentStatus[] = ["active"];
+const ACTIVE_TAB_STATUSES: StudentStatus[] = ["active", "graduated", "suspended"];
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
@@ -244,26 +248,52 @@ async function fetchSummary(
     throw new Error(error.message || "تعذر تحميل ملخص الطلاب.");
   }
 
-  // Resolve class fees for accurate total calculation
-  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, data ?? [], schoolId, branchScope);
-
-  return normalizeStudentRows(data ?? [], classFeeMap).reduce<StudentsSummary>(
-    (acc, student) => {
-      acc.totalStudents += 1;
-      acc.totalFee += student.total_fee;
-      acc.totalRemaining += student.remaining_fee;
-      if (student.status === "active") {
-        acc.activeStudents += 1;
-      }
-      return acc;
-    },
-    {
-      totalStudents: 0,
-      activeStudents: 0,
-      totalFee: 0,
-      totalRemaining: 0,
-    },
+  // Also fetch transferred students for combined stats
+  const { data: transferredData } = await applyBranchScopeToQuery(
+    actorSupabase
+      .from("students")
+      .select("id, class_name, total_fee, paid_fee, discount_value, status")
+      .eq("school_id", schoolId)
+      .eq("status", "transferred"),
+    branchScope,
   );
+
+  // Resolve class fees for accurate total calculation
+  const allRows = [...(data ?? []), ...(transferredData ?? [])] as Array<Record<string, unknown>>;
+  const classFeeMap = await resolveStudentFeesFromClassFees(actorSupabase, allRows, schoolId, branchScope);
+
+  const activeRows = normalizeStudentRows(data ?? [], classFeeMap);
+  const transferredRows = normalizeStudentRows(transferredData ?? [], classFeeMap);
+
+  const summary: StudentsSummary = {
+    totalStudents: 0,
+    activeStudents: 0,
+    transferredCount: transferredRows.length,
+    totalFee: 0,
+    totalRemaining: 0,
+    totalPaid: 0,
+    transferredPaid: 0,
+    totalFeesWithTransferred: 0,
+  };
+
+  for (const student of activeRows) {
+    summary.totalStudents += 1;
+    summary.totalFee += student.total_fee;
+    summary.totalRemaining += student.remaining_fee;
+    summary.totalPaid += student.paid_fee;
+    if (student.status === "active") {
+      summary.activeStudents += 1;
+    }
+  }
+
+  for (const student of transferredRows) {
+    summary.transferredPaid += student.paid_fee;
+  }
+
+  summary.totalStudents += summary.transferredCount;
+  summary.totalFeesWithTransferred = summary.totalFee + summary.transferredPaid;
+
+  return summary;
 }
 
 async function fetchSectionOptions(

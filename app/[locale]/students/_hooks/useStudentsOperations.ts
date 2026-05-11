@@ -575,8 +575,9 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     setActiveTab("deleted");
     modals.setSuccess(copy.deleteSuccess);
     removeStudentOptimistically(deletedId);
+    void backgroundReload();
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab]);
+  }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab, backgroundReload]);
 
   const exportExcel = useCallback(async (data: StudentWithFees[]) => {
     const { downloadExcelExport } = await import("@/lib/excel-client");

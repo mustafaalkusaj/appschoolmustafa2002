@@ -233,9 +233,12 @@ export function useFeeManagement({
     return (
       cf.stats ?? {
         count: getDashboardRecordValueByName(studentCountByClass, cf.class_name) ?? 0,
+        activeCount: getDashboardRecordValueByName(studentCountByClass, cf.class_name) ?? 0,
+        transferredCount: 0,
         totalExpected: 0,
         totalPaid: 0,
         totalRemaining: 0,
+        transferredPaid: 0,
         paidPct: 0,
       }
     );

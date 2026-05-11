@@ -138,10 +138,14 @@
       "totalRevenue": "Total Revenue & Incomes",
       "monthlySalaries": "Monthly Salaries",
       "currentSalaries": "Current Salaries Dues",
-      "monitoring": "Teacher Monitoring",
-      "teacherActivity": "Teacher Activities",
-      "feeAlerts": "Fee Alerts",
-      "pendingNotifications": "Current Sent Alerts"
+      "paidWithTransferred": "Paid + Transferred",
+      "paidWithTransferredDesc": "Paid amount from current and transferred students",
+      "totalDiscount": "Discount",
+      "totalDiscountDesc": "Total discounts applied",
+      "feesAfterDiscount": "Fees After Discount",
+      "feesAfterDiscountDesc": "Total fees after discounts applied",
+      "feeAlerts": "Total Fees with Transferred",
+      "pendingNotifications": "Current + Transferred Students Fees"
     },
     "finance": {
       "analysisTitle": "Financial Analysis Dashboard",
@@ -200,11 +204,13 @@
       "addLabel": "Add Class",
       "empty": "No fees added yet. Start by adding your first class.",
       "className": "Class Name",
-      "students": "Students",
-      "totalAmount": "Total Amount",
+      "activeStudents": "Active",
+      "transferredStudents": "Transferred",
+      "totalAmount": "Collected",
+      "transferredAmount": "Transferred Amount",
+      "grandTotal": "Total",
+      "totalFeesWithTransferred": "Fees with Transferred",
       "installments": "Installments",
-      "collected": "Collected",
-      "remaining": "Remaining",
       "actions": "Actions",
       "installmentsCount": "{count} Installments",
       "perInstallment": "{amount} per installment"
@@ -570,11 +576,15 @@
     "stats": {
       "total": "Total Students",
       "activeStudents": "Active Students",
+      "transferredCount": "Transferred Students",
       "boys": "Boys",
       "girls": "Girls",
       "collected": "Collected",
       "remaining": "Remaining Balance",
       "totalFee": "Total Fees",
+      "totalPaid": "Paid Amount",
+      "transferredPaid": "Transferred Paid",
+      "totalFeesWithTransferred": "Total Fees with Transferred",
       "totalRemaining": "Remaining Balance"
     },
     "toolbar": {
@@ -753,7 +763,15 @@
       "totalFees": "Total fees",
       "totalPaid": "Total collected",
       "totalRemaining": "Total remaining",
-      "settledCount": "Fully settled"
+      "settledCount": "Fully settled",
+      "paidWithTransferred": "Paid + Transferred",
+      "paidWithTransferredDesc": "Paid from current and transferred students",
+      "totalDiscount": "Discount",
+      "totalDiscountDesc": "Total discounts applied",
+      "feesAfterDiscount": "Fees After Discount",
+      "feesAfterDiscountDesc": "Total fees after discounts",
+      "totalFeesWithTransferred": "Total Paid with Transferred",
+      "totalFeesWithTransferredDesc": "Paid from current + transferred"
     },
     "toolbar": {
       "searchPlaceholder": "Search by student or class...",

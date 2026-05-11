@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Users, UserCheck, DollarSign, Wallet } from "lucide-react";
+import { Users, UserCheck, UserMinus, DollarSign, Wallet, CheckCircle2, Banknote } from "lucide-react";
 import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
 import { formatNumber } from "@/lib/formatting";
 import type { StudentsMetaPayload } from "../_types";
@@ -13,36 +13,61 @@ interface StudentsStatsProps {
 export function StudentsStats({ studentsMeta }: StudentsStatsProps) {
   const t = useTranslations("students.stats");
   const commonT = useTranslations("common");
+  const s = studentsMeta.summary;
 
   const stats = [
     {
       label: t("total"),
-      value: formatNumber(studentsMeta.summary.totalStudents),
+      value: formatNumber(s.totalStudents),
       icon: Users,
       variant: "primary" as const,
     },
     {
       label: t("activeStudents"),
-      value: formatNumber(studentsMeta.summary.activeStudents),
+      value: formatNumber(s.activeStudents),
       icon: UserCheck,
       variant: "success" as const,
     },
     {
+      label: t("transferredCount"),
+      value: formatNumber(s.transferredCount),
+      icon: UserMinus,
+      variant: "warning" as const,
+    },
+    {
       label: t("totalFee"),
-      value: `${commonT("currency")} ${formatNumber(studentsMeta.summary.totalFee)}`,
+      value: `${commonT("currency")} ${formatNumber(s.totalFee)}`,
       icon: DollarSign,
       variant: "info" as const,
     },
     {
-      label: t("totalRemaining"),
-      value: `${commonT("currency")} ${formatNumber(studentsMeta.summary.totalRemaining)}`,
+      label: t("totalPaid"),
+      value: `${commonT("currency")} ${formatNumber(s.totalPaid)}`,
+      icon: CheckCircle2,
+      variant: "success" as const,
+    },
+    {
+      label: t("transferredPaid"),
+      value: `${commonT("currency")} ${formatNumber(s.transferredPaid)}`,
       icon: Wallet,
       variant: "warning" as const,
+    },
+    {
+      label: t("totalFeesWithTransferred"),
+      value: `${commonT("currency")} ${formatNumber(s.totalFeesWithTransferred)}`,
+      icon: Banknote,
+      variant: "info" as const,
+    },
+    {
+      label: t("totalRemaining"),
+      value: `${commonT("currency")} ${formatNumber(s.totalRemaining)}`,
+      icon: Wallet,
+      variant: "danger" as const,
     },
   ];
 
   return (
-    <KPIGrid>
+    <KPIGrid className="grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
         <StatsCard
           key={stat.label}

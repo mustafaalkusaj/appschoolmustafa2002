@@ -9,7 +9,8 @@ import {
   AlertTriangle,
   Wallet,
   TrendingUp,
-  ArrowUp
+  ArrowUp,
+  Tag,
 } from "@/lib/icons";
 import { DashboardTotals } from "./types";
 import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
@@ -101,7 +102,7 @@ export function StatisticsCards({ dashboardTotals, loading, error, onRetry }: St
       </KPIGrid>
 
       {/* Secondary Stats Grid */}
-      <KPIGrid className="grid-cols-2 lg:grid-cols-4">
+      <KPIGrid className="grid-cols-2 lg:grid-cols-3">
         <StatsCard
           label={t("incomes")}
           value={`${commonT("currency")} ${formatNumber(dashboardTotals.totalIncomes)}`}
@@ -110,17 +111,31 @@ export function StatisticsCards({ dashboardTotals, loading, error, onRetry }: St
           description={t("totalRevenue")}
         />
         <StatsCard
-          label={t("monitoring")}
-          value={formatNumber(dashboardTotals.transferredCount)}
-          icon={TrendingUp}
+          label={t("paidWithTransferred")}
+          value={`${commonT("currency")} ${formatNumber(dashboardTotals.totalPaid + (dashboardTotals.totalFeesWithTransferred - dashboardTotals.totalFees))}`}
+          icon={CheckCircle2}
+          variant="success"
+          description={t("paidWithTransferredDesc")}
+        />
+        <StatsCard
+          label={t("totalDiscount")}
+          value={`${commonT("currency")} ${formatNumber(dashboardTotals.totalDiscount)}`}
+          icon={Tag}
           variant="warning"
-          description={t("teacherActivity")}
+          description={t("totalDiscountDesc")}
+        />
+        <StatsCard
+          label={t("feesAfterDiscount")}
+          value={`${commonT("currency")} ${formatNumber(dashboardTotals.afterDiscount)}`}
+          icon={Banknote}
+          variant="info"
+          description={t("feesAfterDiscountDesc")}
         />
         <StatsCard
           label={t("feeAlerts")}
-          value={formatNumber(dashboardTotals.feeNotificationsCount)}
-          icon={AlertTriangle}
-          variant="neutral"
+          value={`${commonT("currency")} ${formatNumber(dashboardTotals.totalFeesWithTransferred)}`}
+          icon={Banknote}
+          variant="info"
           description={t("pendingNotifications")}
         />
         <StatsCard

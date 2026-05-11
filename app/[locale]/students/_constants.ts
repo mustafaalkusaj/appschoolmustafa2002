@@ -25,8 +25,12 @@ export const EMPTY_STUDENT_META: StudentsMetaPayload = {
   summary: {
     totalStudents: 0,
     activeStudents: 0,
+    transferredCount: 0,
     totalFee: 0,
     totalRemaining: 0,
+    totalPaid: 0,
+    transferredPaid: 0,
+    totalFeesWithTransferred: 0,
   },
   tabCounts: {
     active: 0,

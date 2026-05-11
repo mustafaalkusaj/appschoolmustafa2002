@@ -83,8 +83,14 @@ export function useStudentsPage(
         throw new Error(payload?.error?.message || "تعذر تحميل قائمة المدفوعات.");
       }
 
+      // Recompute remaining_fee client-side to guard against stale DB/cache values
+      const resolvedStudents = (payload?.students ?? []).map((s) => ({
+        ...s,
+        remaining_fee: Math.max((s.total_fee ?? 0) - (s.paid_fee ?? 0) - (s.discount_value ?? 0), 0),
+      }));
+
       const nextPage = {
-        students: payload?.students ?? [],
+        students: resolvedStudents,
         paymentCountsByStudent: payload?.paymentCountsByStudent ?? {},
         totalCount: typeof payload?.totalCount === "number" ? payload.totalCount : 0,
       } satisfies PaymentsPageState;

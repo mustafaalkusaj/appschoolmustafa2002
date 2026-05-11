@@ -4,6 +4,10 @@ export const EMPTY_SUMMARY = {
   totalPaid: 0,
   totalRemaining: 0,
   collectedCount: 0,
+  totalDiscount: 0,
+  afterDiscount: 0,
+  transferredPaid: 0,
+  totalFeesWithTransferred: 0,
 } as const;
 
 export type PaymentsSummary = typeof EMPTY_SUMMARY;

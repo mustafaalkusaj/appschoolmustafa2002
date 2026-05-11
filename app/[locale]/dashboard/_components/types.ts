@@ -10,9 +10,12 @@ export interface ClassFee {
   created_at: string;
   stats?: {
     count: number;
+    activeCount: number;
+    transferredCount: number;
     totalExpected: number;
     totalPaid: number;
     totalRemaining: number;
+    transferredPaid: number;
     paidPct: number;
   };
 }
@@ -36,6 +39,7 @@ export type DashboardTotals = {
   afterDiscount: number;
   paidPct: number;
   remainingPct: number;
+  totalFeesWithTransferred: number;
   feeNotificationsCount: number;
   monthlySalaries: number;
   totalIncomes: number;
@@ -67,6 +71,7 @@ export const EMPTY_DASHBOARD_TOTALS: DashboardTotals = {
   afterDiscount: 0,
   paidPct: 0,
   remainingPct: 0,
+  totalFeesWithTransferred: 0,
   feeNotificationsCount: 0,
   monthlySalaries: 0,
   totalIncomes: 0,

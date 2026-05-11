@@ -20,9 +20,12 @@ interface ClassFeesTableProps {
   deleteConfirm: string | null;
   getClassStats: (cf: ClassFee) => {
     count: number;
+    activeCount: number;
+    transferredCount: number;
     totalExpected: number;
     totalPaid: number;
     totalRemaining: number;
+    transferredPaid: number;
     paidPct: number;
   };
   onOpenNewFee: () => void;
@@ -73,7 +76,7 @@ export function ClassFeesTable({
       <CardContent className="p-0">
         {loading ? (
           <div className="p-4">
-            <TableSkeleton rows={5} cols={7} />
+            <TableSkeleton rows={5} cols={8} />
           </div>
         ) : error ? (
           <ErrorState
@@ -94,11 +97,13 @@ export function ClassFeesTable({
               <thead>
                 <tr className="bg-[var(--surface-muted)]/50 border-y border-[var(--border)]">
                   <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("className")}</th>
-                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("students")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("activeStudents")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("transferredStudents")}</th>
                   <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("totalAmount")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("transferredAmount")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("grandTotal")}</th>
+                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("totalFeesWithTransferred")}</th>
                   <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("installments")}</th>
-                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("collected")}</th>
-                  <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t("remaining")}</th>
                   {canManageClasses ? (
                     <th className="px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-center">{t("actions")}</th>
                   ) : null}
@@ -118,12 +123,26 @@ export function ClassFeesTable({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[var(--surface-muted)] text-xs font-bold text-[var(--text-secondary)]">
-                          {stats.count}
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-xs font-bold text-[var(--success)]">
+                          {stats.activeCount}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-xs font-bold text-[var(--warning)]">
+                          {stats.transferredCount}
                         </span>
                       </td>
                       <td className="px-4 py-3 font-bold text-[var(--primary)] text-sm whitespace-nowrap">
-                        {commonT("currency")} {formatNumber(cf.total_fee)}
+                        {commonT("currency")} {formatNumber(stats.totalPaid)}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-[var(--warning)] text-sm whitespace-nowrap">
+                        {commonT("currency")} {formatNumber(stats.transferredPaid)}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-[var(--success)] text-sm whitespace-nowrap">
+                        {commonT("currency")} {formatNumber(stats.totalPaid + stats.transferredPaid)}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-[var(--info)] text-sm whitespace-nowrap">
+                        {commonT("currency")} {formatNumber(stats.activeCount * cf.total_fee + stats.transferredPaid)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-0.5">
@@ -134,12 +153,6 @@ export function ClassFeesTable({
                             {t("perInstallment", { amount: formatNumber(cf.installment_amount) })}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-[var(--success)] text-sm whitespace-nowrap">
-                        {commonT("currency")} {formatNumber(stats.totalPaid)}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-[var(--danger)] text-sm whitespace-nowrap">
-                        {commonT("currency")} {formatNumber(stats.totalRemaining)}
                       </td>
                       {canManageClasses ? (
                         <td className="px-4 py-3">
