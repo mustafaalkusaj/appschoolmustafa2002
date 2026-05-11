@@ -123,7 +123,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
           <h3 className="text-base font-black text-[var(--text-primary)]">الواردات</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {/* واردات الطلاب الحاليين */}
           <RevenueCard
             title="واردات الطلاب الحاليين"
@@ -134,6 +134,19 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
             collected={metrics.currentStudentsCollected}
             discounts={metrics.currentStudentsDiscounts}
             remaining={metrics.currentStudentsRemaining}
+            currency={currency}
+          />
+
+          {/* واردات الطلاب المنقولين */}
+          <RevenueCard
+            title="الطلاب المنقولين"
+            subtitle="واردات الطلاب المنقولين"
+            icon={<Users size={20} />}
+            iconBg="bg-blue-400"
+            totalFees={metrics.transferredStudentsTotalFees}
+            collected={metrics.transferredStudentsCollected}
+            discounts={metrics.transferredStudentsDiscounts}
+            remaining={metrics.transferredStudentsRemaining}
             currency={currency}
           />
 
