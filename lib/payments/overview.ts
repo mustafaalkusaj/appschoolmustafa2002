@@ -10,7 +10,6 @@ export type PaymentsQuickFilter =
   | "no_invoice"
   | "collected"
   | "discounted"
-  | "transferred"
   | "graduated"
   | "suspended"
   | "deleted";
@@ -134,7 +133,6 @@ function normalizeQuickFilter(value: string | null): PaymentsQuickFilter {
     case "no_invoice":
     case "collected":
     case "discounted":
-    case "transferred":
     case "graduated":
     case "suspended":
     case "deleted":
@@ -179,20 +177,18 @@ type PaymentsStudentFilterQueryLike = {
 function applyStudentFilters<TQuery>(query: TQuery, filters: PaymentsListFilters): TQuery {
   let nextQuery = query as unknown as PaymentsStudentFilterQueryLike;
 
-  if (filters.quickFilter === "transferred") {
-    nextQuery = nextQuery.eq("status", "transferred");
-  } else if (filters.quickFilter === "deleted") {
+  if (filters.quickFilter === "deleted") {
     nextQuery = nextQuery.eq("status", "deleted");
   } else if (filters.quickFilter === "suspended") {
     nextQuery = nextQuery.eq("status", "suspended");
   } else if (filters.quickFilter === "graduated") {
     nextQuery = nextQuery.eq("status", "graduated");
   } else if (filters.quickFilter === "discounted") {
-    nextQuery = nextQuery.gt("discount_value", 0);
+    nextQuery = nextQuery.neq("status", "transferred").gt("discount_value", 0);
   } else if (filters.quickFilter === "collected") {
-    nextQuery = nextQuery.lte("remaining_fee", 0).gt("total_fee", 0);
+    nextQuery = nextQuery.neq("status", "transferred").lte("remaining_fee", 0).gt("total_fee", 0);
   } else {
-    nextQuery = nextQuery.neq("status", "deleted");
+    nextQuery = nextQuery.neq("status", "deleted").neq("status", "transferred");
   }
 
   if (filters.className) {
@@ -381,7 +377,7 @@ async function fetchSummary(
 
   // Calculate summary with resolved fees
   allStudents.forEach((student: any) => {
-    if (student.status === "deleted") {
+    if (student.status === "deleted" || student.status === "transferred") {
       return;
     }
 
@@ -417,7 +413,8 @@ async function fetchCollectedCount(
       .from("students")
       .select("id, class_name, total_fee, paid_fee, discount_value, status")
       .eq("school_id", schoolId)
-      .neq("status", "deleted"),
+      .neq("status", "deleted")
+      .neq("status", "transferred"),
     branchScope,
   );
 
@@ -840,18 +837,15 @@ export async function resolvePaymentsMeta(
     try {
       const reportsSummary = await fetchSummaryViaReportsRpc(actorSupabase, schoolId);
       if (reportsSummary) {
-        const [classOptions, archiveResult, paymentsResult, collectedCount] = await Promise.all([
+        const [summary, classOptions, archiveResult, paymentsResult] = await Promise.all([
+          fetchSummary(actorSupabase, schoolId, branchScope),
           fetchClassOptions(actorSupabase, schoolId, branchScope),
           fetchArchives(actorSupabase, schoolId, branchScope),
           fetchPaymentYears(actorSupabase, schoolId, branchScope),
-          fetchCollectedCount(actorSupabase, schoolId, branchScope),
         ]);
 
         return {
-          summary: {
-            ...reportsSummary.summary,
-            collectedCount,
-          },
+          summary,
           classOptions,
           paymentYears: paymentsResult.paymentYears,
           totalPaymentCount: paymentsResult.totalPaymentCount || reportsSummary.totalPaymentCount,
@@ -981,7 +975,8 @@ export async function searchPaymentStudents(
       .from("students")
       .select(STUDENT_LIST_SELECT)
       .eq("school_id", schoolId)
-      .neq("status", "deleted"),
+      .neq("status", "deleted")
+      .neq("status", "transferred"),
     branchScope,
   )
     .order("full_name", { ascending: true })

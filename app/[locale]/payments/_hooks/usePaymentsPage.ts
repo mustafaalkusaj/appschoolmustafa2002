@@ -320,7 +320,6 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
       case "no_invoice":  result = result.filter((s) => (s.paid_fee ?? 0) === 0); break;
       case "collected":   result = result.filter((s) => (s.remaining_fee ?? 0) <= 0); break;
       case "discounted":  result = result.filter((s) => (s.discount_value ?? 0) > 0); break;
-      case "transferred": result = result.filter((s) => s.status === "transferred"); break;
       case "graduated":   result = result.filter((s) => s.status === "graduated"); break;
       case "suspended":   result = result.filter((s) => s.status === "suspended"); break;
       case "deleted":     result = result.filter((s) => s.status === "deleted"); break;

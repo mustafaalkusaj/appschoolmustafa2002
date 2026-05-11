@@ -81,7 +81,6 @@ export const QUICK_FILTERS: QuickFilterOption[] = [
   { id: "no_invoice", label: "بدون دفعات" },
   { id: "collected", label: "المبالغ المستوفاة" },
   { id: "discounted", label: "الطلاب المخفضون" },
-  { id: "transferred", label: "الفواتير المنقولة" },
   { id: "graduated", label: "فواتير المتخرجين" },
   { id: "suspended", label: "فواتير الموقوفين" },
   { id: "deleted", label: "الفواتير المحذوفة" },
