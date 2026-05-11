@@ -62,10 +62,14 @@ const DONUT_COLORS = [
 
 export function FinancialDashboard({ metrics, currency }: FinancialDashboardProps) {
   // All revenue totals
-  const allRevenueTotalFees = metrics.currentStudentsTotalFees + metrics.transferredStudentsTotalFees + metrics.otherRevenueTotal;
+  // Transferred students are excluded from totalFees/totalRemaining — their fees equal what
+  // they actually paid (remaining written off to 0), so they don't inflate the general totals.
+  const allRevenueTotalFees = metrics.currentStudentsTotalFees + metrics.otherRevenueTotal;
+  // Collected still includes transferred students' actual paid amounts
   const allRevenueCollected = metrics.currentStudentsCollected + metrics.transferredStudentsCollected + metrics.otherRevenueTotal;
   const allRevenueDiscounts = metrics.currentStudentsDiscounts + metrics.transferredStudentsDiscounts;
-  const allRevenueRemaining = metrics.currentStudentsRemaining + metrics.transferredStudentsRemaining;
+  // Remaining is always 0 for transferred, so only current students matter here
+  const allRevenueRemaining = metrics.currentStudentsRemaining;
 
   // Collection rate
   const collectionRate = allRevenueTotalFees > 0

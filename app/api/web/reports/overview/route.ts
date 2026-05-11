@@ -214,20 +214,24 @@ async function loadFallbackMetrics(
       classFeeTotal,
     );
 
-    totalFees += resolved.resolved_total_fee;
-    totalPaid += resolved.paid_fee;
-    totalRemaining += resolved.remaining_fee;
-
     if (student.status === "transferred") {
-      transferredStudentsTotalFees += resolved.resolved_total_fee;
+      // Transferred students: total_fee = paid amount (remaining is written off as 0)
+      // Their fees are excluded from the global totalFees/totalRemaining
+      transferredStudentsTotalFees += resolved.paid_fee;
       transferredStudentsCollected += resolved.paid_fee;
       transferredStudentsDiscounts += Number(student.discount_value ?? 0);
-      transferredStudentsRemaining += resolved.remaining_fee;
+      transferredStudentsRemaining += 0; // always 0 — remaining is written off
+      // Only add their actual paid amount to global totalPaid
+      totalPaid += resolved.paid_fee;
     } else {
       currentStudentsTotalFees += resolved.resolved_total_fee;
       currentStudentsCollected += resolved.paid_fee;
       currentStudentsDiscounts += Number(student.discount_value ?? 0);
       currentStudentsRemaining += resolved.remaining_fee;
+      // Current students contribute to all global accumulators
+      totalFees += resolved.resolved_total_fee;
+      totalPaid += resolved.paid_fee;
+      totalRemaining += resolved.remaining_fee;
     }
   });
 
