@@ -476,7 +476,18 @@ export async function DELETE(
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
   }
 
-  const deleteQuery = forceDelete || currentStudent.status === "deleted"
+  const isHardDelete = forceDelete || currentStudent.status === "deleted";
+
+  // Hard delete: remove related payments first to avoid FK constraint violation
+  if (isHardDelete) {
+    await serviceSupabase
+      .from("payments")
+      .delete()
+      .eq("student_id", studentId)
+      .eq("school_id", targetSchoolId);
+  }
+
+  const deleteQuery = isHardDelete
     ? applyBranchScopeToQuery(
         serviceSupabase
           .from("students")
