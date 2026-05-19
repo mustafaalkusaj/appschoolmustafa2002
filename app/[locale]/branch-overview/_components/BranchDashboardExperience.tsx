@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Building2 } from "@/lib/icons";
 import { getLocaleFromPath } from "@/lib/locale-routing";
@@ -23,7 +23,7 @@ import {
 import { AddStudentModal } from "@/app/[locale]/students/_components/AddStudentModal";
 import { DEFAULT_STUDENT_FORM } from "@/app/[locale]/students/_constants";
 import type { StudentFormData } from "@/app/[locale]/students/_types";
-import { fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { fetchWithAuthorizedSession, withJsonHeaders, fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { formatNumber } from "@/lib/formatting";
 import { SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 
@@ -68,6 +68,27 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
 
   const canManageClasses = canAny(["add_students", "edit_students", "delete_students"]);
   const canManageStudentAccounts = profile?.role === "super_admin" || profile?.role === "admin";
+
+  // Extra counts
+  const [teachersCount, setTeachersCount] = useState<number | null>(null);
+  const [notificationsCount, setNotificationsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const sid = schoolScope.selectedSchoolId;
+    if (!sid || schoolScope.scopeLoading) return;
+
+    fetchJsonWithAuthorizedSession<{ ok: boolean; total: number }>(
+      `/api/web/teachers?schoolId=${sid}&pageSize=1`
+    ).then(({ payload }) => {
+      if (payload?.ok) setTeachersCount(payload.total ?? 0);
+    }).catch(() => {});
+
+    fetchJsonWithAuthorizedSession<{ ok: boolean; count: number }>(
+      `/api/web/notifications/insite/unread?schoolId=${sid}`
+    ).then(({ payload }) => {
+      if (payload?.ok) setNotificationsCount(payload.count ?? 0);
+    }).catch(() => {});
+  }, [schoolScope.selectedSchoolId, schoolScope.scopeLoading]);
 
   // Modal state
   const [showClassesModal, setShowClassesModal] = useState(false);
@@ -189,24 +210,20 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
         </div>
       )}
 
-      {/* Progress Card — collection rate + 4 KPIs */}
+      {/* ② Progress Card — collection rate + expanded KPIs */}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5">
         <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">
           {isEn ? "Fee Collection Rate" : "نسبة تحصيل الرسوم الدراسية"}
         </p>
         <div className="flex items-center justify-between mb-2">
-          <p
-            className="text-2xl font-black tabular-nums"
-            style={{ color: "var(--success)" }}
-          >
+          <p className="text-2xl font-black tabular-nums" style={{ color: "var(--success)" }}>
             {dashboardTotals.paidPct}%
           </p>
           <p className="text-sm font-semibold text-[var(--text-secondary)]">
             {isEn ? "collected" : "محصّل"}
           </p>
         </div>
-        {/* Progress bar */}
-        <div className="h-2.5 rounded-full bg-[var(--surface-soft)] overflow-hidden mb-4">
+        <div className="h-2.5 rounded-full bg-[var(--surface-soft)] overflow-hidden mb-5">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
@@ -215,16 +232,12 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
             }}
           />
         </div>
-        {/* 4 KPI boxes */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums text-[var(--primary)]">
-              {dashboardTotals.studentsCount}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Students" : "طالب"}
-            </p>
-          </div>
+
+        {/* Row 1: Financial KPIs */}
+        <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
+          {isEn ? "Financials" : "الماليات"}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
             <p className="text-xl font-black tabular-nums" style={{ color: "var(--success)" }}>
               {formatNumber(dashboardTotals.totalPaid)}
@@ -242,11 +255,89 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
             </p>
           </div>
           <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums" style={{ color: "var(--success)" }}>
+              {formatNumber(dashboardTotals.todayIncomes)}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Today Income" : "إيرادات اليوم"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums text-[var(--danger)]">
+              {formatNumber(dashboardTotals.todayExpenses)}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Today Expenses" : "مصروفات اليوم"}
+            </p>
+          </div>
+        </div>
+
+        {/* Row 2: People & Structure KPIs */}
+        <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
+          {isEn ? "Students & Staff" : "الطلاب والهيئة"}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums text-[var(--primary)]">
+              {dashboardTotals.studentsCount}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Students" : "الطلاب"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums text-[var(--text-secondary)]">
+              {dashboardTotals.transferredCount}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Transferred" : "منقولون"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
             <p className="text-xl font-black tabular-nums text-[var(--danger)]">
               {overdueStudents?.length ?? 0}
             </p>
             <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Overdue" : "متأخر"}
+              {isEn ? "Overdue" : "متأخرون"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums" style={{ color: "#8b5cf6" }}>
+              {teachersCount ?? "—"}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Teachers" : "الأساتذة"}
+            </p>
+          </div>
+        </div>
+
+        {/* Row 3: Structure & Notifications */}
+        <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
+          {isEn ? "Structure" : "الهيكل"}
+        </p>
+        <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums" style={{ color: "#0ea5e9" }}>
+              {classesSections.classes?.length ?? 0}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Classes" : "الصفوف"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums" style={{ color: "#f97316" }}>
+              {classesSections.sections?.length ?? 0}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Sections" : "الشعب"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
+            <p className="text-xl font-black tabular-nums" style={{ color: "#ec4899" }}>
+              {notificationsCount ?? "—"}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
+              {isEn ? "Notifications" : "الإشعارات"}
             </p>
           </div>
         </div>
@@ -293,6 +384,150 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
           onRetry={refetch}
         />
       </div>
+
+      {/* ⑤ Classes Table */}
+      {dashboardData.classFees && dashboardData.classFees.length > 0 && (
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[var(--border)]">
+            <h3 className="text-sm font-black text-[var(--text-primary)]">
+              {isEn ? "Classes Overview" : "نظرة على الصفوف"}
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border)] bg-[var(--surface-soft)]">
+                  <th className="px-4 py-3 text-right text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Class" : "الصف"}
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Sections" : "الشعب"}
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Students" : "الطلاب"}
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Fee" : "القسط"}
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Required" : "المطلوب"}
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Collected" : "محصّل"}
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Remaining" : "متبقي"}
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                    {isEn ? "Rate" : "التحصيل"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboardData.classFees.map((cf) => {
+                  const sectionsForClass = classesSections.sections?.filter(
+                    (s) => {
+                      const cls = classesSections.classes?.find((c) => c.name === cf.class_name);
+                      return cls ? s.class_id === cls.id : false;
+                    }
+                  ) ?? [];
+                  const studentCount = dashboardData.studentCountByClass?.[cf.class_name] ?? cf.stats?.count ?? 0;
+                  const paidPct = cf.stats?.paidPct ?? 0;
+                  return (
+                    <tr key={cf.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface-soft)] transition-colors">
+                      <td className="px-4 py-3 font-bold text-[var(--text-primary)]">{cf.class_name}</td>
+                      <td className="px-4 py-3 text-center tabular-nums font-semibold text-[var(--text-secondary)]">
+                        {sectionsForClass.length || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums font-semibold" style={{ color: "var(--primary)" }}>
+                        {studentCount}
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums font-semibold text-[var(--text-secondary)]">
+                        {formatNumber(cf.total_fee)}
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums font-semibold text-[var(--text-secondary)]">
+                        {formatNumber(cf.stats?.totalExpected ?? 0)}
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums font-bold" style={{ color: "var(--success)" }}>
+                        {formatNumber(cf.stats?.totalPaid ?? 0)}
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums font-semibold text-[var(--warning)]">
+                        {formatNumber(cf.stats?.totalRemaining ?? 0)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black"
+                          style={{
+                            background: paidPct >= 80
+                              ? "color-mix(in srgb, var(--success) 15%, transparent)"
+                              : paidPct >= 50
+                                ? "color-mix(in srgb, var(--warning) 15%, transparent)"
+                                : "color-mix(in srgb, var(--danger) 15%, transparent)",
+                            color: paidPct >= 80
+                              ? "var(--success)"
+                              : paidPct >= 50
+                                ? "var(--warning)"
+                                : "var(--danger)",
+                          }}
+                        >
+                          {paidPct}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              {/* Totals row */}
+              {(() => {
+                const totalExpected = dashboardData.classFees.reduce((s, cf) => s + (cf.stats?.totalExpected ?? 0), 0);
+                const totalPaid = dashboardData.classFees.reduce((s, cf) => s + (cf.stats?.totalPaid ?? 0), 0);
+                const totalRemaining = dashboardData.classFees.reduce((s, cf) => s + (cf.stats?.totalRemaining ?? 0), 0);
+                const overallPct = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
+                return (
+                  <tfoot>
+                    <tr className="bg-[var(--surface-soft)] border-t-2 border-[var(--border)]">
+                      <td className="px-4 py-3 font-black text-[var(--text-primary)]">
+                        {isEn ? "Total" : "المجموع"}
+                      </td>
+                      <td className="px-4 py-3 text-center font-black text-[var(--text-secondary)]">
+                        {classesSections.sections?.length ?? 0}
+                      </td>
+                      <td className="px-4 py-3 text-center font-black" style={{ color: "var(--primary)" }}>
+                        {dashboardTotals.studentsCount}
+                      </td>
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3 text-center tabular-nums font-black text-[var(--text-primary)]">
+                        {formatNumber(totalExpected)}
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums font-black" style={{ color: "var(--success)" }}>
+                        {formatNumber(totalPaid)}
+                      </td>
+                      <td className="px-4 py-3 text-center tabular-nums font-black text-[var(--warning)]">
+                        {formatNumber(totalRemaining)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black"
+                          style={{
+                            background: overallPct >= 80
+                              ? "color-mix(in srgb, var(--success) 15%, transparent)"
+                              : overallPct >= 50
+                                ? "color-mix(in srgb, var(--warning) 15%, transparent)"
+                                : "color-mix(in srgb, var(--danger) 15%, transparent)",
+                            color: overallPct >= 80 ? "var(--success)" : overallPct >= 50 ? "var(--warning)" : "var(--danger)",
+                          }}
+                        >
+                          {overallPct}%
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                );
+              })()}
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <ClassesModal
