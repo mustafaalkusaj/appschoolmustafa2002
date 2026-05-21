@@ -46,12 +46,19 @@ export type StudentFormData = {
   class_name: string;
   section: string;
   phone: string;
+  phone2: string;
   address: string;
   total_fee: string;
   paid_fee: string;
   discount_value: string;
   status: StudentStatus;
   branch_id: string; // Required when user has multi-branch access and no branch is pre-selected from context
+  registration_number: string;
+  date_of_birth: string;
+  parent_name: string;
+  gender: string;
+  photo_url: string;
+  previous_school: string;
 };
 
 export type ClassFee = {
@@ -65,6 +72,7 @@ export type ClassFee = {
 
 export type PrintCardOptions = {
   locale: "ar" | "en";
+  logoUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
 };

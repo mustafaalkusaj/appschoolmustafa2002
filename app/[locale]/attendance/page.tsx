@@ -1,6 +1,8 @@
 "use client";
 
+import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import { usePathname } from "next/navigation";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { formatNumber } from "@/lib/formatting";
@@ -14,12 +16,16 @@ import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
-import { CalendarDays, Search, Filter, Save, RotateCcw, Download, AlertTriangle, Lock, LockOpen, TrendingUp, BarChart3, ChevronLeft, ChevronRight } from "@/lib/icons";
+import { CalendarDays, Search, Filter, Save, RotateCcw, Download, AlertTriangle, Lock, LockOpen, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Users, Archive } from "@/lib/icons";
+import { DatePicker } from "@/components/ui/date-picker";
+import { useArchiveMode } from "@/hooks/useArchiveMode";
 import { StudentAttendanceInsight } from "@/app/[locale]/attendance/_components/StudentAttendanceInsight";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
 type AttendanceStatusFilter = AttendanceStatus | "all" | "unrecorded";
 type AttendanceStatusValue = AttendanceStatus | "";
+
+type AttendanceTab = "record" | "stats" | "absences" | "history";
 
 type Student = {
   id: string;
@@ -270,10 +276,10 @@ const ATTENDANCE_COPY: Record<"ar" | "en", AttendanceCopy> = {
 
 function buildStatusMeta(copy: AttendanceCopy) {
   return {
-    present: { label: copy.statusLabels.present, bg: "bg-emerald-50 dark:bg-emerald-900/20", color: "text-emerald-700 dark:text-emerald-400", border: "border-emerald-100 dark:border-emerald-800/50" },
-    absent: { label: copy.statusLabels.absent, bg: "bg-rose-50 dark:bg-rose-900/20", color: "text-rose-700 dark:text-rose-400", border: "border-rose-100 dark:border-rose-800/50" },
-    late: { label: copy.statusLabels.late, bg: "bg-amber-50 dark:bg-amber-900/20", color: "text-amber-700 dark:text-amber-400", border: "border-amber-100 dark:border-amber-800/50" },
-    excused: { label: copy.statusLabels.excused, bg: "bg-blue-50 dark:bg-blue-900/20", color: "text-blue-700 dark:text-blue-400", border: "border-blue-100 dark:border-blue-800/50" },
+    present: { label: copy.statusLabels.present, bg: "bg-[var(--success-soft)]", color: "text-[var(--success)]", border: "border-[var(--success)]/20" },
+    absent:  { label: copy.statusLabels.absent,  bg: "bg-[var(--danger-soft)]",  color: "text-[var(--danger)]",  border: "border-[var(--danger)]/20" },
+    late:    { label: copy.statusLabels.late,    bg: "bg-[var(--warning-soft)]", color: "text-[var(--warning)]", border: "border-[var(--warning)]/20" },
+    excused: { label: copy.statusLabels.excused, bg: "bg-[var(--primary)]/10",   color: "text-[var(--primary)]", border: "border-[var(--primary)]/20" },
   } satisfies Record<AttendanceStatus, { label: string; bg: string; color: string; border: string }>;
 }
 
@@ -318,6 +324,7 @@ export default function AttendancePage() {
   const { profile } = useRole();
   const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
+  const archiveMode = useArchiveMode();
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceDrafts, setAttendanceDrafts] = useState<Record<string, AttendanceDraft>>({});
   const [historyRows, setHistoryRows] = useState<HistorySummary[]>([]);
@@ -327,6 +334,7 @@ export default function AttendancePage() {
   const [filterClass, setFilterClass] = useState("");
   const [filterSection, setFilterSection] = useState("");
   const [filterStatus, setFilterStatus] = useState<AttendanceStatusFilter>("all");
+  const [activeTab, setActiveTab] = useState<AttendanceTab>("record");
 
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
@@ -658,9 +666,30 @@ export default function AttendancePage() {
     URL.revokeObjectURL(url);
   }
 
+  function exportDailyExcel() {
+    const statusLabelMap: Record<string, string> = { present: "حاضر", absent: "غائب", late: "متأخر", excused: "بعذر" };
+    const data = filteredStudents.map((s, idx) => {
+      const d = attendanceDrafts[s.id];
+      return {
+        "#": idx + 1,
+        "اسم الطالب": s.full_name,
+        "الصف": s.class_name,
+        "الشعبة": s.section ?? "",
+        "الحالة": statusLabelMap[d?.status || ""] ?? "غير مسجل",
+        "ملاحظة": d?.note || "",
+        "آخر تحديث": d?.updated_at ? new Date(d.updated_at).toLocaleTimeString("ar-IQ-u-nu-latn", { hour: "2-digit", minute: "2-digit" }) : "",
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [{ wch: 5 }, { wch: 28 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 24 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `حضور ${selectedDate}`);
+    XLSX.writeFile(wb, `حضور_${selectedDate}.xlsx`);
+  }
+
   const heroDateLabel = useMemo(
     () =>
-      new Date(`${selectedDate}T00:00:00`).toLocaleDateString(locale === "en" ? "en-US" : "ar-IQ", {
+      new Date(`${selectedDate}T00:00:00`).toLocaleDateString(locale === "en" ? "en-US" : "ar-IQ-u-nu-latn", {
         weekday: "long",
         year: "numeric",
         month: "long",
@@ -684,11 +713,25 @@ export default function AttendancePage() {
     if (next <= todayIso) { setSelectedDate(next); setLockOverride(false); }
   }
   const isToday = selectedDate === todayIso;
+
+  const tabBadges: Partial<Record<AttendanceTab, number>> = {
+    record: stats.absent + stats.late,
+    absences: repeatedAbsences.length,
+    history: historyRows.length,
+  };
+
+  const attendanceTabs: { id: AttendanceTab; label: string; icon: React.ElementType; color: string }[] = [
+    { id: "record",   label: "التسجيل اليومي", icon: Users,         color: "var(--primary)" },
+    { id: "stats",    label: "الإحصائيات",     icon: BarChart3,     color: "var(--success)" },
+    { id: "absences", label: "الغياب المتكرر", icon: AlertTriangle, color: "var(--danger)" },
+    { id: "history",  label: "السجل التاريخي", icon: TrendingUp,    color: "var(--warning)" },
+  ];
+
   const statusRowMeta: Record<AttendanceStatus, { border: string; rowBg: string }> = {
-    present: { border: "border-s-[3px] border-s-emerald-500", rowBg: "bg-emerald-50/40 dark:bg-emerald-900/10" },
-    absent:  { border: "border-s-[3px] border-s-rose-500",    rowBg: "bg-rose-50/40 dark:bg-rose-900/10" },
-    late:    { border: "border-s-[3px] border-s-amber-500",   rowBg: "bg-amber-50/40 dark:bg-amber-900/10" },
-    excused: { border: "border-s-[3px] border-s-blue-400",    rowBg: "bg-blue-50/40 dark:bg-blue-900/10" },
+    present: { border: "border-s-[3px] border-s-[var(--success)]",  rowBg: "bg-[var(--success-soft)]/40" },
+    absent:  { border: "border-s-[3px] border-s-[var(--danger)]",   rowBg: "bg-[var(--danger-soft)]/40" },
+    late:    { border: "border-s-[3px] border-s-[var(--warning)]",  rowBg: "bg-[var(--warning-soft)]/40" },
+    excused: { border: "border-s-[3px] border-s-[var(--primary)]",  rowBg: "bg-[var(--primary)]/5" },
   };
 
   return (
@@ -705,10 +748,46 @@ export default function AttendancePage() {
           />
 
           <main className="app-shell-frame--with-fixed-topbar flex-1 overflow-y-auto custom-scrollbar">
-            <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
+
+              {/* ── Hero Banner ─────────────────────────────────────────────── */}
+              <div
+                className="relative rounded-2xl overflow-hidden p-6 md:p-8"
+                style={{ background: "linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 60%, var(--success)) 100%)" }}
+              >
+                <div className="absolute top-0 end-0 w-72 h-72 rounded-full pointer-events-none opacity-[0.08]" style={{ background: "white", transform: "translate(35%,-40%)" }} />
+                <div className="absolute bottom-0 start-12 w-48 h-48 rounded-full pointer-events-none opacity-[0.06]" style={{ background: "white", transform: "translateY(60%)" }} />
+                <div className="relative flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-white/60 text-xs font-medium mb-2 tracking-widest uppercase">لوحة الإدارة · الحضور</p>
+                    <h1 className="text-2xl md:text-3xl font-black text-white mb-1.5 leading-tight">{copy.heroTitle}</h1>
+                    <p className="text-white/70 text-sm">{copy.heroDescription}</p>
+                  </div>
+                  <div
+                    className="hidden md:flex items-center justify-center w-20 h-20 rounded-2xl flex-shrink-0"
+                    style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
+                  >
+                    <CalendarDays size={38} className="text-white" />
+                  </div>
+                </div>
+                <div className="relative mt-5 pt-4 border-t border-white/15 flex items-center gap-3 flex-wrap">
+                  <span className="text-white/60 text-xs font-medium">{copy.activeDate}:</span>
+                  <span className="text-white font-black text-sm">{heroDateLabel}</span>
+                  {isToday && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black" style={{ background: "rgba(255,255,255,0.22)", color: "white" }}>اليوم</span>
+                  )}
+                  <div className="ms-auto flex items-center gap-2">
+                    <span className="text-white/50 text-xs">{formatNumber(stats.total)} طالب</span>
+                    <span className="text-white/30">·</span>
+                    <span className="text-white/70 text-xs font-bold">{stats.attendanceRate}% حضور</span>
+                  </div>
+                </div>
+              </div>
 
               {/* ── Command Bar ─────────────────────────────────────────────── */}
-              <section className="rounded-[28px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+              <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                {/* Accent strip */}
+                <div style={{ height: 3, background: "linear-gradient(90deg, var(--primary), var(--success))" }} />
                 {/* Top row: date nav + title + save */}
                 <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                   {/* Date navigation */}
@@ -719,14 +798,8 @@ export default function AttendancePage() {
                     >
                       <ChevronRight size={16} />
                     </button>
-                    <div className="relative">
-                      <CalendarDays size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-                      <input
-                        type="date"
-                        className="h-10 ps-9 pe-3 rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] text-sm font-black text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/10"
-                        value={selectedDate}
-                        onChange={(e) => { setSelectedDate(e.target.value); setLockOverride(false); }}
-                      />
+                    <div>
+                      <DatePicker value={selectedDate || undefined} onChange={(v) => { setSelectedDate(v ?? ""); setLockOverride(false); }} />
                     </div>
                     <button
                       onClick={goNextDay}
@@ -798,18 +871,20 @@ export default function AttendancePage() {
 
                 {/* Stats strip */}
                 {!schoolScope.shouldBlockContent && (
-                  <div className="border-t border-[var(--border)] grid grid-cols-3 sm:grid-cols-6 divide-x divide-x-reverse divide-[var(--border)]">
+                  <div className="border-t border-[var(--border)] grid grid-cols-3 sm:grid-cols-6">
                     {[
-                      { label: copy.stats.total,   value: stats.total,   color: "text-[var(--text-primary)]", bg: "" },
-                      { label: copy.stats.present, value: stats.present, color: "text-emerald-600 dark:text-emerald-400", bg: "" },
-                      { label: copy.stats.absent,  value: stats.absent,  color: "text-rose-600 dark:text-rose-400", bg: "" },
-                      { label: copy.stats.late,    value: stats.late,    color: "text-amber-600 dark:text-amber-400", bg: "" },
-                      { label: copy.stats.excused, value: stats.excused, color: "text-blue-600 dark:text-blue-400", bg: "" },
-                      { label: copy.stats.rate,    value: `${stats.attendanceRate}%`, color: "text-[var(--primary)]", bg: "" },
+                      { label: copy.stats.total,   value: stats.total,   accent: "var(--text-primary)", bg: "bg-[var(--surface-soft)]" },
+                      { label: copy.stats.present, value: stats.present, accent: "var(--success)",      bg: "bg-[var(--success)]/5" },
+                      { label: copy.stats.absent,  value: stats.absent,  accent: "var(--danger)",       bg: "bg-[var(--danger)]/5" },
+                      { label: copy.stats.late,    value: stats.late,    accent: "var(--warning)",      bg: "bg-[var(--warning)]/5" },
+                      { label: copy.stats.excused, value: stats.excused, accent: "var(--primary)",      bg: "bg-[var(--primary)]/5" },
+                      { label: copy.stats.rate,    value: `${stats.attendanceRate}%`, accent: "var(--primary)", bg: "bg-[var(--primary)]/8" },
                     ].map((s, i) => (
-                      <div key={i} className="flex flex-col items-center justify-center py-3 px-2">
-                        <div className={cn("text-xl font-black tabular-nums", s.color)}>{typeof s.value === "number" ? formatNumber(s.value) : s.value}</div>
-                        <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] mt-0.5">{s.label}</div>
+                      <div key={i} className={cn("flex flex-col items-center justify-center py-4 px-2 border-e border-e-[var(--border)] last:border-e-0", s.bg)}>
+                        <div className="text-2xl font-black tabular-nums leading-none" style={{ color: s.accent }}>
+                          {typeof s.value === "number" ? formatNumber(s.value) : s.value}
+                        </div>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] mt-1">{s.label}</div>
                       </div>
                     ))}
                   </div>
@@ -829,378 +904,530 @@ export default function AttendancePage() {
 
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />
 
+              {archiveMode.isArchiveMode && archiveMode.archiveData && (
+                <div className="rounded-2xl flex items-center gap-3 px-5 py-3.5 border border-indigo-500/30 mb-4"
+                  style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e1b4b 100%)" }}>
+                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Archive size={15} className="text-indigo-300" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">وضع الأرشيف — سنة {archiveMode.archiveData.year}</p>
+                    <p className="text-sm font-black text-white">صفحة الحضور لا تدعم عرض بيانات الأرشيف · يعرض الحضور الحالي فقط</p>
+                  </div>
+                  <button onClick={archiveMode.exitArchiveMode}
+                    className="text-[11px] font-black text-indigo-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition flex-shrink-0">
+                    خروج
+                  </button>
+                </div>
+              )}
+
               {schoolScope.shouldBlockContent ? (
-                <div className="rounded-[28px] border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-8 shadow-[var(--card-shadow)]">
                   <SchoolScopeEmptyState scope={schoolScope} title={copy.emptyStateTitle} description={copy.emptyStateDescription} />
                 </div>
               ) : (
                 <div className="space-y-6">
 
-                  {/* ── Filters ─────────────────────────────────────────────── */}
-                  <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">
-                    <div className="flex flex-wrap items-end gap-3">
-                      {/* Class */}
-                      <div className="space-y-1 min-w-[130px] flex-1">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.className}</label>
-                        <select className={controlClasses} value={filterClass} onChange={(e) => { setFilterClass(e.target.value); setFilterSection(""); }}>
-                          <option value="">{copy.allClasses}</option>
-                          {classes.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                      {/* Section */}
-                      <div className="space-y-1 min-w-[110px] flex-1">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.section}</label>
-                        <select className={controlClasses} value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
-                          <option value="">{copy.allSections}</option>
-                          {sections.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      {/* Search */}
-                      <div className="space-y-1 min-w-[160px] flex-[2]">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.search}</label>
-                        <div className="relative">
-                          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-                          <input placeholder={copy.searchPlaceholder} className={cn(controlClasses, "ps-9")} value={search} onChange={(e) => setSearch(e.target.value)} />
-                        </div>
-                      </div>
-                      {/* Status filter pills */}
-                      <div className="space-y-1 flex-[3]">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.status}</label>
-                        <div className="flex flex-wrap gap-1.5 h-11 items-center">
-                          {(["all", "present", "absent", "late", "excused", "unrecorded"] as AttendanceStatusFilter[]).map((s) => {
-                            const label = s === "all" ? copy.allStatuses : s === "unrecorded" ? copy.unrecorded : copy.statusLabels[s as AttendanceStatus];
-                            const active = filterStatus === s;
-                            return (
-                              <button
-                                key={s}
-                                onClick={() => setFilterStatus(s)}
-                                className={cn(
-                                  "px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all",
-                                  active
-                                    ? s === "all" ? "bg-[var(--primary)] text-white border-transparent"
-                                      : s === "present" ? "bg-emerald-500 text-white border-transparent"
-                                        : s === "absent" ? "bg-rose-500 text-white border-transparent"
-                                          : s === "late" ? "bg-amber-500 text-white border-transparent"
-                                            : s === "excused" ? "bg-blue-500 text-white border-transparent"
-                                              : "bg-[var(--surface-strong)] text-[var(--text-primary)] border-[var(--border)]"
-                                    : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
-                                )}
-                              >
-                                {label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bulk assign */}
-                    <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[var(--border)]">
-                      <Filter size={13} className="text-[var(--text-muted)]" />
-                      <span className="text-[10px] font-black uppercase text-[var(--text-muted)] me-1">{copy.bulkAssign}</span>
-                      {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => (
+                  {/* ── Animated Tab Bar ────────────────────────────────────── */}
+                  <div className="relative rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-1.5 flex gap-1">
+                    {attendanceTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
                         <button
-                          key={status}
-                          onClick={() => applyStatusToFiltered(status)}
-                          className={cn("px-3 py-1.5 rounded-xl text-[11px] font-black border transition hover:-translate-y-0.5", statusMeta[status].bg, statusMeta[status].color, statusMeta[status].border)}
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setActiveTab(tab.id)}
+                          className={cn(
+                            "relative flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-colors duration-150 z-10",
+                            isActive ? "text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-soft)]",
+                          )}
                         >
-                          {statusMeta[status].label}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  {/* ── Class breakdown ─────────────────────────────────────── */}
-                  {classStats.length > 1 && (
-                    <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">
-                      <div className="flex items-center gap-2 mb-4">
-                        <BarChart3 size={15} className="text-[var(--primary)]" />
-                        <h2 className="text-sm font-black text-[var(--text-primary)]">حضور بالصف</h2>
-                      </div>
-                      <div className="space-y-2.5">
-                        {classStats.map((cls) => (
-                          <div key={cls.class_name} className="flex items-center gap-3">
-                            <span className="text-xs font-black text-[var(--text-secondary)] w-28 shrink-0 truncate">{cls.class_name}</span>
-                            <div className="flex-1 h-5 bg-[var(--surface-muted)] rounded-full overflow-hidden relative">
-                              <div
-                                className={cn("h-full rounded-full transition-all", cls.rate >= 80 ? "bg-emerald-500" : cls.rate >= 60 ? "bg-amber-500" : "bg-rose-500")}
-                                style={{ width: `${cls.rate}%` }}
-                              />
-                            </div>
-                            <span className={cn("text-xs font-black w-10 text-end shrink-0", cls.rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : cls.rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400")}>{cls.rate}%</span>
-                            <span className="text-[10px] text-[var(--text-muted)] font-bold w-16 shrink-0 hidden sm:block">
-                              ↑{cls.present} ↓{cls.absent}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* ── Main Attendance Table ────────────────────────────────── */}
-                  <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
-                    {/* Table header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-                      <div className="flex items-center gap-3">
-                        {isLocked ? (
-                          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--warning)]/10 border border-[var(--warning)]/30 text-[var(--warning)] text-[11px] font-black">
-                            <Lock size={11} /> مقفل
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--success)]/10 border border-[var(--success)]/20 text-[var(--success)] text-[11px] font-black">
-                            قابل للتعديل
-                          </span>
-                        )}
-                        <span className="text-sm font-black text-[var(--text-primary)]">{copy.studentsList}</span>
-                        <span className="text-[10px] font-black text-[var(--text-muted)] bg-[var(--surface-muted)] border border-[var(--border)] rounded-full px-2 py-0.5">{copy.studentCount(filteredStudents.length)}</span>
-                      </div>
-                      <button
-                        onClick={exportDailyCsv}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] text-[11px] font-black text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)]"
-                      >
-                        <Download size={13} /> CSV
-                      </button>
-                    </div>
-
-                    {loadingStudents || loadingAttendance ? (
-                      <div className="flex flex-col items-center justify-center py-20 gap-4">
-                        <div className="h-10 w-10 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
-                        <span className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">{copy.syncing}</span>
-                      </div>
-                    ) : filteredStudents.length === 0 ? (
-                      <div className="py-20 text-center text-[var(--text-muted)] font-bold border-2 border-dashed border-[var(--border)] rounded-2xl mx-5 my-5">
-                        {copy.noResults}
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-start border-collapse">
-                          <thead>
-                            <tr className="bg-[var(--surface-muted)]">
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">#</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.studentName}</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.classSection}</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.chooseStatus}</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden md:table-cell">{copy.note}</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden lg:table-cell">{copy.updatedAt}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border)]">
-                            {filteredStudents.map((student, idx) => {
-                              const draft = attendanceDrafts[student.id] || { status: "", note: "", touched: false };
-                              const rowStyle = draft.status && isAttendanceStatus(draft.status) ? statusRowMeta[draft.status] : null;
-                              return (
-                                <tr
-                                  key={student.id}
-                                  className={cn(
-                                    "transition-colors",
-                                    rowStyle?.border ?? "",
-                                    rowStyle ? rowStyle.rowBg : "hover:bg-[var(--surface-muted)]/40",
-                                    draft.touched && !isLocked && "ring-1 ring-inset ring-[var(--primary)]/20",
-                                  )}
-                                >
-                                  <td className="px-4 py-3 text-[11px] font-black text-[var(--text-muted)] w-8">{idx + 1}</td>
-                                  <td className="px-4 py-3">
-                                    <span className="font-black text-[var(--text-primary)] text-sm">{student.full_name}</span>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-xs font-bold text-[var(--text-secondary)]">{student.class_name}</span>
-                                    {student.section && <span className="text-xs text-[var(--text-muted)] ms-1">· {student.section}</span>}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <div className="inline-flex rounded-xl border border-[var(--border)] overflow-hidden bg-[var(--surface-strong)]">
-                                      {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => {
-                                        const isActive = draft.status === status;
-                                        return (
-                                          <button
-                                            key={status}
-                                            disabled={isLocked}
-                                            onClick={() => !isLocked && setRowStatus(student.id, status)}
-                                            className={cn(
-                                              "px-3 py-2 text-[11px] font-black transition-all border-e last:border-e-0 border-[var(--border)]",
-                                              isLocked
-                                                ? isActive
-                                                  ? `${statusMeta[status].bg} ${statusMeta[status].color} opacity-70`
-                                                  : "text-[var(--text-muted)] opacity-25 cursor-not-allowed"
-                                                : isActive
-                                                  ? `${statusMeta[status].bg} ${statusMeta[status].color} shadow-sm`
-                                                  : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
-                                            )}
-                                          >
-                                            {statusMeta[status].label}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 hidden md:table-cell">
-                                    <input
-                                      className={cn("h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] px-3 text-xs font-bold text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 w-full max-w-[200px]", isLocked && "opacity-40 cursor-not-allowed")}
-                                      placeholder={copy.addNote}
-                                      value={draft.note}
-                                      onChange={(e) => !isLocked && setRowNote(student.id, e.target.value)}
-                                      readOnly={isLocked}
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3 text-[10px] font-bold text-[var(--text-muted)] whitespace-nowrap hidden lg:table-cell">
-                                    {draft.updated_at ? new Date(draft.updated_at).toLocaleTimeString(locale === "en" ? "en-US" : "ar-IQ", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-
-                  {/* ── Repeated Absences ───────────────────────────────────── */}
-                  <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-[var(--border)]">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle size={15} className="text-rose-500 shrink-0" />
-                        <div>
-                          <span className="text-sm font-black text-[var(--text-primary)]">الغياب المتكرر</span>
-                          <span className="text-[11px] text-[var(--text-muted)] ms-2">آخر 30 يوم</span>
-                        </div>
-                        {repeatedAbsences.length > 0 && (
-                          <span className="h-5 min-w-5 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center px-1">
-                            {repeatedAbsences.length}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-black text-[var(--text-muted)]">حد:</span>
-                        {[2, 3, 5, 7, 10].map((n) => (
-                          <button
-                            key={n}
-                            onClick={() => setAbsenceThreshold(n)}
-                            className={cn(
-                              "h-7 w-7 rounded-lg text-[11px] font-black border transition",
-                              absenceThreshold === n ? "bg-rose-500 text-white border-transparent" : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
+                          {isActive && (
+                            <motion.div
+                              layoutId="attendance-tab-pill"
+                              className="absolute inset-0 rounded-xl"
+                              style={{ background: tab.color }}
+                              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            />
+                          )}
+                          <span className="relative z-10 flex items-center gap-2">
+                            <Icon size={15} />
+                            <span className="hidden sm:inline">{tab.label}</span>
+                            {!!tabBadges[tab.id] && (
+                              <span
+                                className="hidden sm:inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-black px-1"
+                                style={isActive
+                                  ? { background: "rgba(255,255,255,0.25)", color: "white" }
+                                  : { background: tab.color, color: "white", opacity: 0.85 }
+                                }
+                              >
+                                {tabBadges[tab.id]}
+                              </span>
                             )}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                        <button onClick={() => void fetchRepeatedAbsences(absenceThreshold)} className="h-7 w-7 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] flex items-center justify-center text-[var(--text-muted)] transition hover:bg-[var(--border)]">
-                          <RotateCcw size={12} />
+                          </span>
                         </button>
-                      </div>
-                    </div>
+                      );
+                    })}
+                  </div>
 
-                    {loadingRepeated ? (
-                      <div className="flex justify-center py-10">
-                        <div className="h-8 w-8 border-4 border-rose-200 border-t-rose-500 rounded-full animate-spin" />
-                      </div>
-                    ) : repeatedAbsences.length === 0 ? (
-                      <div className="flex items-center justify-center gap-3 py-10 text-[var(--text-muted)]">
-                        <TrendingUp size={20} className="text-emerald-500 opacity-50" />
-                        <span className="text-sm font-bold">لا يوجد طلاب تجاوزوا {absenceThreshold} غيابات</span>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-start border-collapse">
-                          <thead>
-                            <tr className="bg-[var(--surface-muted)]">
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الطالب</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الصف</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center w-24">غيابات</th>
-                              <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden sm:table-cell">آخر 3 أيام</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border)]">
-                            {repeatedAbsences.map((s) => (
-                              <tr key={s.id} className="hover:bg-rose-50/30 dark:hover:bg-rose-900/10 transition-colors border-s-[3px] border-s-transparent hover:border-s-rose-400">
-                                <td className="px-4 py-3 font-black text-[var(--text-primary)] text-sm">{s.full_name}</td>
-                                <td className="px-4 py-3 text-xs font-bold text-[var(--text-secondary)]">{s.class_name}{s.section ? ` · ${s.section}` : ""}</td>
-                                <td className="px-4 py-3 text-center">
-                                  <span className={cn(
-                                    "inline-flex h-7 min-w-7 items-center justify-center rounded-full text-xs font-black px-2",
-                                    s.absent_count >= 7 ? "bg-rose-500 text-white" : s.absent_count >= 5 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400"
-                                  )}>
-                                    {s.absent_count}
+                  {/* ── Tab Content ─────────────────────────────────────────── */}
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="space-y-6"
+                    >
+
+                      {/* ── Tab: Record ────────────────────────────────────── */}
+                      {activeTab === "record" && (
+                        <>
+                          {/* Filters */}
+                          <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                            <div style={{ height: 2, background: "linear-gradient(90deg, var(--primary), var(--success))" }} />
+                            <div className="p-5">
+                            <div className="flex flex-wrap items-end gap-3">
+                              {/* Class */}
+                              <div className="space-y-1 min-w-[130px] flex-1">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.className}</label>
+                                <select className={controlClasses} value={filterClass} onChange={(e) => { setFilterClass(e.target.value); setFilterSection(""); }}>
+                                  <option value="">{copy.allClasses}</option>
+                                  {classes.map((c) => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                              </div>
+                              {/* Section */}
+                              <div className="space-y-1 min-w-[110px] flex-1">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.section}</label>
+                                <select className={controlClasses} value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
+                                  <option value="">{copy.allSections}</option>
+                                  {sections.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </div>
+                              {/* Search */}
+                              <div className="space-y-1 min-w-[160px] flex-[2]">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.search}</label>
+                                <div className="relative">
+                                  <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+                                  <input placeholder={copy.searchPlaceholder} className={cn(controlClasses, "ps-9")} value={search} onChange={(e) => setSearch(e.target.value)} />
+                                </div>
+                              </div>
+                              {/* Status filter pills */}
+                              <div className="space-y-1 flex-[3]">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{copy.status}</label>
+                                <div className="flex flex-wrap gap-1.5 h-11 items-center">
+                                  {(["all", "present", "absent", "late", "excused", "unrecorded"] as AttendanceStatusFilter[]).map((s) => {
+                                    const label = s === "all" ? copy.allStatuses : s === "unrecorded" ? copy.unrecorded : copy.statusLabels[s as AttendanceStatus];
+                                    const active = filterStatus === s;
+                                    return (
+                                      <button
+                                        key={s}
+                                        onClick={() => setFilterStatus(s)}
+                                        className={cn(
+                                          "px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all",
+                                          active
+                                            ? s === "all" ? "bg-[var(--primary)] text-white border-transparent"
+                                              : s === "present" ? "bg-[var(--success)] text-white border-transparent"
+                                                : s === "absent" ? "bg-[var(--danger)] text-white border-transparent"
+                                                  : s === "late" ? "bg-[var(--warning)] text-white border-transparent"
+                                                    : s === "excused" ? "bg-[var(--primary)] text-white border-transparent"
+                                                      : "bg-[var(--surface-strong)] text-[var(--text-primary)] border-[var(--border)]"
+                                            : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
+                                        )}
+                                      >
+                                        {label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Bulk assign */}
+                            <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[var(--border)]">
+                              <Filter size={13} className="text-[var(--text-muted)]" />
+                              <span className="text-[10px] font-black uppercase text-[var(--text-muted)] me-1">{copy.bulkAssign}</span>
+                              {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => (
+                                <button
+                                  key={status}
+                                  onClick={() => applyStatusToFiltered(status)}
+                                  className={cn("px-3 py-1.5 rounded-xl text-[11px] font-black border transition hover:-translate-y-0.5", statusMeta[status].bg, statusMeta[status].color, statusMeta[status].border)}
+                                >
+                                  {statusMeta[status].label}
+                                </button>
+                              ))}
+                            </div>
+                            </div>
+                          </section>
+
+                          {/* ── Main Attendance Table ──────────────────────────── */}
+                          <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                            {/* Table header */}
+                            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+                              <div className="flex items-center gap-3">
+                                {isLocked ? (
+                                  <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--warning)]/10 border border-[var(--warning)]/30 text-[var(--warning)] text-[11px] font-black">
+                                    <Lock size={11} /> مقفل
                                   </span>
-                                </td>
-                                <td className="px-4 py-3 hidden sm:table-cell">
-                                  <div className="flex flex-wrap gap-1">
-                                    {s.absent_dates.slice(-3).map((d) => (
-                                      <span key={d} className="text-[10px] font-bold bg-[var(--surface-muted)] border border-[var(--border)] rounded-lg px-2 py-0.5 text-[var(--text-muted)]">{d}</span>
-                                    ))}
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--success)]/10 border border-[var(--success)]/20 text-[var(--success)] text-[11px] font-black">
+                                    قابل للتعديل
+                                  </span>
+                                )}
+                                <span className="text-sm font-black text-[var(--text-primary)]">{copy.studentsList}</span>
+                                <span className="text-[10px] font-black text-[var(--text-muted)] bg-[var(--surface-muted)] border border-[var(--border)] rounded-full px-2 py-0.5">{copy.studentCount(filteredStudents.length)}</span>
+                              </div>
+                              <button
+                                onClick={exportDailyExcel}
+                                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] text-[11px] font-black text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)]"
+                              >
+                                <Download size={13} /> Excel
+                              </button>
+                            </div>
+
+                            {loadingStudents || loadingAttendance ? (
+                              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                <div className="h-10 w-10 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
+                                <span className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">{copy.syncing}</span>
+                              </div>
+                            ) : filteredStudents.length === 0 ? (
+                              <div className="py-20 text-center text-[var(--text-muted)] font-bold border-2 border-dashed border-[var(--border)] rounded-2xl mx-5 my-5">
+                                {copy.noResults}
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-start border-collapse">
+                                  <thead>
+                                    <tr className="bg-[var(--surface-muted)]">
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">#</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.studentName}</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.classSection}</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">{copy.chooseStatus}</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden md:table-cell">{copy.note}</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden lg:table-cell">{copy.updatedAt}</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-[var(--border)]">
+                                    {filteredStudents.map((student, idx) => {
+                                      const draft = attendanceDrafts[student.id] || { status: "", note: "", touched: false };
+                                      const rowStyle = draft.status && isAttendanceStatus(draft.status) ? statusRowMeta[draft.status] : null;
+                                      return (
+                                        <tr
+                                          key={student.id}
+                                          className={cn(
+                                            "transition-colors",
+                                            rowStyle?.border ?? "",
+                                            rowStyle ? rowStyle.rowBg : "hover:bg-[var(--surface-muted)]/40",
+                                            draft.touched && !isLocked && "ring-1 ring-inset ring-[var(--primary)]/20",
+                                          )}
+                                        >
+                                          <td className="px-4 py-3 text-[11px] font-black text-[var(--text-muted)] w-8">{idx + 1}</td>
+                                          <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2.5">
+                                              <div
+                                                className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 text-white"
+                                                style={{ background: `hsl(${(student.full_name.charCodeAt(0) * 37) % 360} 60% 50%)` }}
+                                              >
+                                                {student.full_name.charAt(0)}
+                                              </div>
+                                              <span className="font-black text-[var(--text-primary)] text-sm">{student.full_name}</span>
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3">
+                                            <span className="text-xs font-bold text-[var(--text-secondary)]">{student.class_name}</span>
+                                            {student.section && <span className="text-xs text-[var(--text-muted)] ms-1">· {student.section}</span>}
+                                          </td>
+                                          <td className="px-4 py-3">
+                                            <div className="inline-flex rounded-xl border border-[var(--border)] overflow-hidden bg-[var(--surface-strong)]">
+                                              {(["present", "absent", "late", "excused"] as AttendanceStatus[]).map((status) => {
+                                                const isActive = draft.status === status;
+                                                return (
+                                                  <button
+                                                    key={status}
+                                                    disabled={isLocked}
+                                                    onClick={() => !isLocked && setRowStatus(student.id, status)}
+                                                    className={cn(
+                                                      "px-3 py-2 text-[11px] font-black transition-all border-e last:border-e-0 border-[var(--border)]",
+                                                      isLocked
+                                                        ? isActive
+                                                          ? `${statusMeta[status].bg} ${statusMeta[status].color} opacity-70`
+                                                          : "text-[var(--text-muted)] opacity-25 cursor-not-allowed"
+                                                        : isActive
+                                                          ? `${statusMeta[status].bg} ${statusMeta[status].color} shadow-sm`
+                                                          : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                                                    )}
+                                                  >
+                                                    {statusMeta[status].label}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 hidden md:table-cell">
+                                            <input
+                                              className={cn("h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] px-3 text-xs font-bold text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 w-full max-w-[200px]", isLocked && "opacity-40 cursor-not-allowed")}
+                                              placeholder={copy.addNote}
+                                              value={draft.note}
+                                              onChange={(e) => !isLocked && setRowNote(student.id, e.target.value)}
+                                              readOnly={isLocked}
+                                            />
+                                          </td>
+                                          <td className="px-4 py-3 text-[10px] font-bold text-[var(--text-muted)] whitespace-nowrap hidden lg:table-cell">
+                                            {draft.updated_at ? new Date(draft.updated_at).toLocaleTimeString(locale === "en" ? "en-US" : "ar-IQ-u-nu-latn", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </section>
+                        </>
+                      )}
+
+                      {/* ── Tab: Stats ─────────────────────────────────────── */}
+                      {activeTab === "stats" && (
+                        <>
+                          {/* ── Class breakdown ───────────────────────────────── */}
+                          {classStats.length > 1 && (
+                            <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">
+                              <div className="flex items-center gap-2 mb-4">
+                                <BarChart3 size={15} className="text-[var(--primary)]" />
+                                <h2 className="text-sm font-black text-[var(--text-primary)]">حضور بالصف</h2>
+                              </div>
+                              <div className="space-y-3">
+                                {classStats.map((cls) => (
+                                  <div key={cls.class_name} className="flex items-center gap-3">
+                                    <span className="text-xs font-black text-[var(--text-secondary)] w-28 shrink-0 truncate">{cls.class_name}</span>
+                                    <div className="flex-1 h-5 bg-[var(--surface-muted)] rounded-full overflow-hidden flex">
+                                      {cls.total > 0 && (
+                                        <>
+                                          <div className="bg-[var(--success)] h-full transition-all" style={{ width: `${(cls.present / cls.total) * 100}%` }} title={`حاضر: ${cls.present}`} />
+                                          <div className="bg-[var(--warning)] h-full transition-all opacity-80" style={{ width: `${(cls.late / cls.total) * 100}%` }} title={`متأخر: ${cls.late}`} />
+                                          <div className="bg-[var(--primary)] h-full transition-all opacity-60" style={{ width: `${(cls.excused / cls.total) * 100}%` }} title={`بعذر: ${cls.excused}`} />
+                                          <div className="bg-[var(--danger)] h-full transition-all" style={{ width: `${(cls.absent / cls.total) * 100}%` }} title={`غائب: ${cls.absent}`} />
+                                        </>
+                                      )}
+                                    </div>
+                                    <span className={cn("text-xs font-black w-10 text-end shrink-0", cls.rate >= 80 ? "text-[var(--success)]" : cls.rate >= 60 ? "text-[var(--warning)]" : "text-[var(--danger)]")}>{cls.rate}%</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] font-bold w-16 shrink-0 hidden sm:block">
+                                      ↑{cls.present} ↓{cls.absent}
+                                    </span>
                                   </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
+                                ))}
+                                {/* Legend */}
+                                <div className="flex items-center gap-4 pt-2 mt-1 border-t border-[var(--border)]">
+                                  {[
+                                    { color: "var(--success)", label: "حاضر" },
+                                    { color: "var(--warning)", label: "متأخر" },
+                                    { color: "var(--primary)", label: "بعذر" },
+                                    { color: "var(--danger)",  label: "غائب" },
+                                  ].map((l) => (
+                                    <div key={l.label} className="flex items-center gap-1.5">
+                                      <div className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
+                                      <span className="text-[10px] font-bold text-[var(--text-muted)]">{l.label}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </section>
+                          )}
 
-                  <StudentAttendanceInsight schoolId={resolvedSchoolIdForInsights} className={filterClass} section={filterSection} />
+                          <StudentAttendanceInsight schoolId={resolvedSchoolIdForInsights} className={filterClass} section={filterSection} />
+                        </>
+                      )}
 
-                  {/* ── History / Trend ─────────────────────────────────────── */}
-                  {historyRows.length > 0 && (
-                    <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
-                      <div className="px-5 py-4 border-b border-[var(--border)]">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h2 className="text-sm font-black text-[var(--text-primary)]">آخر 30 يوم</h2>
-                            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{copy.historyDescription}</p>
-                          </div>
-                          {/* Weekly comparison */}
-                          <div className="hidden sm:flex items-center gap-4">
-                            <div className="text-center">
-                              <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">هذا الأسبوع</div>
-                              <div className={cn("text-lg font-black", weeklyComparison.diff >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>{weeklyComparison.thisRate}%</div>
+                      {/* ── Tab: Absences ──────────────────────────────────── */}
+                      {activeTab === "absences" && (
+                        <>
+                          {/* ── Repeated Absences ─────────────────────────────── */}
+                          <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-[var(--border)]">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle size={15} className="text-[var(--danger)] shrink-0" />
+                                <div>
+                                  <span className="text-sm font-black text-[var(--text-primary)]">الغياب المتكرر</span>
+                                  <span className="text-[11px] text-[var(--text-muted)] ms-2">آخر 30 يوم</span>
+                                </div>
+                                {repeatedAbsences.length > 0 && (
+                                  <span className="h-5 min-w-5 rounded-full bg-[var(--danger)] text-white text-[9px] font-black flex items-center justify-center px-1">
+                                    {repeatedAbsences.length}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-black text-[var(--text-muted)]">حد:</span>
+                                {[2, 3, 5, 7, 10].map((n) => (
+                                  <button
+                                    key={n}
+                                    onClick={() => setAbsenceThreshold(n)}
+                                    className={cn(
+                                      "h-7 w-7 rounded-lg text-[11px] font-black border transition",
+                                      absenceThreshold === n ? "bg-[var(--danger)] text-white border-transparent" : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--border)]"
+                                    )}
+                                  >
+                                    {n}
+                                  </button>
+                                ))}
+                                <button onClick={() => void fetchRepeatedAbsences(absenceThreshold)} className="h-7 w-7 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] flex items-center justify-center text-[var(--text-muted)] transition hover:bg-[var(--border)]">
+                                  <RotateCcw size={12} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="text-center">
-                              <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">الأسبوع الماضي</div>
-                              <div className="text-lg font-black text-[var(--text-primary)]">{weeklyComparison.lastRate}%</div>
-                            </div>
-                            <div className={cn(
-                              "flex items-center gap-1 h-8 px-3 rounded-xl text-xs font-black border",
-                              weeklyComparison.diff > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/40"
-                                : weeklyComparison.diff < 0 ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800/40"
-                                  : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)]"
-                            )}>
-                              {weeklyComparison.diff > 0 ? "↑" : weeklyComparison.diff < 0 ? "↓" : "—"} {weeklyComparison.diff !== 0 ? `${Math.abs(weeklyComparison.diff)}%` : "لا تغيير"}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Bar chart */}
-                      <div className="p-5 space-y-1.5">
-                        {historyRows.slice(0, 14).map((row) => (
-                          <div key={row.date} className="flex items-center gap-3 group">
-                            <span className="text-[10px] font-black text-[var(--text-muted)] w-24 shrink-0 group-hover:text-[var(--text-primary)] transition-colors">{row.date}</span>
-                            <div className="flex-1 h-5 bg-[var(--surface-muted)] rounded-full overflow-hidden flex">
-                              {row.total > 0 && (
-                                <>
-                                  <div className="bg-emerald-500 h-full transition-all" style={{ width: `${(row.present / row.total) * 100}%` }} title={`حاضر: ${row.present}`} />
-                                  <div className="bg-amber-400 h-full transition-all" style={{ width: `${(row.late / row.total) * 100}%` }} title={`متأخر: ${row.late}`} />
-                                  <div className="bg-blue-400 h-full transition-all" style={{ width: `${(row.excused / row.total) * 100}%` }} title={`بعذر: ${row.excused}`} />
-                                  <div className="bg-rose-400 h-full transition-all" style={{ width: `${(row.absent / row.total) * 100}%` }} title={`غائب: ${row.absent}`} />
-                                </>
-                              )}
-                            </div>
-                            <span className={cn(
-                              "text-xs font-black w-10 text-end shrink-0",
-                              row.rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : row.rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"
-                            )}>{row.rate}%</span>
-                          </div>
-                        ))}
-                        <div className="flex items-center gap-4 pt-3 mt-2 border-t border-[var(--border)]">
-                          {[{ color: "bg-emerald-500", label: "حاضر" }, { color: "bg-amber-400", label: "متأخر" }, { color: "bg-blue-400", label: "بعذر" }, { color: "bg-rose-400", label: "غائب" }].map((l) => (
-                            <div key={l.label} className="flex items-center gap-1.5">
-                              <div className={cn("h-2.5 w-2.5 rounded-full", l.color)} />
-                              <span className="text-[10px] font-bold text-[var(--text-muted)]">{l.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </section>
-                  )}
+                            {loadingRepeated ? (
+                              <div className="flex justify-center py-10">
+                                <div className="h-8 w-8 border-4 border-[var(--danger)]/20 border-t-[var(--danger)] rounded-full animate-spin" />
+                              </div>
+                            ) : repeatedAbsences.length === 0 ? (
+                              <div className="flex items-center justify-center gap-3 py-10 text-[var(--text-muted)]">
+                                <TrendingUp size={20} className="text-[var(--success)] opacity-50" />
+                                <span className="text-sm font-bold">لا يوجد طلاب تجاوزوا {absenceThreshold} غيابات</span>
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-start border-collapse">
+                                  <thead>
+                                    <tr className="bg-[var(--surface-muted)]">
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الطالب</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start">الصف</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center w-24">غيابات</th>
+                                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] text-start hidden sm:table-cell">آخر 3 أيام</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-[var(--border)]">
+                                    {repeatedAbsences.map((s) => (
+                                      <tr key={s.id} className="hover:bg-[var(--danger)]/5 transition-colors border-s-[3px] border-s-transparent hover:border-s-[var(--danger)]">
+                                        <td className="px-4 py-3 font-black text-[var(--text-primary)] text-sm">{s.full_name}</td>
+                                        <td className="px-4 py-3 text-xs font-bold text-[var(--text-secondary)]">{s.class_name}{s.section ? ` · ${s.section}` : ""}</td>
+                                        <td className="px-4 py-3 text-center">
+                                          <span className={cn(
+                                            "inline-flex h-7 min-w-7 items-center justify-center rounded-full text-xs font-black px-2",
+                                            s.absent_count >= 7 ? "bg-[var(--danger)] text-white" : s.absent_count >= 5 ? "bg-[var(--warning)]/15 text-[var(--warning)]" : "bg-[var(--danger)]/10 text-[var(--danger)]"
+                                          )}>
+                                            {s.absent_count}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3 hidden sm:table-cell">
+                                          <div className="flex flex-wrap gap-1">
+                                            {s.absent_dates.slice(-3).map((d) => (
+                                              <span key={d} className="text-[10px] font-bold bg-[var(--surface-muted)] border border-[var(--border)] rounded-lg px-2 py-0.5 text-[var(--text-muted)]">{d}</span>
+                                            ))}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </section>
+                        </>
+                      )}
+
+                      {/* ── Tab: History ───────────────────────────────────── */}
+                      {activeTab === "history" && (
+                        <>
+                          {/* ── History / Trend ───────────────────────────────── */}
+                          {historyRows.length > 0 && (
+                            <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] overflow-hidden">
+                              <div className="px-5 py-4 border-b border-[var(--border)]">
+                                {/* Summary stat cards */}
+                                <div className="grid grid-cols-3 gap-3 mb-4">
+                                  {[
+                                    {
+                                      label: "هذا الأسبوع",
+                                      value: `${weeklyComparison.thisRate}%`,
+                                      color: weeklyComparison.diff >= 0 ? "var(--success)" : "var(--danger)",
+                                      bg: weeklyComparison.diff >= 0 ? "bg-[var(--success)]/8" : "bg-[var(--danger)]/8",
+                                    },
+                                    {
+                                      label: "الأسبوع الماضي",
+                                      value: `${weeklyComparison.lastRate}%`,
+                                      color: "var(--text-primary)",
+                                      bg: "bg-[var(--surface-muted)]",
+                                    },
+                                    {
+                                      label: weeklyComparison.diff > 0 ? "تحسّن" : weeklyComparison.diff < 0 ? "تراجع" : "مستقر",
+                                      value: weeklyComparison.diff !== 0 ? `${weeklyComparison.diff > 0 ? "+" : ""}${weeklyComparison.diff}%` : "—",
+                                      color: weeklyComparison.diff > 0 ? "var(--success)" : weeklyComparison.diff < 0 ? "var(--danger)" : "var(--text-muted)",
+                                      bg: weeklyComparison.diff > 0 ? "bg-[var(--success)]/8" : weeklyComparison.diff < 0 ? "bg-[var(--danger)]/8" : "bg-[var(--surface-muted)]",
+                                    },
+                                  ].map((card) => (
+                                    <div key={card.label} className={cn("rounded-xl p-3 text-center", card.bg)}>
+                                      <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">{card.label}</div>
+                                      <div className="text-xl font-black tabular-nums" style={{ color: card.color }}>{card.value}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h2 className="text-sm font-black text-[var(--text-primary)]">آخر 30 يوم</h2>
+                                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{copy.historyDescription}</p>
+                                  </div>
+                                  {/* Weekly comparison (hidden since shown in cards above) */}
+                                  <div className="hidden sm:flex items-center gap-4">
+                                    <div className="text-center">
+                                      <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">هذا الأسبوع</div>
+                                      <div className={cn("text-lg font-black", weeklyComparison.diff >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]")}>{weeklyComparison.thisRate}%</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">الأسبوع الماضي</div>
+                                      <div className="text-lg font-black text-[var(--text-primary)]">{weeklyComparison.lastRate}%</div>
+                                    </div>
+                                    <div className={cn(
+                                      "flex items-center gap-1 h-8 px-3 rounded-xl text-xs font-black border",
+                                      weeklyComparison.diff > 0 ? "bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20"
+                                        : weeklyComparison.diff < 0 ? "bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/20"
+                                          : "bg-[var(--surface-muted)] text-[var(--text-muted)] border-[var(--border)]"
+                                    )}>
+                                      {weeklyComparison.diff > 0 ? "↑" : weeklyComparison.diff < 0 ? "↓" : "—"} {weeklyComparison.diff !== 0 ? `${Math.abs(weeklyComparison.diff)}%` : "لا تغيير"}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Bar chart */}
+                              <div className="p-5 space-y-1.5">
+                                {historyRows.slice(0, 14).map((row) => (
+                                  <div key={row.date} className="flex items-center gap-3 group">
+                                    <span className="text-[10px] font-black text-[var(--text-muted)] w-24 shrink-0 group-hover:text-[var(--text-primary)] transition-colors">{row.date}</span>
+                                    <div className="flex-1 h-5 bg-[var(--surface-muted)] rounded-full overflow-hidden flex">
+                                      {row.total > 0 && (
+                                        <>
+                                          <div className="bg-[var(--success)] h-full transition-all" style={{ width: `${(row.present / row.total) * 100}%` }} title={`حاضر: ${row.present}`} />
+                                          <div className="bg-[var(--warning)] h-full transition-all" style={{ width: `${(row.late / row.total) * 100}%` }} title={`متأخر: ${row.late}`} />
+                                          <div className="bg-[var(--primary)] h-full transition-all opacity-70" style={{ width: `${(row.excused / row.total) * 100}%` }} title={`بعذر: ${row.excused}`} />
+                                          <div className="bg-[var(--danger)] h-full transition-all" style={{ width: `${(row.absent / row.total) * 100}%` }} title={`غائب: ${row.absent}`} />
+                                        </>
+                                      )}
+                                    </div>
+                                    <span className={cn(
+                                      "text-xs font-black w-10 text-end shrink-0",
+                                      row.rate >= 80 ? "text-[var(--success)]" : row.rate >= 60 ? "text-[var(--warning)]" : "text-[var(--danger)]"
+                                    )}>{row.rate}%</span>
+                                  </div>
+                                ))}
+                                <div className="flex items-center gap-4 pt-3 mt-2 border-t border-[var(--border)]">
+                                  {[{ color: "bg-[var(--success)]", label: "حاضر" }, { color: "bg-[var(--warning)]", label: "متأخر" }, { color: "bg-[var(--primary)] opacity-70", label: "بعذر" }, { color: "bg-[var(--danger)]", label: "غائب" }].map((l) => (
+                                    <div key={l.label} className="flex items-center gap-1.5">
+                                      <div className={cn("h-2.5 w-2.5 rounded-full", l.color)} />
+                                      <span className="text-[10px] font-bold text-[var(--text-muted)]">{l.label}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </section>
+                          )}
+                        </>
+                      )}
+
+                    </motion.div>
+                  </AnimatePresence>
+
                 </div>
               )}
             </div>

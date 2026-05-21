@@ -24,11 +24,17 @@ import { printHtmlDocument } from "@/lib/print/branding";
 import { buildBulkLoginCardsHtml, type BulkCardItem } from "./_utils";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Users, LayoutGrid } from "lucide-react";
+import { formatNumber } from "@/lib/formatting";
+import { StudentsInsights } from "./_components/StudentsInsights";
+import { StudentQuickView } from "./_components/StudentQuickView";
+import { useArchiveMode } from "@/hooks/useArchiveMode";
+import { Archive } from "@/lib/icons";
 
 // Components
 import { StudentsPageStyles } from "./_components/StudentsPageStyles";
 import { StudentsTabs } from "./_components/StudentsTabs";
-import { StudentsStats } from "./_components/StudentsStats";
 import { StudentsToolbar } from "./_components/StudentsToolbar";
 import { StudentsTable } from "./_components/StudentsTable";
 import { StudentDropdownMenu } from "./_components/StudentDropdownMenu";
@@ -40,6 +46,9 @@ import { ImportExcelModal } from "./_components/ImportExcelModal";
 import { AccountCardModal } from "./_components/AccountCardModal";
 import { BulkImportModal } from "@/components/students/BulkImportModal";
 import { AcademicYearModal } from "./_components/AcademicYearModal";
+import { QuickPayModal } from "./_components/QuickPayModal";
+import { ChangeClassModal } from "./_components/ChangeClassModal";
+import { ExportFieldsModal, type ExportFieldKey } from "./_components/ExportFieldsModal";
 
 export default function StudentsPage() {
   const pathname = usePathname();
@@ -49,13 +58,14 @@ export default function StudentsPage() {
   const schoolScope = useSchoolScope(profile);
   const branchScope = useBranchScope(profile);
   const runtimeBranding = useRuntimeBranding();
-
+  const archiveMode = useArchiveMode();
 
   const canAddStudents = can("add_students");
   const canEditStudents = can("edit_students");
-  const canDeleteStudents = can("delete_students");
+  const isAdminRole = profile?.role === "super_admin" || profile?.role === "admin";
+  const canDeleteStudents = isAdminRole && can("delete_students");
   const canManageStudents = canAddStudents || canEditStudents || canDeleteStudents;
-  const canManageStudentAccounts = profile?.role === "super_admin" || profile?.role === "admin";
+  const canManageStudentAccounts = isAdminRole;
   const isReadOnlyView = !canManageStudents;
 
   const [page, setPage] = useState(1);
@@ -66,6 +76,7 @@ export default function StudentsPage() {
   const [filterSection, setFilterSection] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
 
   useEffect(() => {
@@ -172,7 +183,33 @@ export default function StudentsPage() {
     new Set(classFees.map((item) => item.class_name?.trim()).filter(Boolean))
   ) as string[];
   const sectionsList = studentsMeta.sectionOptions;
-  const filtered = pagedStudents.filter((s) => {
+
+  // Map archive students to StudentWithFees shape when in archive mode
+  const archiveStudentsAsStudents: StudentWithFees[] = archiveMode.isArchiveMode && archiveMode.archiveData
+    ? archiveMode.archiveData.students.map((s) => ({
+        id: s.id,
+        school_id: "",
+        full_name: s.full_name,
+        class_name: s.class_name,
+        section: null,
+        phone: s.phone ?? null,
+        phone2: null,
+        address: null,
+        total_fee: s.total_fee,
+        paid_fee: s.paid_fee,
+        remaining_fee: s.remaining_fee,
+        discount_value: 0,
+        status: ((s.status ?? "archived") as StudentWithFees["status"]),
+        created_at: "",
+        updated_at: null,
+      }))
+    : [];
+
+  const effectivePaged = archiveMode.isArchiveMode && archiveMode.archiveData
+    ? archiveStudentsAsStudents
+    : pagedStudents;
+
+  const filtered = effectivePaged.filter((s) => {
     const matchSearch = s.full_name?.includes(search) || s.class_name?.includes(search);
     const matchClass = filterClass ? s.class_name === filterClass : true;
     const matchSection = filterSection ? s.section === filterSection : true;
@@ -199,25 +236,81 @@ export default function StudentsPage() {
           modals.setSelectedStudent(student);
           modals.setShowDeleteConfirm(true);
         },
+        onQuickPay: (student) => {
+          modals.setSelectedStudent(student);
+          modals.setShowQuickPay(true);
+        },
+        onCopyData: (student) => {
+          const parts = [student.full_name, student.class_name, student.section, student.phone].filter(Boolean);
+          navigator.clipboard.writeText(parts.join(" · ")).catch(() => {});
+          modals.setSuccess(locale === "en" ? "Student data copied." : "تم نسخ بيانات الطالب");
+          setTimeout(() => modals.setSuccess(""), 2000);
+        },
+        onWhatsApp: (student) => {
+          const rawPhone = student.phone?.replace(/\D/g, "") ?? "";
+          if (rawPhone) {
+            window.open(`https://wa.me/${rawPhone}`, "_blank", "noopener,noreferrer");
+          }
+        },
+        onViewPayments: (student) => {
+          setQuickViewStudent(student);
+        },
+        onChangeClass: (student) => {
+          modals.setSelectedStudent(student);
+          modals.setShowChangeClass(true);
+        },
         setActiveMenu: modals.setActiveMenu,
       }),
     [activeTab, locale, isReadOnlyView, canEditStudents, canDeleteStudents, canManageStudentAccounts, modals, operations, print]
   );
 
-  const exportAllStudentsExcel = useCallback(async () => {
-    const fullDataset = await loadStudentsDataset();
-    if (fullDataset.length === 0) {
-      modals.setError(locale === "en" ? "Could not load the full export dataset." : "تعذر تحميل بيانات التصدير الكاملة");
-      return;
+  const exportAllStudentsExcel = useCallback(() => {
+    setShowExportModal(true);
+  }, []);
+
+  const handleExportWithFields = useCallback(async (fields: Set<ExportFieldKey>) => {
+    setExportLoading(true);
+    try {
+      const fullDataset = await loadStudentsDataset();
+      if (fullDataset.length === 0) {
+        modals.setError(locale === "en" ? "Could not load the full export dataset." : "تعذر تحميل بيانات التصدير الكاملة");
+        return;
+      }
+      await operations.exportExcel(fullDataset, fields);
+      setShowExportModal(false);
+      modals.setSuccess(
+        locale === "en"
+          ? `${fullDataset.length} students exported successfully.`
+          : `${fullDataset.length} طالب مصدر بنجاح`,
+      );
+      setTimeout(() => modals.setSuccess(""), 3000);
+    } finally {
+      setExportLoading(false);
     }
-    operations.exportExcel(fullDataset);
-    modals.setSuccess(
-      locale === "en"
-        ? `${fullDataset.length} students exported successfully.`
-        : `${fullDataset.length} طالب مصدر بنجاح (الكل)`,
-    );
-    setTimeout(() => modals.setSuccess(""), 3000);
   }, [loadStudentsDataset, locale, modals, operations]);
+
+  const handleResetCardPassword = useCallback(async () => {
+    const card = modals.accountCard;
+    if (!card || !profile) return;
+    const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId: schoolScope.selectedSchoolId });
+    if (!schoolId) return;
+    // Find auth_user_id from current modals selection
+    const authUserId = modals.selectedStudent?.auth_user_id;
+    if (!authUserId) return;
+    setResettingPassword(true);
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok?: boolean; accountCard?: typeof card; temporary_password?: string }>(
+        `/api/dashboard/users/${authUserId}/reset-password`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ school_id: schoolId }) },
+      );
+      if (response.ok && payload?.accountCard) {
+        modals.setAccountCard(payload.accountCard);
+        modals.setRevealedPassword(payload.temporary_password ?? null);
+      }
+    } finally {
+      setResettingPassword(false);
+    }
+  }, [modals, profile, schoolScope.selectedSchoolId]);
 
   const printAllStudentCards = useCallback(async () => {
     if (!profile) return;
@@ -265,6 +358,11 @@ export default function StudentsPage() {
   const [_resettingPasswords, setResettingPasswords] = useState(false);
   const bulkResetConfirmedRef = useRef(false);
   const [showAcademicYearModal, setShowAcademicYearModal] = useState(false);
+  const [compactMode, setCompactMode] = useState(false);
+  const [quickViewStudent, setQuickViewStudent] = useState<StudentWithFees | null>(null);
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const _bulkResetPasswords = useCallback(async () => {
     if (!profile) return;
@@ -329,7 +427,12 @@ export default function StudentsPage() {
           />
           
           <main className="app-shell-frame--with-fixed-topbar flex-1 overflow-y-auto custom-scrollbar">
-            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+            <motion.div
+              className="p-4 sm:p-6 space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
               {/* Success Alert */}
               {modals.success && (
                 <Card className="border-[var(--success)] bg-[color-mix(in_srgb,var(--success)_5%,transparent)]">
@@ -367,7 +470,19 @@ export default function StudentsPage() {
               )}
 
               <SchoolScopeBanner scope={schoolScope} showSelector={false} />
-              
+
+              {archiveMode.isArchiveMode && archiveMode.archiveData && (
+                <div className="px-0 pt-0">
+                  <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex items-center gap-3">
+                    <Archive className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-black text-amber-800">وضع الأرشيف — سنة {archiveMode.archiveData.year}</p>
+                      <p className="text-xs text-amber-700 mt-0.5">تعرض {archiveMode.archiveData.students.length} طالب من أرشيف سنة {archiveMode.archiveData.year}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {schoolScope.shouldBlockContent ? (
                 <Card>
                   <CardContent className="p-8">
@@ -379,26 +494,60 @@ export default function StudentsPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-6">
-                  {/* Tabs Section */}
-                  <Card>
-                    <CardContent className="p-6">
-                      <StudentsTabs
-                        activeTab={activeTab}
-                        setActiveTab={setActiveTab}
-                        studentsMeta={studentsMeta}
-                      />
-                    </CardContent>
-                  </Card>
+                <div className="space-y-5">
+                  {/* Hero Banner */}
+                  <div
+                    className="relative rounded-2xl overflow-hidden p-6 md:p-8"
+                    style={{ background: "linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 60%, var(--success)) 100%)" }}
+                  >
+                    <div className="absolute top-0 end-0 w-72 h-72 rounded-full opacity-[0.08] pointer-events-none" style={{ background: "white", transform: "translate(35%, -40%)" }} />
+                    <div className="absolute bottom-0 start-12 w-48 h-48 rounded-full opacity-[0.06] pointer-events-none" style={{ background: "white", transform: "translateY(60%)" }} />
+                    <div className="relative flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-white/60 text-xs font-medium mb-2 tracking-widest uppercase">لوحة الإدارة · الطلاب</p>
+                        <h1 className="text-2xl md:text-3xl font-black text-white mb-1.5 leading-tight">إدارة الطلاب</h1>
+                        <p className="text-white/70 text-sm">تسجيل ومتابعة الطلاب والرسوم والحضور</p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(255,255,255,0.18)", color: "white" }}>
+                            <Users size={12} />
+                            {formatNumber(studentsMeta.summary.totalStudents)} طالب
+                          </span>
+                        </div>
+                      </div>
+                      <div className="hidden md:flex items-center justify-center w-20 h-20 rounded-2xl flex-shrink-0" style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}>
+                        <Users size={38} className="text-white" />
+                      </div>
+                    </div>
+                  </div>
 
-                  {/* Stats Section - Only show for active tab */}
-                  {activeTab === "active" && (
-                    <StudentsStats studentsMeta={studentsMeta} />
-                  )}
+                  {/* Tabs */}
+                  <StudentsTabs
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    studentsMeta={studentsMeta}
+                  />
+
+                  {/* AI Insights Strip */}
+                  <StudentsInsights studentsMeta={studentsMeta} />
 
                   {/* Main Content Section */}
-                  <Card>
-                    <CardContent className="p-6 space-y-6">
+                  <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-5 space-y-5">
+                      {/* Compact Mode Toggle */}
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setCompactMode((v) => !v)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            compactMode
+                              ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                              : "bg-[var(--surface-soft)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--surface-muted)]"
+                          }`}
+                          title="تبديل كثافة الجدول"
+                        >
+                          <LayoutGrid size={14} />
+                          {compactMode ? "عرض موسّع" : "عرض مضغوط"}
+                        </button>
+                      </div>
                       <StudentsToolbar
                         search={search}
                         setSearch={setSearch}
@@ -432,10 +581,10 @@ export default function StudentsPage() {
                         onBulkImport={() => setShowBulkImport(true)}
                       />
                       <StudentsTable
-                        pagedStudents={pagedStudents}
-                        pagedLoading={pagedLoading}
-                        pagedError={pagedError}
-                        totalCount={totalCount}
+                        pagedStudents={archiveMode.isArchiveMode ? archiveStudentsAsStudents : pagedStudents}
+                        pagedLoading={archiveMode.isArchiveMode ? false : pagedLoading}
+                        pagedError={archiveMode.isArchiveMode ? "" : pagedError}
+                        totalCount={archiveMode.isArchiveMode ? (archiveMode.archiveData?.students.length ?? 0) : totalCount}
                         page={page}
                         pageSize={pageSize}
                         totalPages={totalPages}
@@ -445,12 +594,22 @@ export default function StudentsPage() {
                         getActions={buildGetActions}
                         openMenu={modals.openMenu}
                         onPageChange={setPage}
+                        compactMode={compactMode}
+                        selectedStudents={selectedStudents}
+                        onSelectStudent={(id) => {
+                          setSelectedStudents((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(id)) next.delete(id);
+                            else next.add(id);
+                            return next;
+                          });
+                        }}
+                        onQuickView={setQuickViewStudent}
                       />
-                    </CardContent>
-                  </Card>
+                  </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           </main>
         </div>
 
@@ -477,6 +636,7 @@ export default function StudentsPage() {
             modals.resetForm();
           }}
           onSubmit={operations.handleAdd}
+          schoolId={schoolScope.selectedSchoolId}
         />
         <EditStudentModal
           show={modals.showEdit}
@@ -489,6 +649,7 @@ export default function StudentsPage() {
           error={modals.error}
           onClose={() => modals.setShowEdit(false)}
           onSubmit={operations.handleEdit}
+          schoolId={schoolScope.selectedSchoolId}
         />
         <DeleteConfirmModal
           show={modals.showDeleteConfirm}
@@ -540,6 +701,8 @@ export default function StudentsPage() {
             modals.setAccountCard(null);
             modals.setRevealedPassword(null);
           }}
+          onResetPassword={handleResetCardPassword}
+          resettingPassword={resettingPassword}
         />
         <BulkImportModal
           show={showBulkImport}
@@ -549,6 +712,35 @@ export default function StudentsPage() {
           branchId={effectiveBranchId}
         />
 
+        <QuickPayModal
+          show={modals.showQuickPay}
+          student={modals.selectedStudent}
+          schoolId={schoolScope.selectedSchoolId}
+          branchId={effectiveBranchId}
+          onClose={() => modals.setShowQuickPay(false)}
+          onSuccess={() => {
+            modals.setSuccess(locale === "en" ? "Payment recorded successfully." : "تم تسجيل الدفعة بنجاح");
+            setTimeout(() => modals.setSuccess(""), 3000);
+            void backgroundReload();
+          }}
+        />
+        <ChangeClassModal
+          show={modals.showChangeClass}
+          student={modals.selectedStudent}
+          classFees={classFees}
+          onClose={() => modals.setShowChangeClass(false)}
+          onSuccess={(updated) => {
+            updateStudentOptimistically(updated.id, { class_name: updated.class_name, section: updated.section });
+            modals.setSuccess(locale === "en" ? "Class updated successfully." : "تم تغيير الصف بنجاح");
+            setTimeout(() => modals.setSuccess(""), 3000);
+          }}
+        />
+        <ExportFieldsModal
+          show={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleExportWithFields}
+          loading={exportLoading}
+        />
         <AcademicYearModal
           isOpen={showAcademicYearModal}
           schoolId={schoolScope.selectedSchoolId ?? ""}
@@ -558,6 +750,35 @@ export default function StudentsPage() {
             fetchJsonWithAuthorizedSession(url, options)
           }
         />
+
+        {/* Student Quick View Panel */}
+        <StudentQuickView
+          student={quickViewStudent}
+          schoolId={schoolScope.selectedSchoolId}
+          onClose={() => setQuickViewStudent(null)}
+        />
+
+        {/* Bulk Actions Bar */}
+        <AnimatePresence>
+          {selectedStudents.size > 0 && (
+            <motion.div
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[var(--primary)] text-white rounded-2xl px-6 py-3 flex items-center gap-4 shadow-xl z-50"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.22 }}
+            >
+              <span className="font-semibold text-sm">{selectedStudents.size} طالب محدد</span>
+              <button
+                type="button"
+                className="text-white/80 hover:text-white text-sm underline underline-offset-2"
+                onClick={() => setSelectedStudents(new Set())}
+              >
+                إلغاء التحديد
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </ProtectedRoute>
   );

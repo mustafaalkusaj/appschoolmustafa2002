@@ -16,6 +16,7 @@ import { usePaymentsMeta } from "./usePaymentsMeta";
 import { useStudentsPage } from "./useStudentsPage";
 import { usePaymentOperations } from "./usePaymentOperations";
 import { useArchiveOperations } from "./useArchiveOperations";
+import { useArchiveMode } from "@/hooks/useArchiveMode";
 
 import { Student, Payment, PaymentArchive, SEARCH_DEBOUNCE_MS, PAGE_SIZE, PaymentsSummary } from "../_types";
 import { getArchiveStudents, getArchivePayments } from "./useArchiveOperations";
@@ -27,8 +28,9 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   const { profile, can } = useRole();
   const runtimeBranding = useRuntimeBranding();
   const schoolScope = useSchoolScope(profile);
+  const isAdminRole = profile?.role === "super_admin" || profile?.role === "admin";
   const canAddPayments = can("add_payments");
-  const canDeletePayments = can("delete_payments");
+  const canDeletePayments = isAdminRole && can("delete_payments");
   const currentBranchId = options?.currentBranchId ?? null;
 
   // State
@@ -44,6 +46,8 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   const [filterClass, setFilterClass] = useState("");
   const [filterSort, setFilterSort] = useState("name");
   const [filterDir, setFilterDir] = useState("asc");
+  const [minFee, setMinFee] = useState<number | null>(null);
+  const [maxFee, setMaxFee] = useState<number | null>(null);
 
   // Selected student for detail panel
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -92,7 +96,9 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     filterSort,
     filterDir,
     search,
-    currentBranchId
+    currentBranchId,
+    minFee,
+    maxFee
   );
 
   const onSuccess = useCallback((msg: string) => {
@@ -125,6 +131,9 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
             resolvedLogoUrl = logoUrl;
           }
         }
+        const printThemeId = typeof window !== "undefined" ? localStorage.getItem("print-theme") ?? undefined : undefined;
+        const printStyleRaw = typeof window !== "undefined" ? localStorage.getItem("print-style") : null;
+        const printStyleSettings = printStyleRaw ? JSON.parse(printStyleRaw) as { watermark?: string; showRibbon?: boolean; showOrnaments?: boolean } : {};
         printHtmlDocument(
           buildStyledReceiptHtml({
             schoolName: runtimeBranding.schoolName,
@@ -145,6 +154,11 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
             isEnglish,
             backgroundImageUrl: runtimeBranding.receiptBgUrl,
             receiptFooterText: runtimeBranding.receiptFooterText,
+            printThemeId,
+            showWatermark: printStyleSettings.watermark !== "hide",
+            showRibbon: printStyleSettings.showRibbon !== false,
+            showOrnaments: printStyleSettings.showOrnaments !== false,
+            verificationToken: p.verification_token ?? null,
           })
         );
       })();
@@ -261,6 +275,11 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   // ── Archive mode ──────────────────────────────────────────────
   const [activeArchiveYear, setActiveArchiveYearState] = useState<number | null>(null);
 
+  const globalArchive = useArchiveMode();
+
+  // When global archive mode is active, use that year; otherwise fall back to local
+  const effectiveArchiveYear = globalArchive.archiveYear ?? activeArchiveYear;
+
   const activateArchiveYear = useCallback(
     async (year: number) => {
       const archive = metaHook.archives.find((a) => a.archive_year === year) ?? null;
@@ -276,9 +295,10 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   );
 
   const exitArchiveMode = useCallback(() => {
+    globalArchive.exitArchiveMode();
     setActiveArchiveYearState(null);
     studentsHook.setPage(1);
-  }, [studentsHook]);
+  }, [studentsHook, globalArchive]);
 
   // Reset archive mode if the archive disappears (e.g. school change)
   const prevResolvedSchoolId = useRef(resolvedSchoolId);
@@ -289,12 +309,26 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     }
   }, [resolvedSchoolId]);
 
-  const activeArchive = useMemo(
-    () => (activeArchiveYear !== null
-      ? (metaHook.archives.find((a) => a.archive_year === activeArchiveYear) ?? null)
-      : null),
-    [activeArchiveYear, metaHook.archives]
-  );
+  const activeArchive = useMemo(() => {
+    if (globalArchive.isArchiveMode && globalArchive.archiveData) {
+      // Build a compatible PaymentArchive object from global data
+      return {
+        id: globalArchive.archiveData.archiveId,
+        archive_year: globalArchive.archiveData.year,
+        archive_date: globalArchive.archiveData.archiveDate,
+        total_amount: globalArchive.archiveData.totalAmount,
+        total_students: globalArchive.archiveData.students.length,
+        total_payments: globalArchive.archiveData.payments.length,
+        data: {
+          students: globalArchive.archiveData.students,
+          payments: globalArchive.archiveData.payments,
+        },
+      };
+    }
+    return effectiveArchiveYear !== null
+      ? (metaHook.archives.find((a) => a.archive_year === effectiveArchiveYear) ?? null)
+      : null;
+  }, [globalArchive, effectiveArchiveYear, metaHook.archives]);
 
   // Raw students from archive
   const archiveStudentsRaw = useMemo(
@@ -373,7 +407,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
   }, [activeArchive, archiveStudentsRaw]);
 
   // Effective data (archive mode overrides live data)
-  const isArchiveMode = activeArchiveYear !== null;
+  const isArchiveMode = globalArchive.isArchiveMode || effectiveArchiveYear !== null;
   const effectiveSummary      = isArchiveMode ? archiveSummary       : metaHook.summary;
   const effectiveStudents     = isArchiveMode ? archiveStudentsPaged : studentsHook.students;
   const effectivePaymentCounts= isArchiveMode ? archivePaymentCounts : studentsHook.paymentCountsByStudent;
@@ -427,7 +461,7 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const dateStr = new Date().toLocaleDateString("ar-IQ").replace(/\//g, "_");
+      const dateStr = new Date().toLocaleDateString("ar-IQ-u-nu-latn").replace(/\//g, "_");
       a.href = url;
       a.download = `فواتير_اقساط_الطلاب_${dateStr}.xlsx`;
       document.body.appendChild(a);
@@ -529,6 +563,10 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     setFilterSort,
     filterDir,
     setFilterDir,
+    minFee,
+    setMinFee,
+    maxFee,
+    setMaxFee,
 
     // Meta hook
     metaHook,
@@ -575,5 +613,5 @@ export function usePaymentsPage(options?: { currentBranchId?: string | null }) {
     handlePaymentSubmit,
     openPaymentForStudent,
     updateStudentFinancials,
-  }), [canAddPayments, canDeletePayments, schoolScope, resolvedSchoolId, success, error, searchInput, setSearchInput, exporting, quickFilter, setQuickFilter, filterClass, setFilterClass, filterSort, setFilterSort, filterDir, setFilterDir, metaHook, studentsHook, paymentOpsHook, archiveOpsHook, isArchiveMode, activeArchiveYear, activeArchive, activateArchiveYear, exitArchiveMode, effectiveSummary, effectiveStudents, effectivePaymentCounts, effectiveLoading, effectiveTotalCount, effectiveTotalPages, effectiveClasses, selectedStudent, setSelectedStudent, showDetail, setShowDetail, openStudentDetail, openArchiveStudentDetail, handleExportExcel, printReceipt, printStatement, handleArchiveExport, handleDeletePayment, handlePaymentSubmit, openPaymentForStudent, updateStudentFinancials]);
+  }), [canAddPayments, canDeletePayments, schoolScope, resolvedSchoolId, success, error, searchInput, setSearchInput, exporting, quickFilter, setQuickFilter, filterClass, setFilterClass, filterSort, setFilterSort, filterDir, setFilterDir, minFee, setMinFee, maxFee, setMaxFee, metaHook, studentsHook, paymentOpsHook, archiveOpsHook, isArchiveMode, activeArchiveYear, effectiveArchiveYear, globalArchive, activeArchive, activateArchiveYear, exitArchiveMode, effectiveSummary, effectiveStudents, effectivePaymentCounts, effectiveLoading, effectiveTotalCount, effectiveTotalPages, effectiveClasses, selectedStudent, setSelectedStudent, showDetail, setShowDetail, openStudentDetail, openArchiveStudentDetail, handleExportExcel, printReceipt, printStatement, handleArchiveExport, handleDeletePayment, handlePaymentSubmit, openPaymentForStudent, updateStudentFinancials]);
 }

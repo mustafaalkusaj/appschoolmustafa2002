@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 
@@ -42,6 +42,7 @@ type RuntimeBrandingState = {
   receiptFooterText: string | null;
   cardBgUrl: string | null;
   shortName: string | null;
+  currency: string | null;
 };
 
 type SchoolBrandingRecord = {
@@ -50,6 +51,7 @@ type SchoolBrandingRecord = {
   primary_color?: string | null;
   secondary_color?: string | null;
   theme_preset?: string | null;
+  currency?: string | null;
 };
 
 type BranchBrandingRecord = {
@@ -66,6 +68,7 @@ type BranchBrandingRecord = {
   receipt_footer_text?: string | null;
   card_bg_url?: string | null;
   short_name?: string | null;
+  currency?: string | null;
 };
 
 export const RUNTIME_BRANDING_REFRESH_EVENT = "runtime-branding-refresh";
@@ -88,6 +91,7 @@ const RuntimeBrandingContext = createContext<RuntimeBrandingState>({
   receiptFooterText: null,
   cardBgUrl: null,
   shortName: null,
+  currency: null,
 });
 
 function createEmptyBrandingState(): RuntimeBrandingState {
@@ -109,6 +113,7 @@ function createEmptyBrandingState(): RuntimeBrandingState {
     receiptFooterText: null,
     cardBgUrl: null,
     shortName: null,
+    currency: null,
   };
 }
 
@@ -149,11 +154,10 @@ function applyBrandingToCssVars(branding: RuntimeBrandingState, isDark: boolean)
   root.style.setProperty("--sidebar-a", softenedSidebar);
   root.style.setProperty("--sidebar-b", appearance.surfaceMutedColor);
 
+  root.style.setProperty("--sidebar-bg", softenedSidebar);
   if (isDark) {
-    root.style.setProperty("--sidebar-bg", softenedSidebar);
     root.style.setProperty("--topbar-bg", toRgba(topbarChrome, 0.92));
   } else {
-    root.style.removeProperty("--sidebar-bg");
     root.style.removeProperty("--topbar-bg");
   }
 
@@ -197,6 +201,9 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
   const schoolScope = useSchoolScope(profile);
   const branchScope = useBranchScope(profile);
   const [branding, setBranding] = useState<RuntimeBrandingState>(createEmptyBrandingState);
+  // Holds a currency value set by the user immediately after save, so loadBranding
+  // re-fetch doesn't overwrite it before Supabase write has propagated.
+  const currencyOverrideRef = useRef<string | null | undefined>(undefined);
 
   const scopedSchoolId =
     profile?.role === "super_admin" ? schoolScope.selectedSchoolId : profile?.school_id ?? null;
@@ -259,19 +266,19 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         branchColumns.push("receipt_bg_url");
       }
 
-      branchColumns.push("font_family", "topbar_color", "receipt_footer_text", "card_bg_url", "short_name");
+      branchColumns.push("font_family", "topbar_color", "receipt_footer_text", "card_bg_url", "short_name", "currency");
 
       const schoolQuery = compat.schoolColors
         ? supabase
             .from("schools")
             .select(
-              `name, logo_url, primary_color, secondary_color${
+              `name, logo_url, primary_color, secondary_color, currency${
                 compat.schoolThemePreset ? ", theme_preset" : ""
               }`,
             )
         : supabase
             .from("schools")
-            .select(`name, logo_url${compat.schoolThemePreset ? ", theme_preset" : ""}`);
+            .select(`name, logo_url, currency${compat.schoolThemePreset ? ", theme_preset" : ""}`);
       const branchQuery =
         scopedBranchId
           ? supabase.from("branches").select(branchColumns.join(", ")).eq("id", scopedBranchId).maybeSingle()
@@ -327,6 +334,10 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         typeof branchRecord?.card_bg_url === "string" ? branchRecord.card_bg_url : null;
       const branchShortName =
         typeof branchRecord?.short_name === "string" ? branchRecord.short_name : null;
+      const branchCurrency =
+        typeof branchRecord?.currency === "string" && branchRecord.currency.trim()
+          ? branchRecord.currency.trim()
+          : null;
       const hasBranchOverride = Boolean(
         branchPrimaryColor ||
           branchSecondaryColor ||
@@ -378,6 +389,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
           receiptFooterText: branchReceiptFooterText,
           cardBgUrl: branchCardBgUrl,
           shortName: branchShortName,
+          currency: currencyOverrideRef.current !== undefined ? currencyOverrideRef.current : branchCurrency,
         });
         return;
       }
@@ -422,8 +434,11 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         }
       }
 
-      resolvedPrimaryColor = branchPrimaryColor ?? resolvedPrimaryColor;
-      resolvedSecondaryColor = branchSecondaryColor ?? resolvedSecondaryColor;
+      // Manual save wins over branch DB colors (avoids stale Supabase replica revert)
+      if (storedBranding?.source !== "manual") {
+        resolvedPrimaryColor = branchPrimaryColor ?? resolvedPrimaryColor;
+        resolvedSecondaryColor = branchSecondaryColor ?? resolvedSecondaryColor;
+      }
 
       if (resolvedPrimaryColor && !resolvedSecondaryColor) {
         resolvedSecondaryColor = mixColors(resolvedPrimaryColor, "#ffffff", 0.38);
@@ -450,6 +465,21 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         (hasBranchOverride ? null : storedBranding?.textColor) ??
         shiftColor(runtimePrimaryColor, -0.42);
 
+      const schoolCurrency =
+        typeof (schoolRecord as SchoolBrandingRecord).currency === "string"
+          ? ((schoolRecord as SchoolBrandingRecord).currency as string)
+          : null;
+      // Prefer override set by the user immediately after save (guards against
+      // Supabase replication lag overwriting the just-saved value). Once Supabase
+      // returns a real value (branchCurrency or schoolCurrency), clear the override.
+      const resolvedCurrency = (() => {
+        if (currencyOverrideRef.current !== undefined) return currencyOverrideRef.current;
+        return branchCurrency ?? schoolCurrency;
+      })();
+      // Clear override once we have a confirmed DB value
+      if (branchCurrency || schoolCurrency) {
+        currencyOverrideRef.current = undefined;
+      }
       setBranding({
         schoolName: typeof schoolRecord.name === "string" ? schoolRecord.name : null,
         logoUrl: safeLogoUrl,
@@ -468,6 +498,7 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
         receiptFooterText: branchReceiptFooterText,
         cardBgUrl: branchCardBgUrl,
         shortName: branchShortName,
+        currency: resolvedCurrency,
       });
       } catch (err) {
         if (active) {
@@ -479,7 +510,12 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
 
     void loadBranding();
 
-    const refreshListener = () => {
+    const refreshListener = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { currency?: string | null } | undefined;
+      if (detail && "currency" in detail) {
+        currencyOverrideRef.current = detail.currency ?? null;
+        setBranding((prev) => ({ ...prev, currency: detail.currency ?? null }));
+      }
       void loadBranding();
     };
     window.addEventListener(RUNTIME_BRANDING_REFRESH_EVENT, refreshListener);
@@ -515,15 +551,34 @@ export function RuntimeBrandingProvider({ children }: { children: React.ReactNod
       receiptFooterText: branding.receiptFooterText,
       cardBgUrl: branding.cardBgUrl,
       shortName: branding.shortName,
+      currency: branding.currency,
     };
   }, [branding]);
 
   return <RuntimeBrandingContext.Provider value={value}>{children}</RuntimeBrandingContext.Provider>;
 }
 
-export function requestRuntimeBrandingRefresh() {
+export function requestRuntimeBrandingRefresh(overrides?: { currency?: string | null }) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(RUNTIME_BRANDING_REFRESH_EVENT));
+  window.dispatchEvent(new CustomEvent(RUNTIME_BRANDING_REFRESH_EVENT, { detail: overrides ?? {} }));
+}
+
+export function applyBrandColorsDirectly(
+  primaryColor: string | null,
+  secondaryColor: string | null,
+  themePreset: string | null,
+  isDark: boolean,
+) {
+  if (typeof window === "undefined") return;
+  applyBrandingToCssVars(
+    {
+      ...createEmptyBrandingState(),
+      primaryColor,
+      secondaryColor,
+      themePreset,
+    },
+    isDark,
+  );
 }
 
 export function useRuntimeBranding() {
@@ -547,6 +602,7 @@ export function useRuntimeBranding() {
       receiptFooterText: null,
       cardBgUrl: null,
       shortName: null,
+      currency: null,
     };
   }
   return {
@@ -567,5 +623,6 @@ export function useRuntimeBranding() {
     receiptFooterText: context.receiptFooterText,
     cardBgUrl: context.cardBgUrl,
     shortName: context.shortName,
+    currency: context.currency,
   };
 }
