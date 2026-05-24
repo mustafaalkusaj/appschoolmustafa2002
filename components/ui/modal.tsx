@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/brand/brand-utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ export function Modal({
     }
   }, [open]);
 
-  if (!mounted || !open) return null;
+  if (!mounted) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (closeOnBackdrop && e.target === e.currentTarget) {
@@ -167,70 +168,52 @@ export function Modal({
     }
   };
 
-  const animationStyles = prefersReducedMotion
-    ? {}
-    : {
-        backdrop: {
-          animation: "fadeIn 150ms ease-out",
-        },
-        panel: {
-          animation: "scaleIn 150ms ease-out",
-        },
-      };
+  const springTransition = { type: "spring" as const, stiffness: 380, damping: 28 };
 
   return createPortal(
     <ModalContext.Provider value={{ onClose, titleId }}>
-      {/* Backdrop */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={handleBackdropClick}
-        className={cn(
-          "fixed inset-0 z-[var(--z-modal)]",
-          "flex items-center justify-center p-4",
-          "bg-[var(--modal-backdrop)]"
+      <AnimatePresence>
+        {open && (
+          /* Backdrop */
+          <motion.div
+            key="modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            onClick={handleBackdropClick}
+            className={cn(
+              "fixed inset-0 z-[var(--z-modal)]",
+              "flex items-center justify-center p-4",
+              "bg-[var(--modal-backdrop)] backdrop-blur-sm"
+            )}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            {/* Panel */}
+            <motion.div
+              ref={containerRef}
+              className={cn(
+                "w-full",
+                sizeStyles[size],
+                "bg-[var(--card-bg)]",
+                "rounded-[var(--modal-radius)]",
+                "border border-[var(--card-border)]",
+                "shadow-xl",
+                "focus:outline-none",
+                className
+              )}
+              initial={{ opacity: 0, scale: 0.93, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 16 }}
+              transition={springTransition}
+            >
+              {children}
+            </motion.div>
+          </motion.div>
         )}
-        style={animationStyles.backdrop}
-      >
-        {/* Panel */}
-        <div
-          ref={containerRef}
-          className={cn(
-            "w-full",
-            sizeStyles[size],
-            "bg-[var(--card-bg)]",
-            "rounded-[var(--modal-radius)]",
-            "border border-[var(--card-border)]",
-            "shadow-xl",
-            "focus:outline-none",
-            className
-          )}
-          style={animationStyles.panel}
-        >
-          {children}
-        </div>
-      </div>
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-      `}</style>
+      </AnimatePresence>
     </ModalContext.Provider>,
     document.body
   );
