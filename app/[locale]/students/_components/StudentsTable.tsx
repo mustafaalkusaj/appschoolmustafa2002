@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { MoreHorizontal, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { containerVariants, itemVariants, usePrefersReducedMotion, getVariants } from "@/lib/motion-variants";
 import { formatNumber } from "@/lib/formatting";
 import { Badge } from "@/components/ui/badge";
 import { Button, IconButton } from "@/components/ui/button";
@@ -25,6 +27,10 @@ interface StudentsTableProps {
   getActions: (s: StudentWithFees) => StudentActionItem[];
   openMenu: (e: React.MouseEvent, student: StudentWithFees) => void;
   onPageChange: (page: number) => void;
+  compactMode?: boolean;
+  selectedStudents?: Set<string>;
+  onSelectStudent?: (id: string) => void;
+  onQuickView?: (student: StudentWithFees) => void;
 }
 
 // Status badge variant mapping
@@ -52,6 +58,10 @@ export function StudentsTable({
   getActions,
   openMenu,
   onPageChange,
+  compactMode = false,
+  selectedStudents = new Set(),
+  onSelectStudent,
+  onQuickView,
 }: StudentsTableProps) {
   const t = useTranslations("students.table");
   const commonT = useTranslations("common");
@@ -88,14 +98,23 @@ export function StudentsTable({
     return <EmptyState title={emptyTitle} />;
   }
 
+  const reduced = usePrefersReducedMotion();
+
   return (
     <div className="space-y-4">
       {/* Mobile Cards View */}
-      <div className="grid gap-4 md:hidden">
+      <motion.div
+        className="grid gap-4 md:hidden"
+        variants={getVariants(reduced, containerVariants(0.06))}
+        initial="hidden"
+        animate="visible"
+        key={page}
+      >
         {pagedStudents.map((s, i) => {
           const actions = getActions(s);
           return (
-            <Card key={s.id} className="overflow-hidden">
+            <motion.div key={s.id} variants={getVariants(reduced, itemVariants)}>
+            <Card className="overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex-1 min-w-0">
@@ -161,9 +180,10 @@ export function StudentsTable({
                 )}
               </CardContent>
             </Card>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)]">
@@ -183,10 +203,10 @@ export function StudentsTable({
                 {t("section")}
               </th>
               <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                {t("address")}
+                {t("phone")}
               </th>
               <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                {t("phone")}
+                {t("address")}
               </th>
               <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                 {t("fees")}
@@ -205,59 +225,83 @@ export function StudentsTable({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--border)]">
+          <motion.tbody
+            className="divide-y divide-[var(--border)]"
+            variants={getVariants(reduced, containerVariants(0.04))}
+            initial="hidden"
+            animate="visible"
+            key={page}
+          >
             {pagedStudents.map((s, i) => {
               const actions = getActions(s);
+              const rowPad = compactMode ? "py-1" : "py-3";
               return (
-                <tr
+                <motion.tr
                   key={s.id}
-                  className="hover:bg-[var(--surface-hover)] transition-colors"
+                  variants={getVariants(reduced, itemVariants)}
+                  className={cn(
+                    "hover:bg-[var(--surface-hover)] transition-colors",
+                  )}
                 >
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
                     {(page - 1) * pageSize + i + 1}
                   </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      data-student-menu-trigger
-                      className="!text-[1.1rem] !font-black leading-none tracking-tight text-[var(--text-primary)] hover:text-[var(--primary)] hover:underline text-start"
-                      onClick={(e) => openMenu(e, s)}
-                    >
-                      {s.full_name}
-                    </button>
+                  <td className={cn("px-4", rowPad)}>
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          data-student-menu-trigger
+                          className="!text-[1rem] !font-black leading-none tracking-tight text-[var(--text-primary)] hover:text-[var(--primary)] hover:underline text-start"
+                          onClick={(e) => openMenu(e, s)}
+                        >
+                          {s.full_name}
+                        </button>
+                        {onQuickView && (
+                          <button
+                            type="button"
+                            className="text-[10px] text-[var(--text-muted)] hover:text-[var(--primary)] text-start mt-0.5 leading-none"
+                            onClick={() => onQuickView(s)}
+                          >
+                            عرض سريع
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                  <td className={cn("px-4 text-sm text-[var(--text-primary)]", rowPad)}>
                     {s.class_name}
                   </td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
                     {s.section || "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
-                    {s.address || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
                     {s.phone || "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
+                    {s.address || "—"}
+                  </td>
+                  <td className={cn("px-4 text-sm text-[var(--text-primary)]", rowPad)}>
                     {commonT("currency")} {formatNumber(s.total_fee)}
                   </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-[var(--success)]">
+                  <td className={cn("px-4 text-sm font-semibold text-[var(--success)]", rowPad)}>
                     {commonT("currency")} {formatNumber(s.paid_fee)}
                   </td>
                   <td
                     className={cn(
-                      "px-4 py-3 text-sm font-semibold",
+                      "px-4 text-sm font-semibold",
+                      rowPad,
                       s.remaining_fee > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
                     )}
                   >
                     {commonT("currency")} {formatNumber(s.remaining_fee)}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={cn("px-4", rowPad)}>
                     <Badge variant={statusVariantMap[s.status] || "neutral"} size="sm">
                       {commonT(`studentStatus.${s.status}`)}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={cn("px-4", rowPad)}>
                     {actions.length > 0 && (
                       <IconButton
                         data-student-menu-trigger
@@ -270,10 +314,10 @@ export function StudentsTable({
                       </IconButton>
                     )}
                   </td>
-                </tr>
+                </motion.tr>
               );
             })}
-          </tbody>
+          </motion.tbody>
         </table>
       </div>
 
