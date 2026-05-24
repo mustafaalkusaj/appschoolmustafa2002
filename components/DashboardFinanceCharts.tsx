@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { usePrefersReducedMotion } from "@/lib/motion-variants";
 import {
   Bar,
   BarChart,
@@ -73,6 +74,7 @@ export function DashboardFinanceCharts({
   pieData,
   paidPct,
 }: DashboardFinanceChartsProps) {
+  const reduced = usePrefersReducedMotion();
   const t = useTranslations("dashboard.finance");
   const commonT = useTranslations("common");
 
@@ -104,7 +106,14 @@ export function DashboardFinanceCharts({
               tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--surface-hover)" }} />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={32}>
+            <Bar
+              dataKey="value"
+              radius={[4, 4, 0, 0]}
+              barSize={32}
+              isAnimationActive={!reduced}
+              animationDuration={900}
+              animationEasing="ease-out"
+            >
               {barData.map((entry, index) => (
                 <Cell key={`${entry.name}-${index}`} fill={entry.fill} />
               ))}
@@ -147,6 +156,7 @@ export function DashboardFinanceCharts({
               endAngle={-270}
               stroke="none"
               paddingAngle={4}
+              isAnimationActive={!reduced}
             >
               {pieData.map((entry, index) => (
                 <Cell key={`${entry.name}-${index}`} fill={entry.color} />
