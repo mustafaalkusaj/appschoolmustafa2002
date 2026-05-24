@@ -105,7 +105,7 @@ export function TeachersTable({
           variants={getVariants(reduced, containerVariants(0.04))}
           initial="hidden"
           animate="visible"
-          key={0}
+          key={currentMonth}
         >
           {teachers.map((t, i) => {
             const paid = paidTeacherIds.includes(t.id);
