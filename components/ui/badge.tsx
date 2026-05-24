@@ -1,5 +1,7 @@
 import * as React from "react";
+import { motion, HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/brand/brand-utils";
+import { scalePopVariants } from "@/lib/motion-variants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -13,7 +15,7 @@ export type BadgeVariant =
 
 export type BadgeSize = "sm" | "md";
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface BadgeProps extends HTMLMotionProps<"span"> {
   variant?: BadgeVariant;
   size?: BadgeSize;
   dot?: boolean;
@@ -68,8 +70,11 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
     ref
   ) => {
     return (
-      <span
+      <motion.span
         ref={ref}
+        initial="hidden"
+        animate="visible"
+        variants={scalePopVariants}
         className={cn(
           // Base styles
           "inline-flex items-center gap-1.5",
@@ -89,7 +94,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
           />
         )}
         {children}
-      </span>
+      </motion.span>
     );
   }
 );

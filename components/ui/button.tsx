@@ -1,4 +1,5 @@
 import * as React from "react";
+import { motion, MotionProps } from "framer-motion";
 import { cn } from "@/lib/brand/brand-utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -7,14 +8,14 @@ import { cn } from "@/lib/brand/brand-utils";
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "subtle" | "link" | "default";
 type ButtonSize = "sm" | "md" | "lg";
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, MotionProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
   iconOnly?: boolean;
 }
 
-export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "size"> {
+export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "size">, MotionProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
@@ -119,10 +120,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     return (
-      <button
+      <motion.button
         ref={ref}
         type={type}
         disabled={disabled || loading}
+        whileTap={!disabled && !loading ? { scale: 0.97 } : {}}
         className={cn(
           // Base styles
           "inline-flex items-center justify-center gap-2",
@@ -134,8 +136,6 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "focus-visible:ring-2",
           "focus-visible:ring-[var(--focus-ring-color)]",
           "focus-visible:ring-offset-[var(--focus-ring-offset)]",
-          // Active state
-          "active:scale-[0.97]",
           // Disabled state
           "disabled:opacity-50 disabled:pointer-events-none",
           // Variant & size
@@ -147,7 +147,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading && <Spinner className="h-4 w-4 shrink-0" />}
         {children}
-      </button>
+      </motion.button>
     );
   }
 );
@@ -172,11 +172,12 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
     ref
   ) => {
     return (
-      <button
+      <motion.button
         ref={ref}
         type={type}
         disabled={disabled || loading}
         aria-label={ariaLabel}
+        whileTap={!disabled && !loading ? { scale: 0.97 } : {}}
         className={cn(
           // Base styles
           "inline-flex items-center justify-center",
@@ -188,8 +189,6 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           "focus-visible:ring-2",
           "focus-visible:ring-[var(--focus-ring-color)]",
           "focus-visible:ring-offset-[var(--focus-ring-offset)]",
-          // Active state
-          "active:scale-[0.97]",
           // Disabled state
           "disabled:opacity-50 disabled:pointer-events-none",
           // Variant & size (always square)
@@ -200,7 +199,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
         {...props}
       >
         {loading ? <Spinner className="h-4 w-4" /> : children}
-      </button>
+      </motion.button>
     );
   }
 );
