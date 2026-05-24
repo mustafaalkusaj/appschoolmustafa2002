@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
+import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -63,6 +63,30 @@ export async function GET(req: NextRequest) {
   );
   if (!canManageSalaries) {
     return jsonError("ليس لديك صلاحية الوصول إلى بيانات المحاضرات.", 403);
+  }
+
+  if (view === "list") {
+    const date = req.nextUrl.searchParams.get("date")?.trim() || "";
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return jsonError("التاريخ مطلوب ويجب أن يكون بالصيغة YYYY-MM-DD.", 400);
+    }
+    const { data, error } = await applyBranchScopeToQuery(
+      context.value.actorSupabase
+        .from("daily_lectures")
+        .select("id, teacher_id, grade, section, period, session_type, lecture_date, price, teachers(id, full_name)")
+        .eq("school_id", context.value.targetSchoolId)
+        .eq("lecture_date", date)
+        .order("teacher_id")
+        .order("grade")
+        .order("period"),
+      branchScope.value,
+    );
+    if (error) return jsonError(error.message || "تعذر تحميل المحاضرات.", 500);
+    const records = (data ?? []).map((r) => {
+      const t = Array.isArray(r.teachers) ? r.teachers[0] : r.teachers;
+      return { id: r.id, teacher_id: r.teacher_id, teacher_name: t?.full_name ?? "—", grade: r.grade, section: r.section, period: r.period, session_type: r.session_type, lecture_date: r.lecture_date, price: r.price };
+    });
+    return NextResponse.json({ ok: true, records });
   }
 
   const range = extractMonthRange(month);
@@ -142,4 +166,64 @@ export async function GET(req: NextRequest) {
     ok: true,
     dates,
   });
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => null) as { schoolId?: string; branchId?: string; rows?: unknown[] } | null;
+
+  if (!body?.schoolId || !Array.isArray(body.rows) || body.rows.length === 0) {
+    return jsonError("بيانات غير صالحة.", 400);
+  }
+
+  const context = await resolveSchoolScopedActorContext(
+    body.schoolId,
+    {
+      allowedRoles: ["super_admin", "admin"],
+      roleDeniedMessage: "تسجيل المحاضرات متاح للإدارة فقط.",
+    },
+    req.headers.get("authorization"),
+  );
+
+  if (!context.ok) {
+    return jsonError("message" in context ? context.message : "تعذر التحقق من صلاحيات المستخدم.", "status" in context ? context.status : 500);
+  }
+
+  const branchScope = resolveBranchScope(context.value, body.branchId ?? null);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "salaries-lectures",
+    windowMs: 60_000,
+    maxHits: 120,
+    identifier: actorUserId,
+  });
+  if (rateLimited) return rateLimited;
+
+  const canManageSalaries = await routeUserHasPermission(actorSupabase, actorUserId, "manage_salaries");
+  if (!canManageSalaries) {
+    return jsonError("ليس لديك صلاحية تسجيل المحاضرات.", 403);
+  }
+
+  // Branch isolation: force branch_id from resolved scope — ignore any branch_id in row data
+  const writeBranch = resolveBranchIdForWrite(branchScope.value, body.branchId ?? null);
+  if (!writeBranch.ok) {
+    return jsonError(writeBranch.message, writeBranch.status);
+  }
+
+  const rows = body.rows.map((r) => ({
+    ...(r as object),
+    school_id: targetSchoolId,
+    ...(writeBranch.value !== null ? { branch_id: writeBranch.value } : {}),
+  }));
+
+  const { data, error } = await actorSupabase.from("daily_lectures").insert(rows).select("id");
+  if (error) {
+    return jsonError(error.message || "تعذر تسجيل المحاضرات.", 500);
+  }
+
+  return NextResponse.json({ ok: true, count: data?.length ?? 0 });
 }
