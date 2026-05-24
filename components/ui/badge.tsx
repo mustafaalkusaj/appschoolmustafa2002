@@ -15,10 +15,11 @@ export type BadgeVariant =
 
 export type BadgeSize = "sm" | "md";
 
-export interface BadgeProps extends HTMLMotionProps<"span"> {
+export interface BadgeProps extends Omit<HTMLMotionProps<"span">, "children"> {
   variant?: BadgeVariant;
   size?: BadgeSize;
   dot?: boolean;
+  children?: React.ReactNode;
 }
 
 // ── Variant Styles ────────────────────────────────────────────────────────────

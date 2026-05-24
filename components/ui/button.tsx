@@ -1,5 +1,5 @@
 import * as React from "react";
-import { motion, MotionProps } from "framer-motion";
+import { motion, type HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/brand/brand-utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -8,18 +8,20 @@ import { cn } from "@/lib/brand/brand-utils";
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "subtle" | "link" | "default";
 type ButtonSize = "sm" | "md" | "lg";
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, MotionProps {
+export interface ButtonProps extends Omit<HTMLMotionProps<"button">, "size" | "children"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
   iconOnly?: boolean;
+  children?: React.ReactNode;
 }
 
-export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "size">, MotionProps {
+export interface IconButtonProps extends Omit<HTMLMotionProps<"button">, "size" | "children"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
   "aria-label": string;
+  children?: React.ReactNode;
 }
 
 // ── Variant Styles ─────────────────────────────────────────────────────────────
