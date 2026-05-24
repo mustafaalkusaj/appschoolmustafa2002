@@ -66,6 +66,7 @@ export function StudentsTable({
   const t = useTranslations("students.table");
   const commonT = useTranslations("common");
   const tabsT = useTranslations("students.tabs");
+  const reduced = usePrefersReducedMotion();
 
   // Loading state
   if (pagedLoading) {
@@ -97,8 +98,6 @@ export function StudentsTable({
 
     return <EmptyState title={emptyTitle} />;
   }
-
-  const reduced = usePrefersReducedMotion();
 
   return (
     <div className="space-y-4">
