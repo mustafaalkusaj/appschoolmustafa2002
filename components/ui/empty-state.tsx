@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/brand/brand-utils";
+import { springBouncy } from "@/lib/motion-variants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,27 +57,47 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         )}
       >
         {/* Icon */}
-        <div className="text-[var(--text-tertiary)] mb-4">
+        <motion.div
+          className="text-[var(--text-tertiary)] mb-4"
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ ...springBouncy, delay: 0 }}
+        >
           {icon || <DefaultEmptyIcon />}
-        </div>
+        </motion.div>
 
         {/* Title */}
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+        <motion.h3
+          className="text-lg font-semibold text-[var(--text-primary)] mb-2"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
           {title}
-        </h3>
+        </motion.h3>
 
         {/* Description */}
         {description && (
-          <p className="text-sm text-[var(--text-secondary)] max-w-sm mb-4">
+          <motion.p
+            className="text-sm text-[var(--text-secondary)] max-w-sm mb-4"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.18 }}
+          >
             {description}
-          </p>
+          </motion.p>
         )}
 
         {/* Action */}
         {action && (
-          <div className="mt-2">
+          <motion.div
+            className="mt-2"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.26 }}
+          >
             {action}
-          </div>
+          </motion.div>
         )}
       </div>
     );
