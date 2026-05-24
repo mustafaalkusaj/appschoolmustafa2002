@@ -1,7 +1,11 @@
 import * as React from "react";
+import { motion, type MotionProps } from "framer-motion";
 import { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/brand/brand-utils";
+import { cardVariants } from "@/lib/motion-variants";
+
+const MotionCard = motion(Card);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,7 +25,9 @@ export interface StatsCardTrend {
   variant: TrendVariant;
 }
 
-export interface StatsCardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface StatsCardProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, keyof MotionProps>,
+    MotionProps {
   label: string;
   value: string | number;
   icon: LucideIcon;
@@ -72,7 +78,7 @@ export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
     ref
   ) => {
     return (
-      <Card
+      <MotionCard
         ref={ref}
         className={cn(
           "group relative overflow-hidden",
@@ -80,6 +86,8 @@ export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
           "hover:-translate-y-1 transition-transform duration-200",
           className
         )}
+        variants={cardVariants}
+        whileHover={{ scale: 1.02, transition: { duration: 0.15 } }}
         {...props}
       >
         <div className="p-[var(--card-padding)]">
@@ -144,7 +152,7 @@ export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
             }}
           />
         </div>
-      </Card>
+      </MotionCard>
     );
   }
 );
