@@ -1,8 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { Building2 } from "@/lib/icons";
+import {
+  Building2,
+  TrendingUp,
+  Wallet,
+  Landmark,
+  ReceiptText,
+  Users,
+  ArrowLeftRight,
+  AlertTriangle,
+  GraduationCap,
+  BookOpen,
+  Layers,
+  Bell,
+  Plus,
+  Pencil,
+  Trash2,
+  KeyRound,
+  Upload,
+  RefreshCw,
+  ClipboardList,
+} from "@/lib/icons";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
@@ -26,6 +46,8 @@ import type { StudentFormData } from "@/app/[locale]/students/_types";
 import { fetchWithAuthorizedSession, withJsonHeaders, fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { formatNumber } from "@/lib/formatting";
 import { SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
+import { motion } from "framer-motion";
+import { containerVariants, cardVariants, usePrefersReducedMotion, getVariants } from "@/lib/motion-variants";
 
 interface BranchDashboardExperienceProps {
   titleOverride?: string;
@@ -73,6 +95,21 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
   const [teachersCount, setTeachersCount] = useState<number | null>(null);
   const [notificationsCount, setNotificationsCount] = useState<number | null>(null);
 
+  // Activity logs
+  type ActivityLog = {
+    id: string;
+    created_at: string;
+    actor_name: string | null;
+    actor_role: string | null;
+    action_type: string;
+    entity_type: string | null;
+    entity_id: string | null;
+    summary: string | null;
+  };
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityLoaded, setActivityLoaded] = useState(false);
+
   useEffect(() => {
     const sid = schoolScope.selectedSchoolId;
     if (!sid || schoolScope.scopeLoading) return;
@@ -90,6 +127,31 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
     }).catch(() => {});
   }, [schoolScope.selectedSchoolId, schoolScope.scopeLoading]);
 
+  // branchId from profile (employees) or undefined for admin (server derives from JWT)
+  const branchId = (profile?.branch_id as string | undefined) ?? undefined;
+
+  const fetchActivityLogs = useCallback(async () => {
+    setActivityLoading(true);
+    try {
+      const url = branchId
+        ? `/api/web/branch/activity-logs?branchId=${branchId}&limit=50`
+        : `/api/web/branch/activity-logs?limit=50`;
+      const { payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; logs: ActivityLog[] }>(url);
+      if (payload?.ok) setActivityLogs(payload.logs ?? []);
+    } catch {
+      // ignore
+    } finally {
+      setActivityLoading(false);
+      setActivityLoaded(true);
+    }
+  }, [branchId]);
+
+  useEffect(() => {
+    if (!activityLoaded) {
+      void fetchActivityLogs();
+    }
+  }, [activityLoaded, fetchActivityLogs]);
+
   // Modal state
   const [showClassesModal, setShowClassesModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -101,6 +163,8 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
   const [addStudentForm, setAddStudentForm] = useState<StudentFormData>(DEFAULT_STUDENT_FORM);
   const [addStudentSaving, setAddStudentSaving] = useState(false);
   const [addStudentError, setAddStudentError] = useState("");
+
+  const reduced = usePrefersReducedMotion();
 
   const paymentsPageHref = schoolScope.buildLocalizedPath("/payments", locale);
 
@@ -164,7 +228,7 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-6">
 
       {/* Hero Banner */}
       <div
@@ -210,6 +274,28 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
         </div>
       )}
 
+      {/* Quick Access Panel */}
+      <QuickAccessPanel
+        locale={locale}
+        buildLocalizedPath={schoolScope.buildLocalizedPath}
+        can={can}
+        canAny={canAny}
+        schoolId={schoolScope.selectedSchoolId}
+        availableClassNames={availableClassNames}
+        onOpenClassesModal={() => setShowClassesModal(true)}
+        onOpenAddStudentModal={() => {
+          setAddStudentForm(DEFAULT_STUDENT_FORM);
+          setAddStudentStep(1);
+          setAddStudentError("");
+          setShowAddStudentModal(true);
+        }}
+        onOpenPaymentModal={() => setShowPaymentModal(true)}
+        onOpenTeacherModal={() => setShowTeacherModal(true)}
+        onOpenExpenseModal={() => setShowExpenseModal(true)}
+        onOpenIncomeModal={() => setShowIncomeModal(true)}
+        onOpenFeeModal={() => feeManagement.openNewFee()}
+      />
+
       {/* ② Progress Card — collection rate + expanded KPIs */}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5">
         <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">
@@ -234,156 +320,193 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
         </div>
 
         {/* Row 1: Financial KPIs */}
-        <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
+        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
           {isEn ? "Financials" : "الماليات"}
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums" style={{ color: "var(--success)" }}>
-              {formatNumber(dashboardTotals.totalPaid)}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Collected" : "محصّل"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums text-[var(--warning)]">
-              {formatNumber(dashboardTotals.totalRemaining)}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Remaining" : "متبقي"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums" style={{ color: "var(--success)" }}>
-              {formatNumber(dashboardTotals.todayIncomes)}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Today Income" : "إيرادات اليوم"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums text-[var(--danger)]">
-              {formatNumber(dashboardTotals.todayExpenses)}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Today Expenses" : "مصروفات اليوم"}
-            </p>
-          </div>
+        <div className="rounded-xl border border-[var(--border)] overflow-hidden mb-4">
+          {[
+            {
+              label: isEn ? "Collected" : "محصّل",
+              value: formatNumber(dashboardTotals.totalPaid),
+              color: "var(--success)",
+              icon: <TrendingUp size={15} />,
+            },
+            {
+              label: isEn ? "Remaining" : "متبقي",
+              value: formatNumber(dashboardTotals.totalRemaining),
+              color: "var(--warning)",
+              icon: <Wallet size={15} />,
+            },
+            {
+              label: isEn ? "Today Income" : "إيرادات اليوم",
+              value: formatNumber(dashboardTotals.todayIncomes),
+              color: "var(--success)",
+              icon: <Landmark size={15} />,
+            },
+            {
+              label: isEn ? "Today Expenses" : "مصروفات اليوم",
+              value: formatNumber(dashboardTotals.todayExpenses),
+              color: "var(--danger)",
+              icon: <ReceiptText size={15} />,
+            },
+          ].map((item, i, arr) => (
+            <div
+              key={item.label}
+              className="flex items-center justify-between px-4 py-2.5"
+              style={{
+                background: i % 2 === 0 ? "var(--card-bg)" : "var(--surface-soft)",
+                borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)`, color: item.color }}
+                >
+                  {item.icon}
+                </span>
+                <span className="text-sm font-medium text-[var(--text-secondary)]">{item.label}</span>
+              </div>
+              <span className="text-sm font-black tabular-nums" style={{ color: item.color }}>
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
 
-        {/* Row 2: People & Structure KPIs */}
-        <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
+        {/* Row 2: Students & Staff KPIs */}
+        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
           {isEn ? "Students & Staff" : "الطلاب والهيئة"}
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums text-[var(--primary)]">
-              {dashboardTotals.studentsCount}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Students" : "الطلاب"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums text-[var(--text-secondary)]">
-              {dashboardTotals.transferredCount}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Transferred" : "منقولون"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums text-[var(--danger)]">
-              {overdueStudents?.length ?? 0}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Overdue" : "متأخرون"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums" style={{ color: "#8b5cf6" }}>
-              {teachersCount ?? "—"}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Teachers" : "الأساتذة"}
-            </p>
-          </div>
+        <div className="rounded-xl border border-[var(--border)] overflow-hidden mb-4">
+          {[
+            {
+              label: isEn ? "Students" : "الطلاب",
+              value: dashboardTotals.studentsCount,
+              color: "var(--primary)",
+              icon: <Users size={15} />,
+            },
+            {
+              label: isEn ? "Transferred" : "منقولون",
+              value: dashboardTotals.transferredCount,
+              color: "var(--text-secondary)",
+              icon: <ArrowLeftRight size={15} />,
+            },
+            {
+              label: isEn ? "Overdue" : "متأخرون",
+              value: overdueStudents?.length ?? 0,
+              color: "var(--danger)",
+              icon: <AlertTriangle size={15} />,
+            },
+            {
+              label: isEn ? "Teachers" : "الأساتذة",
+              value: teachersCount ?? "—",
+              color: "#8b5cf6",
+              icon: <GraduationCap size={15} />,
+            },
+          ].map((item, i, arr) => (
+            <div
+              key={item.label}
+              className="flex items-center justify-between px-4 py-2.5"
+              style={{
+                background: i % 2 === 0 ? "var(--card-bg)" : "var(--surface-soft)",
+                borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)`, color: item.color }}
+                >
+                  {item.icon}
+                </span>
+                <span className="text-sm font-medium text-[var(--text-secondary)]">{item.label}</span>
+              </div>
+              <span className="text-sm font-black tabular-nums" style={{ color: item.color }}>
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Row 3: Structure & Notifications */}
-        <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
+        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
           {isEn ? "Structure" : "الهيكل"}
         </p>
-        <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums" style={{ color: "#0ea5e9" }}>
-              {classesSections.classes?.length ?? 0}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Classes" : "الصفوف"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums" style={{ color: "#f97316" }}>
-              {classesSections.sections?.length ?? 0}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Sections" : "الشعب"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--surface-soft)] p-3 text-center">
-            <p className="text-xl font-black tabular-nums" style={{ color: "#ec4899" }}>
-              {notificationsCount ?? "—"}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1">
-              {isEn ? "Notifications" : "الإشعارات"}
-            </p>
-          </div>
+        <div className="rounded-xl border border-[var(--border)] overflow-hidden">
+          {[
+            {
+              label: isEn ? "Classes" : "الصفوف",
+              value: classesSections.classes?.length ?? 0,
+              color: "#0ea5e9",
+              icon: <BookOpen size={15} />,
+            },
+            {
+              label: isEn ? "Sections" : "الشعب",
+              value: classesSections.sections?.length ?? 0,
+              color: "#f97316",
+              icon: <Layers size={15} />,
+            },
+            {
+              label: isEn ? "Notifications" : "الإشعارات",
+              value: notificationsCount ?? "—",
+              color: "#ec4899",
+              icon: <Bell size={15} />,
+            },
+          ].map((item, i, arr) => (
+            <div
+              key={item.label}
+              className="flex items-center justify-between px-4 py-2.5"
+              style={{
+                background: i % 2 === 0 ? "var(--card-bg)" : "var(--surface-soft)",
+                borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)`, color: item.color }}
+                >
+                  {item.icon}
+                </span>
+                <span className="text-sm font-medium text-[var(--text-secondary)]">{item.label}</span>
+              </div>
+              <span className="text-sm font-black tabular-nums" style={{ color: item.color }}>
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Quick Access Panel */}
-      <QuickAccessPanel
-        locale={locale}
-        buildLocalizedPath={schoolScope.buildLocalizedPath}
-        can={can}
-        canAny={canAny}
-        schoolId={schoolScope.selectedSchoolId}
-        availableClassNames={availableClassNames}
-        onOpenClassesModal={() => setShowClassesModal(true)}
-        onOpenAddStudentModal={() => {
-          setAddStudentForm(DEFAULT_STUDENT_FORM);
-          setAddStudentStep(1);
-          setAddStudentError("");
-          setShowAddStudentModal(true);
-        }}
-        onOpenPaymentModal={() => setShowPaymentModal(true)}
-        onOpenTeacherModal={() => setShowTeacherModal(true)}
-        onOpenExpenseModal={() => setShowExpenseModal(true)}
-        onOpenIncomeModal={() => setShowIncomeModal(true)}
-        onOpenFeeModal={() => feeManagement.openNewFee()}
-      />
-
       {/* Two-col: Recent Payments + Overdue Students */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <RecentPaymentsPanel
-          recentPayments={recentPayments}
-          paymentsPageHref={paymentsPageHref}
-          locale={locale}
-          loading={loading}
-          error={error}
-          onRetry={refetch}
-        />
-        <OverdueStudentsPanel
-          overdueStudents={overdueStudents ?? []}
-          paymentsPageHref={paymentsPageHref}
-          locale={locale}
-          loading={loading}
-          error={error}
-          onRetry={refetch}
-        />
-      </div>
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        variants={getVariants(reduced, containerVariants(0.06))}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={getVariants(reduced, cardVariants)}>
+          <RecentPaymentsPanel
+            recentPayments={recentPayments}
+            paymentsPageHref={paymentsPageHref}
+            locale={locale}
+            loading={loading}
+            error={error}
+            onRetry={refetch}
+          />
+        </motion.div>
+        <motion.div variants={getVariants(reduced, cardVariants)}>
+          <OverdueStudentsPanel
+            overdueStudents={overdueStudents ?? []}
+            paymentsPageHref={paymentsPageHref}
+            locale={locale}
+            loading={loading}
+            error={error}
+            onRetry={refetch}
+          />
+        </motion.div>
+      </motion.div>
 
       {/* ⑤ Classes Table */}
       {dashboardData.classFees && dashboardData.classFees.length > 0 && (
@@ -529,7 +652,194 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
         </div>
       )}
 
+      {/* Activity Logs Section */}
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span
+                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}
+              >
+                <ClipboardList size={16} />
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-[var(--text-primary)]">
+                  {isEn ? "Operation Logs" : "سجل العمليات"}
+                </h3>
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  {isEn ? "Who did what in this branch" : "ما فعله مستخدمو الفرع"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {activityLogs.length > 0 && (
+                <span
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black"
+                  style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}
+                >
+                  {activityLogs.length}
+                </span>
+              )}
+              <button
+                onClick={() => { setActivityLoaded(false); }}
+                disabled={activityLoading}
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-soft)] disabled:opacity-40"
+                style={{ color: "var(--text-muted)" }}
+                title={isEn ? "Refresh" : "تحديث"}
+              >
+                <RefreshCw size={14} className={activityLoading ? "animate-spin" : ""} />
+              </button>
+            </div>
+          </div>
+
+          {activityLoading && !activityLoaded ? (
+            <div className="divide-y divide-[var(--border)]">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="px-5 py-3.5 flex items-center gap-3 animate-pulse">
+                  <div className="w-7 h-7 rounded-lg bg-[var(--surface-soft)] shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 bg-[var(--surface-soft)] rounded w-1/3" />
+                    <div className="h-2.5 bg-[var(--surface-soft)] rounded w-2/3" />
+                  </div>
+                  <div className="h-2.5 bg-[var(--surface-soft)] rounded w-16 shrink-0" />
+                </div>
+              ))}
+            </div>
+          ) : activityLoaded && activityLogs.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <ClipboardList size={28} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }} />
+              <p className="text-sm text-[var(--text-muted)]">
+                {isEn ? "No operations recorded yet" : "لا توجد عمليات مسجلة بعد"}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--border)]">
+              {activityLogs.map((log, i) => {
+                const actionConfig: Record<string, { icon: React.ReactNode; color: string; label: string; labelEn: string }> = {
+                  create: { icon: <Plus size={13} />, color: "var(--success)", label: "إضافة", labelEn: "Create" },
+                  insert: { icon: <Plus size={13} />, color: "var(--success)", label: "إضافة", labelEn: "Insert" },
+                  update: { icon: <Pencil size={13} />, color: "var(--primary)", label: "تعديل", labelEn: "Update" },
+                  edit: { icon: <Pencil size={13} />, color: "var(--primary)", label: "تعديل", labelEn: "Edit" },
+                  delete: { icon: <Trash2 size={13} />, color: "var(--danger)", label: "حذف", labelEn: "Delete" },
+                  login: { icon: <KeyRound size={13} />, color: "var(--text-muted)", label: "تسجيل دخول", labelEn: "Login" },
+                  export: { icon: <Upload size={13} />, color: "#f97316", label: "تصدير", labelEn: "Export" },
+                };
+                const actionKey = log.action_type?.toLowerCase() ?? "";
+                const cfg = actionConfig[actionKey] ?? { icon: <ClipboardList size={13} />, color: "var(--text-muted)", label: log.action_type, labelEn: log.action_type };
+
+                const entityLabels: Record<string, { ar: string; en: string }> = {
+                  student: { ar: "طالب", en: "Student" },
+                  payment: { ar: "دفعة", en: "Payment" },
+                  expense: { ar: "مصروف", en: "Expense" },
+                  income: { ar: "إيراد", en: "Income" },
+                  teacher: { ar: "أستاذ", en: "Teacher" },
+                  class: { ar: "صف", en: "Class" },
+                  user: { ar: "مستخدم", en: "User" },
+                };
+                const entityKey = log.entity_type?.toLowerCase() ?? "";
+                const entityLabel = entityLabels[entityKey]
+                  ? (isEn ? entityLabels[entityKey].en : entityLabels[entityKey].ar)
+                  : log.entity_type ?? "";
+
+                const roleColors: Record<string, string> = {
+                  admin: "#8b5cf6",
+                  super_admin: "#ef4444",
+                  employee: "#3b82f6",
+                };
+                const roleColor = roleColors[log.actor_role ?? ""] ?? "var(--text-muted)";
+                const roleLabel = log.actor_role === "admin"
+                  ? (isEn ? "Admin" : "مدير")
+                  : log.actor_role === "super_admin"
+                    ? (isEn ? "Super Admin" : "مدير عام")
+                    : log.actor_role === "employee"
+                      ? (isEn ? "Employee" : "موظف")
+                      : log.actor_role ?? "";
+
+                const now = Date.now();
+                const ts = new Date(log.created_at).getTime();
+                const diff = Math.floor((now - ts) / 1000);
+                const relativeTime = diff < 60
+                  ? (isEn ? `${diff}s ago` : `منذ ${diff} ث`)
+                  : diff < 3600
+                    ? (isEn ? `${Math.floor(diff / 60)}m ago` : `منذ ${Math.floor(diff / 60)} د`)
+                    : diff < 86400
+                      ? (isEn ? `${Math.floor(diff / 3600)}h ago` : `منذ ${Math.floor(diff / 3600)} س`)
+                      : new Date(log.created_at).toLocaleDateString(isEn ? "en-US" : "ar-IQ");
+
+                return (
+                  <div
+                    key={log.id}
+                    className="px-5 py-3 flex items-start gap-3 hover:bg-[var(--surface-soft)] transition-colors"
+                    style={{ background: i % 2 === 0 ? "var(--card-bg)" : undefined }}
+                  >
+                    {/* Action icon */}
+                    <span
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                      style={{
+                        background: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
+                        color: cfg.color,
+                      }}
+                    >
+                      {cfg.icon}
+                    </span>
+
+                    {/* Main content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
+                        {/* Actor name */}
+                        <span className="text-sm font-bold text-[var(--text-primary)] truncate">
+                          {log.actor_name ?? (isEn ? "Unknown" : "غير معروف")}
+                        </span>
+                        {/* Role badge */}
+                        {roleLabel && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-px rounded text-[10px] font-black"
+                            style={{
+                              background: `color-mix(in srgb, ${roleColor} 12%, transparent)`,
+                              color: roleColor,
+                            }}
+                          >
+                            {roleLabel}
+                          </span>
+                        )}
+                        {/* Action label */}
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-black"
+                          style={{
+                            background: `color-mix(in srgb, ${cfg.color} 10%, transparent)`,
+                            color: cfg.color,
+                          }}
+                        >
+                          {isEn ? cfg.labelEn : cfg.label}
+                        </span>
+                        {/* Entity label */}
+                        {entityLabel && (
+                          <span className="text-[11px] text-[var(--text-muted)]">
+                            {entityLabel}
+                          </span>
+                        )}
+                      </div>
+                      {log.summary && (
+                        <p className="text-xs text-[var(--text-secondary)] truncate">{log.summary}</p>
+                      )}
+                    </div>
+
+                    {/* Time */}
+                    <span
+                      className="text-[11px] text-[var(--text-muted)] shrink-0 mt-0.5 tabular-nums"
+                      title={new Date(log.created_at).toLocaleString(isEn ? "en-US" : "ar-IQ")}
+                    >
+                      {relativeTime}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
       {/* Modals */}
+
       <ClassesModal
         show={showClassesModal}
         classes={classesSections.classes}
