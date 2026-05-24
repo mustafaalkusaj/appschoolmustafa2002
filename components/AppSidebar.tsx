@@ -302,7 +302,7 @@ export function AppSidebar({
                           {isActive && !collapsed && (
                             <motion.span
                               layoutId="sidebar-active-indicator"
-                              className="absolute inset-0 rounded-[var(--radius-lg)] bg-[var(--primary)] shadow-[var(--shadow-primary)]"
+                              className="absolute inset-0 z-0 rounded-[var(--radius-lg)] bg-[var(--primary)] shadow-[var(--shadow-primary)]"
                               transition={{ type: "spring", stiffness: 350, damping: 30 }}
                             />
                           )}
@@ -318,7 +318,7 @@ export function AppSidebar({
                             </span>
                           )}
                           <span className={cn(
-                            "shrink-0 flex items-center justify-center",
+                            "relative z-[1] shrink-0 flex items-center justify-center",
                             collapsed ? "w-6 h-6" : "w-8 h-8 rounded-xl transition-transform group-hover:scale-110",
                             isActive
                               ? "text-white"
@@ -329,7 +329,7 @@ export function AppSidebar({
                           </span>
                           {!collapsed && (
                             <>
-                              <span className="flex-1 text-sm leading-5 whitespace-normal">{label}</span>
+                              <span className="relative z-[1] flex-1 text-sm leading-5 whitespace-normal">{label}</span>
                               {isActive && (
                                 <span className="shrink-0 opacity-60">
                                   {locale === "en" ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
