@@ -1,12 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { motion } from "framer-motion";
 import { formatNumber } from "@/lib/formatting";
 import { Badge } from "@/components/ui/badge";
 import { Button, IconButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Student, PAGE_SIZE } from "../_types";
 import { CreditCard, Eye } from "lucide-react";
+import { containerVariants, itemVariants, usePrefersReducedMotion, getVariants } from "@/lib/motion-variants";
 
 interface PaymentsTableProps {
   students: Student[];
@@ -18,6 +20,7 @@ interface PaymentsTableProps {
   onPageChange: (page: number) => void;
   onStudentClick: (student: Student) => void;
   onAddPayment?: (student: Student) => void;
+  currency?: string;
 }
 
 export function PaymentsTable({
@@ -30,8 +33,11 @@ export function PaymentsTable({
   onPageChange,
   onStudentClick,
   onAddPayment,
+  currency,
 }: PaymentsTableProps) {
   const t = useTranslations();
+  const reduced = usePrefersReducedMotion();
+  const cur = currency ?? "IQD";
   const getPaymentStatus = (
     remaining: number,
     total: number
@@ -69,15 +75,22 @@ export function PaymentsTable({
   return (
     <div className="space-y-6">
       {/* Mobile Cards */}
-      <div className="grid gap-4 lg:hidden">
+      <motion.div
+        className="grid gap-4 lg:hidden"
+        variants={getVariants(reduced, containerVariants(0.06))}
+        initial="hidden"
+        animate="visible"
+        key={page}
+      >
         {students.map((s, i) => {
           const effectiveFee = Math.max((s.total_fee ?? 0) - (s.discount_value ?? 0), 0);
           const pct = effectiveFee > 0 ? Math.min(100, Math.round(((s.paid_fee ?? 0) / effectiveFee) * 100)) : 0;
           const status = getPaymentStatus(s.remaining_fee, s.total_fee);
 
           return (
-            <div
+            <motion.div
               key={s.id}
+              variants={getVariants(reduced, itemVariants)}
               className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[var(--card-shadow)] space-y-4"
             >
               {/* Header */}
@@ -96,7 +109,7 @@ export function PaymentsTable({
                   </p>
                 </div>
                 <div className="text-lg font-bold text-[var(--danger)]">
-                  {t("common.currency")} {formatNumber(s.remaining_fee)}
+                  {cur} {formatNumber(s.remaining_fee)}
                 </div>
               </div>
 
@@ -105,20 +118,20 @@ export function PaymentsTable({
                 <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
                   <span className="text-xs text-[var(--text-muted)]">{t("payments.table.paidAmount")}</span>
                   <p className="text-sm font-bold text-[var(--success)] mt-1">
-                    {t("common.currency")} {formatNumber(s.paid_fee)}
+                    {cur} {formatNumber(s.paid_fee)}
                   </p>
                 </div>
                 <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
                   <span className="text-xs text-[var(--text-muted)]">{t("payments.table.totalAmount")}</span>
                   <p className="text-sm font-bold text-[var(--text-primary)] mt-1">
-                    {t("common.currency")} {formatNumber(s.total_fee)}
+                    {cur} {formatNumber(s.total_fee)}
                   </p>
                 </div>
                 <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
                   <span className="text-xs text-[var(--text-muted)]">{t("payments.table.discount")}</span>
                   <p className="text-sm font-bold text-[var(--text-primary)] mt-1">
                     {s.discount_value && s.discount_value > 0
-                      ? `${t("common.currency")} ${formatNumber(s.discount_value)}`
+                      ? `${cur} ${formatNumber(s.discount_value)}`
                       : "—"}
                   </p>
                 </div>
@@ -160,10 +173,10 @@ export function PaymentsTable({
                   {t("payments.table.viewDetails")}
                 </Button>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Desktop Table */}
       <div className="hidden lg:block overflow-x-auto">
@@ -199,15 +212,21 @@ export function PaymentsTable({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <motion.tbody
+            variants={getVariants(reduced, containerVariants(0.04))}
+            initial="hidden"
+            animate="visible"
+            key={page}
+          >
             {students.map((s, i) => {
               const effectiveFee = Math.max((s.total_fee ?? 0) - (s.discount_value ?? 0), 0);
               const pct = effectiveFee > 0 ? Math.min(100, Math.round(((s.paid_fee ?? 0) / effectiveFee) * 100)) : 0;
               const status = getPaymentStatus(s.remaining_fee, s.total_fee);
 
               return (
-                <tr
+                <motion.tr
                   key={s.id}
+                  variants={getVariants(reduced, itemVariants)}
                   className="hover:bg-[var(--surface-soft)] transition-colors"
                 >
                   <td className="p-3 text-xs text-[var(--text-tertiary)] border-b border-[var(--border)]">
@@ -233,14 +252,14 @@ export function PaymentsTable({
                     {s.phone || "—"}
                   </td>
                   <td className="p-3 text-sm font-bold text-[var(--text-primary)] border-b border-[var(--border)]">
-                    {t("common.currency")} {formatNumber(s.total_fee)}
+                    {cur} {formatNumber(s.total_fee)}
                   </td>
                   <td className="p-3 text-sm font-bold text-[var(--success)] border-b border-[var(--border)]">
-                    {t("common.currency")} {formatNumber(s.paid_fee)}
+                    {cur} {formatNumber(s.paid_fee)}
                   </td>
                   <td className="p-3 text-sm text-[var(--text-secondary)] border-b border-[var(--border)]">
                     {s.discount_value && s.discount_value > 0
-                      ? `${t("common.currency")} ${formatNumber(s.discount_value)}`
+                      ? `${cur} ${formatNumber(s.discount_value)}`
                       : "—"}
                   </td>
                   <td className="p-3 border-b border-[var(--border)]">
@@ -250,7 +269,7 @@ export function PaymentsTable({
                           s.remaining_fee > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
                         }`}
                       >
-                        {t("common.currency")} {formatNumber(s.remaining_fee)}
+                        {cur} {formatNumber(s.remaining_fee)}
                       </span>
                       <Badge variant={status.variant} size="sm">
                         {status.label}
@@ -288,10 +307,10 @@ export function PaymentsTable({
                       </IconButton>
                     </div>
                   </td>
-                </tr>
+                </motion.tr>
               );
             })}
-          </tbody>
+          </motion.tbody>
         </table>
       </div>
 
