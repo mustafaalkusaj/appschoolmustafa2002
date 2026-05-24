@@ -48,7 +48,7 @@ export function NotificationsPanel({
             <h3 className="text-sm font-black text-[var(--text-primary)]">{t("title")}</h3>
             {unreadNotifications > 0 && (
               <p className="text-[10px] font-bold text-[var(--danger)] uppercase tracking-wider">
-                <motion.span animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}>
+                <motion.span animate={!reduced ? { scale: [1, 1.15, 1] } : {}} transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}>
                   {t("unread", { count: unreadNotifications })}
                 </motion.span>
               </p>
