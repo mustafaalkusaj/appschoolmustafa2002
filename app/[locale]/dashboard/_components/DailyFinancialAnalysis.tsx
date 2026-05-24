@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { formatNumber } from "@/lib/formatting";
-import { usePrefersReducedMotion } from "@/lib/motion-variants";
 import {
   Banknote,
   TrendingUp,
@@ -52,7 +51,6 @@ export function DailyFinancialAnalysis({
   const t = useTranslations("dashboard.daily");
   const cur = useTranslations("common")("currency");
   const isRtl = locale === "ar";
-  const reduced = usePrefersReducedMotion();
 
   const now = new Date();
   const todayPayments = recentPayments.filter((p) => isSameDay(p.created_at, now));

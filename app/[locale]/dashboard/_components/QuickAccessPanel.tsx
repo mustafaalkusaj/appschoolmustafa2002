@@ -313,9 +313,9 @@ export function QuickAccessPanel({ locale, buildLocalizedPath, can, canAny, scho
               <motion.div
                 key={card.key}
                 variants={getVariants(reduced, cardVariants)}
-                whileHover={{ scale: 1.03, transition: { duration: 0.15 } }}
-                whileTap={{ scale: 0.97 }}
-                className="group relative rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                whileHover={!reduced ? { scale: 1.03, transition: { duration: 0.15 } } : {}}
+                whileTap={!reduced ? { scale: 0.97 } : {}}
+                className="group relative rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden hover:shadow-[var(--shadow-md)] cursor-pointer"
                 onClick={() => !isNavigate && handleCardClick(card)}
               >
                 <div
