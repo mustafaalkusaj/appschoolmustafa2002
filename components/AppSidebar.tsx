@@ -295,14 +295,14 @@ export function AppSidebar({
                               : "gap-3 px-2.5 h-11 rounded-2xl",
                             collapsed && isActive && "bg-[var(--primary)] shadow-[var(--shadow-primary)]",
                             collapsed && !isActive && "hover:bg-[var(--surface-muted)]",
-                            !collapsed && isActive && "bg-[var(--primary)] text-white shadow-[var(--shadow-primary)] font-semibold",
+                            !collapsed && isActive && "text-white font-semibold",
                             !collapsed && !isActive && "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]",
                           )}
                         >
                           {isActive && !collapsed && (
                             <motion.span
                               layoutId="sidebar-active-indicator"
-                              className="absolute inset-0 rounded-[var(--radius-lg)] bg-[var(--primary)]/10"
+                              className="absolute inset-0 rounded-[var(--radius-lg)] bg-[var(--primary)] shadow-[var(--shadow-primary)]"
                               transition={{ type: "spring", stiffness: 350, damping: 30 }}
                             />
                           )}
