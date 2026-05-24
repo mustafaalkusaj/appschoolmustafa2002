@@ -83,6 +83,11 @@ export async function GET(req: NextRequest) {
     branchStudentIds = ((bs ?? []) as Array<{ id: string }>).map((s) => s.id)
   }
 
+  // Branch isolation: if scoped to a branch with no students, return empty
+  if (branchStudentIds !== undefined && branchStudentIds.length === 0) {
+    return NextResponse.json({ ok: true, gate: { available: true }, items: [], count: 0 })
+  }
+
   // جلب جميع الشارات للمدرسة (مع التصفية بالسنة إذا وُجدت)
   let query = actorSupabase
     .from('student_badges')
@@ -165,6 +170,7 @@ export async function GET(req: NextRequest) {
         .from('students')
         .select('id, full_name')
         .in('id', studentIds)
+        .eq('school_id', targetSchoolId)
       ;(studentsData ?? []).forEach((s: { id: string; full_name: string }) => {
         studentNames.set(s.id, s.full_name)
       })
