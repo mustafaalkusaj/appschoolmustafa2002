@@ -1,14 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Bell, RefreshCw, Info } from "@/lib/icons";
+import { Bell, RefreshCw, Info, AlertTriangle } from "@/lib/icons";
 import { formatDate } from "@/lib/formatting";
 import { DashboardNotification } from "./types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ErrorState } from "@/components/ui/error-state";
 import { cn } from "@/lib/brand/brand-utils";
+import { motion } from "framer-motion";
+import { containerVariants, itemVariants, usePrefersReducedMotion, getVariants } from "@/lib/motion-variants";
 
 interface NotificationsPanelProps {
   notifications: DashboardNotification[];
@@ -32,82 +30,90 @@ export function NotificationsPanel({
   const t = useTranslations("dashboard.notifications");
   const dashboardT = useTranslations("dashboard");
   const commonT = useTranslations("common");
+  const reduced = usePrefersReducedMotion();
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2">
           <div className="relative">
-            <div className="p-2 rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]">
-              <Bell size={18} />
+            <div className="h-7 w-7 rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)] flex items-center justify-center">
+              <Bell size={14} />
             </div>
             {unreadNotifications > 0 && (
-              <span className="absolute -top-1 -end-1 w-3 h-3 bg-[var(--danger)] border-2 border-[var(--card-bg)] rounded-full animate-pulse" />
+              <span className="absolute -top-0.5 -end-0.5 w-2.5 h-2.5 bg-[var(--danger)] border-2 border-[var(--card-bg)] rounded-full animate-pulse" />
             )}
           </div>
           <div>
-            <CardTitle>{t("title")}</CardTitle>
+            <h3 className="text-sm font-black text-[var(--text-primary)]">{t("title")}</h3>
             {unreadNotifications > 0 && (
-              <p className="text-[10px] font-bold text-[var(--danger)] uppercase tracking-wider mt-0.5">
-                {t("unread", { count: unreadNotifications })}
+              <p className="text-[10px] font-bold text-[var(--danger)] uppercase tracking-wider">
+                <motion.span animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}>
+                  {t("unread", { count: unreadNotifications })}
+                </motion.span>
               </p>
             )}
           </div>
         </div>
-        
+
         {notificationsEnabled && (
-          <Button 
-            variant="outline" 
-            size="sm"
+          <button
             onClick={() => void onRefresh()}
             disabled={notificationsLoading}
-            className="gap-2"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] transition-colors disabled:opacity-50"
           >
             <RefreshCw size={12} className={cn(notificationsLoading && "animate-spin")} />
             {t("refresh")}
-          </Button>
+          </button>
         )}
-      </CardHeader>
+      </div>
 
-      <CardContent>
+      <div className="p-4">
         {!notificationsEnabled ? (
-          <EmptyState
-            icon={<Info size={24} />}
-            title={t("disabled")}
-          />
+          <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-[var(--surface-soft)] text-[var(--text-muted)] flex items-center justify-center">
+              <Info size={22} />
+            </div>
+            <p className="text-sm font-semibold text-[var(--text-muted)]">{t("disabled")}</p>
+          </div>
         ) : error && notifications.length === 0 ? (
-          <ErrorState
-            title={dashboardT("errors.notificationsTitle")}
-            description={dashboardT("errors.notificationsDescription")}
-            onRetry={() => void onRefresh()}
-            retryLabel={commonT("retry")}
-            className="min-h-[220px] px-0 py-8"
-          />
+          <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-[var(--danger)]/10 text-[var(--danger)] flex items-center justify-center">
+              <AlertTriangle size={22} />
+            </div>
+            <p className="text-sm font-bold text-[var(--text-primary)]">{dashboardT("errors.notificationsTitle")}</p>
+            <p className="text-xs text-[var(--text-muted)]">{dashboardT("errors.notificationsDescription")}</p>
+            <button onClick={() => void onRefresh()} className="inline-flex items-center h-8 px-3 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] transition-colors">
+              {commonT("retry")}
+            </button>
+          </div>
         ) : notificationsLoading && notifications.length === 0 ? (
-          <div className="space-y-2 py-2">
+          <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
+              <div key={index} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
                 <div className="mb-2 h-3 w-1/2 rounded-full bg-[var(--surface-muted)]" />
                 <div className="h-2 w-4/5 rounded-full bg-[var(--surface-muted)]" />
               </div>
             ))}
           </div>
         ) : notifications.length === 0 ? (
-          <EmptyState
-            icon={<Bell size={24} />}
-            title={t("empty")}
-          />
+          <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-[var(--surface-soft)] text-[var(--text-muted)] flex items-center justify-center">
+              <Bell size={22} />
+            </div>
+            <p className="text-sm font-semibold text-[var(--text-muted)]">{t("empty")}</p>
+          </div>
         ) : (
-          <div className="space-y-2 max-h-[360px] overflow-y-auto">
+          <motion.div className="space-y-2 max-h-[360px] overflow-y-auto" variants={getVariants(reduced, containerVariants(0.07))} initial="hidden" animate="visible">
             {notifications.map((item) => (
+              <motion.div key={item.id} variants={getVariants(reduced, itemVariants)}>
               <button
-                key={item.id}
                 type="button"
                 onClick={() => void onMarkAsRead(item.id)}
                 className={cn(
                   "w-full text-start p-3 rounded-xl border transition-colors group relative overflow-hidden",
-                  item.is_read 
-                    ? "bg-[var(--card-bg)] border-[var(--border)] opacity-70 hover:opacity-100" 
+                  item.is_read
+                    ? "bg-[var(--card-bg)] border-[var(--border)] opacity-70 hover:opacity-100"
                     : "bg-[color-mix(in_srgb,var(--primary)_3%,transparent)] border-[var(--primary)]/20 hover:bg-[color-mix(in_srgb,var(--primary)_6%,transparent)]"
                 )}
               >
@@ -129,10 +135,11 @@ export function NotificationsPanel({
                   {item.message || t("noDetails")}
                 </p>
               </button>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
