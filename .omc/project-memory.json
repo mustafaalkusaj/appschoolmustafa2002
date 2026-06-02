@@ -1,0 +1,477 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1780381409497,
+  "projectRoot": "/Users/musatafa/school-app/.claude/worktrees/sharp-euler-eaabe1",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "next",
+        "version": "16.2.3",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "19.2.3",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "19.2.3",
+        "category": "frontend"
+      },
+      {
+        "name": "@playwright/test",
+        "version": "1.59.1",
+        "category": "testing"
+      },
+      {
+        "name": "vitest",
+        "version": "4.0.3",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pnpm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npx tsc --noEmit --pretty false 2>&1 | grep -E \"error TS\" | grep -E \"app-themes|super-admin/components/App|super-admin/page|super-admin/_components\" | head -20",
+    "testCommand": "pnpm test",
+    "lintCommand": "pnpm lint",
+    "devCommand": "pnpm dev",
+    "scripts": {
+      "dev": "next dev --webpack",
+      "build": "next build --webpack",
+      "start": "next start",
+      "lint": "eslint",
+      "typecheck": "node -e \"const fs=require('node:fs'); for (const path of ['.next/types','.next/dev/types','tsconfig.tsbuildinfo']) fs.rmSync(path,{recursive:true,force:true});\" && npx next typegen && tsc --noEmit --incremental false",
+      "test": "vitest run",
+      "test:watch": "vitest",
+      "test:api": "vitest run lib/__tests__/**/*.test.ts",
+      "test:all": "npm run test && npm run test:e2e",
+      "test:e2e": "playwright test",
+      "test:e2e:headed": "playwright test --headed",
+      "test:e2e:ui": "playwright test --ui",
+      "playwright:install": "playwright install chromium",
+      "check": "npm run lint && npm run typecheck && npm run build",
+      "predeploy:check": "node scripts/predeploy-check.mjs",
+      "postdeploy:smoke": "node scripts/postdeploy-smoke.mjs",
+      "postdeploy:login-rate-limit": "node scripts/postdeploy-login-rate-limit.mjs",
+      "deploy:direct": "bash scripts/direct-deploy.sh",
+      "audit:prod": "npm audit --omit=dev",
+      "seed:users": "node scripts/create-default-users.mjs",
+      "qa:seed:e2e": "npx tsx scripts/qa-seed-e2e-accounts.ts",
+      "prisma:generate": "prisma generate",
+      "prisma:migrate": "prisma migrate deploy",
+      "prisma:migrate:dev": "prisma migrate dev"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": "ES modules",
+    "testPattern": "*.test.ts",
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "app",
+      "components",
+      "docs",
+      "lib",
+      "public",
+      "scripts",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 6,
+      "lastAccessed": 1780381409366,
+      "keyFiles": [
+        "favicon.ico",
+        "fonts.ts",
+        "global-error.tsx",
+        "icon.png",
+        "layout.tsx"
+      ]
+    },
+    "artifacts": {
+      "path": "artifacts",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1780381409369,
+      "keyFiles": []
+    },
+    "components": {
+      "path": "components",
+      "purpose": "UI components",
+      "fileCount": 22,
+      "lastAccessed": 1780381409455,
+      "keyFiles": [
+        "AppIcon.tsx",
+        "AppShellTopbar.tsx",
+        "AppSidebar.tsx",
+        "ConfirmDialog.tsx",
+        "DashboardFinanceCharts.tsx"
+      ]
+    },
+    "deploy": {
+      "path": "deploy",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1780381409459,
+      "keyFiles": []
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 4,
+      "lastAccessed": 1780381409461,
+      "keyFiles": [
+        "hetzner-ex44-deployment.md",
+        "ops-runbook.md",
+        "production-runbook.md",
+        "repo-boundaries.md"
+      ]
+    },
+    "figma-handoff": {
+      "path": "figma-handoff",
+      "purpose": null,
+      "fileCount": 24,
+      "lastAccessed": 1780381409470,
+      "keyFiles": [
+        "School-App-Figma-Handoff-Bundle.zip",
+        "School-App-Figma-Seeder.zip",
+        "_REVISION_NOTES.md",
+        "asset-inventory.md",
+        "component-inventory.csv"
+      ]
+    },
+    "figma-handoff-backup-20260408": {
+      "path": "figma-handoff-backup-20260408",
+      "purpose": null,
+      "fileCount": 16,
+      "lastAccessed": 1780381409472,
+      "keyFiles": [
+        "asset-inventory.md",
+        "component-inventory.csv",
+        "component-spec-sheets.md",
+        "component-variant-matrix.csv",
+        "design-tokens.json"
+      ]
+    },
+    "hooks": {
+      "path": "hooks",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1780381409476,
+      "keyFiles": [
+        "useAuth.ts",
+        "useBranchScope.tsx",
+        "usePagedSupabaseList.ts",
+        "useRole.tsx",
+        "useRuntimeBranding.tsx"
+      ]
+    },
+    "i18n": {
+      "path": "i18n",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1780381409479,
+      "keyFiles": [
+        "navigation.ts",
+        "routing.ts"
+      ]
+    },
+    "lib": {
+      "path": "lib",
+      "purpose": "Library code",
+      "fileCount": 73,
+      "lastAccessed": 1780381409481,
+      "keyFiles": [
+        "academic-records-server.ts",
+        "academic-year.ts",
+        "admin-actions.ts",
+        "admin-infrastructure.ts",
+        "admin-repository.ts"
+      ]
+    },
+    "messages": {
+      "path": "messages",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1780381409483,
+      "keyFiles": [
+        "ar.json",
+        "en.json"
+      ]
+    },
+    "migrations": {
+      "path": "migrations",
+      "purpose": "Database migrations",
+      "fileCount": 70,
+      "lastAccessed": 1780381409486,
+      "keyFiles": [
+        "20260322_000000_mobile_core_tables.sql",
+        "20260322_010000_teacher_assignment_accounts.sql",
+        "20260322_managed_mobile_rls.sql",
+        "20260322_mobile_attachments_storage.sql",
+        "20260323_000000_dashboard_managed_account_schema.sql"
+      ]
+    },
+    "playwright-report": {
+      "path": "playwright-report",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1780381409486,
+      "keyFiles": [
+        "index.html"
+      ]
+    },
+    "prisma": {
+      "path": "prisma",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1780381409487,
+      "keyFiles": [
+        "schema.prisma"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 7,
+      "lastAccessed": 1780381409487,
+      "keyFiles": [
+        "globe.svg",
+        "icon-192.png",
+        "icon-512.png",
+        "logo-school-iraq.png",
+        "next.svg"
+      ]
+    },
+    "school-saas-next": {
+      "path": "school-saas-next",
+      "purpose": null,
+      "fileCount": 11,
+      "lastAccessed": 1780381409488,
+      "keyFiles": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "admin_infrastructure.sql",
+        "eslint.config.mjs"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 23,
+      "lastAccessed": 1780381409491,
+      "keyFiles": [
+        "audit-overpaid-students.sql",
+        "backup.sh",
+        "bench-dashboard-users.mjs",
+        "browser-functional-audit.cjs",
+        "capture-redesign-verification.mjs"
+      ]
+    },
+    "skills": {
+      "path": "skills",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1780381409493,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 23,
+      "lastAccessed": 1780381409493,
+      "keyFiles": [
+        "attendance-comprehensive.test.ts",
+        "auth-group-manager.test.ts",
+        "auth-rbac-comprehensive.test.ts",
+        "branch-scope.test.ts",
+        "dashboard-management.test.ts"
+      ]
+    },
+    "types": {
+      "path": "types",
+      "purpose": "Type definitions",
+      "fileCount": 2,
+      "lastAccessed": 1780381409493,
+      "keyFiles": [
+        "roles.ts",
+        "student.ts"
+      ]
+    },
+    "workers": {
+      "path": "workers",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1780381409494,
+      "keyFiles": [
+        "import-worker.ts"
+      ]
+    },
+    "app/api": {
+      "path": "app/api",
+      "purpose": "API routes",
+      "fileCount": 0,
+      "lastAccessed": 1780381409494,
+      "keyFiles": []
+    },
+    "lib/api": {
+      "path": "lib/api",
+      "purpose": "API routes",
+      "fileCount": 1,
+      "lastAccessed": 1780381409495,
+      "keyFiles": [
+        "student-import.ts"
+      ]
+    },
+    "tests/api": {
+      "path": "tests/api",
+      "purpose": "API routes",
+      "fileCount": 20,
+      "lastAccessed": 1780381409496,
+      "keyFiles": [
+        "attendance-route.test.ts",
+        "audit-logs.test.ts",
+        "auth-login-route.test.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "app/[locale]/super-admin/page.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1780383248504,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/super-admin/components/AppsTab.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1780383422824,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/super-admin/components/AppDetailPanel.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1780383384998,
+      "type": "file"
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "accessCount": 4,
+      "lastAccessed": 1780381956340,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/super-admin/components/AppCreateForm.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1780383402083,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/super-admin/schools/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1780382069725,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/super-admin/components/BranchesTab.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1780382128657,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/super-admin/components/UI.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1780382128958,
+      "type": "file"
+    },
+    {
+      "path": "lib/app-themes/types.ts",
+      "accessCount": 2,
+      "lastAccessed": 1780382150699,
+      "type": "file"
+    },
+    {
+      "path": "lib/app-themes/presets.ts",
+      "accessCount": 2,
+      "lastAccessed": 1780382151090,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/super-admin/_components/types.ts",
+      "accessCount": 2,
+      "lastAccessed": 1780383192698,
+      "type": "file"
+    },
+    {
+      "path": "lib/super-admin-server.ts",
+      "accessCount": 1,
+      "lastAccessed": 1780382058467,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/super-admin/apps/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1780382138025,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/super-admin/apps/[appId]/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1780382165600,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/super-admin/apps/[appId]/theme/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1780382180910,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/super-admin/apps/[appId]/features/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1780382194274,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/super-admin/apps/[appId]/limits/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1780382208330,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -17,7 +17,8 @@ export type ActiveTab =
   | "analytics"
   | "bulk"
   | "activity"
-  | "payment-archives";
+  | "payment-archives"
+  | "apps";
 
 export type SchoolPlan = "basic" | "premium" | "enterprise";
 export type SubscriptionStatus = "active" | "suspended" | "inactive" | "expired";

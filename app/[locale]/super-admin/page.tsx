@@ -51,6 +51,7 @@ import { BulkOperationsTab } from "./components/BulkOperationsTab";
 import { ActivityTimelineTab } from "./components/ActivityTimelineTab";
 import { PaymentArchivesTab } from "./components/PaymentArchivesTab";
 import { StudentCountsTab } from "./components/StudentCountsTab";
+import { AppsTab } from "./components/AppsTab";
 
 import {
   OverviewTab,
@@ -149,6 +150,7 @@ export default function SuperAdminPage() {
     { id: "notifications", label: t("tabs.notifications.label"), hint: t("tabs.notifications.hint"), icon: Bell },
     { id: "monitoring", label: t("tabs.monitoring.label"), hint: t("tabs.monitoring.hint"), icon: Activity },
     { id: "branches", label: t("tabs.branches.label"), hint: t("tabs.branches.hint"), icon: GitBranch },
+    { id: "apps", label: "التطبيقات", hint: "إدارة تطبيقات المدارس، الثيمات، والمميزات", icon: School },
   ], [t]);
 
   const flashSuccess = useCallback((m: string) => { setSuccess(m); toast.success(m); window.setTimeout(() => setSuccess(""), 2600); }, [toast]);
@@ -674,6 +676,7 @@ export default function SuperAdminPage() {
                     {activeTab === "bulk" && <BulkOperationsTab />}
                     {activeTab === "activity" && <ActivityTimelineTab />}
                     {activeTab === "payment-archives" && <PaymentArchivesTab />}
+                    {activeTab === "apps" && <AppsTab />}
                   </div>
                 )}
               </div>

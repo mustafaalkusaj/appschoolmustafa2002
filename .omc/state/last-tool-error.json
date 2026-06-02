@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"vercel --version 2>&1 && cat .vercel/project.json 2>/dev/null && git status --porcelain 2>/dev/null | head -20\",\"description\":\"Preflight checks: CLI, project link, git status\"}",
+  "error": "Exit code 1\nVercel CLI 53.1.0\n53.1.0",
+  "timestamp": "2026-06-02T07:06:03.374Z",
+  "retry_count": 1
+}
