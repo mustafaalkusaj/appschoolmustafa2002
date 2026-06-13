@@ -1,0 +1,33 @@
+// Cache strategies for API endpoints
+export const CACHE_STRATEGIES = {
+  // Students list - cache for 5 minutes (safe for read operations)
+  STUDENTS_LIST: {
+    ttl: 300, // 5 minutes
+    staleWhileRevalidate: 600, // Serve stale for 10 mins while revalidating
+  },
+  
+  // Student metadata/stats - cache for 10 minutes
+  STUDENTS_META: {
+    ttl: 600,
+    staleWhileRevalidate: 1200,
+  },
+  
+  // Class fees - cache for 1 hour (changes rarely)
+  CLASS_FEES: {
+    ttl: 3600,
+    staleWhileRevalidate: 7200,
+  },
+  
+  // Attendance - cache for 2 minutes (frequently updated)
+  ATTENDANCE: {
+    ttl: 120,
+    staleWhileRevalidate: 300,
+  },
+};
+
+export function getCacheHeaders(strategy: typeof CACHE_STRATEGIES[keyof typeof CACHE_STRATEGIES]) {
+  return {
+    "Cache-Control": `public, s-maxage=${strategy.ttl}, stale-while-revalidate=${strategy.staleWhileRevalidate}`,
+    "CDN-Cache-Control": `max-age=${strategy.ttl}`,
+  };
+}

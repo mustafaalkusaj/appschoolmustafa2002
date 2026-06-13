@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+
+  @page {
+    size: 1280px 720px;
+    margin: 0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Tajawal', 'Arial', sans-serif;
+    background: #1a1a2e;
+    width: 1280px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .slide {
+    width: 1280px;
+    height: 720px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  /* ══ SLIDE 1 — TITLE ══════════════════════════════════════════════════════ */
+  .s1 { background: #060E27; }
+  .s1 .left-panel {
+    position: absolute; left: 0; top: 0;
+    width: 460px; height: 720px;
+    background: #14285C;
+  }
+  .s1 .left-bar {
+    position: absolute; left: 452px; top: 0;
+    width: 10px; height: 720px;
+    background: #2563EB;
+  }
+  .s1 .left-bar2 {
+    position: absolute; left: 447px; top: 0;
+    width: 5px; height: 720px;
+    background: rgba(245,158,11,0.45);
+  }
+  .s1 .circle1 {
+    position: absolute; left: -120px; top: -100px;
+    width: 400px; height: 400px; border-radius: 50%;
+    background: rgba(37,99,235,0.18);
+  }
+  .s1 .circle2 {
+    position: absolute; left: 30px; top: 450px;
+    width: 260px; height: 260px; border-radius: 50%;
+    background: rgba(245,158,11,0.18);
+  }
+  .s1 .school-circle {
+    position: absolute; left: 85px; top: 175px;
+    width: 290px; height: 290px; border-radius: 50%;
+    background: rgba(37,99,235,0.22);
+    border: 2.5px solid rgba(59,130,246,0.7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 90px;
+  }
+  .s1 .panel-label {
+    position: absolute; left: 0; bottom: 90px;
+    width: 460px;
+    text-align: center;
+    color: #DBEAFE; font-size: 14px; font-weight: 700;
+    letter-spacing: 5px; line-height: 1.8;
+  }
+  .s1 .top-strip {
+    position: absolute; right: 0; top: 0;
+    width: 820px; height: 56px;
+    background: #1A3270;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 24px;
+    color: #DBEAFE; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+  }
+  .s1 .main-title {
+    position: absolute; right: 472px; top: 90px;
+    width: 780px; text-align: right;
+    color: #fff; font-size: 52px; font-weight: 900; line-height: 1.15;
+  }
+  .s1 .main-title span { color: #F59E0B; display: block; }
+  .s1 .subtitle {
+    position: absolute; right: 472px; top: 340px;
+    width: 780px; text-align: right;
+    color: #DBEAFE; font-size: 20px; font-weight: 400;
+  }
+  .s1 .divider {
+    position: absolute; right: 472px; top: 412px;
+    display: flex; gap: 0;
+  }
+  .s1 .divider .d1 { width: 450px; height: 5px; background: #2563EB; }
+  .s1 .divider .d2 { width: 320px; height: 5px; background: #F59E0B; }
+  .s1 .tags {
+    position: absolute; right: 472px; top: 430px;
+    display: flex; gap: 10px; flex-direction: row-reverse;
+  }
+  .s1 .tag {
+    padding: 5px 16px; border-radius: 4px;
+    font-size: 12px; font-weight: 700; color: #fff;
+    border: 1px solid;
+  }
+  .s1 .stat-row {
+    position: absolute; right: 472px; top: 520px;
+    display: flex; gap: 12px; flex-direction: row-reverse;
+  }
+  .s1 .stat-card {
+    width: 180px; height: 130px; background: #1A3270;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .s1 .stat-card .top-line {
+    position: absolute; top: 0; left: 0; right: 0; height: 6px;
+  }
+  .s1 .stat-val { font-size: 36px; font-weight: 900; margin-top: 10px; }
+  .s1 .stat-lbl { font-size: 13px; color: #DBEAFE; margin-top: 4px; font-weight: 700; }
+  .s1 .bottom-bar {
+    position: absolute; right: 0; bottom: 0;
+    width: 820px; height: 38px;
+    background: #F59E0B;
+    display: flex; align-items: center; justify-content: center;
+    color: #0D1B3E; font-size: 13px; font-weight: 700;
+  }
+
+  /* ══ SHARED HEADER ══════════════════════════════════════════════════════════ */
+  .hdr {
+    position: absolute; top: 0; left: 0; right: 0; height: 147px;
+    background: #14285C;
+  }
+  .hdr .top-line { position: absolute; top: 0; left: 0; right: 0; height: 8px; background: #2563EB; }
+  .hdr .btm-line { position: absolute; bottom: 0; left: 0; right: 0; height: 7px; background: rgba(245,158,11,0.5); }
+  .hdr .title-txt {
+    position: absolute; right: 50px; top: 0; bottom: 0;
+    display: flex; align-items: center;
+    font-size: 34px; font-weight: 900; color: #fff;
+  }
+  .hdr .badge {
+    position: absolute; left: 50px; top: 30px;
+    background: #2563EB; padding: 10px 28px;
+    font-size: 15px; font-weight: 700; color: #fff;
+  }
+  .hdr .deco {
+    position: absolute; left: -60px; top: -50px;
+    width: 190px; height: 190px; border-radius: 50%;
+    background: rgba(37,99,235,0.18);
+  }
+
+  /* ══ FOOTER ══════════════════════════════════════════════════════════════════ */
+  .ftr {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 32px;
+    background: #0D1B3E;
+    display: flex; align-items: center; justify-content: center;
+    color: #94A3B8; font-size: 12px;
+  }
+  .ftr::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: #F59E0B; }
+
+  /* ══ SLIDE 2 — OVERVIEW ══════════════════════════════════════════════════════ */
+  .s2 { background: #EFF6FF; }
+  .s2 .left-block {
+    position: absolute; left: 38px; top: 163px;
+    width: 550px; height: 500px;
+    background: #0D1B3E;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+  .s2 .left-block .top-bar { width: 100%; height: 9px; background: #2563EB; }
+  .s2 .left-block .icon-circle {
+    width: 115px; height: 115px; border-radius: 50%;
+    background: rgba(37,99,235,0.25); border: none;
+    margin: 30px auto 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 52px;
+  }
+  .s2 .left-block .lbl1 {
+    text-align: center; color: #fff;
+    font-size: 24px; font-weight: 700;
+    margin-top: 22px; padding: 0 20px;
+  }
+  .s2 .left-block .lbl2 {
+    text-align: center; color: #F59E0B;
+    font-size: 24px; font-weight: 700;
+    padding: 0 20px;
+  }
+  .s2 .left-block .pts { margin-top: 26px; padding: 0 22px; }
+  .s2 .left-block .pt {
+    display: flex; align-items: flex-start; gap: 12px;
+    margin-bottom: 14px; flex-direction: row-reverse;
+  }
+  .s2 .left-block .pt-bar { width: 8px; min-height: 40px; background: #F59E0B; flex-shrink: 0; margin-top: 2px; }
+  .s2 .left-block .pt-txt { color: #DBEAFE; font-size: 14px; line-height: 1.5; text-align: right; }
+
+  .s2 .cards {
+    position: absolute; right: 38px; top: 163px;
+    width: 618px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    height: 500px;
+  }
+  .s2 .card {
+    background: #fff;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 0 16px 16px;
+  }
+  .s2 .card .card-top { width: 100%; height: 8px; }
+  .s2 .card .card-icon {
+    width: 80px; height: 80px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; margin: 20px auto 12px;
+  }
+  .s2 .card .card-title {
+    font-size: 15px; font-weight: 700; color: #1E293B;
+    text-align: center; margin-bottom: 8px;
+  }
+  .s2 .card .card-body {
+    font-size: 12px; color: #475569; text-align: center; line-height: 1.6;
+  }
+
+  /* ══ SLIDE 3 — ROLES ══════════════════════════════════════════════════════ */
+  .s3 { background: #EFF6FF; }
+  .s3 .roles-grid {
+    position: absolute; top: 163px; left: 30px; right: 30px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 13px;
+  }
+  .s3 .role-card {
+    background: #fff; height: 110px;
+    display: flex; align-items: center; gap: 0;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+    position: relative; overflow: hidden;
+  }
+  .s3 .role-bar { width: 9px; height: 100%; flex-shrink: 0; }
+  .s3 .role-icon-wrap {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; margin: 0 16px;
+    flex-shrink: 0;
+  }
+  .s3 .role-info { flex: 1; text-align: right; padding-right: 16px; }
+  .s3 .role-name { font-size: 16px; font-weight: 700; color: #1E293B; }
+  .s3 .role-desc { font-size: 12px; color: #475569; margin-top: 6px; }
+
+  /* ══ SLIDE 4 — FEATURES ══════════════════════════════════════════════════ */
+  .s4 { background: #060E27; }
+  .s4 .features-grid {
+    position: absolute; top: 163px; left: 28px; right: 28px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .s4 .feat-card {
+    background: #1A3270;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center;
+    padding-bottom: 20px;
+  }
+  .s4 .feat-top { width: 100%; height: 8px; }
+  .s4 .feat-icon {
+    width: 100px; height: 100px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 42px; margin: 24px auto 14px;
+  }
+  .s4 .feat-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; padding: 0 12px; }
+  .s4 .feat-body { font-size: 11.5px; color: #DBEAFE; text-align: center; margin-top: 8px; padding: 0 14px; line-height: 1.6; }
+
+  /* ══ SLIDE 5 — MODULES ══════════════════════════════════════════════════ */
+  .s5 { background: #EFF6FF; }
+  .s5 .mods-grid {
+    position: absolute; top: 163px; left: 28px; right: 28px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .s5 .mod-card {
+    background: #fff; height: 140px;
+    display: flex; align-items: center;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+    position: relative; overflow: hidden;
+  }
+  .s5 .mod-bar { width: 9px; height: 100%; flex-shrink: 0; }
+  .s5 .mod-num {
+    width: 70px; height: 70px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 900; color: #fff;
+    margin: 0 18px; flex-shrink: 0;
+  }
+  .s5 .mod-icon { font-size: 32px; position: absolute; left: 20px; }
+  .s5 .mod-info { flex: 1; text-align: right; padding-right: 16px; }
+  .s5 .mod-title { font-size: 17px; font-weight: 700; color: #1E293B; }
+  .s5 .mod-sub { font-size: 12px; color: #475569; margin-top: 8px; line-height: 1.5; }
+
+  /* ══ SLIDE 6 — TECH ══════════════════════════════════════════════════════ */
+  .s6 { background: #060E27; }
+  .s6 .layers {
+    position: absolute; top: 163px; left: 32px; right: 32px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .s6 .layer {
+    background: #1A3270; height: 74px;
+    display: flex; align-items: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    position: relative;
+  }
+  .s6 .layer-bar { width: 9px; height: 100%; flex-shrink: 0; }
+  .s6 .layer-icon {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin: 0 14px; flex-shrink: 0;
+  }
+  .s6 .layer-badge {
+    padding: 8px 22px; font-size: 13px; font-weight: 700; color: #fff;
+    min-width: 140px; text-align: center; flex-shrink: 0;
+  }
+  .s6 .layer-val { flex: 1; text-align: right; padding-right: 24px; color: #DBEAFE; font-size: 16px; font-weight: 400; }
+
+  /* ══ SLIDE 7 — SECURITY ══════════════════════════════════════════════════ */
+  .s7 { background: #EFF6FF; }
+  .s7 .shield-panel {
+    position: absolute; left: 32px; top: 163px;
+    width: 318px; height: 500px;
+    background: #0D1B3E;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .s7 .shield-panel .sp-top { width: 100%; height: 9px; background: #2563EB; }
+  .s7 .shield-panel .sp-icon { font-size: 90px; margin-top: 36px; }
+  .s7 .shield-panel .sp-title {
+    color: #DBEAFE; font-size: 14px; font-weight: 700;
+    letter-spacing: 4px; text-align: center; margin-top: 18px; line-height: 1.8;
+  }
+  .s7 .shield-panel .sp-divider { width: 200px; height: 5px; background: #F59E0B; margin-top: 22px; }
+  .s7 .shield-panel .sp-layers { color: #F59E0B; font-size: 20px; font-weight: 900; margin-top: 14px; }
+
+  .s7 .sec-layers {
+    position: absolute; right: 32px; top: 163px;
+    width: 870px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .s7 .sec-layer {
+    background: #fff; height: 90px;
+    display: flex; align-items: center;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+    position: relative;
+  }
+  .s7 .sl-bar { width: 9px; height: 100%; flex-shrink: 0; }
+  .s7 .sl-num {
+    width: 54px; height: 54px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 900; color: #fff;
+    margin: 0 16px; flex-shrink: 0;
+  }
+  .s7 .sl-info { flex: 1; text-align: right; padding-right: 18px; }
+  .s7 .sl-title { font-size: 15px; font-weight: 700; color: #1E293B; }
+  .s7 .sl-desc { font-size: 12px; color: #475569; margin-top: 5px; }
+
+  /* ══ SLIDE 8 — METRICS ══════════════════════════════════════════════════ */
+  .s8 { background: #060E27; }
+  .s8 .big-stats {
+    position: absolute; top: 163px; left: 28px; right: 28px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 14px;
+    height: 250px;
+  }
+  .s8 .bstat {
+    background: #1A3270;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .s8 .bstat .bst-top { position: absolute; top: 0; left: 0; right: 0; height: 8px; }
+  .s8 .bstat .bst-val { font-size: 44px; font-weight: 900; margin-top: 12px; }
+  .s8 .bstat .bst-sub { font-size: 14px; font-weight: 700; color: #fff; margin-top: 8px; }
+  .s8 .bstat .bst-note { font-size: 11px; color: #94A3B8; margin-top: 5px; }
+  .s8 .sec-label {
+    position: absolute; top: 430px; right: 28px;
+    font-size: 16px; font-weight: 700; color: #DBEAFE;
+  }
+  .s8 .code-stats {
+    position: absolute; top: 468px; left: 28px; right: 28px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 14px; height: 186px;
+  }
+  .s8 .cstat {
+    background: #1A3270;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .s8 .cstat .cst-top { position: absolute; top: 0; left: 0; right: 0; height: 8px; }
+  .s8 .cstat .cst-val { font-size: 34px; font-weight: 900; margin-top: 8px; }
+  .s8 .cstat .cst-sub { font-size: 12px; color: #DBEAFE; margin-top: 6px; text-align: center; padding: 0 8px; }
+
+  /* ══ SLIDE 9 — DEPLOY ══════════════════════════════════════════════════ */
+  .s9 { background: #EFF6FF; }
+  .s9 .items {
+    position: absolute; top: 163px; left: 32px; right: 32px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .s9 .deploy-item {
+    background: #fff; height: 92px;
+    display: flex; align-items: center;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+    position: relative;
+  }
+  .s9 .di-bar { width: 9px; height: 100%; background: #10B981; flex-shrink: 0; }
+  .s9 .di-check {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: #10B981;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #fff; font-weight: 900;
+    margin: 0 16px; flex-shrink: 0;
+  }
+  .s9 .di-info { flex: 1; text-align: right; padding-right: 18px; }
+  .s9 .di-label { font-size: 16px; font-weight: 700; color: #1E293B; }
+  .s9 .di-desc { font-size: 12px; color: #475569; margin-top: 6px; }
+  .s9 .di-pct {
+    background: rgba(16,185,129,0.12); color: #10B981;
+    font-size: 13px; font-weight: 700;
+    padding: 6px 18px; margin-right: 20px;
+    flex-shrink: 0;
+  }
+
+  /* ══ SLIDE 10 — THANKS ══════════════════════════════════════════════════ */
+  .s10 { background: #060E27; }
+  .s10 .left-panel {
+    position: absolute; left: 0; top: 0;
+    width: 408px; height: 720px;
+    background: #14285C;
+  }
+  .s10 .lp-bar { position: absolute; left: 400px; top: 0; width: 9px; height: 720px; background: #2563EB; }
+  .s10 .lp-bar2 { position: absolute; left: 395px; top: 0; width: 5px; height: 720px; background: rgba(245,158,11,0.4); }
+  .s10 .lp-c1 { position: absolute; left: -150px; top: -80px; width: 440px; height: 440px; border-radius: 50%; background: rgba(37,99,235,0.16); }
+  .s10 .lp-c2 { position: absolute; left: 50px; top: 490px; width: 280px; height: 280px; border-radius: 50%; background: rgba(245,158,11,0.16); }
+  .s10 .lp-icon { position: absolute; left: 0; top: 155px; width: 408px; text-align: center; font-size: 110px; }
+  .s10 .lp-brand {
+    position: absolute; left: 0; bottom: 155px; width: 408px;
+    text-align: center; color: #DBEAFE;
+    font-size: 14px; font-weight: 700; letter-spacing: 4px; line-height: 2;
+  }
+  .s10 .lp-divider { position: absolute; left: 90px; bottom: 130px; width: 228px; height: 5px; background: #F59E0B; }
+  .s10 .lp-year {
+    position: absolute; left: 0; bottom: 80px; width: 408px;
+    text-align: center; color: #F59E0B; font-size: 22px; font-weight: 900;
+  }
+  .s10 .gold-top { position: absolute; top: 0; left: 0; right: 0; height: 9px; background: #F59E0B; }
+  .s10 .thanks-txt {
+    position: absolute; right: 428px; top: 90px;
+    width: 820px; text-align: center;
+    font-size: 86px; font-weight: 900; color: #fff;
+  }
+  .s10 .dividers {
+    position: absolute; right: 428px; top: 300px;
+    width: 820px; display: flex; justify-content: center; gap: 0;
+  }
+  .s10 .dividers .d1 { width: 320px; height: 6px; background: #2563EB; }
+  .s10 .dividers .d2 { width: 360px; height: 6px; background: #F59E0B; }
+  .s10 .thanks-sub {
+    position: absolute; right: 428px; top: 325px;
+    width: 820px; text-align: center;
+    color: #DBEAFE; font-size: 21px; font-weight: 400;
+  }
+  .s10 .pillars {
+    position: absolute; right: 428px; top: 432px;
+    width: 820px; display: flex; justify-content: center; gap: 16px; flex-direction: row-reverse;
+  }
+  .s10 .pillar {
+    width: 245px; height: 108px;
+    background: #1A3270;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 700; color: #fff;
+    position: relative; overflow: hidden;
+  }
+  .s10 .pillar .ptop { position: absolute; top: 0; left: 0; right: 0; height: 8px; }
+  .s10 .tagline {
+    position: absolute; right: 428px; bottom: 55px;
+    width: 820px; text-align: center;
+    color: #475569; font-size: 13px;
+  }
+  .s10 .gold-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: #F59E0B; }
+</style>
+</head>
+<body>
+
+<!-- ══ SLIDE 1 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s1">
+  <div class="left-panel">
+    <div class="circle1"></div>
+    <div class="circle2"></div>
+    <div class="school-circle">🏫</div>
+    <div class="panel-label">SCHOOL<br>MANAGEMENT</div>
+  </div>
+  <div class="left-bar"></div>
+  <div class="left-bar2"></div>
+
+  <div class="top-strip">نظام إداري متكامل &nbsp;·&nbsp; Production Ready 2026</div>
+
+  <div class="main-title">
+    نظام إدارة المدارس
+    <span>متعدد الفروع</span>
+  </div>
+  <div class="subtitle">حل متكامل · آمن · قابل للتوسع</div>
+  <div class="divider"><div class="d1"></div><div class="d2"></div></div>
+  <div class="tags">
+    <div class="tag" style="background:rgba(37,99,235,0.3);border-color:#2563EB;">Next.js</div>
+    <div class="tag" style="background:rgba(49,120,198,0.3);border-color:#3178C6;">TypeScript</div>
+    <div class="tag" style="background:rgba(62,207,142,0.3);border-color:#3ECF8E;">Supabase</div>
+    <div class="tag" style="background:rgba(245,158,11,0.3);border-color:#F59E0B;">JWT Auth</div>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card"><div class="top-line" style="background:#2563EB;"></div><div class="stat-val" style="color:#2563EB;">17</div><div class="stat-lbl">API</div></div>
+    <div class="stat-card"><div class="top-line" style="background:#F59E0B;"></div><div class="stat-val" style="color:#F59E0B;">8</div><div class="stat-lbl">أدوار</div></div>
+    <div class="stat-card"><div class="top-line" style="background:#10B981;"></div><div class="stat-val" style="color:#10B981;">100+</div><div class="stat-lbl">فرع</div></div>
+    <div class="stat-card"><div class="top-line" style="background:#8B5CF6;"></div><div class="stat-val" style="color:#8B5CF6;">5</div><div class="stat-lbl">طبقات أمان</div></div>
+  </div>
+  <div class="bottom-bar">Multi-Branch School Management System &nbsp;·&nbsp; April 2026</div>
+</div>
+
+<!-- ══ SLIDE 2 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s2">
+  <div class="hdr"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">نظرة عامة على المشروع</div>
+    <div class="badge">Overview</div>
+  </div>
+  <div class="left-block">
+    <div class="top-bar"></div>
+    <div class="icon-circle">🏫</div>
+    <div class="lbl1">تطبيق ويب إداري</div>
+    <div class="lbl2">متكامل وجاهز للإنتاج</div>
+    <div class="pts">
+      <div class="pt"><div class="pt-bar"></div><div class="pt-txt">مدارس متعددة الفروع مع عزل كامل للبيانات على مستوى قاعدة البيانات</div></div>
+      <div class="pt"><div class="pt-bar"></div><div class="pt-txt">واجهة ثنائية اللغة (عربي / إنجليزي) مع دعم RTL كامل</div></div>
+      <div class="pt"><div class="pt-bar"></div><div class="pt-txt">أداء عالٍ — استجابة أقل من 100ms لكل الطلبات</div></div>
+    </div>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="card-top" style="background:#2563EB;"></div><div class="card-icon" style="background:rgba(37,99,235,0.15);">🌐</div><div class="card-title">متعدد الفروع</div><div class="card-body">عزل كامل على مستوى DB<br>Prisma Proxy Pattern</div></div>
+    <div class="card"><div class="card-top" style="background:#8B5CF6;"></div><div class="card-icon" style="background:rgba(139,92,246,0.15);">🔒</div><div class="card-title">أمان متعدد الطبقات</div><div class="card-body">5 طبقات حماية متكاملة<br>لا تسرب للبيانات</div></div>
+    <div class="card"><div class="card-top" style="background:#F59E0B;"></div><div class="card-icon" style="background:rgba(245,158,11,0.15);">📊</div><div class="card-title">لوحة المستثمر</div><div class="card-body">إحصاءات تجميعية<br>عبر جميع الفروع</div></div>
+    <div class="card"><div class="card-top" style="background:#10B981;"></div><div class="card-icon" style="background:rgba(16,185,129,0.15);">⚡</div><div class="card-title">أداء عالٍ</div><div class="card-body">1-5ms استعلام<br>يدعم 100+ فرع</div></div>
+  </div>
+  <div class="ftr"><span>2 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 3 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s3">
+  <div class="hdr"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">المستخدمون والأدوار</div>
+    <div class="badge">8 مستويات</div>
+  </div>
+  <div class="roles-grid">
+    <div class="role-card"><div class="role-bar" style="background:#F59E0B;"></div><div class="role-icon-wrap" style="background:rgba(245,158,11,0.15);">💼</div><div class="role-info"><div class="role-name">المستثمر</div><div class="role-desc">لوحة تجميعية — جميع الفروع</div></div></div>
+    <div class="role-card"><div class="role-bar" style="background:#EF4444;"></div><div class="role-icon-wrap" style="background:rgba(239,68,68,0.15);">🏫</div><div class="role-info"><div class="role-name">مدير المدرسة</div><div class="role-desc">إدارة كاملة للمدرسة</div></div></div>
+    <div class="role-card"><div class="role-bar" style="background:#F97316;"></div><div class="role-icon-wrap" style="background:rgba(249,115,22,0.15);">🏢</div><div class="role-info"><div class="role-name">مدير الفرع</div><div class="role-desc">إدارة فرع واحد</div></div></div>
+    <div class="role-card"><div class="role-bar" style="background:#2563EB;"></div><div class="role-icon-wrap" style="background:rgba(37,99,235,0.15);">👨‍🏫</div><div class="role-info"><div class="role-name">الأستاذ</div><div class="role-desc">إدارة الطلاب والحضور</div></div></div>
+    <div class="role-card"><div class="role-bar" style="background:#10B981;"></div><div class="role-icon-wrap" style="background:rgba(16,185,129,0.15);">🎓</div><div class="role-info"><div class="role-name">الطالب</div><div class="role-desc">عرض المعلومات الشخصية</div></div></div>
+    <div class="role-card"><div class="role-bar" style="background:#8B5CF6;"></div><div class="role-icon-wrap" style="background:rgba(139,92,246,0.15);">💰</div><div class="role-info"><div class="role-name">موظف الحسابات</div><div class="role-desc">إدارة المالية والمعاملات</div></div></div>
+    <div class="role-card"><div class="role-bar" style="background:#14B8A6;"></div><div class="role-icon-wrap" style="background:rgba(20,184,166,0.15);">👥</div><div class="role-info"><div class="role-name">موظف الموارد البشرية</div><div class="role-desc">إدارة بيانات الموظفين</div></div></div>
+    <div class="role-card"><div class="role-bar" style="background:#94A3B8;"></div><div class="role-icon-wrap" style="background:rgba(148,163,184,0.15);">🔍</div><div class="role-info"><div class="role-name">مستخدم صفحة واحدة</div><div class="role-desc">وصول محدود — صفحة واحدة فقط</div></div></div>
+  </div>
+  <div class="ftr"><span>3 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 4 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s4">
+  <div class="hdr" style="background:#14285C;"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">المميزات الرئيسية</div>
+    <div class="badge">Core Features</div>
+  </div>
+  <div class="features-grid">
+    <div class="feat-card"><div class="feat-top" style="background:#2563EB;"></div><div class="feat-icon" style="background:rgba(37,99,235,0.25);">🔒</div><div class="feat-title">عزل الفروع</div><div class="feat-body">Prisma Proxy Pattern<br>على مستوى قاعدة البيانات</div></div>
+    <div class="feat-card"><div class="feat-top" style="background:#F59E0B;"></div><div class="feat-icon" style="background:rgba(245,158,11,0.25);">🔑</div><div class="feat-title">مصادقة JWT</div><div class="feat-body">توكن آمن 24 ساعة<br>تحقق في كل طلب</div></div>
+    <div class="feat-card"><div class="feat-top" style="background:#8B5CF6;"></div><div class="feat-icon" style="background:rgba(139,92,246,0.25);">🛡️</div><div class="feat-title">تشفير PBKDF2</div><div class="feat-body">100,000 تكرار<br>ملح عشوائي لكل كلمة مرور</div></div>
+    <div class="feat-card"><div class="feat-top" style="background:#10B981;"></div><div class="feat-icon" style="background:rgba(16,185,129,0.25);">🚀</div><div class="feat-title">17 نقطة API</div><div class="feat-body">جاهزة للإنتاج<br>مع توثيق كامل</div></div>
+    <div class="feat-card"><div class="feat-top" style="background:#14B8A6;"></div><div class="feat-icon" style="background:rgba(20,184,166,0.25);">📋</div><div class="feat-title">سجل تدقيق شامل</div><div class="feat-body">كل العمليات مسجلة<br>جاهز للامتثال القانوني</div></div>
+    <div class="feat-card"><div class="feat-top" style="background:#F97316;"></div><div class="feat-icon" style="background:rgba(249,115,22,0.25);">🗑️</div><div class="feat-title">حذف لطيف</div><div class="feat-body">Soft Delete<br>حفظ السجل التاريخي كاملاً</div></div>
+  </div>
+  <div class="ftr" style="background:#0D1B3E;"><span style="color:#94A3B8;">4 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 5 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s5">
+  <div class="hdr"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">الوحدات الوظيفية</div>
+    <div class="badge">6 Modules</div>
+  </div>
+  <div class="mods-grid">
+    <div class="mod-card"><div class="mod-bar" style="background:#2563EB;"></div><div class="mod-num" style="background:#2563EB;">01</div><div class="mod-info"><div class="mod-title">إدارة الطلاب</div><div class="mod-sub">CRUD كامل — إضافة / تعديل / حذف / عرض تفصيلي</div></div><div class="mod-icon">🎓</div></div>
+    <div class="mod-card"><div class="mod-bar" style="background:#10B981;"></div><div class="mod-num" style="background:#10B981;">02</div><div class="mod-info"><div class="mod-title">تتبع الحضور والغياب</div><div class="mod-sub">تسجيل يومي · كشف التكرار التلقائي</div></div><div class="mod-icon">📅</div></div>
+    <div class="mod-card"><div class="mod-bar" style="background:#F59E0B;"></div><div class="mod-num" style="background:#F59E0B;">03</div><div class="mod-info"><div class="mod-title">الحسابات والمعاملات</div><div class="mod-sub">الدخل والمصروفات · رصيد تلقائي فوري</div></div><div class="mod-icon">💰</div></div>
+    <div class="mod-card"><div class="mod-bar" style="background:#F97316;"></div><div class="mod-num" style="background:#F97316;">04</div><div class="mod-info"><div class="mod-title">إدارة الموظفين</div><div class="mod-sub">ملفات الموظفين · البيانات الوظيفية الكاملة</div></div><div class="mod-icon">👥</div></div>
+    <div class="mod-card"><div class="mod-bar" style="background:#8B5CF6;"></div><div class="mod-num" style="background:#8B5CF6;">05</div><div class="mod-info"><div class="mod-title">معالجة الرواتب</div><div class="mod-sub">الصافي والخصومات · تقارير شهرية</div></div><div class="mod-icon">💳</div></div>
+    <div class="mod-card"><div class="mod-bar" style="background:#14B8A6;"></div><div class="mod-num" style="background:#14B8A6;">06</div><div class="mod-info"><div class="mod-title">لوحة المستثمر</div><div class="mod-sub">إحصاءات تجميعية · تقارير عبر الفروع</div></div><div class="mod-icon">📊</div></div>
+  </div>
+  <div class="ftr"><span>5 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 6 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s6">
+  <div class="hdr" style="background:#14285C;"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">البنية التقنية</div>
+    <div class="badge">Tech Stack</div>
+  </div>
+  <div class="layers">
+    <div class="layer"><div class="layer-bar" style="background:#3178C6;"></div><div class="layer-icon" style="background:rgba(49,120,198,0.28);">⚛️</div><div class="layer-badge" style="background:rgba(49,120,198,0.35);">Frontend</div><div class="layer-val">Next.js 14 + React + TypeScript</div></div>
+    <div class="layer"><div class="layer-bar" style="background:#475569;"></div><div class="layer-icon" style="background:rgba(71,85,105,0.28);">🖥️</div><div class="layer-badge" style="background:rgba(71,85,105,0.35);">Backend</div><div class="layer-val">Next.js API Routes — 17 Endpoints جاهزة للإنتاج</div></div>
+    <div class="layer"><div class="layer-bar" style="background:#3ECF8E;"></div><div class="layer-icon" style="background:rgba(62,207,142,0.28);">🗄️</div><div class="layer-badge" style="background:rgba(62,207,142,0.35);">Database</div><div class="layer-val">Supabase (PostgreSQL) + Prisma ORM</div></div>
+    <div class="layer"><div class="layer-bar" style="background:#F59E0B;"></div><div class="layer-icon" style="background:rgba(245,158,11,0.28);">🔐</div><div class="layer-badge" style="background:rgba(245,158,11,0.35);">Auth</div><div class="layer-val">JWT + PBKDF2 + RBAC — 8 مستويات صلاحية</div></div>
+    <div class="layer"><div class="layer-bar" style="background:#2563EB;"></div><div class="layer-icon" style="background:rgba(37,99,235,0.28);">⚡</div><div class="layer-badge" style="background:rgba(37,99,235,0.35);">Performance</div><div class="layer-val">13 فهرس مركب — استجابة &lt; 100ms</div></div>
+    <div class="layer"><div class="layer-bar" style="background:#10B981;"></div><div class="layer-icon" style="background:rgba(16,185,129,0.28);">📈</div><div class="layer-badge" style="background:rgba(16,185,129,0.35);">Scale</div><div class="layer-val">يدعم 100+ فرع — Horizontal Scaling Ready</div></div>
+  </div>
+  <div class="ftr" style="background:#0D1B3E;"><span style="color:#94A3B8;">6 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 7 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s7">
+  <div class="hdr"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">الأمان — 5 طبقات حماية</div>
+    <div class="badge">Security</div>
+  </div>
+  <div class="shield-panel">
+    <div class="sp-top"></div>
+    <div class="sp-icon">🛡️</div>
+    <div class="sp-title">ZERO<br>BREACH<br>ARCHITECTURE</div>
+    <div class="sp-divider"></div>
+    <div class="sp-layers">5 Layers</div>
+  </div>
+  <div class="sec-layers">
+    <div class="sec-layer"><div class="sl-bar" style="background:#2563EB;"></div><div class="sl-num" style="background:#2563EB;">1</div><div class="sl-info"><div class="sl-title">🔑 مصادقة JWT</div><div class="sl-desc">توكن آمن · انتهاء 24 ساعة · تحقق في كل طلب API</div></div></div>
+    <div class="sec-layer"><div class="sl-bar" style="background:#8B5CF6;"></div><div class="sl-num" style="background:#8B5CF6;">2</div><div class="sl-info"><div class="sl-title">🛡️ تحكم الصلاحيات (RBAC)</div><div class="sl-desc">8 مستويات · مصفوفة صلاحيات دقيقة · تحقق على كل نقطة</div></div></div>
+    <div class="sec-layer"><div class="sl-bar" style="background:#10B981;"></div><div class="sl-num" style="background:#10B981;">3</div><div class="sl-info"><div class="sl-title">🔒 عزل البيانات (Prisma Proxy)</div><div class="sl-desc">فلترة تلقائية · منع التسرب بين الفروع · مضمون بالكامل</div></div></div>
+    <div class="sec-layer"><div class="sl-bar" style="background:#F59E0B;"></div><div class="sl-num" style="background:#F59E0B;">4</div><div class="sl-info"><div class="sl-title">✅ التحقق من المدخلات (Zod)</div><div class="sl-desc">مخططات TypeScript · استعلامات Parameterized · لا حقن SQL</div></div></div>
+    <div class="sec-layer"><div class="sl-bar" style="background:#14B8A6;"></div><div class="sl-num" style="background:#14B8A6;">5</div><div class="sl-info"><div class="sl-title">📋 سجل التدقيق والامتثال</div><div class="sl-desc">تسجيل كل العمليات · تتبع المستخدم · جاهز للتدقيق القانوني</div></div></div>
+  </div>
+  <div class="ftr"><span>7 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 8 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s8">
+  <div class="hdr" style="background:#14285C;"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">الأداء والمقاييس</div>
+    <div class="badge">Performance</div>
+  </div>
+  <div class="big-stats">
+    <div class="bstat"><div class="bst-top" style="background:#2563EB;"></div><div class="bst-val" style="color:#2563EB;">1-5ms</div><div class="bst-sub">سرعة الاستعلام</div><div class="bst-note">مع 13 فهرس مركب</div></div>
+    <div class="bstat"><div class="bst-top" style="background:#F59E0B;"></div><div class="bst-val" style="color:#F59E0B;">&lt;100ms</div><div class="bst-sub">زمن استجابة API</div><div class="bst-note">شامل استعلام DB</div></div>
+    <div class="bstat"><div class="bst-top" style="background:#10B981;"></div><div class="bst-val" style="color:#10B981;">100+</div><div class="bst-sub">فرع مدعوم</div><div class="bst-note">Horizontal Scaling</div></div>
+    <div class="bstat"><div class="bst-top" style="background:#8B5CF6;"></div><div class="bst-val" style="color:#8B5CF6;">8</div><div class="bst-sub">مستوى صلاحيات</div><div class="bst-note">Role Hierarchy</div></div>
+  </div>
+  <div class="sec-label">إحصاءات الكود</div>
+  <div class="code-stats">
+    <div class="cstat"><div class="cst-top" style="background:#3178C6;"></div><div class="cst-val" style="color:#3178C6;">3,000+</div><div class="cst-sub">سطر كود TypeScript</div></div>
+    <div class="cstat"><div class="cst-top" style="background:#F59E0B;"></div><div class="cst-val" style="color:#F59E0B;">5,000+</div><div class="cst-sub">سطر توثيق شامل</div></div>
+    <div class="cstat"><div class="cst-top" style="background:#10B981;"></div><div class="cst-val" style="color:#10B981;">17</div><div class="cst-sub">نقطة API جاهزة</div></div>
+    <div class="cstat"><div class="cst-top" style="background:#8B5CF6;"></div><div class="cst-val" style="color:#8B5CF6;">20+</div><div class="cst-sub">مخطط Zod للتحقق</div></div>
+  </div>
+  <div class="ftr" style="background:#0D1B3E;"><span style="color:#94A3B8;">8 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 9 ═══════════════════════════════════════════════════════════════ -->
+<div class="slide s9">
+  <div class="hdr"><div class="top-line"></div><div class="btm-line"></div><div class="deco"></div>
+    <div class="title-txt">حالة النشر والجاهزية</div>
+    <div class="badge">Deploy Ready</div>
+  </div>
+  <div class="items">
+    <div class="deploy-item"><div class="di-bar"></div><div class="di-check">✓</div><div class="di-info"><div class="di-label">قاعدة البيانات</div><div class="di-desc">منشأة بـ 13 فهرس مركب — أداء مُحسَّن لـ 100+ فرع</div></div><div class="di-pct">100%</div></div>
+    <div class="deploy-item"><div class="di-bar"></div><div class="di-check">✓</div><div class="di-info"><div class="di-label">نقاط API</div><div class="di-desc">17 نقطة مختبرة وموثقة بالكامل مع أمثلة curl</div></div><div class="di-pct">100%</div></div>
+    <div class="deploy-item"><div class="di-bar"></div><div class="di-check">✓</div><div class="di-info"><div class="di-label">الأمان</div><div class="di-desc">5 طبقات حماية — مُتحقق منها وجاهزة للإنتاج</div></div><div class="di-pct">100%</div></div>
+    <div class="deploy-item"><div class="di-bar"></div><div class="di-check">✓</div><div class="di-info"><div class="di-label">التوثيق</div><div class="di-desc">5,000+ سطر وثائق شاملة تغطي كل جانب من جوانب النظام</div></div><div class="di-pct">100%</div></div>
+    <div class="deploy-item"><div class="di-bar"></div><div class="di-check">✓</div><div class="di-info"><div class="di-label">الاختبار</div><div class="di-desc">سكريبت اختبار شامل يغطي كل الحالات والحالات الحدية</div></div><div class="di-pct">100%</div></div>
+  </div>
+  <div style="position:absolute;bottom:36px;left:32px;right:32px;height:46px;background:#10B981;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:#fff;box-shadow:0 4px 20px rgba(16,185,129,0.4);">
+    🟢 &nbsp; الحالة: جاهز للإنتاج — Production Ready
+  </div>
+  <div class="ftr"><span>9 / 10</span></div>
+</div>
+
+<!-- ══ SLIDE 10 ══════════════════════════════════════════════════════════════ -->
+<div class="slide s10">
+  <div class="gold-top"></div>
+  <div class="left-panel">
+    <div class="lp-c1"></div>
+    <div class="lp-c2"></div>
+    <div class="lp-icon">🏫</div>
+    <div class="lp-brand">SCHOOL<br>MANAGEMENT<br>SYSTEM</div>
+    <div class="lp-divider"></div>
+    <div class="lp-year">2026</div>
+  </div>
+  <div class="lp-bar"></div>
+  <div class="lp-bar2"></div>
+
+  <div class="thanks-txt">شكراً لكم</div>
+  <div class="dividers"><div class="d1"></div><div class="d2"></div></div>
+  <div class="thanks-sub">نظام إدارة المدارس متعدد الفروع</div>
+  <div class="pillars">
+    <div class="pillar"><div class="ptop" style="background:#2563EB;"></div>نظام آمن</div>
+    <div class="pillar"><div class="ptop" style="background:#F59E0B;"></div>قابل للتوسع</div>
+    <div class="pillar"><div class="ptop" style="background:#10B981;"></div>جاهز للإنتاج</div>
+  </div>
+  <div class="tagline">Multi-Branch School Management System · April 2026 · Production Ready</div>
+  <div class="gold-bottom"></div>
+</div>
+
+</body>
+</html>

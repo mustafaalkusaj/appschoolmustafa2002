@@ -1,0 +1,1904 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "students": "Students",
+    "classes": "Classes & Sections",
+    "attendance": "Attendance",
+    "payments": "Finance",
+    "expenses": "Expenses",
+    "reports": "Reports",
+    "superAdmin": "Super Admin",
+    "settings": "Settings",
+    "questionBank": "Question Bank",
+    "exams": "Exams",
+    "behavior": "Behavior",
+    "messaging": "Messages"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "brand": "School Management Platform",
+    "subtitle": "Unified School System",
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode",
+    "allRightsReserved": "All rights reserved",
+    "language": {
+      "label": "Language",
+      "english": "English",
+      "arabic": "Arabic",
+      "switchToEnglish": "Switch to English",
+      "switchToArabic": "Switch to Arabic"
+    },
+    "theme": {
+      "label": "Theme mode",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark",
+      "enable": "Enable {theme} mode"
+    },
+    "currency": "IQD",
+    "paymentMethods": {
+      "cash": "Cash",
+      "bank_transfer": "Bank Transfer",
+      "check": "Check"
+    },
+    "studentStatus": {
+      "active": "Active",
+      "transferred": "Transferred",
+      "suspended": "Suspended",
+      "graduated": "Graduated",
+      "withdrawn": "Withdrawn",
+      "archived": "Archived",
+      "deleted": "Deleted"
+    }
+  },
+  "classes": {
+    "title": "Classes & Sections",
+    "subtitle": "Manage classes and sections",
+    "addClass": "Add Class",
+    "addSection": "Add Section",
+    "editClass": "Edit Class",
+    "editSection": "Edit Section",
+    "className": "Class Name",
+    "sectionName": "Section Name",
+    "sections": "Sections",
+    "sectionCount": "Section Count",
+    "actions": "Actions",
+    "noClasses": "No classes yet",
+    "noSections": "No sections yet",
+    "addFirstClass": "Add your first class to get started",
+    "addSectionsToClasses": "Add sections to your classes",
+    "totalClasses": "Total Classes",
+    "totalSections": "Total Sections",
+    "avgSections": "Avg Sections/Class",
+    "selectClass": "Select class",
+    "classNamePlaceholder": "e.g. Grade 5",
+    "sectionNamePlaceholder": "e.g. A",
+    "sectionsHint": "Optional: one section per line (e.g. A, B, C)",
+    "noSectionsLabel": "No sections",
+    "confirmDelete": "Sure?",
+    "savedSuccess": "Saved successfully ✓",
+    "deletedSuccess": "Deleted successfully ✓"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "email": "Email",
+    "emailPlaceholder": "name@school.com",
+    "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "invalidCredentials": "Invalid email or password.",
+    "inactiveAccount": "Your account is inactive. Please contact administration.",
+    "profileLoadError": "Failed to load user profile.",
+    "serverConfigError": "Server session configuration is incomplete.",
+    "loginFailed": "Sign in failed. Please try again.",
+    "supabaseConfigError": "Supabase settings are invalid. Check environment variables.",
+    "securePlatform": "Secure school platform",
+    "forgotPassword": "Forgot password?",
+    "passwordPlaceholder": "Enter your password",
+    "forgotPasswordTitle": "Reset password",
+    "forgotPasswordDescription": "Enter your account email and we will send a secure password reset link to your inbox.",
+    "forgotPasswordSubmit": "Send reset link",
+    "forgotPasswordSubmitting": "Sending reset link...",
+    "forgotPasswordFailed": "Could not start password recovery right now. Please try again.",
+    "forgotPasswordRateLimited": "Too many recovery attempts. Please wait a few minutes before trying again.",
+    "forgotPasswordEmailSentTitle": "Check your email",
+    "forgotPasswordEmailSentDescription": "If an account exists for this email, a secure reset link has been sent. Open the message and continue the recovery flow from the same device when possible.",
+    "forgotPasswordRequestAnother": "Send another link",
+    "recoveryTitle": "Create a new password",
+    "recoveryDescription": "Choose a new password for your account, then sign in again with the updated credentials.",
+    "recoveryLinkInvalid": "This recovery link is invalid, expired, or already used. Request a new reset link and try again.",
+    "newPassword": "New password",
+    "newPasswordPlaceholder": "Enter a new password",
+    "confirmNewPassword": "Confirm new password",
+    "confirmNewPasswordPlaceholder": "Repeat the new password",
+    "passwordTooShort": "The new password must be at least 8 characters.",
+    "passwordsDoNotMatch": "The password confirmation does not match.",
+    "passwordUpdateSubmit": "Update password",
+    "passwordUpdateSubmitting": "Updating password...",
+    "passwordUpdateFailed": "Could not update the password right now. Please request a new recovery link and try again.",
+    "passwordUpdatedTitle": "Password updated",
+    "passwordUpdatedSuccess": "Your password has been updated successfully. Return to sign in with the new password.",
+    "passwordRecoveryHint": "If you cannot remember your password, open the recovery page or contact the school administration.",
+    "backToLogin": "Back to sign in",
+    "loginPage": {
+      "heroBadge": "A calm, polished Arabic-first school management experience",
+      "heroTitle": "A quieter, clearer school platform, better for trust and daily use.",
+      "heroDescription": "Secure sign-in with an Arabic-first interface, full support for light, dark, and system modes, and a calmer experience for daily academic work.",
+      "formDescription": "Enter your credentials to access the school workspace and resume your day without friction.",
+      "sessionNote": "Secure session with bilingual controls and adaptive theme preferences"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "emptyTitle": "No data yet",
+    "emptyDescription": "Statistics, payments, and alerts will appear here once students, fees, or the first payment are added.",
+    "summary": {
+      "empty": "Select a school first so the header and statistics are linked to a clear context.",
+      "superAdmin": "Focused view based on the currently selected school while maintaining the same data and operations.",
+      "default": "A quick look at fees, payments, and students within the current school."
+    },
+    "emptyState": {
+      "title": "Dashboard",
+      "description": "Select a school first to view its statistics, tuition fees, and financial data."
+    },
+    "actions": {
+      "addFee": "Add Tuition Fee",
+      "hideTable": "Hide Table",
+      "showTable": "Show Fees Table",
+      "manageClasses": "Manage Classes & Sections"
+    },
+    "stats": {
+      "totalStudents": "Total Students",
+      "registeredStudents": "Registered & Confirmed",
+      "transferredStudents": "Transferred Students",
+      "totalFees": "Total Fees",
+      "overallFees": "Total Recorded Fees",
+      "paidAmount": "Paid Amount",
+      "collectedFees": "Fees Collected",
+      "remainingBalance": "Remaining Balance",
+      "outstandingDues": "Outstanding Dues",
+      "incomes": "Revenue",
+      "totalRevenue": "Total Revenue & Incomes",
+      "monthlySalaries": "Monthly Salaries",
+      "currentSalaries": "Current Salaries Dues",
+      "paidWithTransferred": "Paid + Transferred",
+      "paidWithTransferredDesc": "Paid amount from current and transferred students",
+      "totalDiscount": "Discount",
+      "totalDiscountDesc": "Total discounts applied",
+      "feesAfterDiscount": "Fees After Discount",
+      "feesAfterDiscountDesc": "Total fees after discounts applied",
+      "feeAlerts": "Total Fees with Transferred",
+      "pendingNotifications": "Current + Transferred Students Fees"
+    },
+    "daily": {
+      "title": "Daily Financial Analysis",
+      "todayPayments": "Today's Payments",
+      "paymentCount": "Payment Count",
+      "todayTotal": "Today's Total",
+      "collectedToday": "Collected Today",
+      "todayMax": "Highest Payment",
+      "singlePayment": "Single Payment",
+      "branchOverview": "Branch Overview",
+      "collected": "Collected",
+      "remaining": "Remaining",
+      "discount": "Discount",
+      "totalFees": "Total Fees",
+      "noPaymentsToday": "No payments recorded",
+      "todayList": "Today's Payments",
+      "recentList": "Recent Invoices",
+      "collectionRate": "Collection Rate",
+      "today": "Today",
+      "todayIncome": "Today's Income",
+      "todayExpense": "Today's Expenses"
+    },
+    "finance": {
+      "analysisTitle": "Financial Analysis Dashboard",
+      "totalFees": "Total Fees",
+      "totalRequested": "Total Requested Amount",
+      "totalDiscounts": "Total Discounts",
+      "afterDiscount": "Revenue After Discount",
+      "collectedAmounts": "Collected Amounts",
+      "remainingAmount": "Remaining Amount",
+      "incomes": "Revenue",
+      "collectionProgress": "Financial Collection Progress",
+      "totalRequired": "Total Required Dues",
+      "paid": "Paid",
+      "discount": "Discount",
+      "remaining": "Remaining",
+      "afterDiscountShort": "After Discount",
+      "collectedPct": "{pct}% Collected",
+      "remainingPct": "{pct}% Remaining Amounts"
+    },
+    "payments": {
+      "recentTitle": "Recent Collections",
+      "viewAll": "View All",
+      "noPayments": "No payments recorded yet",
+      "modal": {
+        "title": "Record New Payment",
+        "studentName": "Student Name",
+        "studentSearchPlaceholder": "Search by student name...",
+        "searching": "Searching...",
+        "noResults": "No results",
+        "total": "Total",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "receiptDate": "Receipt Date",
+        "amount": "Amount",
+        "paperReceiptNumber": "Paper Receipt Number",
+        "optional": "Optional",
+        "exampleReceipt": "Example: 1042",
+        "electronicReceiptNumber": "Electronic Receipt Number",
+        "paymentMethod": "Payment Method",
+        "methodCash": "Cash",
+        "methodBankTransfer": "Bank Transfer",
+        "methodCheck": "Check",
+        "notes": "Notes",
+        "notesPlaceholder": "Any notes...",
+        "recordButton": "Record Payment",
+        "cancelButton": "Cancel",
+        "currency": "IQD"
+      }
+    },
+    "overdue": {
+      "title": "Overdue Students",
+      "noOverdue": "No overdue students currently"
+    },
+    "feesTable": {
+      "title": "Class Tuition Fees",
+      "addLabel": "Add Class",
+      "empty": "No fees added yet. Start by adding your first class.",
+      "className": "Class Name",
+      "activeStudents": "Active",
+      "transferredStudents": "Transferred",
+      "totalAmount": "Collected",
+      "transferredAmount": "Transferred Amount",
+      "grandTotal": "Total",
+      "totalFeesWithTransferred": "Fees with Transferred",
+      "installments": "Installments",
+      "actions": "Actions",
+      "installmentsCount": "{count} Installments",
+      "perInstallment": "{amount} per installment",
+      "collectionRate": "Collection Rate"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "unread": "{count} unread",
+      "refresh": "Refresh",
+      "loading": "Loading notifications...",
+      "disabled": "Notifications table is currently disabled.",
+      "empty": "No new notifications at the moment.",
+      "defaultTitle": "New Alert",
+      "noDetails": "No additional details"
+    },
+    "activity": {
+      "title": "Recent Activities & Alerts",
+      "viewAll": "View All",
+      "loading": "Loading...",
+      "empty": "No recent activities to process at the moment.",
+      "status": {
+        "active": "Active",
+        "updated": "Updated"
+      }
+    },
+    "loading": {
+      "overview": "Preparing dashboard..."
+    },
+    "errors": {
+      "overviewTitle": "Dashboard data is temporarily unavailable",
+      "overviewDescription": "The overview widgets could not load right now. Retry the request without leaving the page.",
+      "activityTitle": "Recent activity is unavailable",
+      "activityDescription": "Messages, homework, and fee alerts could not be loaded for this widget.",
+      "notificationsTitle": "Notifications are unavailable",
+      "notificationsDescription": "The notifications panel could not load right now. Retry to refresh this widget.",
+      "degradedWarning": "Dashboard widgets were loaded in fallback mode and currently display zero values until branch data becomes available."
+    },
+    "branding": {
+      "title": "School Branding (Super Admin)",
+      "schoolName": "School Name",
+      "schoolNamePlaceholder": "Enter school name",
+      "logoUrl": "Logo URL",
+      "logoPlaceholder": "https://example.com/logo.png",
+      "deriveColors": "Extract colors from logo",
+      "themeFamilies": "Color Families & Presets",
+      "primaryColor": "Primary Color",
+      "secondaryColor": "Secondary Color",
+      "previewNotice": "These colors will reflect across the entire school interface and printed reports.",
+      "activeTheme": "Active Theme: {label}",
+      "saving": "Saving...",
+      "saveAction": "Save Branding",
+      "families": {
+        "blue": {
+          "label": "Blue Family",
+          "description": "Institutional, educational, modern, and suitable for formal and private schools."
+        },
+        "green": {
+          "label": "Green Family",
+          "description": "Relaxing, balanced, and suggests growth, stability, and educational calm."
+        },
+        "warm": {
+          "label": "Warm Family",
+          "description": "More accessible and human, suitable for Arabic identities or traditional schools."
+        },
+        "purple": {
+          "label": "Purple Family",
+          "description": "Elegant and creative, ideal for royal, artistic, and technical schools."
+        },
+        "classic": {
+          "label": "Classic Family",
+          "description": "Traditional and clean designs based on primary colors."
+        },
+        "dark": {
+          "label": "Dark Family",
+          "description": "Professional dark mode for low-light work."
+        },
+        "orange": {
+          "label": "Orange Family",
+          "description": "Vibrant and energetic, ideal for dynamic and active schools."
+        },
+        "teal": {
+          "label": "Teal Family",
+          "description": "Modern and calm, blending professionalism with freshness, great for tech and science schools."
+        },
+        "red": {
+          "label": "Red Family",
+          "description": "Bold and powerful, conveying energy and passion, perfect for sports and arts schools."
+        },
+        "indigo": {
+          "label": "Indigo Family",
+          "description": "Deep and calm, reflecting knowledge and wisdom, suited for academic and research schools."
+        },
+        "emerald": {
+          "label": "Emerald Family",
+          "description": "Natural and refreshing, symbolizing growth and prosperity, beautiful for community schools."
+        },
+        "amber": {
+          "label": "Amber Family",
+          "description": "Warm and welcoming, inspiring comfort and optimism, ideal for primary schools and kindergartens."
+        }
+      }
+    }
+  },
+  "superAdmin": {
+    "title": "Super Admin",
+    "sidebar": {
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar",
+      "schoolBoard": "School Dashboard",
+      "currentAccount": "Current Account",
+      "fullAccess": "Full Access Enabled",
+      "brandingSettings": "Identity & Settings",
+      "brandingHint": "Language, appearance, and logout are in the account menu in the header to keep the dashboard clean."
+    },
+    "tabs": {
+      "overview": {
+        "label": "Overview",
+        "hint": "Performance summary"
+      },
+      "schools": {
+        "label": "Schools",
+        "hint": "Manage schools"
+      },
+      "users": {
+        "label": "Users",
+        "hint": "Roles & permissions"
+      },
+      "subscriptions": {
+        "label": "Subscriptions",
+        "hint": "Tracking & renewal"
+      },
+      "audit": {
+        "label": "Audit Log",
+        "hint": "Action monitoring"
+      },
+      "roles": {
+        "label": "Roles",
+        "hint": "Permission management"
+      },
+      "trash": {
+        "label": "Trash",
+        "hint": "Data recovery"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "hint": "System alerts"
+      },
+      "monitoring": {
+        "label": "Monitoring",
+        "hint": "Health & operation"
+      },
+      "branches": {
+        "label": "Branches",
+        "hint": "School branch management"
+      }
+    },
+    "header": {
+      "searchPlaceholder": {
+        "schools": "Search school, city or email...",
+        "users": "Search user or email...",
+        "subscriptions": "Search school or subscription status...",
+        "default": "Search in Super Admin panel..."
+      },
+      "refresh": "Refresh",
+      "refreshing": "Refreshing",
+      "lastSync": "Last sync: {time}",
+      "notSynced": "First sync not yet complete",
+      "smartFilter": "Smart Filter: {label} · Cancel"
+    },
+    "diagnostics": {
+      "title": "Data Loading Warning",
+      "description": "The main issue was that the page treated every update as an initial load, and with any fallback in database relationships, a general alert would appear without explanation. Now you have a clearer diagnosis for each dataset and background updates without clearing the screen.",
+      "healthItems": {
+        "schools": {
+          "label": "Schools",
+          "hint": "Primary board data"
+        },
+        "users": {
+          "label": "Users",
+          "hint": "Permissions & school links"
+        },
+        "subscriptions": {
+          "label": "Subscriptions",
+          "hint": "Renewals & current status"
+        }
+      }
+    },
+    "schoolForm": {
+      "titleCreate": "Add New School",
+      "titleEdit": "Edit School",
+      "subtitle": "The form adapts automatically to the current Supabase schema, and saves colors locally if color columns are not yet available.",
+      "schoolName": "School Name *",
+      "city": "City",
+      "phone": "Phone",
+      "ownerEmail": "Owner Email",
+      "address": "Address",
+      "logoUrl": "Logo URL",
+      "themeFamily": "Theme Family",
+      "selectFamily": "Select Family...",
+      "selectedTheme": "Selected Theme",
+      "selectTheme": "Select Theme...",
+      "primaryColor": "Primary Color",
+      "secondaryColor": "Secondary Color",
+      "sidebarColor": "Sidebar Color",
+      "accentColor": "Accent Color",
+      "textColor": "Highlight Text Color",
+      "previewTitle": "School Identity Preview",
+      "previewHint": "This identity will affect buttons, backgrounds, text, and printing across all interfaces.",
+      "sidebarLabel": "Sidebar",
+      "generalIdentity": "General Identity",
+      "buttonsAccent": "Buttons & Accent",
+      "missingColumns": "Color columns are currently missing from the database, so the expanded identity will also be saved locally to ensure the interface and printing work.",
+      "plan": "Plan",
+      "plans": {
+        "basic": "Basic",
+        "premium": "Premium",
+        "enterprise": "Enterprise"
+      },
+      "extractColors": "Extract Colors from Logo",
+      "extracting": "Analyzing logo...",
+      "saving": "Saving...",
+      "add": "Add School",
+      "save": "Save Changes"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "emptyState": {
+      "description": "Select a school first to view its students, payments, and expenses reports."
+    },
+    "summary": {
+      "title": "Total Financial Summary",
+      "totalFees": "Total Fees",
+      "recordedPayments": "Recorded Payments",
+      "totalPaid": "Total Paid",
+      "remaining": "Remaining",
+      "totalIncome": "Total Income",
+      "expenses": "Expenses",
+      "netSalaries": "Net Salaries",
+      "netBalance": "Net Balance",
+      "transferredRevenue": "Transferred Students Revenue",
+      "netProfit": "Net Profit",
+      "profitDetails": "Collected + Revenue + Transferred − Expenses − Salaries"
+    },
+    "detailedReports": "Detailed Reports",
+    "exportAll": "Export All Excel",
+    "printSummary": "Print Summary",
+    "preparing": "Preparing...",
+    "excel": "Excel",
+    "print": "Print",
+    "cards": {
+      "students": {
+        "title": "Students Report",
+        "description": "Student data, fees, and current registration status."
+      },
+      "payments": {
+        "title": "Finance Report",
+        "description": "Record of payments and collections associated with students.",
+        "totalPaid": "Total Paid",
+        "remaining": "Remaining",
+        "collectionRate": "Collection Rate"
+      },
+      "expenses": {
+        "title": "Expenses Report",
+        "description": "Operating expenses by type and date."
+      },
+      "salaries": {
+        "title": "Salaries Report",
+        "description": "Monthly teacher salaries with net entitlement after deductions."
+      },
+      "incomes": {
+        "title": "Incomes Report",
+        "description": "Other revenue by type, source, and date."
+      },
+      "financialSummary": {
+        "title": "Financial Summary",
+        "description": "Summary of revenues, expenses, and net financial movement."
+      }
+    }
+  },
+  "home": {
+    "welcomeBack": "Welcome back",
+    "cards": {
+      "dashboard": {
+        "title": "Dashboard",
+        "desc": "Track metrics, analytics and daily operations"
+      },
+      "schools": {
+        "title": "Schools",
+        "desc": "Manage schools, subscriptions and plans"
+      },
+      "students": {
+        "title": "Students",
+        "desc": "Manage student data, classes and sections"
+      },
+      "teachers": {
+        "title": "Teachers",
+        "desc": "Manage teacher accounts, subjects and classes"
+      },
+      "payments": {
+        "title": "Finance",
+        "desc": "Track collections and student balances"
+      },
+      "expenses": {
+        "title": "Expenses",
+        "desc": "Record and track operating expenses"
+      },
+      "attendance": {
+        "title": "Attendance",
+        "desc": "Record daily student attendance"
+      },
+      "reports": {
+        "title": "Reports",
+        "desc": "Generate detailed operational and financial reports"
+      },
+      "subscriptions": {
+        "title": "Subscriptions",
+        "desc": "Manage subscription plans and activation status"
+      },
+      "superAdmin": {
+        "title": "Super Admin",
+        "desc": "Manage schools, users, subscriptions and platform"
+      }
+    }
+  },
+  "teachers": {
+    "title": "Teachers Management",
+    "emptyState": {
+      "description": "You must select a school first before creating or editing teacher accounts."
+    },
+    "stats": {
+      "total": "Total Teachers",
+      "active": "Active Now",
+      "inactive": "Inactive"
+    },
+    "table": {
+      "showing": "Showing {count} on this page out of {total} matching teachers",
+      "title": "Current Teacher Accounts",
+      "description": "Review current teacher accounts, search quickly, and perform actions from the same table.",
+      "name": "Teacher Name",
+      "email": "Email",
+      "subject": "Subject",
+      "status": "Status",
+      "actions": "Actions",
+      "noStaff": "No staff found",
+      "addFirstTeacher": "Add your first teacher to get started"
+    },
+    "actions": {
+      "add": "Add Teacher",
+      "addBtn": "+ Add Teacher",
+      "import": "Import",
+      "export": "Export",
+      "exportExcel": "Export Excel",
+      "downloadTemplate": "Download Template",
+      "accountCards": "Account Cards",
+      "edit": "Edit",
+      "delete": "Delete",
+      "printCard": "Print Card",
+      "printInfo": "Print Info"
+    },
+    "status": {
+      "active": "Active",
+      "on_leave": "On Leave",
+      "suspended": "Suspended",
+      "resigned": "Resigned",
+      "terminated": "Terminated"
+    },
+    "contractTypes": {
+      "full_time": "Full-time",
+      "part_time": "Part-time",
+      "substitute": "Substitute",
+      "volunteer": "Volunteer"
+    },
+    "page": {
+      "heroBadge": "Administration · Teaching Staff",
+      "subtitle": "Manage school teaching staff",
+      "heroSubtitle": "Manage teaching staff and their accounts"
+    },
+    "deleteModal": {
+      "title": "Delete Teacher?",
+      "description": "Are you sure you want to delete {name}?",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by name or subject...",
+      "allStatuses": "All statuses",
+      "allSubjects": "All subjects"
+    }
+  },
+  "students": {
+    "title": "Student Data",
+    "emptyState": {
+      "description": "Students, fees, or add operations will not be loaded before choosing an explicit school for this section."
+    },
+    "tabs": {
+      "active": "All Students",
+      "transferred": "Transferred",
+      "suspended": "Suspended",
+      "deleted": "Deleted"
+    },
+    "stats": {
+      "total": "Total Students",
+      "activeStudents": "Active Students",
+      "transferredCount": "Transferred Students",
+      "boys": "Boys",
+      "girls": "Girls",
+      "collected": "Collected",
+      "remaining": "Remaining Balance",
+      "totalFee": "Total Fees",
+      "totalPaid": "Paid Amount",
+      "transferredPaid": "Transferred Paid",
+      "totalFeesWithTransferred": "Total Fees with Transferred",
+      "totalRemaining": "Remaining Balance"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search...",
+      "filterClass": "All Classes",
+      "filterSection": "All Sections",
+      "sectionLabel": "Section {name}",
+      "addStudent": "+ Add Student",
+      "exportCurrent": "Export Current Page",
+      "exportAll": "Export All Excel",
+      "exportCurrentTitle": "Export current page only (50 students)",
+      "exportAllTitle": "Export all students regardless of page or filter",
+      "printFiltered": "Print Filtered Students",
+      "printAllCards": "Print All Student Cards",
+      "preparing": "Preparing...",
+      "preparingCards": "Preparing cards..."
+    },
+    "table": {
+      "name": "Full Name",
+      "class": "Class",
+      "section": "Section",
+      "fees": "Total Fees",
+      "paid": "Paid",
+      "balance": "Balance",
+      "status": "Status",
+      "actions": "Actions",
+      "phone": "Phone",
+      "address": "Address",
+      "options": "Options ▾",
+      "studentOptions": "Student Options ▾",
+      "noSection": "No Section",
+      "errorLoading": "Error loading data: {error}",
+      "pagination": {
+        "info": "{count} total students"
+      },
+      "empty": {
+        "noStudents": "No students — click Add Student",
+        "noStudentsTab": "No students in this list ({tab})",
+        "noResults": "No matching results for current filters"
+      }
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "pageInfo": "Page {page} of {total} | {count} students"
+    },
+    "modals": {
+      "addTitle": "Add New Student",
+      "editTitle": "Edit Student Data",
+      "deleteTitle": "Confirm Deletion",
+      "importTitle": "Import from Excel",
+      "accountCardTitle": "Account Card",
+      "printCredentials": "Print Credentials",
+      "copyCredentials": "Copy Username/Pass",
+      "steps": {
+        "info": "Information",
+        "contact": "Contact",
+        "fees": "Fees"
+      },
+      "form": {
+        "fullName": "Student Name *",
+        "fullNamePlaceholder": "Ahmed Mohammed Ali",
+        "className": "Class *",
+        "selectClass": "— Select Class —",
+        "branch": "Branch",
+        "selectBranch": "— Select Branch —",
+        "manualEntry": "Enter manually...",
+        "manualPlaceholder": "Type class name",
+        "section": "Section",
+        "optional": "(Optional)",
+        "sectionPlaceholder": "e.g., A, B, C",
+        "address": "Address *",
+        "addressPlaceholder": "Baghdad - Karkh",
+        "phone": "Phone",
+        "phone2": "Second Phone",
+        "phonePlaceholder": "07XXXXXXXXX",
+        "totalFee": "Total Fees ({currency}) *",
+        "autoFromClass": "— Auto from class",
+        "paidFee": "Prepaid Amount",
+        "discount": "Discount ({currency})",
+        "afterDiscount": "After Discount: {amount}",
+        "paidExceedsTotal": "⚠ Paid amount exceeds fees after discount",
+        "installmentInfo": "Single Installment: {amount} × {count} installments",
+        "saving": "Saving...",
+        "saveStudent": "✓ Save Student",
+        "saveChanges": "✓ Save Changes",
+        "status": "Status",
+        "registrationNumber": "Registration No.",
+        "dateOfBirth": "Date of Birth",
+        "parentName": "Parent Name",
+        "gender": "Gender",
+        "genderMale": "Male",
+        "genderFemale": "Female",
+        "genderSelect": "— Select Gender —",
+        "photoUpload": "Student Photo",
+        "photoUploadHint": "Click to upload photo",
+        "photoUploading": "Uploading photo...",
+        "photoUploadError": "Failed to upload photo"
+      },
+      "transfer": {
+        "title": "Transfer Student",
+        "studentName": "Student name:",
+        "currentClass": "Current class:",
+        "currentSection": "Current section:",
+        "selectType": "Select transfer type",
+        "classTransfer": {
+          "title": "Transfer Class",
+          "description": "Change the student's class while keeping them active",
+          "newClass": "New class",
+          "selectClass": "Select class",
+          "newSection": "New section (optional)",
+          "sectionPlaceholder": "Enter new section"
+        },
+        "sectionTransfer": {
+          "title": "Transfer Section",
+          "description": "Change the student's section within the same class",
+          "newSection": "New section",
+          "sectionPlaceholder": "Enter new section"
+        },
+        "markTransferred": {
+          "title": "Mark as Transferred",
+          "description": "Move student to the Transferred tab without deleting their data"
+        },
+        "confirm": "Confirm Transfer",
+        "cancel": "Cancel"
+      },
+      "deleteConfirm": {
+        "message": "Are you sure you want to delete this student?",
+        "warning": "Student will be moved to deleted list and can be restored later",
+        "confirm": "Yes, Delete",
+        "cancel": "Cancel"
+      },
+      "import": {
+        "title": "Import Students from Excel",
+        "columnsTitle": "File Columns:",
+        "required": "required",
+        "columns": {
+          "name": "Student Name",
+          "class": "Class",
+          "address": "Address",
+          "phone": "Phone",
+          "parentPhone": "Parent Phone",
+          "totalFee": "Total Fees",
+          "paidFee": "Paid Amount"
+        },
+        "downloadTemplate": "Download Excel Template",
+        "uploadPrompt": "Click to upload Excel file",
+        "uploadHint": "xlsx only",
+        "previewTitle": "Preview of first {count} rows:",
+        "importButton": "Import Students",
+        "importing": "Importing...",
+        "cancel": "Cancel"
+      },
+      "accountCard": {
+        "title": "Account Card Ready",
+        "fullName": "Full Name",
+        "classSection": "Class & Section",
+        "section": "Section {name}",
+        "loginId": "Login ID",
+        "tempPassword": "Temporary Password",
+        "passwordSet": "Password has been set — cannot be retrieved. Use 'Reset Password' to generate a new one.",
+        "instructions": "Login Instructions",
+        "copy": "Copy Data",
+        "print": "Print",
+        "close": "Close"
+      }
+    }
+  },
+  "payments": {
+    "title": "Finance & Collections",
+    "subtitle": "Track tuition, remaining balances, and daily collection activity",
+    "hero": {
+      "students": "Students",
+      "totalFees": "Total fees",
+      "totalRemaining": "Outstanding balance",
+      "archives": "Archives"
+    },
+    "emptyState": {
+      "title": "Student invoices",
+      "description": "Students, payments, and archives will stay paused until a specific school is selected for this workspace."
+    },
+    "sections": {
+      "currentLedgerTitle": "Current finance ledger",
+      "currentLedgerDescription": "Review payments and follow each student's remaining balance.",
+      "activeRecords": "Active records"
+    },
+    "stats": {
+      "totalFees": "Total fees",
+      "totalPaid": "Total collected",
+      "totalRemaining": "Total remaining",
+      "settledCount": "Fully settled",
+      "paidWithTransferred": "Paid + Transferred",
+      "paidWithTransferredDesc": "Paid from current and transferred students",
+      "totalDiscount": "Discount",
+      "totalDiscountDesc": "Total discounts applied",
+      "feesAfterDiscount": "Fees After Discount",
+      "feesAfterDiscountDesc": "Total fees after discounts",
+      "totalFeesWithTransferred": "Total Paid with Transferred",
+      "totalFeesWithTransferredDesc": "Paid from current + transferred"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search by student or class...",
+      "loadingResults": "Loading results...",
+      "resultsCount": "{count} results"
+    },
+    "filters": {
+      "operations": "Actions",
+      "exportExcel": "Export Excel",
+      "addInvoice": "+ Add invoice",
+      "advanced": "Filters",
+      "classAndSection": "Class & section",
+      "allClasses": "- All -",
+      "sortBy": "Sort by",
+      "sortName": "Name",
+      "sortRemaining": "Remaining",
+      "sortTotalFees": "Total fees",
+      "sortDirection": "Sort direction",
+      "sortAsc": "Ascending ↑",
+      "sortDesc": "Descending ↓"
+    },
+    "quickFilters": {
+      "all": "All",
+      "no_invoice": "No payments",
+      "collected": "Collected",
+      "discounted": "Discounted students",
+      "transferred": "Transferred invoices",
+      "graduated": "Graduated invoices",
+      "suspended": "Suspended invoices",
+      "deleted": "Deleted invoices"
+    },
+    "table": {
+      "emptyTitle": "No results",
+      "emptyDescription": "No students matched the current search and filters.",
+      "noClass": "No class",
+      "paymentCount": "{count} payments",
+      "paidAmount": "Paid",
+      "totalAmount": "Total",
+      "discount": "Discount",
+      "phone": "Phone",
+      "progress": "Progress",
+      "addPayment": "Add payment",
+      "viewDetails": "View details",
+      "registeredPayments": "{count} recorded payments",
+      "columns": {
+        "studentName": "Student name",
+        "classAndSection": "Class & section",
+        "phone": "Phone",
+        "totalAmount": "Total amount",
+        "paidAmount": "Paid amount",
+        "discount": "Discount",
+        "remainingAmount": "Remaining amount",
+        "actions": "Actions"
+      },
+      "paymentStatus": {
+        "settled": "Fully settled",
+        "largeRemaining": "Large remaining",
+        "partialRemaining": "Partial remaining",
+        "nearlySettled": "Nearly settled"
+      }
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "pageInfo": "Page {page} of {total} | {count} students"
+    },
+    "archive": {
+      "title": "Yearly finance archive",
+      "description": "A yearly snapshot of the current school payments is stored in Supabase without deleting the source records.",
+      "stats": {
+        "archivedYears": "Archived years",
+        "totalArchivedAmount": "Total archived amount",
+        "latestArchivedYear": "Latest archived year"
+      },
+      "yearOption": "Year {year}",
+      "archiveAction": "Archive selected year",
+      "archiving": "Archiving...",
+      "emptyTitle": "No yearly archive yet",
+      "emptyDescription": "Archive a year to create a backup snapshot of payment data.",
+      "cardSummary": "{students} students • {payments} payments",
+      "archiveDate": "Archived on {date}",
+      "view": "View",
+      "export": "Export"
+    },
+    "detailPanel": {
+      "title": "Invoice details — {student}",
+      "studentInfoTitle": "Student information",
+      "studentName": "Name",
+      "className": "Class",
+      "phone": "Phone",
+      "address": "Address",
+      "financialSummaryTitle": "Financial summary",
+      "totalAmount": "Total amount",
+      "paidAmount": "Paid amount",
+      "discountAmount": "Discount",
+      "remainingAmount": "Remaining amount",
+      "progressLabel": "Completion",
+      "transactionsTitle": "Payment transactions ({count})",
+      "addPayment": "+ Add payment",
+      "emptyPaymentsTitle": "No payments recorded",
+      "emptyPaymentsDescription": "Add a new payment for this student.",
+      "close": "Close",
+      "printReceipt": "Print receipt",
+      "printStatement": "Full account statement",
+      "deletePayment": "Delete payment",
+      "date": "Date",
+      "paperReceipt": "Paper receipt",
+      "digitalReceipt": "Digital receipt",
+      "notes": "Notes"
+    },
+    "dialogs": {
+      "deletePaymentTitle": "Delete payment",
+      "deletePaymentDescriptionWithStudent": "The payment for {student} will be deleted and the remaining balance will be recalculated.",
+      "deletePaymentDescription": "The selected payment will be deleted and the remaining balance will be recalculated.",
+      "deletePaymentConfirm": "Yes, delete payment"
+    }
+  },
+  "salaries": {
+    "title": "Payroll Management",
+    "subtitle": "Track teacher compensation, lesson schedules, and monthly payouts",
+    "emptyState": {
+      "title": "Payroll data",
+      "description": "Teachers, salaries, and schedules will not load until a specific school is selected for this workspace."
+    },
+    "sidebar": {
+      "sectionTitle": "Payroll",
+      "items": {
+        "main": "Overview",
+        "teachers": "Teachers",
+        "schedule_tab": "Schedule",
+        "deductions": "Deductions",
+        "reports": "Reports",
+        "calendar": "Calendar",
+        "archive": "Archive",
+        "settings": "Settings"
+      }
+    },
+    "quickAccess": {
+      "title": "Quick access",
+      "showAll": "Show all",
+      "showLess": "Show less",
+      "items": {
+        "add_teacher": "Add teacher",
+        "schedule": "Schedule",
+        "prices": "Lecture prices",
+        "subjects": "Subjects",
+        "titles": "Job titles",
+        "classes": "Add class & section",
+        "print": "Print options",
+        "export": "Export data",
+        "deductions": "Deductions",
+        "detailed_report": "Detailed report",
+        "schedule_lessons": "Lesson times",
+        "daily_log": "Daily log"
+      }
+    },
+    "summary": {
+      "activeTeachers": "Active teachers",
+      "totalBaseSalaries": "Total base salaries",
+      "paidThisMonth": "Paid this month",
+      "pendingPayout": "Pending payout"
+    },
+    "tabs": {
+      "teachers": "Teachers",
+      "salaryLog": "Payroll log",
+      "pendingPayout": "Pending payout"
+    },
+    "warning": {
+      "unpaidTeachers": "{count} teachers have not received salary for {month} yet."
+    },
+    "loading": {
+      "main": "Loading payroll data..."
+    },
+    "table": {
+      "loading": "Loading...",
+      "emptyTitle": "No teachers found",
+      "emptyDescription": "Add a teacher to create the first payroll account.",
+      "columns": {
+        "name": "Name",
+        "jobTitle": "Job title",
+        "subject": "Subject",
+        "baseSalary": "Salary",
+        "lecturePrice": "Lecture price",
+        "monthStatus": "Month status",
+        "options": "Options"
+      },
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "pay": "Pay"
+    },
+    "printModal": {
+      "title": "Print options",
+      "individualTitle": "Detailed teacher report",
+      "individualDescription": "Choose a teacher to print a full report with all assigned lessons.",
+      "selectTeacherPlaceholder": "Choose a teacher...",
+      "print": "Print",
+      "summaryTitle": "Summary report",
+      "summaryDescription": "Print a combined report for all teachers.",
+      "printAll": "Print full report",
+      "close": "Close"
+    },
+    "dialogs": {
+      "archiveMonthTitle": "Archive payroll month",
+      "archiveMonthDescription": "Month {month} will be archived and its lecture counters reset. Use this only when closing the month.",
+      "archiveMonthConfirm": "Yes, archive the month"
+    }
+  },
+  "gates": {
+    "accessDenied": "Access denied",
+    "accessDeniedDescription": "You don't have permission to open this page.",
+    "goBack": "Go back",
+    "dashboard": "Dashboard",
+    "subscriptionExpired": "Subscription expired",
+    "subscriptionExpiredDescription": "School subscription has expired. Contact your provider to reactivate access.",
+    "subscriptionRenewalHint": "Contact administration to renew subscription",
+    "signOut": "Sign out"
+  },
+  "ping": {
+    "label": "Response Time (Ping)",
+    "speedFast": "Fast",
+    "speedMedium": "Medium",
+    "speedSlow": "Slow"
+  },
+  "attendance": {
+    "recordTitle": "Student Attendance Record",
+    "studentLabel": "Student",
+    "classLabel": "Class",
+    "sectionLabel": "Section",
+    "classSectionLabel": "Class/Section",
+    "searchStudent": "Search for student",
+    "dateRangeLabel": "Date Range",
+    "fromDate": "From",
+    "toDate": "To",
+    "statusPresent": "Present",
+    "statusAbsent": "Absent",
+    "statusLate": "Late",
+    "statusExcused": "Excused",
+    "totalAttendance": "Total",
+    "presentCount": "Present",
+    "absentCount": "Absent",
+    "lateCount": "Late",
+    "excusedCount": "Excused",
+    "dateColumn": "Date",
+    "statusColumn": "Status",
+    "noteColumn": "Note",
+    "noResults": "No matching results.",
+    "noRecords": "No records in range."
+  },
+  "groupDashboard": {
+    "title": "Group Financial Dashboard",
+    "subtitle": "A comprehensive overview of financial performance across all school branches",
+    "breadcrumb": "Home > Group",
+    "kpis": {
+      "totalStudents": "Total Students",
+      "totalPaid": "Total Paid",
+      "totalDiscounts": "Total Discounts",
+      "feesBeforeDiscount": "Fees Before Discount",
+      "feesAfterDiscount": "Fees After Discount",
+      "remaining": "Remaining",
+      "expenses": "Expenses",
+      "discount": "Discount",
+      "studentsCount": "Students Count",
+      "paymentRate": "Payment Rate",
+      "paid": "Paid",
+      "paidAmount": "Paid Amount",
+      "remainingAmount": "Remaining Amount",
+      "totalRequired": "Total Required",
+      "income": "Revenue"
+    },
+    "branches": {
+      "title": "Branch Summary",
+      "noActive": "No active branches for this school"
+    },
+    "totals": {
+      "title": "School Totals"
+    },
+    "analysis": {
+      "title": "Performance Analysis",
+      "bestCollection": "Best Collection",
+      "noData": "No data available",
+      "highestRemaining": "Highest Remaining",
+      "highestExpenses": "Highest Expenses",
+      "noExpenses": "No expenses"
+    },
+    "budget": {
+      "title": "Annual Budget",
+      "currentYearBadge": "This Year",
+      "nextYearBadge": "Next Year",
+      "currentYear": "Current Year",
+      "nextYear": "Upcoming Year",
+      "plannedIncome": "Planned Income",
+      "actualIncome": "Actual Income",
+      "plannedExpense": "Planned Expenses",
+      "actualExpense": "Actual Expenses",
+      "plannedSurplus": "Planned Surplus",
+      "actualSurplus": "Actual Surplus",
+      "incomeCompletionRate": "Income Completion Rate",
+      "expenseConsumptionRate": "Expense Consumption",
+      "branchBreakdown": "Branch Breakdown",
+      "branchExpenses": "Expenses",
+      "branchIncome": "Income",
+      "empty": "No budget has been recorded for this year",
+      "error": "Unable to load budget data.",
+      "unexpectedResponse": "Unexpected server response.",
+      "retry": "Retry"
+    },
+    "analytics": {
+      "title": "Financial Analytics",
+      "byBranch": "Total Amounts by Branch",
+      "paymentProgress": "Payment Progress",
+      "totalRequired": "Total Required Amount",
+      "paymentStats": "Payment Statistics",
+      "donutTotal": "Total",
+      "quickStats": "Quick Stats",
+      "totalBranches": "Total Branches",
+      "feesAfterDiscount": "Fees After Discount",
+      "paymentRate": "Payment Rate",
+      "paidAmount": "Paid Amount",
+      "remainingAmount": "Remaining Amount",
+      "paid": "Paid",
+      "remaining": "Remaining"
+    },
+    "errors": {
+      "overviewError": "Failed to load school overview."
+    }
+  },
+  "schedule": {
+    "title": "Class Schedule",
+    "subtitle": "View and edit the weekly class schedule",
+    "selectClass": "Select class",
+    "selectSection": "Select section",
+    "allSections": "All sections",
+    "periodLabel": "Period",
+    "subject": "Subject",
+    "teacher": "Teacher",
+    "saveSchedule": "Save schedule",
+    "saving": "Saving...",
+    "saved": "Schedule saved successfully",
+    "saveError": "Failed to save schedule",
+    "editCell": "Edit period",
+    "clearCell": "Clear period",
+    "subjectPlaceholder": "Subject name...",
+    "teacherPlaceholder": "Teacher name...",
+    "noSchedule": "No schedule for this class yet",
+    "selectClassFirst": "Select a class to view its schedule",
+    "print": "Print",
+    "loadError": "Failed to load schedule",
+    "days": {
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday"
+    },
+    "periods": "Periods",
+    "emptyCell": "Empty",
+    "timeSlots": {
+      "title": "Time Slot Settings",
+      "addPeriod": "Add Period",
+      "addBreak": "Add Break",
+      "autoFill": "Auto Fill",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "duration": "Duration (minutes)",
+      "period": "Period",
+      "break": "Break",
+      "slotName": "Name",
+      "saveSettings": "Save Settings",
+      "periodDuration": "Period Duration",
+      "breakDuration": "Break Duration",
+      "firstPeriodStart": "First Period Start Time",
+      "fillAll": "Fill All"
+    },
+    "workingDays": {
+      "title": "Working Days",
+      "saturday": "Saturday",
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "saveChanges": "Save Changes"
+    }
+  },
+  "notifications": {
+    "title": "Notifications & Announcements",
+    "subtitle": "Manage and send notifications and announcements",
+    "tabs": {
+      "send": "Send Notification",
+      "history": "History",
+      "announcements": "Announcements"
+    },
+    "stats": {
+      "totalSent": "Total Sent",
+      "thisWeek": "This Week",
+      "announcements": "Announcements",
+      "pinned": "Pinned"
+    },
+    "form": {
+      "heading": "Send New Notification",
+      "title": "Notification Title",
+      "titlePlaceholder": "e.g. Exam Reminder",
+      "body": "Notification Body",
+      "bodyPlaceholder": "Write the notification content here...",
+      "priority": "Priority",
+      "category": "Category",
+      "targetType": "Recipients",
+      "targetClassPlaceholder": "Class name (e.g. Grade 5)",
+      "targetSectionPlaceholder": "Section (e.g. A)",
+      "channels": "Send Channels",
+      "channelInsite": "In-site",
+      "channelPush": "Browser Push",
+      "send": "Send Notification",
+      "sending": "Sending...",
+      "success": "Sent successfully to {count} recipient(s)",
+      "error": "Failed to send. Please try again.",
+      "priorities": {
+        "normal": "Normal",
+        "important": "Important",
+        "urgent": "Urgent"
+      },
+      "categories": {
+        "general": "General",
+        "exams": "Exams",
+        "homework": "Homework",
+        "holiday": "Holiday",
+        "financial": "Financial",
+        "activity": "Activity"
+      }
+    },
+    "history": {
+      "heading": "Notification History",
+      "total": "{count} notifications",
+      "searchPlaceholder": "Search notifications...",
+      "colTitle": "Title",
+      "colCategory": "Category",
+      "colPriority": "Priority",
+      "colRecipients": "Recipients",
+      "colDate": "Date",
+      "colStatus": "Status",
+      "empty": "No notifications sent yet",
+      "errorTitle": "Failed to load history",
+      "errorDesc": "Could not fetch notification history",
+      "page": "Page {current} of {total}",
+      "status": {
+        "sent": "Sent",
+        "failed": "Failed",
+        "draft": "Draft"
+      }
+    },
+    "announcements": {
+      "heading": "Announcements",
+      "create": "New Announcement",
+      "createTitle": "Create New Announcement",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "pinnedBadge": "Pinned",
+      "pinnedSection": "Pinned Announcements",
+      "allSection": "All Announcements",
+      "expires": "Expires",
+      "empty": "No announcements yet",
+      "errorTitle": "Failed to load",
+      "errorDesc": "Could not fetch announcements",
+      "viewMedia": "View Media",
+      "formTitle": "Announcement Title",
+      "formTitlePlaceholder": "e.g. Holiday Notice",
+      "formBody": "Announcement Body",
+      "formBodyPlaceholder": "Write announcement details...",
+      "formMediaUrl": "Media URL (optional)",
+      "formMediaType": "Media Type",
+      "formMediaTypeSelect": "Select type",
+      "formExpiresAt": "Expiry Date (optional)",
+      "formPinned": "Pin this announcement at the top",
+      "cancel": "Cancel",
+      "save": "Save Announcement",
+      "saving": "Saving...",
+      "createError": "Failed to create announcement",
+      "mediaTypes": {
+        "image": "Image",
+        "video": "Video",
+        "pdf": "PDF File",
+        "link": "Link"
+      }
+    },
+    "targetTypes": {
+      "all": "All Users",
+      "students": "Students Only",
+      "teachers": "Teachers Only",
+      "class": "Specific Class",
+      "section": "Specific Section",
+      "person": "Specific Person"
+    },
+    "bell": {
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "viewAll": "View all notifications",
+      "empty": "No new notifications"
+    },
+    "pageTitle": "Notifications",
+    "pageSubtitle": "Manage and send notifications to students and teachers"
+  },
+  "teacherAttendance": {
+    "title": "Teacher Attendance",
+    "subtitle": "Track daily and monthly teacher attendance and absences",
+    "heroBadge": "Administration · Teacher Attendance",
+    "tabs": {
+      "daily": "Daily",
+      "log": "Lecture Log",
+      "monthly": "Monthly",
+      "reports": "Reports",
+      "settings": "Settings"
+    },
+    "stats": {
+      "totalTeachers": "Total Teachers",
+      "presentToday": "Present Today",
+      "absentToday": "Absent Today",
+      "lateToday": "Late Today"
+    },
+    "status": {
+      "present": "Present",
+      "absent": "Absent",
+      "late": "Late",
+      "excused": "Excused",
+      "holiday": "Holiday"
+    },
+    "workDays": {
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday"
+    },
+    "daily": {
+      "date": "Date",
+      "viewDetailed": "Detailed",
+      "viewQuick": "Quick",
+      "copyYesterday": "Copy from yesterday",
+      "saveAll": "Save all",
+      "saving": "Saving...",
+      "noTeachers": "No teachers registered in this branch.",
+      "colTeacher": "Teacher",
+      "colSubject": "Subject",
+      "colStatus": "Status",
+      "colCheckIn": "Check-in time",
+      "colCheckOut": "Check-out time",
+      "colNotes": "Notes",
+      "notesPlaceholder": "Notes...",
+      "savedSuccess": "Attendance records saved successfully ✓",
+      "errorSave": "Could not save attendance records.",
+      "errorLoad": "Could not load attendance records.",
+      "errorYesterday": "Could not load yesterday's data.",
+      "errorLoadTeachers": "Could not load teacher list."
+    },
+    "monthly": {
+      "month": "Month",
+      "show": "Show",
+      "loading": "Loading...",
+      "noData": "No data for this month.",
+      "colTeacher": "Teacher",
+      "colSubject": "Subject",
+      "colPresent": "Present",
+      "colAbsent": "Absent",
+      "colLate": "Late",
+      "colExcused": "Excused",
+      "colTotal": "Total",
+      "colAttendanceRate": "Attendance Rate",
+      "dayUnit": "days",
+      "errorLoad": "Could not load monthly summary."
+    },
+    "reports": {
+      "from": "From",
+      "to": "To",
+      "generate": "Generate Report",
+      "loading": "Loading...",
+      "prompt": "Select a date range and click \"Generate Report\".",
+      "cardTotalDays": "Total Recorded Days",
+      "cardAvgRate": "Average Attendance Rate",
+      "cardMostAbsent": "Most Absences",
+      "cardMostLate": "Most Late",
+      "tableTitle": "Teachers Ranked by Attendance Rate",
+      "colRank": "#",
+      "colTeacher": "Teacher",
+      "colSubject": "Subject",
+      "colPresent": "Present",
+      "colAbsent": "Absent",
+      "colLate": "Late",
+      "colRate": "Attendance Rate",
+      "errorLoad": "Could not load report."
+    },
+    "settings": {
+      "title": "Attendance & Shift Settings",
+      "workStartTime": "Work start time",
+      "workEndTime": "Work end time",
+      "lateThreshold": "Late threshold (minutes)",
+      "lateThresholdHint": "Arrival after this many minutes from shift start is considered late.",
+      "workDays": "Work days",
+      "deductionRules": "Deduction rules",
+      "absentDeduction": "Absence deduction",
+      "lateDeduction": "Late deduction",
+      "maxLateDays": "Late days before counting as absent",
+      "deductionNone": "No deduction",
+      "deductionFixed": "Fixed amount",
+      "deductionDailyRate": "Daily rate",
+      "deductionPerMinute": "Per-minute deduction",
+      "amountPlaceholder": "Amount",
+      "saveSettings": "Save settings",
+      "saving": "Saving...",
+      "savedSuccess": "Settings saved successfully ✓",
+      "errorLoad": "Could not load settings.",
+      "errorSave": "Could not save settings."
+    },
+    "log": {
+      "title": "Daily Lecture Log",
+      "subtitle": "Record daily lectures — linked to payroll",
+      "registerButton": "Log lectures",
+      "todayLectures": "Today's lectures",
+      "lectureUnit": "lecture",
+      "sectionLabel": "Sec:",
+      "periodLabel": "Period {period}",
+      "sessionMorning": "Morning",
+      "sessionEvening": "Evening",
+      "delete": "Delete",
+      "refresh": "Refresh",
+      "noLectures": "No lectures recorded for this day.",
+      "errorLoad": "Could not load lectures."
+    }
+  },
+  "teacherActivities": {
+    "title": "Teacher Activity Monitor",
+    "subtitle": "Monitor and review everything teachers publish",
+    "heroBadge": "Administration · Teachers",
+    "heroDescription": "Monitor and review all content published by teachers on the platform",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "timeline": "Timeline",
+      "review": "Review",
+      "byTeacher": "By Teacher",
+      "settings": "Settings"
+    },
+    "activityTypes": {
+      "notification": "Notification",
+      "homework": "Homework",
+      "photo": "Photo",
+      "video": "Video",
+      "file": "File",
+      "link": "Link",
+      "announcement": "Announcement",
+      "grade_entry": "Grades",
+      "exam_photo": "Exam photo",
+      "worksheet": "Worksheet",
+      "lesson_summary": "Lesson summary"
+    },
+    "reviewStatus": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "flagged": "Flagged"
+    },
+    "dashboard": {
+      "title": "Overview",
+      "subtitle": "Teacher activity statistics",
+      "today": "Today",
+      "week": "Week",
+      "month": "Month",
+      "kpi": {
+        "totalActivities": "Total Activities",
+        "activeTeachers": "Active Teachers",
+        "pendingReview": "Pending Review",
+        "inactive": "Inactive",
+        "pendingReports": "Pending Reports"
+      },
+      "weeklyActivity": "Weekly Activity",
+      "topTeachers": "Most Active Teachers",
+      "noData": "No data yet",
+      "contentDistribution": "Content Type Distribution",
+      "inactiveAlert": "Teachers inactive for more than 7 days ({count})",
+      "pendingReviewAlert": "{count} activities pending review",
+      "pendingReportAlert": "{count} pending report",
+      "errorLoad": "Could not load dashboard data",
+      "errorData": "Could not load data"
+    },
+    "timeline": {
+      "searchPlaceholder": "Search activities...",
+      "allTypes": "All types",
+      "noResults": "No activities match the search criteria",
+      "loadMore": "Load more",
+      "loading": "Loading...",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "viewPct": "Views",
+      "pendingBadge": "Pending review",
+      "rejectedBadge": "Rejected",
+      "approveBtn": "Approve",
+      "rejectBtn": "Reject",
+      "rejectionReason": "Rejection reason:",
+      "errorLoad": "Could not load activities",
+      "errorDelete": "Could not delete activity",
+      "errorReview": "Could not update review",
+      "deleteConfirm": "Are you sure you want to delete this activity?",
+      "deleteSuccess": "Activity deleted",
+      "approveSuccess": "Approved",
+      "rejectSuccess": "Rejected"
+    },
+    "review": {
+      "noActivities": "No activities in this section",
+      "pendingNotifications": "Notifications awaiting approval",
+      "approveBtn": "Approve",
+      "rejectBtn": "Reject",
+      "flagBtn": "Flag",
+      "rejectModalTitle": "Rejection reason",
+      "rejectPlaceholder": "Write the reason for rejection here...",
+      "rejectConfirm": "Confirm rejection",
+      "cancelBtn": "Cancel",
+      "approveSuccess": "Approved",
+      "rejectSuccess": "Rejected",
+      "flagSuccess": "Flagged",
+      "errorLoad": "Could not load review data",
+      "errorAction": "Could not perform action",
+      "rejectionReasonLabel": "Rejection reason:",
+      "flagReasonLabel": "Flag reason:"
+    },
+    "byTeacher": {
+      "selectPrompt": "Select a teacher to view their activity",
+      "selectPlaceholder": "-- Select a teacher --",
+      "loadingTeachers": "Loading...",
+      "noTeacherSelected": "Select a teacher from the list above to view their activity details",
+      "fullProfile": "Full profile",
+      "editBtn": "Edit",
+      "suspendBtn": "Suspend",
+      "activateBtn": "Activate",
+      "sendMessage": "Send message",
+      "statusSuspended": "Suspended",
+      "statusActive": "Active",
+      "kpi": {
+        "totalActivities": "Total Activities",
+        "avgViewRate": "Avg. View Rate"
+      },
+      "messagingSettings": "Messaging settings",
+      "pauseMessaging": "Pause messaging",
+      "pauseMessagingDesc": "Prevent teacher from sending any new activity",
+      "requireApproval": "Notifications require approval",
+      "requireApprovalDesc": "Student notifications are reviewed before publishing",
+      "activityDistribution": "Activity distribution by type",
+      "recentActivities": "Recent activities",
+      "noActivities": "No activities for this teacher",
+      "viewPct": "views",
+      "previewTitle": "Date",
+      "previewViews": "Views",
+      "previewStatus": "Status",
+      "previewReview": "Review",
+      "statusPublished": "Published",
+      "statusUnpublished": "Unpublished",
+      "sendMessageTitle": "Send message to {name}",
+      "messagePlaceholder": "Write your message here...",
+      "cancelBtn": "Cancel",
+      "sendBtn": "Send",
+      "sending": "Sending...",
+      "errorLoadTeachers": "Could not load teacher list",
+      "errorLoadData": "Could not load teacher data",
+      "errorToggleStatus": "Could not change teacher status",
+      "errorSendMessage": "Could not send message",
+      "errorUpdateSetting": "Could not update setting",
+      "activateSuccess": "Teacher account activated",
+      "suspendSuccess": "Teacher account suspended",
+      "messageSentSuccess": "Message sent",
+      "settingUpdatedSuccess": "Setting updated"
+    },
+    "settings": {
+      "reviewMode": "Review mode",
+      "reviewModePostReview": "Post-review",
+      "reviewModePostReviewDesc": "Content is published immediately and reviewed afterwards",
+      "reviewModePreApproval": "Pre-approval",
+      "reviewModePreApprovalDesc": "Requires admin approval before publishing",
+      "reviewModeDisabled": "Disabled",
+      "reviewModeDisabledDesc": "No content moderation",
+      "requireApprovalFor": "Requires prior approval:",
+      "requireApprovalLinks": "External links",
+      "requireApprovalVideos": "Videos",
+      "requireApprovalFiles": "Files",
+      "fileSizeLimits": "File size limits",
+      "maxImageSize": "Max image size (MB)",
+      "maxVideoSize": "Max video size (MB)",
+      "maxFileSize": "Max file size (MB)",
+      "maxAttachments": "Max attachments per activity",
+      "dailyLimits": "Daily limits",
+      "maxDailyNotifications": "Max daily notifications",
+      "maxDailyHomework": "Max daily homework",
+      "alertsAndReports": "Alerts & reports",
+      "alertInactiveDays": "Inactivity alert (days)",
+      "alertLowViewPct": "Low view rate alert (%)",
+      "enableWeeklySummary": "Enable weekly summary",
+      "weeklySummaryDay": "Summary send day",
+      "saturday": "Saturday",
+      "sunday": "Sunday",
+      "thursday": "Thursday",
+      "storageLimits": "Storage limits",
+      "totalStorageLimit": "Total storage limit (GB)",
+      "teacherStorageLimit": "Teacher storage limit (MB)",
+      "saveBtn": "Save settings",
+      "saving": "Saving...",
+      "savedSuccess": "Settings saved successfully",
+      "errorLoad": "Could not load settings",
+      "errorSave": "Could not save settings"
+    }
+  },
+  "grades": {
+    "nav": "Grades",
+    "pageTitle": "Grade Records",
+    "scheme": {
+      "title": "Grade Distribution",
+      "oral": "Oral",
+      "homework": "Homework",
+      "monthly": "Monthly",
+      "midterm": "Midterm",
+      "final": "Final",
+      "total": "Total",
+      "passScore": "Pass Score",
+      "totalMax": "Maximum Score"
+    },
+    "levels": {
+      "primary": "Primary",
+      "intermediate": "Intermediate",
+      "secondary": "Secondary"
+    },
+    "status": {
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "locked": "Locked"
+    },
+    "labels": {
+      "creative": "Creative",
+      "excellent": "Excellent",
+      "veryGood": "Very Good",
+      "good": "Good",
+      "average": "Average",
+      "accepted": "Accepted",
+      "supplementary": "Supplementary",
+      "fail": "Fail"
+    },
+    "actions": {
+      "confirm": "Confirm Grades",
+      "lock": "Lock Grades",
+      "export": "Export Excel",
+      "import": "Import Grades",
+      "addScheme": "Add Scheme",
+      "editScheme": "Edit Scheme"
+    },
+    "filters": {
+      "academicYear": "Academic Year",
+      "semester": "Semester",
+      "class": "Class",
+      "section": "Section",
+      "subject": "Subject",
+      "semester1": "First Semester",
+      "semester2": "Second Semester"
+    },
+    "table": {
+      "studentName": "Student Name",
+      "oral": "Oral",
+      "homework": "Homework",
+      "monthly": "Monthly",
+      "midterm": "Midterm",
+      "final": "Final",
+      "total": "Total",
+      "percentage": "Percentage",
+      "label": "Grade",
+      "status": "Status"
+    },
+    "errors": {
+      "notFound": "Grade record not found",
+      "locked": "Cannot edit a locked grade",
+      "noPermission": "You do not have permission for this action",
+      "missingTable": "Grades table not ready yet",
+      "selectAll": "Select academic year, semester, class, section and subject"
+    },
+    "empty": {
+      "title": "No grades yet",
+      "description": "Select a class then start entering grades",
+      "noSchemes": "No grade scheme found. Add one first."
+    }
+  },
+  "questionBank": {
+    "title": "Question Bank",
+    "subtitle": "Manage the question bank for exams and quizzes",
+    "new": "New Question",
+    "empty": "No questions yet"
+  },
+  "exams": {
+    "title": "Exams",
+    "subtitle": "Manage exams and track student results",
+    "new": "New Exam",
+    "attempts": "View attempts and results",
+    "empty": "No exams yet",
+    "tabs": {
+      "list": "Exams",
+      "builder": "Exam Builder",
+      "analytics": "Analytics",
+      "scheduling": "Scheduling",
+      "grading": "Grading"
+    },
+    "filters": {
+      "allSubjects": "All Subjects",
+      "allTypes": "All Types",
+      "allStatus": "All Statuses",
+      "upcoming": "Upcoming",
+      "active": "Active",
+      "completed": "Completed"
+    },
+    "form": {
+      "title": "Exam Title",
+      "subject": "Subject",
+      "className": "Class / Section",
+      "type": "Type (Monthly / Final)",
+      "totalMarks": "Total Marks",
+      "startsAt": "Starts At",
+      "endsAt": "Ends At",
+      "save": "Save",
+      "cancel": "Cancel",
+      "titleRequired": "Exam title is required"
+    },
+    "builder": {
+      "title": "Exam Builder",
+      "selectExam": "Select Exam",
+      "questionBank": "Question Bank",
+      "addQuestions": "Add Questions",
+      "removeQuestion": "Remove Question",
+      "marksPerQuestion": "Marks per Question",
+      "totalQuestions": "Total Questions",
+      "saveBuilder": "Save Exam Build",
+      "preview": "Preview",
+      "noQuestions": "No questions added yet",
+      "difficulty": "Difficulty",
+      "easy": "Easy",
+      "medium": "Medium",
+      "hard": "Hard",
+      "settings": "Exam Settings",
+      "duration": "Duration (minutes)",
+      "shuffle": "Shuffle Questions",
+      "shuffleOptions": "Shuffle Options",
+      "autoSubmit": "Auto-submit on timeout",
+      "lockBrowser": "Lock Browser",
+      "maxAttempts": "Max Attempts",
+      "passingMarks": "Passing Marks",
+      "showResults": "Show Results Immediately",
+      "allowReview": "Allow Review",
+      "instructions": "Instructions"
+    },
+    "analytics": {
+      "title": "Exam Analytics",
+      "avgScore": "Average Score",
+      "passRate": "Pass Rate",
+      "highest": "Highest Score",
+      "lowest": "Lowest Score",
+      "totalAttempts": "Total Attempts",
+      "completionRate": "Completion Rate",
+      "scoreDistribution": "Score Distribution",
+      "questionDifficulty": "Question Difficulty",
+      "studentRanking": "Student Ranking",
+      "trend": "Trend Over Time",
+      "timesAnswered": "Times Answered",
+      "percentCorrect": "% Correct",
+      "avgTimeSpent": "Avg Time Spent",
+      "rank": "Rank",
+      "studentName": "Student Name",
+      "totalScore": "Total Score",
+      "month": "Month",
+      "noData": "No analytics data available"
+    },
+    "schedule": {
+      "title": "Exam Scheduling",
+      "scheduleExam": "Schedule Exam",
+      "selectDate": "Select Date & Time",
+      "conflict": "Schedule Conflict",
+      "conflictWarning": "Conflicts with another exam for the same class",
+      "forceSchedule": "Schedule Despite Conflict",
+      "noUpcoming": "No scheduled exams",
+      "notify": "Notify Students",
+      "scheduled": "Scheduled Successfully",
+      "today": "Today",
+      "upcoming": "Upcoming"
+    },
+    "grading": {
+      "title": "Exam Grading",
+      "pendingGrading": "Pending Grading",
+      "gradeNow": "Grade Now",
+      "essayAnswer": "Student Answer",
+      "rubric": "Rubric",
+      "marksAwarded": "Marks Awarded",
+      "feedback": "Feedback",
+      "saveGrades": "Save Grades",
+      "autoGraded": "Auto-graded",
+      "manualRequired": "Manual grading required",
+      "similarityWarning": "High similarity with another answer",
+      "similarity": "Similarity",
+      "allGraded": "All exams graded",
+      "studentAttempt": "Student Attempt",
+      "correct": "Correct",
+      "incorrect": "Incorrect",
+      "pending": "Pending"
+    },
+    "status": {
+      "upcoming": "Upcoming",
+      "active": "Active",
+      "completed": "Completed",
+      "graded": "Graded",
+      "submitted": "Submitted",
+      "inProgress": "In Progress"
+    }
+  },
+  "behavior": {
+    "title": "Behavior",
+    "subtitle": "Record and track student behavior notes",
+    "new": "Log Behavior",
+    "empty": "No behavior records yet"
+  },
+  "messaging": {
+    "title": "Messages",
+    "subtitle": "Inbox and conversations",
+    "conversations": "Conversations",
+    "empty": "No conversations",
+    "send": "Send"
+  }
+}

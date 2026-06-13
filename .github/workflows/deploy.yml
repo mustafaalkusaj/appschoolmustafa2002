@@ -1,0 +1,251 @@
+name: Deploy to Server
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        env:
+          SECRET_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SECRET_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SECRET_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SECRET_RBAC_COOKIE: ${{ secrets.RBAC_COOKIE_SECRET }}
+          SECRET_HEALTH_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+          SECRET_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        with:
+          host: 159.203.120.28
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          request_pty: true
+          envs: SECRET_SUPABASE_URL,SECRET_SUPABASE_ANON_KEY,SECRET_SERVICE_ROLE_KEY,SECRET_RBAC_COOKIE,SECRET_HEALTH_TOKEN,SECRET_JWT_SECRET
+          script: |
+            set -euo pipefail
+            REMOTE_OWNER="$(id -un):$(id -gn)"
+            APP_DIR=/var/www/school-app
+            mkdir -p "$APP_DIR"
+            if sudo -n chown -R "$REMOTE_OWNER" "$APP_DIR" >/dev/null 2>&1; then
+              echo "Normalized deployment ownership for $APP_DIR."
+            else
+              echo "WARN: Unable to normalize $APP_DIR ownership via sudo; continuing with rsync-safe mode."
+            fi
+            REPO_ARCHIVE_URL=https://github.com/${{ github.repository }}/archive/refs/heads/main.tar.gz
+            TMP_DIR=$(mktemp -d)
+            trap 'rm -rf "$TMP_DIR"' EXIT
+            curl -fsSL "$REPO_ARCHIVE_URL" -o "$TMP_DIR/repo.tar.gz"
+            tar -xzf "$TMP_DIR/repo.tar.gz" -C "$TMP_DIR"
+            SRC_DIR=$(find "$TMP_DIR" -maxdepth 1 -type d -name '*-main' | head -n 1)
+            if [ -z "$SRC_DIR" ]; then
+              echo "Unable to locate extracted repository directory." >&2
+              exit 1
+            fi
+            sync_repo() {
+              if [ "$#" -gt 0 ]; then
+                "$@" rsync \
+                  -rlptDz \
+                  --omit-dir-times \
+                  --no-owner \
+                  --no-group \
+                  --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
+                  --exclude ".env" \
+                  --exclude ".env.*" \
+                  --exclude ".git" \
+                  --exclude ".github" \
+                  --exclude "node_modules" \
+                  --exclude ".next*" \
+                  --exclude ".playwright-cli" \
+                  --exclude ".augment" \
+                  --exclude ".claude" \
+                  --exclude ".codex" \
+                  --exclude ".continue" \
+                  --exclude ".qoder" \
+                  --exclude ".vscode" \
+                  --exclude "00990090" \
+                  --exclude "artifacts" \
+                  --exclude "deploy" \
+                  --exclude "docs" \
+                  --exclude "figma-handoff" \
+                  --exclude "figma-handoff-backup-*" \
+                  --exclude "logs" \
+                  --exclude "output" \
+                  --exclude "school-acc-system" \
+                  --exclude "school-saas-next" \
+                  --exclude "skills" \
+                  --exclude "tests" \
+                  --exclude "*.md" \
+                  --exclude "*.txt" \
+                  --exclude "clean_warnings.json" \
+                  --exclude "full-lint-report.txt" \
+                  --exclude "lint-output.json" \
+                  --exclude "lint-output.txt" \
+                  --exclude "next-env.d.ts" \
+                  --exclude "playwright.config.ts" \
+                  --exclude "server.log" \
+                  --exclude "vitest.config.ts" \
+                  --exclude "warnings_report.json" \
+                  "$SRC_DIR"/ "$APP_DIR"/
+              else
+                rsync \
+                  -rlptDz \
+                  --omit-dir-times \
+                  --no-owner \
+                  --no-group \
+                  --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
+                  --exclude ".env" \
+                  --exclude ".env.*" \
+                  --exclude ".git" \
+                  --exclude ".github" \
+                  --exclude "node_modules" \
+                  --exclude ".next*" \
+                  --exclude ".playwright-cli" \
+                  --exclude ".augment" \
+                  --exclude ".claude" \
+                  --exclude ".codex" \
+                  --exclude ".continue" \
+                  --exclude ".qoder" \
+                  --exclude ".vscode" \
+                  --exclude "00990090" \
+                  --exclude "artifacts" \
+                  --exclude "deploy" \
+                  --exclude "docs" \
+                  --exclude "figma-handoff" \
+                  --exclude "figma-handoff-backup-*" \
+                  --exclude "logs" \
+                  --exclude "output" \
+                  --exclude "school-acc-system" \
+                  --exclude "school-saas-next" \
+                  --exclude "skills" \
+                  --exclude "tests" \
+                  --exclude "*.md" \
+                  --exclude "*.txt" \
+                  --exclude "clean_warnings.json" \
+                  --exclude "full-lint-report.txt" \
+                  --exclude "lint-output.json" \
+                  --exclude "lint-output.txt" \
+                  --exclude "next-env.d.ts" \
+                  --exclude "playwright.config.ts" \
+                  --exclude "server.log" \
+                  --exclude "vitest.config.ts" \
+                  --exclude "warnings_report.json" \
+                  "$SRC_DIR"/ "$APP_DIR"/
+              fi
+            }
+            if command -v rsync >/dev/null 2>&1; then
+              if ! sync_repo; then
+                echo "WARN: deploy-user rsync failed; retrying via sudo."
+                if ! sync_repo sudo -n; then
+                  echo "Repository sync failed even with sudo rsync." >&2
+                  exit 1
+                fi
+                sudo -n chown -R "$REMOTE_OWNER" "$APP_DIR" >/dev/null 2>&1 || true
+              fi
+            else
+              cp -a "$SRC_DIR"/. "$APP_DIR"/
+            fi
+            if [ ! -w "$APP_DIR" ]; then
+              echo "$APP_DIR is not writable after sync." >&2
+              sudo -n ls -ld "$APP_DIR" || true
+              exit 1
+            fi
+
+            ENV_FILE="$APP_DIR/.env.production"
+            {
+              printf '%s\n' "NODE_ENV=production"
+              printf '%s\n' "HOSTNAME=127.0.0.1"
+              printf '%s\n' "PORT=3001"
+              printf '%s\n' "APP_URL=https://app.school-iraq.com"
+              printf '%s\n' "SESSION_COOKIE_SECURE=true"
+              printf 'NEXT_PUBLIC_SUPABASE_URL=%s\n' "$SECRET_SUPABASE_URL"
+              printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SECRET_SUPABASE_ANON_KEY"
+              printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SECRET_SERVICE_ROLE_KEY"
+              printf 'RBAC_COOKIE_SECRET=%s\n' "$SECRET_RBAC_COOKIE"
+              printf 'HEALTHCHECK_TOKEN=%s\n' "$SECRET_HEALTH_TOKEN"
+              printf 'JWT_SECRET=%s\n' "$SECRET_JWT_SECRET"
+            } > "$ENV_FILE"
+            chmod 600 "$ENV_FILE"
+
+            cd "$APP_DIR"
+            echo "Running pre-deploy environment check..."
+            NODE_ENV=production \
+            HOSTNAME=127.0.0.1 \
+            PORT=3001 \
+            APP_URL=https://app.school-iraq.com \
+            SESSION_COOKIE_SECURE=true \
+            NEXT_PUBLIC_SUPABASE_URL="$SECRET_SUPABASE_URL" \
+            NEXT_PUBLIC_SUPABASE_ANON_KEY="$SECRET_SUPABASE_ANON_KEY" \
+            SUPABASE_SERVICE_ROLE_KEY="$SECRET_SERVICE_ROLE_KEY" \
+            RBAC_COOKIE_SECRET="$SECRET_RBAC_COOKIE" \
+            HEALTHCHECK_TOKEN="$SECRET_HEALTH_TOKEN" \
+            JWT_SECRET="$SECRET_JWT_SECRET" \
+            node "$APP_DIR/scripts/predeploy-check.mjs" || echo "WARN: pre-deploy check failed — verify GitHub secrets are configured."
+            npm ci
+            npm run build
+
+            if sudo -n systemctl restart pm2-deploy; then
+              echo "pm2-deploy systemd service restarted."
+            elif command -v pm2 >/dev/null 2>&1; then
+              PM2_HOME=/home/deploy/.pm2 pm2 restart school-app
+              PM2_HOME=/home/deploy/.pm2 pm2 save
+            else
+              echo "PM2 restart path unavailable." >&2
+              exit 1
+            fi
+
+            ATTEMPT=1
+            MAX_ATTEMPTS=30
+            HEALTH_OK=0
+            while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+              echo "Health check attempt ${ATTEMPT}/${MAX_ATTEMPTS}..."
+              if curl -fsS --max-time 5 http://127.0.0.1:3001/api/ping >/dev/null 2>&1; then
+                HEALTH_OK=1
+                break
+              fi
+              echo "  -> failed. Sleeping 3s..."
+              ATTEMPT=$((ATTEMPT + 1))
+              sleep 1; echo "  -> 1s"
+              sleep 1; echo "  -> 2s"
+              sleep 1; echo "  -> 3s"
+            done
+
+            if [ "$HEALTH_OK" -eq 1 ]; then
+              echo "Health check passed. Running post-deploy smoke tests..."
+              NODE_ENV=production \
+              APP_URL=https://app.school-iraq.com \
+              HEALTHCHECK_TOKEN="$SECRET_HEALTH_TOKEN" \
+              node "$APP_DIR/scripts/postdeploy-smoke.mjs" || {
+                echo "WARN: Post-deploy smoke tests failed. Site is up but route validation did not pass."
+                echo "---- pm2 logs (school-app, last 50 lines) ----"
+                PM2_HOME=/home/deploy/.pm2 pm2 logs school-app --lines 50 --nostream 2>/dev/null || true
+              }
+            fi
+
+            if [ "$HEALTH_OK" -ne 1 ]; then
+              echo "Health check failed after ${MAX_ATTEMPTS} attempts. Collecting diagnostics..."
+              echo "---- listening sockets ----"
+              sudo -n ss -ltnp | grep -E ':300[0-9] ' || true
+              echo "---- curl /api/ping on 3001 ----"
+              curl -isS http://127.0.0.1:3001/api/ping || true
+              echo "---- curl /api/ping on 3000 ----"
+              curl -isS http://127.0.0.1:3000/api/ping || true
+              echo "---- systemctl status pm2-deploy ----"
+              sudo -n systemctl status pm2-deploy --no-pager || true
+              echo "---- journalctl pm2-deploy ----"
+              sudo -n journalctl -u pm2-deploy -n 100 --no-pager || true
+              if command -v pm2 >/dev/null 2>&1; then
+                echo "---- pm2 status ----"
+                PM2_HOME=/home/deploy/.pm2 pm2 status || true
+                echo "---- pm2 logs (school-app) ----"
+                PM2_HOME=/home/deploy/.pm2 pm2 logs school-app --lines 100 --nostream || true
+              fi
+              echo "---- .env.production keys ----"
+              grep -o '^[^=]*' "$APP_DIR/.env.production" || true
+              exit 1
+            fi

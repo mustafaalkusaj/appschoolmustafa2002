@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-04-11T20:25:30.638Z",
+  "baseUrl": "http://127.0.0.1:3000",
+  "admin": {
+    "label": "admin",
+    "email": "admin@schoolapp.com",
+    "finalUrl": "http://127.0.0.1:3000/ar/dashboard",
+    "storageStatePath": "/Users/musatafa/school-app/artifacts/reliability-audit/admin-storage-state.json"
+  },
+  "superAdmin": {
+    "label": "super-admin",
+    "email": "super.admin@schoolapp.com",
+    "finalUrl": "http://127.0.0.1:3000/ar/super-admin",
+    "storageStatePath": "/Users/musatafa/school-app/artifacts/reliability-audit/super-admin-storage-state.json"
+  }
+}

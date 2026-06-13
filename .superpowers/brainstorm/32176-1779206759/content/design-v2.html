@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تصميم لوحة الفرع</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #6366f1;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --border: #e2e8f0;
+    --card-bg: #ffffff;
+    --surface-soft: #f8fafc;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --sidebar-width: 64px;
+  }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f1f5f9;
+    color: var(--text-primary);
+    padding: 24px;
+    direction: rtl;
+  }
+  h1 { font-size: 20px; font-weight: 900; color: var(--text-primary); margin-bottom: 6px; text-align: center; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 28px; }
+
+  /* Options */
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .design-option {
+    background: white;
+    border: 3px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  }
+  .design-option:hover { border-color: var(--primary); box-shadow: 0 8px 30px rgba(99,102,241,0.15); transform: translateY(-2px); }
+  .design-option.selected { border-color: var(--primary); box-shadow: 0 8px 30px rgba(99,102,241,0.25); }
+  .option-preview { padding: 16px; background: var(--surface-soft); border-bottom: 1px solid var(--border); min-height: 340px; }
+  .option-label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .option-footer { padding: 14px 16px; background: white; }
+  .option-footer h3 { font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+  .option-footer p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* ─── Shared component styles ─── */
+  /* Hero gradient */
+  .hero {
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-circle-1 {
+    position: absolute; top: 0; left: 0;
+    width: 80px; height: 80px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+    transform: translate(-35%, -40%);
+  }
+  .hero-circle-2 {
+    position: absolute; bottom: 0; right: 20px;
+    width: 60px; height: 60px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+    transform: translateY(50%);
+  }
+  .hero-badge { font-size: 8px; color: rgba(255,255,255,0.6); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .hero-title { font-size: 15px; font-weight: 900; color: white; margin-bottom: 2px; }
+  .hero-sub { font-size: 10px; color: rgba(255,255,255,0.7); }
+
+  /* Card base */
+  .card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .card-body { padding: 12px; }
+  .card-title { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+
+  /* Stat number */
+  .stat-num { font-size: 18px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat-label { font-size: 8px; color: var(--text-muted); font-weight: 700; margin-top: 3px; text-transform: uppercase; }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 6px; border-radius: 999px;
+    background: #f1f5f9;
+    overflow: hidden;
+    margin: 6px 0;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--success), var(--primary));
+  }
+
+  /* Activity dot */
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: var(--success); }
+  .dot-blue { background: var(--primary); }
+  .dot-red { background: var(--danger); }
+
+  /* Quick action button */
+  .qa-btn {
+    border-radius: 10px;
+    padding: 8px 6px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .qa-icon {
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qa-text { font-size: 8px; font-weight: 700; }
+
+  /* Row / grid utils */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+  .flex-row { display: flex; gap: 8px; align-items: center; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .mb-8 { margin-bottom: 8px; }
+  .mb-6 { margin-bottom: 6px; }
+
+  /* Table row */
+  .table-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 9px;
+  }
+  .table-row:last-child { border-bottom: none; }
+
+  /* Badge */
+  .badge {
+    padding: 2px 7px; border-radius: 999px;
+    font-size: 8px; font-weight: 700;
+  }
+
+  /* Bottom note */
+  .note { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 20px; }
+
+  /* Selected indicator */
+  .selected-ring { display: none; }
+  .design-option.selected .selected-ring {
+    display: block;
+    text-align: center;
+    background: var(--primary);
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 5px;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<h1>اختر تصميم لوحة الفرع</h1>
+<p class="subtitle">3 تصاميم تعتمد نفس نظام ألوان ومكونات المشروع</p>
+
+<div class="options-grid">
+
+  <!-- ═══════ OPTION A ═══════ -->
+  <div class="design-option" id="opt-a" onclick="selectOption('a')">
+    <div class="selected-ring">✓ محدد</div>
+    <div class="option-preview">
+      <div class="option-label">أ — الهيرو + بطاقات KPI</div>
+
+      <!-- Hero (same gradient as main dashboard) -->
+      <div class="hero mb-8" style="background: linear-gradient(135deg, #6366f1 0%, #10b981 100%);">
+        <div class="hero-circle-1"></div>
+        <div class="hero-circle-2"></div>
+        <div style="position:relative;">
+          <div class="hero-badge">لوحة الفرع · نظرة عامة</div>
+          <div class="hero-title">فرع الكرادة</div>
+          <div class="hero-sub">آخر تحديث: منذ لحظات</div>
+        </div>
+        <!-- Mini stats inside hero -->
+        <div style="display:flex;gap:16px;margin-top:10px;position:relative;">
+          <div><div style="font-size:16px;font-weight:900;color:white;">240</div><div style="font-size:8px;color:rgba(255,255,255,0.7);">طالب</div></div>
+          <div style="width:1px;background:rgba(255,255,255,0.2);"></div>
+          <div><div style="font-size:16px;font-weight:900;color:#a7f3d0;">82%</div><div style="font-size:8px;color:rgba(255,255,255,0.7);">محصّل</div></div>
+          <div style="width:1px;background:rgba(255,255,255,0.2);"></div>
+          <div><div style="font-size:16px;font-weight:900;color:#fca5a5;">18</div><div style="font-size:8px;color:rgba(255,255,255,0.7);">متأخر</div></div>
+          <div style="flex:1;"></div>
+          <div style="width:36px;height:36px;background:rgba(255,255,255,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 KPI cards -->
+      <div class="grid-2 mb-8">
+        <div class="card card-body" style="text-align:center;">
+          <div class="stat-num" style="color:#6366f1;">12.5M</div>
+          <div class="stat-label">إجمالي الرسوم</div>
+        </div>
+        <div class="card card-body" style="text-align:center;">
+          <div class="stat-num" style="color:#10b981;">10.2M</div>
+          <div class="stat-label">المحصّل</div>
+        </div>
+        <div class="card card-body" style="text-align:center;">
+          <div class="stat-num" style="color:#f59e0b;">2.3M</div>
+          <div class="stat-label">المتبقي</div>
+        </div>
+        <div class="card card-body" style="text-align:center;">
+          <div class="stat-num" style="color:#ef4444;">18</div>
+          <div class="stat-label">متأخرون</div>
+        </div>
+      </div>
+
+      <!-- Recent payments list -->
+      <div class="card card-body">
+        <div class="card-title">آخر المدفوعات</div>
+        <div class="table-row"><span style="color:#0f172a;font-weight:600;">أحمد علي محمد</span><span style="color:#10b981;font-weight:700;">150,000</span></div>
+        <div class="table-row"><span style="color:#0f172a;font-weight:600;">سارة حسن عبود</span><span style="color:#10b981;font-weight:700;">200,000</span></div>
+        <div class="table-row"><span style="color:#0f172a;font-weight:600;">علي كريم سالم</span><span style="color:#10b981;font-weight:700;">75,000</span></div>
+      </div>
+    </div>
+    <div class="option-footer">
+      <h3>أ — هيرو + KPIs بارزة</h3>
+      <p>هيرو غراديان كامل مع إحصاء مدمج + 4 بطاقات KPI واضحة + جدول المدفوعات</p>
+    </div>
+  </div>
+
+  <!-- ═══════ OPTION B ═══════ -->
+  <div class="design-option" id="opt-b" onclick="selectOption('b')">
+    <div class="selected-ring">✓ محدد</div>
+    <div class="option-preview">
+      <div class="option-label">ب — هيرو + شريط تقدم + إجراءات</div>
+
+      <!-- Compact hero -->
+      <div class="hero mb-8" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
+        <div class="hero-circle-1"></div>
+        <div class="hero-circle-2"></div>
+        <div style="position:relative;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="hero-badge">لوحة الفرع</div>
+            <div class="hero-title">فرع الكرادة</div>
+          </div>
+          <div style="width:44px;height:44px;background:rgba(255,255,255,0.15);border-radius:12px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress card -->
+      <div class="card card-body mb-8">
+        <div class="flex-between mb-6">
+          <div style="font-size:13px;font-weight:800;color:#10b981;">82% محصّل</div>
+          <div class="card-title" style="margin:0;">نسبة تحصيل الرسوم</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:82%;"></div></div>
+        <div class="grid-4" style="margin-top:10px;">
+          <div style="text-align:center;"><div style="font-size:11px;font-weight:800;color:#6366f1;">240</div><div style="font-size:7px;color:#94a3b8;">طالب</div></div>
+          <div style="text-align:center;"><div style="font-size:11px;font-weight:800;color:#10b981;">10.2M</div><div style="font-size:7px;color:#94a3b8;">محصّل</div></div>
+          <div style="text-align:center;"><div style="font-size:11px;font-weight:800;color:#f59e0b;">2.3M</div><div style="font-size:7px;color:#94a3b8;">متبقي</div></div>
+          <div style="text-align:center;"><div style="font-size:11px;font-weight:800;color:#ef4444;">18</div><div style="font-size:7px;color:#94a3b8;">متأخر</div></div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card card-body mb-8">
+        <div class="card-title">الإجراءات السريعة</div>
+        <div class="grid-4">
+          <div class="qa-btn" style="background:#eef2ff;">
+            <div class="qa-icon" style="background:#6366f1;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+            <div class="qa-text" style="color:#4338ca;">طالب جديد</div>
+          </div>
+          <div class="qa-btn" style="background:#f0fdf4;">
+            <div class="qa-icon" style="background:#10b981;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></div>
+            <div class="qa-text" style="color:#065f46;">دفعة</div>
+          </div>
+          <div class="qa-btn" style="background:#fff7ed;">
+            <div class="qa-icon" style="background:#f59e0b;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div>
+            <div class="qa-text" style="color:#92400e;">تقرير</div>
+          </div>
+          <div class="qa-btn" style="background:#fdf4ff;">
+            <div class="qa-icon" style="background:#a855f7;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M3 3h18v4H3zM3 11h18v4H3zM3 19h18v4H3z" stroke-width="2"/></svg></div>
+            <div class="qa-text" style="color:#6b21a8;">الصفوف</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overdue list -->
+      <div class="card card-body">
+        <div class="card-title">المتأخرون عن الدفع</div>
+        <div class="table-row">
+          <span class="badge" style="background:#fee2e2;color:#ef4444;">150,000</span>
+          <span style="color:#0f172a;font-weight:600;font-size:9px;">خالد إبراهيم</span>
+        </div>
+        <div class="table-row">
+          <span class="badge" style="background:#fee2e2;color:#ef4444;">200,000</span>
+          <span style="color:#0f172a;font-weight:600;font-size:9px;">رنا محمود</span>
+        </div>
+      </div>
+    </div>
+    <div class="option-footer">
+      <h3>ب — شريط التقدم + الإجراءات</h3>
+      <p>هيرو مضغوط + شريط تقدم بصري مع 4 أرقام + إجراءات سريعة + المتأخرون</p>
+    </div>
+  </div>
+
+  <!-- ═══════ OPTION C ═══════ -->
+  <div class="design-option" id="opt-c" onclick="selectOption('c')">
+    <div class="selected-ring">✓ محدد</div>
+    <div class="option-preview">
+      <div class="option-label">ج — هيرو كبير + تغذية أحداث</div>
+
+      <!-- Full hero with progress inside -->
+      <div class="hero mb-8" style="background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);">
+        <div class="hero-circle-1"></div>
+        <div class="hero-circle-2"></div>
+        <div style="position:relative;">
+          <div class="hero-badge">لوحة الفرع · فرع الكرادة</div>
+          <div class="hero-title" style="font-size:17px;">فرع الكرادة</div>
+          <!-- Progress inside hero -->
+          <div style="margin-top:8px;background:rgba(255,255,255,0.15);border-radius:10px;padding:8px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <div style="font-size:10px;color:rgba(255,255,255,0.8);">12.5M د.ع</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8);">نسبة التحصيل</div>
+            </div>
+            <div style="height:5px;background:rgba(255,255,255,0.2);border-radius:999px;overflow:hidden;">
+              <div style="height:100%;width:82%;background:rgba(255,255,255,0.9);border-radius:999px;"></div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:6px;">
+              <div><span style="font-size:11px;font-weight:900;color:white;">82%</span> <span style="font-size:8px;color:rgba(255,255,255,0.7);">محصّل</span></div>
+              <div><span style="font-size:11px;font-weight:900;color:white;">240</span> <span style="font-size:8px;color:rgba(255,255,255,0.7);">طالب</span></div>
+              <div><span style="font-size:11px;font-weight:900;color:#fca5a5;">18</span> <span style="font-size:8px;color:rgba(255,255,255,0.7);">متأخر</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two col: financial + overdue -->
+      <div class="grid-2 mb-8">
+        <div class="card card-body">
+          <div class="card-title">المالية اليوم</div>
+          <div style="margin-bottom:6px;">
+            <div style="font-size:9px;color:#94a3b8;">دخل</div>
+            <div style="font-size:13px;font-weight:800;color:#10b981;">450,000</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:#94a3b8;">مصروف</div>
+            <div style="font-size:13px;font-weight:800;color:#ef4444;">120,000</div>
+          </div>
+        </div>
+        <div class="card card-body">
+          <div class="card-title">رواتب الشهر</div>
+          <div style="font-size:13px;font-weight:800;color:#6366f1;margin-bottom:4px;">3.2M</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:65%;background:linear-gradient(90deg,#6366f1,#8b5cf6);"></div></div>
+          <div style="font-size:8px;color:#94a3b8;margin-top:3px;">65% مدفوع</div>
+        </div>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="card card-body">
+        <div class="card-title">آخر الأحداث</div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <div style="display:flex;align-items:center;gap:7px;justify-content:flex-end;">
+            <div style="font-size:9px;color:#0f172a;">دفع أحمد علي — 150,000 د.ع</div>
+            <div style="font-size:8px;color:#94a3b8;min-width:30px;">الآن</div>
+            <div class="dot dot-green"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;justify-content:flex-end;">
+            <div style="font-size:9px;color:#0f172a;">تسجيل طالب جديد — أيمن كريم</div>
+            <div style="font-size:8px;color:#94a3b8;min-width:30px;">5د</div>
+            <div class="dot dot-blue"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;justify-content:flex-end;">
+            <div style="font-size:9px;color:#ef4444;font-weight:600;">تنبيه: 3 طلاب تجاوزوا الموعد</div>
+            <div style="font-size:8px;color:#94a3b8;min-width:30px;">12د</div>
+            <div class="dot dot-red"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;justify-content:flex-end;">
+            <div style="font-size:9px;color:#0f172a;">دفع راتب أستاذ محمد سعيد</div>
+            <div style="font-size:8px;color:#94a3b8;min-width:30px;">1س</div>
+            <div class="dot" style="background:#f59e0b;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="option-footer">
+      <h3>ج — هيرو كبير + تغذية أحداث</h3>
+      <p>هيرو بشريط تقدم مدمج + مالية اليوم + رواتب + تغذية أحداث حية مفصّلة</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="note">انقر على التصميم المفضل، ثم أخبرني في المحطة الطرفية</p>
+
+<script>
+function selectOption(id) {
+  document.querySelectorAll('.design-option').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + id).classList.add('selected');
+
+  // Record to events (superpowers companion)
+  if (window.__recordChoice) window.__recordChoice(id, 'Option ' + id.toUpperCase());
+}
+
+// Inject helper script if not already present
+(function() {
+  const s = document.createElement('script');
+  s.src = '/companion-helper.js';
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

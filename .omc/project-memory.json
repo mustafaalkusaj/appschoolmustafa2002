@@ -1,0 +1,728 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1779655769777,
+  "projectRoot": "/Users/musatafa/school-app",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "next",
+        "version": "16.2.3",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "19.2.3",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "19.2.3",
+        "category": "frontend"
+      },
+      {
+        "name": "@playwright/test",
+        "version": "1.59.1",
+        "category": "testing"
+      },
+      {
+        "name": "vitest",
+        "version": "4.0.3",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pnpm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npx tsc --noEmit --pretty 2>&1 | grep -E \"super-admin/\" | grep -v \".next/\" | head -20",
+    "testCommand": "pnpm test",
+    "lintCommand": "pnpm lint",
+    "devCommand": "pnpm dev",
+    "scripts": {
+      "dev": "next dev --turbopack",
+      "build": "next build --webpack",
+      "start": "next start",
+      "lint": "eslint",
+      "typecheck": "node -e \"const fs=require('node:fs'); for (const path of ['.next/types','.next/dev/types','tsconfig.tsbuildinfo']) fs.rmSync(path,{recursive:true,force:true});\" && npx next typegen && tsc --noEmit --incremental false",
+      "test": "vitest run",
+      "test:watch": "vitest",
+      "test:api": "vitest run lib/__tests__/**/*.test.ts",
+      "test:all": "npm run test && npm run test:e2e",
+      "test:e2e": "playwright test",
+      "test:e2e:headed": "playwright test --headed",
+      "test:e2e:ui": "playwright test --ui",
+      "playwright:install": "playwright install chromium",
+      "check": "npm run lint && npm run typecheck && npm run build",
+      "predeploy:check": "node scripts/predeploy-check.mjs",
+      "postdeploy:smoke": "node scripts/postdeploy-smoke.mjs",
+      "postdeploy:login-rate-limit": "node scripts/postdeploy-login-rate-limit.mjs",
+      "deploy:direct": "bash scripts/direct-deploy.sh",
+      "audit:prod": "npm audit --omit=dev",
+      "seed:users": "node scripts/create-default-users.mjs",
+      "qa:seed:e2e": "npx tsx scripts/qa-seed-e2e-accounts.ts",
+      "prisma:generate": "prisma generate",
+      "prisma:migrate": "prisma migrate deploy",
+      "prisma:migrate:dev": "prisma migrate dev"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": "ES modules",
+    "testPattern": "*.test.ts",
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "app",
+      "components",
+      "docs",
+      "lib",
+      "public",
+      "scripts",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "00990090": {
+      "path": "00990090",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779655769685,
+      "keyFiles": []
+    },
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 7,
+      "lastAccessed": 1779655769686,
+      "keyFiles": [
+        "favicon.ico",
+        "fonts.ts",
+        "global-error.tsx",
+        "icon.png",
+        "layout.tsx"
+      ]
+    },
+    "artifacts": {
+      "path": "artifacts",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1779655769689,
+      "keyFiles": []
+    },
+    "components": {
+      "path": "components",
+      "purpose": "UI components",
+      "fileCount": 26,
+      "lastAccessed": 1779655769690,
+      "keyFiles": [
+        "AppIcon.tsx",
+        "AppShellTopbar.tsx",
+        "AppSidebar.tsx",
+        "ConfirmDialog.tsx",
+        "DashboardFinanceCharts.tsx"
+      ]
+    },
+    "deploy": {
+      "path": "deploy",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1779655769708,
+      "keyFiles": []
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 4,
+      "lastAccessed": 1779655769708,
+      "keyFiles": [
+        "hetzner-ex44-deployment.md",
+        "ops-runbook.md",
+        "production-runbook.md",
+        "repo-boundaries.md"
+      ]
+    },
+    "figma-handoff": {
+      "path": "figma-handoff",
+      "purpose": null,
+      "fileCount": 25,
+      "lastAccessed": 1779655769709,
+      "keyFiles": [
+        "School-App-Figma-Handoff-Bundle.zip",
+        "School-App-Figma-Seeder.zip",
+        "_REVISION_NOTES.md",
+        "asset-inventory.md",
+        "component-inventory.csv"
+      ]
+    },
+    "figma-handoff-backup-20260408": {
+      "path": "figma-handoff-backup-20260408",
+      "purpose": null,
+      "fileCount": 17,
+      "lastAccessed": 1779655769709,
+      "keyFiles": [
+        "asset-inventory.md",
+        "component-inventory.csv",
+        "component-spec-sheets.md",
+        "component-variant-matrix.csv",
+        "design-tokens.json"
+      ]
+    },
+    "hooks": {
+      "path": "hooks",
+      "purpose": null,
+      "fileCount": 11,
+      "lastAccessed": 1779655769729,
+      "keyFiles": [
+        "useArchiveMode.ts",
+        "useAuth.ts",
+        "useBranchScope.tsx",
+        "useCurrency.ts",
+        "useDashboardLayout.ts"
+      ]
+    },
+    "i18n": {
+      "path": "i18n",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1779655769729,
+      "keyFiles": [
+        "navigation.ts",
+        "routing.ts"
+      ]
+    },
+    "lib": {
+      "path": "lib",
+      "purpose": "Library code",
+      "fileCount": 80,
+      "lastAccessed": 1779655769746,
+      "keyFiles": [
+        "academic-records-server.ts",
+        "academic-year.ts",
+        "admin-actions.ts",
+        "admin-infrastructure.ts",
+        "admin-repository.ts"
+      ]
+    },
+    "logs": {
+      "path": "logs",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779655769747,
+      "keyFiles": [
+        "app.log"
+      ]
+    },
+    "messages": {
+      "path": "messages",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1779655769747,
+      "keyFiles": [
+        "ar.json",
+        "en.json"
+      ]
+    },
+    "migrations": {
+      "path": "migrations",
+      "purpose": "Database migrations",
+      "fileCount": 91,
+      "lastAccessed": 1779655769748,
+      "keyFiles": [
+        "20260322_000000_mobile_core_tables.sql",
+        "20260322_010000_teacher_assignment_accounts.sql",
+        "20260322_managed_mobile_rls.sql",
+        "20260322_mobile_attachments_storage.sql",
+        "20260323_000000_dashboard_managed_account_schema.sql"
+      ]
+    },
+    "output": {
+      "path": "output",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1779655769750,
+      "keyFiles": [
+        "figma_handoff_screens.cjs",
+        "generate_figma_handoff.mjs"
+      ]
+    },
+    "playwright-report": {
+      "path": "playwright-report",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779655769751,
+      "keyFiles": [
+        "index.html"
+      ]
+    },
+    "prisma": {
+      "path": "prisma",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779655769751,
+      "keyFiles": [
+        "schema.prisma"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 7,
+      "lastAccessed": 1779655769752,
+      "keyFiles": [
+        "globe.svg",
+        "icon-192.png",
+        "icon-512.png",
+        "logo-school-iraq.png",
+        "next.svg"
+      ]
+    },
+    "school-acc-system": {
+      "path": "school-acc-system",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1779655769754,
+      "keyFiles": [
+        "README.md"
+      ]
+    },
+    "school-saas-next": {
+      "path": "school-saas-next",
+      "purpose": null,
+      "fileCount": 12,
+      "lastAccessed": 1779655769756,
+      "keyFiles": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "admin_infrastructure.sql",
+        "eslint.config.mjs"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 23,
+      "lastAccessed": 1779655769756,
+      "keyFiles": [
+        "audit-overpaid-students.sql",
+        "backup.sh",
+        "bench-dashboard-users.mjs",
+        "browser-functional-audit.cjs",
+        "capture-redesign-verification.mjs"
+      ]
+    },
+    "skills": {
+      "path": "skills",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779655769757,
+      "keyFiles": []
+    },
+    "supabase": {
+      "path": "supabase",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779655769757,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 24,
+      "lastAccessed": 1779655769758,
+      "keyFiles": [
+        "attendance-comprehensive.test.ts",
+        "auth-group-manager.test.ts",
+        "auth-rbac-comprehensive.test.ts",
+        "branch-scope.test.ts",
+        "dashboard-management.test.ts"
+      ]
+    },
+    "types": {
+      "path": "types",
+      "purpose": "Type definitions",
+      "fileCount": 3,
+      "lastAccessed": 1779655769759,
+      "keyFiles": [
+        "deep-permissions.ts",
+        "roles.ts",
+        "student.ts"
+      ]
+    },
+    "workers": {
+      "path": "workers",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779655769759,
+      "keyFiles": [
+        "import-worker.ts"
+      ]
+    },
+    "app/api": {
+      "path": "app/api",
+      "purpose": "API routes",
+      "fileCount": 1,
+      "lastAccessed": 1779655769760,
+      "keyFiles": []
+    },
+    "lib/api": {
+      "path": "lib/api",
+      "purpose": "API routes",
+      "fileCount": 2,
+      "lastAccessed": 1779655769765,
+      "keyFiles": [
+        "student-import.ts"
+      ]
+    },
+    "school-acc-system/docs": {
+      "path": "school-acc-system/docs",
+      "purpose": "Documentation",
+      "fileCount": 2,
+      "lastAccessed": 1779655769774,
+      "keyFiles": [
+        "api.md",
+        "schema.sql"
+      ]
+    },
+    "tests/api": {
+      "path": "tests/api",
+      "purpose": "API routes",
+      "fileCount": 20,
+      "lastAccessed": 1779655769777,
+      "keyFiles": [
+        "attendance-route.test.ts",
+        "audit-logs.test.ts",
+        "auth-login-route.test.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "",
+      "accessCount": 301,
+      "lastAccessed": 1778944083414,
+      "type": "directory"
+    },
+    {
+      "path": "types/roles.ts",
+      "accessCount": 97,
+      "lastAccessed": 1778941369634,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/classes/page.tsx",
+      "accessCount": 58,
+      "lastAccessed": 1778865916355,
+      "type": "file"
+    },
+    {
+      "path": "components/AppSidebar.tsx",
+      "accessCount": 55,
+      "lastAccessed": 1778922557946,
+      "type": "directory"
+    },
+    {
+      "path": "messages/ar.json",
+      "accessCount": 41,
+      "lastAccessed": 1778852371629,
+      "type": "file"
+    },
+    {
+      "path": "lib/auth.ts",
+      "accessCount": 30,
+      "lastAccessed": 1778944459028,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/dashboard/overview/route.ts",
+      "accessCount": 25,
+      "lastAccessed": 1778850972877,
+      "type": "file"
+    },
+    {
+      "path": "messages/en.json",
+      "accessCount": 22,
+      "lastAccessed": 1778850849866,
+      "type": "file"
+    },
+    {
+      "path": "types/student.ts",
+      "accessCount": 22,
+      "lastAccessed": 1778944090999,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/dashboard/_components/types.ts",
+      "accessCount": 21,
+      "lastAccessed": 1778865943905,
+      "type": "file"
+    },
+    {
+      "path": "app",
+      "accessCount": 19,
+      "lastAccessed": 1778940287985,
+      "type": "directory"
+    },
+    {
+      "path": "app/[locale]/classes/_components/ClassesTable.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1778697057989,
+      "type": "file"
+    },
+    {
+      "path": ".env.local",
+      "accessCount": 14,
+      "lastAccessed": 1778943995622,
+      "type": "file"
+    },
+    {
+      "path": "lib",
+      "accessCount": 14,
+      "lastAccessed": 1778944350677,
+      "type": "directory"
+    },
+    {
+      "path": "app/[locale]/students/_components/AddStudentModal.tsx",
+      "accessCount": 14,
+      "lastAccessed": 1778944547964,
+      "type": "file"
+    },
+    {
+      "path": "migrations",
+      "accessCount": 13,
+      "lastAccessed": 1778865937342,
+      "type": "directory"
+    },
+    {
+      "path": "app/[locale]/salaries/_types.ts",
+      "accessCount": 13,
+      "lastAccessed": 1778941475337,
+      "type": "file"
+    },
+    {
+      "path": "lib/rbac-session.ts",
+      "accessCount": 10,
+      "lastAccessed": 1778784136061,
+      "type": "directory"
+    },
+    {
+      "path": "app/[locale]/dashboard/page.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1778786854187,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 10,
+      "lastAccessed": 1778854281121,
+      "type": "file"
+    },
+    {
+      "path": "migrations/20260322_000000_mobile_core_tables.sql",
+      "accessCount": 10,
+      "lastAccessed": 1778865890071,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/dashboard/_hooks/useClassesSections.ts",
+      "accessCount": 9,
+      "lastAccessed": 1778697513146,
+      "type": "file"
+    },
+    {
+      "path": "app/api/auth/login/route.ts",
+      "accessCount": 9,
+      "lastAccessed": 1778862381207,
+      "type": "file"
+    },
+    {
+      "path": "lib/students/overview.ts",
+      "accessCount": 9,
+      "lastAccessed": 1778944099703,
+      "type": "file"
+    },
+    {
+      "path": "lib/supabase-server.ts",
+      "accessCount": 8,
+      "lastAccessed": 1778865889973,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/classes/_components/SectionsTable.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1778695623222,
+      "type": "file"
+    },
+    {
+      "path": "lib/dashboard-admin-server.ts",
+      "accessCount": 5,
+      "lastAccessed": 1778694574274,
+      "type": "file"
+    },
+    {
+      "path": "types",
+      "accessCount": 5,
+      "lastAccessed": 1778700854671,
+      "type": "directory"
+    },
+    {
+      "path": "app/[locale]/classes/_components/ClassesStats.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1778743504837,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/dashboard/structure/route.ts",
+      "accessCount": 5,
+      "lastAccessed": 1778794512441,
+      "type": "file"
+    },
+    {
+      "path": "proxy.ts",
+      "accessCount": 4,
+      "lastAccessed": 1778708188100,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/salaries/schedule/route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1778708721728,
+      "type": "file"
+    },
+    {
+      "path": "next.config.ts",
+      "accessCount": 4,
+      "lastAccessed": 1779657890724,
+      "type": "file"
+    },
+    {
+      "path": "lib/env/public.ts",
+      "accessCount": 3,
+      "lastAccessed": 1778784152030,
+      "type": "file"
+    },
+    {
+      "path": "migrations/20260419_multi_branch.sql",
+      "accessCount": 3,
+      "lastAccessed": 1778853353314,
+      "type": "file"
+    },
+    {
+      "path": "lib/admin-repository.ts",
+      "accessCount": 2,
+      "lastAccessed": 1778693573621,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/salaries/_components/ScheduleSection.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1778694447850,
+      "type": "file"
+    },
+    {
+      "path": "migrations/20260418_000000_class_schedules.sql",
+      "accessCount": 2,
+      "lastAccessed": 1778694451016,
+      "type": "file"
+    },
+    {
+      "path": "lib/students-overview.ts",
+      "accessCount": 2,
+      "lastAccessed": 1778694640447,
+      "type": "file"
+    },
+    {
+      "path": "lib/students/index.ts",
+      "accessCount": 2,
+      "lastAccessed": 1778694652445,
+      "type": "file"
+    },
+    {
+      "path": "lib/env/server.ts",
+      "accessCount": 2,
+      "lastAccessed": 1778784151963,
+      "type": "file"
+    },
+    {
+      "path": ".env",
+      "accessCount": 2,
+      "lastAccessed": 1778852339603,
+      "type": "file"
+    },
+    {
+      "path": "database_setup.sql",
+      "accessCount": 2,
+      "lastAccessed": 1778853321977,
+      "type": "file"
+    },
+    {
+      "path": "migrations/20260324_010000_academic_records_scope_model.sql",
+      "accessCount": 2,
+      "lastAccessed": 1778865925543,
+      "type": "file"
+    },
+    {
+      "path": ".env.production",
+      "accessCount": 1,
+      "lastAccessed": 1778690563868,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/super-admin/student-counts/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1778693580018,
+      "type": "file"
+    },
+    {
+      "path": "lib/locale-routing.ts",
+      "accessCount": 1,
+      "lastAccessed": 1778694243298,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1778694247846,
+      "type": "file"
+    },
+    {
+      "path": "app/api/web/salaries/lesson-times/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1778694256641,
+      "type": "file"
+    },
+    {
+      "path": "app/[locale]/salaries/_components/LessonTimesModal.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1778694256695,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -1,0 +1,475 @@
+"use client";
+
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
+import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
+import type { UserProfile } from "@/lib/auth";
+import type { SchoolScopeState } from "@/hooks/useSchoolScope";
+import type {
+  SalariesBootstrapScope,
+  Teacher,
+  Salary,
+  ClassItem,
+  Subject,
+  JobTitle,
+  DailyLecture,
+  SalaryArchive,
+  LessonTime,
+  LecturePrice,
+  Deduction,
+  ReportSummary,
+  ReportTotals,
+} from "../_types";
+
+interface BootstrapPayload {
+  teachers?: Teacher[];
+  salaries?: Salary[];
+  classes?: ClassItem[];
+  subjects?: Subject[];
+  jobTitles?: JobTitle[];
+  lessonTimes?: LessonTime[];
+  lecturePrices?: LecturePrice[];
+  archives?: SalaryArchive[];
+  warnings?: string[];
+  error?: { message?: string };
+}
+
+interface UseSalariesDataReturn {
+  // State
+  schoolId: string | null;
+  loading: boolean;
+  referenceLoading: boolean;
+  referenceLoaded: boolean;
+  archivesLoading: boolean;
+  archivesLoaded: boolean;
+  error: string;
+  success: string;
+  
+  // Data
+  teachers: Teacher[];
+  salaries: Salary[];
+  classes: ClassItem[];
+  subjectsList: Subject[];
+  jobTitlesList: JobTitle[];
+  dailyLectures: DailyLecture[];
+  archives: SalaryArchive[];
+  lessonTimes: LessonTime[];
+  lecturePrices: LecturePrice[];
+  deductionsList: Deduction[];
+  calLectureDates: string[];
+  
+  // Report data
+  reportSummary: ReportSummary[];
+  reportTotals: ReportTotals;
+  reportLoading: boolean;
+  
+  // Setters
+  setSuccess: (s: string) => void;
+  setError: (s: string) => void;
+  setTeachers: React.Dispatch<React.SetStateAction<Teacher[]>>;
+  setSalaries: React.Dispatch<React.SetStateAction<Salary[]>>;
+  setDeductionsList: React.Dispatch<React.SetStateAction<Deduction[]>>;
+  setDailyLectures: React.Dispatch<React.SetStateAction<DailyLecture[]>>;
+  setClasses: React.Dispatch<React.SetStateAction<ClassItem[]>>;
+  setSubjectsList: React.Dispatch<React.SetStateAction<Subject[]>>;
+  setJobTitlesList: React.Dispatch<React.SetStateAction<JobTitle[]>>;
+  setLessonTimes: React.Dispatch<React.SetStateAction<LessonTime[]>>;
+  setLecturePrices: React.Dispatch<React.SetStateAction<LecturePrice[]>>;
+  
+  // Actions
+  fetchAll: () => Promise<void>;
+  ensureReferenceData: () => Promise<void>;
+  ensureArchivesData: () => Promise<void>;
+  fetchCalendarLectures: (year: number, month: number) => Promise<void>;
+  fetchDetailedReportAll: (teacherId?: string) => Promise<void>;
+  fetchReportSummary: () => Promise<void>;
+  fetchDeductionsList: () => Promise<void>;
+  loadTeacherMonthLectures: (teacher: Teacher, month: string) => Promise<{ count: number; total: number }>;
+  getBranchId: () => Promise<string | null>;
+  archiveMonth: (currentMonth: string) => Promise<boolean>;
+}
+
+export function useSalariesData(
+  profile: UserProfile | null,
+  schoolScope: SchoolScopeState,
+  currentBranchId?: string | null
+): UseSalariesDataReturn {
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [referenceLoading, setReferenceLoading] = useState(false);
+  const [referenceLoaded, setReferenceLoaded] = useState(false);
+  const [archivesLoading, setArchivesLoading] = useState(false);
+  const [archivesLoaded, setArchivesLoaded] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Data states
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [salaries, setSalaries] = useState<Salary[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
+  const [jobTitlesList, setJobTitlesList] = useState<JobTitle[]>([]);
+  const [dailyLectures, setDailyLectures] = useState<DailyLecture[]>([]);
+  const [archives, setArchives] = useState<SalaryArchive[]>([]);
+  const [lessonTimes, setLessonTimes] = useState<LessonTime[]>([]);
+  const [lecturePrices, setLecturePrices] = useState<LecturePrice[]>([]);
+  const [deductionsList, setDeductionsList] = useState<Deduction[]>([]);
+  const [calLectureDates, setCalLectureDates] = useState<string[]>([]);
+
+  // Report states
+  const [reportSummary, setReportSummary] = useState<ReportSummary[]>([]);
+  const [reportTotals, setReportTotals] = useState<ReportTotals>({ lectureCount: 0, total: 0 });
+  const [reportLoading, setReportLoading] = useState(false);
+
+  const getBranchId = useCallback(async (): Promise<string | null> => {
+    if (currentBranchId) return currentBranchId;
+    if (!schoolId) return null;
+    const { data } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("school_id", schoolId)
+      .limit(1);
+    return data?.[0]?.id ?? null;
+  }, [schoolId, currentBranchId]);
+
+  const applyReferencePayload = useCallback((payload: BootstrapPayload) => {
+    const classesData = payload.classes ?? [];
+    const subjectsData = payload.subjects ?? [];
+    const jobTitlesData = payload.jobTitles ?? [];
+    const lessonTimesData = payload.lessonTimes ?? [];
+    const lecturePricesData = payload.lecturePrices ?? [];
+
+    setClasses(classesData);
+    setSubjectsList(subjectsData);
+    setJobTitlesList(jobTitlesData);
+    setLessonTimes(lessonTimesData);
+    setLecturePrices(lecturePricesData);
+  }, []);
+
+  const fetchBootstrap = useCallback(async (scope: SalariesBootstrapScope, withLoader = false) => {
+    if (!schoolId) return;
+    if (withLoader) setLoading(true);
+    try {
+      const cacheKey = `salaries-bootstrap:${schoolId}:${currentBranchId || "none"}:${scope}`;
+      const params = new URLSearchParams({
+        schoolId,
+        scope,
+      });
+      if (currentBranchId) {
+        params.set("branchId", currentBranchId);
+      }
+      const { response, payload } = await deduplicatedFetch(
+        cacheKey,
+        () => fetchJsonWithAuthorizedSession<BootstrapPayload>(
+          `/api/web/salaries/bootstrap?${params.toString()}`
+        )
+      );
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "تعذر تحميل بيانات الرواتب.");
+      }
+
+      if (scope === "core" || scope === "all") {
+        setTeachers(payload?.teachers ?? []);
+        setSalaries(payload?.salaries ?? []);
+      }
+
+      if (scope === "reference" || scope === "all") {
+        applyReferencePayload(payload ?? {});
+        setReferenceLoaded(true);
+      }
+
+      if (scope === "archive" || scope === "all") {
+        setArchives(payload?.archives ?? []);
+        setArchivesLoaded(true);
+      }
+
+      const warnings = payload?.warnings ?? [];
+      if (warnings.length > 0) setError(warnings.join(" "));
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "تعذر تحميل بيانات الرواتب.");
+    } finally {
+      if (withLoader) setLoading(false);
+    }
+  }, [applyReferencePayload, schoolId, currentBranchId]);
+
+  const fetchAll = useCallback(async () => {
+    if (!schoolId) return;
+    setReferenceLoaded(false);
+    setArchivesLoaded(false);
+    await fetchBootstrap("all", true);
+  }, [fetchBootstrap, schoolId]);
+
+  const ensureReferenceData = useCallback(async () => {
+    if (!schoolId || referenceLoaded || referenceLoading) return;
+    setReferenceLoading(true);
+    try {
+      await fetchBootstrap("reference");
+    } finally {
+      setReferenceLoading(false);
+    }
+  }, [fetchBootstrap, referenceLoaded, referenceLoading, schoolId]);
+
+  const ensureArchivesData = useCallback(async () => {
+    if (!schoolId || archivesLoaded || archivesLoading) return;
+    setArchivesLoading(true);
+    try {
+      await fetchBootstrap("archive");
+    } finally {
+      setArchivesLoading(false);
+    }
+  }, [archivesLoaded, archivesLoading, fetchBootstrap, schoolId]);
+
+  const fetchCalendarLectures = useCallback(async (calYear: number, calMonth: number) => {
+    if (!schoolId) return;
+    const month = `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
+    const cacheKey = `salaries-calendar:${schoolId}:${currentBranchId || "none"}:${month}`;
+    const params = new URLSearchParams({
+      schoolId,
+      view: "calendar",
+      month,
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        dates?: string[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/lectures?${params.toString()}`)
+    );
+    if (response.ok) {
+      setCalLectureDates(payload?.dates ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل تقويم المحاضرات.");
+    }
+  }, [schoolId, currentBranchId]);
+
+  const fetchDetailedReportAll = useCallback(async (teacherId = "") => {
+    if (!schoolId) return;
+    setReportLoading(true);
+    const cacheKey = `salaries-report:detailed:${schoolId}:${currentBranchId || "none"}:${teacherId}`;
+    const params = new URLSearchParams({
+      schoolId,
+    });
+    if (teacherId) {
+      params.set("teacherId", teacherId);
+    }
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        lectures?: DailyLecture[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/report?${params.toString()}`)
+    );
+    if (response.ok) {
+      setDailyLectures(payload?.lectures ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل التقرير التفصيلي.");
+    }
+    setReportLoading(false);
+  }, [schoolId, currentBranchId]);
+
+  const fetchReportSummary = useCallback(async () => {
+    if (!schoolId) return;
+    setReportLoading(true);
+    const cacheKey = `salaries-report:summary:${schoolId}:${currentBranchId || "none"}`;
+    const params = new URLSearchParams({
+      schoolId,
+      view: "summary",
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        summary?: ReportSummary[];
+        totals?: { lectureCount?: number; total?: number };
+        error?: { message?: string };
+      }>(`/api/web/salaries/report?${params.toString()}`)
+    );
+    if (response.ok) {
+      setReportSummary(payload?.summary ?? []);
+      setReportTotals({
+        lectureCount: Number(payload?.totals?.lectureCount ?? 0) || 0,
+        total: Number(payload?.totals?.total ?? 0) || 0,
+      });
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل ملخص الرواتب.");
+    }
+    setReportLoading(false);
+  }, [schoolId, currentBranchId]);
+
+  const fetchDeductionsList = useCallback(async () => {
+    if (!schoolId) return;
+    const cacheKey = `salaries-deductions:${schoolId}:${currentBranchId || "none"}`;
+    const params = new URLSearchParams({
+      schoolId,
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        deductions?: Deduction[];
+        error?: { message?: string };
+      }>(`/api/web/salaries/deductions?${params.toString()}`)
+    );
+    if (response.ok) {
+      setDeductionsList(payload?.deductions ?? []);
+    } else {
+      setError(payload?.error?.message || "تعذر تحميل سجل السحوبات.");
+    }
+  }, [schoolId, currentBranchId]);
+
+  const loadTeacherMonthLectures = useCallback(async (teacher: Teacher, month: string): Promise<{ count: number; total: number }> => {
+    if (!teacher || !schoolId) return { count: 0, total: 0 };
+    const cacheKey = `salaries-lectures:${schoolId}:${currentBranchId || "none"}:${teacher.id}:${month}`;
+    const params = new URLSearchParams({
+      schoolId,
+      view: "summary",
+      teacherId: teacher.id,
+      month,
+    });
+    if (currentBranchId) {
+      params.set("branchId", currentBranchId);
+    }
+    const { response, payload } = await deduplicatedFetch(
+      cacheKey,
+      () => fetchJsonWithAuthorizedSession<{
+        summary?: { count?: number; total?: number };
+        error?: { message?: string };
+      }>(`/api/web/salaries/lectures?${params.toString()}`)
+    );
+    if (!response.ok) {
+      return { count: 0, total: 0 };
+    }
+    return {
+      count: Number(payload?.summary?.count ?? 0) || 0,
+      total: Number(payload?.summary?.total ?? 0) || 0,
+    };
+  }, [schoolId, currentBranchId]);
+
+  const archiveMonth = useCallback(async (currentMonth: string): Promise<boolean> => {
+    try {
+      const archiveBody: Record<string, any> = {
+        school_id: schoolId,
+        month: currentMonth,
+      };
+      if (currentBranchId) {
+        archiveBody.branch_id = currentBranchId;
+      }
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        archive?: SalaryArchive;
+        error?: { message?: string };
+      }>("/api/web/salaries/archive", {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify(archiveBody),
+      });
+      if (!response.ok) {
+        setError(payload?.error?.message || "تعذر أرشفة الشهر الحالي.");
+        return false;
+      }
+      setSuccess("تم أرشفة الشهر وتصفير عدادات محاضراته ✓");
+      setTimeout(() => setSuccess(""), 3000);
+      await fetchAll();
+      await fetchDetailedReportAll();
+      return true;
+    } catch (archiveError) {
+      setError(archiveError instanceof Error ? archiveError.message : "تعذر أرشفة الشهر الحالي.");
+      return false;
+    }
+  }, [fetchAll, fetchDetailedReportAll, schoolId, currentBranchId, setSuccess]);
+
+  // Initialize schoolId from profile/scope
+  useEffect(() => {
+    if (schoolScope.scopeLoading) return;
+    if (!profile) {
+      setSchoolId(null);
+      return;
+    }
+    setSchoolId(schoolScope.selectedSchoolId ?? profile.school_id ?? null);
+  }, [profile, schoolScope.scopeLoading, schoolScope.selectedSchoolId]);
+
+  // Fetch initial data when schoolId changes
+  useEffect(() => {
+    if (!schoolId) {
+      setTeachers([]);
+      setSalaries([]);
+      setClasses([]);
+      setSubjectsList([]);
+      setJobTitlesList([]);
+      setDailyLectures([]);
+      setArchives([]);
+      setLessonTimes([]);
+      setLecturePrices([]);
+      setDeductionsList([]);
+      setCalLectureDates([]);
+      setReportSummary([]);
+      setReportTotals({ lectureCount: 0, total: 0 });
+      setReferenceLoaded(false);
+      setArchivesLoaded(false);
+      setReferenceLoading(false);
+      setArchivesLoading(false);
+      setLoading(false);
+      return;
+    }
+    setReferenceLoaded(false);
+    setArchivesLoaded(false);
+    void fetchBootstrap("core", true);
+  }, [fetchBootstrap, schoolId]);
+
+  return useMemo(() => ({
+    schoolId,
+    loading,
+    referenceLoading,
+    referenceLoaded,
+    archivesLoading,
+    archivesLoaded,
+    error,
+    success,
+    teachers,
+    salaries,
+    classes,
+    subjectsList,
+    jobTitlesList,
+    dailyLectures,
+    archives,
+    lessonTimes,
+    lecturePrices,
+    deductionsList,
+    calLectureDates,
+    reportSummary,
+    reportTotals,
+    reportLoading,
+    setSuccess,
+    setError,
+    setTeachers,
+    setSalaries,
+    setDeductionsList,
+    setDailyLectures,
+    setClasses,
+    setSubjectsList,
+    setJobTitlesList,
+    setLessonTimes,
+    setLecturePrices,
+    fetchAll,
+    ensureReferenceData,
+    ensureArchivesData,
+    fetchCalendarLectures,
+    fetchDetailedReportAll,
+    fetchReportSummary,
+    fetchDeductionsList,
+    loadTeacherMonthLectures,
+    getBranchId,
+    archiveMonth,
+  }), [schoolId, loading, referenceLoading, referenceLoaded, archivesLoading, archivesLoaded, error, success, teachers, salaries, classes, subjectsList, jobTitlesList, dailyLectures, archives, lessonTimes, lecturePrices, deductionsList, calLectureDates, reportSummary, reportTotals, reportLoading, setSuccess, setError, setTeachers, setSalaries, setDeductionsList, setDailyLectures, setClasses, setSubjectsList, setJobTitlesList, setLessonTimes, setLecturePrices, fetchAll, ensureReferenceData, ensureArchivesData, fetchCalendarLectures, fetchDetailedReportAll, fetchReportSummary, fetchDeductionsList, loadTeacherMonthLectures, getBranchId, archiveMonth]);
+}

@@ -1,0 +1,339 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { MoreHorizontal, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { containerVariants, itemVariants, usePrefersReducedMotion, getVariants } from "@/lib/motion-variants";
+import { formatNumber } from "@/lib/formatting";
+import { Badge } from "@/components/ui/badge";
+import { Button, IconButton } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/brand/brand-utils";
+import type { StudentWithFees, StudentActionItem } from "../_types";
+
+interface StudentsTableProps {
+  pagedStudents: StudentWithFees[];
+  pagedLoading: boolean;
+  pagedError: string | null;
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  activeTab: string;
+  error: string;
+  canManageStudentAccounts: boolean;
+  getActions: (s: StudentWithFees) => StudentActionItem[];
+  openMenu: (e: React.MouseEvent, student: StudentWithFees) => void;
+  onPageChange: (page: number) => void;
+  compactMode?: boolean;
+  selectedStudents?: Set<string>;
+  onSelectStudent?: (id: string) => void;
+  onQuickView?: (student: StudentWithFees) => void;
+}
+
+// Status badge variant mapping
+const statusVariantMap: Record<string, "success" | "warning" | "danger" | "info" | "neutral"> = {
+  active: "success",
+  transferred: "warning",
+  graduated: "info",
+  withdrawn: "danger",
+  archived: "neutral",
+  suspended: "warning",
+  deleted: "neutral",
+};
+
+export function StudentsTable({
+  pagedStudents,
+  pagedLoading,
+  pagedError,
+  totalCount,
+  page,
+  pageSize,
+  totalPages,
+  activeTab,
+  error,
+  canManageStudentAccounts,
+  getActions,
+  openMenu,
+  onPageChange,
+  compactMode = false,
+  selectedStudents = new Set(),
+  onSelectStudent,
+  onQuickView,
+}: StudentsTableProps) {
+  const t = useTranslations("students.table");
+  const commonT = useTranslations("common");
+  const tabsT = useTranslations("students.tabs");
+  const reduced = usePrefersReducedMotion();
+
+  // Loading state
+  if (pagedLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || pagedError) {
+    return (
+      <EmptyState
+        title={t("errorLoading", { error: error || pagedError || "???" })}
+        className="text-[var(--danger)]"
+      />
+    );
+  }
+
+  // Empty state
+  if (pagedStudents.length === 0) {
+    const emptyTitle =
+      totalCount === 0
+        ? activeTab === "active" && canManageStudentAccounts
+          ? t("empty.noStudents")
+          : t("empty.noStudentsTab", { tab: tabsT(activeTab) })
+        : t("empty.noResults");
+
+    return <EmptyState title={emptyTitle} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Mobile Cards View */}
+      <motion.div
+        className="grid gap-4 md:hidden"
+        variants={getVariants(reduced, containerVariants(0.06))}
+        initial="hidden"
+        animate="visible"
+        key={page}
+      >
+        {pagedStudents.map((s, i) => {
+          const actions = getActions(s);
+          return (
+            <motion.div key={s.id} variants={getVariants(reduced, itemVariants)}>
+            <Card className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      data-student-menu-trigger
+                      className="!text-[1.1rem] !font-black leading-none tracking-tight text-[var(--text-primary)] hover:text-[var(--primary)] hover:underline text-start truncate"
+                      onClick={(e) => openMenu(e, s)}
+                    >
+                      {s.full_name}
+                    </button>
+                    <p className="text-sm text-[var(--text-muted)] mt-1">
+                      #{(page - 1) * pageSize + i + 1} • {s.class_name} • {s.section || t("noSection")}
+                    </p>
+                  </div>
+                  <Badge variant={statusVariantMap[s.status] || "neutral"} size="sm">
+                    {commonT(`studentStatus.${s.status}`)}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("phone")}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mt-1">
+                      {s.phone || "—"}
+                    </p>
+                  </div>
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("paid")}</p>
+                    <p className="text-sm font-semibold text-[var(--success)] mt-1">
+                      {commonT("currency")} {formatNumber(s.paid_fee)}
+                    </p>
+                  </div>
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("balance")}</p>
+                    <p
+                      className={cn(
+                        "text-sm font-semibold mt-1",
+                        s.remaining_fee > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
+                      )}
+                    >
+                      {commonT("currency")} {formatNumber(s.remaining_fee)}
+                    </p>
+                  </div>
+                  <div className="bg-[var(--surface-soft)] rounded-[var(--radius-md)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("address")}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mt-1 truncate">
+                      {s.address || "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {actions.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-student-menu-trigger
+                    className="w-full mt-4"
+                    onClick={(e) => openMenu(e, s)}
+                  >
+                    {t("studentOptions")}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)]">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--surface-soft)]">
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                #
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("name")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("class")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("section")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("phone")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("address")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("fees")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("paid")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("balance")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("status")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("actions")}
+              </th>
+            </tr>
+          </thead>
+          <motion.tbody
+            className="divide-y divide-[var(--border)]"
+            variants={getVariants(reduced, containerVariants(0.04))}
+            initial="hidden"
+            animate="visible"
+            key={page}
+          >
+            {pagedStudents.map((s, i) => {
+              const actions = getActions(s);
+              const rowPad = compactMode ? "py-1" : "py-3";
+              return (
+                <motion.tr
+                  key={s.id}
+                  variants={getVariants(reduced, itemVariants)}
+                  className={cn(
+                    "hover:bg-[var(--surface-hover)] transition-colors",
+                  )}
+                >
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
+                    {(page - 1) * pageSize + i + 1}
+                  </td>
+                  <td className={cn("px-4", rowPad)}>
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          data-student-menu-trigger
+                          className="!text-[1rem] !font-black leading-none tracking-tight text-[var(--text-primary)] hover:text-[var(--primary)] hover:underline text-start"
+                          onClick={(e) => openMenu(e, s)}
+                        >
+                          {s.full_name}
+                        </button>
+                        {onQuickView && (
+                          <button
+                            type="button"
+                            className="text-[10px] text-[var(--text-muted)] hover:text-[var(--primary)] text-start mt-0.5 leading-none"
+                            onClick={() => onQuickView(s)}
+                          >
+                            عرض سريع
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className={cn("px-4 text-sm text-[var(--text-primary)]", rowPad)}>
+                    {s.class_name}
+                  </td>
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
+                    {s.section || "—"}
+                  </td>
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
+                    {s.phone || "—"}
+                  </td>
+                  <td className={cn("px-4 text-sm text-[var(--text-muted)]", rowPad)}>
+                    {s.address || "—"}
+                  </td>
+                  <td className={cn("px-4 text-sm text-[var(--text-primary)]", rowPad)}>
+                    {commonT("currency")} {formatNumber(s.total_fee)}
+                  </td>
+                  <td className={cn("px-4 text-sm font-semibold text-[var(--success)]", rowPad)}>
+                    {commonT("currency")} {formatNumber(s.paid_fee)}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-4 text-sm font-semibold",
+                      rowPad,
+                      s.remaining_fee > 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
+                    )}
+                  >
+                    {commonT("currency")} {formatNumber(s.remaining_fee)}
+                  </td>
+                  <td className={cn("px-4", rowPad)}>
+                    <Badge variant={statusVariantMap[s.status] || "neutral"} size="sm">
+                      {commonT(`studentStatus.${s.status}`)}
+                    </Badge>
+                  </td>
+                  <td className={cn("px-4", rowPad)}>
+                    {actions.length > 0 && (
+                      <IconButton
+                        data-student-menu-trigger
+                        variant="ghost"
+                        size="sm"
+                        aria-label={t("options")}
+                        onClick={(e) => openMenu(e, s)}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </IconButton>
+                    )}
+                  </td>
+                </motion.tr>
+              );
+            })}
+          </motion.tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-center text-sm text-[var(--text-muted)] sm:text-start">
+            {t("pagination.info", { count: totalCount })}
+          </p>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            className="w-full justify-center sm:w-auto"
+          />
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,219 @@
+{
+  "generatedAt": "2026-04-12T22:34:57.160Z",
+  "baseUrl": "http://127.0.0.1:3030",
+  "adminSchoolId": "00000000-0000-0000-0000-000000000001",
+  "storageStateAvailable": {
+    "admin": true,
+    "superAdmin": true
+  },
+  "stages": [
+    {
+      "name": "low-admin-routes",
+      "concurrency": 1,
+      "iterationsPerWorker": 4,
+      "completed": 4,
+      "succeeded": 4,
+      "failed": 0,
+      "latency": {
+        "minMs": 10.74225000000024,
+        "avgMs": 202.5951147500001,
+        "p95Ms": 541.4845840000003,
+        "p99Ms": 541.4845840000003,
+        "maxMs": 541.4845840000003
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "low-super-admin-routes",
+      "concurrency": 1,
+      "iterationsPerWorker": 3,
+      "completed": 3,
+      "succeeded": 3,
+      "failed": 0,
+      "latency": {
+        "minMs": 22.65079199999991,
+        "avgMs": 26.087194333333326,
+        "p95Ms": 32.68024999999989,
+        "p99Ms": 32.68024999999989,
+        "maxMs": 32.68024999999989
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "low-teachers-api",
+      "concurrency": 1,
+      "iterationsPerWorker": 4,
+      "completed": 4,
+      "succeeded": 4,
+      "failed": 0,
+      "latency": {
+        "minMs": 1067.4940829999996,
+        "avgMs": 1476.07588525,
+        "p95Ms": 2431.1252919999997,
+        "p99Ms": 2431.1252919999997,
+        "maxMs": 2431.1252919999997
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "low-dashboard-queries",
+      "concurrency": 1,
+      "iterationsPerWorker": 4,
+      "completed": 4,
+      "succeeded": 4,
+      "failed": 0,
+      "latency": {
+        "minMs": 655.0045840000002,
+        "avgMs": 993.1928747500006,
+        "p95Ms": 1928.8095410000005,
+        "p99Ms": 1928.8095410000005,
+        "maxMs": 1928.8095410000005
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "low-students-query",
+      "concurrency": 1,
+      "iterationsPerWorker": 4,
+      "completed": 4,
+      "succeeded": 4,
+      "failed": 0,
+      "latency": {
+        "minMs": 367.7158330000002,
+        "avgMs": 437.8873747499997,
+        "p95Ms": 632.4754159999993,
+        "p99Ms": 632.4754159999993,
+        "maxMs": 632.4754159999993
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "moderate-admin-routes",
+      "concurrency": 4,
+      "iterationsPerWorker": 5,
+      "completed": 20,
+      "succeeded": 20,
+      "failed": 0,
+      "latency": {
+        "minMs": 11.784250000000611,
+        "avgMs": 27.60310840000011,
+        "p95Ms": 63.13262500000019,
+        "p99Ms": 63.208458000000974,
+        "maxMs": 63.208458000000974
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "moderate-teachers-api",
+      "concurrency": 4,
+      "iterationsPerWorker": 5,
+      "completed": 20,
+      "succeeded": 20,
+      "failed": 0,
+      "latency": {
+        "minMs": 1046.4624159999985,
+        "avgMs": 1718.7929063,
+        "p95Ms": 2114.7507499999992,
+        "p99Ms": 8917.149,
+        "maxMs": 8917.149
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "moderate-dashboard-queries",
+      "concurrency": 4,
+      "iterationsPerWorker": 5,
+      "completed": 20,
+      "succeeded": 20,
+      "failed": 0,
+      "latency": {
+        "minMs": 358.87379099999816,
+        "avgMs": 703.7080917000001,
+        "p95Ms": 1105.5568330000024,
+        "p99Ms": 1736.128166999999,
+        "maxMs": 1736.128166999999
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "moderate-reports-queries",
+      "concurrency": 4,
+      "iterationsPerWorker": 3,
+      "completed": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "latency": {
+        "minMs": 671.9762499999997,
+        "avgMs": 864.109746666667,
+        "p95Ms": 1072.5832910000026,
+        "p99Ms": 1072.5832910000026,
+        "maxMs": 1072.5832910000026
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "high-students-query",
+      "concurrency": 8,
+      "iterationsPerWorker": 4,
+      "completed": 32,
+      "succeeded": 32,
+      "failed": 0,
+      "latency": {
+        "minMs": 362.5996660000019,
+        "avgMs": 567.3926040312497,
+        "p95Ms": 1202.8078749999986,
+        "p99Ms": 1217.1353339999987,
+        "maxMs": 1217.1353339999987
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "high-salaries-queries",
+      "concurrency": 6,
+      "iterationsPerWorker": 3,
+      "completed": 18,
+      "succeeded": 18,
+      "failed": 0,
+      "latency": {
+        "minMs": 358.08375000000524,
+        "avgMs": 892.9888657777778,
+        "p95Ms": 1615.537040999996,
+        "p99Ms": 1615.537040999996,
+        "maxMs": 1615.537040999996
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "burst-teachers-api",
+      "concurrency": 16,
+      "iterationsPerWorker": 2,
+      "completed": 32,
+      "succeeded": 32,
+      "failed": 0,
+      "latency": {
+        "minMs": 1452.5507079999952,
+        "avgMs": 7496.91976178125,
+        "p95Ms": 13391.509583,
+        "p99Ms": 13391.737582999995,
+        "maxMs": 13391.737582999995
+      },
+      "sampleFailures": []
+    },
+    {
+      "name": "login-cycle",
+      "concurrency": 2,
+      "iterationsPerWorker": 3,
+      "completed": 6,
+      "succeeded": 6,
+      "failed": 0,
+      "latency": {
+        "minMs": 801.3791669999991,
+        "avgMs": 924.910194499999,
+        "p95Ms": 1146.7905830000018,
+        "p99Ms": 1146.7905830000018,
+        "maxMs": 1146.7905830000018
+      },
+      "sampleFailures": []
+    }
+  ]
+}

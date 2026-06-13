@@ -1,0 +1,476 @@
+/**
+ * Professional Import Engine for Student Excel Files
+ *
+ * Handles:
+ * - Flexible column detection (multiple aliases per field)
+ * - Automatic header row detection
+ * - Text normalization (Arabic diacritics, spaces, numbers)
+ * - Class/Section matching with context awareness
+ * - Row-level error handling (partial import support)
+ * - Full preview before import
+ */
+
+import { StudentImportRow, Class } from './import-types';
+
+// ============================================================================
+// TEXT NORMALIZATION
+// ============================================================================
+
+/**
+ * Normalize Arabic text for comparison:
+ * - Remove diacritics
+ * - Normalize hamza variations
+ * - Normalize alif variations
+ * - Normalize ya/alif maksura
+ * - Remove extra spaces
+ * - Lowercase
+ */
+export function normalizeArabicText(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+
+  return text
+    // Remove diacritics (fatH, damma, kasra, sukun, etc)
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    // Normalize hamza variations: أ إ آ ا → ا
+    .replace(/[أإآٱ]/g, 'ا')
+    // Normalize ya/alif maksura: ى → ي
+    .replace(/ى/g, 'ي')
+    // Normalize te variations: ة → ه
+    .replace(/ة/g, 'ه')
+    // Remove extra spaces
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Normalize class name for flexible matching
+ * Supports: "الاول"  "الأول" "الصف الاول" "Grade 1" "1"
+ */
+export function normalizeClassName(text: string): string {
+  if (!text) return '';
+
+  // Remove prefixes BEFORE normalization
+  const withoutPrefix = text
+    .replace(/^(الصف|الفئة|الدرجة|class|grade|level)\s+/i, '')
+    .replace(/\s+(والنوع|والقسم|الاول|الثاني|الثالث)/g, '')
+    .trim();
+
+  // Then normalize
+  const normalized = normalizeArabicText(withoutPrefix);
+  return normalized || text.trim();
+}
+
+export function normalizeSectionName(text: string): string {
+  if (!text) return '';
+
+  const trimmed = String(text).trim();
+  const withoutPrefix = trimmed.replace(/^(الشعبة|section|division|group)\s*[:\-]?\s*/i, '');
+
+  return normalizeArabicText(withoutPrefix);
+}
+
+
+// ============================================================================
+// COLUMN MAPPING & HEADER DETECTION
+// ============================================================================
+
+/**
+ * Column aliases for flexible Excel column detection
+ */
+export const COLUMN_ALIASES: Record<string, string[]> = {
+  fullName: [
+    'fullName', 'full_name', 'fullname',
+    'الاسم الكامل', 'اسم الطالب', 'اسم التلميذ', 'الاسم',
+    'student_name', 'student name', 'name', 'studentname',
+    'الطالب', 'student'
+  ],
+  className: [
+    'className', 'class_name', 'classname',
+    'الصف', 'المرحلة', 'الصف الدراسي', 'الفئة',
+    'class', 'grade', 'grade_name', 'gradename', 'level', 'class name'
+  ],
+  sectionName: [
+    'sectionName', 'section_name', 'sectionname',
+    'الشعبة', 'القسم', 'الفرع',
+    'section', 'division', 'group', 'division_name', 'section name'
+  ],
+  phoneNumber: [
+    'phoneNumber', 'phone_number', 'phonenumber',
+    'رقم الهاتف', 'الهاتف', 'هاتف الطالب', 'phone', 'phone number', 'mobile'
+  ],
+  dateOfBirth: [
+    'dateOfBirth', 'date_of_birth', 'dob',
+    'تاريخ الميلاد', 'تاريخ المولد', 'birth_date', 'birthdate', 'date of birth'
+  ],
+  gender: [
+    'gender', 'الجنس', 'sex', 'جنس'
+  ],
+  address: [
+    'address', 'العنوان', 'الموقع', 'location'
+  ],
+  parentName: [
+    'parentName', 'parent_name', 'parentname',
+    'اسم ولي الأمر', 'اسم الوالد', 'اسم الأب', 'ولي الأمر',
+    'parent', 'parent_name_ar', 'father_name'
+  ],
+  parentPhone: [
+    'parentPhone', 'parent_phone', 'parentphone',
+    'رقم هاتف ولي الأمر', 'هاتف الوالد', 'هاتف الأب',
+    'parent_phone_number', 'father_phone'
+  ],
+  totalFee: [
+    'totalFee', 'total_fee', 'totalfee',
+    'الرسوم', 'إجمالي الرسوم', 'الرسوم الكلية', 'رسوم الطالب',
+    'total fee', 'fees', 'fee', 'tuition', 'رسوم'
+  ],
+  paidFee: [
+    'paidFee', 'paid_fee', 'paidfee',
+    'المدفوع', 'الرسوم المدفوعة', 'المبلغ المدفوع',
+    'paid', 'paid fee', 'amount paid'
+  ],
+  notes: [
+    'notes', 'ملاحظات', 'remarks', 'comments'
+  ],
+};
+
+/**
+ * Find which column index matches a target field
+ */
+export function findColumnIndex(
+  headers: string[],
+  targetField: string
+): number {
+  const aliases = COLUMN_ALIASES[targetField as keyof typeof COLUMN_ALIASES] || [];
+
+  for (let i = 0; i < headers.length; i++) {
+    const headerNorm = normalizeArabicText(headers[i]).toLowerCase();
+    if (aliases.some(alias => headerNorm === normalizeArabicText(alias).toLowerCase())) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+/**
+ * Detect header row from first 10 rows
+ * Returns { headerRowIndex, detectedHeaders } or null if none found
+ * Requires at least 2 of 3 required fields to be present
+ */
+export function detectHeaderRow(
+  rows: Record<string, unknown>[]
+): { headerRowIndex: number; detectedHeaders: string[] } | null {
+  const requiredFields = ['fullName', 'className', 'sectionName'];
+  let bestMatch = { index: -1, score: 0, headers: [] as string[], foundCount: 0 };
+
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const row = rows[i];
+    if (!row || typeof row !== 'object') continue;
+
+    const headers = Object.keys(row);
+    if (headers.length === 0) continue;
+
+    let matchScore = 0;
+    let foundCount = 0;
+
+    for (const field of requiredFields) {
+      const idx = findColumnIndex(headers, field);
+      if (idx >= 0) {
+        matchScore += 2;
+        foundCount++;
+      }
+    }
+
+    // Must find at least 2 of 3 required fields
+    if (foundCount < 2) continue;
+
+    // Bonus if it's the first row with content
+    if (i === 0) matchScore += 1;
+
+    if (matchScore > bestMatch.score) {
+      bestMatch = { index: i, score: matchScore, headers, foundCount };
+    }
+  }
+
+  if (bestMatch.foundCount < 2) return null;
+
+  return {
+    headerRowIndex: bestMatch.index,
+    detectedHeaders: bestMatch.headers,
+  };
+}
+
+/**
+ * Map raw Excel row to StudentImportRow based on detected headers
+ */
+export function mapExcelRow(
+  row: Record<string, unknown>,
+  headers: string[],
+  _rowIndex: number
+): { mapped: StudentImportRow; errors: string[] } {
+  const errors: string[] = [];
+  const mapped: Partial<StudentImportRow> = {};
+
+  // Map required fields
+  const nameIdx = findColumnIndex(headers, 'fullName');
+  if (nameIdx >= 0) {
+    const headerKey = headers[nameIdx];
+    mapped.fullName = String(row[headerKey] || '').trim();
+  } else {
+    errors.push('لم يتم العثور على عمود اسم الطالب');
+  }
+
+  const classIdx = findColumnIndex(headers, 'className');
+  if (classIdx >= 0) {
+    const headerKey = headers[classIdx];
+    mapped.className = String(row[headerKey] || '').trim();
+  } else {
+    errors.push('لم يتم العثور على عمود الصف');
+  }
+
+  const sectionIdx = findColumnIndex(headers, 'sectionName');
+  if (sectionIdx >= 0) {
+    const headerKey = headers[sectionIdx];
+    mapped.sectionName = String(row[headerKey] || '').trim();
+  }
+  // sectionName is optional - students are linked only to classes
+
+  // Map optional fields
+  const optionalFields = ['phoneNumber', 'dateOfBirth', 'gender', 'address', 'parentName', 'parentPhone', 'totalFee', 'paidFee', 'notes'];
+
+  for (const field of optionalFields) {
+    const idx = findColumnIndex(headers, field);
+    if (idx >= 0) {
+      const headerKey = headers[idx];
+      const value = row[headerKey];
+      if (value !== null && value !== undefined && String(value).trim()) {
+        (mapped as any)[field] = String(value).trim();
+      }
+    }
+  }
+
+  return {
+    mapped: mapped as StudentImportRow,
+    errors,
+  };
+}
+
+// ============================================================================
+// CLASS MATCHING
+// ============================================================================
+
+/**
+ * Match class with context awareness
+ */
+export function matchClass(
+  className: string,
+  availableClasses: Class[],
+  schoolId: string,
+  branchId: string
+): Class | null {
+  if (!className) return null;
+
+  const normalized = normalizeClassName(className);
+
+  // Filter by school/branch context
+  const contextClasses = availableClasses.filter((c) => {
+    if (c.schoolId !== schoolId) return false;
+    if (!branchId) return true;
+    return c.branchId === branchId || !c.branchId;
+  });
+
+  // Try exact match on normalized names
+  for (const cls of contextClasses) {
+    if (normalizeClassName(cls.nameAr) === normalized ||
+        normalizeClassName(cls.nameEn) === normalized) {
+      return cls;
+    }
+  }
+
+  // Try partial match
+  for (const cls of contextClasses) {
+    if (normalizeClassName(cls.nameAr).includes(normalized) ||
+        normalizeClassName(cls.nameEn).includes(normalized)) {
+      return cls;
+    }
+  }
+
+  return null;
+}
+
+
+// ============================================================================
+// IMPORT PREVIEW
+// ============================================================================
+
+export interface ImportPreview {
+  totalRows: number;
+  headerRowIndex: number;
+  detectedHeaders: string[];
+  columnMapping: Record<string, number>;
+  validRows: StudentImportRow[];
+  invalidRows: Array<{
+    rowIndex: number;
+    rawData: Record<string, unknown>;
+    errors: string[];
+  }>;
+  matchedClasses: Map<string, string>; // className → classId
+}
+
+/**
+ * Generate import preview (expensive operation)
+ */
+export function generateImportPreview(
+  rows: Record<string, unknown>[],
+  availableClasses: Class[],
+  schoolId: string,
+  branchId: string
+): ImportPreview {
+  const headerDetection = detectHeaderRow(rows);
+  if (!headerDetection) {
+    return {
+      totalRows: rows.length,
+      headerRowIndex: -1,
+      detectedHeaders: [],
+      columnMapping: {},
+      validRows: [],
+      invalidRows: rows.map((row, i) => ({
+        rowIndex: i,
+        rawData: row,
+        errors: ['لم يتم اكتشاف رؤوس الأعمدة'],
+      })),
+      matchedClasses: new Map(),
+    };
+  }
+
+  const { headerRowIndex, detectedHeaders } = headerDetection;
+  const columnMapping: Record<string, number> = {};
+
+  ['fullName', 'className'].forEach(field => {
+    const idx = findColumnIndex(detectedHeaders, field);
+    if (idx >= 0) columnMapping[field] = idx;
+  });
+
+  const validRows: StudentImportRow[] = [];
+  const invalidRows: ImportPreview['invalidRows'] = [];
+  const matchedClasses = new Map<string, string>();
+
+  // Skip header row, process data rows with strict validation
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
+    const rawRow = rows[i];
+    if (!rawRow || typeof rawRow !== 'object' || Object.keys(rawRow).length === 0) {
+      continue; // Skip empty rows
+    }
+
+    const { mapped, errors } = mapExcelRow(rawRow as Record<string, unknown>, detectedHeaders, i + 1);
+
+    // STRICT: Reject rows with mapping errors (missing required fields)
+    if (errors.length > 0) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors,
+      });
+      continue;
+    }
+
+    // Required: Student name
+    if (!mapped.fullName || !mapped.fullName.trim()) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: ['اسم الطالب مطلوب'],
+      });
+      continue;
+    }
+
+    // Required: Class
+    if (!mapped.className || !mapped.className.trim()) {
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: ['الصف مطلوب'],
+      });
+      continue;
+    }
+
+    // Try to match class
+    const matchedClass = matchClass(mapped.className!, availableClasses, schoolId, branchId);
+    if (!matchedClass) {
+      const availableClassNames = availableClasses
+        .filter(c => c.schoolId === schoolId && (!branchId || c.branchId === branchId || !c.branchId))
+        .map(c => c.nameAr)
+        .slice(0, 8);
+
+      const suggestion = availableClassNames.length > 0
+        ? ` الصفوف المتاحة: ${availableClassNames.join(' | ')}`
+        : '';
+
+      // matchClass scopes by branch (a class from another branch is never
+      // matched), so when a branch context is present the precise reason is
+      // "not in this branch" rather than the generic "not in the system".
+      const scopeLabel = branchId ? "غير موجود في هذا الفرع" : "غير موجود في النظام";
+
+      invalidRows.push({
+        rowIndex: i + 1,
+        rawData: rawRow,
+        errors: [`الصف "${mapped.className}" ${scopeLabel}.${suggestion}`],
+      });
+      continue;
+    }
+
+    const normalizedExcelSection = normalizeSectionName(mapped.sectionName!);
+    const classSectionValue = normalizeSectionName(String((matchedClass as any).section || ""));
+    const sectionAlignedClass =
+      normalizedExcelSection && classSectionValue !== normalizedExcelSection
+        ? availableClasses.find((cls) => {
+            if (cls.id === matchedClass.id) return false;
+            if (cls.schoolId !== schoolId) return false;
+            if (branchId && cls.branchId !== branchId) return false;
+            if (normalizeClassName(cls.nameAr) !== normalizeClassName(matchedClass.nameAr)) return false;
+            return normalizeSectionName(String((cls as any).section || "")) === normalizedExcelSection;
+          }) ?? matchedClass
+        : matchedClass;
+
+    mapped.classId = sectionAlignedClass.id;
+    matchedClasses.set(mapped.className!, sectionAlignedClass.id);
+
+    // Section validation: only if row has a section value AND class has defined sections
+    if (mapped.sectionName && mapped.sectionName.trim()) {
+      const classDbSections = sectionAlignedClass.sections || [];
+      const excelSection = normalizeSectionName(mapped.sectionName);
+      const classSection = normalizeSectionName(String((sectionAlignedClass as any).section || ""));
+      const hasSectionsConfigured = classDbSections.length > 0 || (classSection && classSection.length > 0);
+
+      const sectionExists = !hasSectionsConfigured ||
+        classDbSections.some((s: any) => {
+          const dbSec = normalizeSectionName(String(s.name || s));
+          return dbSec === excelSection || dbSec.includes(excelSection) || excelSection.includes(dbSec);
+        }) || (classSection && classSection === excelSection);
+
+      if (!sectionExists && hasSectionsConfigured) {
+        const dbSectionNames = classDbSections.map((s: any) => s.name || s);
+        invalidRows.push({
+          rowIndex: i + 1,
+          rawData: rawRow,
+          errors: [`الشعبة "${mapped.sectionName}" غير موجودة في الصف المحدد. الشعب المتاحة: ${dbSectionNames.join(', ')}`],
+        });
+        continue;
+      }
+    }
+
+    // Row passed all validation
+    validRows.push(mapped as StudentImportRow);
+  }
+
+  return {
+    totalRows: rows.length - headerRowIndex - 1,
+    headerRowIndex,
+    detectedHeaders,
+    columnMapping,
+    validRows,
+    invalidRows,
+    matchedClasses,
+  };
+}

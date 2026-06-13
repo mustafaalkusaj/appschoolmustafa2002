@@ -1,0 +1,13 @@
+{"type":"server-started","port":57479,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:57479","screen_dir":"/Users/musatafa/school-app/.superpowers/brainstorm/32176-1779206759/content","state_dir":"/Users/musatafa/school-app/.superpowers/brainstorm/32176-1779206759/state"}
+{"type":"screen-added","file":"/Users/musatafa/school-app/.superpowers/brainstorm/32176-1779206759/content/question1.html"}
+{"source":"user-event","type":"click","text":"أ\n    \n      البيانات ناقصة\n      المعلومات المعروضة غير كافية أو غير مفيدة للمدير","choice":"a","id":null,"timestamp":1779206857470}
+{"source":"user-event","type":"click","text":"أ\n    \n      البيانات ناقصة\n      المعلومات المعروضة غير كافية أو غير مفيدة للمدير","choice":"a","id":null,"timestamp":1779206858505}
+{"source":"user-event","type":"click","text":"ب\n    \n      التصميم البصري\n      الشكل قديم أو لا يتناسق مع باقي صفحات التطبيق","choice":"b","id":null,"timestamp":1779206859880}
+{"source":"user-event","type":"click","text":"ج\n    \n      تجربة الاستخدام\n      صعوبة التنقل أو إيجاد المعلومات المهمة بسرعة","choice":"c","id":null,"timestamp":1779206860889}
+{"source":"user-event","type":"click","text":"ج\n    \n      تجربة الاستخدام\n      صعوبة التنقل أو إيجاد المعلومات المهمة بسرعة","choice":"c","id":null,"timestamp":1779206866380}
+{"source":"user-event","type":"click","text":"د\n    \n      تغيير كامل\n      كل ما سبق — إعادة تصميم شاملة من الصفر","choice":"d","id":null,"timestamp":1779206867163}
+{"source":"user-event","type":"click","text":"د\n    \n      تغيير كامل\n      كل ما سبق — إعادة تصميم شاملة من الصفر","choice":"d","id":null,"timestamp":1779206883240}
+{"type":"screen-added","file":"/Users/musatafa/school-app/.superpowers/brainstorm/32176-1779206759/content/design-options.html"}
+{"type":"screen-added","file":"/Users/musatafa/school-app/.superpowers/brainstorm/32176-1779206759/content/design-v2.html"}
+{"type":"screen-added","file":"/Users/musatafa/school-app/.superpowers/brainstorm/32176-1779206759/content/design-b-final.html"}
+{"type":"server-stopped","reason":"idle timeout"}

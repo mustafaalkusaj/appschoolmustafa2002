@@ -1,0 +1,884 @@
+From f6d3ec147921ea6f68e7057ad1e7ec9555d60915 Mon Sep 17 00:00:00 2001
+From: mustafaomer <mzm25191@gmail.com>
+Date: Thu, 30 Apr 2026 01:29:29 +0300
+Subject: [PATCH] fix: enable student status actions
+ (suspend/delete/transfer/restore)
+
+---
+ .../_components/TransferStudentModal.tsx      | 219 ++++++++++++++++++
+ .../students/_hooks/useStudentsModals.ts      |  12 +-
+ .../students/_hooks/useStudentsOperations.ts  | 143 +++++++++++-
+ .../students/_utils/getStudentActions.ts      |  29 ++-
+ app/[locale]/students/page.tsx                |  19 +-
+ app/api/web/students/[studentId]/route.ts     | 168 +++++++++++++-
+ 6 files changed, 565 insertions(+), 25 deletions(-)
+ create mode 100644 app/[locale]/students/_components/TransferStudentModal.tsx
+
+diff --git a/app/[locale]/students/_components/TransferStudentModal.tsx b/app/[locale]/students/_components/TransferStudentModal.tsx
+new file mode 100644
+index 00000000..f6223ec7
+--- /dev/null
++++ b/app/[locale]/students/_components/TransferStudentModal.tsx
+@@ -0,0 +1,219 @@
++"use client";
++
++import { useTranslations } from "next-intl";
++import { useState } from "react";
++import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
++import { Button } from "@/components/ui/button";
++import type { StudentWithFees, ClassFee } from "../_types";
++
++type TransferType = "class" | "section" | "transferred";
++
++interface TransferStudentModalProps {
++  show: boolean;
++  isReadOnlyView: boolean;
++  canEditStudents: boolean;
++  selectedStudent: StudentWithFees | null;
++  classFees: ClassFee[];
++  onConfirm: (transferType: TransferType, targetClass?: string, targetSection?: string) => void;
++  onCancel: () => void;
++  loading?: boolean;
++}
++
++export function TransferStudentModal({
++  show,
++  isReadOnlyView,
++  canEditStudents,
++  selectedStudent,
++  classFees,
++  onConfirm,
++  onCancel,
++  loading = false,
++}: TransferStudentModalProps) {
++  const t = useTranslations("students");
++  const [transferType, setTransferType] = useState<TransferType | null>(null);
++  const [targetClass, setTargetClass] = useState("");
++  const [targetSection, setTargetSection] = useState("");
++
++  if (isReadOnlyView || !canEditStudents || !selectedStudent) return null;
++
++  const classes = Array.from(
++    new Set(classFees.map((item) => item.class_name?.trim()).filter(Boolean))
++  ) as string[];
++
++  const handleConfirm = () => {
++    if (transferType === "class" && !targetClass) return;
++    if (transferType === "section" && !targetSection) return;
++
++    onConfirm(
++      transferType || "transferred",
++      transferType === "class" ? targetClass : undefined,
++      transferType === "class" || transferType === "section" ? targetSection : undefined
++    );
++  };
++
++  const isConfirmDisabled =
++    !transferType ||
++    loading ||
++    (transferType === "class" && !targetClass) ||
++    (transferType === "section" && !targetSection);
++
++  return (
++    <Modal open={show} onClose={onCancel} size="md">
++      <ModalHeader title="نقل الطالب" onClose={onCancel} />
++
++      <ModalBody>
++        <div className="space-y-4">
++          {/* Student Info */}
++          <div className="bg-[color-mix(in_srgb,var(--primary)_5%,transparent)] p-4 rounded-lg">
++            <div className="space-y-2">
++              <div className="flex justify-between">
++                <span className="text-[var(--text-muted)]">اسم الطالب:</span>
++                <span className="font-semibold">{selectedStudent.full_name}</span>
++              </div>
++              <div className="flex justify-between">
++                <span className="text-[var(--text-muted)]">الصف الحالي:</span>
++                <span className="font-semibold">{selectedStudent.class_name}</span>
++              </div>
++              {selectedStudent.section && (
++                <div className="flex justify-between">
++                  <span className="text-[var(--text-muted)]">الشعبة الحالية:</span>
++                  <span className="font-semibold">{selectedStudent.section}</span>
++                </div>
++              )}
++            </div>
++          </div>
++
++          {/* Transfer Type Selection */}
++          <div className="space-y-3">
++            <h3 className="font-semibold text-[var(--text-primary)]">اختر نوع النقل</h3>
++
++            {/* Option 1: Transfer Class */}
++            <label className="flex items-start gap-3 p-3 border border-[var(--border)] rounded-lg cursor-pointer hover:bg-[color-mix(in_srgb,var(--primary)_3%,transparent)]">
++              <input
++                type="radio"
++                name="transferType"
++                value="class"
++                checked={transferType === "class"}
++                onChange={(e) => {
++                  setTransferType(e.target.value as TransferType);
++                  setTargetClass("");
++                  setTargetSection("");
++                }}
++                className="mt-1"
++              />
++              <div className="flex-1">
++                <div className="font-semibold">نقل الصف</div>
++                <div className="text-sm text-[var(--text-muted)]">
++                  تغيير صف الطالب مع إبقاء الطالب نشطاً
++                </div>
++              </div>
++            </label>
++
++            {/* Class and Section Inputs for Option 1 */}
++            {transferType === "class" && (
++              <div className="space-y-2 mr-8">
++                <div>
++                  <label className="block text-sm font-medium mb-1">الصف الجديد</label>
++                  <select
++                    value={targetClass}
++                    onChange={(e) => setTargetClass(e.target.value)}
++                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--bg-input)] text-[var(--text-primary)]"
++                  >
++                    <option value="">اختر الصف</option>
++                    {classes.map((cls) => (
++                      <option key={cls} value={cls}>
++                        {cls}
++                      </option>
++                    ))}
++                  </select>
++                </div>
++                <div>
++                  <label className="block text-sm font-medium mb-1">الشعبة الجديدة (اختياري)</label>
++                  <input
++                    type="text"
++                    value={targetSection}
++                    onChange={(e) => setTargetSection(e.target.value)}
++                    placeholder="أدخل الشعبة الجديدة"
++                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--bg-input)] text-[var(--text-primary)]"
++                  />
++                </div>
++              </div>
++            )}
++
++            {/* Option 2: Transfer Section */}
++            <label className="flex items-start gap-3 p-3 border border-[var(--border)] rounded-lg cursor-pointer hover:bg-[color-mix(in_srgb,var(--primary)_3%,transparent)]">
++              <input
++                type="radio"
++                name="transferType"
++                value="section"
++                checked={transferType === "section"}
++                onChange={(e) => {
++                  setTransferType(e.target.value as TransferType);
++                  setTargetClass("");
++                  setTargetSection("");
++                }}
++                className="mt-1"
++              />
++              <div className="flex-1">
++                <div className="font-semibold">نقل الشعبة</div>
++                <div className="text-sm text-[var(--text-muted)]">
++                  تغيير شعبة الطالب داخل نفس الصف
++                </div>
++              </div>
++            </label>
++
++            {/* Section Input for Option 2 */}
++            {transferType === "section" && (
++              <div className="mr-8">
++                <label className="block text-sm font-medium mb-1">الشعبة الجديدة</label>
++                <input
++                  type="text"
++                  value={targetSection}
++                  onChange={(e) => setTargetSection(e.target.value)}
++                  placeholder="أدخل الشعبة الجديدة"
++                  className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--bg-input)] text-[var(--text-primary)]"
++                />
++              </div>
++            )}
++
++            {/* Option 3: Move to Transferred */}
++            <label className="flex items-start gap-3 p-3 border border-[var(--border)] rounded-lg cursor-pointer hover:bg-[color-mix(in_srgb,var(--primary)_3%,transparent)]">
++              <input
++                type="radio"
++                name="transferType"
++                value="transferred"
++                checked={transferType === "transferred"}
++                onChange={(e) => {
++                  setTransferType(e.target.value as TransferType);
++                  setTargetClass("");
++                  setTargetSection("");
++                }}
++                className="mt-1"
++              />
++              <div className="flex-1">
++                <div className="font-semibold">نقل إلى المنقولون</div>
++                <div className="text-sm text-[var(--text-muted)]">
++                  نقل الطالب إلى تبويب المنقولون بدون حذف بياناته
++                </div>
++              </div>
++            </label>
++          </div>
++        </div>
++      </ModalBody>
++
++      <ModalFooter className="justify-center">
++        <Button
++          variant="primary"
++          onClick={handleConfirm}
++          disabled={isConfirmDisabled}
++          loading={loading}
++        >
++          تأكيد النقل
++        </Button>
++        <Button variant="ghost" onClick={onCancel} disabled={loading}>
++          إلغاء
++        </Button>
++      </ModalFooter>
++    </Modal>
++  );
++}
+diff --git a/app/[locale]/students/_hooks/useStudentsModals.ts b/app/[locale]/students/_hooks/useStudentsModals.ts
+index 813b12a4..e631f6d6 100644
+--- a/app/[locale]/students/_hooks/useStudentsModals.ts
++++ b/app/[locale]/students/_hooks/useStudentsModals.ts
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+ import { useState, useCallback, useRef, useEffect } from "react";
+-import type { StudentWithFees, StudentFormData, ManagedUserAccountCard } from "../_types";
++import type { StudentWithFees, StudentFormData, ManagedUserAccountCard, StudentStatus } from "../_types";
+ import { DEFAULT_STUDENT_FORM } from "../_constants";
+ 
+ const STUDENT_MENU_WIDTH = 216;
+@@ -19,7 +19,9 @@ export interface UseStudentsModalsReturn {
+   setShowEdit: (show: boolean) => void;
+   showDeleteConfirm: boolean;
+   setShowDeleteConfirm: (show: boolean) => void;
+-  
++  showTransferConfirm: boolean;
++  setShowTransferConfirm: (show: boolean) => void;
++
+   // Selected student
+   selectedStudent: StudentWithFees | null;
+   setSelectedStudent: (student: StudentWithFees | null) => void;
+@@ -79,7 +81,8 @@ export function useStudentsModals(): UseStudentsModalsReturn {
+   const [showImport, setShowImport] = useState(false);
+   const [showEdit, setShowEdit] = useState(false);
+   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+-  
++  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
++
+   const [selectedStudent, setSelectedStudent] = useState<StudentWithFees | null>(null);
+   
+   const [form, setForm] = useState<StudentFormData>(DEFAULT_STUDENT_FORM);
+@@ -166,6 +169,7 @@ export function useStudentsModals(): UseStudentsModalsReturn {
+     setShowImport(false);
+     setShowEdit(false);
+     setShowDeleteConfirm(false);
++    setShowTransferConfirm(false);
+     setImportPreview([]);
+     setImportError("");
+     setAddStep(1);
+@@ -182,6 +186,8 @@ export function useStudentsModals(): UseStudentsModalsReturn {
+     setShowEdit,
+     showDeleteConfirm,
+     setShowDeleteConfirm,
++    showTransferConfirm,
++    setShowTransferConfirm,
+     selectedStudent,
+     setSelectedStudent,
+     form,
+diff --git a/app/[locale]/students/_hooks/useStudentsOperations.ts b/app/[locale]/students/_hooks/useStudentsOperations.ts
+index dcea94d6..39c633ba 100644
+--- a/app/[locale]/students/_hooks/useStudentsOperations.ts
++++ b/app/[locale]/students/_hooks/useStudentsOperations.ts
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+ import { useCallback, useMemo } from "react";
+-import type { StudentWithFees, StudentStatus, ManagedUserAccountCard, StudentFormData } from "../_types";
++import type { StudentWithFees, StudentStatus, ManagedUserAccountCard, StudentFormData, ClassFee } from "../_types";
+ import { STATUS_MAP, DEFAULT_STUDENT_FORM } from "../_constants";
+ import { formatDate } from "@/lib/formatting";
+ import { loadXLSX } from "@/lib/xlsx-loader";
+@@ -13,6 +13,7 @@ import { readApiError, validateStudentImportFile } from "../_utils";
+ export interface UseStudentsOperationsOptions {
+   profile: UserProfile | null;
+   selectedSchoolId: string | null;
++  classFees: ClassFee[];
+   canEditStudents: boolean;
+   canDeleteStudents: boolean;
+   canManageStudentAccounts: boolean;
+@@ -35,6 +36,7 @@ export interface UseStudentsOperationsOptions {
+     setShowModal: (show: boolean) => void;
+     setShowEdit: (show: boolean) => void;
+     setShowDeleteConfirm: (show: boolean) => void;
++    setShowTransferConfirm: (show: boolean) => void;
+     setShowImport: (show: boolean) => void;
+     setAddStep: (step: number) => void;
+     setForm: (form: StudentFormData) => void;
+@@ -85,6 +87,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
+   const {
+     profile,
+     selectedSchoolId,
++    classFees,
+     canEditStudents,
+     canDeleteStudents,
+     canManageStudentAccounts,
+@@ -186,6 +189,16 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
+     openCardError: isEnglish ? "Could not open the credential card." : "تعذر فتح بطاقة الدخول.",
+   }), [activeTab, isEnglish]);
+ 
++  const classFeeByName = useMemo(() => {
++    const map = new Map<string, number>();
++    for (const fee of classFees) {
++      const key = String(fee.class_name || "").trim();
++      if (!key) continue;
++      map.set(key, Number(fee.total_fee ?? 0));
++    }
++    return map;
++  }, [classFees]);
++
+   const getSchoolBranch = useCallback(async () => {
+     return resolveSchoolBranchForProfile(profile, { selectedSchoolId });
+   }, [profile, selectedSchoolId]);
+@@ -327,6 +340,119 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
+     setTimeout(() => modals.setSuccess(""), 3000);
+   }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, reload, setActiveTab]);
+ 
++  const initTransfer = useCallback((student: StudentWithFees) => {
++    modals.setSelectedStudent(student);
++    modals.setShowTransferConfirm(true);
++  }, [modals]);
++
++  const confirmTransfer = useCallback(async (transferType: "class" | "section" | "transferred", targetClass?: string, targetSection?: string) => {
++    if (!modals.selectedStudent) return;
++    modals.setSaving(true);
++    modals.setError("");
++    const { school_id } = await getSchoolBranch();
++    if (!school_id) {
++      modals.setError(copy.selectSchoolBeforeEdit);
++      modals.setSaving(false);
++      return;
++    }
++
++    const payload: Record<string, unknown> = { school_id, transfer_type: transferType };
++    if (targetClass) payload.target_class_name = targetClass;
++    if (targetSection) payload.target_section = targetSection;
++
++    const response = await fetchWithAuthorizedSession(`/api/web/students/${modals.selectedStudent.id}`, {
++      method: "PATCH",
++      headers: withJsonHeaders(),
++      body: JSON.stringify(payload),
++    });
++    const respPayload = await response.json().catch(() => null);
++    modals.setSaving(false);
++
++    if (!response.ok) {
++      modals.setError(readApiError(respPayload, isEnglish ? "Failed to transfer student." : "تعذر نقل الطالب."));
++      return;
++    }
++
++    modals.setShowTransferConfirm(false);
++    const messages: Record<string, string> = {
++      class: isEnglish ? "Student class transferred successfully." : "تم نقل الطالب إلى صف جديد ✓",
++      section: isEnglish ? "Student section transferred successfully." : "تم نقل الطالب إلى شعبة جديدة ✓",
++      transferred: isEnglish ? "Student moved to transferred records." : "تم نقل الطالب إلى المنقولين ✓",
++    };
++    modals.setSuccess(messages[transferType]);
++
++    if (transferType === "transferred") {
++      setActiveTab("transferred");
++    }
++
++    reload();
++    setTimeout(() => modals.setSuccess(""), 3000);
++  }, [modals, copy, getSchoolBranch, isEnglish, reload, setActiveTab]);
++
++  const initSuspend = useCallback((student: StudentWithFees) => {
++    modals.setSelectedStudent(student);
++    // Handle suspend/reactivate/restore for all status types
++    let newStatus: StudentStatus;
++    let nextTab: string;
++    let successMsg: string;
++
++    const currentStatus = student.status;
++
++    if (currentStatus === "active") {
++      // Suspend active student
++      newStatus = "suspended";
++      nextTab = "suspended";
++      successMsg = isEnglish ? "Student suspended successfully." : "تم توقيف الطالب ✓";
++    } else if (currentStatus === "suspended") {
++      // Reactivate suspended student
++      newStatus = "active";
++      nextTab = "active";
++      successMsg = isEnglish ? "Student reactivated successfully." : "تم تفعيل الطالب ✓";
++    } else if (currentStatus === "transferred") {
++      // Restore student from transferred
++      newStatus = "active";
++      nextTab = "active";
++      successMsg = isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓";
++    } else if (currentStatus === "deleted") {
++      // Restore student from deleted
++      newStatus = "active";
++      nextTab = "active";
++      successMsg = isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓";
++    } else {
++      // Unknown status - default to active
++      newStatus = "active";
++      nextTab = "active";
++      successMsg = isEnglish ? "Student status updated." : "تم تحديث حالة الطالب.";
++    }
++
++    void (async () => {
++      modals.setSaving(true);
++      const { school_id } = await getSchoolBranch();
++      if (!school_id) {
++        modals.setError(copy.selectSchoolBeforeEdit);
++        modals.setSaving(false);
++        return;
++      }
++      const response = await fetchWithAuthorizedSession(`/api/web/students/${student.id}`, {
++        method: "PATCH",
++        headers: withJsonHeaders(),
++        body: JSON.stringify({ school_id, status: newStatus }),
++      });
++      const payload = await response.json().catch(() => null);
++      modals.setSaving(false);
++
++      if (!response.ok) {
++        modals.setError(readApiError(payload, isEnglish ? "Could not update student status." : "تعذر تحديث حالة الطالب."));
++        return;
++      }
++
++      setActiveTab(nextTab);
++      modals.setSuccess(successMsg);
++      reload();
++      setTimeout(() => modals.setSuccess(""), 3000);
++    })();
++  }, [modals, copy, getSchoolBranch, isEnglish, reload, setActiveTab]);
++
+   const handleDeleteConfirmed = useCallback(async () => {
+     if (!canDeleteStudents || !modals.selectedStudent) return;
+     modals.setError("");
+@@ -335,10 +461,11 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
+       modals.setError(copy.selectSchoolBeforeEdit);
+       return;
+     }
++    const forceDelete = modals.selectedStudent.status === "deleted";
+     const response = await fetchWithAuthorizedSession(`/api/web/students/${modals.selectedStudent.id}`, {
+       method: "DELETE",
+       headers: withJsonHeaders(),
+-      body: JSON.stringify({ school_id }),
++      body: JSON.stringify({ school_id, force_delete: forceDelete }),
+     });
+     const payload = await response.json().catch(() => null);
+     if (!response.ok) {
+@@ -426,15 +553,18 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
+       const data: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
+       const rows = data.map((row) => {
+         const source = row as Record<string, string | number | null | undefined>;
++        const className = String(getImportCell(source, IMPORT_COLUMN_ALIASES.className) || "");
++        const importedTotalFee = parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.totalFee) || 0), 10) || 0;
++        const classFee = classFeeByName.get(className.trim()) ?? 0;
+         return ({
+         school_id,
+         branch_id,
+         full_name: String(getImportCell(source, IMPORT_COLUMN_ALIASES.fullName) || ""),
+-        class_name: String(getImportCell(source, IMPORT_COLUMN_ALIASES.className) || ""),
++        class_name: className,
+         section: String(getImportCell(source, IMPORT_COLUMN_ALIASES.section) || ""),
+         phone: getImportCell(source, IMPORT_COLUMN_ALIASES.phone) != null ? String(getImportCell(source, IMPORT_COLUMN_ALIASES.phone)) : null,
+         address: typeof getImportCell(source, IMPORT_COLUMN_ALIASES.address) === "string" ? String(getImportCell(source, IMPORT_COLUMN_ALIASES.address)) : null,
+-        total_fee: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.totalFee) || 0), 10) || 0,
++        total_fee: importedTotalFee > 0 ? importedTotalFee : classFee,
+         paid_fee: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.paidFee) || 0), 10) || 0,
+         discount_value: parseInt(String(getImportCell(source, IMPORT_COLUMN_ALIASES.discountValue) || 0), 10) || 0,
+         status: "active",
+@@ -507,7 +637,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
+     } finally {
+       modals.setImporting(false);
+     }
+-  }, [canManageStudentAccounts, copy, getSchoolBranch, modals, reload]);
++  }, [canManageStudentAccounts, classFeeByName, copy, getSchoolBranch, modals, reload]);
+ 
+   const downloadTemplate = useCallback(async () => {
+     const XLSX = await loadXLSX();
+@@ -571,6 +701,9 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
+     handleAdd,
+     handleEdit,
+     changeStatus,
++    initTransfer,
++    confirmTransfer,
++    initSuspend,
+     handleDeleteConfirmed,
+     exportExcel,
+     handleFileChange,
+diff --git a/app/[locale]/students/_utils/getStudentActions.ts b/app/[locale]/students/_utils/getStudentActions.ts
+index 714331f7..c0c497c7 100644
+--- a/app/[locale]/students/_utils/getStudentActions.ts
++++ b/app/[locale]/students/_utils/getStudentActions.ts
+@@ -9,7 +9,8 @@ interface GetStudentActionsOptions {
+   canDeleteStudents: boolean;
+   canManageStudentAccounts: boolean;
+   onPrint: (s: StudentWithFees) => void;
+-  onChangeStatus: (s: StudentWithFees, status: StudentWithFees["status"], msg: string) => void;
++  onInitTransfer: (s: StudentWithFees) => void;
++  onInitSuspend: (s: StudentWithFees) => void;
+   onOpenEdit: (s: StudentWithFees) => void;
+   onOpenCredentials: (s: StudentWithFees) => void;
+   onInitDelete: (s: StudentWithFees) => void;
+@@ -26,7 +27,8 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
+     canDeleteStudents,
+     canManageStudentAccounts,
+     onPrint,
+-    onChangeStatus,
++    onInitTransfer,
++    onInitSuspend,
+     onOpenEdit,
+     onOpenCredentials,
+     onInitDelete,
+@@ -98,7 +100,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
+               icon: "📦",
+               label: copy.transfer,
+               fn: () => {
+-                onChangeStatus(student, "transferred", copy.transferSuccess);
++                onInitTransfer(student);
+                 setActiveMenu(null);
+               },
+             },
+@@ -106,7 +108,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
+               icon: "⏸️",
+               label: copy.suspend,
+               fn: () => {
+-                onChangeStatus(student, "suspended", copy.suspendSuccess);
++                onInitSuspend(student);
+                 setActiveMenu(null);
+               },
+             },
+@@ -144,7 +146,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
+               icon: "↩️",
+               label: copy.restore,
+               fn: () => {
+-                onChangeStatus(student, "active", copy.restoreSuccess);
++                onInitSuspend(student);
+                 setActiveMenu(null);
+               },
+             },
+@@ -168,7 +170,7 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
+               icon: "↩️",
+               label: copy.reactivate,
+               fn: () => {
+-                onChangeStatus(student, "active", copy.reactivateSuccess);
++                onInitSuspend(student);
+                 setActiveMenu(null);
+               },
+             },
+@@ -188,10 +190,23 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
+         icon: "↩️",
+         label: copy.restore,
+         fn: () => {
+-          onChangeStatus(student, "active", copy.restoreSuccess);
++          onInitSuspend(student);
+           setActiveMenu(null);
+         },
+       },
++      ...(canDeleteStudents
++        ? [
++            {
++              icon: "🗑️",
++              label: locale === "en" ? "Delete permanently" : "حذف نهائي",
++              danger: true,
++              fn: () => {
++                onInitDelete(student);
++                setActiveMenu(null);
++              },
++            },
++          ]
++        : []),
+     ];
+   }
+ 
+diff --git a/app/[locale]/students/page.tsx b/app/[locale]/students/page.tsx
+index 250c210b..945458f4 100644
+--- a/app/[locale]/students/page.tsx
++++ b/app/[locale]/students/page.tsx
+@@ -30,6 +30,7 @@ import { StudentDropdownMenu } from "./_components/StudentDropdownMenu";
+ import { AddStudentModal } from "./_components/AddStudentModal";
+ import { EditStudentModal } from "./_components/EditStudentModal";
+ import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
++import { TransferStudentModal } from "./_components/TransferStudentModal";
+ import { ImportExcelModal } from "./_components/ImportExcelModal";
+ import { AccountCardModal } from "./_components/AccountCardModal";
+ import { BulkImportModal } from "@/components/students/BulkImportModal";
+@@ -99,6 +100,7 @@ export default function StudentsPage() {
+   const operations = useStudentsOperations({
+     profile,
+     selectedSchoolId: schoolScope.selectedSchoolId,
++    classFees,
+     canEditStudents,
+     canDeleteStudents,
+     canManageStudentAccounts,
+@@ -116,6 +118,7 @@ export default function StudentsPage() {
+       setShowModal: modals.setShowModal,
+       setShowEdit: modals.setShowEdit,
+       setShowDeleteConfirm: modals.setShowDeleteConfirm,
++      setShowTransferConfirm: modals.setShowTransferConfirm,
+       setShowImport: modals.setShowImport,
+       setAddStep: modals.setAddStep,
+       setForm: modals.setForm,
+@@ -161,7 +164,8 @@ export default function StudentsPage() {
+         canDeleteStudents,
+         canManageStudentAccounts,
+         onPrint: print.handlePrint,
+-        onChangeStatus: operations.changeStatus,
++        onInitTransfer: operations.initTransfer,
++        onInitSuspend: operations.initSuspend,
+         onOpenEdit: modals.openEdit,
+         onOpenCredentials: operations.openStudentCredentialsCard,
+         onInitDelete: (student) => {
+@@ -375,6 +379,19 @@ export default function StudentsPage() {
+             modals.setSelectedStudent(null);
+           }}
+         />
++        <TransferStudentModal
++          show={modals.showTransferConfirm}
++          isReadOnlyView={isReadOnlyView}
++          canEditStudents={canEditStudents}
++          selectedStudent={modals.selectedStudent}
++          classFees={classFees}
++          onConfirm={operations.confirmTransfer}
++          onCancel={() => {
++            modals.setShowTransferConfirm(false);
++            modals.setSelectedStudent(null);
++          }}
++          loading={modals.saving}
++        />
+         <ImportExcelModal
+           show={modals.showImport}
+           isReadOnlyView={isReadOnlyView}
+diff --git a/app/api/web/students/[studentId]/route.ts b/app/api/web/students/[studentId]/route.ts
+index 606036ed..023f1068 100644
+--- a/app/api/web/students/[studentId]/route.ts
++++ b/app/api/web/students/[studentId]/route.ts
+@@ -26,6 +26,8 @@ type StudentRow = {
+   status: StudentStatus | null;
+ };
+ 
++type TransferType = "class" | "section" | "transferred";
++
+ function jsonError(message: string, status: number) {
+   return NextResponse.json({ error: { message } }, { status });
+ }
+@@ -64,6 +66,13 @@ function parseNonNegativeNumber(value: unknown) {
+   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+ }
+ 
++function normalizeTransferType(value: unknown): TransferType | null {
++  if (value === "class" || value === "section" || value === "transferred") {
++    return value;
++  }
++  return null;
++}
++
+ async function requireStudentPermission(req: NextRequest, permission: "edit_students" | "delete_students") {
+   const session = await verifyRBACSession(req.cookies.get(RBAC_COOKIE_NAME)?.value);
+   if (!session?.userActive) {
+@@ -171,6 +180,24 @@ async function fetchStudent(
+   return data;
+ }
+ 
++async function validateClassExists(
++  serviceSupabase: ReturnType<typeof createServiceSupabaseClient>,
++  className: string,
++  schoolId: string,
++  branchScope: ResolvedBranchScope,
++): Promise<boolean> {
++  const { data, error } = await applyBranchScopeToQuery(
++    serviceSupabase
++      .from("class_fees")
++      .select("class_name")
++      .eq("class_name", className)
++      .eq("school_id", schoolId),
++    branchScope,
++  ).maybeSingle<{ class_name: string }>();
++
++  return !error && !!data;
++}
++
+ export async function PATCH(
+   req: NextRequest,
+   { params }: { params: Promise<{ studentId: string }> },
+@@ -192,6 +219,117 @@ export async function PATCH(
+     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
+   }
+ 
++  // Check if this is a transfer operation
++  const transferType = normalizeTransferType(body?.transfer_type);
++  if (transferType) {
++    // Handle transfer operations
++    if (transferType === "class") {
++      const targetClassName = normalizeRequiredText(body?.target_class_name);
++      if (!targetClassName) {
++        return jsonError("اسم الصف المستهدف مطلوب للنقل بين الصفوف.", 400);
++      }
++
++      // Validate target class exists in branch
++      const classExists = await validateClassExists(serviceSupabase, targetClassName, targetSchoolId, branchScope);
++      if (!classExists) {
++        return jsonError("الصف المستهدف غير موجود أو غير متاح ضمن فرعك.", 400);
++      }
++
++      const targetSection = normalizeOptionalText(body?.target_section);
++
++      const { data, error } = await applyBranchScopeToQuery(
++        serviceSupabase
++          .from("students")
++          .update({
++            class_name: targetClassName,
++            section: targetSection,
++            status: "active" satisfies StudentStatus,
++          })
++          .eq("id", studentId)
++          .eq("school_id", targetSchoolId),
++        branchScope,
++      )
++        .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
++        .maybeSingle<StudentRow>();
++
++      if (error || !data?.id) {
++        return jsonError(error?.message || "تعذر نقل الطالب إلى الصف الجديد.", 500);
++      }
++
++      invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
++      return NextResponse.json({ ok: true, student: data });
++    }
++
++    if (transferType === "section") {
++      const targetSection = normalizeRequiredText(body?.target_section);
++      if (!targetSection) {
++        return jsonError("اسم الشعبة المستهدفة مطلوب للنقل بين الشعب.", 400);
++      }
++
++      const { data, error } = await applyBranchScopeToQuery(
++        serviceSupabase
++          .from("students")
++          .update({
++            section: targetSection,
++            status: "active" satisfies StudentStatus,
++          })
++          .eq("id", studentId)
++          .eq("school_id", targetSchoolId),
++        branchScope,
++      )
++        .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
++        .maybeSingle<StudentRow>();
++
++      if (error || !data?.id) {
++        return jsonError(error?.message || "تعذر نقل الطالب إلى الشعبة الجديدة.", 500);
++      }
++
++      invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
++      return NextResponse.json({ ok: true, student: data });
++    }
++
++    if (transferType === "transferred") {
++      // Mark student as transferred, optionally update class/section if provided
++      const targetClassName = normalizeOptionalText(body?.target_class_name);
++      const targetSection = normalizeOptionalText(body?.target_section);
++
++      const updatePayload: Partial<StudentRow> = {
++        status: "transferred" satisfies StudentStatus,
++      };
++
++      if (targetClassName) {
++        const classExists = await validateClassExists(serviceSupabase, targetClassName, targetSchoolId, branchScope);
++        if (!classExists) {
++          return jsonError("الصف المستهدف غير موجود أو غير متاح ضمن فرعك.", 400);
++        }
++        updatePayload.class_name = targetClassName;
++      }
++
++      if (targetSection) {
++        updatePayload.section = targetSection;
++      }
++
++      const { data, error } = await applyBranchScopeToQuery(
++        serviceSupabase
++          .from("students")
++          .update(updatePayload)
++          .eq("id", studentId)
++          .eq("school_id", targetSchoolId),
++        branchScope,
++      )
++        .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
++        .maybeSingle<StudentRow>();
++
++      if (error || !data?.id) {
++        return jsonError(error?.message || "تعذر نقل الطالب إلى المنقولون.", 500);
++      }
++
++      invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
++      return NextResponse.json({ ok: true, student: data });
++    }
++  }
++
++  // Standard edit operation (non-transfer)
+   const nextFullName = hasOwn(body, "full_name") ? normalizeRequiredText(body?.full_name) : currentStudent.full_name;
+   const nextClassName = hasOwn(body, "class_name") ? normalizeRequiredText(body?.class_name) : currentStudent.class_name;
+   const nextSection = hasOwn(body, "section") ? normalizeOptionalText(body?.section) : currentStudent.section;
+@@ -303,6 +441,7 @@ export async function DELETE(
+   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
+   const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;
++  const forceDelete = body?.force_delete === true;
+ 
+   const context = await resolveStudentContext(req, schoolId, "delete_students", requestedBranchId);
+   if (!context.ok) {
+@@ -316,14 +455,25 @@ export async function DELETE(
+     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
+   }
+ 
+-  const { data, error } = await applyBranchScopeToQuery(
+-    serviceSupabase
+-      .from("students")
+-      .update({ status: "deleted" satisfies StudentStatus })
+-      .eq("id", studentId)
+-      .eq("school_id", targetSchoolId),
+-    branchScope,
+-  )
++  const deleteQuery = forceDelete || currentStudent.status === "deleted"
++    ? applyBranchScopeToQuery(
++        serviceSupabase
++          .from("students")
++          .delete()
++          .eq("id", studentId)
++          .eq("school_id", targetSchoolId),
++        branchScope,
++      )
++    : applyBranchScopeToQuery(
++        serviceSupabase
++          .from("students")
++          .update({ status: "deleted" satisfies StudentStatus })
++          .eq("id", studentId)
++          .eq("school_id", targetSchoolId),
++        branchScope,
++      );
++
++  const { data, error } = await deleteQuery
+     .select("id, school_id, full_name, class_name, section, phone, address, total_fee, paid_fee, discount_value, status")
+     .maybeSingle<StudentRow>();
+ 
+@@ -333,5 +483,5 @@ export async function DELETE(
+ 
+   invalidateSchoolCacheDomains(targetSchoolId, ["dashboard-overview", "payments-meta", "reports-overview"]);
+ 
+-  return NextResponse.json({ ok: true, student: data });
++  return NextResponse.json({ ok: true, student: data, hardDeleted: forceDelete || currentStudent.status === "deleted" });
+ }
+-- 
+2.50.1 (Apple Git-155)
+

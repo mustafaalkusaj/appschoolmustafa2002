@@ -1,0 +1,53 @@
+/* Salaries page styles - Minimal legacy support */
+
+/* Print styles for salary slips and reports */
+@media print {
+  .print-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .print-panel {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1rem;
+  }
+  
+  .print-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 600;
+  }
+  
+  .print-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  th, td {
+    padding: 0.5rem;
+    text-align: right;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  th {
+    background: #f3f4f6;
+    font-weight: 600;
+    font-size: 0.75rem;
+  }
+}
+
+/* Animation keyframes */
+@keyframes sp {
+  to {
+    transform: rotate(360deg);
+  }
+}

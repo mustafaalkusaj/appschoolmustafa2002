@@ -1,0 +1,55 @@
+{
+  "regions": ["fra1"],
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/ar/login",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=300"
+        }
+      ]
+    },
+    {
+      "source": "/en/login",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=300"
+        }
+      ]
+    },
+    {
+      "source": "/_next/static/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/ops/warm",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/ops/daily-report",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/web/calendar/daily-check",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/ops/weekly-report",
+      "schedule": "0 20 * * 5"
+    }
+  ]
+}

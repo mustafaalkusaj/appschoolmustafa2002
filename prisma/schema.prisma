@@ -1,0 +1,905 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
+
+model School {
+  id        String   @id @default(cuid())
+  nameAr    String
+  nameEn    String
+  currency  String   @default("IQD")
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  branches        Branch[]
+  users           User[]
+  roles           Role[]
+  permissions     Permission[]
+  students        Student[]
+  accounts        Account[]
+  transactions    Transaction[]
+  salaries        Salary[]
+  employees       Employee[]
+  academicYears   AcademicYear[]
+  attendances     Attendance[]
+  auditLogs       AuditLog[]
+  incomeTypes     IncomeType[]
+  incomes         Income[]
+  classes         Class[]
+
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("schools")
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  schoolId   String
+  nameAr     String
+  nameEn     String
+  branchCode String   @unique
+  principalName String?
+  phoneNumber String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  // Relations
+  school       School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  users        User[]
+  students     Student[]
+  classes      Class[]
+  accounts     Account[]
+  transactions Transaction[]
+  salaries     Salary[]
+  employees    Employee[]
+  attendances  Attendance[]
+  auditLogs    AuditLog[]
+  incomeTypes  IncomeType[]
+  incomes      Income[]
+
+  @@index([schoolId])
+  @@index([isActive])
+  @@index([schoolId, isActive])
+  @@map("branches")
+}
+
+// ============================================================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================================================
+
+model User {
+  id                   String   @id @default(cuid())
+  schoolId             String
+  branchId             String?
+  email                String
+  passwordHash         String
+  fullNameAr           String
+  fullNameEn           String
+  roleId               String
+  isSinglePageUser     Boolean  @default(false)
+  isActive             Boolean  @default(true)
+  lastLoginAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  deletedAt            DateTime?
+
+  // Relations
+  school               School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch               Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  role                 Role              @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  pageAccess           UserPageAccess[]
+  createdTransactions  Transaction[]     @relation("CreatedBy")
+  auditLogs            AuditLog[]
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([roleId])
+  @@unique([schoolId, email])
+  @@index([isSinglePageUser])
+  @@index([schoolId, isActive])
+  @@map("users")
+}
+
+model Role {
+  id              String   @id @default(cuid())
+  schoolId        String
+  code            String   // INVESTOR, BRANCH_MANAGER, ACCOUNTANT, etc
+  nameAr          String
+  nameEn          String
+  hierarchyLevel  Int      // 1 = highest, 10 = lowest
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  school          School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  users           User[]
+  permissions     RolePermission[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  schoolId    String
+  code        String   // students.view, accounts.create, etc
+  resource    String   // students, accounts, attendance, etc
+  action      String   // view, create, update, delete
+  description String?
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  // Relations
+  school      School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  roles       RolePermission[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserPageAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  pageCode  String   // students, accounts, attendance, salaries
+  canView   Boolean  @default(false)
+  canCreate Boolean  @default(false)
+  canUpdate Boolean  @default(false)
+  canDelete Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pageCode])
+  @@index([userId])
+  @@map("user_page_access")
+}
+
+// ============================================================================
+// ACADEMIC DATA
+// ============================================================================
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  schoolId  String
+  year      Int
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  // Relations
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes   Class[]
+
+  @@unique([schoolId, year])
+  @@index([schoolId])
+  @@map("academic_years")
+}
+
+model Class {
+  id              String   @id @default(cuid())
+  branchId        String
+  schoolId        String?
+  academicYearId  String
+  gradeLevel      Int
+  nameAr          String
+  nameEn          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  school          School?       @relation(fields: [schoolId], references: [id])
+  academicYear    AcademicYear  @relation(fields: [academicYearId], references: [id])
+  students        Student[]
+
+  @@index([branchId])
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@map("classes")
+}
+
+model Student {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  branchId           String
+  classId            String?
+  registrationNumber String   @unique
+  nameAr             String
+  nameEn             String
+  dateOfBirth        DateTime?
+  status             String   @default("active") // active, inactive, transferred, graduated
+  parentName         String?
+  parentPhone        String?
+  createdBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  deletedAt          DateTime?
+
+  // Relations
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  class        Class?       @relation(fields: [classId], references: [id])
+  attendances  Attendance[]
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([classId])
+  @@index([schoolId, branchId])
+  @@index([schoolId, status])
+  @@map("students")
+}
+
+// ============================================================================
+// ATTENDANCE
+// ============================================================================
+
+model Attendance {
+  id               String   @id @default(cuid())
+  schoolId         String
+  branchId         String
+  studentId        String
+  attendanceDate   DateTime
+  status           String   // present, absent, excused, late
+  notes            String?
+  createdBy        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  // Relations
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, attendanceDate, branchId])
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([studentId])
+  @@index([schoolId, branchId, attendanceDate])
+  @@map("attendance")
+}
+
+// ============================================================================
+// FINANCIAL MANAGEMENT
+// ============================================================================
+
+model Account {
+  id             String   @id @default(cuid())
+  branchId       String
+  schoolId       String
+  accountCode    String
+  accountNameAr  String
+  accountNameEn  String
+  accountType    String   // student, expense, income, salary
+  balance        Decimal  @default(0) @db.Decimal(15, 2)
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  school         School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+
+  @@unique([branchId, accountCode])
+  @@index([branchId])
+  @@index([schoolId])
+  @@index([schoolId, branchId])
+  @@index([accountType])
+  @@map("accounts")
+}
+
+model Transaction {
+  id               String   @id @default(cuid())
+  schoolId         String
+  accountId        String
+  branchId         String
+  transactionDate  DateTime
+  amount           Decimal  @db.Decimal(15, 2)
+  transactionType  String   // debit, credit
+  description      String?
+  referenceNumber  String?
+  createdBy        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  account          Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdByUser    User     @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  deletedAt        DateTime?
+
+  @@index([schoolId])
+  @@index([accountId])
+  @@index([branchId])
+  @@index([createdBy])
+  @@index([referenceNumber])
+  @@index([schoolId, branchId, transactionDate])
+  @@map("transactions")
+}
+
+// ============================================================================
+// INCOME MANAGEMENT
+// ============================================================================
+
+model IncomeType {
+  id        String    @id @default(cuid())
+  schoolId  String
+  branchId  String?
+  name      String
+  notes     String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch    Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  incomes   Income[]
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([schoolId, branchId])
+  @@map("income_types")
+}
+
+model Income {
+  id            String    @id @default(cuid())
+  schoolId      String
+  branchId      String?
+  incomeTypeId  String
+  amount        Decimal   @db.Decimal(15, 2)
+  incomeDate    String
+  source        String?
+  receiptNumber String?
+  notes         String?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  school        School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch        Branch?    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  incomeType    IncomeType @relation(fields: [incomeTypeId], references: [id])
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([incomeTypeId])
+  @@index([incomeDate])
+  @@index([schoolId, branchId])
+  @@map("incomes")
+}
+
+// ============================================================================
+// HR & PAYROLL
+// ============================================================================
+
+model Employee {
+  id           String   @id @default(cuid())
+  schoolId     String
+  branchId     String
+  employeeCode String
+  fullNameAr   String
+  fullNameEn   String
+  position     String   // teacher, admin_staff, support
+  email        String?
+  phone        String?
+  baseSalary   Decimal  @db.Decimal(15, 2)
+  hireDate     DateTime
+  isActive     Boolean  @default(true)
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  // Relations
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  salaries     Salary[]
+
+  @@unique([branchId, employeeCode])
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([email])
+  @@index([schoolId, branchId])
+  @@map("employees")
+}
+
+model Salary {
+  id            String   @id @default(cuid())
+  schoolId      String
+  branchId      String
+  employeeId    String
+  month         Int
+  year          Int
+  baseSalary    Decimal  @db.Decimal(15, 2)
+  deductions    Decimal  @default(0) @db.Decimal(15, 2)
+  bonus         Decimal  @default(0) @db.Decimal(15, 2)
+  netSalary     Decimal  @db.Decimal(15, 2)
+  status        String   @default("pending") // pending, approved, paid
+  paidDate      DateTime?
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch        Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month, year])
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([employeeId])
+  @@index([schoolId, branchId])
+  @@index([schoolId, status])
+  @@map("salaries")
+}
+
+// ============================================================================
+// AUDIT LOGGING
+// ============================================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  schoolId    String
+  branchId    String?
+  userId      String
+  action      String   // CREATE, UPDATE, DELETE, LOGIN
+  resource    String   // students, accounts, etc
+  resourceId  String
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// MOBILE-SHARED RAW TABLES (additive @@map of existing Supabase tables)
+// These map 1:1 to tables that already exist in Supabase. No migration is
+// implied; they exist so the web can type/serve the same data the mobile app
+// reads. Do NOT run migrations that alter these tables.
+// ============================================================================
+
+model AppNotification {
+  id              String    @id @default(uuid()) @db.Uuid
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  recipientUserId String?   @map("recipient_user_id")
+  recipientRole   String?   @map("recipient_role")
+  schoolId        String?   @map("school_id")
+  branchId        String?   @map("branch_id")
+  type            String?
+  title           String?
+  message         String?
+  status          String?
+  metadata        Json?
+
+  @@map("app_notifications")
+}
+
+model MobileNotification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String?   @map("user_id") @db.Uuid
+  schoolId  String?   @map("school_id") @db.Uuid
+  type      String?
+  title     String?
+  message   String?
+  isRead    Boolean?  @map("is_read")
+  link      String?
+  metadata  Json?
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("notifications")
+}
+
+model MobileAssignment {
+  id                  String    @id @default(uuid()) @db.Uuid
+  schoolId            String?   @map("school_id") @db.Uuid
+  teacherId           String?   @map("teacher_id") @db.Uuid
+  studentId           String?   @map("student_id") @db.Uuid
+  subjectId           String?   @map("subject_id") @db.Uuid
+  classId             String?   @map("class_id") @db.Uuid
+  sectionId           String?   @map("section_id") @db.Uuid
+  className           String?   @map("class_name")
+  section             String?
+  subject             String?
+  title               String?
+  description         String?
+  dueAt               DateTime? @map("due_at") @db.Timestamptz(6)
+  contentKind         String?   @map("content_kind")
+  attachmentBucket    String?   @map("attachment_bucket")
+  attachmentPath      String?   @map("attachment_path")
+  attachmentName      String?   @map("attachment_name")
+  attachmentMimeType  String?   @map("attachment_mime_type")
+  attachmentSizeBytes BigInt?   @map("attachment_size_bytes")
+  metadata            Json?
+  createdAt           DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime? @map("updated_at") @db.Timestamptz(6)
+  branchId            String?   @map("branch_id") @db.Uuid
+
+  @@map("assignments")
+}
+
+model MobileGrade {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String?   @map("school_id") @db.Uuid
+  teacherId  String?   @map("teacher_id") @db.Uuid
+  studentId  String?   @map("student_id") @db.Uuid
+  assignmentId String? @map("assignment_id") @db.Uuid
+  subjectId  String?   @map("subject_id") @db.Uuid
+  classId    String?   @map("class_id") @db.Uuid
+  sectionId  String?   @map("section_id") @db.Uuid
+  subject    String?
+  examType   String?   @map("exam_type")
+  score      Decimal?  @db.Decimal
+  maxScore   Decimal?  @map("max_score") @db.Decimal
+  note       String?
+  gradedAt   DateTime? @map("graded_at") @db.Timestamptz(6)
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime? @map("updated_at") @db.Timestamptz(6)
+  branchId   String?   @map("branch_id") @db.Uuid
+
+  @@map("grades")
+}
+
+model AttendanceRecord {
+  id             String    @id @default(uuid()) @db.Uuid
+  studentId      String?   @map("student_id") @db.Uuid
+  schoolId       String?   @map("school_id") @db.Uuid
+  branchId       String?   @map("branch_id") @db.Uuid
+  attendanceDate DateTime? @map("attendance_date") @db.Date
+  status         String?
+  note           String?
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  @@map("attendance_records")
+}
+
+model Subject {
+  id        String    @id @default(uuid()) @db.Uuid
+  schoolId  String?   @map("school_id") @db.Uuid
+  name      String?
+  isActive  Boolean?  @map("is_active")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @map("updated_at") @db.Timestamptz(6)
+
+  @@map("subjects")
+}
+
+// NOTE: the `classes` table is already modeled above as `Class`. Mobile class
+// reads should reuse that model; no duplicate model is added here.
+
+model Question {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String?   @map("school_id") @db.Uuid
+  subject     String?
+  unit        String?
+  difficulty  String?
+  type        String?
+  prompt      String?
+  options     Json?
+  answer      String?
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  explanation String?
+  tags        String[]
+  timesUsed   Int?      @default(0) @map("times_used")
+  avgScore    Decimal?  @map("avg_score") @db.Decimal
+  section     String?
+
+  @@map("questions")
+}
+
+model Exam {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String?   @map("school_id") @db.Uuid
+  title        String?
+  type         String?
+  subject      String?
+  className    String?   @map("class_name")
+  totalMarks   Decimal?  @map("total_marks") @db.Decimal
+  startsAt     DateTime? @map("starts_at") @db.Timestamptz(6)
+  endsAt       DateTime? @map("ends_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  section      String?
+  status       String?   @default("draft")
+  description  String?
+  isRandomized Boolean?  @default(false) @map("is_randomized")
+
+  @@map("exams")
+}
+
+model ExamAttempt {
+  id               String    @id @default(uuid()) @db.Uuid
+  examId           String?   @map("exam_id") @db.Uuid
+  studentId        String?   @map("student_id") @db.Uuid
+  score            Decimal?  @db.Decimal
+  submittedAt      DateTime? @map("submitted_at") @db.Timestamptz(6)
+  schoolId         String?   @map("school_id") @db.Uuid
+  startedAt        DateTime? @map("started_at") @db.Timestamptz(6)
+  timeSpentSeconds Int?      @map("time_spent_seconds")
+  status           String?   @default("in_progress")
+  integrityScore   Int?      @map("integrity_score")
+  answersJson      Json?     @map("answers_json")
+  gradedBy         String?   @map("graded_by") @db.Uuid
+  gradedAt         DateTime? @map("graded_at") @db.Timestamptz(6)
+
+  @@map("exam_attempts")
+}
+
+model CalendarEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String?   @map("school_id") @db.Uuid
+  branchId    String?   @map("branch_id") @db.Uuid
+  title       String?
+  titleEn     String?   @map("title_en")
+  date        DateTime? @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  type        String?
+  hijriDate   String?   @map("hijri_date")
+  description String?
+  color       String?
+  isRecurring Boolean?  @map("is_recurring")
+  isGlobal      Boolean?  @map("is_global")
+  targetClass   String?   @map("target_class")
+  targetSection String?   @map("target_section")
+  reminderSent  Boolean?  @default(false) @map("reminder_sent")
+  createdBy     String?   @map("created_by") @db.Uuid
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([date, reminderSent])
+  @@map("calendar_events")
+}
+
+model Announcement {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String?   @map("school_id") @db.Uuid
+  authorId   String?   @map("author_id") @db.Uuid
+  authorName String?   @map("author_name")
+  title      String?
+  body       String?
+  kind       String?
+  linkUrl    String?   @map("link_url")
+  audience   String?
+  isActive   Boolean?  @map("is_active")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("announcements")
+}
+
+model Conversation {
+  id        String    @id @default(uuid()) @db.Uuid
+  schoolId  String?   @map("school_id") @db.Uuid
+  title     String?
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  conversationId String @map("conversation_id") @db.Uuid
+  userId         String @map("user_id") @db.Uuid
+
+  @@id([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String?   @map("conversation_id") @db.Uuid
+  senderId       String?   @map("sender_id") @db.Uuid
+  body           String?
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+
+  @@map("messages")
+}
+
+model BehaviorLog {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String?   @map("school_id") @db.Uuid
+  studentId    String?   @map("student_id") @db.Uuid
+  studentName  String?   @map("student_name")
+  behaviorType String?   @map("behavior_type")
+  points       Int?
+  note         String?
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("behavior_logs")
+}
+
+model UserPushSubscription {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String?   @map("user_id") @db.Uuid
+  schoolId         String?   @map("school_id") @db.Uuid
+  subscriptionJson Json?     @map("subscription_json")
+  platform         String?
+  isActive         Boolean?  @map("is_active")
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("user_push_subscriptions")
+}
+
+// ============================================================================
+// MOBILE APP ADMIN (Phase 4 — additive new tables)
+// ============================================================================
+
+model SchoolAppFeature {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  featureKey String   @map("feature_key")
+  isEnabled  Boolean  @default(true) @map("is_enabled")
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([schoolId, featureKey], map: "school_app_features_school_feature_unique")
+  @@index([schoolId])
+  @@map("school_app_features")
+}
+
+model AppConfig {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId  String?  @map("school_id") @db.Uuid
+  key       String
+  value     Json     @default("{}")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_config")
+}
+
+// ============================================================================
+// EXAM SYSTEM (Phase 1 — additive new tables)
+// ============================================================================
+
+model ExamQuestion {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examId     String    @map("exam_id") @db.Uuid
+  questionId String    @map("question_id") @db.Uuid
+  sortOrder  Int?      @default(0) @map("sort_order")
+  marks      Decimal?  @default(1) @db.Decimal
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([examId, questionId])
+  @@index([examId])
+  @@index([questionId])
+  @@map("exam_questions")
+}
+
+model ExamSetting {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examId                  String    @unique @map("exam_id") @db.Uuid
+  durationMinutes         Int?      @map("duration_minutes")
+  shuffleQuestions        Boolean?  @default(false) @map("shuffle_questions")
+  shuffleOptions          Boolean?  @default(false) @map("shuffle_options")
+  autoSubmit              Boolean?  @default(true) @map("auto_submit")
+  showResultsImmediately  Boolean?  @default(false) @map("show_results_immediately")
+  allowReview             Boolean?  @default(true) @map("allow_review")
+  lockBrowser             Boolean?  @default(false) @map("lock_browser")
+  maxAttempts             Int?      @default(1) @map("max_attempts")
+  passingMarks            Decimal?  @map("passing_marks") @db.Decimal
+  instructions            String?
+  createdAt               DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([examId])
+  @@map("exam_settings")
+}
+
+model StudentAnswer {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String    @map("attempt_id") @db.Uuid
+  questionId       String    @map("question_id") @db.Uuid
+  studentAnswer    Json?     @map("student_answer")
+  isCorrect        Boolean?  @map("is_correct")
+  marksAwarded     Decimal?  @default(0) @map("marks_awarded") @db.Decimal
+  timeSpentSeconds Int?      @map("time_spent_seconds")
+  flagged          Boolean?  @default(false)
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+  @@map("student_answers")
+}
+
+model ExamIntegrityLog {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId String    @map("attempt_id") @db.Uuid
+  eventType String    @map("event_type")
+  metadata  Json?
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([attemptId])
+  @@map("exam_integrity_logs")
+}
+
+model ExamRubric {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  criteria   String
+  maxMarks   Decimal  @map("max_marks") @db.Decimal
+  sortOrder  Int?     @default(0) @map("sort_order")
+
+  @@index([questionId])
+  @@map("exam_rubrics")
+}
+
+model ExamTemplate {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId  String    @map("school_id") @db.Uuid
+  name      String
+  type      String?
+  structure Json
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([schoolId])
+  @@map("exam_templates")
+}
+
+model ExamScheduleNotification {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examId     String    @map("exam_id") @db.Uuid
+  targetType String?   @map("target_type")
+  sentAt     DateTime? @default(now()) @map("sent_at") @db.Timestamptz(6)
+  channel    String?
+
+  @@index([examId])
+  @@map("exam_schedule_notifications")
+}
