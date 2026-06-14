@@ -86,7 +86,7 @@ export function AppSidebar({
   currentPath,
   showFloatingToggle = true,
 }: AppSidebarProps) {
-  const { role, profile } = useRole();
+  const { role, profile, canAccessPath } = useRole();
   const runtimeBranding = useRuntimeBranding();
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
@@ -129,10 +129,11 @@ export function AppSidebar({
     const scopedItems = isBranchUserProfile(profile)
       ? baseItems.filter((item) => item.id !== "dashboard")
       : baseItems;
-    if (!hasAssignedPageScope(profile)) return scopedItems;
+    const permittedItems = scopedItems.filter((item) => canAccessPath(item.href));
+    if (!hasAssignedPageScope(profile)) return permittedItems;
     const allowedPages = profile?.allowed_pages ?? [];
-    return scopedItems.filter((item) => allowedPages.includes(item.id));
-  }, [profile, role]);
+    return permittedItems.filter((item) => allowedPages.includes(item.id));
+  }, [profile, role, canAccessPath]);
 
   const groupedItems = useMemo(() => {
     const groups: Record<string, SidebarItem[]> = {};

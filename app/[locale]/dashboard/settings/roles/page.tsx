@@ -72,6 +72,7 @@ type RoleUser = {
   id: string;
   full_name: string;
   email: string;
+  phone?: string | null;
   job_title?: string | null;
   is_active?: boolean;
   is_single_page_user?: boolean | null;
@@ -737,7 +738,10 @@ function CreateUserModal({
 
 // ─── User Card ────────────────────────────────────────────────────────────────
 
-function UserCard({ user, accentColor }: { user: RoleUser; accentColor: string }) {
+function UserCard({ user, accentColor, onEdit, onDelete, onResetPassword, onViewActivity }: {
+  user: RoleUser; accentColor: string;
+  onEdit: () => void; onDelete: () => void; onResetPassword: () => void; onViewActivity: () => void;
+}) {
   const initials = getInitials(user.full_name);
   const active = user.is_active !== false;
   const rgb = hexToRgb(accentColor);
@@ -746,7 +750,6 @@ function UserCard({ user, accentColor }: { user: RoleUser; accentColor: string }
     <div className="flex items-center gap-3 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] hover:shadow-sm transition group"
       style={{ borderColor: `rgba(${rgb},0.2)` }}
     >
-      {/* Avatar */}
       <div className="w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center ring-2 transition"
         style={{ background: `rgba(${rgb},0.12)`, outline: `2px solid rgba(${rgb},0.3)` }}
       >
@@ -758,7 +761,6 @@ function UserCard({ user, accentColor }: { user: RoleUser; accentColor: string }
         )}
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{user.full_name}</p>
         <p className="text-[11px] text-[var(--text-muted)] truncate" dir="ltr">{user.email}</p>
@@ -767,7 +769,6 @@ function UserCard({ user, accentColor }: { user: RoleUser; accentColor: string }
         )}
       </div>
 
-      {/* Badges */}
       <div className="flex flex-col items-end gap-1 shrink-0">
         <span className={cn(
           "text-[10px] font-semibold px-2 py-0.5 rounded-full",
@@ -780,6 +781,299 @@ function UserCard({ user, accentColor }: { user: RoleUser; accentColor: string }
             صفحة واحدة
           </span>
         )}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition mt-1">
+          <button type="button" onClick={onEdit} title="تعديل"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition text-xs">✏️</button>
+          <button type="button" onClick={onResetPassword} title="إعادة تعيين كلمة المرور"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-amber-600 hover:bg-amber-500/10 transition text-xs">🔑</button>
+          <button type="button" onClick={onViewActivity} title="سجل العمليات"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-xs">📋</button>
+          <button type="button" onClick={onDelete} title="حذف"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-xs">🗑️</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit User Modal ─────────────────────────────────────────────────────────
+
+function EditUserModal({
+  user, roles, accentColor, onClose, onSaved,
+}: {
+  user: RoleUser; roles: SchoolRole[]; accentColor: string;
+  onClose: () => void; onSaved: () => void;
+}) {
+  const [fullName, setFullName] = useState(user.full_name);
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [jobTitle, setJobTitle] = useState(user.job_title ?? "");
+  const [isActive, setIsActive] = useState(user.is_active !== false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          phone: phone.trim() || null,
+          job_title: jobTitle.trim() || null,
+          is_active: isActive,
+        }),
+      });
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذر تحديث المستخدم");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const accentRgb = hexToRgb(accentColor);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir="rtl">
+      <form onSubmit={handleSubmit}
+        className="w-full max-w-md bg-[var(--surface-strong)] rounded-2xl border border-[var(--border)] shadow-2xl max-h-[85vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-[var(--text-primary)]">تعديل المستخدم</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">{user.email}</p>
+          </div>
+          <button type="button" onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-muted)] text-[var(--text-muted)]">✕</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6 space-y-4">
+          {error && (
+            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-xl px-3 py-2.5 border border-red-200 dark:border-red-900">
+              <span className="shrink-0 mt-0.5">⚠️</span><span>{error}</span>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">الاسم الكامل <span className="text-red-500">*</span></label>
+            <input className="w-full h-10 px-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              value={fullName} onChange={(e) => setFullName(e.target.value)} required minLength={2} autoFocus />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">رقم الهاتف</label>
+            <input type="tel" dir="ltr"
+              className="w-full h-10 px-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              placeholder="05xxxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">المسمى الوظيفي</label>
+            <input className="w-full h-10 px-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              placeholder="مثال: محاسب، مشرف..." value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)]">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">حالة الحساب</p>
+              <p className="text-[11px] text-[var(--text-muted)]">{isActive ? "الحساب نشط ويمكنه تسجيل الدخول" : "الحساب معطّل ولا يمكنه الدخول"}</p>
+            </div>
+            <button type="button" onClick={() => setIsActive((v) => !v)}
+              className={cn("w-11 h-6 rounded-full transition-colors relative", isActive ? "" : "bg-[var(--border)]")}
+              style={isActive ? { backgroundColor: `rgb(${accentRgb})` } : undefined}>
+              <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all",
+                isActive ? "start-[22px]" : "start-0.5")} />
+            </button>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-[var(--border)] flex gap-3 shrink-0">
+          <button type="submit" disabled={saving || !fullName.trim()}
+            className="flex-1 h-10 rounded-lg text-white text-sm font-semibold disabled:opacity-60 transition"
+            style={{ background: `linear-gradient(135deg, rgb(${accentRgb}), rgba(${accentRgb},0.75))` }}>
+            {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
+          </button>
+          <button type="button" onClick={onClose}
+            className="h-10 px-5 rounded-lg border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] transition">
+            إلغاء
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ─── Reset Password Modal ────────────────────────────────────────────────────
+
+function ResetPasswordModal({ user, onClose }: { user: RoleUser; onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleReset = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch<{ ok: boolean; temporary_password: string }>(
+        `/api/dashboard/users/${user.id}/reset-password`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) },
+      );
+      setTempPassword(res.temporary_password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذر إعادة تعيين كلمة المرور");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (!tempPassword) return;
+    navigator.clipboard.writeText(tempPassword).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir="rtl">
+      <div className="w-full max-w-sm bg-[var(--surface-strong)] rounded-2xl border border-[var(--border)] shadow-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-[var(--text-primary)]">إعادة تعيين كلمة المرور</h2>
+          <button type="button" onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[var(--surface-muted)] text-[var(--text-muted)]">✕</button>
+        </div>
+
+        <p className="text-sm text-[var(--text-secondary)]">
+          المستخدم: <span className="font-semibold text-[var(--text-primary)]">{user.full_name}</span>
+        </p>
+
+        {error && <p className="text-sm text-red-500 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">{error}</p>}
+
+        {tempPassword ? (
+          <div className="space-y-3">
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold mb-1">تم إعادة التعيين بنجاح</p>
+              <p className="text-xs text-[var(--text-muted)] mb-2">كلمة المرور المؤقتة:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-sm font-mono bg-white dark:bg-black/20 px-3 py-2 rounded-lg border border-[var(--border)] select-all" dir="ltr">
+                  {tempPassword}
+                </code>
+                <button type="button" onClick={handleCopy}
+                  className="h-9 px-3 rounded-lg border border-[var(--border)] text-xs font-semibold hover:bg-[var(--surface-muted)] transition">
+                  {copied ? "✓ تم" : "نسخ"}
+                </button>
+              </div>
+            </div>
+            <button type="button" onClick={onClose}
+              className="w-full h-10 rounded-lg border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] transition">
+              إغلاق
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={handleReset} disabled={loading}
+              className="flex-1 h-10 rounded-lg bg-amber-500 text-white text-sm font-semibold disabled:opacity-60 transition hover:bg-amber-600">
+              {loading ? "جاري إعادة التعيين..." : "إعادة تعيين"}
+            </button>
+            <button type="button" onClick={onClose}
+              className="flex-1 h-10 rounded-lg border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] transition">
+              إلغاء
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Activity Log Modal ──────────────────────────────────────────────────────
+
+type AuditEntry = {
+  id: string;
+  created_at: string;
+  actor_name: string | null;
+  actor_email: string | null;
+  action_type: string;
+  summary: string | null;
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  CREATE: "إنشاء",
+  UPDATE: "تعديل",
+  DELETE: "حذف",
+  RESET_PASSWORD: "إعادة تعيين كلمة المرور",
+};
+
+function ActivityLogModal({ user, onClose }: { user: RoleUser; onClose: () => void }) {
+  const [logs, setLogs] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch<{ ok: boolean; logs: AuditEntry[] }>(`/api/v1/users/${user.id}/activity?limit=50`)
+      .then((res) => setLogs(res.logs ?? []))
+      .catch((err) => setError(err instanceof Error ? err.message : "تعذر تحميل السجل"))
+      .finally(() => setLoading(false));
+  }, [user.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir="rtl">
+      <div className="w-full max-w-lg bg-[var(--surface-strong)] rounded-2xl border border-[var(--border)] shadow-2xl max-h-[80vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-[var(--text-primary)]">سجل العمليات</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">{user.full_name}</p>
+          </div>
+          <button type="button" onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-muted)] text-[var(--text-muted)]">✕</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-4">
+          {loading ? (
+            <p className="text-sm text-center text-[var(--text-muted)] py-8">جاري التحميل...</p>
+          ) : error ? (
+            <p className="text-sm text-center text-red-500 py-8">{error}</p>
+          ) : logs.length === 0 ? (
+            <p className="text-sm text-center text-[var(--text-muted)] py-8">لا توجد عمليات مسجلة</p>
+          ) : (
+            <div className="space-y-2">
+              {logs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)]">
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5",
+                    log.action_type === "DELETE" ? "bg-red-100 text-red-600 dark:bg-red-950/40" :
+                    log.action_type === "RESET_PASSWORD" ? "bg-amber-100 text-amber-600 dark:bg-amber-950/40" :
+                    log.action_type === "CREATE" ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40" :
+                    "bg-blue-100 text-blue-600 dark:bg-blue-950/40",
+                  )}>
+                    {log.action_type === "DELETE" ? "🗑" : log.action_type === "RESET_PASSWORD" ? "🔑" : log.action_type === "CREATE" ? "➕" : "✏️"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      {ACTION_LABELS[log.action_type] ?? log.action_type}
+                    </p>
+                    {log.summary && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{log.summary}</p>}
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--text-muted)]">
+                      {log.actor_name && <span>{log.actor_name}</span>}
+                      <span dir="ltr">{new Date(log.created_at).toLocaleString("ar-IQ")}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-3 border-t border-[var(--border)] shrink-0">
+          <button type="button" onClick={onClose}
+            className="w-full h-9 rounded-lg border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] transition">
+            إغلاق
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -814,6 +1108,9 @@ export default function RolesPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
+  const [editingUser, setEditingUser] = useState<RoleUser | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<RoleUser | null>(null);
+  const [activityLogUser, setActivityLogUser] = useState<RoleUser | null>(null);
 
   // System color sync — reads from branch branding
   const originalVarsRef = useRef<Record<string, string> | null>(null);
@@ -911,6 +1208,16 @@ export default function RolesPage() {
       .catch((err) => setUsersError(err instanceof Error ? err.message : "خطأ"))
       .finally(() => setLoadingUsers(false));
   }, [selectedRoleId]);
+
+  const handleDeleteUser = useCallback(async (userId: string, userName: string) => {
+    if (!confirm(`هل أنت متأكد من حذف "${userName}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    try {
+      await apiFetch(`/api/v1/users/${userId}`, { method: "DELETE" });
+      reloadUsers();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "تعذر حذف المستخدم");
+    }
+  }, [reloadUsers]);
 
   const handleSave = useCallback(async () => {
     if (!selectedRoleId) return;
@@ -1241,7 +1548,13 @@ export default function RolesPage() {
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {roleUsers.map((u) => <UserCard key={u.id} user={u} accentColor={accentColor} />)}
+                          {roleUsers.map((u) => (
+                            <UserCard key={u.id} user={u} accentColor={accentColor}
+                              onEdit={() => setEditingUser(u)}
+                              onDelete={() => handleDeleteUser(u.id, u.full_name)}
+                              onResetPassword={() => setResetPasswordUser(u)}
+                              onViewActivity={() => setActivityLogUser(u)} />
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1341,6 +1654,27 @@ export default function RolesPage() {
               accentColor={accentColor}
               onClose={() => setShowCreateUser(false)}
               onCreated={reloadUsers}
+            />
+          )}
+          {editingUser && (
+            <EditUserModal
+              user={editingUser}
+              roles={roles}
+              accentColor={accentColor}
+              onClose={() => setEditingUser(null)}
+              onSaved={reloadUsers}
+            />
+          )}
+          {resetPasswordUser && (
+            <ResetPasswordModal
+              user={resetPasswordUser}
+              onClose={() => setResetPasswordUser(null)}
+            />
+          )}
+          {activityLogUser && (
+            <ActivityLogModal
+              user={activityLogUser}
+              onClose={() => setActivityLogUser(null)}
             />
           )}
         </div>

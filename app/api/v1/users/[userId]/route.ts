@@ -3,10 +3,15 @@ import { z } from "zod";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { jsonError } from "@/lib/route-utils";
+import { writeAuditLog } from "@/lib/audit/audit-log";
 
 const patchUserSchema = z.object({
   avatar_url: z.string().url().nullable().optional(),
   school_role_id: z.string().uuid().nullable().optional(),
+  full_name: z.string().min(2).max(100).optional(),
+  phone: z.string().max(30).nullable().optional(),
+  job_title: z.string().max(100).nullable().optional(),
+  is_active: z.boolean().optional(),
 });
 
 export async function PATCH(
@@ -29,6 +34,10 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = {};
   if (parsed.data.avatar_url !== undefined) updates.avatar_url = parsed.data.avatar_url;
+  if (parsed.data.full_name !== undefined) updates.full_name = parsed.data.full_name.trim();
+  if (parsed.data.phone !== undefined) updates.phone = parsed.data.phone;
+  if (parsed.data.job_title !== undefined) updates.job_title = parsed.data.job_title;
+  if (parsed.data.is_active !== undefined) updates.is_active = parsed.data.is_active;
 
   const { targetSchoolId, actorUserId } = context.value;
   const service = createServiceSupabaseClient();
@@ -65,6 +74,69 @@ export async function PATCH(
 
   if (error) return jsonError("تعذر تحديث بيانات المستخدم", 500);
   if (!updated) return jsonError("المستخدم غير موجود أو لا تملك صلاحية تعديله", 404);
+
+  writeAuditLog({
+    actor_user_id: actorUserId,
+    action_type: "UPDATE",
+    entity_type: "user",
+    entity_id: userId,
+    summary: `تعديل بيانات المستخدم`,
+    school_id: targetSchoolId,
+    metadata: updates,
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> },
+) {
+  const { userId } = await params;
+  const context = await resolveSchoolScopedActorContext(
+    null,
+    { allowedRoles: ["admin", "super_admin"], roleDeniedMessage: "غير مصرح" },
+    req.headers.get("authorization"),
+  );
+  if (!context.ok) {
+    return jsonError("message" in context ? context.message : "غير مصرح", "status" in context ? context.status : 403);
+  }
+
+  const { targetSchoolId, actorUserId } = context.value;
+
+  if (userId === actorUserId) {
+    return jsonError("لا يمكنك حذف حسابك الخاص", 403);
+  }
+
+  const service = createServiceSupabaseClient();
+
+  const { data: user } = await service
+    .from("user_profiles")
+    .select("id")
+    .eq("id", userId)
+    .eq("school_id", targetSchoolId)
+    .maybeSingle();
+
+  if (!user) return jsonError("المستخدم غير موجود", 404);
+
+  const { error: delError } = await service
+    .from("user_profiles")
+    .delete()
+    .eq("id", userId)
+    .eq("school_id", targetSchoolId);
+
+  if (delError) return jsonError("تعذر حذف المستخدم", 500);
+
+  await service.auth.admin.deleteUser(userId).catch(() => {});
+
+  writeAuditLog({
+    actor_user_id: actorUserId,
+    action_type: "DELETE",
+    entity_type: "user",
+    entity_id: userId,
+    summary: `حذف مستخدم`,
+    school_id: targetSchoolId,
+  });
 
   return NextResponse.json({ ok: true });
 }

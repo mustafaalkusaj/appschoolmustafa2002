@@ -5,9 +5,9 @@ import { jsonError } from "@/lib/route-utils";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ roleId: string }> },
+  { params }: { params: Promise<{ userId: string }> },
 ) {
-  const { roleId } = await params;
+  const { userId } = await params;
   const context = await resolveSchoolScopedActorContext(
     null,
     { allowedRoles: ["admin", "super_admin"], roleDeniedMessage: "غير مصرح" },
@@ -18,25 +18,29 @@ export async function GET(
   }
 
   const { targetSchoolId } = context.value;
+  const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || "50"), 100);
+
   const service = createServiceSupabaseClient();
 
-  const { data: role } = await service
-    .from("school_roles")
+  const { data: userCheck } = await service
+    .from("user_profiles")
     .select("id")
-    .eq("id", roleId)
+    .eq("id", userId)
     .eq("school_id", targetSchoolId)
     .maybeSingle();
 
-  if (!role) return jsonError("الدور غير موجود", 404);
+  if (!userCheck) return jsonError("المستخدم غير موجود", 404);
 
   const { data, error } = await service
-    .from("user_profiles")
-    .select("id, full_name, email, avatar_url, is_active, job_title, phone, is_single_page_user")
-    .eq("school_role_id", roleId)
+    .from("audit_logs")
+    .select("id, created_at, actor_name, actor_email, action_type, entity_type, summary, metadata")
     .eq("school_id", targetSchoolId)
-    .order("full_name");
+    .eq("entity_type", "user")
+    .eq("entity_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-  if (error) { return jsonError("تعذر تحميل المستخدمين", 500); }
+  if (error) return jsonError("تعذر تحميل سجل العمليات", 500);
 
-  return NextResponse.json({ ok: true, users: data ?? [] });
+  return NextResponse.json({ ok: true, logs: data ?? [] });
 }

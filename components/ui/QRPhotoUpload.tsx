@@ -31,23 +31,23 @@ export function QRPhotoUpload({ schoolId, studentId, onPhotoUploaded, onCancel, 
     setErrorMsg("");
 
     try {
-      const sb = getSupabase();
-      const { data, error } = await sb
-        .from("upload_sessions")
-        .insert({
-          school_id: schoolId,
-          student_id: studentId || null,
-          status: "pending",
-        })
-        .select("token, expires_at")
-        .single();
+      const res = await fetch("/api/web/upload/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schoolId, studentId: studentId || null }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.ok) throw new Error(result.error?.message ?? result.error ?? "Failed to create session");
 
-      if (error || !data) throw error || new Error("Failed to create session");
+      const sessionToken = result.token as string;
+      const sessionExpiry = result.expires_at as string;
 
-      setToken(data.token);
-      setExpiresAt(new Date(data.expires_at));
-      setTimeLeft(Math.max(0, Math.floor((new Date(data.expires_at).getTime() - Date.now()) / 1000)));
+      setToken(sessionToken);
+      setExpiresAt(new Date(sessionExpiry));
+      setTimeLeft(Math.max(0, Math.floor((new Date(sessionExpiry).getTime() - Date.now()) / 1000)));
       setStatus("waiting");
+
+      const sb = getSupabase();
 
       // Subscribe to realtime
       if (channelRef.current) {
@@ -55,14 +55,14 @@ export function QRPhotoUpload({ schoolId, studentId, onPhotoUploaded, onCancel, 
       }
 
       const channel = sb
-        .channel(`upload-${data.token}`)
+        .channel(`upload-${sessionToken}`)
         .on(
           "postgres_changes",
           {
             event: "UPDATE",
             schema: "public",
             table: "upload_sessions",
-            filter: `token=eq.${data.token}`,
+            filter: `token=eq.${sessionToken}`,
           },
           (payload: { new: Record<string, unknown> }) => {
             const row = payload.new as { status: string; image_url: string | null };

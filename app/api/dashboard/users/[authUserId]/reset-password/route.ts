@@ -9,6 +9,7 @@ import {
 } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { writeAuditLog } from "@/lib/audit/audit-log";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -75,6 +76,15 @@ export async function POST(
   // Pass the plaintext password to the account card builder for one-time reveal
   const accountCard = await buildManagedUserAccountCard(actorSupabase, user, {
     temporaryPassword,
+  });
+
+  writeAuditLog({
+    actor_user_id: actorUserId,
+    action_type: "RESET_PASSWORD",
+    entity_type: "user",
+    entity_id: authUserId,
+    summary: "إعادة تعيين كلمة المرور",
+    school_id: targetSchoolId,
   });
 
   return NextResponse.json({
