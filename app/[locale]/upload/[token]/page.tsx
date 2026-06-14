@@ -91,26 +91,17 @@ export default function MobileUploadPage() {
     setErrorMsg("");
 
     try {
-      const sb = getAnonSupabase();
       const compressed = await compressImage(capturedFile);
-      const fileName = `temp/${token}/photo.webp`;
+      const formData = new FormData();
+      formData.append("token", token);
+      formData.append("file", compressed, "photo.webp");
 
-      const { error: uploadError } = await sb.storage
-        .from("student-photos")
-        .upload(fileName, compressed, { contentType: "image/webp", upsert: true });
+      const res = await fetch("/api/web/upload/mobile", { method: "POST", body: formData });
+      const json = await res.json();
 
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = sb.storage.from("student-photos").getPublicUrl(fileName);
-      const imageUrl = urlData.publicUrl;
-
-      const { error: updateError } = await sb
-        .from("upload_sessions")
-        .update({ status: "completed", image_url: imageUrl })
-        .eq("token", token)
-        .eq("status", "pending");
-
-      if (updateError) throw updateError;
+      if (!res.ok) {
+        throw new Error(json?.error?.message || "فشل رفع الصورة");
+      }
 
       setStatus("success");
     } catch (err) {
