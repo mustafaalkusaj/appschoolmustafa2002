@@ -17,7 +17,7 @@ import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useBranchScope } from "@/hooks/useBranchScope";
 import { useRuntimeBranding } from "@/hooks/brand";
 import { getLocaleFromPath } from "@/lib/locale-routing";
-import { School, Layers } from "@/lib/icons";
+import { School, Layers, Banknote } from "@/lib/icons";
 import { cn } from "@/lib/brand/brand-utils";
 import { useClassesSections } from "../dashboard/_hooks/useClassesSections";
 import { useDashboardData } from "../dashboard/_hooks/useDashboardData";
@@ -27,6 +27,7 @@ import { ClassFeesTable, FeeModal } from "../dashboard/_components";
 import { ClassFormModal } from "./_components/ClassFormModal";
 import { SectionFormModal } from "./_components/SectionFormModal";
 import { ClassesTable } from "./_components/ClassesTable";
+import { UnifiedClassesTable } from "./_components/UnifiedClassesTable";
 import { SectionsTable } from "./_components/SectionsTable";
 import { ClassesStats } from "./_components/ClassesStats";
 import { ClassStudentsList } from "./_components/ClassStudentsList";
@@ -57,6 +58,7 @@ export default function ClassesPage() {
     selectedSchoolId: schoolScope.selectedSchoolId,
     scopeLoading: schoolScope.scopeLoading,
     branchScoped: !!effectiveBranchId,
+    branchId: effectiveBranchId,
   });
 
   const dashboardData = useDashboardData({
@@ -81,6 +83,7 @@ export default function ClassesPage() {
   // Local UI state
   const [activeView, setActiveView] = useState<"classes" | "sections">("classes");
   const [search, setSearch] = useState("");
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const [showClassForm, setShowClassForm] = useState(false);
   const [showSectionForm, setShowSectionForm] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
@@ -155,12 +158,32 @@ export default function ClassesPage() {
   }, [classesSections]);
 
   const handleSaveClass = useCallback(async () => {
-    await classesSections.handleSaveClass(classForm, editingClass, () => {
+    await classesSections.handleSaveClass(classForm, editingClass, async () => {
+      if (!editingClass && classForm.total_fee && Number(classForm.total_fee) > 0) {
+        try {
+          const res = await fetch("/api/web/dashboard/class-fees", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "save",
+              school_id: schoolScope.selectedSchoolId,
+              branch_id: effectiveBranchId || null,
+              branch_scoped: !!effectiveBranchId,
+              fee_id: null,
+              class_name: classForm.name.trim(),
+              total_fee: classForm.total_fee,
+              installments: classForm.installments || "4",
+              notes: "",
+            }),
+          });
+          if (res.ok) dashboardData.refetch();
+        } catch {}
+      }
       setShowClassForm(false);
       setEditingClass(null);
       setClassForm({ name: "", sections: [] });
     });
-  }, [classForm, editingClass, classesSections]);
+  }, [classForm, editingClass, classesSections, schoolScope.selectedSchoolId, effectiveBranchId, dashboardData]);
 
   const handleSaveSection = useCallback(async () => {
     await classesSections.handleSaveSection(sectionForm, editingSection, () => {
@@ -417,14 +440,26 @@ export default function ClassesPage() {
                     })}
                   </div>
 
-                  {/* Toolbar: Search only */}
-                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-4">
+                  {/* Toolbar: Search + Add dropdown */}
+                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-4 flex items-center justify-between gap-3">
                     <Input
                       placeholder={isEn ? "Search..." : "بحث..."}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="w-full sm:w-64"
                     />
+                    {canManageClasses && (
+                      <button
+                        onClick={openAddClass}
+                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-xs font-black text-white transition-all whitespace-nowrap"
+                        style={{
+                          background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--success)))",
+                          boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 30%, transparent)",
+                        }}
+                      >
+                        + {isEn ? "Add Class" : "إضافة صف"}
+                      </button>
+                    )}
                   </div>
 
                   {/* Tab Content */}
@@ -440,72 +475,37 @@ export default function ClassesPage() {
                       >
                         {activeView === "classes" ? (
                           <>
-                            {/* Class actions */}
-                            {canManageClasses && (
-                              <div className="flex justify-end">
-                                <button
-                                  onClick={feeManagement.openNewFee}
-                                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl border-none text-xs font-black text-white transition-all"
-                                  style={{
-                                    background: "linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success) 70%, #34d399))",
-                                    boxShadow: "0 4px 14px color-mix(in srgb, var(--success) 40%, transparent)",
-                                  }}
-                                >
-                                  + {isEn ? "Add Tuition Fee" : "إضافة قسط دراسي"}
-                                </button>
-                              </div>
-                            )}
-                            {/* Fees table */}
-                            <ClassFeesTable
-                              classFees={dashboardData.classFees}
-                              showFeesTable={true}
-                              canManageClasses={canManageClasses}
-                              loading={dashboardData.loading}
-                              error={dashboardData.error ?? null}
-                              onRetry={dashboardData.refetch}
-                              deleteConfirm={feeManagement.deleteConfirm}
-                              getClassStats={feeManagement.getClassStats}
-                              onOpenNewFee={feeManagement.openNewFee}
-                              onEditFee={feeManagement.openEditFee}
-                              onDeleteFee={(id) => feeManagement.setDeleteConfirm(id)}
-                              onCancelDelete={() => feeManagement.setDeleteConfirm(null)}
-                              onConfirmDelete={feeManagement.handleDeleteFee}
-                            />
-                            {/* Classes list */}
+                            {/* Unified classes + fees table */}
                             {filteredClasses.length === 0 ? (
                               <EmptyState
                                 title={isEn ? "No classes yet" : "لا توجد صفوف"}
                                 description={isEn ? "Add your first class to get started" : "أضف أول صف للبدء"}
                               />
                             ) : (
-                              <ClassesTable
+                              <UnifiedClassesTable
                                 classes={filteredClasses}
                                 sections={classesSections.sections}
+                                classFees={dashboardData.classFees}
                                 canManage={canManageClasses}
-                                confirmDeleteId={confirmDeleteClassId}
                                 selectedClassId={selectedClassId}
-                                onSelect={handleSelectClass}
-                                onEdit={openEditClass}
-                                onDelete={handleDeleteClass}
-                                onConfirmDelete={setConfirmDeleteClassId}
-                                onCancelDelete={() => setConfirmDeleteClassId(null)}
+                                confirmDeleteClassId={confirmDeleteClassId}
+                                confirmDeleteFeeId={feeManagement.deleteConfirm}
+                                getClassStats={feeManagement.getClassStats}
+                                onSelectClass={handleSelectClass}
+                                onEditClass={openEditClass}
+                                onDeleteClass={handleDeleteClass}
+                                onConfirmDeleteClass={setConfirmDeleteClassId}
+                                onCancelDeleteClass={() => setConfirmDeleteClassId(null)}
+                                onEditFee={feeManagement.openEditFee}
+                                onDeleteFee={(id) => feeManagement.setDeleteConfirm(id)}
+                                onConfirmDeleteFee={feeManagement.handleDeleteFee}
+                                onCancelDeleteFee={() => feeManagement.setDeleteConfirm(null)}
                                 locale={locale}
                               />
                             )}
                           </>
                         ) : (
                           <div className="space-y-4">
-                            {/* Section actions */}
-                            {canManageClasses && (
-                              <div className="flex justify-end">
-                                <button
-                                  onClick={openAddSection}
-                                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text-secondary)] bg-[var(--surface-soft)] hover:bg-[var(--card-bg)] hover:text-[var(--primary)] transition-all"
-                                >
-                                  + {isEn ? "Add Section" : "إضافة شعبة"}
-                                </button>
-                              </div>
-                            )}
                             {selectedClass && (
                               <div className="flex items-center justify-between p-3 rounded-xl bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] border border-[color-mix(in_srgb,var(--primary)_20%,transparent)]">
                                 <div className="flex flex-wrap items-center gap-2">

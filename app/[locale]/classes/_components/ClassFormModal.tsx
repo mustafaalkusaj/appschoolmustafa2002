@@ -60,20 +60,61 @@ export function ClassFormModal({
               onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
             />
           </FormField>
-          <FormField
-            label={isEn ? "Sections" : "الشعب"}
-            htmlFor="class-sections"
-            helpText={isEn ? "Optional: one section per line (e.g. A, B, C)" : "اختياري: كل شعبة في سطر — مثال: أ، ب، ج"}
-          >
-            <textarea
-              id="class-sections"
-              className="w-full min-h-[80px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
-              rows={3}
-              value={classForm.sections.join("\n")}
-              onChange={(e) => setClassForm({ ...classForm, sections: e.target.value.split("\n") })}
-              placeholder={isEn ? "Leave empty if no sections\nA\nB\nC" : "اتركه فارغاً إذا ماكو شعب\nأ\nب\nج"}
-            />
-          </FormField>
+          {editingClass && (
+            <FormField
+              label={isEn ? "Sections" : "الشعب"}
+              htmlFor="class-sections"
+              helpText={isEn ? "Optional: one section per line (e.g. A, B, C)" : "اختياري: كل شعبة في سطر — مثال: أ، ب، ج"}
+            >
+              <textarea
+                id="class-sections"
+                className="w-full min-h-[80px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+                rows={3}
+                value={classForm.sections.join("\n")}
+                onChange={(e) => setClassForm({ ...classForm, sections: e.target.value.split("\n") })}
+                placeholder={isEn ? "Leave empty if no sections\nA\nB\nC" : "اتركه فارغاً إذا ماكو شعب\nأ\nب\nج"}
+              />
+            </FormField>
+          )}
+
+          {!editingClass && (
+            <>
+              <div className="border-t border-[var(--border)] pt-4 mt-2">
+                <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wide mb-3">
+                  {isEn ? "Tuition Fee" : "القسط الدراسي"}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  label={isEn ? "Total Fee" : "مبلغ القسط"}
+                  htmlFor="class-total-fee"
+                >
+                  <Input
+                    id="class-total-fee"
+                    type="number"
+                    min="0"
+                    placeholder={isEn ? "e.g. 500000" : "مثال: 500000"}
+                    value={classForm.total_fee ?? ""}
+                    onChange={(e) => setClassForm({ ...classForm, total_fee: e.target.value })}
+                  />
+                </FormField>
+                <FormField
+                  label={isEn ? "Installments" : "عدد الأقساط"}
+                  htmlFor="class-installments"
+                >
+                  <Input
+                    id="class-installments"
+                    type="number"
+                    min="1"
+                    max="12"
+                    placeholder="4"
+                    value={classForm.installments ?? ""}
+                    onChange={(e) => setClassForm({ ...classForm, installments: e.target.value })}
+                  />
+                </FormField>
+              </div>
+            </>
+          )}
         </div>
       </ModalBody>
       <ModalFooter>
