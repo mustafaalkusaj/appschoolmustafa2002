@@ -6,6 +6,7 @@ import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-u
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError, jsonValidationError, logRouteError } from "@/lib/route-utils";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
 import { buildResolvedStudentFinancials, calculateStudentPaidPercentage } from "@/lib/students/financials";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
@@ -516,6 +517,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       ...payload,
+    }, {
+      headers: getCacheHeaders(CACHE_STRATEGIES.DASHBOARD_OVERVIEW),
     });
   } catch (error) {
     logRouteError("dashboard-overview", error, {

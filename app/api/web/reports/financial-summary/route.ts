@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError } from "@/lib/route-utils";
 import { generateFinancialSummaryReport } from "@/lib/reports/pdf-generator";
 
@@ -16,6 +17,17 @@ export async function GET(req: NextRequest) {
     return jsonError("schoolId, from, and to are required.", 400);
   }
 
+  // Validate date range — prevent absurdly wide ranges (max 2 years)
+  const fromTs = Date.parse(from);
+  const toTs = Date.parse(to.includes("T") ? to : `${to}T23:59:59.999`);
+  if (isNaN(fromTs) || isNaN(toTs) || fromTs > toTs) {
+    return jsonError("نطاق التاريخ غير صالح.", 400);
+  }
+  const MAX_RANGE_MS = 2 * 365 * 24 * 60 * 60 * 1000; // 2 years
+  if (toTs - fromTs > MAX_RANGE_MS) {
+    return jsonError("نطاق التاريخ كبير جدًا. الحد الأقصى سنتان.", 400);
+  }
+
   const context = await resolveSchoolScopedActorContext(
     schoolId,
     { allowedRoles: ["super_admin", "admin"], roleDeniedMessage: "غير مصرح بالوصول." },
@@ -28,7 +40,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { actorSupabase, targetSchoolId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "financial-summary-report",
+    windowMs: 60_000,
+    maxHits: 20,
+    identifier: actorUserId,
+  });
+  if (rateLimited) return rateLimited;
 
   const requestedBranchId = url.searchParams.get("branchId") ?? url.searchParams.get("branch_id");
   const branchScope = resolveBranchScope(context.value, requestedBranchId);
@@ -42,7 +62,8 @@ export async function GET(req: NextRequest) {
         actorSupabase
           .from("students")
           .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee")
-          .eq("school_id", targetSchoolId),
+          .eq("school_id", targetSchoolId)
+          .limit(10_000),
         branchScope.value,
       ),
       applyBranchScopeToQuery(
@@ -51,7 +72,8 @@ export async function GET(req: NextRequest) {
           .select("id, amount, payment_method")
           .eq("school_id", targetSchoolId)
           .gte("created_at", from)
-          .lte("created_at", to.includes("T") ? to : `${to}T23:59:59.999`),
+          .lte("created_at", to.includes("T") ? to : `${to}T23:59:59.999`)
+          .limit(10_000),
         branchScope.value,
       ),
       applyBranchScopeToQuery(
@@ -60,14 +82,16 @@ export async function GET(req: NextRequest) {
           .select("id, amount")
           .eq("school_id", targetSchoolId)
           .gte("expense_date", from)
-          .lte("expense_date", to),
+          .lte("expense_date", to)
+          .limit(10_000),
         branchScope.value,
       ),
       applyBranchScopeToQuery(
         actorSupabase
           .from("salaries")
           .select("id, gross_salary, deductions")
-          .eq("school_id", targetSchoolId),
+          .eq("school_id", targetSchoolId)
+          .limit(10_000),
         branchScope.value,
       ),
       applyBranchScopeToQuery(
@@ -76,7 +100,8 @@ export async function GET(req: NextRequest) {
           .select("id, amount")
           .eq("school_id", targetSchoolId)
           .gte("income_date", from)
-          .lte("income_date", to),
+          .lte("income_date", to)
+          .limit(10_000),
         branchScope.value,
       ),
       actorSupabase

@@ -11,6 +11,26 @@
 const BAGHDAD_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 /**
+ * Appends the Baghdad UTC+3 offset to a timezone-naive datetime string.
+ *
+ * `<input type="datetime-local">` produces strings like "2026-06-17T09:00"
+ * with no timezone info. When inserted into a `timestamptz` column, Postgres
+ * treats them as UTC, causing a 3-hour shift. This helper appends "+03:00"
+ * so Postgres stores the intended Baghdad local time correctly.
+ *
+ * Already-qualified strings (containing '+', '-' offset, or 'Z') pass through
+ * unchanged.
+ */
+export function toBaghdadTimestamp(dt: string | null | undefined): string | null {
+  if (!dt) return null;
+  // Already has timezone info — leave it alone
+  if (/[Zz]$/.test(dt) || /[+-]\d{2}:\d{2}$/.test(dt)) return dt;
+  // Ensure seconds component for ISO 8601 compliance
+  const normalized = dt.length === 16 ? `${dt}:00` : dt; // "2026-06-17T09:00" → "2026-06-17T09:00:00"
+  return `${normalized}+03:00`;
+}
+
+/**
  * Returns the end of day (23:59:59.999) for the given date interpreted
  * in Baghdad local time, expressed as a UTC Date.
  *

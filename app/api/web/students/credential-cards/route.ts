@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { buildSafeOrFilter } from "@/lib/supabase-query-helpers";
 
 function jsonError(message: string, status: number) {
@@ -35,6 +36,15 @@ export async function GET(req: NextRequest) {
   if (!branchScope.ok) {
     return jsonError(branchScope.message, branchScope.status);
   }
+
+  const { actorUserId } = context.value;
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "credential-cards",
+    windowMs: 60_000,
+    maxHits: 10,
+    identifier: actorUserId,
+  });
+  if (rateLimited) return rateLimited;
 
   let query = applyBranchScopeToQuery(
     context.value.actorSupabase

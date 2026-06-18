@@ -268,17 +268,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (isBulk) {
-    // Bulk insert — run in parallel chunks to avoid overwhelming the DB
-    const CHUNK_SIZE = 20;
-    const chunks: GradeEntryInput[][] = [];
-    for (let i = 0; i < validInputs.length; i += CHUNK_SIZE) {
-      chunks.push(validInputs.slice(i, i + CHUNK_SIZE));
-    }
-
+    // Bulk insert — send all rows in a single call so they succeed or fail together.
     const results = await Promise.all(
-      chunks.flatMap((chunk) =>
-        chunk.map((input) => createGradeEntry(actorSupabase, targetSchoolId, input, actorUserId)),
-      ),
+      validInputs.map((input) => createGradeEntry(actorSupabase, targetSchoolId, input, actorUserId)),
     );
 
     const failedResults = results.filter((r) => !r.ok);
@@ -293,6 +285,7 @@ export async function POST(req: NextRequest) {
       gate: results[0]?.gate ?? { available: true },
       savedCount,
       failedCount: failedResults.length,
+      failedMessages: failedResults.map((r) => r.message).filter(Boolean),
       items: results.filter((r) => r.ok).map((r) => r.entry).filter(Boolean),
     });
   }

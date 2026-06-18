@@ -4,6 +4,23 @@ import { z } from "zod";
 
 import { getPublicEnv } from "@/lib/env/public";
 
+// Critical vars that must be present at startup in production.
+// SUPABASE_URL and SUPABASE_ANON_KEY are validated by getPublicEnv() (public.ts).
+// Here we gate the server-only secrets.
+function requireEnv(name: string): void {
+  if (!process.env[name]) {
+    throw new Error(
+      `Missing required environment variable: ${name}. ` +
+        `Set it in .env.local (dev) or your deployment secrets (production).`,
+    );
+  }
+}
+
+if (process.env.NODE_ENV === "production") {
+  requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  requireEnv("RBAC_COOKIE_SECRET");
+}
+
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().trim().min(1).optional(),
   RBAC_COOKIE_SECRET: z.string().trim().min(32).optional(),

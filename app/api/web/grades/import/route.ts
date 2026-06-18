@@ -168,6 +168,12 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    const effectiveMaxScore = maxScore > 0 ? maxScore : 100
+    if (totalScore > effectiveMaxScore) {
+      errors.push(`الصف ${i + 1}: مجموع الدرجات (${totalScore}) يتجاوز الحد الأقصى (${effectiveMaxScore}).`)
+      continue
+    }
+
     const input: GradeEntryInput = {
       student_id: studentId,
       subject_id: subjectId,

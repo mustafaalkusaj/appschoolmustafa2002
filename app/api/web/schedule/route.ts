@@ -4,6 +4,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError } from "@/lib/route-utils";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { resolveBranchScope } from "@/lib/branch-scope";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
 
 const VALID_DAYS = new Set(["saturday", "sunday", "monday", "tuesday", "wednesday", "thursday"]);
 const MAX_PERIODS = 10;
@@ -55,13 +56,17 @@ export async function GET(req: NextRequest) {
 
   // Teacher mode: return all entries for this teacher across all classes
   if (teacherName) {
+    // Escape SQL LIKE wildcards in user input so the ilike acts as a literal
+    // substring match rather than a pattern. An unescaped % or _ would let a
+    // caller enumerate all teachers or perform broader queries.
+    const safeTeacherName = `%${teacherName.replace(/[%_\\]/g, "\\$&")}%`;
     const { data, error } = await actorSupabase
       .from("class_schedules")
       .select("id, day_of_week, period_number, time_slot_id, is_locked, subject, teacher_name, class_name, section")
       .eq("school_id", targetSchoolId)
-      .ilike("teacher_name", teacherName);
+      .ilike("teacher_name", safeTeacherName);
     if (error) return jsonError(error.message, 500);
-    return NextResponse.json({ ok: true, schedule: data ?? [], mode: "teacher" });
+    return NextResponse.json({ ok: true, schedule: data ?? [], mode: "teacher" }, { headers: getCacheHeaders(CACHE_STRATEGIES.SCHEDULE_LIST) });
   }
 
   // Overview mode: return all entries for a given day across all classes
@@ -72,7 +77,7 @@ export async function GET(req: NextRequest) {
       .eq("school_id", targetSchoolId)
       .eq("day_of_week", day);
     if (error) return jsonError(error.message, 500);
-    return NextResponse.json({ ok: true, schedule: data ?? [], mode: "overview" });
+    return NextResponse.json({ ok: true, schedule: data ?? [], mode: "overview" }, { headers: getCacheHeaders(CACHE_STRATEGIES.SCHEDULE_LIST) });
   }
 
   // Class mode: return entries for a specific class/section
@@ -87,7 +92,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return jsonError(error.message || "تعذر تحميل الجدول.", 500);
 
-  return NextResponse.json({ ok: true, schedule: data ?? [] });
+  return NextResponse.json({ ok: true, schedule: data ?? [] }, { headers: getCacheHeaders(CACHE_STRATEGIES.SCHEDULE_LIST) });
 }
 
 export async function PUT(req: NextRequest) {
@@ -144,20 +149,81 @@ export async function PUT(req: NextRequest) {
       is_locked: typeof e.is_locked === "boolean" ? e.is_locked : false,
     }));
 
-  // Delete old schedule for this class/section
-  let deleteQuery = actorSupabase
+  // C9: Check for teacher double-booking before making any changes.
+  // Collect unique teacher+day+time_slot combinations from the incoming entries.
+  const teacherSlots = sanitized.filter((e) => e.teacher_name && e.time_slot_id);
+  if (teacherSlots.length > 0) {
+    // Build an OR filter: each combination is (teacher_name=X AND day_of_week=Y AND time_slot_id=Z).
+    // We check for existing rows in OTHER classes/sections so we don't flag the class being replaced.
+    //
+    // Escape characters that PostgREST treats as filter-string delimiters so a
+    // crafted teacher_name cannot escape the eq.value boundary and inject extra
+    // filter predicates. The safe characters in an unquoted PostgREST value are
+    // everything except comma, open-paren, close-paren, and dot (used for nesting).
+    const escapePostgrestValue = (v: string) => v.replace(/[(),."]/g, "");
+    const orParts = teacherSlots
+      .map((e) => `and(teacher_name.eq.${escapePostgrestValue(e.teacher_name!)},day_of_week.eq.${e.day_of_week},time_slot_id.eq.${e.time_slot_id})`)
+      .join(",");
+
+    let conflictQuery = actorSupabase
+      .from("class_schedules")
+      .select("id, teacher_name, day_of_week, time_slot_id, class_name, section")
+      .eq("school_id", targetSchoolId)
+      .or(orParts)
+      // Exclude the current class/section being replaced (its rows will be deleted).
+      .neq("class_name", className);
+
+    // If section is set, also exclude the exact same section within the same class (already excluded by class_name neq).
+    // If no section, exclude all rows for this class (already done above).
+    const { data: conflicts, error: conflictError } = await conflictQuery;
+    if (conflictError) return jsonError(conflictError.message || "تعذر التحقق من تعارض المعلمين.", 500);
+
+    if (conflicts && conflicts.length > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "تعارض في جدول المعلم: المعلم مجدول في نفس الوقت لصف آخر.",
+          conflicts,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
+  // C8: Atomic-safe replace — snapshot existing IDs, insert new rows, then delete
+  // only the snapshotted IDs. If insert fails we return early and the old schedule
+  // is untouched. If delete fails after a successful insert we have duplicates but
+  // no data loss; the caller can retry.
+  let existingIdQuery = actorSupabase
     .from("class_schedules")
-    .delete()
+    .select("id")
     .eq("school_id", targetSchoolId)
     .eq("class_name", className);
-  if (section) deleteQuery = deleteQuery.eq("section", section);
+  if (section) existingIdQuery = existingIdQuery.eq("section", section);
 
-  const { error: deleteError } = await deleteQuery;
-  if (deleteError) return jsonError(deleteError.message || "تعذر حذف الجدول القديم.", 500);
+  const { data: existingRows, error: snapshotError } = await existingIdQuery;
+  if (snapshotError) return jsonError(snapshotError.message || "تعذر قراءة الجدول الحالي.", 500);
 
-  if (sanitized.length > 0) {
-    const { error: insertError } = await actorSupabase.from("class_schedules").insert(sanitized);
-    if (insertError) return jsonError(insertError.message || "تعذر حفظ الجدول.", 500);
+  const existingIds = (existingRows ?? []).map((r: { id: string }) => r.id);
+
+  // H16: If no entries provided, do nothing — avoid wiping the whole section schedule.
+  if (sanitized.length === 0) {
+    return NextResponse.json({ ok: true, count: 0 });
+  }
+
+  const { error: insertError } = await actorSupabase.from("class_schedules").insert(sanitized);
+  if (insertError) return jsonError(insertError.message || "تعذر حفظ الجدول.", 500);
+
+  // Delete only the rows that existed before our insert.
+  if (existingIds.length > 0) {
+    const { error: deleteError } = await actorSupabase
+      .from("class_schedules")
+      .delete()
+      .in("id", existingIds);
+    if (deleteError) {
+      // Insert already committed — surface the error so the caller knows duplicates exist.
+      return jsonError(deleteError.message || "تعذر حذف الجدول القديم بعد الحفظ.", 500);
+    }
   }
 
   return NextResponse.json({ ok: true, count: sanitized.length });

@@ -294,6 +294,7 @@ export function usePaymentOperations(
           onPaymentCreated?.(newPayment, student);
         }
 
+        onMetaRefresh();
         onSuccess?.("تم تسجيل الدفعة بنجاح ✓");
         setShowPayModal(false);
         setPayForm(initialPayForm);

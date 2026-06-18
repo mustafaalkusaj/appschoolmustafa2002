@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import type { TimeSlot, WorkingDay } from "./useTimeSlotsSettings";
 
@@ -63,6 +63,14 @@ export function useSchedule(
   timeSlots: TimeSlot[] = [],
   workingDays: WorkingDay[] = [],
 ) {
+  // Stabilize array references so parent re-renders that produce new array
+  // instances (inline literals, .filter()) don't recreate fetchSchedule and
+  // trigger unnecessary re-fetch cascades. We serialize to a string dep so
+  // useMemo only fires when the actual content changes, not on identity change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableTimeSlots = useMemo(() => timeSlots, [JSON.stringify(timeSlots)]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableWorkingDays = useMemo(() => workingDays, [JSON.stringify(workingDays)]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedSection, setSelectedSection] = useState<string>("");
   const [grid, setGrid] = useState<ScheduleGrid | null>(null);
@@ -82,7 +90,7 @@ export function useSchedule(
         if (section) params.set("section", section);
         const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; schedule?: ScheduleEntry[]; message?: string }>(`/api/web/schedule?${params}`);
         if (response.ok && payload?.ok) {
-          setGrid(buildGrid(payload.schedule ?? [], timeSlots, workingDays));
+          setGrid(buildGrid(payload.schedule ?? [], stableTimeSlots, stableWorkingDays));
         } else {
           setError(payload?.message || "تعذر تحميل الجدول.");
         }
@@ -92,8 +100,7 @@ export function useSchedule(
         setLoading(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [schoolId, timeSlots, workingDays],
+    [schoolId, stableTimeSlots, stableWorkingDays],
   );
 
   useEffect(() => {
@@ -104,14 +111,6 @@ export function useSchedule(
     }
   }, [selectedClass, selectedSection, fetchSchedule]);
 
-  // Rebuild grid when timeSlots/workingDays change but we already have entries
-  useEffect(() => {
-    if (grid && (timeSlots.length > 0 || workingDays.length > 0)) {
-      void fetchSchedule(selectedClass, selectedSection);
-    }
-    // Only trigger on slot/day config changes, not grid itself
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeSlots, workingDays]);
 
   const updateCell = useCallback(
     (day: string, slotKey: string, subject: string, teacherName: string) => {
@@ -161,6 +160,8 @@ export function useSchedule(
       const fromCell = prev[from.day]?.[from.slotId];
       const toCell = prev[to.day]?.[to.slotId];
       if (!fromCell) return prev;
+      // Refuse to move into or out of a locked slot.
+      if (fromCell.is_locked || toCell?.is_locked) return prev;
       return {
         ...prev,
         [from.day]: { ...prev[from.day], [from.slotId]: toCell ?? { subject: "", teacher_name: null, is_locked: false } },
@@ -176,11 +177,11 @@ export function useSchedule(
     setSaveSuccess(false);
     try {
       const entries: ScheduleEntry[] = [];
-      const activeDays = workingDays.length > 0
-        ? workingDays.filter((d) => d.is_active).map((d) => d.day_key)
+      const activeDays = stableWorkingDays.length > 0
+        ? stableWorkingDays.filter((d) => d.is_active).map((d) => d.day_key)
         : [...SCHEDULE_DAYS];
-      const activeSlots = timeSlots.length > 0
-        ? timeSlots.filter((s) => s.is_active)
+      const activeSlots = stableTimeSlots.length > 0
+        ? stableTimeSlots.filter((s) => s.is_active)
         : SCHEDULE_PERIODS.map((p) => ({ id: String(p), slot_type: "period" as const, slot_order: p }));
 
       for (const day of activeDays) {
@@ -223,7 +224,7 @@ export function useSchedule(
     } finally {
       setSaving(false);
     }
-  }, [schoolId, selectedClass, selectedSection, grid, timeSlots, workingDays]);
+  }, [schoolId, selectedClass, selectedSection, grid, stableTimeSlots, stableWorkingDays]);
 
   return {
     selectedClass,

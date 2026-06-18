@@ -66,3 +66,8 @@ next-env.d.ts
 
 audit/
 logs/
+
+# leftover scripts / backups (do not rsync to prod)
+.tmp-*
+.env.bak*
+*.bak-fra-*

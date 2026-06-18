@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { logRouteError } from "@/lib/route-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,8 @@ export async function GET(request: NextRequest) {
 
   const { data, error, count } = await query;
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    logRouteError("behavior/GET", error);
+    return NextResponse.json({ ok: false, error: "تعذر تحميل سجل السلوك." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, items: data ?? [], page, limit, total: count ?? 0 });
@@ -84,7 +86,8 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    logRouteError("behavior/POST", error);
+    return NextResponse.json({ ok: false, error: "تعذر حفظ سجل السلوك." }, { status: 500 });
   }
 
   // Send push notification to student (fire-and-forget)
@@ -126,7 +129,8 @@ export async function DELETE(request: NextRequest) {
   const { actorSupabase, targetSchoolId } = context.value;
   const { error } = await actorSupabase.from("behavior_logs").delete().eq("id", id).eq("school_id", targetSchoolId);
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    logRouteError("behavior/DELETE", error);
+    return NextResponse.json({ ok: false, error: "تعذر حذف سجل السلوك." }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

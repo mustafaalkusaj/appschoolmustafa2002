@@ -4,6 +4,7 @@ import { resolveBranchScope } from "@/lib/branch-scope";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { exportPaymentStudents, parsePaymentsListFilters, type PaymentStudentRecord } from "@/lib/payments/overview";
+import { routeUserHasPermission } from "@/lib/route-permissions";
 import { buildStyledWorkbook } from "@/lib/excel-builder";
 
 function jsonError(message: string, status: number) {
@@ -64,14 +65,20 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const rateLimited = await enforceRateLimit(req, {
-    namespace: "payments-export",
-    windowMs: 60_000,
-    maxHits: 15,
-    identifier: actorUserId,
-  });
-  if (rateLimited) {
-    return rateLimited;
+
+  const [rateLimited, canViewPayments] = await Promise.all([
+    enforceRateLimit(req, {
+      namespace: "payments-export",
+      windowMs: 60_000,
+      maxHits: 15,
+      identifier: actorUserId,
+    }),
+    routeUserHasPermission(actorSupabase, actorUserId, "view_payments"),
+  ]);
+
+  if (rateLimited) return rateLimited;
+  if (!canViewPayments) {
+    return jsonError("ليس لديك صلاحية تصدير بيانات المدفوعات.", 403);
   }
 
   const format = req.nextUrl.searchParams.get("format")?.toLowerCase();

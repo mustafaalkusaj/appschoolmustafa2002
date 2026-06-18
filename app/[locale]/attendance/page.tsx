@@ -12,6 +12,7 @@ import { SchoolScopeBanner, SchoolScopeEmptyState } from "@/components/SchoolSco
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { useRuntimeBranding } from "@/hooks/brand";
+import { useBranchScope } from "@/hooks/useBranchScope";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { cn } from "@/lib/brand/brand-utils";
@@ -322,6 +323,8 @@ export default function AttendancePage() {
   const statusMeta = useMemo(() => buildStatusMeta(copy), [copy]);
   const { profile } = useRole();
   const runtimeBranding = useRuntimeBranding();
+  const branchScope = useBranchScope(profile);
+  const effectiveBranchId = runtimeBranding.branchId ?? profile?.branch_id ?? branchScope.selectedBranchId ?? null;
   const schoolScope = useSchoolScope(profile);
   const archiveMode = useArchiveMode();
   const [students, setStudents] = useState<Student[]>([]);
@@ -375,8 +378,8 @@ export default function AttendancePage() {
       schoolId: scopedSchoolId,
       date: dateValue,
     });
-    if (runtimeBranding.branchId) {
-      params.set("branchId", runtimeBranding.branchId);
+    if (effectiveBranchId) {
+      params.set("branchId", effectiveBranchId);
     }
 
     const { response, payload } = await fetchJsonWithAuthorizedSession<AttendanceSnapshotResponse>(
@@ -422,7 +425,7 @@ export default function AttendancePage() {
     setHistoryRows(payload.history ?? []);
     setLoadingStudents(false);
     setLoadingAttendance(false);
-  }, [profile, schoolScope.selectedSchoolId, copy, runtimeBranding.branchId, locale]);
+  }, [profile, schoolScope.selectedSchoolId, copy, effectiveBranchId, locale]);
 
   useEffect(() => {
     return () => {
@@ -492,7 +495,7 @@ export default function AttendancePage() {
     setLoadingRepeated(true);
     try {
       const params = new URLSearchParams({ schoolId: scopedSchoolId, threshold: String(threshold) });
-      if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
+      if (effectiveBranchId) params.set("branchId", effectiveBranchId);
       const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok: boolean; students: RepeatedAbsenceStudent[] }>(
         `/api/web/attendance/repeated-absences?${params.toString()}`,
       );
@@ -506,7 +509,7 @@ export default function AttendancePage() {
     } finally {
       setLoadingRepeated(false);
     }
-  }, [profile, schoolScope.selectedSchoolId, runtimeBranding.branchId]);
+  }, [profile, schoolScope.selectedSchoolId, effectiveBranchId]);
 
   useEffect(() => {
     if (schoolScope.scopeLoading || schoolScope.shouldBlockContent) return;
@@ -545,8 +548,8 @@ export default function AttendancePage() {
       attendance_date: selectedDate,
       entries: payload,
     };
-    if (runtimeBranding.branchId) {
-      saveBody.branch_id = runtimeBranding.branchId;
+    if (effectiveBranchId) {
+      saveBody.branch_id = effectiveBranchId;
     }
 
     const { response, payload: result } = await fetchJsonWithAuthorizedSession<AttendanceSaveResponse>(

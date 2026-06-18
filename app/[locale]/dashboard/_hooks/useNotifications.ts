@@ -46,7 +46,10 @@ export function useNotifications({ profile, scopeLoading }: UseNotificationsProp
         const relationMissing = fetchError.message.includes('relation "notifications" does not exist');
         setNotificationsEnabled(!relationMissing);
         setNotifications([]);
-        setError(relationMissing ? null : fetchError.message);
+        if (!relationMissing) {
+          console.error("[useNotifications] fetch error:", fetchError.message);
+        }
+        setError(relationMissing ? null : "dashboard_notifications_failed");
         return;
       }
 

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Providers } from "@/app/[locale]/providers";
 import { ToastProvider } from "@/components/toast";
 import { primaryFont } from "./fonts";
@@ -33,7 +32,6 @@ export default async function AppLayout({
             {children}
           </ToastProvider>
         </Providers>
-        {process.env.VERCEL === "1" ? <SpeedInsights /> : null}
       </body>
     </html>
   );

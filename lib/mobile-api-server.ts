@@ -1365,6 +1365,15 @@ export async function sendConversationMessage(
     return { ok: false, gate: AVAILABLE_GATE, message: "نص الرسالة مطلوب." };
   }
 
+  const MESSAGE_MAX_LENGTH = 5000;
+  if (body.length > MESSAGE_MAX_LENGTH) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: `نص الرسالة يتجاوز الحد الأقصى المسموح (${MESSAGE_MAX_LENGTH} حرف).`,
+    };
+  }
+
   // Conversation must belong to the caller's school.
   const conversation = await ctx.serviceSupabase
     .from("conversations")

@@ -41,9 +41,17 @@ function normalizeNote(value: unknown) {
   return normalized.length > 0 ? normalized.slice(0, 500) : null;
 }
 
-function getLocalIsoDate(date: Date) {
-  const shift = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - shift).toISOString().slice(0, 10);
+/** Baghdad is always UTC+3 — no DST. Matches the constant in lib/tz.ts. */
+const BAGHDAD_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Returns today's date as YYYY-MM-DD in Asia/Baghdad (UTC+3).
+ * Must NOT use Date.getTimezoneOffset() — the production server runs in UTC
+ * so getTimezoneOffset() returns 0, causing a 3-hour drift that rolls the
+ * date back to "yesterday" before 03:00 Baghdad time.
+ */
+function getBaghdadIsoDate(date: Date = new Date()): string {
+  return new Date(date.getTime() + BAGHDAD_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 function buildHistory(rows: Array<{ attendance_date: string; status: AttendanceStatus }>) {
@@ -106,7 +114,7 @@ async function resolveAttendanceContext(req: NextRequest, schoolId: string | nul
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
-  const date = normalizeDate(req.nextUrl.searchParams.get("date")) ?? getLocalIsoDate(new Date());
+  const date = normalizeDate(req.nextUrl.searchParams.get("date")) ?? getBaghdadIsoDate();
 
   const context = await resolveAttendanceContext(req, schoolId, "attendance-snapshot", 120);
   if (!context.ok) {
@@ -120,7 +128,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
-  const fromDate = getLocalIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 30 * 24 * 60 * 60 * 1000));
+  const fromDate = getBaghdadIsoDate(new Date(new Date(`${date}T00:00:00`).getTime() - 30 * 24 * 60 * 60 * 1000));
 
   // Run permission check and all data queries in parallel
   const [canViewAttendance, studentsResult, recordsResult, historyResult] = await Promise.all([
@@ -150,7 +158,8 @@ export async function GET(req: NextRequest) {
       .select("attendance_date, status")
       .eq("school_id", targetSchoolId)
       .gte("attendance_date", fromDate)
-      .lte("attendance_date", date),
+      .lte("attendance_date", date)
+      .limit(10_000),
       branchScope.value,
     ),
   ]);
@@ -237,8 +246,14 @@ export async function POST(req: NextRequest) {
     return jsonError("ليس لديك صلاحية تسجيل الحضور.", 403);
   }
 
+  // Reject future dates — attendance cannot be recorded for a date that hasn't
+  // happened yet in Baghdad timezone.
+  const todayDate = getBaghdadIsoDate();
+  if (attendanceDate > todayDate) {
+    return jsonError("لا يمكن تسجيل الحضور لتاريخ مستقبلي.", 400);
+  }
+
   // Lock: employees cannot edit attendance for past dates
-  const todayDate = getLocalIsoDate(new Date());
   if (attendanceDate < todayDate) {
     const { data: actorProfile } = await actorSupabase
       .from("user_profiles")
@@ -281,6 +296,7 @@ export async function POST(req: NextRequest) {
     return jsonError(writeBranch.message, writeBranch.status);
   }
 
+  const now = new Date().toISOString();
   const payload = entries.map((entry) => ({
     school_id: targetSchoolId,
     branch_id: writeBranch.value ?? branchByStudentId.get(entry.student_id) ?? null,
@@ -288,6 +304,8 @@ export async function POST(req: NextRequest) {
     attendance_date: attendanceDate,
     status: entry.status,
     note: entry.note,
+    updated_by: context.value.actorUserId,
+    updated_at: now,
   }));
 
   const { error } = await actorSupabase

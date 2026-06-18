@@ -66,6 +66,7 @@ export function ClassesModal({
   locale = "ar",
 }: ClassesModalProps) {
   const [showSectionsTable, setShowSectionsTable] = useState(false);
+  const [showAddDropdown, setShowAddDropdown] = useState(false);
   const [showClassForm, setShowClassForm] = useState(false);
   const [showSectionForm, setShowSectionForm] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
@@ -140,41 +141,66 @@ export function ClassesModal({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button
-              className="fee-btn"
-              onClick={() => {
-                onClearFeedback();
-                setEditingClass(null);
-                setClassForm({ name: "", sections: [] });
-                setShowClassForm(true);
-                setShowSectionForm(false);
-              }}
-              style={{ fontSize: ".8rem", padding: ".55rem 1rem" }}
-            >
-              + إضافة صف جديد
-            </button>
-            <button
-              className="fee-btn"
-              onClick={() => {
-                onClearFeedback();
-                setEditingSection(null);
-                setSectionForm({ class_id: classes[0]?.id ?? "", name: "" });
-                setShowSectionForm(true);
-                setShowClassForm(false);
-              }}
-              style={{ fontSize: ".8rem", padding: ".55rem 1rem" }}
-            >
-              + إضافة شعبة جديدة
-            </button>
-            {onOpenNewFee && (
+            <div className="relative">
               <button
                 className="fee-btn"
-                onClick={onOpenNewFee}
-                style={{ fontSize: ".8rem", padding: ".55rem 1rem", background: "var(--success)" }}
+                onClick={() => setShowAddDropdown((v) => !v)}
+                onBlur={() => setTimeout(() => setShowAddDropdown(false), 150)}
+                style={{ fontSize: ".8rem", padding: ".55rem 1.2rem" }}
               >
-                + إضافة قسط دراسي
+                + إضافة ▾
               </button>
-            )}
+              {showAddDropdown && (
+                <div style={{ position: "absolute", top: "100%", insetInlineStart: 0, marginTop: 4, zIndex: 50, minWidth: 180, borderRadius: 12, border: "1px solid var(--border)", background: "var(--card-bg)", boxShadow: "0 8px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+                  <button
+                    style={{ width: "100%", display: "block", padding: ".6rem 1rem", fontSize: ".8rem", fontWeight: 600, textAlign: "start", background: "transparent", border: "none", cursor: "pointer" }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onClearFeedback();
+                      setEditingClass(null);
+                      setClassForm({ name: "", sections: [] });
+                      setShowClassForm(true);
+                      setShowSectionForm(false);
+                      setShowAddDropdown(false);
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = "var(--surface-soft)")}
+                    onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    📚 إضافة صف جديد
+                  </button>
+                  <button
+                    style={{ width: "100%", display: "block", padding: ".6rem 1rem", fontSize: ".8rem", fontWeight: 600, textAlign: "start", background: "transparent", border: "none", cursor: "pointer" }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onClearFeedback();
+                      setEditingSection(null);
+                      setSectionForm({ class_id: classes[0]?.id ?? "", name: "" });
+                      setShowSectionForm(true);
+                      setShowClassForm(false);
+                      setShowAddDropdown(false);
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = "var(--surface-soft)")}
+                    onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    🏫 إضافة شعبة جديدة
+                  </button>
+                  {onOpenNewFee && (
+                    <button
+                      style={{ width: "100%", display: "block", padding: ".6rem 1rem", fontSize: ".8rem", fontWeight: 600, textAlign: "start", background: "transparent", border: "none", cursor: "pointer", color: "var(--success)" }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onOpenNewFee();
+                        setShowAddDropdown(false);
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.background = "var(--surface-soft)")}
+                      onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      💰 إضافة قسط دراسي
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               className="fee-btn-outline"
               onClick={() => setShowSectionsTable(v => !v)}

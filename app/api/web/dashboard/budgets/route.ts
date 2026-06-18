@@ -182,7 +182,13 @@ export async function POST(req: NextRequest) {
 
       if (itemsError) {
         console.error("[Budgets] Items insert error:", itemsError);
-        // Don't fail the whole operation, just log
+        // Roll back the budget header to avoid an orphaned empty budget
+        await actorSupabase
+          .from("budgets")
+          .delete()
+          .eq("id", budget.id)
+          .eq("school_id", targetSchoolId);
+        return jsonError("تعذر حفظ بنود الموازنة. لم يتم إنشاء الموازنة.", 500);
       }
     }
 

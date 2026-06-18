@@ -491,10 +491,112 @@ export async function createGradeEntry(
 }
 
 /**
- * @deprecated Use createGradeEntry for new entries.
- * Kept for backward compatibility during migration.
+ * Upserts a grade entry by natural key (school_id, student_id, subject_id, academic_year, semester).
+ * Re-importing the same Excel will update existing rows instead of creating duplicates.
+ * Requires a unique constraint on those columns in the grade_entries table.
  */
-export const upsertGradeEntry = createGradeEntry
+export async function upsertGradeEntry(
+  serviceSupabase: SupabaseClient,
+  schoolId: string,
+  input: GradeEntryInput,
+  authUserId: string,
+): Promise<GradeEntryMutationResult> {
+  try {
+    const percentage = computePercentage(input.score, input.max_score)
+    const gradeLabel = resolveGradeLabel(input.score, input.max_score)
+    const now = new Date().toISOString()
+
+    const safeGradeTypeId = input.grade_type_id?.startsWith('synthetic_') ? null : (input.grade_type_id ?? null)
+
+    const payload: Record<string, unknown> = {
+      school_id: schoolId,
+      student_id: input.student_id,
+      subject_id: input.subject_id,
+      class_id: input.class_id ?? null,
+      section_id: input.section_id ?? null,
+      teacher_id: input.teacher_id ?? null,
+      grade_type_id: safeGradeTypeId,
+      grade_type_name: input.grade_type_name ?? '',
+      academic_year: input.academic_year,
+      semester: input.semester,
+      score: input.score,
+      max_score: input.max_score,
+      percentage,
+      grade_label: gradeLabel,
+      note: typeof input.note === 'string' ? input.note.trim() || null : null,
+      notification_sent: false,
+      status: input.status ?? 'draft',
+      exam_photos: Array.isArray(input.exam_photos) ? input.exam_photos : [],
+      created_by: authUserId,
+      updated_by: authUserId,
+      created_at: now,
+      updated_at: now,
+    }
+
+    const { data, error } = await serviceSupabase
+      .from('grade_entries')
+      .upsert(payload, {
+        onConflict: 'school_id,student_id,subject_id,academic_year,semester',
+        ignoreDuplicates: false,
+      })
+      .select('*')
+      .maybeSingle()
+
+    if (error) {
+      if (isMissingTableError(error)) {
+        return {
+          ok: false,
+          gate: { available: false, code: 'missing_table', message: 'جدول grade_entries غير جاهز بعد.' },
+          message: 'جدول grade_entries غير جاهز بعد.',
+        }
+      }
+      // If the unique constraint doesn't exist yet, fall back to insert
+      if (error.code === '42P10' || error.code === '42703') {
+        return createGradeEntry(serviceSupabase, schoolId, input, authUserId)
+      }
+      throw error
+    }
+
+    const savedEntry = data as LookupRecord | null
+    const entryId = nullableText(savedEntry?.id)
+
+    if (entryId) {
+      const newEntryChanges = [
+        { field: 'score', oldValue: null, newValue: input.score },
+        { field: 'max_score', oldValue: null, newValue: input.max_score },
+        { field: 'grade_type_id', oldValue: null, newValue: input.grade_type_id },
+      ]
+      void writeGradeAuditLog(serviceSupabase, schoolId, entryId, authUserId, newEntryChanges)
+    }
+
+    if (input.send_notification && entryId) {
+      void sendGradeNotification(serviceSupabase, schoolId, entryId, {
+        student_id: input.student_id,
+        score: input.score,
+        max_score: input.max_score,
+        grade_type_name: input.grade_type_name ?? undefined,
+      }, authUserId)
+    }
+
+    const enriched = savedEntry
+      ? (await enrichGradeEntryRows(serviceSupabase, [savedEntry]))[0]
+      : undefined
+
+    return {
+      ok: true,
+      gate: AVAILABLE_GATE,
+      entry: enriched,
+      message: 'تم حفظ الدرجة بنجاح.',
+    }
+  } catch (err) {
+    console.error('[upsertGradeEntry] failed:', err)
+    return {
+      ok: false,
+      gate: featureGateFromError(err, 'grade_entries'),
+      message: readErrorMessage(err, 'تعذر حفظ الدرجة.'),
+    }
+  }
+}
 
 export interface GradeMutationResult {
   ok: boolean

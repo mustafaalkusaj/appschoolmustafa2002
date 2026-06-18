@@ -25,8 +25,46 @@ function InfoCard({ children }: { children: React.ReactNode }) {
   );
 }
 
+const CONTRACT_TYPE_AR: Record<string, string> = {
+  full_time: "دوام كامل",
+  part_time: "دوام جزئي",
+  substitute: "بديل",
+  volunteer: "متطوع",
+};
+
+const CONTRACT_TYPE_EN: Record<string, string> = {
+  full_time: "Full Time",
+  part_time: "Part Time",
+  substitute: "Substitute",
+  volunteer: "Volunteer",
+};
+
+const QUALIFICATION_AR: Record<string, string> = {
+  diploma: "دبلوم",
+  bachelor: "بكالوريوس",
+  master: "ماجستير",
+  phd: "دكتوراه",
+  other: "أخرى",
+};
+
+const QUALIFICATION_EN: Record<string, string> = {
+  diploma: "Diploma",
+  bachelor: "Bachelor",
+  master: "Master",
+  phd: "PhD",
+  other: "Other",
+};
+
 export function SubjectsTab({ teacher, locale }: Props) {
   const isEn = locale === "en";
+
+  const contractLabel = teacher.contract_type
+    ? (isEn ? CONTRACT_TYPE_EN[teacher.contract_type] : CONTRACT_TYPE_AR[teacher.contract_type]) ?? teacher.contract_type
+    : null;
+
+  const qualificationLabel = teacher.qualification
+    ? (isEn ? QUALIFICATION_EN[teacher.qualification] : QUALIFICATION_AR[teacher.qualification]) ?? teacher.qualification
+    : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -46,7 +84,7 @@ export function SubjectsTab({ teacher, locale }: Props) {
           />
           <Field
             label={isEn ? "Qualification" : "المؤهل العلمي"}
-            value={teacher.qualification}
+            value={qualificationLabel}
           />
           <Field
             label={isEn ? "University" : "الجامعة"}
@@ -83,7 +121,7 @@ export function SubjectsTab({ teacher, locale }: Props) {
           />
           <Field
             label={isEn ? "Contract Type" : "نوع العقد"}
-            value={teacher.contract_type}
+            value={contractLabel}
           />
         </InfoCard>
       </div>

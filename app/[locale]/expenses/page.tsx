@@ -978,28 +978,29 @@ export default function ExpensesPage() {
                       {/* Action buttons */}
                       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                         <div className="flex items-center gap-0.5 p-1 rounded-2xl border border-[var(--border)]" style={{ background: "var(--surface-soft)" }}>
-                          <button onClick={activeTab === "invoices" ? exportExcel : exportTypesExcel}
+                          <button type="button" onClick={activeTab === "invoices" ? exportExcel : exportTypesExcel}
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border-none text-xs font-bold text-[var(--text-muted)] bg-transparent cursor-pointer transition-all hover:bg-[var(--card-bg)] hover:text-[var(--success)] hover:shadow-sm">
                             <Download size={14} /><span className="hidden sm:inline">Excel</span>
                           </button>
-                          <button onClick={exportCsv}
+                          <button type="button" onClick={exportCsv}
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border-none text-xs font-bold text-[var(--text-muted)] bg-transparent cursor-pointer transition-all hover:bg-[var(--card-bg)] hover:text-[var(--primary)] hover:shadow-sm">
                             <Download size={14} /><span className="hidden sm:inline">CSV</span>
                           </button>
-                          <button onClick={exportPdf}
+                          <button type="button" onClick={exportPdf}
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border-none text-xs font-bold text-[var(--text-muted)] bg-transparent cursor-pointer transition-all hover:bg-[var(--card-bg)] hover:text-[var(--warning)] hover:shadow-sm">
                             <Printer size={14} /><span className="hidden sm:inline">PDF</span>
                           </button>
-                          <button onClick={fetchAll}
+                          <button type="button" onClick={fetchAll}
                             className="inline-flex items-center justify-center h-9 w-9 rounded-xl border-none text-[var(--text-muted)] bg-transparent cursor-pointer transition-all hover:bg-[var(--card-bg)] hover:text-[var(--primary)] hover:shadow-sm">
                             <RefreshCw size={14} />
                           </button>
                         </div>
                         {!archiveMode.isArchiveMode && (
                           <motion.button
+                            type="button"
                             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                             className="inline-flex items-center gap-2 h-10 px-5 rounded-xl border-none text-sm font-black text-white cursor-pointer"
-                            style={{ background: "var(--primary)", boxShadow: "0 4px 18px color-mix(in srgb, var(--primary) 40%, transparent)" }}
+                            style={{ background: activeTab === "invoices" ? "var(--primary)" : "var(--success)", boxShadow: activeTab === "invoices" ? "0 4px 18px color-mix(in srgb, var(--primary) 40%, transparent)" : "0 4px 18px color-mix(in srgb, var(--success) 40%, transparent)" }}
                             onClick={() => {
                               if (activeTab === "invoices") { setEditExpense(null); setForm({ expense_type_id: "", amount: "", expense_date: new Date().toISOString().split("T")[0], recipient: "", receipt_number: "", notes: "", receipt_image_url: null }); setShowExpenseForm(true); }
                               else { setEditType(null); setTypeForm({ name: "", notes: "" }); setShowTypeForm(true); }

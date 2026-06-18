@@ -215,11 +215,11 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
   }, [profile, selectedSchoolId]);
 
   const handleAdd = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!canManageStudentAccounts) {
       modals.setError(copy.noCreatePermission);
       return;
     }
-    e.preventDefault();
     modals.setSaving(true);
     modals.setError("");
 

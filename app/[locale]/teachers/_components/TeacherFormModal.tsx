@@ -313,9 +313,9 @@ export function TeacherFormModal({ show, editing, loading, error, onConfirm, onC
                 </select>
               </Field>
               <Field label={isEn ? "Blood Type" : "فصيلة الدم"}>
-                <select className={inputClass} value={form.blood_type} onChange={(e) => set("blood_type", e.target.value)}>
+                <select dir="ltr" className={inputClass} value={form.blood_type} onChange={(e) => set("blood_type", e.target.value)}>
                   <option value="">{isEn ? "Select..." : "اختر..."}</option>
-                  {BLOOD_TYPES.map((b) => <option key={b} value={b}>{b}</option>)}
+                  {BLOOD_TYPES.map((b) => <option key={b} value={b}>{"‎" + b}</option>)}
                 </select>
               </Field>
               <Field label={isEn ? "Status" : "الحالة"}>

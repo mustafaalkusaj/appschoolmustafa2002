@@ -51,6 +51,38 @@ export async function POST(
       );
     }
 
+    // Validate each answer entry has the required shape.
+    const MAX_ANSWERS = 500;
+    if (body.answers.length > MAX_ANSWERS) {
+      return NextResponse.json(
+        { ok: false, error: { message: `يتجاوز عدد الإجابات الحد الأقصى (${MAX_ANSWERS}).` } },
+        { status: 400 },
+      );
+    }
+    for (let i = 0; i < body.answers.length; i++) {
+      const ans = body.answers[i];
+      if (typeof ans !== "object" || ans === null) {
+        return NextResponse.json(
+          { ok: false, error: { message: `answers[${i}]: يجب أن يكون كائناً صالحاً.` } },
+          { status: 400 },
+        );
+      }
+      const questionId = (ans as Record<string, unknown>).question_id ?? (ans as Record<string, unknown>).questionId;
+      if (typeof questionId !== "string" || questionId.trim() === "") {
+        return NextResponse.json(
+          { ok: false, error: { message: `answers[${i}]: الحقل question_id مطلوب وينبغي أن يكون نصاً.` } },
+          { status: 400 },
+        );
+      }
+      const answerValue = (ans as Record<string, unknown>).answer;
+      if (answerValue === undefined || answerValue === null || answerValue === "") {
+        return NextResponse.json(
+          { ok: false, error: { message: `answers[${i}]: الحقل answer مطلوب ولا يجوز أن يكون فارغاً.` } },
+          { status: 400 },
+        );
+      }
+    }
+
     // Verify attempt belongs to this student and is in_progress
     const { data: attempt, error: attemptError } = await supabase
       .from("exam_attempts")

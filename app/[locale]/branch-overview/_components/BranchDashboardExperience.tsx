@@ -72,6 +72,7 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
     selectedSchoolId: schoolScope.selectedSchoolId,
     scopeLoading: schoolScope.scopeLoading,
     branchScoped: true,
+    branchId: profile?.branch_id ?? null,
   });
 
   const availableClassNames = Array.isArray(classesSections.classes)

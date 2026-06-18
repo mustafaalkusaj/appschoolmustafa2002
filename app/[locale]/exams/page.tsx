@@ -282,6 +282,7 @@ function formatDate(value: string | null, locale: Locale = "ar") {
   if (!value) return "—";
   const loc = locale === "en" ? "en-US" : "ar-IQ-u-nu-latn";
   return new Date(value).toLocaleString(loc, {
+    timeZone: "Asia/Baghdad",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -294,6 +295,7 @@ function formatDateShort(value: string | null, locale: Locale = "ar") {
   if (!value) return "—";
   const loc = locale === "en" ? "en-US" : "ar-IQ-u-nu-latn";
   return new Date(value).toLocaleDateString(loc, {
+    timeZone: "Asia/Baghdad",
     month: "short",
     day: "numeric",
   });
@@ -302,6 +304,7 @@ function formatDateShort(value: string | null, locale: Locale = "ar") {
 function formatDateFull(value: string, locale: Locale = "ar") {
   const loc = locale === "en" ? "en-US" : "ar-IQ-u-nu-latn";
   return new Date(value).toLocaleDateString(loc, {
+    timeZone: "Asia/Baghdad",
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -546,6 +549,7 @@ export default function ExamsPage() {
     null;
 
   const [activeTab, setActiveTab] = useState<TabKey>("list");
+  const [showExamForm, setShowExamForm] = useState(false);
 
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
@@ -574,7 +578,7 @@ export default function ExamsPage() {
                 <>
                   <TabBar activeTab={activeTab} setActiveTab={setActiveTab} locale={locale} />
 
-                  {activeTab === "list" && <ExamsListTab schoolId={schoolId} canManage={canManage} locale={locale} />}
+                  {activeTab === "list" && <ExamsListTab schoolId={schoolId} canManage={canManage} locale={locale} showForm={showExamForm} setShowForm={setShowExamForm} />}
                   {activeTab === "builder" && <ExamBuilderTab schoolId={schoolId} locale={locale} />}
                   {activeTab === "analytics" && <AnalyticsTab schoolId={schoolId} locale={locale} />}
                   {activeTab === "scheduling" && <SchedulingTab schoolId={schoolId} locale={locale} />}
@@ -593,11 +597,10 @@ export default function ExamsPage() {
 // TAB 1: Exams List
 // ============================================================
 
-function ExamsListTab({ schoolId, canManage, locale }: { schoolId: string | null; canManage: boolean; locale: Locale }) {
+function ExamsListTab({ schoolId, canManage, locale, showForm, setShowForm }: { schoolId: string | null; canManage: boolean; locale: Locale; showForm: boolean; setShowForm: (v: boolean) => void }) {
   const [items, setItems] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [filterSubject, setFilterSubject] = useState("");
@@ -775,7 +778,7 @@ function ExamsListTab({ schoolId, canManage, locale }: { schoolId: string | null
           </button>
           {canManage && (
             <button
-              onClick={() => setShowForm((v) => !v)}
+              onClick={() => setShowForm(!showForm)}
               className="h-10 px-4 rounded-xl text-sm font-black text-white flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
               style={{ background: "var(--primary)" }}
             >

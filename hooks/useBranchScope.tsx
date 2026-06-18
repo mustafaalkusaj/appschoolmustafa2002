@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import type { UserProfile } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { BRANCH_SCOPE_QUERY_PARAM } from "@/lib/school/scope";
 
 export type ScopedBranch = {
   id: string;
@@ -27,7 +28,6 @@ export type BranchScopeState = {
 
 const BRANCH_SCOPE_STORAGE_KEY = "branch-scope:v1";
 const BRANCH_SCOPE_CHANGE_EVENT = "branch-scope-change";
-const BRANCH_SCOPE_QUERY_PARAM = "branch";
 
 function readBranchScopeFromWindow(): string | null {
   if (typeof window === "undefined") return null;

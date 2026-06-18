@@ -538,22 +538,14 @@ export default function BehaviorPage() {
                           />
                         </div>
 
-                        {/* Student ID (auto-filled) */}
-                        <div>
-                          <label className="block text-xs font-bold text-[var(--text-muted)] mb-1.5">
-                            {t("studentId")}
-                            {form.student_id && (
-                              <span className="ms-2 text-[10px] text-[var(--success)]">({t("autoFilled")})</span>
-                            )}
-                          </label>
-                          <input
-                            value={form.student_id}
-                            onChange={(e) => setForm({ ...form, student_id: e.target.value })}
-                            placeholder={t("studentId")}
-                            className="w-full h-10 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm text-[var(--text-muted)]"
-                            readOnly={Boolean(form.student_id)}
-                          />
-                        </div>
+                        {/* Student ID (hidden - auto-filled from student selection) */}
+                        <input type="hidden" value={form.student_id} />
+                        {form.student_id && (
+                          <div className="flex items-center gap-2 h-10 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)]">
+                            <span className="text-[10px] text-[var(--success)] font-bold">✓</span>
+                            <span className="text-sm font-bold text-[var(--text-primary)] truncate">{form.student_name}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Note */}

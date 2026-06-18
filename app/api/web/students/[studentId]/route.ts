@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { applyBranchScopeToQuery, resolveBranchScope, type ResolvedBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { isValidUUID } from "@/lib/route-utils";
 import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
@@ -201,19 +202,6 @@ async function validateClassExists(
   schoolId: string,
   branchScope: ResolvedBranchScope,
 ): Promise<boolean> {
-  // Check class_fees first (common path), then fall back to classes table
-  const { data: feeData } = await applyBranchScopeToQuery(
-    serviceSupabase
-      .from("class_fees")
-      .select("class_name")
-      .eq("class_name", className)
-      .eq("school_id", schoolId),
-    branchScope,
-  ).maybeSingle<{ class_name: string }>();
-
-  if (feeData) return true;
-
-  // A class may exist without a fee entry — check the classes table
   let classesQuery = serviceSupabase
     .from("classes")
     .select("id")
@@ -227,8 +215,19 @@ async function validateClassExists(
     classesQuery = classesQuery.in("branch_id", branchScope.branchIds);
   }
 
-  const { data: classData } = await classesQuery.maybeSingle<{ id: string }>();
-  return !!classData;
+  const [feeResult, classResult] = await Promise.all([
+    applyBranchScopeToQuery(
+      serviceSupabase
+        .from("class_fees")
+        .select("class_name")
+        .eq("class_name", className)
+        .eq("school_id", schoolId),
+      branchScope,
+    ).maybeSingle<{ class_name: string }>(),
+    classesQuery.maybeSingle<{ id: string }>(),
+  ]);
+
+  return !!(feeResult.data || classResult.data);
 }
 
 export async function PATCH(
@@ -236,6 +235,9 @@ export async function PATCH(
   { params }: { params: Promise<{ studentId: string }> },
 ) {
   const { studentId } = await params;
+  if (!isValidUUID(studentId)) {
+    return jsonError("معرّف الطالب غير صالح.", 400);
+  }
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
   const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;
@@ -381,7 +383,18 @@ export async function PATCH(
   const nextStatus = hasOwn(body, "status") ? normalizeStatus(body?.status) : currentStudent.status ?? "active";
 
   const nextRegistrationNumber = hasOwn(body, "registration_number") ? normalizeOptionalText(body?.registration_number) : undefined;
-  const nextDateOfBirth = hasOwn(body, "date_of_birth") ? normalizeOptionalText(body?.date_of_birth) : undefined;
+  const nextDateOfBirthRaw = hasOwn(body, "date_of_birth") ? normalizeOptionalText(body?.date_of_birth) : undefined;
+  // Reject future dates of birth
+  if (nextDateOfBirthRaw) {
+    const dob = new Date(nextDateOfBirthRaw);
+    if (isNaN(dob.getTime())) {
+      return jsonError("تاريخ الميلاد غير صالح.", 400);
+    }
+    if (dob > new Date()) {
+      return jsonError("تاريخ الميلاد لا يمكن أن يكون في المستقبل.", 400);
+    }
+  }
+  const nextDateOfBirth = nextDateOfBirthRaw;
   const nextParentName = hasOwn(body, "parent_name") ? normalizeOptionalText(body?.parent_name) : undefined;
   const nextGender = hasOwn(body, "gender") ? (body?.gender === "male" || body?.gender === "female" ? body.gender : null) : undefined;
   const nextPhotoUrl = hasOwn(body, "photo_url") ? normalizeOptionalText(body?.photo_url) : undefined;
@@ -406,6 +419,18 @@ export async function PATCH(
 
   if (nextStatus === null) {
     return jsonError("حالة الطالب غير صالحة.", 400);
+  }
+
+  // Validate status transition: some statuses are terminal/irreversible
+  const currentStatus = currentStudent.status ?? "active";
+  const TERMINAL_STATUSES: StudentStatus[] = ["deleted", "graduated"];
+  if (
+    hasOwn(body, "status") &&
+    nextStatus !== currentStatus &&
+    TERMINAL_STATUSES.includes(currentStatus as StudentStatus) &&
+    currentStatus !== "deleted" // deleted is handled via DELETE endpoint
+  ) {
+    return jsonError(`لا يمكن تغيير الحالة من "${currentStatus}" إلى "${nextStatus}".`, 422);
   }
 
   if (nextTotalFee === null || requestedPaidFee === null || nextDiscount === null) {
@@ -484,6 +509,9 @@ export async function GET(
   { params }: { params: Promise<{ studentId: string }> },
 ) {
   const { studentId } = await params;
+  if (!isValidUUID(studentId)) {
+    return jsonError("معرّف الطالب غير صالح.", 400);
+  }
   const schoolId = req.nextUrl.searchParams.get("schoolId");
   if (!schoolId) return NextResponse.json({ error: { message: "schoolId مطلوب" } }, { status: 400 });
 
@@ -512,6 +540,9 @@ export async function DELETE(
   { params }: { params: Promise<{ studentId: string }> },
 ) {
   const { studentId } = await params;
+  if (!isValidUUID(studentId)) {
+    return jsonError("معرّف الطالب غير صالح.", 400);
+  }
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
   const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;
@@ -523,7 +554,7 @@ export async function DELETE(
     return jsonError(context.message, context.status);
   }
 
-  const { serviceSupabase, targetSchoolId, branchScope } = context.value;
+  const { serviceSupabase, targetSchoolId, branchScope, actorUserId } = context.value;
   const currentStudent = await fetchStudent(serviceSupabase, studentId, targetSchoolId, branchScope);
   if (!currentStudent) {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
@@ -531,8 +562,23 @@ export async function DELETE(
 
   const isHardDelete = forceDelete || currentStudent.status === "deleted";
 
-  // Hard delete: remove related payments first to avoid FK constraint violation
+  // Hard delete: audit log first, then soft-delete payments, then remove them
   if (isHardDelete) {
+    console.info("[students-delete] hard-delete", {
+      actor: actorUserId,
+      studentId,
+      schoolId: targetSchoolId,
+      studentName: currentStudent.full_name,
+      timestamp: new Date().toISOString(),
+    });
+
+    await serviceSupabase
+      .from("payments")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("student_id", studentId)
+      .eq("school_id", targetSchoolId)
+      .is("deleted_at", null);
+
     await serviceSupabase
       .from("payments")
       .delete()
@@ -552,7 +598,14 @@ export async function DELETE(
     : applyBranchScopeToQuery(
         serviceSupabase
           .from("students")
-          .update({ status: "deleted" satisfies StudentStatus })
+          // NOTE: deleted_at and deleted_by columns require a migration if not yet present:
+          // ALTER TABLE students ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+          // ALTER TABLE students ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id);
+          .update({
+            status: "deleted" satisfies StudentStatus,
+            deleted_at: new Date().toISOString(),
+            deleted_by: actorUserId,
+          })
           .eq("id", studentId)
           .eq("school_id", targetSchoolId),
         branchScope,

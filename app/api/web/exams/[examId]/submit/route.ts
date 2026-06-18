@@ -54,6 +54,7 @@ export async function POST(
     .select("id, exam_id, student_id, status, started_at")
     .eq("id", body.attemptId)
     .eq("exam_id", examId)
+    .eq("school_id", targetSchoolId)
     .single();
 
   if (attemptError || !attempt) {

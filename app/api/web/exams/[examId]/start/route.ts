@@ -44,10 +44,26 @@ export async function POST(
   const { actorSupabase, targetSchoolId, actorUserId } = context.value;
   const studentId = body?.studentId ?? actorUserId;
 
+  // H4: Verify the studentId actually belongs to this school before using it.
+  // Without this check a staff member could pass any studentId and impersonate
+  // another student's exam attempt.
+  if (studentId !== actorUserId) {
+    const { data: studentCheck } = await actorSupabase
+      .from("students")
+      .select("id")
+      .eq("id", studentId)
+      .eq("school_id", targetSchoolId)
+      .maybeSingle();
+
+    if (!studentCheck) {
+      return jsonError("الطالب المحدد غير موجود ضمن المدرسة الحالية.", 403);
+    }
+  }
+
   // Verify exam exists and is active
   const { data: exam, error: examError } = await actorSupabase
     .from("exams")
-    .select("id, school_id, title, status, starts_at, ends_at, total_marks")
+    .select("id, school_id, title, status, starts_at, ends_at, total_marks, class_name")
     .eq("id", examId)
     .eq("school_id", targetSchoolId)
     .single();
@@ -58,6 +74,29 @@ export async function POST(
 
   if (exam.status && exam.status !== "active" && exam.status !== "scheduled") {
     return NextResponse.json({ ok: false, error: "exam is not active" }, { status: 400 });
+  }
+
+  // Verify the student belongs to the exam's target class/section (if the exam
+  // has a class_name set). This prevents any employee from starting an exam on
+  // behalf of a student that isn't enrolled in the target class.
+  if (exam.class_name) {
+    const { data: studentRecord } = await actorSupabase
+      .from("students")
+      .select("id, class_name")
+      .eq("id", studentId)
+      .eq("school_id", targetSchoolId)
+      .maybeSingle();
+
+    if (!studentRecord) {
+      return NextResponse.json({ ok: false, error: "الطالب غير مسجل في هذه المدرسة." }, { status: 403 });
+    }
+
+    if (studentRecord.class_name !== exam.class_name) {
+      return NextResponse.json(
+        { ok: false, error: "الطالب غير مسجل في الصف المخصص لهذا الامتحان." },
+        { status: 403 },
+      );
+    }
   }
 
   const now = new Date();
@@ -113,7 +152,8 @@ export async function POST(
     });
   }
 
-  // Create new attempt
+  // Create new attempt — catch unique constraint violation (23505) caused by
+  // two simultaneous requests both passing the "no existing attempt" check.
   const { data: attempt, error: attemptError } = await actorSupabase
     .from("exam_attempts")
     .insert({
@@ -127,6 +167,32 @@ export async function POST(
     .single();
 
   if (attemptError) {
+    // Postgres unique constraint violation — a concurrent request already created the attempt.
+    if ((attemptError as { code?: string }).code === "23505") {
+      const { data: racedAttempt } = await actorSupabase
+        .from("exam_attempts")
+        .select("id, started_at")
+        .eq("exam_id", examId)
+        .eq("student_id", studentId)
+        .eq("status", "in_progress")
+        .maybeSingle();
+
+      if (racedAttempt) {
+        const { data: questions } = await actorSupabase
+          .from("exam_questions")
+          .select("question_id, sort_order, marks, questions!inner(id, prompt, options, type, difficulty)")
+          .eq("exam_id", examId)
+          .order("sort_order", { ascending: true });
+
+        return NextResponse.json({
+          ok: true,
+          attemptId: racedAttempt.id,
+          resumed: true,
+          questions: questions ?? [],
+          settings: settings ?? {},
+        });
+      }
+    }
     return NextResponse.json({ ok: false, error: attemptError.message }, { status: 500 });
   }
 

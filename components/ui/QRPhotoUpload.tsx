@@ -81,6 +81,26 @@ export function QRPhotoUpload({ schoolId, studentId, onPhotoUploaded, onCancel, 
     }
   }, [schoolId, studentId, onPhotoUploaded]);
 
+  // Polling fallback via server API — bypasses RLS with service role
+  useEffect(() => {
+    if (status !== "waiting" || !token) return;
+
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/web/upload/status?token=${token}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "completed" && data.image_url) {
+          clearInterval(poll);
+          setStatus("success");
+          setTimeout(() => onPhotoUploaded(data.image_url), 800);
+        }
+      } catch { /* polling fallback — ignore errors */ }
+    }, 3000);
+
+    return () => clearInterval(poll);
+  }, [status, token, onPhotoUploaded]);
+
   // Create session on mount
   useEffect(() => {
     if (open) createSession();

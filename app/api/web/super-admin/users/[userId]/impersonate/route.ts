@@ -53,7 +53,8 @@ export async function POST(
     });
 
     if (error) {
-      return jsonError(error.message || "تعذر توليد رابط تسجيل الدخول.", 500);
+      console.error("[impersonate] Supabase generateLink error:", error.message);
+      return jsonError("تعذر توليد رابط تسجيل الدخول.", 500);
     }
 
     const link = data?.properties?.action_link;
@@ -74,13 +75,12 @@ export async function POST(
       user_agent: req.headers.get("user-agent") || null,
     });
 
-    const res = NextResponse.json({ ok: true, link, email: userProfile.email });
+    // Redirect server-side — never expose the raw magic link URL to the client.
+    const res = NextResponse.redirect(link, 302);
     res.headers.set("Cache-Control", "no-store, no-cache");
     return res;
-  } catch (error) {
-    return jsonError(
-      error instanceof Error ? error.message : "تعذر توليد رابط التسجيل.",
-      500,
-    );
+  } catch (err) {
+    console.error("[impersonate] generateLink error:", err instanceof Error ? err.message : err);
+    return jsonError("تعذر توليد رابط التسجيل.", 500);
   }
 }

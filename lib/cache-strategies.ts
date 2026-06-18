@@ -23,6 +23,19 @@ export const CACHE_STRATEGIES = {
 
   // Activity endpoints - 5 minutes
   TEACHER_ACTIVITY_META: 'teacher-activity-meta',
+
+  // Dashboard overview/structure - 30 seconds (frequently changing data)
+  DASHBOARD_OVERVIEW: 'dashboard-overview',
+  DASHBOARD_STRUCTURE: 'dashboard-structure',
+
+  // Calendar events - 5 minutes
+  CALENDAR_EVENTS: 'calendar-events',
+
+  // Schedule - 2 minutes
+  SCHEDULE_LIST: 'schedule-list',
+
+  // Teachers list - 2 minutes
+  TEACHERS_LIST: 'teachers-list',
 } as const;
 
 interface CacheConfig {
@@ -78,6 +91,32 @@ const CACHE_CONFIG: Record<string, CacheConfig> = {
   'teacher-activity-meta': {
     maxAge: 300,
     sMaxAge: 300,
+    staleWhileRevalidate: 60,
+    public: false,
+  },
+  'dashboard-overview': {
+    maxAge: 30,
+    staleWhileRevalidate: 30,
+    public: false,
+  },
+  'dashboard-structure': {
+    maxAge: 30,
+    staleWhileRevalidate: 30,
+    public: false,
+  },
+  'calendar-events': {
+    maxAge: 300,
+    sMaxAge: 300,
+    staleWhileRevalidate: 60,
+    public: false,
+  },
+  'schedule-list': {
+    maxAge: 120,
+    staleWhileRevalidate: 60,
+    public: false,
+  },
+  'teachers-list': {
+    maxAge: 120,
     staleWhileRevalidate: 60,
     public: false,
   },

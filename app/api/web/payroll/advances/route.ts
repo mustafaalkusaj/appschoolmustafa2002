@@ -50,6 +50,11 @@ export async function GET(req: NextRequest) {
   const teacherId = req.nextUrl.searchParams.get("teacherId");
   const isDeducted = req.nextUrl.searchParams.get("isDeducted"); // "true" | "false" | null
 
+  const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") ?? "0", 10) || 0);
+  const limit = Math.min(500, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? "500", 10) || 500));
+  const from = page * limit;
+  const to = from + limit - 1;
+
   let query = applyBranchScopeToQuery(
     actorSupabase
       .from("salary_advances")
@@ -57,7 +62,8 @@ export async function GET(req: NextRequest) {
         "id, amount, reason, advance_date, is_deducted, deducted_on, notes, created_at, teacher_id, teachers(id, full_name, subject)",
       )
       .eq("school_id", targetSchoolId)
-      .order("advance_date", { ascending: false }),
+      .order("advance_date", { ascending: false })
+      .range(from, to),
     branchScope.value,
   );
 
@@ -72,7 +78,7 @@ export async function GET(req: NextRequest) {
     return jsonError("تعذر جلب السلف.", 500);
   }
 
-  return NextResponse.json({ ok: true, advances: data ?? [] });
+  return NextResponse.json({ ok: true, advances: data ?? [], page, limit });
 }
 
 export async function POST(req: NextRequest) {

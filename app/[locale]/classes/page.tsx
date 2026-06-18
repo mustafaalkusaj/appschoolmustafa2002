@@ -449,16 +449,28 @@ export default function ClassesPage() {
                       className="w-full sm:w-64"
                     />
                     {canManageClasses && (
-                      <button
-                        onClick={openAddClass}
-                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-xs font-black text-white transition-all whitespace-nowrap"
-                        style={{
-                          background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--success)))",
-                          boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 30%, transparent)",
-                        }}
-                      >
-                        + {isEn ? "Add Class" : "إضافة صف"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={openAddClass}
+                          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-xs font-black text-white transition-all whitespace-nowrap"
+                          style={{
+                            background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--success)))",
+                            boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 30%, transparent)",
+                          }}
+                        >
+                          + {isEn ? "Add Class" : "إضافة صف"}
+                        </button>
+                        <button
+                          onClick={openAddSection}
+                          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-xs font-black text-white transition-all whitespace-nowrap"
+                          style={{
+                            background: "linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success) 70%, var(--primary)))",
+                            boxShadow: "0 4px 14px color-mix(in srgb, var(--success) 30%, transparent)",
+                          }}
+                        >
+                          + {isEn ? "Add Section" : "إضافة شعبة"}
+                        </button>
+                      </div>
                     )}
                   </div>
 

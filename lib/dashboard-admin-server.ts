@@ -294,6 +294,8 @@ export async function saveDashboardClass(
 
     const classPayload: Record<string, unknown> = {
       name: normalizedClassName,
+      grade: normalizedClassName,
+      section: "",
       school_id: options.schoolId,
     };
 
@@ -614,6 +616,49 @@ async function findExistingClassFee(
   return data ? mapClassFeeRow(data as Record<string, unknown>) : null;
 }
 
+async function ensureClassExists(
+  client: DashboardServiceSupabase,
+  compat: DashboardSchemaCompat,
+  options: {
+    schoolId: string;
+    branchId: string | null;
+    branchScoped?: boolean;
+    className: string;
+  },
+) {
+  let query = client
+    .from("classes")
+    .select("id")
+    .eq("school_id", options.schoolId);
+
+  if (compat.classesNameColumn) {
+    query = query.eq("name", options.className);
+  } else {
+    query = query.eq("grade", options.className);
+  }
+
+  if (options.branchScoped && compat.classesBranchScope && options.branchId) {
+    query = query.eq("branch_id", options.branchId);
+  }
+
+  const { data } = await query.limit(1);
+  if (data && data.length > 0) return;
+
+  const classPayload: Record<string, unknown> = {
+    school_id: options.schoolId,
+    grade: options.className,
+    section: "",
+  };
+  if (compat.classesNameColumn) {
+    classPayload.name = options.className;
+  }
+  if (options.branchScoped && compat.classesBranchScope && options.branchId) {
+    classPayload.branch_id = options.branchId;
+  }
+
+  await client.from("classes").insert(classPayload);
+}
+
 export async function saveDashboardClassFee(
   client: DashboardServiceSupabase,
   options: {
@@ -713,6 +758,13 @@ export async function saveDashboardClassFee(
     }
     throw error;
   }
+
+  await ensureClassExists(client, compat, {
+    schoolId: options.schoolId,
+    branchId: normalizedBranchId,
+    branchScoped: options.branchScoped,
+    className: normalizedClassName,
+  });
 
   return { status: "created" as const };
 }

@@ -172,72 +172,110 @@ export async function POST(request: NextRequest) {
     const importedCount = data?.length ?? validated.length;
     const failedCount = validated.length - importedCount;
 
-    // Auto-create accounts for all imported students
+    // Auto-create auth accounts for all imported students.
+    // Each student is independent — a failure on one does not block the rest.
+    // We track per-student outcomes so the admin can retry only the failed ones.
     const insertedIds = ((data ?? []) as Array<{ id: string }>).map((row) => row.id).filter(Boolean);
     let accountsCreated = 0;
+    const accountsFailed: Array<{ studentId: string; reason: string }> = [];
+
     if (insertedIds.length > 0) {
       const serviceSupabase = createServiceSupabaseClient();
       const { actorUserId } = actorContext.value;
-      for (const studentId of insertedIds) {
-        try {
-          const { data: student } = await actorSupabase
-            .from("students")
-            .select("id, full_name, phone")
-            .eq("id", studentId)
-            .maybeSingle();
-          if (!student?.full_name) continue;
-          const loginIdentifier = await generateManagedLoginIdentifier(actorSupabase, {
-            schoolId: targetSchoolId,
-            role: "student",
-            fullName: student.full_name as string,
-            preferredEmail: "",
-          });
-          const temporaryPassword = generateTemporaryPassword();
-          const createdAt = new Date().toISOString();
-          const authIdentityPayload = buildManagedAuthIdentityPayload({
-            role: "student",
-            schoolId: targetSchoolId,
-            fullName: student.full_name as string,
-            loginIdentifier,
-            createdBy: actorUserId,
-            credentialPatch: {
-              temporaryPasswordHash: hashPassword(temporaryPassword),
-              hasPendingSetup: true,
-              passwordLastResetAt: createdAt,
-              cardLastPrintedAt: null,
-            },
-          });
-          const { data: createdUser, error: createAuthError } = await serviceSupabase.auth.admin.createUser({
-            email: loginIdentifier,
-            password: temporaryPassword,
-            email_confirm: true,
-            ...authIdentityPayload,
-          });
-          if (createAuthError || !createdUser.user?.id) continue;
-          const authUserId = createdUser.user.id;
-          const { error: linkError } = await actorSupabase
-            .from("students")
-            .update({ auth_user_id: authUserId })
-            .eq("id", studentId)
-            .eq("school_id", targetSchoolId);
-          if (linkError) {
-            await serviceSupabase.auth.admin.deleteUser(authUserId);
-            continue;
+
+      // Process auth account creation with a concurrency limit of 10.
+      // Supabase auth does not support batch creation, so we fan-out in batches
+      // of 10 parallel calls instead of sequential calls (~50 batches vs ~500
+      // sequential awaits for a 500-student import).
+      const CONCURRENCY = 10;
+      const createAccountForStudent = async (studentId: string): Promise<void> => {
+        const { data: student } = await actorSupabase
+          .from("students")
+          .select("id, full_name, phone")
+          .eq("id", studentId)
+          .maybeSingle();
+
+        if (!student?.full_name) {
+          accountsFailed.push({ studentId, reason: "اسم الطالب مفقود" });
+          return;
+        }
+
+        const loginIdentifier = await generateManagedLoginIdentifier(actorSupabase, {
+          schoolId: targetSchoolId,
+          role: "student",
+          fullName: student.full_name as string,
+          preferredEmail: "",
+        });
+        const temporaryPassword = generateTemporaryPassword();
+        const createdAt = new Date().toISOString();
+        const authIdentityPayload = buildManagedAuthIdentityPayload({
+          role: "student",
+          schoolId: targetSchoolId,
+          fullName: student.full_name as string,
+          loginIdentifier,
+          createdBy: actorUserId,
+          credentialPatch: {
+            temporaryPasswordHash: hashPassword(temporaryPassword),
+            hasPendingSetup: true,
+            passwordLastResetAt: createdAt,
+            cardLastPrintedAt: null,
+          },
+        });
+
+        const { data: createdUser, error: createAuthError } = await serviceSupabase.auth.admin.createUser({
+          email: loginIdentifier,
+          password: temporaryPassword,
+          email_confirm: true,
+          ...authIdentityPayload,
+        });
+
+        if (createAuthError || !createdUser.user?.id) {
+          accountsFailed.push({ studentId, reason: createAuthError?.message ?? "فشل إنشاء حساب المصادقة" });
+          return;
+        }
+
+        const authUserId = createdUser.user.id;
+
+        const { error: linkError } = await actorSupabase
+          .from("students")
+          .update({ auth_user_id: authUserId })
+          .eq("id", studentId)
+          .eq("school_id", targetSchoolId);
+
+        if (linkError) {
+          // Roll back the auth user so we don't leave an orphaned auth account
+          await serviceSupabase.auth.admin.deleteUser(authUserId);
+          accountsFailed.push({ studentId, reason: "فشل ربط حساب المصادقة بالطالب: " + linkError.message });
+          return;
+        }
+
+        await syncManagedUserAccountState(actorSupabase, {
+          authUserId,
+          schoolId: targetSchoolId,
+          role: "student",
+          fullName: student.full_name as string,
+          email: loginIdentifier,
+          phone: typeof student.phone === "string" ? student.phone : null,
+          isActive: true,
+          studentId,
+          temporaryPassword,
+        });
+
+        accountsCreated++;
+      };
+
+      // Fan-out in batches of CONCURRENCY to avoid overwhelming the auth service
+      for (let i = 0; i < insertedIds.length; i += CONCURRENCY) {
+        const batch = insertedIds.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(batch.map((id) => createAccountForStudent(id)));
+        for (const result of results) {
+          if (result.status === "rejected") {
+            const reason = result.reason instanceof Error ? result.reason.message : "خطأ غير متوقع";
+            // studentId not easily recoverable from a rejected promise here;
+            // the per-student error push inside createAccountForStudent handles most cases.
+            // This catch is a safety net for unexpected throws.
+            accountsFailed.push({ studentId: "unknown", reason });
           }
-          await syncManagedUserAccountState(actorSupabase, {
-            authUserId,
-            schoolId: targetSchoolId,
-            role: "student",
-            fullName: student.full_name as string,
-            email: loginIdentifier,
-            phone: typeof student.phone === "string" ? student.phone : null,
-            isActive: true,
-            studentId,
-            temporaryPassword,
-          });
-          accountsCreated++;
-        } catch {
-          // Continue if one student's account creation fails
         }
       }
     }
@@ -248,6 +286,9 @@ export async function POST(request: NextRequest) {
       failed: failedCount,
       total: validated.length,
       accounts_created: accountsCreated,
+      accounts_failed: accountsFailed.length,
+      // Only include failed IDs when there are failures so the admin can act on them
+      ...(accountsFailed.length > 0 && { accounts_failed_details: accountsFailed }),
     });
   } catch (error) {
     console.error("Bulk import server error:", error);

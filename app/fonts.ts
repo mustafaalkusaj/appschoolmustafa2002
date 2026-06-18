@@ -89,28 +89,13 @@ export const zain = localFont({
   preload: false,
 });
 
-// خط موحد يجمع الاثنين
+// خط موحد — preload فقط الأوزان الأساسية (Regular + Bold)
+// الأوزان الثانوية (300, 500, 600) تُحمّل عند الحاجة من notoSansArabic / rubik
 export const primaryFont = localFont({
   src: [
-    // Arabic weights
-    {
-      path: './fonts/NotoSansArabic-Light.ttf',
-      weight: '300',
-      style: 'normal',
-    },
     {
       path: './fonts/NotoSansArabic-Regular.ttf',
       weight: '400',
-      style: 'normal',
-    },
-    {
-      path: './fonts/NotoSansArabic-Medium.ttf',
-      weight: '500',
-      style: 'normal',
-    },
-    {
-      path: './fonts/NotoSansArabic-SemiBold.ttf',
-      weight: '600',
       style: 'normal',
     },
     {
@@ -118,25 +103,9 @@ export const primaryFont = localFont({
       weight: '700',
       style: 'normal',
     },
-    // English/Numbers weights (Rubik)
-    {
-      path: './fonts/Rubik-Light.ttf',
-      weight: '300',
-      style: 'normal',
-    },
     {
       path: './fonts/Rubik-Regular.ttf',
       weight: '400',
-      style: 'normal',
-    },
-    {
-      path: './fonts/Rubik-Medium.ttf',
-      weight: '500',
-      style: 'normal',
-    },
-    {
-      path: './fonts/Rubik-SemiBold.ttf',
-      weight: '600',
       style: 'normal',
     },
     {

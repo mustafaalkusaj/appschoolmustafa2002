@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { toBaghdadTimestamp } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
 
@@ -105,8 +106,8 @@ export async function POST(request: NextRequest) {
   }
 
   const examRow = exam as { id: string; title: string; class_name: string | null; subject: string | null };
-  const startsAt = body.starts_at as string;
-  const endsAt = body.ends_at as string;
+  const startsAt = toBaghdadTimestamp(body.starts_at as string) as string;
+  const endsAt = toBaghdadTimestamp(body.ends_at as string) as string;
 
   // ------- Conflict detection -------
   const conflicts: ConflictInfo[] = [];

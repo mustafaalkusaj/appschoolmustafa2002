@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
       .from("payments")
       .select("id, student_id, amount, payment_method, notes, created_at, receipt_number, manual_receipt_number")
       .eq("school_id", targetSchoolId)
+      .is("deleted_at", null)
       .gte("created_at", fromDate)
       .lte("created_at", `${toDate}T23:59:59.999Z`)
       .order("created_at", { ascending: false }),

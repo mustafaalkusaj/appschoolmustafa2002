@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { toBaghdadTimestamp } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
 
@@ -74,8 +75,8 @@ export async function POST(request: NextRequest) {
       subject: body.subject ?? null,
       class_name: body.class_name ?? null,
       total_marks: body.total_marks ?? null,
-      starts_at: body.starts_at ?? null,
-      ends_at: body.ends_at ?? null,
+      starts_at: toBaghdadTimestamp(body.starts_at),
+      ends_at: toBaghdadTimestamp(body.ends_at),
       created_by: actorUserId,
     })
     .select()
@@ -104,6 +105,24 @@ export async function DELETE(request: NextRequest) {
   }
 
   const { actorSupabase, targetSchoolId } = context.value;
+
+  // Reject deletion if the exam has any attempts/submissions to prevent data loss.
+  const { count: attemptCount, error: countError } = await actorSupabase
+    .from("exam_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("exam_id", id);
+
+  if (countError) {
+    return NextResponse.json({ ok: false, error: countError.message }, { status: 500 });
+  }
+
+  if ((attemptCount ?? 0) > 0) {
+    return NextResponse.json(
+      { ok: false, error: "لا يمكن حذف الامتحان لأنه يحتوي على محاولات مسجّلة." },
+      { status: 409 },
+    );
+  }
+
   const { error } = await actorSupabase.from("exams").delete().eq("id", id).eq("school_id", targetSchoolId);
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

@@ -249,6 +249,7 @@ export function GradeEntryModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            style={{ transform: "none" }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
             <div className="pointer-events-auto flex flex-col w-full max-w-lg max-h-[90vh] rounded-2xl bg-[var(--card-bg)] shadow-2xl overflow-hidden border border-[var(--border)]">

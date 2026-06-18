@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import type { ZodError } from "zod";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Returns true if the string is a valid UUID v1-v5. */
+export function isValidUUID(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 export function jsonError(message: string, status: number, fieldErrors?: Record<string, string>) {
   return NextResponse.json(
     {
@@ -44,4 +51,20 @@ export function logRouteError(scope: string, error: unknown, meta?: Record<strin
           }
         : error,
   });
+}
+
+/**
+ * Log a Supabase/internal error server-side and return a safe generic message to the client.
+ * Use this instead of returning `error.message` directly in API responses to avoid leaking
+ * table names, column names, or constraint names from Supabase error messages.
+ */
+export function jsonServerError(
+  scope: string,
+  error: unknown,
+  fallback: string,
+  status = 500,
+  meta?: Record<string, unknown>,
+) {
+  logRouteError(scope, error, meta);
+  return jsonError(fallback, status);
 }

@@ -154,14 +154,11 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     const requestId = ++classFeesRequestRef.current;
     const schoolId = await resolveSchoolIdForProfile(profile, { selectedSchoolId });
     const compat = await detectAppSchemaCompat();
-    if (!schoolId && compat.classFeesSchoolScope) {
+    if (!schoolId) {
       if (requestId === classFeesRequestRef.current) setClassFees([]);
       return;
     }
-    let query = supabase.from("class_fees").select("id, class_name, total_fee, installments, installment_amount, school_id, branch_id").order("class_name", { ascending: true });
-    if (compat.classFeesSchoolScope && schoolId) {
-      query = query.eq("school_id", schoolId);
-    }
+    let query = supabase.from("class_fees").select("id, class_name, total_fee, installments, installment_amount, school_id, branch_id").order("class_name", { ascending: true }).eq("school_id", schoolId);
     if (effectiveBranchId) {
       query = query.eq("branch_id", effectiveBranchId);
     }

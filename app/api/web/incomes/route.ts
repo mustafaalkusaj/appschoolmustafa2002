@@ -12,7 +12,6 @@ import {
 import {
   resolveSchoolScopedActorContext,
 } from "@/lib/managed-users-server";
-import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -131,7 +130,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { actorSupabase, actorUserId, targetSchoolId } = context.value;
-  const serviceSupabase = createServiceSupabaseClient();
   const rateLimited = await enforceRateLimit(req, {
     namespace: "incomes-create",
     windowMs: 60_000,
@@ -146,7 +144,7 @@ export async function POST(req: NextRequest) {
     return jsonError("ليس لديك صلاحية إضافة الإيرادات.", 403);
   }
 
-  const { data: incomeType, error: incomeTypeError } = await serviceSupabase
+  const { data: incomeType, error: incomeTypeError } = await actorSupabase
     .from("income_types")
     .select("id, name")
     .eq("id", parsed.data.income_type_id)
@@ -164,7 +162,7 @@ export async function POST(req: NextRequest) {
     }
 
     const branchId = writeBranch.value ?? branchScope.value.branchId;
-    const { data: createdIncome, error } = await serviceSupabase
+    const { data: createdIncome, error } = await actorSupabase
       .from("incomes")
       .insert({
         school_id: targetSchoolId,
@@ -176,6 +174,7 @@ export async function POST(req: NextRequest) {
         receipt_number: parsed.data.receipt_number,
         notes: parsed.data.notes,
         receipt_image_url: parsed.data.receipt_image_url ?? null,
+        created_by: actorUserId,
       })
       .select("id, school_id, income_type_id, amount, income_date, source, receipt_number, receipt_image_url, notes, created_at")
       .single();

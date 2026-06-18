@@ -159,7 +159,12 @@ export async function POST(req: NextRequest) {
     })),
   );
 
-  // 1. Promote students (update class_name)
+  // Steps 1-3 are logically one operation: if any step fails we return an error
+  // immediately so the caller knows partial work was done. Steps are ordered so
+  // that promotion happens before graduation, and fee reset only runs if both
+  // previous steps succeed — preventing the worst-case partial state.
+
+  // 1. Promote students (bulk update per target class)
   if (plan.updates.length > 0) {
     const groups = new Map<string, string[]>();
     for (const update of plan.updates) {
@@ -177,7 +182,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2. Graduate terminal students (grade 12)
+  // 2. Graduate terminal students — only runs if step 1 fully succeeded
   let graduatedCount = 0;
   if (graduateTerminal) {
     const terminalIds = plan.skipped.filter((s) => s.reason === "terminal").map((s) => s.id);
@@ -192,7 +197,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 3. Reset paid_fee = 0 for all remaining active students
+  // 3. Reset paid_fee — only runs if steps 1 and 2 fully succeeded
   let feesResetCount = 0;
   if (resetPaidFee) {
     const { error, count } = await applyBranchScopeToQuery(

@@ -61,11 +61,7 @@ export function useDashboardData({
     }
 
     if (!schoolId) {
-      setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
-      setRecentPayments([]);
-      setOverdueStudents([]);
-      setStudentCountByClass({});
-      setClassFees([]);
+      // Don't wipe existing data — just stop loading; the scope may still be resolving
       setLoading(false);
       return;
     }

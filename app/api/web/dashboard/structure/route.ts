@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
 
 import { dashboardOverviewQuerySchema } from "@/lib/api-schemas";
 import {
@@ -155,7 +156,7 @@ export async function GET(req: NextRequest) {
       sections: payload.sections,
       studentCountByClass,
       studentCountBySection,
-    });
+    }, { headers: getCacheHeaders(CACHE_STRATEGIES.DASHBOARD_STRUCTURE) });
   } catch (error) {
     logRouteError("dashboard-structure-read", error, {
       actorUserId: context.value.actorUserId,

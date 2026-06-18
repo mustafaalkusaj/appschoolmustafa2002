@@ -3,6 +3,7 @@ import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { jsonError } from "@/lib/route-utils";
 import { resolveBranchScope, resolveBranchIdForWrite } from "@/lib/branch-scope";
+import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
 import { createInsiteNotification } from "@/lib/notifications/insite-service";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
@@ -94,7 +95,7 @@ export async function GET(req: NextRequest) {
     return jsonError(error.message, 500);
   }
 
-  return NextResponse.json({ ok: true, events: data ?? [] });
+  return NextResponse.json({ ok: true, events: data ?? [] }, { headers: getCacheHeaders(CACHE_STRATEGIES.CALENDAR_EVENTS) });
 }
 
 export async function POST(req: NextRequest) {

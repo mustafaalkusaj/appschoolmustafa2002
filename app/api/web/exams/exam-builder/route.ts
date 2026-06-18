@@ -79,6 +79,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "no matching questions found in available questions" }, { status: 400 });
     }
 
+    // Delete stale questions from a previous build before inserting the new set.
+    // Without this, questions removed from the selection would persist silently.
+    await actorSupabase
+      .from("exam_questions")
+      .delete()
+      .eq("exam_id", body.examId);
+
     // Link questions to exam
     const examQuestions = selectedQuestionIds.map((questionId, index) => ({
       exam_id: body.examId,
@@ -89,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     const { error: insertError } = await actorSupabase
       .from("exam_questions")
-      .upsert(examQuestions, { onConflict: "exam_id,question_id" });
+      .insert(examQuestions);
 
     if (insertError) {
       return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
@@ -120,6 +127,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "questionIds[] is required" }, { status: 400 });
   }
 
+  // Delete stale questions from a previous build before inserting the new set.
+  await actorSupabase
+    .from("exam_questions")
+    .delete()
+    .eq("exam_id", body.examId);
+
   const examQuestions = questionIds.map((questionId, index) => ({
     exam_id: body.examId,
     question_id: questionId,
@@ -129,7 +142,7 @@ export async function POST(request: NextRequest) {
 
   const { error: insertError } = await actorSupabase
     .from("exam_questions")
-    .upsert(examQuestions, { onConflict: "exam_id,question_id" });
+    .insert(examQuestions);
 
   if (insertError) {
     return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });

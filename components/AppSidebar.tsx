@@ -22,6 +22,7 @@ import {
 } from "@/lib/auth";
 import {
   SCHOOL_SCOPE_CHANGE_EVENT,
+  buildPathWithBranchScope,
   buildPathWithSchoolScope,
   isSuperAdminSchoolScopedPath,
   readSchoolScopeFromWindow,
@@ -37,7 +38,7 @@ interface AppSidebarProps {
 const SIDEBAR_MODE_STORAGE_KEY = "app-sidebar-mode:v1";
 const SIDEBAR_COLLAPSED_KEY = "app-sidebar-collapsed:v1";
 const SIDEBAR_WIDTH_BY_MODE = {
-  default: "224px",
+  default: "260px",
   wide: "320px",
 } as const;
 const SIDEBAR_COLLAPSED_WIDTH = "72px";
@@ -217,9 +218,16 @@ export function AppSidebar({
         )}>
           {!collapsed && (
             <Link
-              href={role === "super_admin" && scopedSchoolId
-                ? buildPathWithSchoolScope(localizeAppPath("/dashboard", locale), scopedSchoolId)
-                : localizeAppPath("/dashboard", locale)}
+              href={(() => {
+                const dashPath = localizeAppPath("/dashboard", locale);
+                if (role === "super_admin" && scopedSchoolId) {
+                  return buildPathWithSchoolScope(dashPath, scopedSchoolId);
+                }
+                if (branchScope.isMultiBranchScope && branchScope.selectedBranchId) {
+                  return buildPathWithBranchScope(dashPath, branchScope.selectedBranchId);
+                }
+                return dashPath;
+              })()}
               className="flex min-w-0 items-center gap-3"
             >
               <SchoolLogo src={displayLogoUrl} alt={displayName} label={displayName} size={48}
@@ -289,9 +297,16 @@ export function AppSidebar({
                       return (
                         <Link
                           key={item.id}
-                          href={role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)
-                            ? buildPathWithSchoolScope(localizeAppPath(item.href, locale), scopedSchoolId)
-                            : localizeAppPath(item.href, locale)}
+                          href={(() => {
+                            const localizedPath = localizeAppPath(item.href, locale);
+                            if (role === "super_admin" && scopedSchoolId && isSuperAdminSchoolScopedPath(item.href)) {
+                              return buildPathWithSchoolScope(localizedPath, scopedSchoolId);
+                            }
+                            if (branchScope.isMultiBranchScope && branchScope.selectedBranchId) {
+                              return buildPathWithBranchScope(localizedPath, branchScope.selectedBranchId);
+                            }
+                            return localizedPath;
+                          })()}
                           className={cn(
                             "flex items-center transition-colors duration-100 group relative",
                             collapsed

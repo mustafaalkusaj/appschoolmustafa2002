@@ -20,12 +20,12 @@ function formatDate(value: string | null, locale: string): string {
   }
 }
 
-function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
+function Field({ label, value, dir }: { label: string; value: string | number | null | undefined; dir?: "ltr" | "rtl" }) {
   const display = value != null && value !== "" ? String(value) : "—";
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-[var(--text-muted)]">{label}</span>
-      <span className="text-sm text-[var(--text-primary)] font-medium">{display}</span>
+      <span dir={dir} className="text-sm text-[var(--text-primary)] font-medium">{display}</span>
     </div>
   );
 }
@@ -60,6 +60,56 @@ function Section({
   );
 }
 
+const MARITAL_STATUS_AR: Record<string, string> = {
+  single: "أعزب",
+  married: "متزوج",
+  divorced: "مطلق",
+  widowed: "أرمل",
+};
+
+const MARITAL_STATUS_EN: Record<string, string> = {
+  single: "Single",
+  married: "Married",
+  divorced: "Divorced",
+  widowed: "Widowed",
+};
+
+const CONTRACT_TYPE_AR: Record<string, string> = {
+  full_time: "دوام كامل",
+  part_time: "دوام جزئي",
+  substitute: "بديل",
+  volunteer: "متطوع",
+};
+
+const CONTRACT_TYPE_EN: Record<string, string> = {
+  full_time: "Full Time",
+  part_time: "Part Time",
+  substitute: "Substitute",
+  volunteer: "Volunteer",
+};
+
+const QUALIFICATION_AR: Record<string, string> = {
+  diploma: "دبلوم",
+  bachelor: "بكالوريوس",
+  master: "ماجستير",
+  phd: "دكتوراه",
+  other: "أخرى",
+};
+
+const QUALIFICATION_EN: Record<string, string> = {
+  diploma: "Diploma",
+  bachelor: "Bachelor",
+  master: "Master",
+  phd: "PhD",
+  other: "Other",
+};
+
+// Normalize blood type: replace digit 0 with letter O
+function normBlood(v: string | null | undefined): string | null | undefined {
+  if (!v) return v;
+  return v.replace(/^0/, "O");
+}
+
 export function InfoTab({ teacher, locale }: Props) {
   const isEn = locale === "en";
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -77,6 +127,18 @@ export function InfoTab({ teacher, locale }: Props) {
 
   const genderLabel = teacher.gender === "male" ? (isEn ? "Male" : "ذكر") : teacher.gender === "female" ? (isEn ? "Female" : "أنثى") : "—";
 
+  const maritalLabel = teacher.marital_status
+    ? (isEn ? MARITAL_STATUS_EN[teacher.marital_status] : MARITAL_STATUS_AR[teacher.marital_status]) ?? teacher.marital_status
+    : null;
+
+  const contractLabel = teacher.contract_type
+    ? (isEn ? CONTRACT_TYPE_EN[teacher.contract_type] : CONTRACT_TYPE_AR[teacher.contract_type]) ?? teacher.contract_type
+    : null;
+
+  const qualificationLabel = teacher.qualification
+    ? (isEn ? QUALIFICATION_EN[teacher.qualification] : QUALIFICATION_AR[teacher.qualification]) ?? teacher.qualification
+    : null;
+
   return (
     <div className="flex flex-col gap-3">
       <Section title={isEn ? "Personal Data" : "البيانات الشخصية"} open={openSections.personal} onToggle={() => toggle("personal")}>
@@ -86,8 +148,8 @@ export function InfoTab({ teacher, locale }: Props) {
         <Field label={isEn ? "Gender" : "الجنس"} value={genderLabel} />
         <Field label={isEn ? "Date of Birth" : "تاريخ الميلاد"} value={formatDate(teacher.date_of_birth, locale)} />
         <Field label={isEn ? "Nationality" : "الجنسية"} value={teacher.nationality} />
-        <Field label={isEn ? "Marital Status" : "الحالة الاجتماعية"} value={teacher.marital_status} />
-        <Field label={isEn ? "Blood Type" : "فصيلة الدم"} value={teacher.blood_type} />
+        <Field label={isEn ? "Marital Status" : "الحالة الاجتماعية"} value={maritalLabel} />
+        <Field label={isEn ? "Blood Type" : "فصيلة الدم"} value={normBlood(teacher.blood_type)} dir="ltr" />
       </Section>
 
       <Section title={isEn ? "Contact Info" : "بيانات الاتصال"} open={openSections.contact} onToggle={() => toggle("contact")}>
@@ -109,13 +171,13 @@ export function InfoTab({ teacher, locale }: Props) {
         <Field label={isEn ? "Job Title" : "المسمى الوظيفي"} value={teacher.job_title} />
         <Field label={isEn ? "Subject" : "المادة"} value={teacher.subject} />
         <Field label={isEn ? "Specialization" : "التخصص"} value={teacher.specialization} />
-        <Field label={isEn ? "Contract Type" : "نوع العقد"} value={teacher.contract_type} />
+        <Field label={isEn ? "Contract Type" : "نوع العقد"} value={contractLabel} />
         <Field label={isEn ? "Hire Date" : "تاريخ التوظيف"} value={formatDate(teacher.hire_date, locale)} />
         <Field label={isEn ? "Contract End" : "نهاية العقد"} value={formatDate(teacher.contract_end_date, locale)} />
         <Field label={isEn ? "Experience (yrs)" : "سنوات الخبرة"} value={teacher.years_experience} />
         <Field label={isEn ? "Max Periods/Day" : "أقصى حصص يوميًا"} value={teacher.max_periods_daily} />
         <Field label={isEn ? "Max Periods/Week" : "أقصى حصص أسبوعيًا"} value={teacher.max_periods_weekly} />
-        <Field label={isEn ? "Qualification" : "المؤهل"} value={teacher.qualification} />
+        <Field label={isEn ? "Qualification" : "المؤهل"} value={qualificationLabel} />
         <Field label={isEn ? "University" : "الجامعة"} value={teacher.university} />
         <Field label={isEn ? "Graduation Year" : "سنة التخرج"} value={teacher.graduation_year} />
       </Section>

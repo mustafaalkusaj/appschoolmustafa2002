@@ -95,6 +95,13 @@ export async function POST(req: NextRequest) {
   });
 
   if (rpcError) {
+    // Postgres unique violation (error code 23505) → duplicate payment → 409
+    if ((rpcError as { code?: string }).code === "23505") {
+      return NextResponse.json(
+        { error: { code: "DUPLICATE_PAYMENT", message: "تم تسجيل هذه الدفعة مسبقاً." } },
+        { status: 409 },
+      );
+    }
     logRouteError("payments-records-create", rpcError, {
       actorUserId,
       schoolId: targetSchoolId,
@@ -111,6 +118,13 @@ export async function POST(req: NextRequest) {
 
   if (row.error_code === "STUDENT_NOT_FOUND") {
     return jsonError("الطالب المطلوب غير موجود ضمن المدرسة الحالية.", 404);
+  }
+
+  if (row.error_code === "DUPLICATE_PAYMENT") {
+    return NextResponse.json(
+      { error: { code: "DUPLICATE_PAYMENT", message: "تم تسجيل هذه الدفعة مسبقاً." } },
+      { status: 409 },
+    );
   }
 
   if (row.error_code === "PAID_IN_FULL") {

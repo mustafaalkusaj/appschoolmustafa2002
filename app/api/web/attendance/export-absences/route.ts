@@ -133,7 +133,19 @@ export async function GET(req: NextRequest) {
     .filter((row) => row.id && row.full_name);
 
   if (students.length === 0) {
-    const csv = ["student_id,student_name,class_name,section,absent_count,absent_dates,late_count,late_dates", ""].join("\n");
+    const csv = [
+      [
+        "student_id / معرف الطالب",
+        "student_name / اسم الطالب",
+        "class_name / الصف",
+        "section / الشعبة",
+        "absent_count / عدد أيام الغياب",
+        "absent_dates / تواريخ الغياب",
+        "late_count / عدد أيام التأخر",
+        "late_dates / تواريخ التأخر",
+      ].map(escapeCsv).join(","),
+      "",
+    ].join("\n");
     return new NextResponse("\ufeff" + csv, {
       status: 200,
       headers: {
@@ -157,13 +169,16 @@ export async function GET(req: NextRequest) {
       .lte("attendance_date", toDate)
       .in("status", ["absent", "late"] satisfies AttendanceStatus[])
       .order("attendance_date", { ascending: false })
-      .limit(200_000),
+      .limit(50_000),
     branchScope.value,
   );
 
   if (attendanceError) {
     return jsonError(attendanceError.message || "تعذر تحميل سجلات الغياب.", 500);
   }
+
+  const ATTENDANCE_LIMIT = 50_000;
+  const isTruncated = Array.isArray(attendanceData) && attendanceData.length === ATTENDANCE_LIMIT;
 
   const perStudent = new Map<
     string,
@@ -188,8 +203,19 @@ export async function GET(req: NextRequest) {
     if (statusValue === "late") entry.lateDates.push(dateValue);
   }
 
-  const header = ["student_id", "student_name", "class_name", "section", "absent_count", "absent_dates", "late_count", "late_dates"];
-  const lines = [header.join(",")];
+  // Bilingual headers: English key / Arabic label — improves usability for
+  // both Arabic-speaking staff and any tooling that expects English column names.
+  const header = [
+    "student_id / معرف الطالب",
+    "student_name / اسم الطالب",
+    "class_name / الصف",
+    "section / الشعبة",
+    "absent_count / عدد أيام الغياب",
+    "absent_dates / تواريخ الغياب",
+    "late_count / عدد أيام التأخر",
+    "late_dates / تواريخ التأخر",
+  ];
+  const lines = [header.map(escapeCsv).join(",")];
 
   for (const student of students) {
     const entry = perStudent.get(student.id) ?? { absentDates: [], lateDates: [] };
@@ -224,19 +250,25 @@ export async function GET(req: NextRequest) {
         late_dates: entry.lateDates.join(" ; "),
       };
     });
-    return NextResponse.json({ items: jsonItems });
+    return NextResponse.json({ items: jsonItems, truncated: isTruncated });
   }
 
   const safeSection = section ? `_${section}` : "";
   const filename = `class_absences_${className}${safeSection}_${fromDate}_to_${toDate}.csv`;
 
+  const csvHeaders: Record<string, string> = {
+    "content-type": "text/csv; charset=utf-8",
+    "content-disposition": `attachment; filename="${encodeURIComponent(filename)}"`,
+    "cache-control": "no-store",
+  };
+  if (isTruncated) {
+    csvHeaders["x-result-truncated"] = "true";
+    csvHeaders["x-result-limit"] = String(ATTENDANCE_LIMIT);
+  }
+
   return new NextResponse("\ufeff" + lines.join("\n") + "\n", {
     status: 200,
-    headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="${encodeURIComponent(filename)}"`,
-      "cache-control": "no-store",
-    },
+    headers: csvHeaders,
   });
 }
 

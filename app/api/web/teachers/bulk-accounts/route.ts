@@ -103,6 +103,9 @@ export async function POST(req: NextRequest) {
       const username = generateUsername();
       const password = generatePassword();
 
+      // TODO(C1-MIGRATION): Remove app_password_plain write once managed_user_credentials
+      // is the sole credential store. Passwords are returned to the caller in
+      // `results` and must not be exposed via list/GET API responses.
       const { error: updateError } = await actorSupabase
         .from("teachers")
         .update({

@@ -16,6 +16,7 @@ interface UseClassesSectionsProps {
   selectedSchoolId: string | null;
   scopeLoading: boolean;
   branchScoped?: boolean;
+  branchId?: string | null;
 }
 
 interface DashboardStructureResponse {
@@ -38,6 +39,7 @@ export function useClassesSections({
   selectedSchoolId,
   scopeLoading,
   branchScoped = false,
+  branchId: externalBranchId,
 }: UseClassesSectionsProps) {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [sections, setSections] = useState<SectionItem[]>([]);
@@ -51,7 +53,7 @@ export function useClassesSections({
   }, []);
 
   const fetchStructure = useCallback(async () => {
-    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+    const { school_id: schoolId, branch_id: resolvedBranchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
 
@@ -60,6 +62,8 @@ export function useClassesSections({
       setSections([]);
       return;
     }
+
+    const branchId = externalBranchId ?? resolvedBranchId;
 
     const params = new URLSearchParams({ schoolId });
     if (branchScoped) {
@@ -94,16 +98,17 @@ export function useClassesSections({
     });
     setClasses(classesWithCounts);
     setSections(sectionsWithCounts);
-  }, [branchScoped, profile, selectedSchoolId]);
+  }, [branchScoped, externalBranchId, profile, selectedSchoolId]);
 
   const handleSaveClass = useCallback(async (
     classForm: { name: string; sections: string[] },
     editingClass: ClassItem | null,
     onSuccess: () => void,
   ) => {
-    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+    const { school_id: schoolId, branch_id: resolvedBranchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
+    const branchId = externalBranchId ?? resolvedBranchId;
     const normalizedClassName = normalizeDashboardEntityName(classForm.name);
 
     if (!schoolId) {
@@ -150,12 +155,13 @@ export function useClassesSections({
     } finally {
       setMutationLoading(false);
     }
-  }, [branchScoped, clearMutationFeedback, fetchStructure, profile, selectedSchoolId]);
+  }, [branchScoped, clearMutationFeedback, externalBranchId, fetchStructure, profile, selectedSchoolId]);
 
   const handleDeleteClass = useCallback(async (id: string) => {
-    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+    const { school_id: schoolId, branch_id: resolvedBranchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
+    const branchId = externalBranchId ?? resolvedBranchId;
 
     if (!schoolId) {
       return;
@@ -193,16 +199,17 @@ export function useClassesSections({
     } finally {
       setMutationLoading(false);
     }
-  }, [branchScoped, classes, clearMutationFeedback, fetchStructure, profile, selectedSchoolId]);
+  }, [branchScoped, classes, clearMutationFeedback, externalBranchId, fetchStructure, profile, selectedSchoolId]);
 
   const handleSaveSection = useCallback(async (
     sectionForm: { class_id: string; name: string },
     editingSection: SectionItem | null,
     onSuccess: () => void,
   ) => {
-    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+    const { school_id: schoolId, branch_id: resolvedBranchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
+    const branchId = externalBranchId ?? resolvedBranchId;
     const normalizedSectionName = normalizeDashboardEntityName(sectionForm.name);
 
     if (!sectionForm.class_id) {
@@ -261,12 +268,13 @@ export function useClassesSections({
     } finally {
       setMutationLoading(false);
     }
-  }, [branchScoped, classes, clearMutationFeedback, fetchStructure, profile, sections, selectedSchoolId]);
+  }, [branchScoped, classes, clearMutationFeedback, externalBranchId, fetchStructure, profile, sections, selectedSchoolId]);
 
   const handleDeleteSection = useCallback(async (id: string) => {
-    const { school_id: schoolId, branch_id: branchId } = await resolveSchoolBranchForProfile(profile, {
+    const { school_id: schoolId, branch_id: resolvedBranchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
     });
+    const branchId = externalBranchId ?? resolvedBranchId;
 
     if (!schoolId) {
       return;
@@ -301,7 +309,7 @@ export function useClassesSections({
     } finally {
       setMutationLoading(false);
     }
-  }, [branchScoped, clearMutationFeedback, fetchStructure, profile, selectedSchoolId]);
+  }, [branchScoped, clearMutationFeedback, externalBranchId, fetchStructure, profile, selectedSchoolId]);
 
   useEffect(() => {
     if (!profile || scopeLoading) return;

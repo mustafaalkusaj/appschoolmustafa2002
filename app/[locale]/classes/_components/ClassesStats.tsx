@@ -13,7 +13,7 @@ interface ClassesStatsProps {
 
 function AnimatedNumber({ value }: { value: number }) {
   const motionVal = useMotionValue(0);
-  const rounded = useTransform(motionVal, (v) => Math.round(v * 10) / 10);
+  const rounded = useTransform(motionVal, (v) => Math.round(v));
   const [display, setDisplay] = useState<number>(0);
 
   useEffect(() => {

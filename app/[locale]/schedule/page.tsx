@@ -786,8 +786,8 @@ export default function SchedulePage() {
   }, []);
 
   useEffect(() => {
-    if (schoolId) void fetchTeachers(schoolId);
-  }, [schoolId, fetchTeachers]);
+    if (schoolId && viewMode === "teacher") void fetchTeachers(schoolId);
+  }, [schoolId, viewMode, fetchTeachers]);
 
   // Fetch teacher schedule
   const fetchTeacherSchedule = useCallback(

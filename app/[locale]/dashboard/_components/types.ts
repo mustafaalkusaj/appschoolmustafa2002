@@ -97,6 +97,8 @@ export interface BrandingFormData {
 export interface ClassForm {
   name: string;
   sections: string[];
+  total_fee?: string;
+  installments?: string;
 }
 
 export interface SectionForm {

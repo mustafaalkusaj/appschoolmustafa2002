@@ -31,6 +31,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           type={type}
           ref={ref}
           disabled={disabled}
+          style={{ color: "var(--text-primary)" }}
           className={cn(
             // Base styles
             "flex w-full h-[var(--input-height)] rounded-[var(--input-radius)]",

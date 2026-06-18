@@ -139,7 +139,13 @@ export function StudentQuickView({ student, schoolId, onClose }: Props) {
     : 0;
 
   const initials = s?.full_name
-    ? s.full_name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("")
+    ? (() => {
+        const parts = s.full_name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return "؟";
+        const first = parts[0][0] ?? "";
+        const last = parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "";
+        return (first + last) || "؟";
+      })()
     : "؟";
 
   return (

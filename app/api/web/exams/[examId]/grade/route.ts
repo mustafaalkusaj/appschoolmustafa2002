@@ -49,18 +49,47 @@ export async function POST(
     .select("id, exam_id, score")
     .eq("id", body.attemptId)
     .eq("exam_id", examId)
+    .eq("school_id", targetSchoolId)
     .single();
 
   if (attemptError || !attempt) {
     return NextResponse.json({ ok: false, error: "attempt not found" }, { status: 404 });
   }
 
+  // Fetch max marks for each question being graded so we can validate upper bounds.
+  const questionIds = (body.grades as Array<{ questionId: string; marks_awarded: number }>).map((g) => g.questionId);
+  const { data: examQuestions } = await actorSupabase
+    .from("exam_questions")
+    .select("question_id, marks")
+    .eq("exam_id", examId)
+    .in("question_id", questionIds);
+
+  const maxMarksByQuestion = new Map<string, number>(
+    ((examQuestions ?? []) as Array<{ question_id: string; marks: number }>).map((q) => [q.question_id, q.marks]),
+  );
+
   // Update each graded answer
   const grades = body.grades as Array<{ questionId: string; marks_awarded: number; feedback?: string }>;
   let manualTotal = 0;
 
   for (const grade of grades) {
+    const maxMarks = maxMarksByQuestion.get(grade.questionId);
     const marksAwarded = Number(grade.marks_awarded) || 0;
+
+    if (marksAwarded < 0) {
+      return NextResponse.json(
+        { ok: false, error: `marks_awarded cannot be negative for question ${grade.questionId}` },
+        { status: 400 },
+      );
+    }
+
+    if (maxMarks !== undefined && marksAwarded > maxMarks) {
+      return NextResponse.json(
+        { ok: false, error: `marks_awarded (${marksAwarded}) exceeds max marks (${maxMarks}) for question ${grade.questionId}` },
+        { status: 400 },
+      );
+    }
+
     manualTotal += marksAwarded;
 
     await actorSupabase

@@ -3,6 +3,22 @@ import { localizeAppPath, stripLocaleFromPath, type AppLocale } from "@/lib/loca
 export const SUPER_ADMIN_SCHOOL_QUERY_PARAM = "school";
 export const SCHOOL_SCOPE_CHANGE_EVENT = "school-scope-change";
 
+// ---------------------------------------------------------------------------
+// Branch scope path helpers (mirrors school scope)
+// ---------------------------------------------------------------------------
+export const BRANCH_SCOPE_QUERY_PARAM = "branch";
+
+export function buildPathWithBranchScope(pathname: string, branchId: string | null | undefined): string {
+  if (!branchId) return pathname;
+
+  const [basePath, search = ""] = pathname.split("?", 2);
+  const params = new URLSearchParams(search);
+  params.set(BRANCH_SCOPE_QUERY_PARAM, branchId);
+  const nextSearch = params.toString();
+
+  return nextSearch ? `${basePath}?${nextSearch}` : basePath;
+}
+
 const SUPER_ADMIN_SCHOOL_SCOPED_PATHS = new Set([
   "/dashboard",
   "/teachers",

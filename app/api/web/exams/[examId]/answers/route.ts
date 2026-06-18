@@ -50,7 +50,8 @@ export async function GET(
     const { data: attempts } = await actorSupabase
       .from("exam_attempts")
       .select("id")
-      .eq("exam_id", examId);
+      .eq("exam_id", examId)
+      .eq("school_id", targetSchoolId);
 
     const attemptIds = (attempts ?? []).map((a: { id: string }) => a.id);
     if (attemptIds.length === 0) {

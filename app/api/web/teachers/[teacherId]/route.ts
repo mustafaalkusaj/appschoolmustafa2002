@@ -4,7 +4,7 @@ import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope"
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
-import { jsonError, logRouteError } from "@/lib/route-utils";
+import { isValidUUID, jsonError, logRouteError } from "@/lib/route-utils";
 
 function normalizeOptionalText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -79,6 +79,9 @@ export async function GET(
   { params }: { params: Promise<{ teacherId: string }> },
 ) {
   const { teacherId } = await params;
+  if (!isValidUUID(teacherId)) {
+    return jsonError("معرّف المعلم غير صالح.", 400);
+  }
   const schoolId = req.nextUrl.searchParams.get("schoolId");
 
   const ctx = await resolveTeacherContext(req, schoolId, "view_teachers");
@@ -109,7 +112,12 @@ export async function GET(
       return jsonError("المعلم غير موجود ضمن المدرسة الحالية.", 404);
     }
 
-    return NextResponse.json({ ok: true, teacher: data });
+    // C1: Never send the plaintext password in GET responses.
+    // The AppAccountTab reads it from state set at account-creation time.
+    // TODO(C1-MIGRATION): drop app_password_plain from the DB schema.
+    const { app_password_plain: _pwd, ...teacher } = data as typeof data & { app_password_plain?: string | null };
+
+    return NextResponse.json({ ok: true, teacher });
   } catch (error) {
     logRouteError("teachers-get", error, { teacherId, schoolId: targetSchoolId });
     return jsonError("تعذر تحميل بيانات المعلم.", 500);
@@ -121,6 +129,9 @@ export async function PATCH(
   { params }: { params: Promise<{ teacherId: string }> },
 ) {
   const { teacherId } = await params;
+  if (!isValidUUID(teacherId)) {
+    return jsonError("معرّف المعلم غير صالح.", 400);
+  }
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
   const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;
@@ -226,6 +237,9 @@ export async function DELETE(
   { params }: { params: Promise<{ teacherId: string }> },
 ) {
   const { teacherId } = await params;
+  if (!isValidUUID(teacherId)) {
+    return jsonError("معرّف المعلم غير صالح.", 400);
+  }
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
   const requestedBranchId = typeof body?.branch_id === "string" ? body.branch_id : null;

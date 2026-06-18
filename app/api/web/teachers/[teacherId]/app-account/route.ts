@@ -172,6 +172,9 @@ export async function POST(
     }
 
     // 3. Update teacher record with username, password, auth_user_id
+    // TODO(C1-MIGRATION): Remove app_password_plain write once managed_user_credentials
+    // is the sole credential store. The password is returned to the caller once
+    // at creation time and must not be exposed via list/GET API responses.
     const { data, error } = await applyBranchScopeToQuery(
       actorSupabase
         .from("teachers")

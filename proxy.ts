@@ -167,7 +167,8 @@ function isAuthorizedOpsProbe(request: NextRequest, normalizedPath: string) {
 async function getGuardRedirect(request: NextRequest): Promise<URL | NextResponse | null> {
   const normalizedPath = normalizePath(request.nextUrl.pathname);
   const isApiRequest = normalizedPath.startsWith("/api/");
-  const isPublicPath = PUBLIC_PATHS.some((path) => normalizedPath === path);
+  const isPublicPath = PUBLIC_PATHS.some((path) => normalizedPath === path) ||
+    normalizedPath.startsWith("/upload/");
   const isPublicApiPath =
     // Mobile APIs use their own auth (Supabase token / resolveMobileRouteContext)
     normalizedPath.startsWith("/api/mobile/") ||
@@ -183,7 +184,9 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     // Telegram webhook receiver — Telegram posts here; route handles ?secret auth
     normalizedPath === "/api/ops/telegram-webhook" ||
     // Client error reporting — called from frontend without ops token
-    normalizedPath === "/api/ops/client-error";
+    normalizedPath === "/api/ops/client-error" ||
+    // Mobile photo upload — uses token-based auth, no session cookie
+    normalizedPath === "/api/web/upload/mobile";
 
   if ((!isApiRequest && isPublicPath) || (isApiRequest && isPublicApiPath)) {
     return null;
