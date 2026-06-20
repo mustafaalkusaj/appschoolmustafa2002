@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext, tableHasColumn } from "@/lib/managed-users-server";
@@ -8,6 +9,27 @@ import { routeUserHasPermission } from "@/lib/route-permissions";
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
+
+// Whitelist + validate each lecture row. Anything outside these fields is
+// dropped (school_id / branch_id are forced server-side, never trusted here).
+const MAX_LECTURE_PRICE = 100_000_000; // sane upper bound (integer minor units)
+
+const lectureRowSchema = z
+  .object({
+    teacher_id: z.string().uuid(),
+    grade: z.string().trim().min(1).max(100),
+    section: z.string().trim().max(100).nullish(),
+    // period column is integer
+    period: z.coerce.number().int().nullish(),
+    // real DB values are 'morning' | 'evening'
+    session_type: z.enum(["morning", "evening"]).nullish(),
+    lecture_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ غير صالح"),
+    price: z.coerce.number().int().min(0).max(MAX_LECTURE_PRICE),
+  });
+// unknown keys are stripped (whitelist) rather than rejected, so an extra
+// client field never 400s a valid lecture import.
+
+const lectureRowsSchema = z.array(lectureRowSchema).min(1).max(1000);
 
 function extractMonthRange(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -214,8 +236,22 @@ export async function POST(req: NextRequest) {
     return jsonError(writeBranch.message, writeBranch.status);
   }
 
-  const rows = body.rows.map((r) => ({
-    ...(r as object),
+  // Strip server-controlled keys before validation, then validate + whitelist
+  // every row. Reject the whole payload on any invalid row (negative/huge
+  // price, bad date, unknown columns, wrong session_type, etc.).
+  const sanitizedInput = body.rows.map((r) => {
+    const { school_id: _s, branch_id: _b, id: _id, ...rest } = (r ?? {}) as Record<string, unknown>;
+    void _s; void _b; void _id;
+    return rest;
+  });
+
+  const parsedRows = lectureRowsSchema.safeParse(sanitizedInput);
+  if (!parsedRows.success) {
+    return jsonError("بيانات المحاضرات غير صالحة.", 400);
+  }
+
+  const rows = parsedRows.data.map((r) => ({
+    ...r,
     school_id: targetSchoolId,
     ...(writeBranch.value !== null ? { branch_id: writeBranch.value } : {}),
   }));

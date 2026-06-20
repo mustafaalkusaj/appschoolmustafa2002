@@ -29,18 +29,49 @@ function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
 // user or bumped permissions_version. Returns "stale" when the cookie must be
 // rejected, "ok" when it is still trustworthy, and "skip" when the lookup
 // itself failed (do not block on infra errors — fall through to full resolve).
+// Subscription states that must block write access regardless of cookie age.
+function isRestrictedSubscriptionStatus(status: string | null | undefined): boolean {
+  const normalized = (status || "").toLowerCase();
+  return (
+    normalized === "suspended" ||
+    normalized === "inactive" ||
+    normalized === "stopped" ||
+    normalized === "expired"
+  );
+}
+
 async function recheckRbacFreshness(
   userId: string,
   cookiePermissionsVersion: number | null | undefined,
+  // School to re-check subscription for. null for super_admin (subscription
+  // checks do not apply) — skips the extra lookup entirely.
+  schoolId: string | null | undefined,
 ): Promise<"ok" | "stale" | "skip"> {
   try {
     const serviceClient = createServiceSupabaseClient();
-    const { data, error } = await serviceClient
-      .from("user_profiles")
-      .select("is_active, permissions_version")
-      .eq("id", userId)
-      .maybeSingle<{ is_active: boolean | null; permissions_version: number | null }>();
 
+    // Run the user-state and subscription rechecks together. The subscription
+    // recheck closes the gap where permissions_version is NOT bumped on
+    // subscription expiry, so an already-logged-in admin would otherwise keep
+    // write access for up to the full 8h cookie lifetime after expiry.
+    const [profileResult, subscriptionResult] = await Promise.all([
+      serviceClient
+        .from("user_profiles")
+        .select("is_active, permissions_version")
+        .eq("id", userId)
+        .maybeSingle<{ is_active: boolean | null; permissions_version: number | null }>(),
+      schoolId
+        ? serviceClient
+            .from("subscriptions")
+            .select("status, end_date")
+            .eq("school_id", schoolId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle<{ status: string | null; end_date: string | null }>()
+        : Promise.resolve({ data: null, error: null } as const),
+    ]);
+
+    const { data, error } = profileResult;
     if (error || !data) {
       return "skip";
     }
@@ -55,6 +86,18 @@ async function recheckRbacFreshness(
       data.permissions_version !== cookiePermissionsVersion
     ) {
       return "stale";
+    }
+
+    // Only treat subscription as stale on a successful read. On a lookup error,
+    // do not block (the full resolve path re-enforces subscription anyway).
+    if (schoolId && !subscriptionResult.error) {
+      const sub = subscriptionResult.data;
+      if (
+        isRestrictedSubscriptionStatus(sub?.status) ||
+        isSchoolSubscriptionExpired(sub?.end_date)
+      ) {
+        return "stale";
+      }
     }
 
     return "ok";
@@ -147,7 +190,11 @@ export async function resolveSchoolScopedActorContext(
     // issued, reject the fast-path and fall through to full re-resolution
     // (which re-reads the DB and enforces the live state).
     const tFreshStart = performance.now();
-    const freshness = await recheckRbacFreshness(user.id, rbacSession.permissionsVersion);
+    const freshness = await recheckRbacFreshness(
+      user.id,
+      rbacSession.permissionsVersion,
+      actorRole === "super_admin" ? null : rbacSession.schoolId,
+    );
     recordTiming("auth_rbac_freshness", performance.now() - tFreshStart);
     if (freshness === "stale") {
       // Do not return cached: drop to the expensive resolve path below.

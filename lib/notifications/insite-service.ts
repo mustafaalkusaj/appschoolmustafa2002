@@ -48,7 +48,7 @@ export async function createInsiteNotification(
       template: input.template ?? "default",
       media_url: input.mediaUrl ?? null,
       media_type: input.mediaType ?? null,
-      sent_by_user_id: input.sentByUserId,
+      sent_by_user_id: input.sentByUserId ?? null,
       status: "draft",
     })
     .select("id")

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { createInsiteNotification } from "@/lib/notifications/insite-service";
+import type { NotificationCategory } from "@/lib/notifications/types";
 
 export const dynamic = "force-dynamic";
 
@@ -84,22 +86,31 @@ export async function GET(request: NextRequest) {
     );
 
     const priority = hasExamTomorrow ? "urgent" : hasHolidayTomorrow ? "important" : "normal";
+    const category: NotificationCategory = hasExamTomorrow
+      ? "exams"
+      : hasHolidayTomorrow
+        ? "holiday"
+        : "general";
 
-    const { error: insertError } = await supabase.from("school_notifications").insert({
-      school_id: school.id,
+    // ننشئ الإشعار عبر آلية الإرسال الموحّدة حتى تُملأ notification_recipients
+    // (صندوق الوارد/غير المقروء يقرأ من هذا الجدول)، وإلا لن تصل التذكيرات للمستخدمين.
+    // sentByUserId = null لأنه إشعار صادر عن النظام (cron) بلا فاعل بشري.
+    const result = await createInsiteNotification(supabase, {
+      schoolId: school.id,
+      type: "insite",
       title: "تذكير بالتقويم المدرسي",
       body: parts.join(" | "),
-      category: hasExamTomorrow ? "exams" : hasHolidayTomorrow ? "holiday" : "general",
-      target_type: "all",
+      target: { targetType: "all" },
       priority,
-      status: "sent",
-      sent_at: new Date().toISOString(),
+      category,
+      template: "reminder",
+      sentByUserId: null,
     });
 
-    if (insertError) {
+    if (!result.ok) {
       console.error(
         `[calendar/daily-check] Failed to notify school ${school.id}:`,
-        insertError.message,
+        result.error,
       );
     } else {
       notified++;

@@ -83,6 +83,21 @@ export async function POST(
       }
     }
 
+    // Verify the exam belongs to the student's school (mirror the start guard).
+    const { data: exam, error: examError } = await supabase
+      .from("exams")
+      .select("id")
+      .eq("id", examId)
+      .eq("school_id", schoolId)
+      .single();
+
+    if (examError || !exam) {
+      return NextResponse.json(
+        { ok: false, error: { message: "الامتحان غير موجود." } },
+        { status: 404 },
+      );
+    }
+
     // Verify attempt belongs to this student and is in_progress
     const { data: attempt, error: attemptError } = await supabase
       .from("exam_attempts")

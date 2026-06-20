@@ -77,10 +77,10 @@ export async function GET(req: NextRequest) {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const { data: attendance } = await supabase
       .from("attendance")
-      .select("id, student_id, status, attendance_date")
+      .select("id, student_id, status, date")
       .in("student_id", studentIds)
       .eq("school_id", schoolId)
-      .gte("attendance_date", thirtyDaysAgo.toISOString().split("T")[0]);
+      .gte("date", thirtyDaysAgo.toISOString().split("T")[0]);
 
     // Fetch recent payments
     const { data: payments } = await supabase

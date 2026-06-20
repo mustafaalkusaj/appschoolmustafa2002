@@ -28,8 +28,26 @@ export async function getTargetUsers(
 
   // الأساتذة — محددون أو جميع الأساتذة
   if (targetType === "teachers") {
+    // قائمة محددة من العميل — يجب التحقق أنها تنتمي لنفس المدرسة لمنع
+    // الحقن عبر المدارس (cross-tenant). نتقاطع المعرّفات المُرسَلة مع
+    // أساتذة المدرسة النشطين فقط ونُسقط أي معرّف غير مطابق.
     if (targetConfig.targetUserIds && targetConfig.targetUserIds.length > 0) {
-      return Array.from(new Set(targetConfig.targetUserIds));
+      const requested = Array.from(new Set(targetConfig.targetUserIds));
+      const { data, error } = await supabase
+        .from("managed_user_profiles")
+        .select("auth_user_id")
+        .eq("school_id", schoolId)
+        .eq("role", "teacher")
+        .eq("is_active", true)
+        .in("auth_user_id", requested)
+        .not("auth_user_id", "is", null);
+      if (error || !data) return [];
+      const allowed = new Set(
+        data
+          .map((r: { auth_user_id: string | null }) => r.auth_user_id)
+          .filter((id): id is string => Boolean(id)),
+      );
+      return requested.filter((id) => allowed.has(id));
     }
     const { data, error } = await supabase
       .from("managed_user_profiles")

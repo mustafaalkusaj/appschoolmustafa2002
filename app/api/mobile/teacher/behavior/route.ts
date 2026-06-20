@@ -16,8 +16,26 @@ export async function GET(req: NextRequest) {
 
     const params = parseMobileListParams(req, { limit: 20, maxLimit: 100 });
     const url = new URL(req.url);
+    const requestedStudentId = url.searchParams.get("student_id")?.trim() || undefined;
+
+    // IDOR guard: behavior_logs has no roster column, so a client-supplied
+    // student_id must be verified against the teacher's own assigned roster.
+    if (requestedStudentId) {
+      const rosterIds = new Set(
+        (context.value.account.teacher?.assigned_students ?? [])
+          .map((student) => student.student_id)
+          .filter(Boolean),
+      );
+      if (!rosterIds.has(requestedStudentId)) {
+        return NextResponse.json(
+          { ok: false, error: "هذا الطالب غير مرتبط بك." },
+          { status: 403 },
+        );
+      }
+    }
+
     const result = await queryMobileBehaviorLogs(context.value, params, {
-      studentId: url.searchParams.get("student_id")?.trim() || undefined,
+      studentId: requestedStudentId,
     });
 
     return NextResponse.json({

@@ -957,6 +957,24 @@ export async function queryMobileBehaviorLogs(
   params: MobileListParams,
   filters: { studentId?: string },
 ): Promise<MobileResourceResult<Record<string, unknown>>> {
+  // behavior_logs has no roster column, so school_id alone lets a teacher read
+  // ANY student's records in the school (IDOR). Constrain to the teacher's own
+  // assigned roster. For non-teacher callers (e.g. admin) assigned_students is
+  // empty/undefined, so this scoping does not apply.
+  const rosterIds = Array.from(
+    new Set(
+      (ctx.account.teacher?.assigned_students ?? [])
+        .map((student) => normalizeText(student.student_id))
+        .filter(Boolean),
+    ),
+  );
+  const isTeacher = ctx.account.teacher != null;
+
+  // A teacher requesting a specific student must own them in their roster.
+  if (isTeacher && filters.studentId && !rosterIds.includes(filters.studentId)) {
+    return { gate: AVAILABLE_GATE, items: [] };
+  }
+
   let query = ctx.serviceSupabase
     .from("behavior_logs")
     .select("id, school_id, student_id, student_name, behavior_type, points, note, created_at")
@@ -964,7 +982,15 @@ export async function queryMobileBehaviorLogs(
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
 
-  if (filters.studentId) query = query.eq("student_id", filters.studentId);
+  if (filters.studentId) {
+    query = query.eq("student_id", filters.studentId);
+  } else if (isTeacher) {
+    // No specific student: a teacher only sees their own roster's records.
+    if (rosterIds.length === 0) {
+      return { gate: AVAILABLE_GATE, items: [] };
+    }
+    query = query.in("student_id", rosterIds);
+  }
 
   const { data, error } = await query;
   if (error) {

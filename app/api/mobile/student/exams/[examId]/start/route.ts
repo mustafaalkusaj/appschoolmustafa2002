@@ -61,12 +61,17 @@ export async function POST(
       ends_at: string | null; class_name: string | null;
     };
 
-    // Check class match
-    if (examRow.class_name && account.student?.class_name && examRow.class_name !== account.student.class_name) {
-      return NextResponse.json(
-        { ok: false, error: { message: "هذا الامتحان غير مخصص لصفك." } },
-        { status: 403 },
-      );
+    // Check class match. When the exam targets a specific class, the student
+    // MUST have a matching class_name. A missing/empty student class is treated
+    // as DENY — otherwise a class-less student could start any class's exam.
+    if (examRow.class_name) {
+      const studentClass = account.student?.class_name?.trim();
+      if (!studentClass || studentClass !== examRow.class_name) {
+        return NextResponse.json(
+          { ok: false, error: { message: "هذا الامتحان غير مخصص لصفك." } },
+          { status: 403 },
+        );
+      }
     }
 
     // Check time window

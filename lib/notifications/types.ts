@@ -62,7 +62,9 @@ export interface CreateNotificationInput {
   template?: NotificationTemplate;
   mediaUrl?: string;
   mediaType?: NotificationMediaType;
-  sentByUserId: string;
+  // null للإشعارات الصادرة عن النظام (مثل مهام cron) حيث لا يوجد فاعل بشري.
+  // العمود sent_by_user_id قابل لأن يكون NULL في قاعدة البيانات.
+  sentByUserId: string | null;
   channels?: NotificationType[];
 }
 
