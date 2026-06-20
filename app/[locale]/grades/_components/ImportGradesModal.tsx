@@ -122,15 +122,17 @@ export function ImportGradesModal({
         try {
           const XLSX = await loadXLSX();
           const data = new Uint8Array(e.target?.result as ArrayBuffer)
-          const workbook = await XLSX.read(data, { type: 'array' })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const workbook = await XLSX.read(data as any, { type: 'array' })
           const sheetName = workbook.SheetNames[0]
           if (!sheetName) throw new Error(isAr ? 'الملف لا يحتوي على أوراق عمل.' : 'No worksheets found.')
 
           const sheet = workbook.Sheets[sheetName]
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
             defval: null,
             raw: false,
-          })
+          } as any)
 
           if (jsonData.length === 0) {
             throw new Error(isAr ? 'الملف فارغ أو لا يحتوي على بيانات.' : 'File is empty.')
