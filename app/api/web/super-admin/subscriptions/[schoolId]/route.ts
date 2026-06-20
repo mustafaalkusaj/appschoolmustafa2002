@@ -116,6 +116,14 @@ export async function PATCH(
     return jsonError("يجب تحديد حقل واحد على الأقل للتحديث.", 400);
   }
 
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  if (parsed.end_date !== undefined && parsed.end_date !== null && !DATE_RE.test(parsed.end_date)) {
+    return jsonError("end_date يجب أن يكون بصيغة YYYY-MM-DD أو null.", 400);
+  }
+  if (parsed.start_date !== undefined && parsed.start_date !== null && !DATE_RE.test(parsed.start_date)) {
+    return jsonError("start_date يجب أن يكون بصيغة YYYY-MM-DD أو null.", 400);
+  }
+
   const { dataSupabase } = context.value;
 
   const { data: latestSub, error: lookupError } = await dataSupabase

@@ -49,6 +49,16 @@ export async function PATCH(req: NextRequest) {
     const { updates } = body as { updates?: Array<{ key: string; value: string }> };
 
     if (!Array.isArray(updates) || updates.length === 0) return jsonError("updates مطلوب.", 400);
+    if (updates.length > 50) return jsonError("لا يمكن تحديث أكثر من 50 إعداداً في طلب واحد.", 400);
+
+    for (const u of updates) {
+      if (!u.key || typeof u.key !== "string" || u.key.trim().length === 0) {
+        return jsonError("كل تحديث يجب أن يحتوي على key صالح.", 400);
+      }
+      if (typeof u.value !== "string") {
+        return jsonError(`قيمة الإعداد "${u.key}" يجب أن تكون نصاً.`, 400);
+      }
+    }
 
     const results = await Promise.allSettled(
       updates.map((u) =>

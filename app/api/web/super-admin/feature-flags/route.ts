@@ -49,6 +49,9 @@ export async function POST(req: NextRequest) {
 
     if (!school_id || typeof school_id !== "string") return jsonError("school_id مطلوب.", 400);
     if (!feature_key || typeof feature_key !== "string") return jsonError("feature_key مطلوب.", 400);
+    if (!/^[a-z][a-z0-9_]{1,59}$/.test(feature_key as string)) {
+      return jsonError("feature_key يجب أن يبدأ بحرف صغير ويحتوي على حروف صغيرة وأرقام وشرطات سفلية فقط (max 60).", 400);
+    }
 
     const { data, error } = await context.value.dataSupabase
       .from("school_feature_flags")

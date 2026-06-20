@@ -48,9 +48,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { school_id, version, platform, changelog, build_number, is_mandatory } = body as Record<string, unknown>;
 
+    const VALID_PLATFORMS = ["ios", "android"] as const;
+    const SEMVER_RE = /^\d+\.\d+\.\d+([.\-][a-zA-Z0-9]+)*$/;
+
     if (!school_id || typeof school_id !== "string") return jsonError("school_id مطلوب.", 400);
     if (!version || typeof version !== "string") return jsonError("version مطلوب.", 400);
+    if (!SEMVER_RE.test(String(version))) return jsonError("version يجب أن يكون بصيغة semver مثل 1.0.0", 400);
     if (!platform || typeof platform !== "string") return jsonError("platform مطلوب.", 400);
+    if (!(VALID_PLATFORMS as readonly string[]).includes(platform as string)) {
+      return jsonError("platform يجب أن يكون ios أو android.", 400);
+    }
 
     const { data, error } = await context.value.dataSupabase
       .from("school_app_versions")
