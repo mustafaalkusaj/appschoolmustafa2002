@@ -264,7 +264,6 @@ export async function DELETE(
         .from("teachers")
         .update({
           app_username: null,
-          app_password_plain: null,
           app_status: "inactive",
           updated_at: new Date().toISOString(),
         })
