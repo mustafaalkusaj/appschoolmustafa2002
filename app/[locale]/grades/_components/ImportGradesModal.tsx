@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
+import { loadXLSX } from '@/lib/xlsx-loader'
 import { fetchJsonWithAuthorizedSession } from '@/lib/authorized-api'
 
 // ── أنواع ───────────────────────────────────────────────────────────────────
@@ -118,10 +118,11 @@ export function ImportGradesModal({
       setParseError(null)
 
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
+          const XLSX = await loadXLSX();
           const data = new Uint8Array(e.target?.result as ArrayBuffer)
-          const workbook = XLSX.read(data, { type: 'array' })
+          const workbook = await XLSX.read(data, { type: 'array' })
           const sheetName = workbook.SheetNames[0]
           if (!sheetName) throw new Error(isAr ? 'الملف لا يحتوي على أوراق عمل.' : 'No worksheets found.')
 

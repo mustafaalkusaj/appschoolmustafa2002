@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { GraduationCap } from "lucide-react";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-loader";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
@@ -309,7 +309,7 @@ export default function GradesPage() {
 
   // ── Local Excel export ────────────────────────────────────────────────────────
 
-  const handleExportLocalExcel = useCallback(() => {
+  const handleExportLocalExcel = useCallback(async () => {
     const statusMap: Record<string, string> = { draft: "مسودة", confirmed: "مؤكدة", locked: "مقفولة" };
     const data = filteredEntries.map((e, idx) => ({
       "#": idx + 1,
@@ -325,11 +325,11 @@ export default function GradesPage() {
       "الحالة": statusMap[e.status] ?? e.status,
       "ملاحظة": e.note ?? "",
     }));
+    const XLSX = await loadXLSX();
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 4 }, { wch: 26 }, { wch: 16 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 8 }, { wch: 6 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 22 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `الدرجات ${filters.academicYear}`);
-    XLSX.writeFile(wb, `درجات_${filters.academicYear}_ف${filters.semester}.xlsx`);
+    await XLSX.writeFile(wb, `درجات_${filters.academicYear}_ف${filters.semester}.xlsx`);
   }, [filteredEntries, filters]);
 
   // ── Print grades ──────────────────────────────────────────────────────────────

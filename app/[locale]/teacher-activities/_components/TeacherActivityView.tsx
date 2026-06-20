@@ -9,7 +9,7 @@ import { useToast } from "@/components/toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
 import { BarChart3, Clock, Eye, Users, Pencil as Edit, UserX, UserCheck, MessageSquare, ExternalLink, X, Send, Settings } from "@/lib/icons";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-loader";
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   notification:   { label: "إشعار",        color: "#3b82f6", bg: "rgba(59,130,246,0.1)",  icon: "🔔" },
@@ -171,7 +171,7 @@ export function TeacherActivityView({ schoolId }: { schoolId: string }) {
     }
   }
 
-  function exportActivitiesExcel() {
+  async function exportActivitiesExcel() {
     if (!selectedTeacher || activities.length === 0) return;
     const typeMap = (t: string) => TYPE_CONFIG[t]?.label ?? t;
     const data = activities.map((a, idx) => ({
@@ -191,11 +191,11 @@ export function TeacherActivityView({ schoolId }: { schoolId: string }) {
       "رابط الملف": a.file_url ?? a.attachment_url ?? "",
       "رابط": a.link_url ?? "",
     }));
+    const XLSX = await loadXLSX();
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 4 }, { wch: 12 }, { wch: 30 }, { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 40 }, { wch: 40 }, { wch: 40 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `نشاط_${selectedTeacher.full_name}`.slice(0, 31));
-    XLSX.writeFile(wb, `نشاط_${selectedTeacher.full_name}.xlsx`);
+    await XLSX.writeFile(wb, `نشاط_${selectedTeacher.full_name}.xlsx`);
   }
 
   function printActivities() {
