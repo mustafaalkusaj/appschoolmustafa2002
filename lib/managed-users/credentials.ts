@@ -1,4 +1,5 @@
-import { randomBytes, createHash } from "crypto";
+import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 
 import { isMissingTableError } from "@/lib/admin-infrastructure";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
@@ -71,8 +72,24 @@ export function generateTemporaryPassword() {
   );
 }
 
+const BCRYPT_ROUNDS = 10;
+
 export function hashPassword(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
+  return bcrypt.hashSync(password, BCRYPT_ROUNDS);
+}
+
+export function verifyPassword(password: string, hash: string): boolean {
+  // Support legacy sha256 hashes during migration window
+  // sha256 hashes are 64-char hex strings; bcrypt hashes start with $2b$
+  if (hash.startsWith("$2b$") || hash.startsWith("$2a$")) {
+    return bcrypt.compareSync(password, hash);
+  }
+  // Legacy sha256 — constant-time comparison to avoid timing attacks
+  const { createHash, timingSafeEqual } = require("crypto") as typeof import("crypto");
+  const inputHash = createHash("sha256").update(password).digest();
+  const storedHash = Buffer.from(hash, "hex");
+  if (inputHash.length !== storedHash.length) return false;
+  return timingSafeEqual(inputHash, storedHash);
 }
 
 // Credential conversion
