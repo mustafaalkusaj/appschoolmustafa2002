@@ -159,7 +159,6 @@ export async function POST(
         school_id: targetSchoolId,
         login_identifier: username,
         temporary_password_hash: hashPassword(password),
-        temporary_password_plain: password,
         has_pending_setup: true,
         password_last_reset_at: new Date().toISOString(),
       });

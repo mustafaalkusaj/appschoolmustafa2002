@@ -223,20 +223,18 @@ export default function ClassesPage() {
         setPromoteError(isEn ? "No students to promote in this class." : "لا يوجد طلاب للترقية في هذا الصف.");
         return;
       }
-      await Promise.all(
-        ids.map((id) =>
-          fetchJsonWithAuthorizedSession(`/api/web/students/${id}`, {
-            method: "PATCH",
-            headers: withJsonHeaders(),
-            body: JSON.stringify({
-              transfer_type: "class",
-              target_class_name: targetClassName,
-              school_id: schoolScope.selectedSchoolId,
-              branch_id: effectiveBranchId ?? undefined,
-            }),
-          })
-        )
-      );
+      // Single bulk request instead of one PATCH per student (avoids N+1
+      // and prevents silent partial promotion on individual failures).
+      await fetchJsonWithAuthorizedSession(`/api/web/students/bulk-transfer`, {
+        method: "POST",
+        headers: withJsonHeaders(),
+        body: JSON.stringify({
+          target_class_name: targetClassName,
+          student_ids: ids,
+          school_id: schoolScope.selectedSchoolId,
+          branch_id: effectiveBranchId ?? undefined,
+        }),
+      });
       setShowPromoteModal(false);
       setSelectedClassId(null);
       void classesSections.refetch();

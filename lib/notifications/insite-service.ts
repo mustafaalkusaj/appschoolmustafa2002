@@ -141,14 +141,16 @@ export async function getUnreadCount(
   userId: string,
   schoolId: string,
 ): Promise<number> {
+  // نفلتر بـ school_id عبر علاقة school_notifications حتى لا تتجمّع
+  // الإشعارات غير المقروءة عبر مدارس مختلفة لنفس المستخدم.
   const { count, error } = await supabase
     .from("notification_recipients")
-    .select("id", { count: "exact", head: true })
+    .select("id, school_notifications!inner(school_id)", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("is_read", false)
-    .not("notification_id", "is", null);
+    .not("notification_id", "is", null)
+    .eq("school_notifications.school_id", schoolId);
 
-  // نفلتر أيضاً بـ school_id عبر join
   if (error) return 0;
   return count ?? 0;
 }

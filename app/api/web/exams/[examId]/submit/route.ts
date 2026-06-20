@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { resolveBranchScope } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,29 @@ export async function POST(
 
   if (attempt.status !== "in_progress") {
     return NextResponse.json({ ok: false, error: "attempt already submitted" }, { status: 400 });
+  }
+
+  // Branch isolation: a branch-restricted staff member may only submit attempts
+  // for students within their branch. exam_attempts has no branch_id column, so
+  // isolation is enforced via the student's branch (students.branch_id).
+  const branchScope = resolveBranchScope(context.value);
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+  if (branchScope.value.branchIds.length > 0) {
+    if (!attempt.student_id) {
+      return NextResponse.json({ ok: false, error: "attempt not found" }, { status: 404 });
+    }
+    const { data: scopedStudent } = await actorSupabase
+      .from("students")
+      .select("id")
+      .eq("id", attempt.student_id)
+      .eq("school_id", targetSchoolId)
+      .in("branch_id", branchScope.value.branchIds)
+      .maybeSingle();
+    if (!scopedStudent) {
+      return NextResponse.json({ ok: false, error: "attempt not found" }, { status: 404 });
+    }
   }
 
   // Get exam questions with correct answers

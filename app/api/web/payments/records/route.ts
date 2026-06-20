@@ -182,6 +182,18 @@ export async function POST(req: NextRequest) {
     // notification failure must never break the payment write
   }
 
+  // create_payment_atomic does not return verification_token; fetch it from the
+  // payments row so the receipt verification link/QR can be built. Null-safe.
+  let verificationToken: string | null = row.verification_token ?? null;
+  if (!verificationToken && row.id) {
+    const { data: tokenRow } = await actorSupabase
+      .from("payments")
+      .select("verification_token")
+      .eq("id", row.id)
+      .maybeSingle();
+    verificationToken = tokenRow?.verification_token ?? null;
+  }
+
   return NextResponse.json({
     ok: true,
     payment: {
@@ -195,7 +207,7 @@ export async function POST(req: NextRequest) {
       created_at: row.created_at,
       receipt_number: row.receipt_number,
       manual_receipt_number: row.manual_receipt_number,
-      verification_token: row.verification_token ?? null,
+      verification_token: verificationToken,
     },
     studentUpdate: {
       id: studentId,

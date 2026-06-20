@@ -374,7 +374,7 @@ export async function fetchManagedUserCredentials(
 
   const { data, error } = await actorSupabase
     .from("managed_user_credentials")
-    .select("auth_user_id, login_identifier, temporary_password_hash, temporary_password_plain, has_pending_setup, password_last_reset_at, card_last_printed_at")
+    .select("auth_user_id, login_identifier, temporary_password_hash, has_pending_setup, password_last_reset_at, card_last_printed_at")
     .in("auth_user_id", uniqueIds);
 
   if (error) {
@@ -444,7 +444,6 @@ export async function upsertManagedUserCredential(
       school_id: options.schoolId,
       login_identifier: options.loginIdentifier,
       temporary_password_hash: passwordHash,
-      temporary_password_plain: options.temporaryPassword,
       has_pending_setup: true,
       password_last_reset_at: now,
       ...(options.touchPrintTimestamp ? { card_last_printed_at: now } : {}),
@@ -459,7 +458,6 @@ export async function upsertManagedUserCredential(
   await patchManagedCredentialMetadata(options.authUserId, {
     login_identifier: options.loginIdentifier,
     temporary_password_hash: passwordHash,
-    temporary_password_plain: options.temporaryPassword,
     has_pending_setup: true,
     password_last_reset_at: now,
     ...(options.touchPrintTimestamp ? { card_last_printed_at: now } : {}),

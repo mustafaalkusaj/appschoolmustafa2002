@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import { resolveBranchScope } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,39 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "exam not found" }, { status: 404 });
   }
 
-  const { data: attempts, error } = await actorSupabase
+  // Branch isolation: branch-restricted staff must only see attempts for students
+  // within their branch. exam_attempts has no branch_id column, so scope via the
+  // student's branch (students.branch_id) — same pattern as grade_entries.
+  const branchScope = resolveBranchScope(
+    context.value,
+    searchParams.get("branchId") ?? searchParams.get("branch_id"),
+  );
+  if (!branchScope.ok) {
+    return jsonError(branchScope.message, branchScope.status);
+  }
+
+  let branchStudentIds: string[] | null = null;
+  if (branchScope.value.branchIds.length > 0) {
+    const { data: branchStudents } = await actorSupabase
+      .from("students")
+      .select("id")
+      .eq("school_id", targetSchoolId)
+      .in("branch_id", branchScope.value.branchIds);
+    branchStudentIds = ((branchStudents ?? []) as Array<{ id: string }>).map((s) => s.id);
+    if (branchStudentIds.length === 0) {
+      return NextResponse.json({ ok: true, exam, items: [], total: 0 });
+    }
+  }
+
+  let attemptsQuery = actorSupabase
     .from("exam_attempts")
     .select("id, exam_id, student_id, score, submitted_at")
-    .eq("exam_id", examId)
-    .order("submitted_at", { ascending: false });
+    .eq("exam_id", examId);
+  if (branchStudentIds !== null) {
+    attemptsQuery = attemptsQuery.in("student_id", branchStudentIds);
+  }
+
+  const { data: attempts, error } = await attemptsQuery.order("submitted_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

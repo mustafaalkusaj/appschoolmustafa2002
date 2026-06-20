@@ -32,13 +32,17 @@ export async function getTargetUsers(
       return Array.from(new Set(targetConfig.targetUserIds));
     }
     const { data, error } = await supabase
-      .from("user_profiles")
-      .select("id")
+      .from("managed_user_profiles")
+      .select("auth_user_id")
       .eq("school_id", schoolId)
       .eq("role", "teacher")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .not("auth_user_id", "is", null);
     if (error || !data) return [];
-    return data.map((r: { id: string }) => r.id);
+    const ids = data
+      .map((r: { auth_user_id: string | null }) => r.auth_user_id)
+      .filter((id): id is string => Boolean(id));
+    return Array.from(new Set(ids));
   }
 
   // بناء استعلام الطلاب

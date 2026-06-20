@@ -491,9 +491,11 @@ export async function createGradeEntry(
 }
 
 /**
- * Upserts a grade entry by natural key (school_id, student_id, subject_id, academic_year, semester).
- * Re-importing the same Excel will update existing rows instead of creating duplicates.
- * Requires a unique constraint on those columns in the grade_entries table.
+ * Upserts a grade entry by natural key
+ * (school_id, student_id, subject_id, academic_year, semester, grade_type_id).
+ * Re-importing the same Excel updates existing rows instead of creating duplicates,
+ * while keeping each grade component (oral/homework/monthly/midterm/final) as its
+ * own row. Backed by the uq_grade_entries_natural_key index (NULLS NOT DISTINCT).
  */
 export async function upsertGradeEntry(
   serviceSupabase: SupabaseClient,
@@ -536,7 +538,7 @@ export async function upsertGradeEntry(
     const { data, error } = await serviceSupabase
       .from('grade_entries')
       .upsert(payload, {
-        onConflict: 'school_id,student_id,subject_id,academic_year,semester',
+        onConflict: 'school_id,student_id,subject_id,academic_year,semester,grade_type_id',
         ignoreDuplicates: false,
       })
       .select('*')

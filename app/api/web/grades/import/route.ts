@@ -4,7 +4,54 @@ import { enforceRateLimit } from '@/lib/rate-limit'
 import { routeUserHasPermission } from '@/lib/route-permissions'
 import { applyBranchScopeToQuery, resolveBranchScope } from '@/lib/branch-scope'
 import { upsertGradeEntry } from '@/lib/grades/grade-entries-server'
-import type { GradeEntryInput } from '@/lib/grades/types'
+import { fetchGradeTypes } from '@/lib/grades/grade-types-server'
+import type { GradeCategory, GradeEntryInput, GradeType } from '@/lib/grades/types'
+
+/**
+ * Excel component columns → grade-type category + the default name seeded in
+ * DEFAULT_GRADE_TYPES. Used to resolve the correct grade_type_id / max_score so
+ * each component becomes its OWN grade entry instead of being summed into one.
+ */
+const COMPONENT_DEFS: ReadonlyArray<{
+  key: 'oral' | 'homework' | 'monthly' | 'midterm' | 'final'
+  category: GradeCategory
+  defaultName: string
+  fallbackMaxScore: number
+}> = [
+  { key: 'oral', category: 'oral', defaultName: 'شفهي', fallbackMaxScore: 10 },
+  { key: 'homework', category: 'homework', defaultName: 'واجب', fallbackMaxScore: 10 },
+  { key: 'monthly', category: 'monthly', defaultName: 'اختبار شهري', fallbackMaxScore: 25 },
+  { key: 'midterm', category: 'midterm', defaultName: 'نصف السنة', fallbackMaxScore: 50 },
+  { key: 'final', category: 'final', defaultName: 'اختبار نهائي', fallbackMaxScore: 100 },
+]
+
+interface ResolvedGradeType {
+  gradeTypeId: string | null
+  gradeTypeName: string
+  maxScore: number
+}
+
+/**
+ * Match each component to a school grade type by category first, then by the
+ * known default name (seeded rows don't always persist `category`). Falls back
+ * to a synthetic-safe default so the import still works before migration.
+ */
+function resolveComponentGradeTypes(
+  gradeTypes: GradeType[],
+): Record<string, ResolvedGradeType> {
+  const out: Record<string, ResolvedGradeType> = {}
+  for (const def of COMPONENT_DEFS) {
+    const match =
+      gradeTypes.find((t) => t.category === def.category) ??
+      gradeTypes.find((t) => t.name === def.defaultName)
+    out[def.key] = {
+      gradeTypeId: match?.id ?? null,
+      gradeTypeName: match?.name ?? def.defaultName,
+      maxScore: match?.max_score ?? def.fallbackMaxScore,
+    }
+  }
+  return out
+}
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status })
@@ -129,7 +176,11 @@ export async function POST(req: NextRequest) {
     branchStudentIds = new Set(((bs ?? []) as Array<{ id: string }>).map((s) => s.id))
   }
 
-  // معالجة الصفوف
+  // حلّ أنواع الدرجات للمدرسة لربط كل مكوّن بنوعه الصحيح (grade_type_id + max_score)
+  const gradeTypesResult = await fetchGradeTypes(actorSupabase, targetSchoolId)
+  const componentTypes = resolveComponentGradeTypes(gradeTypesResult.gradeTypes)
+
+  // معالجة الصفوف — كل مكوّن غير فارغ يصبح سجل درجة مستقلاً بنوعه الخاص
   const validInputs: GradeEntryInput[] = []
   const errors: string[] = []
 
@@ -153,39 +204,45 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    // Import uses score/max_score per entry. Each row maps to one or more entries.
-    // For backward-compat, treat score as the sum of provided columns, max_score as 100.
-    const oral = normalizeScore(rowObj.oral ?? rowObj.oral_score) ?? 0
-    const homework = normalizeScore(rowObj.homework ?? rowObj.homework_score) ?? 0
-    const monthly = normalizeScore(rowObj.monthly ?? rowObj.monthly_score) ?? 0
-    const midterm = normalizeScore(rowObj.midterm ?? rowObj.midterm_score) ?? 0
-    const finalScore = normalizeScore(rowObj.final ?? rowObj.final_score) ?? 0
-    const totalScore = normalizeScore(rowObj.score ?? rowObj.total_score) ?? (oral + homework + monthly + midterm + finalScore)
-    const maxScore = normalizeScore(rowObj.max_score ?? rowObj.total_max) ?? 100
+    // قراءة كل مكوّن على حدة. القيم الفارغة (null) تُتجاهل ولا تنشئ سجلاً.
+    const components: Array<{ key: string; score: number }> = []
+    for (const def of COMPONENT_DEFS) {
+      const value = normalizeScore(rowObj[def.key] ?? rowObj[`${def.key}_score`])
+      if (value !== null) components.push({ key: def.key, score: value })
+    }
 
-    if (totalScore <= 0 && maxScore <= 0) {
+    if (components.length === 0) {
       errors.push(`الصف ${i + 1}: لا توجد درجة صالحة.`)
       continue
     }
 
-    const effectiveMaxScore = maxScore > 0 ? maxScore : 100
-    if (totalScore > effectiveMaxScore) {
-      errors.push(`الصف ${i + 1}: مجموع الدرجات (${totalScore}) يتجاوز الحد الأقصى (${effectiveMaxScore}).`)
-      continue
+    let rowHadError = false
+    const rowInputs: GradeEntryInput[] = []
+    for (const { key, score } of components) {
+      const resolved = componentTypes[key]
+      if (score > resolved.maxScore) {
+        errors.push(
+          `الصف ${i + 1} (${resolved.gradeTypeName}): الدرجة (${score}) تتجاوز الحد الأقصى (${resolved.maxScore}).`,
+        )
+        rowHadError = true
+        break
+      }
+      rowInputs.push({
+        student_id: studentId,
+        subject_id: subjectId,
+        class_id: classId,
+        section_id: sectionId,
+        academic_year: academicYear,
+        semester,
+        grade_type_id: resolved.gradeTypeId,
+        grade_type_name: resolved.gradeTypeName,
+        score,
+        max_score: resolved.maxScore,
+      })
     }
 
-    const input: GradeEntryInput = {
-      student_id: studentId,
-      subject_id: subjectId,
-      class_id: classId,
-      section_id: sectionId,
-      academic_year: academicYear,
-      semester,
-      score: totalScore,
-      max_score: maxScore > 0 ? maxScore : 100,
-    }
-
-    validInputs.push(input)
+    // كل مكوّنات الصف معاً أو لا شيء (تجنّب سجلات جزئية)
+    if (!rowHadError) validInputs.push(...rowInputs)
   }
 
   if (validInputs.length === 0) {

@@ -57,6 +57,9 @@ export async function POST(
   }
 
   // Fetch max marks for each question being graded so we can validate upper bounds.
+  // exam_questions is scoped to this exam (which is already verified to belong to
+  // targetSchoolId above), so any questionId not returned here does not belong to
+  // this exam/school and must be rejected before touching student_answers.
   const questionIds = (body.grades as Array<{ questionId: string; marks_awarded: number }>).map((g) => g.questionId);
   const { data: examQuestions } = await actorSupabase
     .from("exam_questions")
@@ -67,6 +70,16 @@ export async function POST(
   const maxMarksByQuestion = new Map<string, number>(
     ((examQuestions ?? []) as Array<{ question_id: string; marks: number }>).map((q) => [q.question_id, q.marks]),
   );
+
+  // Reject any question that is not part of THIS exam (prevents grading/writing
+  // answers for questions belonging to other exams or other schools).
+  const invalidQuestionId = questionIds.find((id) => !maxMarksByQuestion.has(id));
+  if (invalidQuestionId) {
+    return NextResponse.json(
+      { ok: false, error: `question ${invalidQuestionId} does not belong to this exam` },
+      { status: 400 },
+    );
+  }
 
   // Update each graded answer
   const grades = body.grades as Array<{ questionId: string; marks_awarded: number; feedback?: string }>;
