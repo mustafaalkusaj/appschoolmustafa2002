@@ -131,6 +131,16 @@ export async function DELETE(req: NextRequest) {
     return rateLimited;
   }
 
+  // Revoke the underlying Supabase session so the refresh token/JWT is
+  // invalidated server-side. Guarded so a signOut failure still clears the
+  // RBAC cookie and returns success.
+  try {
+    const supabase = await createRouteSupabaseClient();
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.error("[RBAC Session] Supabase signOut failed during logout:", error);
+  }
+
   const response = NextResponse.json({ ok: true });
   response.cookies.set(RBAC_COOKIE_NAME, "", getExpiredRBACCookieOptions());
   return response;

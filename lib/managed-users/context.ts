@@ -3,6 +3,7 @@ import { resolveWebUserProfile } from "@/lib/authorization/snapshot";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import {
   createRouteSupabaseClient,
+  createServiceSupabaseClient,
   getRouteAuthenticatedUser,
 } from "@/lib/supabase-server";
 import { resolveKnownUserRole, type UserRole } from "@/types/roles";
@@ -20,6 +21,46 @@ function isSchoolSubscriptionExpired(endDate: string | null | undefined) {
   const parsed = new Date(endDate);
   if (Number.isNaN(parsed.getTime())) return false;
   return Date.now() > endOfDayBaghdad(parsed).getTime();
+}
+
+// Cheap single-row recheck of the user's live RBAC state against the DB.
+// Guards the signed-cookie fast-path: a cookie is valid for up to
+// RBAC_SESSION_MAX_AGE (8h), during which an admin may have deactivated the
+// user or bumped permissions_version. Returns "stale" when the cookie must be
+// rejected, "ok" when it is still trustworthy, and "skip" when the lookup
+// itself failed (do not block on infra errors — fall through to full resolve).
+async function recheckRbacFreshness(
+  userId: string,
+  cookiePermissionsVersion: number | null | undefined,
+): Promise<"ok" | "stale" | "skip"> {
+  try {
+    const serviceClient = createServiceSupabaseClient();
+    const { data, error } = await serviceClient
+      .from("user_profiles")
+      .select("is_active, permissions_version")
+      .eq("id", userId)
+      .maybeSingle<{ is_active: boolean | null; permissions_version: number | null }>();
+
+    if (error || !data) {
+      return "skip";
+    }
+
+    if (!data.is_active) {
+      return "stale";
+    }
+
+    if (
+      typeof cookiePermissionsVersion === "number" &&
+      typeof data.permissions_version === "number" &&
+      data.permissions_version !== cookiePermissionsVersion
+    ) {
+      return "stale";
+    }
+
+    return "ok";
+  } catch {
+    return "skip";
+  }
 }
 
 async function readValidatedRbacSession() {
@@ -101,6 +142,17 @@ export async function resolveSchoolScopedActorContext(
       return result;
     }
 
+    // Cheap DB recheck: the signed cookie can be up to 8h old. If the user was
+    // deactivated or permissions_version was bumped since the cookie was
+    // issued, reject the fast-path and fall through to full re-resolution
+    // (which re-reads the DB and enforces the live state).
+    const tFreshStart = performance.now();
+    const freshness = await recheckRbacFreshness(user.id, rbacSession.permissionsVersion);
+    recordTiming("auth_rbac_freshness", performance.now() - tFreshStart);
+    if (freshness === "stale") {
+      // Do not return cached: drop to the expensive resolve path below.
+    } else {
+
     const requested = requestedSchoolId?.trim() || null;
     let targetSchoolId = requested;
 
@@ -166,6 +218,7 @@ export async function resolveSchoolScopedActorContext(
     };
     setCachedSchoolContext("_pending", cacheKey, successResult);
     return successResult;
+    } // end freshness-ok fast-path
   }
 
   // RBAC cache miss: expensive path. Measure sub-queries.

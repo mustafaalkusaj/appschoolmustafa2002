@@ -103,14 +103,13 @@ export async function POST(req: NextRequest) {
       const username = generateUsername();
       const password = generatePassword();
 
-      // TODO(C1-MIGRATION): Remove app_password_plain write once managed_user_credentials
-      // is the sole credential store. Passwords are returned to the caller in
-      // `results` and must not be exposed via list/GET API responses.
+      // C1: The plaintext password is NOT persisted. It is returned once to the
+      // caller in `results` so the bulk-print flow can display it a single time.
+      // TODO(C1-MIGRATION): drop the unused app_password_plain DB column.
       const { error: updateError } = await actorSupabase
         .from("teachers")
         .update({
           app_username: username,
-          app_password_plain: password,
           app_status: "active",
           updated_at: new Date().toISOString(),
         })

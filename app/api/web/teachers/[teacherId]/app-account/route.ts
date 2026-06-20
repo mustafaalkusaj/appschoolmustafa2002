@@ -6,6 +6,7 @@ import {
   ensureManagedUserProfileLink,
   hashPassword,
   resolveSchoolScopedActorContext,
+  upsertManagedUserCredential,
 } from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
@@ -170,16 +171,15 @@ export async function POST(
       return jsonError(credError.message || "تعذر إنشاء بيانات الدخول.", 500);
     }
 
-    // 3. Update teacher record with username, password, auth_user_id
-    // TODO(C1-MIGRATION): Remove app_password_plain write once managed_user_credentials
-    // is the sole credential store. The password is returned to the caller once
-    // at creation time and must not be exposed via list/GET API responses.
+    // 3. Update teacher record with username, auth_user_id (NOT the plaintext
+    // password). The password is returned once in the HTTP response below.
+    // The hashed credential lives in managed_user_credentials (step 2).
+    // TODO(C1-MIGRATION): drop the unused app_password_plain DB column.
     const { data, error } = await applyBranchScopeToQuery(
       actorSupabase
         .from("teachers")
         .update({
           app_username: username,
-          app_password_plain: password,
           app_status: "active",
           auth_user_id: authUserId,
           updated_at: new Date().toISOString(),
@@ -306,7 +306,7 @@ export async function PATCH(
   const { data: teacher, error: fetchError } = await applyBranchScopeToQuery(
     actorSupabase
       .from("teachers")
-      .select("id, app_username, app_status")
+      .select("id, app_username, app_status, auth_user_id")
       .eq("id", teacherId)
       .eq("school_id", targetSchoolId)
       .neq("status", "deleted"),
@@ -327,8 +327,31 @@ export async function PATCH(
     let newPassword: string | undefined;
 
     if (action === "reset_password") {
+      const authUserId = teacher.auth_user_id as string | null;
+      if (!authUserId) {
+        return jsonError("لا يوجد حساب مصادقة مرتبط بهذا المعلم.", 409);
+      }
+
       newPassword = generatePassword();
-      updatePayload.app_password_plain = newPassword;
+
+      // Mirror the student reset flow: update the REAL Supabase Auth login
+      // credential, then persist the bcrypt hash to managed_user_credentials.
+      // The plaintext is returned once in the HTTP response below.
+      const serviceSupabase = createServiceSupabaseClient();
+      const { error: authError } = await serviceSupabase.auth.admin.updateUserById(authUserId, {
+        password: newPassword,
+      });
+      if (authError) {
+        logRouteError("teachers-app-account-reset", authError, { teacherId, actorUserId, schoolId: targetSchoolId });
+        return jsonError(authError.message || "تعذر إعادة تعيين كلمة المرور.", 500);
+      }
+
+      await upsertManagedUserCredential(actorSupabase, {
+        authUserId,
+        schoolId: targetSchoolId,
+        loginIdentifier: teacher.app_username as string,
+        temporaryPassword: newPassword,
+      });
     } else if (action === "toggle_status") {
       const currentStatus = teacher.app_status as string | null;
       updatePayload.app_status = currentStatus === "active" ? "suspended" : "active";

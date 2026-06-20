@@ -148,7 +148,10 @@ export function AppAccountTab({ teacher, schoolId, canManage, locale, refetch }:
 
   const handlePrint = (size: "a5" | "a4" = printSize) => {
     if (!qrUrl) return;
-    const pwd = newPassword ?? teacher.app_password_plain ?? null;
+    // C1: Password is shown once from create/reset (held in `newPassword`).
+    // It is no longer stored in the DB, so re-printing later prints the card
+    // without a password — the admin must Reset Password to get a new one.
+    const pwd = newPassword ?? null;
     const initials = teacher.full_name.trim().split(/\s+/).slice(0, 2).map((w: string) => w[0] ?? "").join("").toUpperCase();
     const isA4 = size === "a4";
     const printWindow = window.open("", "_blank");
@@ -449,7 +452,7 @@ export function AppAccountTab({ teacher, schoolId, canManage, locale, refetch }:
             </Button>
 
             {(() => {
-              const sharePwd = newPassword ?? teacher.app_password_plain ?? null;
+              const sharePwd = newPassword ?? null;
               const sharePhone = teacher.phone ?? null;
               if (!sharePwd || !sharePhone || !teacher.app_username) return null;
               return (
@@ -510,7 +513,7 @@ export function AppAccountTab({ teacher, schoolId, canManage, locale, refetch }:
             <div className="flex flex-col gap-1">
               <span className="text-xs text-[var(--text-muted)]">{isEn ? "Password" : "كلمة المرور"}</span>
               {(() => {
-                const pwd = newPassword ?? teacher.app_password_plain ?? null;
+                const pwd = newPassword ?? null;
                 if (!pwd) return (
                   <span className="font-mono text-sm text-[var(--text-muted)] px-3 py-1.5">••••••••</span>
                 );

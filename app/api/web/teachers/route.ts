@@ -29,12 +29,13 @@ async function autoCreateTeacherAppAccount(supabase: any, teacherId: string, sch
   }
   const pw = randomBytes(3);
   const appPassword = String((pw[0] * 65536 + pw[1] * 256 + pw[2]) % 900000 + 100000);
-  // TODO(C1-MIGRATION): Remove app_password_plain write once managed_user_credentials
-  // is the sole credential store. The plain password is stored here only for legacy
-  // print-card display and must never be returned in list/GET API responses.
+  // C1: The plaintext password is NOT persisted. It is returned once in this
+  // function's result so the create HTTP response can show it to the admin a
+  // single time. Re-printing later requires a password reset.
+  // TODO(C1-MIGRATION): drop the unused app_password_plain DB column.
   await supabase
     .from("teachers")
-    .update({ app_username: appUsername, app_password_plain: appPassword, app_status: "active" })
+    .update({ app_username: appUsername, app_status: "active" })
     .eq("id", teacherId)
     .eq("school_id", schoolId);
   return { app_username: appUsername, app_password_plain: appPassword };
