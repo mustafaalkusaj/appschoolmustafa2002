@@ -474,7 +474,7 @@ export async function enforceRateLimit(
 
     if ("productionFailure" in decision) {
       if (isProduction()) {
-        if (decision.productionFailure === "missing-config") {
+        if (decision.productionFailure === "missing-config" && productionFailureMode !== "memory-fallback") {
           logProductionRateLimitBackendFailure(options.namespace, decision.productionFailure);
         }
         if (productionFailureMode === "memory-fallback") {
