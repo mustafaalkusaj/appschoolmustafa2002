@@ -519,6 +519,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     group: "academic",
   },
   {
+    id: "parent-links",
+    label: "ربط أولياء الأمور",
+    href: "/students/parent-links",
+    iconToken: "🔗",
+    roles: ["super_admin", "admin"],
+    group: "academic",
+  },
+  {
     id: "classes",
     label: "الصفوف والشعب",
     href: "/classes",
