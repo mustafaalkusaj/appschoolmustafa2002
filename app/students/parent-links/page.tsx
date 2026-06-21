@@ -115,7 +115,7 @@ export default function ParentLinksPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+    <ProtectedRoute roles={["super_admin", "admin"]}>
       <div className="flex h-screen overflow-hidden bg-background" dir={locale === "ar" ? "rtl" : "ltr"}>
         <AppSidebar currentPath={pathname} />
         <div className="flex flex-col flex-1 overflow-hidden">
