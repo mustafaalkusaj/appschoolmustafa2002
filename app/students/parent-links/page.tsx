@@ -47,9 +47,10 @@ export default function ParentLinksPage() {
     if (!schoolId) return;
     setFetchingLinks(true);
     try {
-      const data = await fetchJsonWithAuthorizedSession(
+      const { payload } = await fetchJsonWithAuthorizedSession(
         `/api/web/admin/parent-links?schoolId=${schoolId}`,
       );
+      const data = payload as { links?: ParentLink[] };
       setLinks(data.links ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر تحميل البيانات.");
@@ -61,9 +62,10 @@ export default function ParentLinksPage() {
   const fetchStudents = useCallback(async () => {
     if (!schoolId) return;
     try {
-      const data = await fetchJsonWithAuthorizedSession(
+      const { payload } = await fetchJsonWithAuthorizedSession(
         `/api/web/students/list?schoolId=${schoolId}&pageSize=500`,
       );
+      const data = payload as { students?: StudentOption[] };
       setStudents(data.students ?? []);
     } catch {
       // non-critical
