@@ -60,7 +60,8 @@ export async function GET(req: NextRequest) {
     const usersById = Object.fromEntries((usersData?.users ?? []).map((u) => [u.id, u.email]));
 
     const result = (links ?? []).map((link) => {
-      const student = link.students as { id: string; first_name: string; last_name: string } | null;
+      const raw = link.students;
+      const student = (Array.isArray(raw) ? raw[0] : raw) as { id: string; first_name: string; last_name: string } | null;
       return {
         id: link.id,
         parent_user_id: link.parent_user_id,
