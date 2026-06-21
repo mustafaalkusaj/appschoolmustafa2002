@@ -119,7 +119,7 @@ export default function ParentLinksPage() {
       <div className="flex h-screen overflow-hidden bg-background" dir={locale === "ar" ? "rtl" : "ltr"}>
         <AppSidebar currentPath={pathname} />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <AppShellTopbar />
+          <AppShellTopbar title="ربط أولياء الأمور بالطلاب" />
           <main className="flex-1 overflow-y-auto p-6">
             <div className="max-w-3xl mx-auto space-y-6">
               {/* Header */}
