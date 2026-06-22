@@ -28,7 +28,31 @@ export async function GET(req: NextRequest) {
     const { data, error, count } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ ok: true, items: data ?? [], total: count ?? 0, page, limit });
+    const rows = data ?? [];
+
+    // Resolve actor display names (audit rows only carry the auth user id).
+    const userIds = Array.from(
+      new Set(rows.map((row) => row.user_id).filter((id): id is string => Boolean(id))),
+    );
+    const nameById = new Map<string, string>();
+    if (userIds.length) {
+      const { data: profiles } = await serviceSupabase
+        .from("managed_user_profiles")
+        .select("auth_user_id, full_name")
+        .in("auth_user_id", userIds);
+      for (const profile of profiles ?? []) {
+        if (profile.auth_user_id && profile.full_name) {
+          nameById.set(profile.auth_user_id, profile.full_name);
+        }
+      }
+    }
+
+    const items = rows.map((row) => ({
+      ...row,
+      actor_name: row.user_id ? nameById.get(row.user_id) ?? null : null,
+    }));
+
+    return NextResponse.json({ ok: true, items, total: count ?? 0, page, limit });
   } catch {
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
   }
