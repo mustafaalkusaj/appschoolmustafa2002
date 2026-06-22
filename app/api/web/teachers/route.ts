@@ -3,14 +3,18 @@ import { randomBytes } from "node:crypto";
 
 import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
 import { getCacheHeaders, CACHE_STRATEGIES } from "@/lib/cache-strategies";
-import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import {
+  ensureManagedUserProfileLink,
+  hashPassword,
+  resolveSchoolScopedActorContext,
+} from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { jsonError, logRouteError } from "@/lib/route-utils";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function autoCreateTeacherAppAccount(supabase: any, teacherId: string, schoolId: string) {
-  let appUsername = "";
+async function generateTeacherUsername(supabase: any, schoolId: string): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt++) {
     const bytes = randomBytes(2);
     const digits = String(((bytes[0] * 256 + bytes[1]) % 9000) + 1000);
@@ -21,24 +25,67 @@ async function autoCreateTeacherAppAccount(supabase: any, teacherId: string, sch
       .eq("app_username", candidate)
       .eq("school_id", schoolId)
       .maybeSingle();
-    if (!data) { appUsername = candidate; break; }
+    if (!data) return candidate;
   }
-  if (!appUsername) {
-    const fb = randomBytes(3);
-    appUsername = `t${(fb[0] * 65536 + fb[1] * 256 + fb[2]) % 900000 + 100000}`;
-  }
+  const fb = randomBytes(3);
+  return `t${(fb[0] * 65536 + fb[1] * 256 + fb[2]) % 900000 + 100000}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function autoCreateTeacherAppAccount(supabase: any, teacherId: string, schoolId: string, fullName: string, actorUserId: string) {
+  const username = await generateTeacherUsername(supabase, schoolId);
   const pw = randomBytes(3);
-  const appPassword = String((pw[0] * 65536 + pw[1] * 256 + pw[2]) % 900000 + 100000);
-  // C1: The plaintext password is NOT persisted. It is returned once in this
-  // function's result so the create HTTP response can show it to the admin a
-  // single time. Re-printing later requires a password reset.
-  // TODO(C1-MIGRATION): drop the unused app_password_plain DB column.
+  const password = String((pw[0] * 65536 + pw[1] * 256 + pw[2]) % 900000 + 100000);
+  const authEmail = `${username}@schoolapp.local`;
+
+  const serviceSupabase = createServiceSupabaseClient();
+  const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
+    email: authEmail,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName, role: "teacher", school_id: schoolId },
+  });
+
+  if (authError || !authData?.user) throw new Error(authError?.message ?? "auth user creation failed");
+
+  const authUserId = authData.user.id;
+
+  const { error: credError } = await supabase
+    .from("managed_user_credentials")
+    .insert({
+      auth_user_id: authUserId,
+      school_id: schoolId,
+      login_identifier: username,
+      temporary_password_hash: hashPassword(password),
+      has_pending_setup: true,
+      password_last_reset_at: new Date().toISOString(),
+    });
+
+  if (credError) {
+    await serviceSupabase.auth.admin.deleteUser(authUserId);
+    throw new Error(credError.message);
+  }
+
   await supabase
     .from("teachers")
-    .update({ app_username: appUsername, app_status: "active" })
+    .update({ app_username: username, app_status: "active", auth_user_id: authUserId })
     .eq("id", teacherId)
     .eq("school_id", schoolId);
-  return { app_username: appUsername, app_password_plain: appPassword };
+
+  await ensureManagedUserProfileLink(supabase, {
+    authUserId,
+    schoolId,
+    role: "teacher",
+    fullName,
+    email: username,
+    phone: null,
+    isActive: true,
+    studentId: null,
+    teacherId,
+    createdBy: actorUserId,
+  }).catch(() => {});
+
+  return { app_username: username, app_password_plain: password };
 }
 
 export async function GET(req: NextRequest) {
@@ -252,7 +299,7 @@ export async function POST(req: NextRequest) {
 
     let accountInfo: { app_username: string; app_password_plain: string } | null = null;
     try {
-      accountInfo = await autoCreateTeacherAppAccount(actorSupabase, data.id, targetSchoolId);
+      accountInfo = await autoCreateTeacherAppAccount(actorSupabase, data.id, targetSchoolId, fullName, actorUserId);
     } catch {
       // Don't fail teacher creation if account creation fails
     }
