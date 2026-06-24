@@ -794,6 +794,7 @@ model ConversationParticipant {
   userId         String @map("user_id") @db.Uuid
 
   @@id([conversationId, userId])
+  @@index([userId])
   @@map("conversation_participants")
 }
 
