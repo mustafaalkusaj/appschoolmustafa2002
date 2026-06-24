@@ -14,7 +14,7 @@ import {
 } from "@/lib/authorization/page-access";
 import {
   DEFAULT_PATH_BY_ROLE,
-  normalizePermissions,
+  resolveEffectivePermissions,
   resolveKnownUserRole,
   type Permission,
   type UserRole,
@@ -321,12 +321,9 @@ function buildDefaultPath(
 }
 
 function buildPermissions(profile: UserProfileRow, role: UserRole) {
-  const rawPermissions =
-    (Array.isArray(profile.custom_permissions) && profile.custom_permissions.length > 0
-      ? profile.custom_permissions
-      : profile.permissions) ?? [];
-
-  return normalizePermissions(rawPermissions, role);
+  // custom_permissions are capped at the role-template ceiling so they can never
+  // escalate beyond the role (super_admin's template = full set, preserved).
+  return resolveEffectivePermissions(profile.custom_permissions, profile.permissions, role);
 }
 
 export async function resolveWebUserProfileWithStatus(

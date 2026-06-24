@@ -103,7 +103,7 @@ export function useClassesSections({
   const handleSaveClass = useCallback(async (
     classForm: { name: string; sections: string[] },
     editingClass: ClassItem | null,
-    onSuccess: () => void,
+    onSuccess: () => void | Promise<void>,
   ) => {
     const { school_id: schoolId, branch_id: resolvedBranchId } = await resolveSchoolBranchForProfile(profile, {
       selectedSchoolId,
@@ -149,7 +149,7 @@ export function useClassesSections({
 
       await fetchStructure();
       setMutationSuccess(editingClass ? "تم تحديث الصف بنجاح ✓" : "تمت إضافة الصف بنجاح ✓");
-      onSuccess();
+      await onSuccess();
     } catch (error) {
       setMutationError(error instanceof Error ? error.message : "تعذر حفظ الصف.");
     } finally {

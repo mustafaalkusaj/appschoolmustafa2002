@@ -3,27 +3,27 @@ import localFont from 'next/font/local';
 export const notoSansArabic = localFont({
   src: [
     {
-      path: './fonts/NotoSansArabic-Light.ttf',
+      path: './fonts/NotoSansArabic-Light.woff2',
       weight: '300',
       style: 'normal',
     },
     {
-      path: './fonts/NotoSansArabic-Regular.ttf',
+      path: './fonts/NotoSansArabic-Regular.woff2',
       weight: '400',
       style: 'normal',
     },
     {
-      path: './fonts/NotoSansArabic-Medium.ttf',
+      path: './fonts/NotoSansArabic-Medium.woff2',
       weight: '500',
       style: 'normal',
     },
     {
-      path: './fonts/NotoSansArabic-SemiBold.ttf',
+      path: './fonts/NotoSansArabic-SemiBold.woff2',
       weight: '600',
       style: 'normal',
     },
     {
-      path: './fonts/NotoSansArabic-Bold.ttf',
+      path: './fonts/NotoSansArabic-Bold.woff2',
       weight: '700',
       style: 'normal',
     },
@@ -36,27 +36,27 @@ export const notoSansArabic = localFont({
 export const rubik = localFont({
   src: [
     {
-      path: './fonts/Rubik-Light.ttf',
+      path: './fonts/Rubik-Light.woff2',
       weight: '300',
       style: 'normal',
     },
     {
-      path: './fonts/Rubik-Regular.ttf',
+      path: './fonts/Rubik-Regular.woff2',
       weight: '400',
       style: 'normal',
     },
     {
-      path: './fonts/Rubik-Medium.ttf',
+      path: './fonts/Rubik-Medium.woff2',
       weight: '500',
       style: 'normal',
     },
     {
-      path: './fonts/Rubik-SemiBold.ttf',
+      path: './fonts/Rubik-SemiBold.woff2',
       weight: '600',
       style: 'normal',
     },
     {
-      path: './fonts/Rubik-Bold.ttf',
+      path: './fonts/Rubik-Bold.woff2',
       weight: '700',
       style: 'normal',
     },
@@ -69,17 +69,17 @@ export const rubik = localFont({
 export const zain = localFont({
   src: [
     {
-      path: './fonts/Zain-Light.ttf',
+      path: './fonts/Zain-Light.woff2',
       weight: '300',
       style: 'normal',
     },
     {
-      path: './fonts/Zain-Regular.ttf',
+      path: './fonts/Zain-Regular.woff2',
       weight: '400',
       style: 'normal',
     },
     {
-      path: './fonts/Zain-Bold.ttf',
+      path: './fonts/Zain-Bold.woff2',
       weight: '700',
       style: 'normal',
     },
@@ -94,22 +94,22 @@ export const zain = localFont({
 export const primaryFont = localFont({
   src: [
     {
-      path: './fonts/NotoSansArabic-Regular.ttf',
+      path: './fonts/NotoSansArabic-Regular.woff2',
       weight: '400',
       style: 'normal',
     },
     {
-      path: './fonts/NotoSansArabic-Bold.ttf',
+      path: './fonts/NotoSansArabic-Bold.woff2',
       weight: '700',
       style: 'normal',
     },
     {
-      path: './fonts/Rubik-Regular.ttf',
+      path: './fonts/Rubik-Regular.woff2',
       weight: '400',
       style: 'normal',
     },
     {
-      path: './fonts/Rubik-Bold.ttf',
+      path: './fonts/Rubik-Bold.woff2',
       weight: '700',
       style: 'normal',
     },

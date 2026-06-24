@@ -215,12 +215,16 @@ export function UnifiedClassesTable({
                           <button
                             className="h-7 w-7 flex items-center justify-center rounded-lg bg-[var(--danger)] text-white"
                             onClick={() => onDeleteClass(cls.id)}
+                            aria-label={isEn ? "Confirm class deletion" : "تأكيد حذف الصف"}
+                            title={isEn ? "Confirm deletion" : "تأكيد الحذف"}
                           >
                             <Check size={14} />
                           </button>
                           <button
                             className="h-7 w-7 flex items-center justify-center rounded-lg border border-[var(--border)]"
                             onClick={onCancelDeleteClass}
+                            aria-label={isEn ? "Cancel class deletion" : "إلغاء حذف الصف"}
+                            title={isEn ? "Cancel deletion" : "إلغاء الحذف"}
                           >
                             <X size={14} />
                           </button>

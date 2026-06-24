@@ -132,11 +132,12 @@ describe("attendance route branch scoping", () => {
     });
 
     const { POST } = await import("@/app/api/web/attendance/route");
+    const baghdadToday = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const request = new NextRequest("http://localhost/api/web/attendance", {
       method: "POST",
       body: JSON.stringify({
         school_id: "school-1",
-        attendance_date: "2099-01-01",
+        attendance_date: baghdadToday,
         entries: [{ student_id: "student-1", status: "present", note: "ok" }],
       }),
       headers: { "content-type": "application/json" },

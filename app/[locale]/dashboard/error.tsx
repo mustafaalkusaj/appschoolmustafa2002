@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
 import { FeatureErrorFallback } from "@/components/ui/feature-error-fallback";
 
 export default function DashboardError({
@@ -12,7 +11,7 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    void error;
   }, [error]);
 
   return <FeatureErrorFallback reset={reset} />;

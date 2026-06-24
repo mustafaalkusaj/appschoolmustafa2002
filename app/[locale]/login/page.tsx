@@ -82,7 +82,7 @@ export default function LoginPage() {
   const isRTL = locale === "ar";
   const brandName = runtimeBranding.schoolName || SCHOOL_BRAND.nameAr;
   const brandSubtitle = locale === "en" ? SCHOOL_BRAND.subtitleEn : SCHOOL_BRAND.subtitleAr;
-  const logoUrl = runtimeBranding.logoUrl || "/logo-school-iraq.png";
+  const logoUrl = runtimeBranding.logoUrl || "/logo-school-iraq.webp";
   const content = getLandingContent(locale);
 
   const [email, setEmail] = useState("");

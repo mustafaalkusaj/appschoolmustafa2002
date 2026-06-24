@@ -38,6 +38,7 @@ export const EMPTY_STUDENT_META: StudentsMetaPayload = {
     suspended: 0,
     deleted: 0,
   },
+  classOptions: [],
   sectionOptions: [],
 };
 

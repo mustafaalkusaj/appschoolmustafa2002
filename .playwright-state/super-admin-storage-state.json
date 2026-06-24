@@ -3,7 +3,7 @@
     {
       "name": "NEXT_LOCALE",
       "value": "ar",
-      "domain": "127.0.0.1",
+      "domain": "school-iraq.com",
       "path": "/",
       "expires": -1,
       "httpOnly": false,
@@ -11,11 +11,33 @@
       "sameSite": "Lax"
     },
     {
-      "name": "sb-127-auth-token",
-      "value": "base64-eyJhY2Nlc3NfdG9rZW4iOiJleUpoYkdjaU9pSkZVekkxTmlJc0ltdHBaQ0k2SW1JNE1USTJPV1l4TFRJeFpEZ3ROR1l5WlMxaU56RTVMV015TWpRd1lUZzBNR1E1TUNJc0luUjVjQ0k2SWtwWFZDSjkuZXlKcGMzTWlPaUpvZEhSd09pOHZNVEkzTGpBdU1DNHhPalUwTXpJeEwyRjFkR2d2ZGpFaUxDSnpkV0lpT2lKbE5ETmlZems0WmkwMVlXSTRMVFJoWVdZdFltRXpOeTB4WkRFd1ltUm1Nell5TlRNaUxDSmhkV1FpT2lKaGRYUm9aVzUwYVdOaGRHVmtJaXdpWlhod0lqb3hOemd3TURZeU5UVXlMQ0pwWVhRaU9qRTNPREF3TlRnNU5USXNJbVZ0WVdsc0lqb2ljV0V1YzNWd1pYSmhaRzFwYmtCbGVHRnRjR3hsTG5SbGMzUWlMQ0p3YUc5dVpTSTZJaUlzSW1Gd2NGOXRaWFJoWkdGMFlTSTZleUp3Y205MmFXUmxjaUk2SW1WdFlXbHNJaXdpY0hKdmRtbGtaWEp6SWpwYkltVnRZV2xzSWwxOUxDSjFjMlZ5WDIxbGRHRmtZWFJoSWpwN0ltVnRZV2xzWDNabGNtbG1hV1ZrSWpwMGNuVmxMQ0p4WVY5elpXVmtYMnRsZVNJNkluTjFjR1Z5WDJGa2JXbHVJaXdpY1dGZmMyVmxaRjl6WTI5d1pTSTZJbVV5WlNJc0luRmhYM05sWldSbFpDSTZkSEoxWlgwc0luSnZiR1VpT2lKaGRYUm9aVzUwYVdOaGRHVmtJaXdpWVdGc0lqb2lZV0ZzTVNJc0ltRnRjaUk2VzNzaWJXVjBhRzlrSWpvaWNHRnpjM2R2Y21RaUxDSjBhVzFsYzNSaGJYQWlPakUzT0RBd05UZzVOVEo5WFN3aWMyVnpjMmx2Ymw5cFpDSTZJbVExWVdZeU9ERTNMVEF4WWpVdE5EZGtPUzFoWkdSaUxUQTVNV0pqWlRrMVpUQTBNQ0lzSW1selgyRnViMjU1Ylc5MWN5STZabUZzYzJWOS5yOV9pSEYxVzFzdmNPZjlxUVB3UnlBR2FldWlRSUVHYzV6TExtUXRJSUNkWFlTQU5vYl91WnhfTEhfVGwxLTgyem5ORzBnX3Y3ZVZjNDAySlk5bjJjdyIsInRva2VuX3R5cGUiOiJiZWFyZXIiLCJleHBpcmVzX2luIjozNjAwLCJleHBpcmVzX2F0IjoxNzgwMDYyNTUyLCJyZWZyZXNoX3Rva2VuIjoidTVyeXVpazVtemZ1IiwidXNlciI6eyJpZCI6ImU0M2JjOThmLTVhYjgtNGFhZi1iYTM3LTFkMTBiZGYzNjI1MyIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImVtYWlsIjoicWEuc3VwZXJhZG1pbkBleGFtcGxlLnRlc3QiLCJlbWFpbF9jb25maXJtZWRfYXQiOiIyMDI2LTA1LTI5VDEyOjQzOjU5LjE2ODQzOFoiLCJwaG9uZSI6IiIsImNvbmZpcm1lZF9hdCI6IjIwMjYtMDUtMjlUMTI6NDM6NTkuMTY4NDM4WiIsImxhc3Rfc2lnbl9pbl9hdCI6IjIwMjYtMDUtMjlUMTI6NDk6MTIuMTY4MDU0OTU5WiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJxYV9zZWVkX2tleSI6InN1cGVyX2FkbWluIiwicWFfc2VlZF9zY29wZSI6ImUyZSIsInFhX3NlZWRlZCI6dHJ1ZX0sImlkZW50aXRpZXMiOlt7ImlkZW50aXR5X2lkIjoiMTM1MTgzNGYtNGE5Yy00ZGU1LTk1Y2QtOWQwMDBiZmY2YTUyIiwiaWQiOiJlNDNiYzk4Zi01YWI4LTRhYWYtYmEzNy0xZDEwYmRmMzYyNTMiLCJ1c2VyX2lkIjoiZTQzYmM5OGYtNWFiOC00YWFmLWJhMzctMWQxMGJkZjM2MjUzIiwiaWRlbnRpdHlfZGF0YSI6eyJlbWFpbCI6InFhLnN1cGVyYWRtaW5AZXhhbXBsZS50ZXN0IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6ImU0M2JjOThmLTVhYjgtNGFhZi1iYTM3LTFkMTBiZGYzNjI1MyJ9LCJwcm92aWRlciI6ImVtYWlsIiwibGFzdF9zaWduX2luX2F0IjoiMjAyNi0wNS0yOVQxMjo0Mzo1OS4xNjU5N1oiLCJjcmVhdGVkX2F0IjoiMjAyNi0wNS0yOVQxMjo0Mzo1OS4xNjU5ODVaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDUtMjlUMTI6NDM6NTkuMTY1OTg1WiIsImVtYWlsIjoicWEuc3VwZXJhZG1pbkBleGFtcGxlLnRlc3QifV0sImNyZWF0ZWRfYXQiOiIyMDI2LTA1LTI5VDEyOjQzOjU5LjE2NDAyMloiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wNS0yOVQxMjo0OToxMi4xNzEwMDJaIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0sIndlYWtfcGFzc3dvcmQiOm51bGx9",
-      "domain": "127.0.0.1",
+      "name": "cf_clearance",
+      "value": "icVWn1Q1GMN6ShHVTcbjgyfTGfwANlZ_omZZt7C5Uso-1782236811-1.2.1.1-GefJURfKRtr446N_my2FCpB6huiLrt8KHKVJxk8mfvNnnOUMNVEuAbZl21rMkzGlizV.zp.tmriPQ9yGmLbjVxHMNPgL0InUksWr2lRfDYjs3Wfa2bBA9IHovhNjdnbwbd9SU_c8c6CUvZYDMZZF4Uz0ZJDwy2Py0Dk6Pw7_qfbyJ2Sp2hLy.mS5MORLPYUAlxop1kDAgc6xrplaCIYYvPYlY8P_Ep9ZrylDPVhrmd_z7Np4OiH5qHEkpDGFIZicLjXNGRXIZ3z.OWkOPGzUfIIO2R1q5sM4WeAs0tjQvrox1V7_EulQZk9H5KnikTGHSwD6qddJ1y3rZYMDGHCTKw",
+      "domain": ".school-iraq.com",
       "path": "/",
-      "expires": 1814618952.1963,
+      "expires": 1813772811.780285,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://school-iraq.com",
+      "_crHasCrossSiteAncestor": false
+    },
+    {
+      "name": "school_rbac",
+      "value": "eyJ1c2VySWQiOiI0Yzk3YWM4My04MTI5LTRkMDUtOGU1Ny00ZjI0ZjUxYjMzNmIiLCJyb2xlIjoic3VwZXJfYWRtaW4iLCJwZXJtaXNzaW9ucyI6W10sInNjaG9vbElkIjpudWxsLCJicmFuY2hJZCI6bnVsbCwiYWxsb3dlZEJyYW5jaElkcyI6W10sInVzZXJBY3RpdmUiOnRydWUsInNjaG9vbEFjdGl2ZSI6dHJ1ZSwic3Vic2NyaXB0aW9uU3RhdHVzIjpudWxsLCJzdWJzY3JpcHRpb25FbmQiOm51bGwsInNjb3BlTGV2ZWwiOiJzdXBlcl9hZG1pbiIsImFsbG93ZWRNb2R1bGUiOm51bGwsImFsbG93ZWRNb2R1bGVzIjpbXSwiYWxsb3dlZFBhZ2VzIjpbXSwiZGVmYXVsdFBhdGgiOiIvc3VwZXItYWRtaW4iLCJpc1NpbmdsZVBhZ2VVc2VyIjpmYWxzZSwiaGllcmFyY2h5TGV2ZWwiOm51bGwsInBlcm1pc3Npb25zVmVyc2lvbiI6MSwiZ3JvdXBJZCI6bnVsbCwiaWF0IjoxNzgyMjM2ODE3LCJleHAiOjE3ODIyNjU2MTcsInZlcnNpb24iOjJ9.qT68nnN0W6Tuw18Xl81IlzJEAlRk-kGTitaZtoSHNXQ",
+      "domain": "school-iraq.com",
+      "path": "/",
+      "expires": 1782265617.548926,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sb-itbmzrplvpagwnzphsfv-auth-token",
+      "value": "base64-eyJhY2Nlc3NfdG9rZW4iOiJleUpoYkdjaU9pSkZVekkxTmlJc0ltdHBaQ0k2SW1KbFpHWTFZalUyTFdFek5qTXROR0V6WWkxaE9UTXhMVGhsTXprNU1tTTJaalV4TkNJc0luUjVjQ0k2SWtwWFZDSjkuZXlKcGMzTWlPaUpvZEhSd2N6b3ZMMmwwWW0xNmNuQnNkbkJoWjNkdWVuQm9jMloyTG5OMWNHRmlZWE5sTG1OdkwyRjFkR2d2ZGpFaUxDSnpkV0lpT2lJMFl6azNZV000TXkwNE1USTVMVFJrTURVdE9HVTFOeTAwWmpJMFpqVXhZak16Tm1JaUxDSmhkV1FpT2lKaGRYUm9aVzUwYVdOaGRHVmtJaXdpWlhod0lqb3hOemd5TWpRd05ERTNMQ0pwWVhRaU9qRTNPREl5TXpZNE1UY3NJbVZ0WVdsc0lqb2ljV0V1YzNWd1pYSmhaRzFwYmtCbGVHRnRjR3hsTG5SbGMzUWlMQ0p3YUc5dVpTSTZJaUlzSW1Gd2NGOXRaWFJoWkdGMFlTSTZleUp3Y205MmFXUmxjaUk2SW1WdFlXbHNJaXdpY0hKdmRtbGtaWEp6SWpwYkltVnRZV2xzSWwxOUxDSjFjMlZ5WDIxbGRHRmtZWFJoSWpwN0ltVnRZV2xzWDNabGNtbG1hV1ZrSWpwMGNuVmxMQ0p4WVY5elpXVmtYMnRsZVNJNkluTjFjR1Z5WDJGa2JXbHVJaXdpY1dGZmMyVmxaRjl6WTI5d1pTSTZJbVV5WlNJc0luRmhYM05sWldSbFpDSTZkSEoxWlgwc0luSnZiR1VpT2lKaGRYUm9aVzUwYVdOaGRHVmtJaXdpWVdGc0lqb2lZV0ZzTVNJc0ltRnRjaUk2VzNzaWJXVjBhRzlrSWpvaWNHRnpjM2R2Y21RaUxDSjBhVzFsYzNSaGJYQWlPakUzT0RJeU16WTRNVGQ5WFN3aWMyVnpjMmx2Ymw5cFpDSTZJbVEwTmpOaU1EZzNMVGxtTnpRdE5EQXdOQzFoTm1VM0xUZ3lPREZsWW1NNU9EbGlaU0lzSW1selgyRnViMjU1Ylc5MWN5STZabUZzYzJWOS5pN3F1QjQ5dkNjVHNXSjA1ZG8taE1wU1BtdkVfWjA4d2t2UTc0NDFKLWNWM1BWeExKLUxMVzhTaFI1UGhhUHQ3TGR0SkN4UFczX29CTElFNlZXNnNzZyIsInRva2VuX3R5cGUiOiJiZWFyZXIiLCJleHBpcmVzX2luIjozNjAwLCJleHBpcmVzX2F0IjoxNzgyMjQwNDE3LCJyZWZyZXNoX3Rva2VuIjoia3B6emw3ZWhibnhuIiwidXNlciI6eyJpZCI6IjRjOTdhYzgzLTgxMjktNGQwNS04ZTU3LTRmMjRmNTFiMzM2YiIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImVtYWlsIjoicWEuc3VwZXJhZG1pbkBleGFtcGxlLnRlc3QiLCJlbWFpbF9jb25maXJtZWRfYXQiOiIyMDI2LTA1LTIyVDEyOjA3OjE2LjEzMjM2WiIsInBob25lIjoiIiwiY29uZmlybWVkX2F0IjoiMjAyNi0wNS0yMlQxMjowNzoxNi4xMzIzNloiLCJsYXN0X3NpZ25faW5fYXQiOiIyMDI2LTA2LTIzVDE3OjQ2OjU3LjA5MzE5MjI5M1oiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6eyJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicWFfc2VlZF9rZXkiOiJzdXBlcl9hZG1pbiIsInFhX3NlZWRfc2NvcGUiOiJlMmUiLCJxYV9zZWVkZWQiOnRydWV9LCJpZGVudGl0aWVzIjpbeyJpZGVudGl0eV9pZCI6IjhlODVjM2Q4LWNkMzEtNGYzZC1iYzU1LWQxMjg2NzcwNjkwNCIsImlkIjoiNGM5N2FjODMtODEyOS00ZDA1LThlNTctNGYyNGY1MWIzMzZiIiwidXNlcl9pZCI6IjRjOTdhYzgzLTgxMjktNGQwNS04ZTU3LTRmMjRmNTFiMzM2YiIsImlkZW50aXR5X2RhdGEiOnsiZW1haWwiOiJxYS5zdXBlcmFkbWluQGV4YW1wbGUudGVzdCIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6IjRjOTdhYzgzLTgxMjktNGQwNS04ZTU3LTRmMjRmNTFiMzM2YiJ9LCJwcm92aWRlciI6ImVtYWlsIiwibGFzdF9zaWduX2luX2F0IjoiMjAyNi0wNS0yMVQyMTo0NDo0Mi4yOTc2MloiLCJjcmVhdGVkX2F0IjoiMjAyNi0wNS0yMVQyMTo0NDo0Mi4yOTc2ODNaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDUtMjFUMjE6NDQ6NDIuMjk3NjgzWiIsImVtYWlsIjoicWEuc3VwZXJhZG1pbkBleGFtcGxlLnRlc3QifV0sImNyZWF0ZWRfYXQiOiIyMDI2LTA1LTIxVDIxOjQ0OjQyLjI0OTU3N1oiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wNi0yM1QxNzo0Njo1Ny4wOTU1MTZaIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0sIndlYWtfcGFzc3dvcmQiOm51bGx9",
+      "domain": "school-iraq.com",
+      "path": "/",
+      "expires": 1816796817.548971,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -23,37 +45,13 @@
     {
       "name": "lm",
       "value": "full",
-      "domain": "127.0.0.1",
+      "domain": "school-iraq.com",
       "path": "/",
       "expires": -1,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
-    },
-    {
-      "name": "school_rbac",
-      "value": "eyJ1c2VySWQiOiJlNDNiYzk4Zi01YWI4LTRhYWYtYmEzNy0xZDEwYmRmMzYyNTMiLCJyb2xlIjoic3VwZXJfYWRtaW4iLCJwZXJtaXNzaW9ucyI6W10sInNjaG9vbElkIjpudWxsLCJicmFuY2hJZCI6bnVsbCwiYWxsb3dlZEJyYW5jaElkcyI6W10sInVzZXJBY3RpdmUiOnRydWUsInNjaG9vbEFjdGl2ZSI6dHJ1ZSwic3Vic2NyaXB0aW9uU3RhdHVzIjpudWxsLCJzdWJzY3JpcHRpb25FbmQiOm51bGwsInNjb3BlTGV2ZWwiOiJzdXBlcl9hZG1pbiIsImFsbG93ZWRNb2R1bGUiOm51bGwsImFsbG93ZWRNb2R1bGVzIjpbXSwiYWxsb3dlZFBhZ2VzIjpbXSwiZGVmYXVsdFBhdGgiOiIvc3VwZXItYWRtaW4iLCJpc1NpbmdsZVBhZ2VVc2VyIjpmYWxzZSwiaGllcmFyY2h5TGV2ZWwiOm51bGwsInBlcm1pc3Npb25zVmVyc2lvbiI6MSwiZ3JvdXBJZCI6bnVsbCwiaWF0IjoxNzgwMDU4OTUzLCJleHAiOjE3ODAwODc3NTMsInZlcnNpb24iOjJ9.UK-Ec7_NvRflgsu6l5xXWoZV4NqH6OOj0s0BVlVSqQg",
-      "domain": "127.0.0.1",
-      "path": "/",
-      "expires": 1780087753.96388,
-      "httpOnly": true,
-      "secure": false,
-      "sameSite": "Lax"
     }
   ],
-  "origins": [
-    {
-      "origin": "http://127.0.0.1:3000",
-      "localStorage": [
-        {
-          "name": "app-sidebar-mode:v1",
-          "value": "default"
-        },
-        {
-          "name": "app-sidebar-collapsed:v1",
-          "value": "false"
-        }
-      ]
-    }
-  ]
+  "origins": []
 }

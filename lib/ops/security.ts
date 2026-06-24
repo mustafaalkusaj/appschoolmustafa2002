@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 export function readOpsBearerToken(request: Pick<NextRequest, "headers" | "nextUrl">) {
@@ -9,7 +10,16 @@ export function readOpsBearerToken(request: Pick<NextRequest, "headers" | "nextU
     }
   }
 
-  return request.nextUrl.searchParams.get("token")?.trim() || null;
+  return null;
+}
+
+function constantTimeEquals(a: string, b: string): boolean {
+  const bufferA = Buffer.from(a);
+  const bufferB = Buffer.from(b);
+  if (bufferA.length !== bufferB.length) {
+    return false;
+  }
+  return timingSafeEqual(bufferA, bufferB);
 }
 
 export function isOpsTokenAuthorized(
@@ -21,5 +31,5 @@ export function isOpsTokenAuthorized(
     return false;
   }
 
-  return expectedTokens.some((token) => token && token === providedToken);
+  return expectedTokens.some((token) => Boolean(token) && constantTimeEquals(token as string, providedToken));
 }

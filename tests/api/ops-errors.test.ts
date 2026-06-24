@@ -64,7 +64,8 @@ describe("GET /api/ops/errors", () => {
     const { GET } = await import("@/app/api/ops/errors/route");
     const res = await GET(
       new NextRequest(
-        "http://localhost/api/ops/errors?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors",
+        { headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     const payload = await res.json();
@@ -77,7 +78,8 @@ describe("GET /api/ops/errors", () => {
     const { GET } = await import("@/app/api/ops/errors/route");
     const res = await GET(
       new NextRequest(
-        "http://localhost/api/ops/errors?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors",
+        { headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     const payload = await res.json();
@@ -90,7 +92,8 @@ describe("GET /api/ops/errors", () => {
     const { GET } = await import("@/app/api/ops/errors/route");
     const res = await GET(
       new NextRequest(
-        "http://localhost/api/ops/errors?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors",
+        { headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     const text = await res.text();
@@ -120,7 +123,8 @@ describe("GET /api/ops/errors/[errorId]", () => {
     const { GET } = await import("@/app/api/ops/errors/[errorId]/route");
     const res = await GET(
       new NextRequest(
-        "http://localhost/api/ops/errors/error-1?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors/error-1",
+        { headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
       { params: Promise.resolve({ errorId: "error-1" }) },
     );
@@ -135,7 +139,8 @@ describe("GET /api/ops/errors/[errorId]", () => {
     const { GET } = await import("@/app/api/ops/errors/[errorId]/route");
     const res = await GET(
       new NextRequest(
-        "http://localhost/api/ops/errors/nonexistent?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors/nonexistent",
+        { headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
       { params: Promise.resolve({ errorId: "nonexistent" }) },
     );
@@ -168,11 +173,14 @@ describe("PATCH /api/ops/errors/[errorId]", () => {
     const { PATCH } = await import("@/app/api/ops/errors/[errorId]/route");
     const res = await PATCH(
       new NextRequest(
-        "http://localhost/api/ops/errors/error-1?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors/error-1",
         {
           method: "PATCH",
           body: JSON.stringify({ status: "fixed" }),
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN",
+          },
         },
       ),
       { params: Promise.resolve({ errorId: "error-1" }) },
@@ -187,11 +195,14 @@ describe("PATCH /api/ops/errors/[errorId]", () => {
     const { PATCH } = await import("@/app/api/ops/errors/[errorId]/route");
     const res = await PATCH(
       new NextRequest(
-        "http://localhost/api/ops/errors/error-1?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors/error-1",
         {
           method: "PATCH",
           body: JSON.stringify({ status: "deleted" }),
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN",
+          },
         },
       ),
       { params: Promise.resolve({ errorId: "error-1" }) },
@@ -227,7 +238,8 @@ describe("GET /api/ops/errors/[errorId]/prompt", () => {
     );
     const res = await GET(
       new NextRequest(
-        "http://localhost/api/ops/errors/error-1/prompt?token=QA_TEST_OPS_ALERT_TOKEN",
+        "http://localhost/api/ops/errors/error-1/prompt",
+        { headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
       { params: Promise.resolve({ errorId: "error-1" }) },
     );

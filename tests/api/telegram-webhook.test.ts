@@ -233,18 +233,19 @@ describe("POST /api/ops/telegram-webhook/setup", () => {
     const { POST } = await import("@/app/api/ops/telegram-webhook/setup/route");
     const res = await POST(
       new NextRequest(
-        "http://localhost/api/ops/telegram-webhook/setup?token=QA_TEST_OPS_ALERT_TOKEN",
-        { method: "POST" },
+        "http://localhost/api/ops/telegram-webhook/setup",
+        { method: "POST", headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     expect(res.status).toBe(503);
   });
 
-  it("accepts valid query token", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({
+  it("rejects query-string tokens", async () => {
+    const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({ ok: true, description: "Webhook was set" }),
-    })));
+    }));
+    vi.stubGlobal("fetch", fetchMock);
 
     const { POST } = await import("@/app/api/ops/telegram-webhook/setup/route");
     const res = await POST(
@@ -253,9 +254,8 @@ describe("POST /api/ops/telegram-webhook/setup", () => {
         { method: "POST" },
       ),
     );
-    expect(res.status).toBe(200);
-    const payload = await res.json();
-    expect(payload.ok).toBe(true);
+    expect([401, 403, 404]).toContain(res.status);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("accepts valid Bearer token", async () => {
@@ -285,8 +285,8 @@ describe("POST /api/ops/telegram-webhook/setup", () => {
     const { POST } = await import("@/app/api/ops/telegram-webhook/setup/route");
     const res = await POST(
       new NextRequest(
-        "http://localhost/api/ops/telegram-webhook/setup?token=QA_TEST_OPS_ALERT_TOKEN",
-        { method: "POST" },
+        "http://localhost/api/ops/telegram-webhook/setup",
+        { method: "POST", headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     const text = await res.text();
@@ -320,8 +320,8 @@ describe("POST /api/ops/telegram-webhook/delete", () => {
     const { POST } = await import("@/app/api/ops/telegram-webhook/delete/route");
     const res = await POST(
       new NextRequest(
-        "http://localhost/api/ops/telegram-webhook/delete?token=QA_TEST_OPS_ALERT_TOKEN",
-        { method: "POST" },
+        "http://localhost/api/ops/telegram-webhook/delete",
+        { method: "POST", headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     const text = await res.text();

@@ -197,6 +197,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       const { response, payload } = await fetchJsonWithAuthorizedSession<{
         summary?: StudentsMetaPayload["summary"];
         tabCounts?: StudentsMetaPayload["tabCounts"];
+        classOptions?: string[];
         sectionOptions?: string[];
         error?: { message?: string };
       }>(`/api/web/students/meta?${params.toString()}`);
@@ -208,6 +209,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
       setStudentsMeta({
         summary: payload?.summary ?? EMPTY_STUDENT_META.summary,
         tabCounts: payload?.tabCounts ?? EMPTY_STUDENT_META.tabCounts,
+        classOptions: payload?.classOptions ?? [],
         sectionOptions: payload?.sectionOptions ?? [],
       });
     } catch (metaError) {

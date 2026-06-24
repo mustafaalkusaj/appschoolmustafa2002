@@ -580,6 +580,41 @@ model MobileAssignment {
   @@map("assignments")
 }
 
+model AssignmentSubmission {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  assignmentId String   @map("assignment_id") @db.Uuid
+  studentId    String   @map("student_id") @db.Uuid
+  notes        String?
+  fileUrl      String?  @map("file_url")
+  fileName     String?  @map("file_name")
+  fileMimeType String?  @map("file_mime_type")
+  submittedAt  DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
+
+  @@index([schoolId, studentId])
+  @@index([assignmentId])
+  @@map("assignment_submissions")
+}
+
+model TeacherAppointment {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  teacherId     String?   @map("teacher_id") @db.Uuid
+  parentUserId  String    @map("parent_user_id") @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  status        String    @default("pending")
+  requestedAt   DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  scheduledAt   DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  notes         String?
+  parentNotes   String?   @map("parent_notes")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime? @map("updated_at") @db.Timestamptz(6)
+
+  @@index([schoolId, teacherId])
+  @@index([parentUserId])
+  @@map("teacher_appointments")
+}
+
 model MobileGrade {
   id         String    @id @default(uuid()) @db.Uuid
   schoolId   String?   @map("school_id") @db.Uuid

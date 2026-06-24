@@ -38,6 +38,22 @@ export async function POST(req: NextRequest) {
       ((payload ?? {}) as TeacherGradeCreateInput),
     );
 
+    if (result.ok && payload && typeof payload.student_id === "string") {
+      try {
+        const { notifyNewGrade } = await import("@/lib/notify-events");
+        await notifyNewGrade({
+          supabase: context.value.serviceSupabase,
+          schoolId: context.value.schoolId,
+          studentId: payload.student_id as string,
+          subject: typeof payload.subject === "string" ? payload.subject : null,
+          score: typeof payload.score === "number" ? payload.score : null,
+          maxScore: typeof payload.max_score === "number" ? payload.max_score : null,
+        });
+      } catch {
+        // never break the grade write
+      }
+    }
+
     return NextResponse.json({
       ok: result.ok,
       gate: result.gate,

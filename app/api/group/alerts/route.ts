@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { jsonError } from "@/lib/route-utils";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function getService() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createServiceSupabaseClient();
 }
 
 async function resolveAuthorizedGroupId(req: NextRequest, requestedGroupId: string | null) {

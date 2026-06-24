@@ -176,8 +176,11 @@ export default function ClassesPage() {
               notes: "",
             }),
           });
-          if (res.ok) dashboardData.refetch();
+          if (res.ok) await dashboardData.refetch();
         } catch {}
+      }
+      if (editingClass) {
+        await dashboardData.refetch();
       }
       setShowClassForm(false);
       setEditingClass(null);
@@ -306,7 +309,7 @@ export default function ClassesPage() {
   return (
     <ProtectedRoute roles={["super_admin", "admin", "employee"]}>
       <div className="flex min-h-screen bg-[var(--surface-soft)]">
-        <AppSidebar currentPath="/classes" />
+        <AppSidebar currentPath="/classes" showFloatingToggle={false} />
         <div className="flex-1 flex flex-col min-w-0">
           <AppShellTopbar
             title={t("title")}

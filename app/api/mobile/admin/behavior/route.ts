@@ -36,3 +36,60 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const context = await resolveAdminMobileRouteContext(req);
+    if (context.ok === false) return context.response;
+
+    const { schoolId, serviceSupabase } = context.value;
+    const body = await req.json() as {
+      student_id?: string;
+      student_name?: string;
+      behavior_type?: string;
+      points?: number;
+      note?: string;
+    };
+
+    const { student_id, student_name, behavior_type, points, note } = body;
+
+    if (!student_name || typeof student_name !== "string" || !student_name.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "missing_required_field", field: "student_name" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      typeof points !== "number" ||
+      !Number.isInteger(points) ||
+      points === 0 ||
+      points < -50 ||
+      points > 50
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_points", field: "points" },
+        { status: 400 },
+      );
+    }
+
+    const { data, error } = await serviceSupabase
+      .from("behavior_logs")
+      .insert({
+        school_id: schoolId,
+        student_id: student_id ?? null,
+        student_name: student_name.trim(),
+        behavior_type: behavior_type ?? null,
+        points,
+        note: note ?? null,
+      })
+      .select("id, student_id, student_name, behavior_type, points, note, created_at")
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true, item: data });
+  } catch {
+    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+  }
+}

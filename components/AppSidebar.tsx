@@ -25,6 +25,7 @@ import {
   buildPathWithBranchScope,
   buildPathWithSchoolScope,
   isSuperAdminSchoolScopedPath,
+  readSchoolScopeFromEvent,
   readSchoolScopeFromWindow,
 } from "@/lib/school/scope";
 import { cn } from "@/lib/brand/brand-utils";
@@ -148,7 +149,7 @@ export function AppSidebar({
   const groupOrder = ["general", "academic", "finance", "system", "admin"];
 
   useEffect(() => {
-    const syncScopedSchool = () => setScopedSchoolId(readSchoolScopeFromWindow());
+    const syncScopedSchool = (event?: Event) => setScopedSchoolId(readSchoolScopeFromEvent(event));
     syncScopedSchool();
     window.addEventListener("popstate", syncScopedSchool);
     window.addEventListener(SCHOOL_SCOPE_CHANGE_EVENT, syncScopedSchool);
@@ -206,7 +207,6 @@ export function AppSidebar({
       <aside
         className={cn(
           "fixed inset-y-0 start-0 z-[var(--z-sidebar)] flex flex-col border-e border-[var(--border)] bg-[var(--surface-strong)] transition-all duration-150 ease-out lg:sticky lg:top-0 lg:h-screen lg:!translate-x-0",
-          isRTL && "start-auto end-0 border-e-0 border-s",
           mobileOpen ? "translate-x-0" : isRTL ? "translate-x-[100vw]" : "-translate-x-[100vw]",
           collapsed ? "w-[72px]" : "w-[var(--sidebar-width)]",
         )}

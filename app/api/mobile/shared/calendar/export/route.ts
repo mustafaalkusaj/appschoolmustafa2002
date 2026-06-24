@@ -16,18 +16,13 @@ function toIcsDate(dateStr: string): string {
 
 export async function GET(req: NextRequest) {
   try {
-    // The mobile app opens this URL in the system browser (to hand the .ics to
-    // the OS calendar), so it cannot set an Authorization header. Accept the
-    // session token as a query param and promote it to a Bearer header.
-    let effectiveReq = req;
-    const queryToken = req.nextUrl.searchParams.get("access_token");
-    if (queryToken && !req.headers.get("authorization")) {
-      const headers = new Headers(req.headers);
-      headers.set("authorization", `Bearer ${queryToken}`);
-      effectiveReq = new NextRequest(req.url, { headers });
+    // Require the Authorization header. A query-param token would leak into
+    // browser history, server logs and referrers, so it is not accepted.
+    if (!req.headers.get("authorization")) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
-    const context = await resolveMobileRouteContext(effectiveReq);
+    const context = await resolveMobileRouteContext(req);
     if (context.ok === false) {
       return context.response;
     }

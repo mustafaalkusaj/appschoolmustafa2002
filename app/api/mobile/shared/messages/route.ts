@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { enforceRateLimit } from "@/lib/rate-limit";
+
 import {
   parseMobileListParams,
   queryMobileConversations,
@@ -34,6 +36,16 @@ export async function POST(req: NextRequest) {
     const context = await resolveMobileRouteContext(req);
     if (context.ok === false) {
       return context.response;
+    }
+
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: "mobile-messages-send",
+      windowMs: 60_000,
+      maxHits: 60,
+      identifier: context.value.authUserId,
+    });
+    if (rateLimited) {
+      return rateLimited;
     }
 
     const payload = (await req.json().catch(() => null)) ?? {};

@@ -267,6 +267,34 @@ export async function POST(req: NextRequest) {
     return jsonError(errors.join(" | ") || "لا توجد مدخلات صالحة.", 400);
   }
 
+  // Cross-school attribution guard: any teacher_id supplied in the body MUST
+  // reference a teacher within the actor's school. Without this, an admin/employee
+  // could attribute grades to a teacher in another school (service-role bypasses RLS).
+  const requestedTeacherIds = Array.from(
+    new Set(
+      validInputs
+        .map((input) => input.teacher_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  if (requestedTeacherIds.length > 0) {
+    const { data: scopedTeachers, error: teacherScopeError } = await actorSupabase
+      .from("teachers")
+      .select("id")
+      .eq("school_id", targetSchoolId)
+      .in("id", requestedTeacherIds);
+
+    if (teacherScopeError) {
+      return jsonError("تعذر التحقق من المعلّم المحدد.", 500);
+    }
+
+    const validTeacherIds = new Set((scopedTeachers ?? []).map((t) => t.id as string));
+    const hasForeignTeacher = requestedTeacherIds.some((id) => !validTeacherIds.has(id));
+    if (hasForeignTeacher) {
+      return jsonError("لا يمكن إسناد الدرجة إلى معلّم خارج المدرسة الحالية.", 403);
+    }
+  }
+
   if (isBulk) {
     // Bulk insert — send all rows in a single call so they succeed or fail together.
     const results = await Promise.all(

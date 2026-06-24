@@ -135,7 +135,7 @@ export function StudentQuickView({ student, schoolId, onClose }: Props) {
   const s = fullStudent ?? student;
 
   const paidPct = s && s.total_fee > 0
-    ? Math.round((s.paid_fee / s.total_fee) * 100)
+    ? Math.min(100, Math.round((s.paid_fee / s.total_fee) * 100))
     : 0;
 
   const initials = s?.full_name

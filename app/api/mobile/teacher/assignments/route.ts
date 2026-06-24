@@ -38,6 +38,23 @@ export async function POST(req: NextRequest) {
       ((payload ?? {}) as TeacherAssignmentCreateInput),
     );
 
+    if (result.ok && payload && typeof payload.title === "string") {
+      try {
+        const { notifyNewAssignment } = await import("@/lib/notify-events");
+        await notifyNewAssignment({
+          supabase: context.value.serviceSupabase,
+          schoolId: context.value.schoolId,
+          className: typeof payload.class_name === "string" ? payload.class_name : null,
+          section: typeof payload.section === "string" ? payload.section : null,
+          title: payload.title as string,
+          subject: typeof payload.subject === "string" ? payload.subject : null,
+          dueAt: typeof payload.due_at === "string" ? payload.due_at : null,
+        });
+      } catch {
+        // never break the assignment write
+      }
+    }
+
     return NextResponse.json({
       ok: result.ok,
       gate: result.gate,

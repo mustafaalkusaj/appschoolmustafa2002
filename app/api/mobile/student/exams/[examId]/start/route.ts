@@ -39,6 +39,16 @@ export async function POST(
       );
     }
 
+    // Inactive students may not start exams. A null/missing status is treated
+    // as active to match the default-to-active convention used elsewhere.
+    const studentStatus = account.student?.status;
+    if (studentStatus && studentStatus !== "active") {
+      return NextResponse.json(
+        { ok: false, error: { message: "حساب الطالب غير نشط." } },
+        { status: 403 },
+      );
+    }
+
     // Verify exam exists and belongs to school. NOTE: the `exams` table has no
     // `status` column — selecting it makes PostgREST error and the route 404s
     // with "exam not found" for every start. Only select real columns.

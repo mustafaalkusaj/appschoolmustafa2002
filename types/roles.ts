@@ -294,6 +294,37 @@ export function normalizePermissions(input: unknown, role: UserRole): Permission
   return unique;
 }
 
+/**
+ * Resolve a user's effective permissions while ENFORCING the role-template ceiling.
+ *
+ * custom_permissions are operator-authored overrides, but they must never grant
+ * power beyond what the user's role template (ROLE_PERMISSIONS[role]) already
+ * allows — otherwise any admin could self-assign `full_access`. When custom
+ * permissions are present we normalize them, then INTERSECT with the role
+ * template so the result is always a subset of the role's allowed keys.
+ *
+ * super_admin's template is the full ALL_PERMISSIONS set (including
+ * `full_access`), so super_admin behavior is preserved unchanged.
+ */
+export function resolveEffectivePermissions(
+  customPermissions: unknown,
+  rolePermissions: unknown,
+  role: UserRole,
+): Permission[] {
+  const hasCustom = Array.isArray(customPermissions) && customPermissions.length > 0;
+  if (!hasCustom) {
+    return normalizePermissions(rolePermissions, role);
+  }
+
+  const normalizedCustom = normalizePermissions(customPermissions, role);
+  const ceiling = new Set<Permission>(ROLE_PERMISSIONS[role]);
+  const capped = normalizedCustom.filter((perm) => ceiling.has(perm));
+
+  // If nothing survives the ceiling, fall back to the role template rather than
+  // returning an empty (broken) permission set.
+  return capped.length > 0 ? capped : buildTemplatePermissions(role);
+}
+
 export function hasPermissionInList(
   permissions: Permission[] | null | undefined,
   permission: Permission,
@@ -516,14 +547,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/students",
     iconToken: "👥",
     roles: ["super_admin", "admin", "employee"],
-    group: "academic",
-  },
-  {
-    id: "parent-links",
-    label: "ربط أولياء الأمور",
-    href: "/students/parent-links",
-    iconToken: "🔗",
-    roles: ["super_admin", "admin"],
     group: "academic",
   },
   {

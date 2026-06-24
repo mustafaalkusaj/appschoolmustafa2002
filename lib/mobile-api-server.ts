@@ -583,18 +583,19 @@ export async function queryStudentPayments(
   }
 
   const paymentsHaveSchoolId = await tableHasColumn(ctx.serviceSupabase, "payments", "school_id");
-  let query = ctx.serviceSupabase
+  if (!paymentsHaveSchoolId) {
+    // Without a school_id column the query cannot be scoped to the student's
+    // school, which would leak cross-tenant rows. Fail closed instead.
+    return { gate: featureGateFromError(null, "payments"), items: [] };
+  }
+
+  const { data, error } = await ctx.serviceSupabase
     .from("payments")
     .select(PAYMENT_SELECT)
     .eq("student_id", student.id)
+    .eq("school_id", ctx.schoolId)
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
-
-  if (paymentsHaveSchoolId) {
-    query = query.eq("school_id", ctx.schoolId);
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     return {
@@ -620,18 +621,19 @@ export async function queryStudentAttendance(
   }
 
   const attendanceHasSchoolId = await tableHasColumn(ctx.serviceSupabase, "attendance_records", "school_id");
-  let query = ctx.serviceSupabase
+  if (!attendanceHasSchoolId) {
+    // Without a school_id column the query cannot be scoped to the student's
+    // school, which would leak cross-tenant rows. Fail closed instead.
+    return { gate: featureGateFromError(null, "attendance_records"), items: [] };
+  }
+
+  const { data, error } = await ctx.serviceSupabase
     .from("attendance_records")
     .select(ATTENDANCE_SELECT)
     .eq("student_id", student.id)
+    .eq("school_id", ctx.schoolId)
     .order("attendance_date", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
-
-  if (attendanceHasSchoolId) {
-    query = query.eq("school_id", ctx.schoolId);
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     return {
@@ -1003,6 +1005,18 @@ export async function queryMobileBehaviorLogs(
   };
 }
 
+// Whitelist for values interpolated into PostgREST `.or()` filters. Allows
+// Latin/Arabic letters, digits, spaces, dash and underscore only — this blocks
+// the comma / parenthesis / dot characters PostgREST uses as filter syntax,
+// preventing filter injection via raw user input.
+const SAFE_OR_FILTER_VALUE = /^[\w؀-ۿݐ-ݿ -]+$/;
+
+function safeOrFilterValue(value: string | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed && SAFE_OR_FILTER_VALUE.test(trimmed) ? trimmed : null;
+}
+
 export async function queryMobileCalendarEvents(
   ctx: MobileRouteContext,
   params: MobileListParams,
@@ -1019,8 +1033,12 @@ export async function queryMobileCalendarEvents(
 
   if (filters.from) query = query.gte("date", filters.from);
   if (filters.to) query = query.lte("date", filters.to);
-  if (filters.targetClass) query = query.or(`target_class.is.null,target_class.eq.${filters.targetClass}`);
-  if (filters.targetSection) query = query.or(`target_section.is.null,target_section.eq.${filters.targetSection}`);
+
+  const safeTargetClass = safeOrFilterValue(filters.targetClass);
+  if (safeTargetClass) query = query.or(`target_class.is.null,target_class.eq.${safeTargetClass}`);
+
+  const safeTargetSection = safeOrFilterValue(filters.targetSection);
+  if (safeTargetSection) query = query.or(`target_section.is.null,target_section.eq.${safeTargetSection}`);
 
   const { data, error } = await query;
   if (error) {

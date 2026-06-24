@@ -27,7 +27,7 @@ export function calculateStudentPaidPercentage(student: StudentFinancials): numb
   const discount = Number(student.discount_value ?? 0);
   const afterDiscount = Math.max(total - discount, 0);
 
-  return afterDiscount > 0 ? Math.round((paid / afterDiscount) * 100) : 0;
+  return afterDiscount > 0 ? Math.min(100, Math.round((paid / afterDiscount) * 100)) : 0;
 }
 
 export function resolveStudentFeeTotal(

@@ -23,7 +23,7 @@ import { GET as roleGET, DELETE as roleDELETE, PATCH as rolePATCH } from "@/app/
 import { PUT as permsPUT } from "@/app/api/v1/roles/[roleId]/perms/route";
 import { GET as roleUsersGET } from "@/app/api/v1/roles/[roleId]/users/route";
 
-const okCtx = { ok: true, value: { targetSchoolId: "s1", actorUserId: "u1" } };
+const okCtx = { ok: true, value: { targetSchoolId: "s1", actorUserId: "u1", actorRole: "super_admin" } };
 const req = (body?: unknown, method = "GET") =>
   new NextRequest("http://localhost/api/v1/roles" + (body ? "/x" : ""), {
     method,
@@ -139,7 +139,12 @@ describe("PUT /api/v1/roles/[roleId]/perms", () => {
     expect((await permsPUT(req({ permissionIds: [] }, "PUT"), P())).status).toBe(200);
   });
   it("ok with permissionIds (delete+insert)", async () => {
-    h.results = [{ data: { id: "r1" }, error: null }, { data: null, error: null }, { data: null, error: null }];
+    h.results = [
+      { data: { id: "r1" }, error: null },
+      { data: [{ id: "11111111-1111-4111-8111-111111111111", key: "students.view" }], error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    ];
     const res = await permsPUT(req({ permissionIds: ["11111111-1111-4111-8111-111111111111"] }, "PUT"), P());
     expect(res.status).toBe(200);
   });

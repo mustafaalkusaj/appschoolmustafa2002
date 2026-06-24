@@ -4,6 +4,7 @@ import { applyBranchScopeToQuery, resolveBranchScope, type ResolvedBranchScope }
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { isValidUUID } from "@/lib/route-utils";
 import { resolveAuthoritativeStudentPaidFee } from "@/lib/payments-server";
+import { resolveStudentFeeTotal, calculateStudentRemainingFee } from "@/lib/students/financials";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 import { invalidateSchoolCacheDomains } from "@/lib/server-cache";
@@ -531,8 +532,36 @@ export async function GET(
   if (!student) return jsonError("الطالب غير موجود.", 404);
 
   void actorUserId;
-  const remaining_fee = Math.max(0, (student.total_fee ?? 0) - (student.paid_fee ?? 0) - (student.discount_value ?? 0));
-  return NextResponse.json({ ok: true, student: { ...student, remaining_fee } });
+
+  // Resolve fee through class_fees (same logic as student list normalization)
+  let classFeeTotal: number | null = null;
+  if (student.class_name) {
+    let cfQuery = serviceSupabase
+      .from("class_fees")
+      .select("total_fee")
+      .eq("school_id", targetSchoolId)
+      .eq("class_name", student.class_name);
+    if (branchScope.value.branchId) {
+      cfQuery = cfQuery.eq("branch_id", branchScope.value.branchId);
+    } else if (branchScope.value.branchIds.length > 0) {
+      cfQuery = cfQuery.in("branch_id", branchScope.value.branchIds);
+    }
+    const { data: cfData } = await cfQuery.maybeSingle<{ total_fee: number }>();
+    if (cfData && typeof cfData.total_fee === "number") {
+      classFeeTotal = cfData.total_fee;
+    }
+  }
+
+  const resolvedTotal = resolveStudentFeeTotal(student.total_fee, classFeeTotal);
+  const paidFee = Number(student.paid_fee ?? 0);
+  const discountValue = Number(student.discount_value ?? 0);
+  const remaining_fee = calculateStudentRemainingFee({
+    total_fee: resolvedTotal,
+    paid_fee: paidFee,
+    discount_value: discountValue,
+  });
+
+  return NextResponse.json({ ok: true, student: { ...student, total_fee: resolvedTotal, remaining_fee } });
 }
 
 export async function DELETE(

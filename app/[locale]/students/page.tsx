@@ -179,9 +179,7 @@ export default function StudentsPage() {
     setError: modals.setError,
   });
 
-  const classes = Array.from(
-    new Set(classFees.map((item) => item.class_name?.trim()).filter(Boolean))
-  ) as string[];
+  const classes = studentsMeta.classOptions ?? [];
   const sectionsList = studentsMeta.sectionOptions;
 
   // Map archive students to StudentWithFees shape when in archive mode

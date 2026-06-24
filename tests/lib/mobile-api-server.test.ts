@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const h = vi.hoisted(() => ({ auth: { data: { user: { id: "u1" } }, error: null as unknown }, account: {} as Record<string, unknown> }));
+const h = vi.hoisted(() => ({
+  auth: { data: { user: { id: "u1" } }, error: null as unknown },
+  account: {} as Record<string, unknown>,
+  tableHasColumn: vi.fn(),
+}));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase-server", () => ({
@@ -12,7 +16,7 @@ vi.mock("@/lib/supabase-server", () => ({
 vi.mock("@/lib/managed-user-app-context", () => ({ buildManagedAppAccountContext: vi.fn(async () => h.account) }));
 vi.mock("@/lib/academic-records-server", () => ({ enrichAssignmentRows: vi.fn(async (_c: unknown, rows: unknown) => rows ?? []), enrichGradeRows: vi.fn(async (_c: unknown, rows: unknown) => rows ?? []) }));
 vi.mock("@/lib/admin-infrastructure", () => ({ isMissingTableError: () => false }));
-vi.mock("@/lib/managed-users-server", () => ({ tableHasColumn: vi.fn(async () => false) }));
+vi.mock("@/lib/managed-users-server", () => ({ tableHasColumn: h.tableHasColumn }));
 vi.mock("@/lib/managed-user-app-context", async () => ({ buildManagedAppAccountContext: vi.fn(async () => h.account) }));
 
 import {
@@ -32,6 +36,7 @@ const fullAccount = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   h.auth = { data: { user: { id: "u1" } }, error: null };
   h.account = fullAccount();
+  h.tableHasColumn.mockResolvedValue(true);
 });
 
 describe("parseMobileListParams", () => {

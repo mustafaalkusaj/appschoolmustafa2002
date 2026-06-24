@@ -800,24 +800,28 @@ function ExamsListTab({ schoolId, canManage, locale, showForm, setShowForm }: { 
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input
+              aria-label={t("examTitle", locale)}
               placeholder={t("examTitle", locale)}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               className="h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 text-sm sm:col-span-2 focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]/20 outline-none transition-all"
             />
             <input
+              aria-label={t("subject", locale)}
               placeholder={t("subject", locale)}
               value={form.subject}
               onChange={(e) => setForm({ ...form, subject: e.target.value })}
               className="h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 text-sm focus:border-[var(--primary)] outline-none transition-all"
             />
             <input
+              aria-label={t("className", locale)}
               placeholder={t("className", locale)}
               value={form.class_name}
               onChange={(e) => setForm({ ...form, class_name: e.target.value })}
               className="h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 text-sm focus:border-[var(--primary)] outline-none transition-all"
             />
             <input
+              aria-label={t("examType", locale)}
               placeholder={t("examType", locale)}
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -825,6 +829,7 @@ function ExamsListTab({ schoolId, canManage, locale, showForm, setShowForm }: { 
             />
             <input
               type="number"
+              aria-label={t("totalMarks", locale)}
               placeholder={t("totalMarks", locale)}
               value={form.total_marks}
               onChange={(e) => setForm({ ...form, total_marks: e.target.value })}
@@ -1204,8 +1209,8 @@ function ExamBuilderTab({ schoolId, locale }: { schoolId: string | null; locale:
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-[var(--text-primary)]">{t("selectedQuestions", locale)} ({fmtNum(examQuestions.length)})</h3>
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-bold text-[var(--text-muted)]">{t("marksPerQ", locale)}</label>
-                  <input type="number" min={1} value={marksPerQuestion} onChange={(e) => setMarksPerQuestion(Number(e.target.value) || 1)} className="h-8 w-16 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] px-2 text-sm text-center focus:border-[var(--primary)] outline-none" />
+                  <label htmlFor="exam-marks-per-question" className="text-xs font-bold text-[var(--text-muted)]">{t("marksPerQ", locale)}</label>
+                  <input id="exam-marks-per-question" type="number" min={1} value={marksPerQuestion} onChange={(e) => setMarksPerQuestion(Number(e.target.value) || 1)} className="h-8 w-16 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] px-2 text-sm text-center focus:border-[var(--primary)] outline-none" />
                 </div>
               </div>
               {examQuestions.length === 0 ? (

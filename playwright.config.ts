@@ -5,6 +5,7 @@ import path from "node:path";
 const useDevServer = process.env.PLAYWRIGHT_USE_DEV_SERVER === "1";
 const skipAuthSetup = process.env.PLAYWRIGHT_SKIP_AUTH_SETUP === "1";
 const disableWebServer = process.env.PLAYWRIGHT_DISABLE_WEBSERVER === "1";
+const useSystemChrome = process.env.PLAYWRIGHT_USE_SYSTEM_CHROME === "1";
 
 function loadEnvFile(fileName: string) {
   const filePath = path.join(process.cwd(), fileName);
@@ -61,9 +62,10 @@ export default defineConfig({
   outputDir: "output/playwright/test-results",
   use: {
     baseURL,
+    channel: useSystemChrome ? "chrome" : undefined,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: useSystemChrome ? "off" : "retain-on-failure",
   },
   projects: [
     {

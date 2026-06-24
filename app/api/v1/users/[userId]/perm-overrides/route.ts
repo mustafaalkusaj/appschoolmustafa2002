@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { loadDeepPermissionsForUser } from "@/lib/authorization/deep-permissions";
+import { effectivePermissionKeys, isSuperAdminOnlyPermissionKey } from "@/lib/authorization/permission-ceiling";
 import { jsonError } from "@/lib/route-utils";
 
 const updateOverridesSchema = z.object({
@@ -90,6 +92,50 @@ export async function PUT(
   if (userId === actorUserId) return jsonError("لا يمكنك تعديل استثناءات صلاحياتك الخاصة", 403);
 
   const { overrides, reverted = [] } = parsed.data;
+
+  // Ceiling guard: an admin must not grant a permission they do not themselves
+  // hold, nor any authorization-control key — mirrors the delegation guard in
+  // app/api/v1/roles/[roleId]/perms/route.ts. Only applies to grants
+  // (is_granted: true); revokes can never be an escalation. super_admin is exempt.
+  const grantedOverrides = overrides.filter((o) => o.is_granted);
+  const isSuperAdmin = context.value.actorRole === "super_admin";
+
+  if (grantedOverrides.length > 0 && !isSuperAdmin) {
+    const grantedIds = Array.from(new Set(grantedOverrides.map((o) => o.permission_id)));
+
+    // (a) Allowlist by existence: every granted id must be a real permission in
+    // the global perm_definitions catalog. Reject unknown/forged ids outright.
+    const { data: defs, error: defsError } = await service
+      .from("perm_definitions")
+      .select("id, key")
+      .in("id", grantedIds);
+
+    if (defsError) return jsonError("تعذر التحقق من الصلاحيات", 500);
+
+    const defById = new Map((defs ?? []).map((d) => [d.id as string, d.key as string]));
+    if (defById.size !== grantedIds.length) {
+      return jsonError("صلاحية غير معروفة ضمن الطلب", 400);
+    }
+
+    // (b)/(c) Delegation guard: the actor may only grant permissions they
+    // effectively hold, and may never grant authorization-control keys.
+    const { permMap } = await loadDeepPermissionsForUser(
+      service,
+      actorUserId,
+      targetSchoolId,
+    );
+    const actorKeys = effectivePermissionKeys(permMap);
+
+    for (const id of grantedIds) {
+      const key = defById.get(id)!;
+      if (isSuperAdminOnlyPermissionKey(key)) {
+        return jsonError("لا يمكنك منح هذه الصلاحية عالية الامتياز", 403);
+      }
+      if (!actorKeys.has(key)) {
+        return jsonError("لا يمكنك منح صلاحية لا تملكها", 403);
+      }
+    }
+  }
 
   // Delete reverted (inherit) overrides
   if (reverted.length > 0) {

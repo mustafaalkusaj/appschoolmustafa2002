@@ -176,10 +176,10 @@ function Section({
 
 // ─── Field wrapper ────────────────────────────────────────────────────────────
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">
+      <label htmlFor={htmlFor} className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">
         {label}
       </label>
       {children}
@@ -713,12 +713,12 @@ function BrandingTab({ schoolId }: { schoolId: string }) {
         >
           <div className="grid gap-4">
             {settingsSource === "branch" ? (
-              <Field label="اسم الفرع">
-                <input className={INPUT_CLS} placeholder="أدخل اسم الفرع..." value={branchName} onChange={(e) => setBranchName(e.target.value)} />
+              <Field label="اسم الفرع" htmlFor="branch-name-input">
+                <input id="branch-name-input" className={INPUT_CLS} placeholder="أدخل اسم الفرع..." value={branchName} onChange={(e) => setBranchName(e.target.value)} />
               </Field>
             ) : (
-              <Field label="اسم المدرسة">
-                <input className={INPUT_CLS} placeholder="أدخل اسم المدرسة..." value={name} onChange={(e) => setName(e.target.value)} required />
+              <Field label="اسم المدرسة" htmlFor="school-name-input">
+                <input id="school-name-input" className={INPUT_CLS} placeholder="أدخل اسم المدرسة..." value={name} onChange={(e) => setName(e.target.value)} required />
               </Field>
             )}
           </div>
@@ -729,9 +729,11 @@ function BrandingTab({ schoolId }: { schoolId: string }) {
             {/* Hidden file input */}
             <input
               ref={logoFileRef}
+              id="logo-file-input"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               className="hidden"
+              aria-label="رفع شعار المدرسة"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleLogoFile(f); }}
             />
 
@@ -845,6 +847,8 @@ function BrandingTab({ schoolId }: { schoolId: string }) {
                     </button>
 
                     <input
+                      id="logo-url-input"
+                      aria-label="رابط صورة الشعار"
                       className={INPUT_CLS}
                       placeholder="أو أدخل رابط الصورة..."
                       value={logoUrl}
@@ -970,16 +974,16 @@ function BrandingTab({ schoolId }: { schoolId: string }) {
         {/* Manual color overrides */}
         <Section title="الألوان المخصصة" description="تخصيص يدوي للألوان إذا أردت تجاوز التصميم المختار.">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="اللون الرئيسي">
+            <Field label="اللون الرئيسي" htmlFor="primary-color-text">
               <div className="flex items-center gap-2">
-                <input type="color" className="w-10 h-10 rounded-lg border border-[var(--border)] cursor-pointer bg-transparent p-0.5" value={primaryColor} onChange={(e) => { setPrimaryColor(e.target.value); setThemePresetId(""); }} />
-                <input className={cn(INPUT_CLS, "flex-1 font-mono text-sm")} value={primaryColor} onChange={(e) => { setPrimaryColor(e.target.value); setThemePresetId(""); }} dir="ltr" />
+                <input type="color" aria-label="منتقي اللون الرئيسي" className="w-10 h-10 rounded-lg border border-[var(--border)] cursor-pointer bg-transparent p-0.5" value={primaryColor} onChange={(e) => { setPrimaryColor(e.target.value); setThemePresetId(""); }} />
+                <input id="primary-color-text" className={cn(INPUT_CLS, "flex-1 font-mono text-sm")} value={primaryColor} onChange={(e) => { setPrimaryColor(e.target.value); setThemePresetId(""); }} dir="ltr" />
               </div>
             </Field>
-            <Field label="اللون الثانوي">
+            <Field label="اللون الثانوي" htmlFor="secondary-color-text">
               <div className="flex items-center gap-2">
-                <input type="color" className="w-10 h-10 rounded-lg border border-[var(--border)] cursor-pointer bg-transparent p-0.5" value={secondaryColor} onChange={(e) => { setSecondaryColor(e.target.value); setThemePresetId(""); }} />
-                <input className={cn(INPUT_CLS, "flex-1 font-mono text-sm")} value={secondaryColor} onChange={(e) => { setSecondaryColor(e.target.value); setThemePresetId(""); }} dir="ltr" />
+                <input type="color" aria-label="منتقي اللون الثانوي" className="w-10 h-10 rounded-lg border border-[var(--border)] cursor-pointer bg-transparent p-0.5" value={secondaryColor} onChange={(e) => { setSecondaryColor(e.target.value); setThemePresetId(""); }} />
+                <input id="secondary-color-text" className={cn(INPUT_CLS, "flex-1 font-mono text-sm")} value={secondaryColor} onChange={(e) => { setSecondaryColor(e.target.value); setThemePresetId(""); }} dir="ltr" />
               </div>
             </Field>
           </div>
@@ -1099,8 +1103,9 @@ function PayrollTab({ schoolId }: { schoolId: string }) {
           title="إعدادات الرواتب والمحاضرات"
           description="هذه الإعدادات تؤثر على حساب الرواتب الشهرية وأسعار المحاضرات."
         >
-          <Field label="أيام العمل في الشهر">
+          <Field label="أيام العمل في الشهر" htmlFor="working-days-input">
             <input
+              id="working-days-input"
               className={INPUT_CLS}
               type="number"
               min={1}
@@ -1113,8 +1118,9 @@ function PayrollTab({ schoolId }: { schoolId: string }) {
             />
           </Field>
 
-          <Field label="سعر المحاضرة الافتراضي">
+          <Field label="سعر المحاضرة الافتراضي" htmlFor="lecture-price-input">
             <input
+              id="lecture-price-input"
               className={INPUT_CLS}
               type="number"
               min={0}
@@ -2768,8 +2774,9 @@ function PrintingTab() {
 
           {/* Subtitle */}
           <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">النص أسفل اللوغو</label>
+            <label htmlFor="print-header-subtitle" className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">النص أسفل اللوغو</label>
             <input
+              id="print-header-subtitle"
               type="text"
               value={printStyle.headerSubtitle}
               onChange={e => setPrintStyle(s => ({ ...s, headerSubtitle: e.target.value }))}
@@ -2782,8 +2789,9 @@ function PrintingTab() {
 
           {/* Footer line 1 */}
           <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">سطر التذييل الأول</label>
+            <label htmlFor="print-footer-line1" className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">سطر التذييل الأول</label>
             <input
+              id="print-footer-line1"
               type="text"
               value={printStyle.footerLine1}
               onChange={e => setPrintStyle(s => ({ ...s, footerLine1: e.target.value }))}
@@ -2795,8 +2803,9 @@ function PrintingTab() {
 
           {/* Footer line 2 */}
           <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">سطر التذييل الثاني</label>
+            <label htmlFor="print-footer-line2" className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)]">سطر التذييل الثاني</label>
             <input
+              id="print-footer-line2"
               type="text"
               value={printStyle.footerLine2}
               onChange={e => setPrintStyle(s => ({ ...s, footerLine2: e.target.value }))}

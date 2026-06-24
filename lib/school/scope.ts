@@ -3,6 +3,10 @@ import { localizeAppPath, stripLocaleFromPath, type AppLocale } from "@/lib/loca
 export const SUPER_ADMIN_SCHOOL_QUERY_PARAM = "school";
 export const SCHOOL_SCOPE_CHANGE_EVENT = "school-scope-change";
 
+export type SchoolScopeChangeDetail = {
+  schoolId: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Branch scope path helpers (mirrors school scope)
 // ---------------------------------------------------------------------------
@@ -62,4 +66,15 @@ export function readSchoolScopeFromWindow(): string | null {
 
   const value = new URLSearchParams(window.location.search).get(SUPER_ADMIN_SCHOOL_QUERY_PARAM);
   return value?.trim() || null;
+}
+
+export function readSchoolScopeFromEvent(event?: Event): string | null {
+  if (typeof CustomEvent !== "undefined" && event instanceof CustomEvent) {
+    const detail = event.detail as Partial<SchoolScopeChangeDetail> | null;
+    if (detail && Object.prototype.hasOwnProperty.call(detail, "schoolId")) {
+      return typeof detail.schoolId === "string" ? detail.schoolId.trim() || null : null;
+    }
+  }
+
+  return readSchoolScopeFromWindow();
 }

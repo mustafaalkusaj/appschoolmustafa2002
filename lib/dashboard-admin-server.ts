@@ -13,6 +13,19 @@ type DashboardSchemaCompat = {
   sectionsSchoolScope: boolean;
 };
 
+const DASHBOARD_CLASS_NAME_REFERENCES = [
+  { table: "assignments", column: "class_name" },
+  { table: "class_fees", column: "class_name" },
+  { table: "class_schedules", column: "class_name" },
+  { table: "daily_lectures", column: "grade" },
+  { table: "dashboard_homework_monitoring", column: "class_name" },
+  { table: "exams", column: "class_name" },
+  { table: "lecture_prices", column: "grade" },
+  { table: "students", column: "class_name" },
+  { table: "teacher_qualifications", column: "grade" },
+  { table: "weekly_schedule", column: "grade" },
+] as const;
+
 export type DashboardClassItem = {
   id: string;
   name: string;
@@ -106,6 +119,48 @@ async function detectDashboardSchemaCompat(client: DashboardServiceSupabase): Pr
 
   schemaCompatCache = { value, expiresAt: now + SCHEMA_COMPAT_TTL_MS };
   return value;
+}
+
+async function renameDashboardClassReferences(
+  client: DashboardServiceSupabase,
+  options: {
+    schoolId: string;
+    branchId: string | null;
+    branchScoped: boolean;
+    previousName: string;
+    nextName: string;
+  },
+) {
+  if (!options.previousName || options.previousName === options.nextName) return;
+
+  for (const reference of DASHBOARD_CLASS_NAME_REFERENCES) {
+    const [hasNameColumn, hasSchoolId, hasBranchId] = await Promise.all([
+      probeColumn(client, reference.table, reference.column),
+      probeColumn(client, reference.table, "school_id"),
+      probeColumn(client, reference.table, "branch_id"),
+    ]);
+
+    if (!hasNameColumn || !hasSchoolId) continue;
+
+    // A branch rename must never mutate same-named records in sibling branches.
+    // Tables without branch_id are therefore only updated for school-wide edits.
+    if (options.branchScoped && (!options.branchId || !hasBranchId)) continue;
+
+    let query = client
+      .from(reference.table)
+      .update({ [reference.column]: options.nextName })
+      .eq(reference.column, options.previousName)
+      .eq("school_id", options.schoolId);
+
+    if (options.branchScoped && options.branchId) {
+      query = query.eq("branch_id", options.branchId);
+    }
+
+    const { error } = await query;
+    if (error && !isMissingColumnError(error, reference.table, reference.column) && !isMissingTableError(error, reference.table)) {
+      throw error;
+    }
+  }
 }
 
 export async function loadDashboardStructure(
@@ -254,9 +309,35 @@ export async function saveDashboardClass(
 
   if (compat.classesNameColumn) {
     if (options.editingClassId) {
+      const classesHaveGrade = await probeColumn(client, "classes", "grade");
+      let currentClassQuery = client
+        .from("classes")
+        .select(classesHaveGrade ? "name, grade" : "name")
+        .eq("id", options.editingClassId)
+        .eq("school_id", options.schoolId);
+
+      if (options.branchScoped && compat.classesBranchScope && normalizedBranchId) {
+        currentClassQuery = currentClassQuery.eq("branch_id", normalizedBranchId);
+      }
+
+      const { data: rawCurrentClass, error: currentClassError } = await currentClassQuery.maybeSingle();
+      const currentClass = rawCurrentClass as unknown as Record<string, unknown> | null;
+      if (currentClassError) throw currentClassError;
+      if (!currentClass) throw new Error("الصف غير موجود ضمن نطاقك الحالي.");
+
+      const previousClassName = normalizeDashboardEntityName(
+        typeof currentClass.name === "string"
+          ? currentClass.name
+          : typeof currentClass.grade === "string"
+            ? currentClass.grade
+            : "",
+      );
+      const classUpdatePayload: Record<string, unknown> = { name: normalizedClassName };
+      if (classesHaveGrade) classUpdatePayload.grade = normalizedClassName;
+
       let classUpdate = client
         .from("classes")
-        .update({ name: normalizedClassName })
+        .update(classUpdatePayload)
         .eq("id", options.editingClassId)
         .eq("school_id", options.schoolId);
 
@@ -288,6 +369,14 @@ export async function saveDashboardClass(
           throw insertError;
         }
       }
+
+      await renameDashboardClassReferences(client, {
+        schoolId: options.schoolId,
+        branchId: normalizedBranchId,
+        branchScoped: Boolean(options.branchScoped),
+        previousName: previousClassName,
+        nextName: normalizedClassName,
+      });
 
       return;
     }
@@ -364,6 +453,21 @@ export async function deleteDashboardClass(
     : null;
 
   if (compat.classesNameColumn) {
+    let currentClassQuery = client
+      .from("classes")
+      .select("name")
+      .eq("id", options.classId)
+      .eq("school_id", options.schoolId);
+
+    if (options.branchScoped && compat.classesBranchScope && normalizedBranchId) {
+      currentClassQuery = currentClassQuery.eq("branch_id", normalizedBranchId);
+    }
+
+    const { data: currentClass, error: currentClassError } = await currentClassQuery.maybeSingle();
+    if (currentClassError) throw currentClassError;
+    if (!currentClass) throw new Error("الصف غير موجود ضمن نطاقك الحالي.");
+    const currentClassName = normalizeDashboardEntityName(currentClass.name);
+
     let classDelete = client
       .from("classes")
       .delete()
@@ -386,6 +490,20 @@ export async function deleteDashboardClass(
     const { error: sectionDeleteError } = await sectionDelete;
     if (sectionDeleteError && !isMissingTableError(sectionDeleteError, "sections")) {
       throw sectionDeleteError;
+    }
+
+    if (currentClassName && (!options.branchScoped || compat.classFeesBranchScope)) {
+      let feeDelete = client.from("class_fees").delete().eq("class_name", currentClassName);
+      if (compat.classFeesSchoolScope) {
+        feeDelete = feeDelete.eq("school_id", options.schoolId);
+      }
+      if (options.branchScoped && compat.classFeesBranchScope && normalizedBranchId) {
+        feeDelete = feeDelete.eq("branch_id", normalizedBranchId);
+      }
+      const { error: feeDeleteError } = await feeDelete;
+      if (feeDeleteError && !isMissingTableError(feeDeleteError, "class_fees")) {
+        throw feeDeleteError;
+      }
     }
 
     return;

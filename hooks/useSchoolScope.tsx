@@ -9,6 +9,7 @@ import {
   SCHOOL_SCOPE_CHANGE_EVENT,
   SUPER_ADMIN_SCHOOL_QUERY_PARAM,
   buildLocalizedScopedPath,
+  readSchoolScopeFromEvent,
   readSchoolScopeFromWindow,
 } from "@/lib/school/scope";
 
@@ -107,7 +108,7 @@ export function useSchoolScope(profile: UserProfile | null): SchoolScopeState {
   }, [isSuperAdminScope]);
 
   useEffect(() => {
-    const syncRequestedSchool = () => setRequestedSchoolId(readSchoolScopeFromWindow());
+    const syncRequestedSchool = (event?: Event) => setRequestedSchoolId(readSchoolScopeFromEvent(event));
     syncRequestedSchool();
 
     window.addEventListener("popstate", syncRequestedSchool);
@@ -142,7 +143,9 @@ export function useSchoolScope(profile: UserProfile | null): SchoolScopeState {
       const nextSearch = params.toString();
       setRequestedSchoolId(schoolId?.trim() || null);
       router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname, { scroll: false });
-      window.dispatchEvent(new Event(SCHOOL_SCOPE_CHANGE_EVENT));
+      window.dispatchEvent(new CustomEvent(SCHOOL_SCOPE_CHANGE_EVENT, {
+        detail: { schoolId: schoolId?.trim() || null },
+      }));
     },
     [pathname, router],
   );

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { enforceRateLimit } from "@/lib/rate-limit";
+
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
 
 /**
@@ -13,6 +15,16 @@ export async function POST(req: NextRequest) {
     const context = await resolveMobileRouteContext(req);
     if (context.ok === false) {
       return context.response;
+    }
+
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: "mobile-push-token-register",
+      windowMs: 60 * 60_000,
+      maxHits: 10,
+      identifier: context.value.authUserId,
+    });
+    if (rateLimited) {
+      return rateLimited;
     }
 
     const body = (await req.json().catch(() => null)) as

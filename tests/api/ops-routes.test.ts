@@ -118,7 +118,9 @@ describe("ops api routes", () => {
   it("allows /api/ops/health with a token and returns a safe report payload", async () => {
     const { GET } = await import("@/app/api/ops/health/route");
     const response = await GET(
-      new NextRequest("http://localhost/api/ops/health?token=QA_TEST_OPS_ALERT_TOKEN"),
+      new NextRequest("http://localhost/api/ops/health", {
+        headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" },
+      }),
     );
     const payload = await response.json();
 
@@ -139,7 +141,9 @@ describe("ops api routes", () => {
   it("returns the latest report for a valid ops token", async () => {
     const { GET } = await import("@/app/api/ops/latest/route");
     const response = await GET(
-      new NextRequest("http://localhost/api/ops/latest?token=QA_TEST_OPS_ALERT_TOKEN"),
+      new NextRequest("http://localhost/api/ops/latest", {
+        headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" },
+      }),
     );
     const payload = await response.json();
 
@@ -163,8 +167,8 @@ describe("ops api routes", () => {
     const { POST } = await import("@/app/api/ops/notification-test/route");
     const res = await POST(
       new NextRequest(
-        "http://localhost/api/ops/notification-test?token=QA_TEST_OPS_ALERT_TOKEN",
-        { method: "POST" },
+        "http://localhost/api/ops/notification-test",
+        { method: "POST", headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     const payload = await res.json();
@@ -209,8 +213,8 @@ describe("ops api routes", () => {
     const { POST } = await import("@/app/api/ops/daily-report/route");
     const res = await POST(
       new NextRequest(
-        "http://localhost/api/ops/daily-report?token=QA_TEST_CRON_SECRET",
-        { method: "POST" },
+        "http://localhost/api/ops/daily-report",
+        { method: "POST", headers: { Authorization: "Bearer QA_TEST_CRON_SECRET" } },
       ),
     );
     const payload = await res.json();
@@ -224,8 +228,8 @@ describe("ops api routes", () => {
     const { POST } = await import("@/app/api/ops/daily-report/route");
     const res = await POST(
       new NextRequest(
-        "http://localhost/api/ops/daily-report?token=QA_TEST_OPS_ALERT_TOKEN",
-        { method: "POST" },
+        "http://localhost/api/ops/daily-report",
+        { method: "POST", headers: { Authorization: "Bearer QA_TEST_OPS_ALERT_TOKEN" } },
       ),
     );
     const payload = await res.json();
@@ -256,8 +260,8 @@ describe("ops api routes", () => {
     const { POST } = await import("@/app/api/ops/daily-report/route");
     const res = await POST(
       new NextRequest(
-        "http://localhost/api/ops/daily-report?token=invalid-token",
-        { method: "POST" },
+        "http://localhost/api/ops/daily-report",
+        { method: "POST", headers: { Authorization: "Bearer invalid-token" } },
       ),
     );
     const payload = await res.json();

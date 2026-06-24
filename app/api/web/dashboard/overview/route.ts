@@ -383,7 +383,7 @@ export async function GET(req: NextRequest) {
                 };
               const feeTotal = Number(fee.total_fee ?? 0);
               const totalExpected = studentStats.activeCount * feeTotal;
-              const paidPct = totalExpected > 0 ? Math.round((studentStats.totalPaid / totalExpected) * 100) : 0;
+              const paidPct = totalExpected > 0 ? Math.min(100, Math.round((studentStats.totalPaid / totalExpected) * 100)) : 0;
 
               return {
                 ...fee,

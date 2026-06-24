@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { loadDeepPermissionsForUser } from "@/lib/authorization/deep-permissions";
+import { effectivePermissionKeys } from "@/lib/authorization/permission-ceiling";
 import { jsonError } from "@/lib/route-utils";
 import { writeAuditLog } from "@/lib/audit/audit-log";
 
@@ -58,6 +60,34 @@ export async function PATCH(
         .eq("school_id", targetSchoolId)
         .maybeSingle();
       if (!roleCheck) return jsonError("الدور المحدد غير موجود", 404);
+
+      // Ceiling guard: an admin must not assign a role more privileged than
+      // themselves. The target role's permission key set must be a SUBSET of the
+      // actor's effective keys. super_admin is exempt (holds every key).
+      if (context.value.actorRole !== "super_admin") {
+        const { data: roleAssignments, error: roleAssignError } = await service
+          .from("role_perm_assignments")
+          .select("perm_definitions(key)")
+          .eq("role_id", parsed.data.school_role_id);
+
+        if (roleAssignError) return jsonError("تعذر التحقق من صلاحيات الدور", 500);
+
+        const targetRoleKeys = (roleAssignments ?? [])
+          .map((r) => (r.perm_definitions as unknown as { key: string } | null)?.key)
+          .filter((k): k is string => Boolean(k));
+
+        const { permMap } = await loadDeepPermissionsForUser(
+          service,
+          actorUserId,
+          targetSchoolId,
+        );
+        const actorKeys = effectivePermissionKeys(permMap);
+
+        const hasUnheldKey = targetRoleKeys.some((key) => !actorKeys.has(key));
+        if (hasUnheldKey) {
+          return jsonError("لا يمكنك إسناد دور يفوق صلاحياتك", 403);
+        }
+      }
     }
     updates.school_role_id = parsed.data.school_role_id;
   }

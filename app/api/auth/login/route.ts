@@ -240,7 +240,6 @@ export async function POST(req: NextRequest) {
       {
         error: "login_failed",
         code: "AUTH_LOGIN_UNEXPECTED",
-        step: _step,
       },
       {
         status: 500,

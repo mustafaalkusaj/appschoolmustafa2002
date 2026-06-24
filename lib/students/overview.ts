@@ -47,6 +47,7 @@ export type StudentsSummary = {
 export type StudentsMetaPayload = {
   summary: StudentsSummary;
   tabCounts: Record<StudentsStatusTab, number>;
+  classOptions: string[];
   sectionOptions: string[];
 };
 
@@ -100,6 +101,8 @@ function applyStudentFilters<TQuery>(query: TQuery, filters: StudentsListFilters
 
   if (status === "active") {
     nextQuery = nextQuery.in("status", ACTIVE_TAB_STATUSES);
+  } else if (status === "suspended") {
+    nextQuery = nextQuery.in("status", ["suspended", "withdrawn"]);
   } else {
     nextQuery = nextQuery.eq("status", status);
   }
@@ -296,6 +299,29 @@ async function fetchSummary(
   return summary;
 }
 
+async function fetchClassOptions(
+  actorSupabase: RouteSupabaseClient,
+  schoolId: string,
+  branchScope: ResolvedBranchScope,
+) {
+  const { data, error } = await applyBranchScopeToQuery(
+    actorSupabase.from("students").select("class_name").eq("school_id", schoolId),
+    branchScope,
+  );
+
+  if (error) {
+    throw new Error(error.message || "تعذر تحميل خيارات الصفوف.");
+  }
+
+  return Array.from(
+    new Set(
+      ((data ?? []) as Array<{ class_name?: string | null }>)
+        .map((row) => (typeof row.class_name === "string" ? row.class_name.trim() : ""))
+        .filter(Boolean),
+    ),
+  ).sort((left, right) => left.localeCompare(right, "ar"));
+}
+
 async function fetchSectionOptions(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
@@ -391,8 +417,9 @@ export async function resolveStudentsMeta(
   branchScope: ResolvedBranchScope,
   filters: StudentsListFilters,
 ): Promise<StudentsMetaPayload> {
-  const [summary, sectionOptions, activeCount, transferredCount, suspendedCount, deletedCount] = await Promise.all([
+  const [summary, classOptions, sectionOptions, activeCount, transferredCount, suspendedCount, deletedCount] = await Promise.all([
     fetchSummary(actorSupabase, schoolId, branchScope, filters),
+    fetchClassOptions(actorSupabase, schoolId, branchScope),
     fetchSectionOptions(actorSupabase, schoolId, branchScope, filters),
     countStudentsForTab(actorSupabase, schoolId, branchScope, filters, "active"),
     countStudentsForTab(actorSupabase, schoolId, branchScope, filters, "transferred"),
@@ -402,6 +429,7 @@ export async function resolveStudentsMeta(
 
   return {
     summary,
+    classOptions,
     sectionOptions,
     tabCounts: {
       active: activeCount,

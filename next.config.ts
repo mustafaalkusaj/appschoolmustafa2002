@@ -1,7 +1,5 @@
 import type { NextConfig } from "next";
 import nextIntl from "next-intl/plugin";
-import { withSentryConfig } from "@sentry/nextjs";
-
 /**
  * CSP and Security headers are primarily handled by middleware.ts (per-request nonces).
  * Static assets use the fallback headers defined below.
@@ -17,13 +15,13 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "mofuglmmhbjrggcwzoky.supabase.co",
+        hostname: "itbmzrplvpagwnzphsfv.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
     ],
   },
   experimental: {
-    optimizePackageImports: ["lucide-react", "recharts", "@sentry/nextjs"],
+    optimizePackageImports: ["lucide-react", "recharts", "framer-motion", "zod", "@supabase/supabase-js", "exceljs"],
   },
   async headers() {
     return [
@@ -60,22 +58,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-const sentryConfig = {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-  hideSourceMaps: true,
-  webpack: {
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
-};
-
-export default withSentryConfig(
-  nextIntl({
-    requestConfig: "./i18n.ts",
-  })(nextConfig),
-  sentryConfig
-);
+export default nextIntl({
+  requestConfig: "./i18n.ts",
+})(nextConfig);

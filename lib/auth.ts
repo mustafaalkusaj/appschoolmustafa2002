@@ -10,7 +10,7 @@ import {
   hasPermissionInList,
   isPathReadOnlyForRole,
   isRoleAllowedForPath,
-  normalizePermissions,
+  resolveEffectivePermissions,
   normalizePath,
   resolveKnownUserRole,
   type Permission,
@@ -307,14 +307,13 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
     console.error("[Auth] unsupported web role for user:", userId, data.role);
     return null;
   }
-  let permissions: Permission[];
-  
-  // Use custom permissions if available, otherwise use role-based defaults
-  if (data.custom_permissions && Array.isArray(data.custom_permissions) && data.custom_permissions.length > 0) {
-    permissions = data.custom_permissions;
-  } else {
-    permissions = normalizePermissions(data.permissions, role);
-  }
+  // Use custom permissions when present, but always cap them at the role
+  // template ceiling so custom_permissions can never escalate beyond the role.
+  const permissions: Permission[] = resolveEffectivePermissions(
+    data.custom_permissions,
+    data.permissions,
+    role,
+  );
 
   let school: SchoolProfile | null = null;
   let subscription: SubscriptionProfile | null = null;

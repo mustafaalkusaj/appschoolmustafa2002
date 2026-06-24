@@ -139,6 +139,19 @@ export async function POST(
       });
     }
 
+    // Reject the whole submission if any answer references a question that is
+    // not part of this exam's question set (prevents injecting foreign rows).
+    for (let i = 0; i < body.answers.length; i++) {
+      const ans = body.answers[i] as Record<string, unknown>;
+      const questionId = (ans.question_id ?? ans.questionId) as string;
+      if (!questionMap.has(questionId)) {
+        return NextResponse.json(
+          { ok: false, error: { message: `answers[${i}]: السؤال غير موجود في هذا الامتحان.` } },
+          { status: 400 },
+        );
+      }
+    }
+
     // Grade each answer
     let totalScore = 0;
     let gradedCount = 0;

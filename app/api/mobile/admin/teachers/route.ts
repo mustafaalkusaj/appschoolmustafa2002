@@ -45,3 +45,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const context = await resolveAdminMobileRouteContext(req);
+    if (context.ok === false) return context.response;
+
+    const { schoolId, serviceSupabase } = context.value;
+    const body = await req.json();
+
+    const { full_name, subject, phone } = body as {
+      full_name?: string;
+      subject?: string;
+      phone?: string;
+    };
+
+    if (!full_name || typeof full_name !== "string" || !full_name.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "missing_required_field" },
+        { status: 400 },
+      );
+    }
+
+    const { data, error } = await serviceSupabase
+      .from("teachers")
+      .insert({
+        school_id: schoolId,
+        full_name: full_name.trim(),
+        subject: subject ?? null,
+        phone: phone ?? null,
+        is_active: true,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      ok: true,
+      item: { id: data.id, full_name: full_name.trim() },
+    });
+  } catch {
+    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+  }
+}

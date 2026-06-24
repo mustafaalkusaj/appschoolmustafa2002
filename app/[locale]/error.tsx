@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
+
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getLocaleFromPath } from "@/lib/locale-routing";
@@ -19,7 +19,7 @@ export default function Error({
   useEffect(() => {
     console.error("[LocaleError] Route error:", error?.message || error);
     console.error("[LocaleError] Stack:", error?.stack);
-    Sentry.captureException(error);
+    void error;
   }, [error]);
 
   return (
