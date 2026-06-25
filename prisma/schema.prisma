@@ -42,6 +42,7 @@ model School {
   incomeTypes     IncomeType[]
   incomes         Income[]
   classes         Class[]
+  ads             Ad[]
 
   @@index([isActive])
   @@index([createdAt])
@@ -777,6 +778,33 @@ model Announcement {
 
   @@index([schoolId])
   @@map("announcements")
+}
+
+model Ad {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String?   @map("school_id") @db.Uuid
+  type        String
+  title       String
+  body        String?
+  bgColor     String?   @map("bg_color")
+  imageUrl    String?   @map("image_url")
+  targetDate  DateTime? @map("target_date") @db.Timestamptz(6)
+  socialUrl   String?   @map("social_url")
+  socialLabel String?   @map("social_label")
+  videoUrl    String?   @map("video_url")
+  docUrl      String?   @map("doc_url")
+  docPages    Int?      @map("doc_pages")
+  isActive    Boolean   @default(true) @map("is_active")
+  startsAt    DateTime? @default(now()) @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  school      School?   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@map("ads")
 }
 
 model Conversation {

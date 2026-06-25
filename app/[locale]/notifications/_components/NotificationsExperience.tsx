@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Bell, Send, History, Megaphone } from "@/lib/icons";
+import { Bell, Send, History, Megaphone, LayoutGrid } from "@/lib/icons";
 import { NotificationStatsCards } from "./NotificationStatsCards";
 import { SendNotificationForm } from "./SendNotificationForm";
 import { NotificationHistory } from "./NotificationHistory";
 import { AnnouncementsList } from "./AnnouncementsList";
+import { AdsList } from "./AdsList";
 import { cn } from "@/lib/brand/brand-utils";
 
-type Tab = "send" | "history" | "announcements";
+type Tab = "send" | "history" | "announcements" | "ads";
 
 interface NotificationsExperienceProps {
   schoolId: string;
@@ -24,9 +25,10 @@ export function NotificationsExperience({ schoolId, branchId, locale }: Notifica
   const [refreshKey, setRefreshKey] = useState(0);
 
   const tabs: { id: Tab; label: string; icon: React.ElementType; color: string }[] = [
-    { id: "send", label: t("tabs.send"), icon: Send, color: "var(--primary)" },
-    { id: "history", label: t("tabs.history"), icon: History, color: "var(--success)" },
-    { id: "announcements", label: t("tabs.announcements"), icon: Megaphone, color: "var(--warning)" },
+    { id: "send",          label: t("tabs.send"),          icon: Send,        color: "var(--primary)" },
+    { id: "history",       label: t("tabs.history"),       icon: History,     color: "var(--success)" },
+    { id: "announcements", label: t("tabs.announcements"), icon: Megaphone,   color: "var(--warning)" },
+    { id: "ads",           label: "الإعلانات",              icon: LayoutGrid,  color: "var(--primary)" },
   ];
 
   function handleSendSuccess() {
@@ -133,6 +135,9 @@ export function NotificationsExperience({ schoolId, branchId, locale }: Notifica
           )}
           {activeTab === "announcements" && (
             <AnnouncementsList schoolId={schoolId} branchId={branchId} locale={locale} />
+          )}
+          {activeTab === "ads" && (
+            <AdsList schoolId={schoolId} locale={locale} />
           )}
         </motion.div>
       </AnimatePresence>
