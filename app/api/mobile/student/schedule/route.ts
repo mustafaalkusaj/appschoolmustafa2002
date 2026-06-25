@@ -14,10 +14,25 @@ export async function GET(req: NextRequest) {
       return context.response;
     }
 
-    const { schoolId, serviceSupabase, account } = context.value;
-    const student = account.student;
+    const { schoolId, serviceSupabase, account, authUserId } = context.value;
 
-    if (!student?.class_name) {
+    // Prefer the managed-account student; fall back to a direct lookup for
+    // legacy-linked students whose account.student is not populated.
+    let className = account.student?.class_name ?? null;
+    let section = account.student?.section ?? null;
+
+    if (!className) {
+      const { data: row } = await serviceSupabase
+        .from("students")
+        .select("class_name, section")
+        .eq("auth_user_id", authUserId)
+        .eq("school_id", schoolId)
+        .maybeSingle();
+      className = row?.class_name ?? null;
+      section = row?.section ?? null;
+    }
+
+    if (!className) {
       return NextResponse.json({ ok: true, items: [], serverNow: clockNow() });
     }
 
@@ -27,13 +42,13 @@ export async function GET(req: NextRequest) {
       .from("class_schedules")
       .select("id, subject_name, teacher_name, start_time, end_time, room, section")
       .eq("school_id", schoolId)
-      .eq("class_name", student.class_name)
+      .eq("class_name", className)
       .eq("day_of_week", dayOfWeek)
       .order("start_time", { ascending: true });
 
     // Match the student's section, or section-less (whole-class) rows.
-    if (student.section) {
-      query = query.or(`section.eq.${student.section},section.is.null`);
+    if (section) {
+      query = query.or(`section.eq.${section},section.is.null`);
     }
 
     const { data, error } = await query;
