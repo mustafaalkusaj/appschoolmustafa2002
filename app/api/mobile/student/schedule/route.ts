@@ -32,8 +32,6 @@ export async function GET(req: NextRequest) {
       section = row?.section ?? null;
     }
 
-    console.error("[schedule-debug:entry]", JSON.stringify({ authUserId, schoolId, hasAccountStudent: !!account.student, className, section }));
-
     if (!className) {
       return NextResponse.json({ ok: true, items: [], serverNow: clockNow() });
     }
@@ -55,19 +53,11 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await query;
     if (error) {
-      console.error("[schedule-debug:queryError]", JSON.stringify({ message: error.message, details: error.details }));
       return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
     }
 
-    // TEMP DEBUG — remove after verification.
-    console.error(
-      "[schedule-debug]",
-      JSON.stringify({ authUserId, schoolId, className, section, dayOfWeek, count: data?.length ?? 0 }),
-    );
-
     return NextResponse.json({ ok: true, items: data ?? [], serverNow: clockNow() });
   } catch (e) {
-    console.error("[schedule-debug:catch]", e instanceof Error ? e.message : String(e));
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
   }
 }
