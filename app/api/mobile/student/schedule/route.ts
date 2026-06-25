@@ -56,6 +56,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
     }
 
+    // TEMP DEBUG — remove after verification.
+    console.error(
+      "[schedule-debug]",
+      JSON.stringify({ authUserId, schoolId, className, section, dayOfWeek, count: data?.length ?? 0 }),
+    );
+
     return NextResponse.json({ ok: true, items: data ?? [], serverNow: clockNow() });
   } catch {
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
