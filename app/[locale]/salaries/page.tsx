@@ -129,6 +129,7 @@ export default function SalariesPage() {
 
   // UI State
   const [activeSection, setActiveSection] = useState("main");
+  const [mainSubTab, setMainSubTab] = useState("main");
   const [showQuickAll, setShowQuickAll] = useState(false);
   const [currentMonth] = useState(new Date().toISOString().slice(0, 7));
 
@@ -1008,13 +1009,13 @@ export default function SalariesPage() {
                                 { id: "salaries_tab",label: t("salaries.tabs.salaryLog"),       icon: Banknote,     count: salaries.length },
                                 { id: "unpaid_tab",  label: t("salaries.tabs.pendingPayout"),   icon: AlertCircle,  count: unpaidTeachers.length },
                               ].map((tab) => {
-                                const isActive = activeSection === tab.id || (activeSection === "main" && tab.id === "main");
+                                const isActive = mainSubTab === tab.id;
                                 const Icon = tab.icon;
                                 return (
                                   <button
                                     key={tab.id}
                                     type="button"
-                                    onClick={() => setActiveSection(tab.id)}
+                                    onClick={() => setMainSubTab(tab.id)}
                                     className={cn(
                                       "relative flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-colors duration-150 z-10",
                                       isActive ? "text-white" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--card-bg)]",
@@ -1048,6 +1049,51 @@ export default function SalariesPage() {
                                 <div className="h-12 w-12 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
                                 <span className="text-sm font-black text-[var(--text-muted)] uppercase tracking-widest">{t("salaries.loading.main")}</span>
                               </div>
+                            ) : mainSubTab === "salaries_tab" ? (
+                              <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-sm">
+                                {salaries.length === 0 ? (
+                                  <div className="flex flex-col items-center justify-center py-16 gap-2 text-[var(--text-muted)]">
+                                    <Banknote size={32} className="opacity-30" />
+                                    <p className="text-sm font-bold">لا يوجد سجل رواتب بعد</p>
+                                  </div>
+                                ) : (
+                                  <table className="w-full">
+                                    <thead>
+                                      <tr className="bg-[var(--surface-soft)] border-b border-[var(--border)]">
+                                        <th className="px-4 py-3.5 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] w-10">#</th>
+                                        <th className="px-4 py-3.5 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الأستاذ</th>
+                                        <th className="px-4 py-3.5 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الشهر</th>
+                                        <th className="px-4 py-3.5 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الإجمالي</th>
+                                        <th className="px-4 py-3.5 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الخصومات</th>
+                                        <th className="px-4 py-3.5 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الصافي</th>
+                                        <th className="px-4 py-3.5 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">طباعة</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[var(--border)]">
+                                      {salaries.map((s, i) => {
+                                        const net = Math.max(0, (s.gross_salary || 0) - (s.deductions || 0));
+                                        return (
+                                          <tr key={s.id} className="hover:bg-[var(--surface-soft)]/60 transition-colors">
+                                            <td className="px-4 py-3.5 text-sm text-[var(--text-muted)] tabular-nums">{i + 1}</td>
+                                            <td className="px-4 py-3.5 text-sm font-semibold text-[var(--text-primary)]">{s.teachers?.full_name || "—"}</td>
+                                            <td className="px-4 py-3.5 text-sm text-[var(--text-secondary)]">{s.month}</td>
+                                            <td className="px-4 py-3.5 text-sm font-bold tabular-nums text-[var(--text-primary)]">{currency} {formatNumber(s.gross_salary || 0)}</td>
+                                            <td className="px-4 py-3.5 text-sm font-bold tabular-nums text-[var(--danger)]">{currency} {formatNumber(s.deductions || 0)}</td>
+                                            <td className="px-4 py-3.5 text-sm font-black tabular-nums text-[var(--success)]">{currency} {formatNumber(net)}</td>
+                                            <td className="px-4 py-3.5">
+                                              <button onClick={() => printSalarySlip(s)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-soft)] hover:bg-[var(--surface-strong)] text-[var(--text-secondary)] transition-colors">
+                                                🖨️ طباعة
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            ) : mainSubTab === "unpaid_tab" ? (
+                              <TeachersTable teachers={unpaidTeachers} salaries={salaries} loading={loading} currentMonth={currentMonth} onPaySalary={onPaySalary} onShowDetail={(t) => { setDetailTeacher(t); setShowDetail(true); }} onOpenMenu={openMenu} />
                             ) : (
                               <TeachersTable teachers={teachers} salaries={salaries} loading={loading} currentMonth={currentMonth} onPaySalary={onPaySalary} onShowDetail={(t) => { setDetailTeacher(t); setShowDetail(true); }} onOpenMenu={openMenu} />
                             )}
