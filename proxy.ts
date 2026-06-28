@@ -186,7 +186,8 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     // Client error reporting — called from frontend without ops token
     normalizedPath === "/api/ops/client-error" ||
     // Mobile photo upload — uses token-based auth, no session cookie
-    normalizedPath === "/api/web/upload/mobile";
+    normalizedPath === "/api/web/upload/mobile" ||
+    normalizedPath === "/api/web/upload/status";
 
   if ((!isApiRequest && isPublicPath) || (isApiRequest && isPublicApiPath)) {
     return null;
