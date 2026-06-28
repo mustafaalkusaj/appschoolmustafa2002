@@ -9,7 +9,7 @@ import { usePagedSupabaseList } from "@/hooks/usePagedSupabaseList";
 import { supabase } from "@/lib/supabase";
 import { detectAppSchemaCompat } from "@/lib/schema-compat";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
-import { deduplicatedFetch } from "@/lib/request-cache"; // ✅ إضافة deduplication
+import { deduplicatedFetch, clearRequestCache } from "@/lib/request-cache";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { normalizeStudentSearchValue, mapStudentRecordToStudentWithFees } from "../_utils";
 import { EMPTY_STUDENT_META } from "../_constants";
@@ -37,6 +37,7 @@ export interface UseStudentsDataReturn {
   pagedError: string | null;
   reload: () => void;
   backgroundReload: () => Promise<void>;
+  invalidateAllTabCaches: () => void;
   addStudentOptimistically: (student: StudentWithFees) => void;
   updateStudentOptimistically: (id: string, update: Partial<StudentWithFees>) => void;
   removeStudentOptimistically: (id: string) => void;
@@ -229,6 +230,27 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     await Promise.all([backgroundReload(), fetchStudentsMeta()]);
   }, [backgroundReload, fetchStudentsMeta]);
 
+  // When a student moves between tabs (transfer/restore/suspend/delete), the
+  // destination tab's sessionStorage cache is stale (10-min TTL) and would show
+  // the list WITHOUT the moved student until a manual refresh. Clearing every
+  // cached page for this profile+school forces the destination tab to refetch
+  // fresh as soon as setActiveTab switches to it.
+  const invalidateAllTabCaches = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const prefix = `students::${profile?.id || "guest"}::${selectedSchoolId || "none"}::`;
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < window.sessionStorage.length; i += 1) {
+        const key = window.sessionStorage.key(i);
+        if (key && key.startsWith(prefix)) keys.push(key);
+      }
+      keys.forEach((key) => window.sessionStorage.removeItem(key));
+    } catch {
+      // ignore cache eviction errors
+    }
+    clearRequestCache();
+  }, [profile?.id, selectedSchoolId]);
+
   // Load all students dataset (for export)
   const loadStudentsDataset = useCallback(async (): Promise<StudentWithFees[]> => {
     if (!profile) return [];
@@ -298,6 +320,7 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     pagedError,
     reload,
     backgroundReload: backgroundReloadWithMeta,
+    invalidateAllTabCaches,
     addStudentOptimistically: addItem,
     updateStudentOptimistically: updateItem,
     removeStudentOptimistically: removeItem,
@@ -306,5 +329,5 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     allStudentsDataset,
     datasetLoading,
     loadStudentsDataset,
-  }), [pagedStudents, totalCount, totalPages, setTotalPages, pagedLoading, pagedError, reload, backgroundReloadWithMeta, addItem, updateItem, removeItem, studentsMeta, classFees, allStudentsDataset, datasetLoading, loadStudentsDataset]);
+  }), [pagedStudents, totalCount, totalPages, setTotalPages, pagedLoading, pagedError, reload, backgroundReloadWithMeta, invalidateAllTabCaches, addItem, updateItem, removeItem, studentsMeta, classFees, allStudentsDataset, datasetLoading, loadStudentsDataset]);
 }

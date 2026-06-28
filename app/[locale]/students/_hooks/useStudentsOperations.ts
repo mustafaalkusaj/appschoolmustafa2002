@@ -55,6 +55,7 @@ export interface UseStudentsOperationsOptions {
   };
   reload: () => void;
   backgroundReload: () => Promise<void>;
+  invalidateAllTabCaches: () => void;
   addStudentOptimistically: (student: StudentWithFees) => void;
   updateStudentOptimistically: (id: string, update: Partial<StudentWithFees>) => void;
   removeStudentOptimistically: (id: string) => void;
@@ -105,6 +106,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     modals,
     reload: _reload,
     backgroundReload,
+    invalidateAllTabCaches,
     addStudentOptimistically,
     updateStudentOptimistically,
     removeStudentOptimistically,
@@ -417,13 +419,15 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
       modals.setError(readApiError(payload, copy.genericError(isEnglish ? "Could not update the student status." : "تعذر تحديث حالة الطالب.")));
       return;
     }
+    invalidateAllTabCaches();
     if (status === "active" || status === "transferred" || status === "suspended") {
       setActiveTab(status);
     }
     modals.setSuccess(msg);
     removeStudentOptimistically(student.id);
+    void backgroundReload();
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab]);
+  }, [canEditStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab, invalidateAllTabCaches, backgroundReload]);
 
   const initTransfer = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
@@ -466,13 +470,15 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     };
     modals.setSuccess(messages[transferType]);
 
+    invalidateAllTabCaches();
     if (transferType === "transferred") {
       setActiveTab("transferred");
     }
 
     removeStudentOptimistically(modals.selectedStudent?.id ?? "");
+    void backgroundReload();
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [modals, copy, getSchoolBranch, isEnglish, removeStudentOptimistically, setActiveTab]);
+  }, [modals, copy, getSchoolBranch, isEnglish, removeStudentOptimistically, setActiveTab, invalidateAllTabCaches, backgroundReload]);
 
   const initSuspend = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
@@ -531,12 +537,14 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         return;
       }
 
+      invalidateAllTabCaches();
       setActiveTab(nextTab);
       modals.setSuccess(successMsg);
       removeStudentOptimistically(student.id);
+      void backgroundReload();
       setTimeout(() => modals.setSuccess(""), 3000);
     })();
-  }, [modals, copy, getSchoolBranch, isEnglish, removeStudentOptimistically, setActiveTab]);
+  }, [modals, copy, getSchoolBranch, isEnglish, removeStudentOptimistically, setActiveTab, invalidateAllTabCaches, backgroundReload]);
 
   const initRestore = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
@@ -564,12 +572,14 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
         return;
       }
 
+      invalidateAllTabCaches();
       setActiveTab("active");
       modals.setSuccess(isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓");
       removeStudentOptimistically(student.id);
+      void backgroundReload();
       setTimeout(() => modals.setSuccess(""), 3000);
     })();
-  }, [copy.selectSchoolBeforeEdit, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab]);
+  }, [copy.selectSchoolBeforeEdit, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab, invalidateAllTabCaches, backgroundReload]);
 
   const handleDeleteConfirmed = useCallback(async () => {
     if (!canDeleteStudents || !modals.selectedStudent) return;
@@ -593,12 +603,13 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     const deletedId = modals.selectedStudent.id;
     modals.setShowDeleteConfirm(false);
     modals.setSelectedStudent(null);
+    invalidateAllTabCaches();
     setActiveTab("deleted");
     modals.setSuccess(copy.deleteSuccess);
     removeStudentOptimistically(deletedId);
     void backgroundReload();
     setTimeout(() => modals.setSuccess(""), 3000);
-  }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab, backgroundReload]);
+  }, [canDeleteStudents, copy, getSchoolBranch, isEnglish, modals, removeStudentOptimistically, setActiveTab, backgroundReload, invalidateAllTabCaches]);
 
   const exportExcel = useCallback(async (data: StudentWithFees[], selectedFields?: Set<ExportFieldKey>) => {
     const { downloadExcelExport } = await import("@/lib/excel-client");

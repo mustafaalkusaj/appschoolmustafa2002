@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await sb
     .from("upload_sessions")
-    .select("status, image_url")
+    .select("status, image_url, expires_at")
     .eq("token", token)
     .single();
 
@@ -23,5 +23,5 @@ export async function GET(req: NextRequest) {
     return jsonError("Session not found.", 404);
   }
 
-  return NextResponse.json({ status: data.status, image_url: data.image_url });
+  return NextResponse.json({ status: data.status, image_url: data.image_url, expires_at: data.expires_at });
 }

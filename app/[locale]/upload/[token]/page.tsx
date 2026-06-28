@@ -2,20 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
-import { getPublicEnv } from "@/lib/env/public";
 import { cn } from "@/lib/brand/brand-utils";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
 type SessionStatus = "loading" | "ready" | "capturing" | "uploading" | "success" | "expired" | "error";
-
-/* ── Anon Supabase client ──────────────────────────────────────────────────── */
-
-function getAnonSupabase() {
-  const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
-}
 
 /* ── Compress image ────────────────────────────────────────────────────────── */
 
@@ -58,23 +49,29 @@ export default function MobileUploadPage() {
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Validate token on mount
+  // Validate token on mount via service-role endpoint (anon RLS blocks direct
+  // reads for the unauthenticated phone, which surfaced as a false "invalid link" error).
   useEffect(() => {
     if (!token) { setStatus("error"); setErrorMsg("رابط غير صالح"); return; }
 
-    const sb = getAnonSupabase();
-    sb.from("upload_sessions")
-      .select("id, status, expires_at")
-      .eq("token", token)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) { setStatus("error"); setErrorMsg("رابط غير صالح أو منتهي الصلاحية"); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/web/upload/status?token=${encodeURIComponent(token)}`);
+        if (cancelled) return;
+        if (!res.ok) { setStatus("error"); setErrorMsg("رابط غير صالح أو منتهي الصلاحية"); return; }
+        const data = await res.json() as { status: string; expires_at: string | null };
         if (data.status === "completed") { setStatus("success"); return; }
-        if (data.status === "expired" || new Date(data.expires_at) < new Date()) {
+        if (data.status === "expired" || (data.expires_at && new Date(data.expires_at) < new Date())) {
           setStatus("expired"); return;
         }
         setStatus("ready");
-      });
+      } catch {
+        if (!cancelled) { setStatus("error"); setErrorMsg("تعذر التحقق من الرابط"); }
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [token]);
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
