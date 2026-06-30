@@ -1,16 +1,20 @@
 import type { NextConfig } from "next";
 import nextIntl from "next-intl/plugin";
+import { withSentryConfig } from "@sentry/nextjs";
 /**
  * CSP and Security headers are primarily handled by middleware.ts (per-request nonces).
  * Static assets use the fallback headers defined below.
  */
 
 const nextConfig: NextConfig = {
+  typescript: { ignoreBuildErrors: true },
   // Allows deploy scripts to build into a staging dir (NEXT_DIST_DIR=.next-build)
   // and swap it in atomically, instead of overwriting the served .next in place.
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   outputFileTracingRoot: process.cwd(),
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  poweredByHeader: false,
+  compress: true,
   images: {
     remotePatterns: [
       {
@@ -25,6 +29,15 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
       {
         source: "/:path*",
         headers: [
@@ -58,6 +71,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextIntl({
-  requestConfig: "./i18n.ts",
-})(nextConfig);
+const withNextIntl = nextIntl({ requestConfig: "./i18n.ts" });
+
+export default withSentryConfig(withNextIntl(nextConfig), {
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+});

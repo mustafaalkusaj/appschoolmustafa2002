@@ -112,7 +112,8 @@ rsync -az \
   --exclude ".git" \
   --exclude ".github" \
   --exclude ".next" \
-  --exclude ".next*" \
+  --exclude ".next-build" \
+  --exclude ".next-old" \
   --exclude "node_modules" \
   --exclude ".playwright-cli" \
   --exclude ".augment" \
@@ -121,6 +122,7 @@ rsync -az \
   --exclude ".continue" \
   --exclude ".vscode" \
   --exclude ".DS_Store" \
+  --exclude "logs" \
   --exclude "artifacts" \
   --exclude "coverage" \
   --exclude "tests" \
@@ -140,28 +142,33 @@ ssh "$REMOTE" "chmod 600 '$REMOTE_DIR/.env.production.tmp' && mv '$REMOTE_DIR/.e
 log_info "✓ .env.production deployed (secrets protected)"
 echo ""
 
-# Build on server
-log_info "Building on server..."
+# Build on server (zero-downtime: build into .next-build, then atomic swap)
+log_info "Building on server (zero-downtime)..."
 ssh "$REMOTE" "set -euo pipefail
   cd '$REMOTE_DIR'
   echo 'Installing dependencies...'
-  npm ci
-  echo 'Building...'
-  npm run build
+  npm install --prefer-offline
+  echo 'Building into .next-build...'
+  NEXT_DIST_DIR=.next-build npm run build
+  echo 'Swapping .next-build -> .next atomically...'
+  rm -rf .next-old
+  [ -d .next ] && mv .next .next-old
+  mv .next-build .next
   echo 'Build complete'"
-log_info "✓ Build successful"
+log_info "✓ Build successful (live .next untouched during build)"
 echo ""
 
-# Restart with PM2
-log_info "Restarting PM2 app..."
+# Rolling reload with PM2 (zero-downtime: instances restart one by one)
+log_info "Rolling reload with PM2..."
 ssh "$REMOTE" "set -euo pipefail
   if pm2 list | grep -q school-app; then
-    pm2 restart school-app
+    pm2 reload '$REMOTE_DIR/ecosystem.config.cjs'
   else
-    pm2 start ecosystem.config.cjs
+    pm2 start '$REMOTE_DIR/ecosystem.config.cjs'
   fi
+  rm -rf '$REMOTE_DIR/.next-old'
   pm2 save || true"
-log_info "✓ PM2 restarted"
+log_info "✓ PM2 reloaded (rolling — zero downtime)"
 echo ""
 
 # Health check
@@ -171,7 +178,7 @@ HEALTH_OK=0
 
 while [[ $ATTEMPT -lt $HEALTH_RETRIES ]]; do
   ATTEMPT=$((ATTEMPT + 1))
-  if curl -fsS --max-time 5 "http://$APP_HOST:$APP_PORT/api/ping" >/dev/null 2>&1; then
+  if ssh "$REMOTE" "curl -fsS --max-time 5 http://127.0.0.1:$APP_PORT/api/ping" >/dev/null 2>&1; then
     HEALTH_OK=1
     break
   fi
