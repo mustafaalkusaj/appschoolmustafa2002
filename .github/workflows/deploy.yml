@@ -20,13 +20,16 @@ jobs:
           SECRET_RBAC_COOKIE: ${{ secrets.RBAC_COOKIE_SECRET }}
           SECRET_HEALTH_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           SECRET_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SECRET_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SECRET_TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SECRET_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         with:
-          host: 159.203.120.28
+          host: 46.224.6.136
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           command_timeout: 15m
           request_pty: true
-          envs: SECRET_SUPABASE_URL,SECRET_SUPABASE_ANON_KEY,SECRET_SERVICE_ROLE_KEY,SECRET_RBAC_COOKIE,SECRET_HEALTH_TOKEN,SECRET_JWT_SECRET
+          envs: SECRET_SUPABASE_URL,SECRET_SUPABASE_ANON_KEY,SECRET_SERVICE_ROLE_KEY,SECRET_RBAC_COOKIE,SECRET_HEALTH_TOKEN,SECRET_JWT_SECRET,SECRET_TELEGRAM_BOT_TOKEN,SECRET_TELEGRAM_CHAT_ID,SECRET_SENTRY_DSN
           script: |
             set -euo pipefail
             REMOTE_OWNER="$(id -un):$(id -gn)"
@@ -161,7 +164,7 @@ jobs:
               printf '%s\n' "NODE_ENV=production"
               printf '%s\n' "HOSTNAME=127.0.0.1"
               printf '%s\n' "PORT=3001"
-              printf '%s\n' "APP_URL=https://app.school-iraq.com"
+              printf '%s\n' "APP_URL=https://school-iraq.com"
               printf '%s\n' "SESSION_COOKIE_SECURE=true"
               printf 'NEXT_PUBLIC_SUPABASE_URL=%s\n' "$SECRET_SUPABASE_URL"
               printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SECRET_SUPABASE_ANON_KEY"
@@ -169,6 +172,9 @@ jobs:
               printf 'RBAC_COOKIE_SECRET=%s\n' "$SECRET_RBAC_COOKIE"
               printf 'HEALTHCHECK_TOKEN=%s\n' "$SECRET_HEALTH_TOKEN"
               printf 'JWT_SECRET=%s\n' "$SECRET_JWT_SECRET"
+              [ -n "$SECRET_TELEGRAM_BOT_TOKEN" ] && printf 'TELEGRAM_BOT_TOKEN=%s\n' "$SECRET_TELEGRAM_BOT_TOKEN"
+              [ -n "$SECRET_TELEGRAM_CHAT_ID" ]   && printf 'TELEGRAM_CHAT_ID=%s\n'   "$SECRET_TELEGRAM_CHAT_ID"
+              [ -n "$SECRET_SENTRY_DSN" ]         && printf 'NEXT_PUBLIC_SENTRY_DSN=%s\n' "$SECRET_SENTRY_DSN"
             } > "$ENV_FILE"
             chmod 600 "$ENV_FILE"
 
@@ -177,7 +183,7 @@ jobs:
             NODE_ENV=production \
             HOSTNAME=127.0.0.1 \
             PORT=3001 \
-            APP_URL=https://app.school-iraq.com \
+            APP_URL=https://school-iraq.com \
             SESSION_COOKIE_SECURE=true \
             NEXT_PUBLIC_SUPABASE_URL="$SECRET_SUPABASE_URL" \
             NEXT_PUBLIC_SUPABASE_ANON_KEY="$SECRET_SUPABASE_ANON_KEY" \
@@ -186,18 +192,15 @@ jobs:
             HEALTHCHECK_TOKEN="$SECRET_HEALTH_TOKEN" \
             JWT_SECRET="$SECRET_JWT_SECRET" \
             node "$APP_DIR/scripts/predeploy-check.mjs" || echo "WARN: pre-deploy check failed — verify GitHub secrets are configured."
-            npm ci
-            npm run build
+            npm install --prefer-offline
+            NEXT_DIST_DIR=.next-build npm run build
+            rm -rf .next-old
+            [ -d .next ] && mv .next .next-old
+            mv .next-build .next
 
-            if sudo -n systemctl restart pm2-deploy; then
-              echo "pm2-deploy systemd service restarted."
-            elif command -v pm2 >/dev/null 2>&1; then
-              PM2_HOME=/home/deploy/.pm2 pm2 restart school-app
-              PM2_HOME=/home/deploy/.pm2 pm2 save
-            else
-              echo "PM2 restart path unavailable." >&2
-              exit 1
-            fi
+            PM2_HOME=/home/deploy/.pm2 pm2 reload "$APP_DIR/ecosystem.config.cjs"
+            rm -rf .next-old
+            PM2_HOME=/home/deploy/.pm2 pm2 save || true
 
             ATTEMPT=1
             MAX_ATTEMPTS=30
@@ -218,7 +221,7 @@ jobs:
             if [ "$HEALTH_OK" -eq 1 ]; then
               echo "Health check passed. Running post-deploy smoke tests..."
               NODE_ENV=production \
-              APP_URL=https://app.school-iraq.com \
+              APP_URL=https://school-iraq.com \
               HEALTHCHECK_TOKEN="$SECRET_HEALTH_TOKEN" \
               node "$APP_DIR/scripts/postdeploy-smoke.mjs" || {
                 echo "WARN: Post-deploy smoke tests failed. Site is up but route validation did not pass."
