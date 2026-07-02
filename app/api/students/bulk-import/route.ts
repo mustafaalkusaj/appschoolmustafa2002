@@ -148,23 +148,10 @@ export async function POST(request: NextRequest) {
         details: error.details,
         hint: error.hint,
       });
-      const userMessage = [
-        error.message,
-        error.details,
-        error.hint,
-      ]
-        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-        .join(" | ") || "فشل استيراد الطلاب";
-
+      // SECURITY: do not leak raw Postgres error (message/details/hint/code) to the client.
+      // Full detail is logged server-side above via console.error.
       return NextResponse.json(
-        {
-          error: {
-            message: userMessage,
-            code: error.code ?? null,
-            details: error.details ?? null,
-            hint: error.hint ?? null,
-          },
-        },
+        { error: { message: "فشل استيراد الطلاب" } },
         { status: 500 },
       );
     }

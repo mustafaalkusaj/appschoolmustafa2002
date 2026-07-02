@@ -140,10 +140,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (resolved.status === "profile_missing") {
+      // SECURITY: return the generic invalid_credentials response so a caller
+      // cannot distinguish "no profile" from "wrong password" (account enumeration).
+      logRouteError("auth-login-profile-missing", new Error("Login profile missing."), {
+        userId: data.user.id,
+      });
       const response = buildFailureResponse(
-        "profile_missing",
-        403,
-        "AUTH_LOGIN_PROFILE_MISSING",
+        "invalid_credentials",
+        401,
+        "AUTH_LOGIN_INVALID_CREDENTIALS",
       );
       clearRBACCookie(response);
       await supabase.auth.signOut();
@@ -151,10 +156,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (resolved.status === "unknown_role") {
+      // SECURITY: generic response to avoid distinguishing account state.
       const response = buildFailureResponse(
-        "unknown_role",
-        403,
-        "AUTH_LOGIN_UNKNOWN_ROLE",
+        "invalid_credentials",
+        401,
+        "AUTH_LOGIN_INVALID_CREDENTIALS",
       );
       clearRBACCookie(response);
       logRouteError("auth-login-role", new Error("Unknown role for login profile."), {
