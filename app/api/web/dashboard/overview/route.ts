@@ -183,18 +183,37 @@ export async function GET(req: NextRequest) {
 
       const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
-      let studentsPromise = serviceSupabase
-        .from("students")
-        .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
-        .eq("school_id", targetSchoolId);
-      if (studentsStatusScope) {
-        studentsPromise = studentsPromise.or("status.neq.deleted,status.is.null");
-      }
-      // Apply branch_id filter if branchId is requested and column detection says it exists
-      // If detection is wrong (false positive/negative), the query will fail and return degraded
-      if (effectiveBranchId && studentsBranchScope) {
-        studentsPromise = studentsPromise.eq("branch_id", effectiveBranchId);
-      }
+      // Fetch ALL students via pagination. PostgREST silently caps an unbounded
+      // select at 1000 rows, which made dashboard totals understate for schools
+      // with >1000 students. Loop in pages until exhausted so the aggregates are
+      // always correct, while preserving the { data, error } shape the
+      // Promise.allSettled consumer below expects.
+      const STUDENTS_PAGE_SIZE = 1000;
+      const studentsPromise = (async () => {
+        const all: Array<Record<string, unknown>> = [];
+        let offset = 0;
+        for (;;) {
+          let pageQuery = serviceSupabase
+            .from("students")
+            .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
+            .eq("school_id", targetSchoolId);
+          if (studentsStatusScope) {
+            pageQuery = pageQuery.or("status.neq.deleted,status.is.null");
+          }
+          // Apply branch_id filter if branchId is requested and column detection says it exists
+          // If detection is wrong (false positive/negative), the query will fail and return degraded
+          if (effectiveBranchId && studentsBranchScope) {
+            pageQuery = pageQuery.eq("branch_id", effectiveBranchId);
+          }
+          const { data, error } = await pageQuery.range(offset, offset + STUDENTS_PAGE_SIZE - 1);
+          if (error) return { data: null, error };
+          const rows = data ?? [];
+          all.push(...(rows as Array<Record<string, unknown>>));
+          if (rows.length < STUDENTS_PAGE_SIZE) break;
+          offset += STUDENTS_PAGE_SIZE;
+        }
+        return { data: all, error: null };
+      })();
 
       let recentPaymentsPromise = serviceSupabase
         .from("payments")
@@ -250,8 +269,13 @@ export async function GET(req: NextRequest) {
         expensesPromise = expensesPromise.eq("branch_id", effectiveBranchId);
       }
 
-      const [studentsResult, recentPaymentsResult, classFeesResult, monthlySalariesResult, incomesResult, expensesResult] = await Promise.allSettled([
-        studentsPromise,
+      // students is fetched via the paginated helper above (own shape); settle it
+      // separately so the remaining PostgREST queries keep their inferred types.
+      const studentsResult = await studentsPromise
+        .then((value) => ({ status: "fulfilled" as const, value }))
+        .catch((reason) => ({ status: "rejected" as const, reason }));
+
+      const [recentPaymentsResult, classFeesResult, monthlySalariesResult, incomesResult, expensesResult] = await Promise.allSettled([
         recentPaymentsPromise,
         classFeesPromise,
         monthlySalariesPromise,

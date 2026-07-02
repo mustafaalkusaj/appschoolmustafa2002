@@ -159,58 +159,42 @@ export async function POST(req: NextRequest) {
     })),
   );
 
-  // Steps 1-3 are logically one operation: if any step fails we return an error
-  // immediately so the caller knows partial work was done. Steps are ordered so
-  // that promotion happens before graduation, and fee reset only runs if both
-  // previous steps succeed — preventing the worst-case partial state.
+  // Steps 1-3 (promote → graduate → reset paid_fee) run ATOMICALLY inside a
+  // single DB transaction via the promote_year_execute RPC. Previously these
+  // were three separate auto-committed updates: a mid-sequence failure left the
+  // school half-promoted, and a retry re-promoted everyone (double class
+  // advancement). The RPC is SECURITY DEFINER and enforces admin role +
+  // same-school internally. Branch scope is already applied: the id sets below
+  // come from the branch-scoped `students` fetch above.
+  const promotions = plan.updates.map((u) => ({ id: u.id, to_class: u.toClassName }));
+  const terminalIds = graduateTerminal
+    ? plan.skipped.filter((s) => s.reason === "terminal").map((s) => s.id)
+    : [];
+  const terminalIdSet = new Set(terminalIds);
+  // Reset paid_fee for every active in-scope student except those just graduated
+  // (matches the previous "not in (…,graduated)" filter after graduation).
+  const resetIds = resetPaidFee
+    ? (students ?? [])
+        .map((s) => String((s as Record<string, unknown>).id ?? ""))
+        .filter((id) => id && !terminalIdSet.has(id))
+    : [];
 
-  // 1. Promote students (bulk update per target class)
-  if (plan.updates.length > 0) {
-    const groups = new Map<string, string[]>();
-    for (const update of plan.updates) {
-      const ids = groups.get(update.toClassName) ?? [];
-      ids.push(update.id);
-      groups.set(update.toClassName, ids);
-    }
-    for (const [toClass, ids] of Array.from(groups.entries())) {
-      const { error } = await actorSupabase
-        .from("students")
-        .update({ class_name: toClass })
-        .eq("school_id", targetSchoolId)
-        .in("id", ids);
-      if (error) return jsonError("تعذر ترحيل الطلاب: " + (error.message ?? ""), 500);
-    }
+  const { data: promoteResult, error: promoteError } = await actorSupabase.rpc(
+    "promote_year_execute",
+    {
+      p_school_id: targetSchoolId,
+      p_promotions: promotions,
+      p_terminal_ids: terminalIds,
+      p_reset_ids: resetIds,
+    },
+  );
+  if (promoteError) {
+    return jsonError("تعذر ترحيل السنة الدراسية: " + (promoteError.message ?? ""), 500);
   }
-
-  // 2. Graduate terminal students — only runs if step 1 fully succeeded
-  let graduatedCount = 0;
-  if (graduateTerminal) {
-    const terminalIds = plan.skipped.filter((s) => s.reason === "terminal").map((s) => s.id);
-    if (terminalIds.length > 0) {
-      const { error } = await actorSupabase
-        .from("students")
-        .update({ status: "graduated" })
-        .eq("school_id", targetSchoolId)
-        .in("id", terminalIds);
-      if (error) return jsonError("تعذر تعيين الطلاب الخريجين: " + (error.message ?? ""), 500);
-      graduatedCount = terminalIds.length;
-    }
-  }
-
-  // 3. Reset paid_fee — only runs if steps 1 and 2 fully succeeded
-  let feesResetCount = 0;
-  if (resetPaidFee) {
-    const { error, count } = await applyBranchScopeToQuery(
-      actorSupabase
-        .from("students")
-        .update({ paid_fee: 0 })
-        .eq("school_id", targetSchoolId)
-        .not("status", "in", "(deleted,withdrawn,archived,graduated)"),
-      branchScope.value,
-    );
-    if (error) return jsonError("تعذر إعادة تصفير الأقساط: " + (error.message ?? ""), 500);
-    feesResetCount = count ?? plan.updates.length;
-  }
+  const graduatedCount =
+    (promoteResult as { graduated?: number } | null)?.graduated ?? terminalIds.length;
+  const feesResetCount =
+    (promoteResult as { fees_reset?: number } | null)?.fees_reset ?? resetIds.length;
 
   invalidateSchoolCacheDomains(targetSchoolId, [
     "dashboard-overview",
