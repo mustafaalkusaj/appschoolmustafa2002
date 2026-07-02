@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
   const dataSupabase = createServiceSupabaseClient();
 
   // Fetch students with auth_user_id
-  const { data: students, error } = await applyBranchScopeToQuery(
+  type StudentRow = { auth_user_id: string | null; full_name: string; class_name: string | null; section: string | null };
+  const { data: students, error } = (await applyBranchScopeToQuery(
     dataSupabase
       .from("students")
       .select("auth_user_id, full_name, class_name, section")
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
       .order("full_name", { ascending: true })
       .limit(2000),
     branchScope.value,
-  );
+  )) as { data: StudentRow[] | null; error: { message: string } | null };
 
   if (error) {
     return jsonError("تعذر تحميل بيانات الطلاب.", 500);

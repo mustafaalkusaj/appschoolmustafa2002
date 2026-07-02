@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyBranchScopeToQuery, resolveBranchScope } from "@/lib/branch-scope";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
-import { jsonError } from "@/lib/route-utils";
+import { jsonError, jsonCached } from "@/lib/route-utils";
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get("schoolId");
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       sections = sectionRows ?? [];
     }
 
-    return NextResponse.json({ classes, sections });
+    return jsonCached({ classes, sections }, 60, 120);
   } catch {
     return jsonError("تعذر تحميل هيكل الصفوف.", 500);
   }

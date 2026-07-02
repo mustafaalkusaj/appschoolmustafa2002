@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import type { TeacherRecord, TeacherFormData } from "../_types";
 import { EMPTY_TEACHER_FORM } from "../_types";
-import { QRPhotoUpload } from "@/components/ui/QRPhotoUpload";
+import dynamic from "next/dynamic";
+
+const QRPhotoUpload = dynamic(
+  () => import("@/components/ui/QRPhotoUpload").then((m) => m.QRPhotoUpload),
+  { ssr: false },
+);
 
 interface ClassOption { id: string; name: string }
 interface SectionOption { id: string; name: string; class_id: string }

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1779655769777,
+  "lastScanned": 1782719153133,
   "projectRoot": "/Users/musatafa/school-app",
   "techStack": {
     "languages": [
@@ -52,7 +52,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --pretty 2>&1 | grep -E \"super-admin/\" | grep -v \".next/\" | head -20",
+    "buildCommand": "pnpm build",
     "testCommand": "pnpm test",
     "lintCommand": "pnpm lint",
     "devCommand": "pnpm dev",
@@ -90,7 +90,7 @@
     "fileOrganization": null
   },
   "structure": {
-    "isMonorepo": false,
+    "isMonorepo": true,
     "workspaces": [],
     "mainDirectories": [
       "app",
@@ -111,15 +111,15 @@
     "00990090": {
       "path": "00990090",
       "purpose": null,
-      "fileCount": 1,
-      "lastAccessed": 1779655769685,
+      "fileCount": 0,
+      "lastAccessed": 1782719153035,
       "keyFiles": []
     },
     "app": {
       "path": "app",
       "purpose": "Application code",
       "fileCount": 7,
-      "lastAccessed": 1779655769686,
+      "lastAccessed": 1782719153050,
       "keyFiles": [
         "favicon.ico",
         "fonts.ts",
@@ -132,14 +132,27 @@
       "path": "artifacts",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1779655769689,
+      "lastAccessed": 1782719153102,
       "keyFiles": []
+    },
+    "audit": {
+      "path": "audit",
+      "purpose": null,
+      "fileCount": 17,
+      "lastAccessed": 1782719153104,
+      "keyFiles": [
+        "COVERAGE.md",
+        "GAP_ANALYSIS.md",
+        "INVENTORY.md",
+        "ISSUES.md",
+        "PROGRESS.md"
+      ]
     },
     "components": {
       "path": "components",
       "purpose": "UI components",
-      "fileCount": 26,
-      "lastAccessed": 1779655769690,
+      "fileCount": 25,
+      "lastAccessed": 1782719153104,
       "keyFiles": [
         "AppIcon.tsx",
         "AppShellTopbar.tsx",
@@ -152,14 +165,14 @@
       "path": "deploy",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1779655769708,
+      "lastAccessed": 1782719153106,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 4,
-      "lastAccessed": 1779655769708,
+      "lastAccessed": 1782719153109,
       "keyFiles": [
         "hetzner-ex44-deployment.md",
         "ops-runbook.md",
@@ -170,8 +183,8 @@
     "figma-handoff": {
       "path": "figma-handoff",
       "purpose": null,
-      "fileCount": 25,
-      "lastAccessed": 1779655769709,
+      "fileCount": 24,
+      "lastAccessed": 1782719153110,
       "keyFiles": [
         "School-App-Figma-Handoff-Bundle.zip",
         "School-App-Figma-Seeder.zip",
@@ -183,8 +196,8 @@
     "figma-handoff-backup-20260408": {
       "path": "figma-handoff-backup-20260408",
       "purpose": null,
-      "fileCount": 17,
-      "lastAccessed": 1779655769709,
+      "fileCount": 16,
+      "lastAccessed": 1782719153111,
       "keyFiles": [
         "asset-inventory.md",
         "component-inventory.csv",
@@ -193,11 +206,21 @@
         "design-tokens.json"
       ]
     },
+    "graphify-out": {
+      "path": "graphify-out",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1782719153112,
+      "keyFiles": [
+        "GRAPH_REPORT.md",
+        "graph.json"
+      ]
+    },
     "hooks": {
       "path": "hooks",
       "purpose": null,
-      "fileCount": 11,
-      "lastAccessed": 1779655769729,
+      "fileCount": 10,
+      "lastAccessed": 1782719153113,
       "keyFiles": [
         "useArchiveMode.ts",
         "useAuth.ts",
@@ -210,7 +233,7 @@
       "path": "i18n",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1779655769729,
+      "lastAccessed": 1782719153113,
       "keyFiles": [
         "navigation.ts",
         "routing.ts"
@@ -219,8 +242,8 @@
     "lib": {
       "path": "lib",
       "purpose": "Library code",
-      "fileCount": 80,
-      "lastAccessed": 1779655769746,
+      "fileCount": 86,
+      "lastAccessed": 1782719153114,
       "keyFiles": [
         "academic-records-server.ts",
         "academic-year.ts",
@@ -233,7 +256,7 @@
       "path": "logs",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1779655769747,
+      "lastAccessed": 1782719153115,
       "keyFiles": [
         "app.log"
       ]
@@ -242,7 +265,7 @@
       "path": "messages",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1779655769747,
+      "lastAccessed": 1782719153116,
       "keyFiles": [
         "ar.json",
         "en.json"
@@ -251,8 +274,8 @@
     "migrations": {
       "path": "migrations",
       "purpose": "Database migrations",
-      "fileCount": 91,
-      "lastAccessed": 1779655769748,
+      "fileCount": 102,
+      "lastAccessed": 1782719153116,
       "keyFiles": [
         "20260322_000000_mobile_core_tables.sql",
         "20260322_010000_teacher_assignment_accounts.sql",
@@ -265,7 +288,7 @@
       "path": "output",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1779655769750,
+      "lastAccessed": 1782719153117,
       "keyFiles": [
         "figma_handoff_screens.cjs",
         "generate_figma_handoff.mjs"
@@ -275,7 +298,7 @@
       "path": "playwright-report",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1779655769751,
+      "lastAccessed": 1782719153117,
       "keyFiles": [
         "index.html"
       ]
@@ -284,7 +307,7 @@
       "path": "prisma",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1779655769751,
+      "lastAccessed": 1782719153117,
       "keyFiles": [
         "schema.prisma"
       ]
@@ -292,21 +315,19 @@
     "public": {
       "path": "public",
       "purpose": "Public files",
-      "fileCount": 7,
-      "lastAccessed": 1779655769752,
+      "fileCount": 3,
+      "lastAccessed": 1782719153117,
       "keyFiles": [
-        "globe.svg",
-        "icon-192.png",
-        "icon-512.png",
-        "logo-school-iraq.png",
-        "next.svg"
+        "icon-192.webp",
+        "icon-512.webp",
+        "logo-school-iraq.webp"
       ]
     },
     "school-acc-system": {
       "path": "school-acc-system",
       "purpose": null,
-      "fileCount": 2,
-      "lastAccessed": 1779655769754,
+      "fileCount": 1,
+      "lastAccessed": 1782719153118,
       "keyFiles": [
         "README.md"
       ]
@@ -314,8 +335,8 @@
     "school-saas-next": {
       "path": "school-saas-next",
       "purpose": null,
-      "fileCount": 12,
-      "lastAccessed": 1779655769756,
+      "fileCount": 11,
+      "lastAccessed": 1782719153118,
       "keyFiles": [
         "AGENTS.md",
         "CLAUDE.md",
@@ -328,7 +349,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 23,
-      "lastAccessed": 1779655769756,
+      "lastAccessed": 1782719153118,
       "keyFiles": [
         "audit-overpaid-students.sql",
         "backup.sh",
@@ -340,22 +361,24 @@
     "skills": {
       "path": "skills",
       "purpose": null,
-      "fileCount": 1,
-      "lastAccessed": 1779655769757,
+      "fileCount": 0,
+      "lastAccessed": 1782719153120,
       "keyFiles": []
     },
     "supabase": {
       "path": "supabase",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1779655769757,
-      "keyFiles": []
+      "lastAccessed": 1782719153120,
+      "keyFiles": [
+        "config.toml"
+      ]
     },
     "tests": {
       "path": "tests",
       "purpose": "Test files",
       "fileCount": 24,
-      "lastAccessed": 1779655769758,
+      "lastAccessed": 1782719153121,
       "keyFiles": [
         "attendance-comprehensive.test.ts",
         "auth-group-manager.test.ts",
@@ -368,7 +391,7 @@
       "path": "types",
       "purpose": "Type definitions",
       "fileCount": 3,
-      "lastAccessed": 1779655769759,
+      "lastAccessed": 1782719153122,
       "keyFiles": [
         "deep-permissions.ts",
         "roles.ts",
@@ -379,7 +402,7 @@
       "path": "workers",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1779655769759,
+      "lastAccessed": 1782719153122,
       "keyFiles": [
         "import-worker.ts"
       ]
@@ -387,15 +410,15 @@
     "app/api": {
       "path": "app/api",
       "purpose": "API routes",
-      "fileCount": 1,
-      "lastAccessed": 1779655769760,
+      "fileCount": 0,
+      "lastAccessed": 1782719153124,
       "keyFiles": []
     },
     "lib/api": {
       "path": "lib/api",
       "purpose": "API routes",
-      "fileCount": 2,
-      "lastAccessed": 1779655769765,
+      "fileCount": 1,
+      "lastAccessed": 1782719153128,
       "keyFiles": [
         "student-import.ts"
       ]
@@ -404,17 +427,28 @@
       "path": "school-acc-system/docs",
       "purpose": "Documentation",
       "fileCount": 2,
-      "lastAccessed": 1779655769774,
+      "lastAccessed": 1782719153129,
       "keyFiles": [
         "api.md",
         "schema.sql"
       ]
     },
+    "supabase/migrations": {
+      "path": "supabase/migrations",
+      "purpose": "Database migrations",
+      "fileCount": 164,
+      "lastAccessed": 1782719153132,
+      "keyFiles": [
+        "20260327_remote.sql",
+        "20260328010000_remote.sql",
+        "20260328121500_remote.sql"
+      ]
+    },
     "tests/api": {
       "path": "tests/api",
       "purpose": "API routes",
-      "fileCount": 20,
-      "lastAccessed": 1779655769777,
+      "fileCount": 21,
+      "lastAccessed": 1782719153133,
       "keyFiles": [
         "attendance-route.test.ts",
         "audit-logs.test.ts",

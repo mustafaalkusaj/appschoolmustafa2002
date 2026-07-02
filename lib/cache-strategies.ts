@@ -95,13 +95,15 @@ const CACHE_CONFIG: Record<string, CacheConfig> = {
     public: false,
   },
   'dashboard-overview': {
-    maxAge: 30,
-    staleWhileRevalidate: 30,
+    maxAge: 120,
+    sMaxAge: 120,
+    staleWhileRevalidate: 60,
     public: false,
   },
   'dashboard-structure': {
-    maxAge: 30,
-    staleWhileRevalidate: 30,
+    maxAge: 120,
+    sMaxAge: 120,
+    staleWhileRevalidate: 60,
     public: false,
   },
   'calendar-events': {
@@ -158,5 +160,6 @@ export function getCacheHeaders(
 
   return {
     'cache-control': cacheControlParts.join(', '),
+    'vary': 'Authorization, Cookie',
   };
 }

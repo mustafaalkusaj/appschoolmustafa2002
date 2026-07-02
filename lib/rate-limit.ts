@@ -474,7 +474,9 @@ export async function enforceRateLimit(
 
     if ("productionFailure" in decision) {
       if (isProduction()) {
-        logProductionRateLimitBackendFailure(options.namespace, decision.productionFailure);
+        if (productionFailureMode !== "memory-fallback") {
+          logProductionRateLimitBackendFailure(options.namespace, decision.productionFailure);
+        }
         if (productionFailureMode === "memory-fallback") {
           const memoryDecision = isWithinMemoryRateLimit(clientId, config);
           if (!memoryDecision.allowed) {

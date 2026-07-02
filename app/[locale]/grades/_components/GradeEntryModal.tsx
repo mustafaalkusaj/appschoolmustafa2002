@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, User, Loader2, Trash2, QrCode, Camera } from "lucide-react";
-import { QRPhotoUpload } from "@/components/ui/QRPhotoUpload";
+import dynamic from "next/dynamic";
+
+const QRPhotoUpload = dynamic(
+  () => import("@/components/ui/QRPhotoUpload").then((m) => m.QRPhotoUpload),
+  { ssr: false },
+);
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import type { GradeFilters, SubjectOption, GradeType } from "../_types";
 

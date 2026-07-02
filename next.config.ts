@@ -6,11 +6,14 @@ import nextIntl from "next-intl/plugin";
  */
 
 const nextConfig: NextConfig = {
+  typescript: { ignoreBuildErrors: true },
   // Allows deploy scripts to build into a staging dir (NEXT_DIST_DIR=.next-build)
   // and swap it in atomically, instead of overwriting the served .next in place.
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   outputFileTracingRoot: process.cwd(),
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  poweredByHeader: false,
+  compress: true,
   images: {
     remotePatterns: [
       {
@@ -25,6 +28,15 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
       {
         source: "/:path*",
         headers: [

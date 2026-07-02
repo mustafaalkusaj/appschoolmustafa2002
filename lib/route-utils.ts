@@ -39,6 +39,15 @@ export function jsonValidationError(error: ZodError, fallback = "تحقق من �
   return jsonError(fallback, 400, buildZodFieldErrors(error));
 }
 
+export function jsonCached(data: unknown, maxAgeSec = 30, swr = 60) {
+  return NextResponse.json(data, {
+    headers: {
+      "Cache-Control": `private, s-maxage=${maxAgeSec}, stale-while-revalidate=${swr}`,
+      Vary: "Authorization, Cookie",
+    },
+  });
+}
+
 export function logRouteError(scope: string, error: unknown, meta?: Record<string, unknown>) {
   console.error(`[${scope}]`, {
     ...(meta ?? {}),

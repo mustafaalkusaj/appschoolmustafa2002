@@ -31,7 +31,11 @@ export async function createRouteSupabaseClient() {
   });
 }
 
+let _serviceClient: ReturnType<typeof createClient> | null = null;
+
 export function createServiceSupabaseClient() {
+  if (_serviceClient) return _serviceClient;
+
   const { supabaseUrl } = getPublicEnv();
   const { serviceRoleKey } = getServerEnv();
 
@@ -39,9 +43,11 @@ export function createServiceSupabaseClient() {
     throw new Error("Missing Supabase env vars (SUPABASE_SERVICE_ROLE_KEY).");
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
+  _serviceClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  return _serviceClient;
 }
 
 function extractBearerToken(authHeader: string | null | undefined): string | null {

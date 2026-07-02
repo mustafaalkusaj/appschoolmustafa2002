@@ -17,6 +17,33 @@ import {
   PUBLIC_PATHS,
 } from "@/types/roles";
 
+// --- Mobile API Rate Limiter (Redis-backed via lib/rate-limit) ---
+import { enforceRateLimit, getRateLimitClientIp } from "@/lib/rate-limit";
+
+const MOBILE_API_WINDOW_MS = 60_000;
+const MOBILE_API_MAX_HITS = 100;
+
+async function checkMobileRateLimit(request: NextRequest): Promise<NextResponse | null> {
+  const { pathname } = request.nextUrl;
+  if (!pathname.startsWith("/api/mobile/")) return null;
+  if (pathname === "/api/mobile/auth/login") return null;
+
+  const ip = getRateLimitClientIp(request);
+  const response = await enforceRateLimit(request, {
+    namespace: "mobile-api",
+    windowMs: MOBILE_API_WINDOW_MS,
+    maxHits: MOBILE_API_MAX_HITS,
+    identifier: ip,
+    onRateLimited: {
+      error: "rate_limited",
+      message: "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً.",
+    },
+    productionFailureMode: "memory-fallback",
+  });
+
+  return response as NextResponse | null;
+}
+
 /**
  * Generates a cryptographically random nonce for CSP.
  * Uses Web Crypto API which is available in Next.js runtime.
@@ -423,6 +450,9 @@ function applyBaseSecurityHeaders(response: NextResponse, requestId: string, non
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
+  const rateLimitResponse = await checkMobileRateLimit(request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   if (process.env.MAINTENANCE_MODE === 'true') {
     return new NextResponse(
       `<!DOCTYPE html>
@@ -530,7 +560,30 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  applyCdnCacheHeaders(response, request.nextUrl.pathname, isApiRequest);
+
   return response;
+}
+
+const CDN_CACHE_RULES: Array<{ match: (p: string, isApi: boolean) => boolean; sMaxAge: number; staleRevalidate: number }> = [
+  { match: (p) => p === "/api/ping" || p === "/api/health", sMaxAge: 30, staleRevalidate: 60 },
+  { match: (p) => p.endsWith("/login") || p.endsWith("/forgot-password"), sMaxAge: 300, staleRevalidate: 600 },
+  { match: (_p, isApi) => !isApi, sMaxAge: 0, staleRevalidate: 0 },
+];
+
+function applyCdnCacheHeaders(response: NextResponse, pathname: string, isApiRequest: boolean) {
+  for (const rule of CDN_CACHE_RULES) {
+    if (rule.match(pathname, isApiRequest)) {
+      if (rule.sMaxAge > 0) {
+        response.headers.set(
+          "Cache-Control",
+          `public, s-maxage=${rule.sMaxAge}, stale-while-revalidate=${rule.staleRevalidate}`,
+        );
+        response.headers.set("CDN-Cache-Control", `public, s-maxage=${rule.sMaxAge}`);
+      }
+      return;
+    }
+  }
 }
 
 export const config = {
@@ -545,5 +598,6 @@ export const config = {
     "/api/rbac/:path*",
     "/api/account/:path*",
     "/api/health",
+    "/api/mobile/:path*",
   ],
 };

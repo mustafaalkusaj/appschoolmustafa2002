@@ -12,7 +12,12 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/brand/brand-utils";
 import { formatNumber } from "@/lib/formatting";
 import { cropAndCompressImage } from "@/lib/students/image-utils";
-import { QRPhotoUpload } from "@/components/ui/QRPhotoUpload";
+import dynamic from "next/dynamic";
+
+const QRPhotoUpload = dynamic(
+  () => import("@/components/ui/QRPhotoUpload").then((m) => m.QRPhotoUpload),
+  { ssr: false },
+);
 import type { StudentFormData, ClassFee } from "../_types";
 
 interface AddStudentModalProps {

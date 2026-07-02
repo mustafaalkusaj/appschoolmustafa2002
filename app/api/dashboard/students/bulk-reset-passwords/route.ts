@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
   const serviceSupabase = createServiceSupabaseClient();
 
   // Fetch all students with auth accounts in scope
-  const { data: students, error } = await applyBranchScopeToQuery(
+  type StudentRow = { auth_user_id: string | null; full_name: string };
+  const { data: students, error } = (await applyBranchScopeToQuery(
     serviceSupabase
       .from("students")
       .select("auth_user_id, full_name")
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
       .order("full_name", { ascending: true })
       .limit(2000),
     branchScope.value,
-  );
+  )) as { data: StudentRow[] | null; error: { message: string } | null };
 
   if (error) {
     return jsonError("تعذر تحميل بيانات الطلاب.", 500);
