@@ -5,6 +5,7 @@ import {
   featureGateFromError,
   resolveMobileRouteContextAny,
 } from "@/lib/mobile-api-admin";
+import { buildScheduleItems } from "@/lib/mobile-schedule";
 
 export async function GET(req: NextRequest) {
   const context = await resolveMobileRouteContextAny(req, "parent");
@@ -34,13 +35,15 @@ export async function GET(req: NextRequest) {
 
   const { data: students } = await serviceSupabase
     .from("students")
-    .select("id, full_name, class_id")
+    .select("id, full_name, class_name, section")
     .eq("school_id", schoolId)
     .in("id", studentIds);
 
-  const classIds = (students ?? []).map((s) => s.class_id).filter(Boolean);
+  const classNames = Array.from(
+    new Set((students ?? []).map((s) => s.class_name).filter(Boolean)),
+  ) as string[];
 
-  if (!classIds.length) {
+  if (!classNames.length) {
     return NextResponse.json({ ok: true, gate: AVAILABLE_GATE, students: students ?? [], items: [] });
   }
 
@@ -48,8 +51,8 @@ export async function GET(req: NextRequest) {
     .from("class_schedules")
     .select("*")
     .eq("school_id", schoolId)
-    .in("class_id", classIds)
-    .order("day", { ascending: true })
+    .in("class_name", classNames)
+    .order("day_of_week", { ascending: true })
     .order("start_time", { ascending: true });
 
   if (schedError) {
@@ -61,10 +64,12 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  const items = await buildScheduleItems(serviceSupabase, schedules);
+
   return NextResponse.json({
     ok: true,
     gate: AVAILABLE_GATE,
     students: students ?? [],
-    items: schedules ?? [],
+    items,
   });
 }

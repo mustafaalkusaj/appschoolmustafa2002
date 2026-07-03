@@ -21,12 +21,12 @@ export async function GET(req: NextRequest) {
 
   const { data: studentRow } = await serviceSupabase
     .from("students")
-    .select("class_id")
+    .select("class_name")
     .eq("id", studentId)
     .maybeSingle();
 
-  const classId = studentRow?.class_id;
-  if (!classId) {
+  const className = studentRow?.class_name;
+  if (!className) {
     return NextResponse.json({ ok: true, gate: AVAILABLE_GATE, items: [] });
   }
 
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     .from("exams")
     .select("*")
     .eq("school_id", schoolId)
-    .eq("class_id", classId)
+    .eq("class_name", className)
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
 
