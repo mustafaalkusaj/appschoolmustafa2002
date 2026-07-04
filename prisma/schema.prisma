@@ -15,31 +15,32 @@ datasource db {
 // ============================================================================
 
 model School {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   nameAr    String
   nameEn    String
-  currency  String   @default("IQD")
+  currency  String    @default("IQD")
   logoUrl   String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   // Relations
-  branches        Branch[]
-  users           User[]
-  roles           Role[]
-  permissions     Permission[]
-  students        Student[]
-  accounts        Account[]
-  transactions    Transaction[]
-  salaries        Salary[]
-  employees       Employee[]
-  academicYears   AcademicYear[]
-  attendances     Attendance[]
-  auditLogs       AuditLog[]
-  incomeTypes     IncomeType[]
-  incomes         Income[]
+  branches      Branch[]
+  users         User[]
+  roles         Role[]
+  permissions   Permission[]
+  students      Student[]
+  accounts      Account[]
+  transactions  Transaction[]
+  salaries      Salary[]
+  employees     Employee[]
+  academicYears AcademicYear[]
+  attendances   Attendance[]
+  auditLogs     AuditLog[]
+  incomeTypes   IncomeType[]
+  incomes       Income[]
+  app           App?
 
   @@index([isActive])
   @@index([createdAt])
@@ -47,20 +48,20 @@ model School {
 }
 
 model Branch {
-  id         String   @id @default(cuid())
-  schoolId   String
-  nameAr     String
-  nameEn     String
-  branchCode String   @unique
+  id            String    @id @default(cuid())
+  schoolId      String
+  nameAr        String
+  nameEn        String
+  branchCode    String    @unique
   principalName String?
-  phoneNumber String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  deletedAt  DateTime?
+  phoneNumber   String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   // Relations
-  school       School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   users        User[]
   students     Student[]
   classes      Class[]
@@ -84,28 +85,28 @@ model Branch {
 // ============================================================================
 
 model User {
-  id                   String   @id @default(cuid())
-  schoolId             String
-  branchId             String?
-  email                String   @unique
-  passwordHash         String
-  fullNameAr           String
-  fullNameEn           String
-  roleId               String
-  isSinglePageUser     Boolean  @default(false)
-  isActive             Boolean  @default(true)
-  lastLoginAt          DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  deletedAt            DateTime?
+  id               String    @id @default(cuid())
+  schoolId         String
+  branchId         String?
+  email            String    @unique
+  passwordHash     String
+  fullNameAr       String
+  fullNameEn       String
+  roleId           String
+  isSinglePageUser Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   // Relations
-  school               School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch               Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  role                 Role              @relation(fields: [roleId], references: [id])
-  pageAccess           UserPageAccess[]
-  createdTransactions  Transaction[]     @relation("CreatedBy")
-  auditLogs            AuditLog[]
+  school              School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch              Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  role                Role             @relation(fields: [roleId], references: [id])
+  pageAccess          UserPageAccess[]
+  createdTransactions Transaction[]    @relation("CreatedBy")
+  auditLogs           AuditLog[]
 
   @@index([schoolId])
   @@index([branchId])
@@ -117,19 +118,19 @@ model User {
 }
 
 model Role {
-  id              String   @id @default(cuid())
-  schoolId        String
-  code            String   // INVESTOR, BRANCH_MANAGER, ACCOUNTANT, etc
-  nameAr          String
-  nameEn          String
-  hierarchyLevel  Int      // 1 = highest, 10 = lowest
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  schoolId       String
+  code           String // INVESTOR, BRANCH_MANAGER, ACCOUNTANT, etc
+  nameAr         String
+  nameEn         String
+  hierarchyLevel Int // 1 = highest, 10 = lowest
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  school          School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  users           User[]
-  permissions     RolePermission[]
+  school      School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  users       User[]
+  permissions RolePermission[]
 
   @@unique([schoolId, code])
   @@index([schoolId])
@@ -139,15 +140,15 @@ model Role {
 model Permission {
   id          String   @id @default(cuid())
   schoolId    String
-  code        String   // students.view, accounts.create, etc
-  resource    String   // students, accounts, attendance, etc
-  action      String   // view, create, update, delete
+  code        String // students.view, accounts.create, etc
+  resource    String // students, accounts, attendance, etc
+  action      String // view, create, update, delete
   description String?
   createdAt   DateTime @default(now())
 
   // Relations
-  school      School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  roles       RolePermission[]
+  school School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  roles  RolePermission[]
 
   @@unique([schoolId, code])
   @@index([schoolId])
@@ -173,7 +174,7 @@ model RolePermission {
 model UserPageAccess {
   id        String   @id @default(cuid())
   userId    String
-  pageCode  String   // students, accounts, attendance, salaries
+  pageCode  String // students, accounts, attendance, salaries
   canView   Boolean  @default(false)
   canCreate Boolean  @default(false)
   canUpdate Boolean  @default(false)
@@ -182,7 +183,7 @@ model UserPageAccess {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, pageCode])
   @@index([userId])
@@ -203,8 +204,8 @@ model AcademicYear {
   createdAt DateTime @default(now())
 
   // Relations
-  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  classes   Class[]
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes Class[]
 
   @@unique([schoolId, year])
   @@index([schoolId])
@@ -212,20 +213,20 @@ model AcademicYear {
 }
 
 model Class {
-  id              String   @id @default(cuid())
-  branchId        String
-  schoolId        String?
-  academicYearId  String
-  gradeLevel      Int
-  nameAr          String
-  nameEn          String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  branchId       String
+  schoolId       String?
+  academicYearId String
+  gradeLevel     Int
+  nameAr         String
+  nameEn         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  academicYear    AcademicYear  @relation(fields: [academicYearId], references: [id])
-  students        Student[]
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  students     Student[]
 
   @@index([branchId])
   @@index([academicYearId])
@@ -233,27 +234,27 @@ model Class {
 }
 
 model Student {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   schoolId           String
   branchId           String
   classId            String?
-  registrationNumber String   @unique
+  registrationNumber String    @unique
   nameAr             String
   nameEn             String
   dateOfBirth        DateTime?
-  status             String   @default("active") // active, inactive, transferred, graduated
+  status             String    @default("active") // active, inactive, transferred, graduated
   parentName         String?
   parentPhone        String?
   createdBy          String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   deletedAt          DateTime?
 
   // Relations
-  school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  class        Class?       @relation(fields: [classId], references: [id])
-  attendances  Attendance[]
+  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  class       Class?       @relation(fields: [classId], references: [id])
+  attendances Attendance[]
 
   @@index([schoolId])
   @@index([branchId])
@@ -268,22 +269,22 @@ model Student {
 // ============================================================================
 
 model Attendance {
-  id               String   @id @default(cuid())
-  schoolId         String
-  branchId         String
-  studentId        String
-  attendanceDate   DateTime
-  status           String   // present, absent, excused, late
-  notes            String?
-  createdBy        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  deletedAt        DateTime?
+  id             String    @id @default(cuid())
+  schoolId       String
+  branchId       String
+  studentId      String
+  attendanceDate DateTime
+  status         String // present, absent, excused, late
+  notes          String?
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
   // Relations
-  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, attendanceDate])
   @@index([schoolId])
@@ -298,23 +299,23 @@ model Attendance {
 // ============================================================================
 
 model Account {
-  id             String   @id @default(cuid())
-  branchId       String
-  schoolId       String
-  accountCode    String
-  accountNameAr  String
-  accountNameEn  String
-  accountType    String   // student, expense, income, salary
-  balance        Decimal  @default(0) @db.Decimal(15, 2)
-  createdBy      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
+  id            String    @id @default(cuid())
+  branchId      String
+  schoolId      String
+  accountCode   String
+  accountNameAr String
+  accountNameEn String
+  accountType   String // student, expense, income, salary
+  balance       Decimal   @default(0) @db.Decimal(15, 2)
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   // Relations
-  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  school         School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  transactions   Transaction[]
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
 
   @@unique([branchId, accountCode])
   @@index([branchId])
@@ -325,24 +326,24 @@ model Account {
 }
 
 model Transaction {
-  id               String   @id @default(cuid())
-  schoolId         String
-  accountId        String
-  branchId         String
-  transactionDate  DateTime
-  amount           Decimal  @db.Decimal(15, 2)
-  transactionType  String   // debit, credit
-  description      String?
-  referenceNumber  String?
-  createdBy        String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(cuid())
+  schoolId        String
+  accountId       String
+  branchId        String
+  transactionDate DateTime
+  amount          Decimal  @db.Decimal(15, 2)
+  transactionType String // debit, credit
+  description     String?
+  referenceNumber String?
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
-  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  account          Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  createdByUser    User     @relation("CreatedBy", fields: [createdBy], references: [id])
+  school        School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  account       Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  branch        Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdByUser User    @relation("CreatedBy", fields: [createdBy], references: [id])
 
   @@index([schoolId])
   @@index([accountId])
@@ -365,9 +366,9 @@ model IncomeType {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 
-  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch    Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  incomes   Income[]
+  school  School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  incomes Income[]
 
   @@index([schoolId])
   @@index([branchId])
@@ -388,9 +389,9 @@ model Income {
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
 
-  school        School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch        Branch?    @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  incomeType    IncomeType @relation(fields: [incomeTypeId], references: [id])
+  school     School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch     Branch?    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  incomeType IncomeType @relation(fields: [incomeTypeId], references: [id])
 
   @@index([schoolId])
   @@index([branchId])
@@ -410,7 +411,7 @@ model Employee {
   employeeCode String
   fullNameAr   String
   fullNameEn   String
-  position     String   // teacher, admin_staff, support
+  position     String // teacher, admin_staff, support
   email        String?
   phone        String?
   baseSalary   Decimal  @db.Decimal(15, 2)
@@ -421,9 +422,9 @@ model Employee {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  salaries     Salary[]
+  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  salaries Salary[]
 
   @@unique([branchId, employeeCode])
   @@index([schoolId])
@@ -433,28 +434,28 @@ model Employee {
 }
 
 model Salary {
-  id            String   @id @default(cuid())
-  schoolId      String
-  branchId      String
-  employeeId    String
-  month         Int
-  year          Int
-  baseSalary    Decimal  @db.Decimal(15, 2)
-  deductions    Decimal  @default(0) @db.Decimal(15, 2)
-  bonus         Decimal  @default(0) @db.Decimal(15, 2)
-  netSalary     Decimal  @db.Decimal(15, 2)
-  status        String   @default("pending") // pending, approved, paid
-  paidDate      DateTime?
-  notes         String?
-  createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
+  id         String    @id @default(cuid())
+  schoolId   String
+  branchId   String
+  employeeId String
+  month      Int
+  year       Int
+  baseSalary Decimal   @db.Decimal(15, 2)
+  deductions Decimal   @default(0) @db.Decimal(15, 2)
+  bonus      Decimal   @default(0) @db.Decimal(15, 2)
+  netSalary  Decimal   @db.Decimal(15, 2)
+  status     String    @default("pending") // pending, approved, paid
+  paidDate   DateTime?
+  notes      String?
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
   // Relations
-  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch        Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, month, year])
   @@index([schoolId])
@@ -470,27 +471,116 @@ model Salary {
 // ============================================================================
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  schoolId    String
-  branchId    String?
-  userId      String
-  action      String   // CREATE, UPDATE, DELETE, LOGIN
-  resource    String   // students, accounts, etc
-  resourceId  String
-  oldValues   Json?
-  newValues   Json?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  schoolId   String
+  branchId   String?
+  userId     String
+  action     String // CREATE, UPDATE, DELETE, LOGIN
+  resource   String // students, accounts, etc
+  resourceId String
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
   // Relations
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  user        User     @relation(fields: [userId], references: [id])
+  school School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  user   User    @relation(fields: [userId], references: [id])
 
   @@index([schoolId])
   @@index([branchId])
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// APP MANAGEMENT
+// ============================================================================
+
+model App {
+  id           String   @id @default(cuid())
+  schoolId     String   @unique
+  name         String
+  platform     String   @default("both") // web, mobile, both
+  bundleId     String?
+  packageName  String?
+  appStoreUrl  String?
+  playStoreUrl String?
+  webUrl       String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school     School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  theme      AppTheme?
+  features   AppFeature[]
+  usageLimit AppUsageLimit?
+
+  @@index([isActive])
+  @@map("apps")
+}
+
+model AppTheme {
+  id              String   @id @default(cuid())
+  appId           String   @unique
+  name            String   @default("default")
+  type            String   @default("preset") // preset, custom
+  presetId        String?
+  primaryColor    String?
+  secondaryColor  String?
+  accentColor     String?
+  textColor       String?
+  sidebarColor    String?
+  topbarColor     String?
+  fontFamily      String?
+  logoUrl         String?
+  darkModeEnabled Boolean  @default(false)
+  borderRadius    String   @default("md") // sm, md, lg, xl
+  customCss       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@map("app_themes")
+}
+
+model AppFeature {
+  id        String   @id @default(cuid())
+  appId     String
+  moduleKey String
+  isEnabled Boolean  @default(true)
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, moduleKey])
+  @@index([appId])
+  @@map("app_features")
+}
+
+model AppUsageLimit {
+  id               String   @id @default(cuid())
+  appId            String   @unique
+  maxStudents      Int      @default(500)
+  maxBranches      Int      @default(5)
+  maxStorageMB     Int      @default(1024)
+  maxUsers         Int      @default(50)
+  maxClasses       Int      @default(50)
+  currentStudents  Int      @default(0)
+  currentBranches  Int      @default(0)
+  currentStorageMB Int      @default(0)
+  currentUsers     Int      @default(0)
+  currentClasses   Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@map("app_usage_limits")
 }
