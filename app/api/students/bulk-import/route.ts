@@ -8,9 +8,124 @@ import {
   collectDuplicateStudentNames,
   findExistingDuplicateStudentNames,
 } from "@/lib/students/import-dedup";
+import {
+  buildManagedAuthIdentityPayload,
+  generateManagedLoginIdentifier,
+  generateTemporaryPassword,
+  hashPassword,
+  syncManagedUserAccountState,
+} from "@/lib/managed-users-server";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
+}
+
+interface ProvisionResult {
+  studentId: string;
+  studentName: string;
+  authUserId: string | null;
+  loginIdentifier: string | null;
+  error: string | null;
+}
+
+async function provisionAuthForStudent(
+  serviceSupabase: ReturnType<typeof createServiceSupabaseClient>,
+  actorSupabase: ReturnType<typeof createServiceSupabaseClient>,
+  studentId: string,
+  studentName: string,
+  schoolId: string,
+  actorUserId: string,
+): Promise<ProvisionResult> {
+  try {
+    const loginIdentifier = await generateManagedLoginIdentifier(actorSupabase, {
+      schoolId,
+      role: "student",
+      fullName: studentName,
+      preferredEmail: "",
+    });
+    const temporaryPassword = generateTemporaryPassword();
+    const createdAt = new Date().toISOString();
+
+    const authIdentityPayload = buildManagedAuthIdentityPayload({
+      role: "student",
+      schoolId,
+      fullName: studentName,
+      loginIdentifier,
+      createdBy: actorUserId,
+      credentialPatch: {
+        temporaryPasswordHash: hashPassword(temporaryPassword),
+        hasPendingSetup: true,
+        passwordLastResetAt: createdAt,
+        cardLastPrintedAt: null,
+      },
+    });
+
+    const { data: createdUser, error: createAuthError } = await serviceSupabase.auth.admin.createUser({
+      email: loginIdentifier,
+      password: temporaryPassword,
+      email_confirm: true,
+      ...authIdentityPayload,
+    });
+
+    if (createAuthError || !createdUser.user?.id) {
+      return {
+        studentId,
+        studentName,
+        authUserId: null,
+        loginIdentifier: null,
+        error: createAuthError?.message || "تعذر إنشاء حساب المصادقة",
+      };
+    }
+
+    const authUserId = createdUser.user.id;
+
+    const { error: linkError } = await actorSupabase
+      .from("students")
+      .update({ auth_user_id: authUserId })
+      .eq("id", studentId)
+      .eq("school_id", schoolId);
+
+    if (linkError) {
+      await serviceSupabase.auth.admin.deleteUser(authUserId);
+      return {
+        studentId,
+        studentName,
+        authUserId: null,
+        loginIdentifier: null,
+        error: linkError.message || "تعذر ربط الحساب بسجل الطالب",
+      };
+    }
+
+    await syncManagedUserAccountState(actorSupabase, {
+      authUserId,
+      schoolId,
+      role: "student",
+      fullName: studentName,
+      email: loginIdentifier,
+      phone: null,
+      isActive: true,
+      studentId,
+      createdBy: actorUserId,
+      temporaryPassword,
+    });
+
+    return {
+      studentId,
+      studentName,
+      authUserId,
+      loginIdentifier,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      studentId,
+      studentName,
+      authUserId: null,
+      loginIdentifier: null,
+      error: err instanceof Error ? err.message : "خطأ غير متوقع أثناء إنشاء الحساب",
+    };
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -43,13 +158,16 @@ export async function POST(request: NextRequest) {
       return jsonError(actorContext.message, actorContext.status);
     }
 
-    // Extract rows from chunk OR from parseResult.validRows
-    let rowsToImport: any[] = [];
+    let rowsToImport: unknown[] = [];
     if (rawBody && typeof rawBody === 'object') {
-      if (Array.isArray((rawBody as any).chunk) && (rawBody as any).chunk.length > 0) {
-        rowsToImport = (rawBody as any).chunk;
-      } else if ((rawBody as any).parseResult?.validRows && Array.isArray((rawBody as any).parseResult.validRows)) {
-        rowsToImport = (rawBody as any).parseResult.validRows;
+      if (Array.isArray((rawBody as Record<string, unknown>).chunk) && ((rawBody as Record<string, unknown>).chunk as unknown[]).length > 0) {
+        rowsToImport = (rawBody as Record<string, unknown>).chunk as unknown[];
+      } else if (
+        (rawBody as Record<string, unknown>).parseResult &&
+        typeof (rawBody as Record<string, unknown>).parseResult === 'object' &&
+        Array.isArray(((rawBody as Record<string, unknown>).parseResult as Record<string, unknown>)?.validRows)
+      ) {
+        rowsToImport = ((rawBody as Record<string, unknown>).parseResult as Record<string, unknown>).validRows as unknown[];
       }
     }
 
@@ -57,7 +175,6 @@ export async function POST(request: NextRequest) {
       return jsonError("لا توجد صفوف صالحة للاستيراد", 400);
     }
 
-    // Validate using the schema
     const parsed = studentImportRequestSchema.safeParse({ chunk: rowsToImport });
     if (!parsed.success) {
       return jsonError(getStudentImportValidationMessage(parsed.error), 400);
@@ -80,7 +197,7 @@ export async function POST(request: NextRequest) {
       return jsonError(writeBranch.message, writeBranch.status);
     }
 
-    const { actorSupabase, targetSchoolId } = actorContext.value;
+    const { actorSupabase, targetSchoolId, actorUserId } = actorContext.value;
     const fileDuplicates = collectDuplicateStudentNames(parsed.data.chunk);
     if (fileDuplicates.length > 0) {
       return jsonError(buildDuplicateStudentNameMessage({ fileDuplicates }), 409);
@@ -124,77 +241,72 @@ export async function POST(request: NextRequest) {
       resolvedBranchId,
     );
 
-    console.log(`[BulkImport] Processing ${validated.length} students for school ${targetSchoolId}`);
-
-    // Debug: Check payload structure
-    if (validated.length > 0) {
-      const firstPayload = validated[0];
-      console.log('[BulkImport] Payload structure (first row):', {
-        hasClassName: 'class_name' in firstPayload,
-        classNameValue: (firstPayload as any).class_name,
-        hasSection: 'section' in firstPayload,
-        payloadKeys: Object.keys(firstPayload),
-      });
-    }
-
     const { data, error } = await actorSupabase
       .from("students")
       .insert(validated)
-      .select("id");
+      .select("id, full_name");
 
     if (error) {
-      console.error("[BulkImport] Insert error:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
-      const userMessage = [
-        error.message,
-        error.details,
-        error.hint,
-      ]
-        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-        .join(" | ") || "فشل استيراد الطلاب";
-
       return NextResponse.json(
         {
           error: {
-            message: userMessage,
+            message: [error.message, error.details, error.hint]
+              .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+              .join(" | ") || "فشل استيراد الطلاب",
             code: error.code ?? null,
-            details: error.details ?? null,
-            hint: error.hint ?? null,
           },
         },
         { status: 500 },
       );
     }
 
-    const importedCount = data?.length ?? validated.length;
-    const failedCount = validated.length - importedCount;
-    console.log(`[BulkImport] Successfully imported ${importedCount}/${validated.length} students (${failedCount} failed)`);
+    const insertedStudents = data ?? [];
+    const importedCount = insertedStudents.length;
+
+    // Provision auth accounts for all inserted students
+    const serviceSupabase = createServiceSupabaseClient();
+    let accountsCreated = 0;
+    let accountsFailed = 0;
+
+    for (const student of insertedStudents) {
+      const studentId = typeof student.id === "string" ? student.id : String(student.id);
+      const studentName = typeof student.full_name === "string" ? student.full_name : "";
+
+      if (!studentName) {
+        accountsFailed++;
+        continue;
+      }
+
+      const result = await provisionAuthForStudent(
+        serviceSupabase,
+        actorSupabase,
+        studentId,
+        studentName,
+        targetSchoolId,
+        actorUserId,
+      );
+
+      if (result.authUserId) {
+        accountsCreated++;
+      } else {
+        accountsFailed++;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       imported: importedCount,
-      failed: failedCount,
+      failed: validated.length - importedCount,
       total: validated.length,
-      message: importedCount > 0
-        ? `تم استيراد ${importedCount} من ${validated.length} طالب بنجاح${failedCount > 0 ? ` (فشل ${failedCount})` : ''}`
-        : 'فشل الاستيراد',
-      debug: {
-        payloadStructure: validated.length > 0 ? {
-          hasClassName: 'class_name' in validated[0],
-          classNameValue: (validated[0] as any).class_name,
-          payloadKeys: Object.keys(validated[0]),
-        } : null,
-        rowsSent: validated.length,
-        rowsImported: importedCount,
-        rowsFailed: failedCount,
+      accounts: {
+        created: accountsCreated,
+        failed: accountsFailed,
       },
+      message: importedCount > 0
+        ? `تم استيراد ${importedCount} طالب وإنشاء ${accountsCreated} حساب تطبيق`
+        : "فشل الاستيراد",
     });
   } catch (error) {
-    console.error("Bulk import server error:", error);
     return jsonError(readStudentImportErrorMessage(error, "Import failed"), 500);
   }
 }

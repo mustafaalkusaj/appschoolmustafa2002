@@ -417,40 +417,6 @@ async function fetchSummary(
   return summary;
 }
 
-async function fetchCollectedCount(
-  actorSupabase: RouteSupabaseClient,
-  schoolId: string,
-  branchScope: ResolvedBranchScope,
-) {
-  const { data, error } = await applyBranchScopeToQuery(
-    actorSupabase
-      .from("students")
-      .select("id, class_name, total_fee, paid_fee, discount_value, status")
-      .eq("school_id", schoolId)
-      .neq("status", "deleted")
-      .neq("status", "transferred"),
-    branchScope,
-  );
-
-  if (error) {
-    throw new Error(error.message || "تعذر تحميل عدد الفواتير المسددة.");
-  }
-
-  const students = (data ?? []) as Array<Record<string, unknown>>;
-  const classFeeMap = await resolvePaymentFeesFromClassFees(actorSupabase, students, schoolId);
-
-  return students.filter((student) => {
-    const className = typeof student.class_name === "string" ? student.class_name : null;
-    const classFeeTotal = className ? classFeeMap.get(className) : undefined;
-    const studentTotal = normalizeMetricNumber(student.total_fee);
-    const totalFee = classFeeTotal ?? (studentTotal > 0 ? studentTotal : 0);
-    const paidFee = normalizeMetricNumber(student.paid_fee);
-    const discountValue = normalizeMetricNumber(student.discount_value);
-    const remainingFee = Math.max(totalFee - paidFee - discountValue, 0);
-    return totalFee > 0 && remainingFee <= 0;
-  }).length;
-}
-
 async function fetchSummaryViaRpc(actorSupabase: RouteSupabaseClient, schoolId: string) {
   const { data, error } = await actorSupabase.rpc("school_payments_summary", {
     p_school_id: schoolId,

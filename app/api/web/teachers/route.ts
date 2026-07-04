@@ -1,39 +1,93 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "node:crypto";
 
 import { applyBranchScopeToQuery, resolveBranchIdForWrite, resolveBranchScope } from "@/lib/branch-scope";
-import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
+import {
+  resolveSchoolScopedActorContext,
+  generateManagedLoginIdentifier,
+  generateTemporaryPassword,
+  hashPassword,
+  buildManagedAuthIdentityPayload,
+  syncManagedUserAccountState,
+} from "@/lib/managed-users-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { routeUserHasPermission } from "@/lib/route-permissions";
 import { jsonError, logRouteError } from "@/lib/route-utils";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function autoCreateTeacherAppAccount(supabase: any, teacherId: string, schoolId: string) {
-  let appUsername = "";
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const bytes = randomBytes(2);
-    const digits = String(((bytes[0] * 256 + bytes[1]) % 9000) + 1000);
-    const candidate = `t${digits}`;
-    const { data } = await supabase
-      .from("teachers")
-      .select("id")
-      .eq("app_username", candidate)
-      .eq("school_id", schoolId)
-      .maybeSingle();
-    if (!data) { appUsername = candidate; break; }
+async function autoCreateTeacherAppAccount(
+  actorSupabase: ReturnType<typeof createServiceSupabaseClient>,
+  teacherId: string,
+  schoolId: string,
+  teacherName: string,
+  actorUserId: string,
+): Promise<{ app_username: string; app_password_plain: string; auth_user_id: string } | null> {
+  const serviceSupabase = createServiceSupabaseClient();
+
+  const loginIdentifier = await generateManagedLoginIdentifier(actorSupabase, {
+    schoolId,
+    role: "teacher",
+    fullName: teacherName,
+    preferredEmail: "",
+  });
+  const temporaryPassword = generateTemporaryPassword();
+  const createdAt = new Date().toISOString();
+
+  const authIdentityPayload = buildManagedAuthIdentityPayload({
+    role: "teacher",
+    schoolId,
+    fullName: teacherName,
+    loginIdentifier,
+    createdBy: actorUserId,
+    credentialPatch: {
+      temporaryPasswordHash: hashPassword(temporaryPassword),
+      hasPendingSetup: true,
+      passwordLastResetAt: createdAt,
+      cardLastPrintedAt: null,
+    },
+  });
+
+  const { data: createdUser, error: createAuthError } = await serviceSupabase.auth.admin.createUser({
+    email: loginIdentifier,
+    password: temporaryPassword,
+    email_confirm: true,
+    ...authIdentityPayload,
+  });
+
+  if (createAuthError || !createdUser.user?.id) {
+    return null;
   }
-  if (!appUsername) {
-    const fb = randomBytes(3);
-    appUsername = `t${(fb[0] * 65536 + fb[1] * 256 + fb[2]) % 900000 + 100000}`;
-  }
-  const pw = randomBytes(3);
-  const appPassword = String((pw[0] * 65536 + pw[1] * 256 + pw[2]) % 900000 + 100000);
-  await supabase
+
+  const authUserId = createdUser.user.id;
+
+  const { error: linkError } = await actorSupabase
     .from("teachers")
-    .update({ app_username: appUsername, app_password_plain: appPassword, app_status: "active" })
+    .update({
+      auth_user_id: authUserId,
+      app_username: loginIdentifier,
+      app_status: "active",
+    })
     .eq("id", teacherId)
     .eq("school_id", schoolId);
-  return { app_username: appUsername, app_password_plain: appPassword };
+
+  if (linkError) {
+    await serviceSupabase.auth.admin.deleteUser(authUserId);
+    return null;
+  }
+
+  await syncManagedUserAccountState(actorSupabase, {
+    authUserId,
+    schoolId,
+    role: "teacher",
+    fullName: teacherName,
+    email: loginIdentifier,
+    phone: null,
+    isActive: true,
+    teacherId,
+    createdBy: actorUserId,
+    temporaryPassword,
+  });
+
+  return { app_username: loginIdentifier, app_password_plain: temporaryPassword, auth_user_id: authUserId };
 }
 
 export async function GET(req: NextRequest) {
@@ -216,9 +270,9 @@ export async function POST(req: NextRequest) {
       return jsonError(error?.message || "تعذر إضافة المعلم.", 500);
     }
 
-    let accountInfo: { app_username: string; app_password_plain: string } | null = null;
+    let accountInfo: { app_username: string; app_password_plain: string; auth_user_id: string } | null = null;
     try {
-      accountInfo = await autoCreateTeacherAppAccount(actorSupabase, data.id, targetSchoolId);
+      accountInfo = await autoCreateTeacherAppAccount(actorSupabase, data.id, targetSchoolId, fullName, actorUserId);
     } catch {
       // Don't fail teacher creation if account creation fails
     }
