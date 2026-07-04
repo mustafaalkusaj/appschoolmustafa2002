@@ -347,13 +347,13 @@ export function TeacherActivityView({ schoolId }: { schoolId: string }) {
               {/* Action bar */}
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[var(--border)]">
                 <button
-                  onClick={() => router.push(`/${locale}/teachers/${selectedTeacherId}`)}
+                  onClick={() => router.push(`/${locale}/teachers`)}
                   className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] text-[11px] font-black text-[var(--text-secondary)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]"
                 >
                   <ExternalLink size={12} /> الملف الكامل
                 </button>
                 <button
-                  onClick={() => router.push(`/${locale}/teachers/${selectedTeacherId}?tab=edit`)}
+                  onClick={() => router.push(`/${locale}/teachers`)}
                   className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/8 text-[11px] font-black text-[var(--primary)] transition hover:bg-[var(--primary)]/15"
                 >
                   <Edit size={12} /> تعديل

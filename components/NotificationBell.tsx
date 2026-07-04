@@ -289,7 +289,7 @@ export function NotificationBell({ userId, schoolId, locale }: Props) {
             {/* Footer */}
             <div className="px-4 py-2.5 border-t border-[var(--border)]">
               <Link
-                href={`/${locale}/notifications`}
+                href={`/${locale}/fee-notifications`}
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-center gap-1.5 text-xs text-[var(--primary)] font-semibold hover:underline"
               >

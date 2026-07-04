@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     .range(params.offset, params.offset + params.limit - 1);
 
   if (params.search) {
-    query = query.or(`full_name.ilike.%${params.search}%`);
+    query = query.ilike("full_name", `%${params.search}%`);
   }
 
   const { data, error } = await query;

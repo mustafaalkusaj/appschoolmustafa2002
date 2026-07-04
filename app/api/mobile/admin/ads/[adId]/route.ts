@@ -22,9 +22,33 @@ export async function PUT(
     );
   }
 
+  const ALLOWED_FIELDS = [
+    "type",
+    "title",
+    "body",
+    "bg_color",
+    "is_active",
+    "starts_at",
+    "ends_at",
+    "social_label",
+    "social_url",
+    "image_url",
+    "target_date",
+    "video_url",
+    "doc_url",
+    "doc_pages",
+  ] as const;
+
+  const allowed: Record<string, unknown> = {};
+  for (const field of ALLOWED_FIELDS) {
+    if (field in body) {
+      allowed[field] = body[field];
+    }
+  }
+
   const { data, error } = await serviceSupabase
     .from("advertisements")
-    .update(body)
+    .update({ ...allowed, school_id: schoolId })
     .eq("id", adId)
     .eq("school_id", schoolId)
     .select()

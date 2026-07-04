@@ -172,7 +172,7 @@ function BranchCard({ locale, branch }: { locale: Locale; branch: SchoolManagerB
             </div>
             {branch.branchId && (
               <a
-                href={`/${locale}/branches/${branch.branchId}/students`}
+                href={`/${locale}/students?branch=${branch.branchId}`}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--border)] hover:text-[var(--text-primary)] transition"
                 title={copy.viewStudents}
               >
