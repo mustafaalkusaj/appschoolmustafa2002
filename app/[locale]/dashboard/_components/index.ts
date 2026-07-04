@@ -10,6 +10,13 @@ export { OverdueStudentsPanel } from "./OverdueStudentsPanel";
 export { RecentActivityPanel } from "./RecentActivityPanel";
 export { ClassesModal } from "./ClassesModal";
 export { FeeModal } from "./FeeModal";
+export { QuickAccessPanel } from "./QuickAccessPanel";
+export {
+  DashboardPaymentModal,
+  DashboardTeacherModal,
+  DashboardExpenseModal,
+  DashboardIncomeModal,
+} from "./DashboardModalStubs";
 
 // Types
 export * from "./types";
