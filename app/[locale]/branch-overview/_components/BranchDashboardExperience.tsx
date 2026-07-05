@@ -15,13 +15,6 @@ import {
   BookOpen,
   Layers,
   Bell,
-  Plus,
-  Pencil,
-  Trash2,
-  KeyRound,
-  Upload,
-  RefreshCw,
-  ClipboardList,
 } from "@/lib/icons";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { useRole } from "@/hooks/useRole";
@@ -48,6 +41,7 @@ import { formatNumber } from "@/lib/formatting";
 import { SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { motion } from "framer-motion";
 import { containerVariants, cardVariants, usePrefersReducedMotion, getVariants } from "@/lib/motion-variants";
+import { ActivityLogsTimeline, type ActivityLog } from "./ActivityLogsTimeline";
 
 interface BranchDashboardExperienceProps {
   titleOverride?: string;
@@ -96,16 +90,6 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
   const [notificationsCount, setNotificationsCount] = useState<number | null>(null);
 
   // Activity logs
-  type ActivityLog = {
-    id: string;
-    created_at: string;
-    actor_name: string | null;
-    actor_role: string | null;
-    action_type: string;
-    entity_type: string | null;
-    entity_id: string | null;
-    summary: string | null;
-  };
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityLoaded, setActivityLoaded] = useState(false);
@@ -227,43 +211,169 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
     return <SchoolScopeEmptyState scope={schoolScope} />;
   }
 
-  return (
-    <div className="space-y-6">
+  // Collection-rate ring geometry (SVG donut in hero)
+  const ringRadius = 40;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCircumference * (1 - Math.min(dashboardTotals.paidPct, 100) / 100);
 
-      {/* Hero Banner */}
+  const kpiCards = [
+    {
+      label: isEn ? "Collected" : "محصّل",
+      value: formatNumber(dashboardTotals.totalPaid),
+      color: "var(--success)",
+      bg: "var(--success-soft)",
+      icon: <TrendingUp size={18} />,
+      span: "md:col-span-2 md:row-span-2",
+      big: true,
+    },
+    {
+      label: isEn ? "Remaining" : "متبقي",
+      value: formatNumber(dashboardTotals.totalRemaining),
+      color: "var(--warning)",
+      bg: "var(--warning-soft)",
+      icon: <Wallet size={16} />,
+    },
+    {
+      label: isEn ? "Other Income" : "إيرادات أخرى",
+      value: formatNumber(dashboardTotals.totalIncomes),
+      color: "var(--success)",
+      bg: "var(--success-soft)",
+      icon: <Landmark size={16} />,
+    },
+    {
+      label: isEn ? "Monthly Salaries" : "الرواتب الشهرية",
+      value: formatNumber(dashboardTotals.monthlySalaries),
+      color: "var(--danger)",
+      bg: "var(--danger-soft)",
+      icon: <ReceiptText size={16} />,
+    },
+    {
+      label: isEn ? "Students" : "الطلاب",
+      value: dashboardTotals.studentsCount,
+      color: "var(--info)",
+      bg: "color-mix(in srgb, var(--info) 12%, transparent)",
+      icon: <Users size={16} />,
+    },
+  ];
+
+  const miniStats = [
+    {
+      label: isEn ? "Teachers" : "الأساتذة",
+      value: teachersCount ?? "—",
+      color: "#8b5cf6",
+      icon: <GraduationCap size={15} />,
+    },
+    {
+      label: isEn ? "Classes" : "الصفوف",
+      value: classesSections.classes?.length ?? 0,
+      color: "#0ea5e9",
+      icon: <BookOpen size={15} />,
+    },
+    {
+      label: isEn ? "Sections" : "الشعب",
+      value: classesSections.sections?.length ?? 0,
+      color: "#f97316",
+      icon: <Layers size={15} />,
+    },
+    {
+      label: isEn ? "Notifications" : "الإشعارات",
+      value: notificationsCount ?? "—",
+      color: "#ec4899",
+      icon: <Bell size={15} />,
+    },
+    {
+      label: isEn ? "Transferred" : "منقولون",
+      value: dashboardTotals.transferredCount,
+      color: "var(--text-secondary)",
+      icon: <ArrowLeftRight size={15} />,
+    },
+    {
+      label: isEn ? "Overdue" : "متأخرون",
+      value: overdueStudents?.length ?? 0,
+      color: "var(--danger)",
+      icon: <AlertTriangle size={15} />,
+    },
+  ];
+
+  return (
+    <div className="space-y-5">
+
+      {/* Row 1: Hero banner — compact glass gradient + collection ring */}
       <div
-        className="relative rounded-2xl overflow-hidden p-6 md:p-8"
+        className="relative rounded-3xl overflow-hidden p-5 md:p-7"
         style={{
-          background: "linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 60%, var(--success)) 100%)",
+          background: "linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 55%, var(--success)) 100%)",
         }}
       >
         <div
-          className="absolute top-0 end-0 w-72 h-72 rounded-full opacity-[0.08] pointer-events-none"
-          style={{ background: "white", transform: "translate(35%, -40%)" }}
+          className="absolute top-0 end-0 w-64 h-64 rounded-full opacity-[0.10] pointer-events-none"
+          style={{ background: "white", transform: "translate(30%, -35%)" }}
         />
         <div
-          className="absolute bottom-0 start-12 w-48 h-48 rounded-full opacity-[0.06] pointer-events-none"
-          style={{ background: "white", transform: "translateY(60%)" }}
+          className="absolute bottom-0 start-8 w-40 h-40 rounded-full opacity-[0.08] pointer-events-none"
+          style={{ background: "white", transform: "translateY(50%)" }}
         />
-        <div className="relative flex items-center justify-between gap-4">
-          <div>
-            <p className="text-white/60 text-xs font-medium mb-2 tracking-widest uppercase">
-              {isEn ? "Branch Panel · Overview" : "لوحة الفرع · نظرة عامة"}
-            </p>
-            <h1 className="text-2xl md:text-3xl font-black text-white mb-1.5 leading-tight">
-              {branchTitle}
-            </h1>
-            <p className="text-white/70 text-sm">
-              {isEn
-                ? "Comprehensive view of branch students, fees, and financials"
-                : "نظرة شاملة على الطلاب والأقساط والوضع المالي للفرع"}
-            </p>
+        <div className="relative flex flex-wrap items-center justify-between gap-6">
+          <div className="flex items-center gap-4 min-w-0">
+            <div
+              className="hidden sm:flex items-center justify-center w-14 h-14 rounded-2xl flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)" }}
+            >
+              <Building2 size={26} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-white/60 text-[10px] font-black mb-1 tracking-[0.2em] uppercase">
+                {isEn ? "Branch Panel · Overview" : "لوحة الفرع · نظرة عامة"}
+              </p>
+              <h1 className="text-xl md:text-2xl font-black text-white mb-1 leading-tight truncate">
+                {branchTitle}
+              </h1>
+              <p className="text-white/70 text-xs hidden md:block">
+                {isEn
+                  ? "Comprehensive view of branch students, fees, and financials"
+                  : "نظرة شاملة على الطلاب والأقساط والوضع المالي للفرع"}
+              </p>
+            </div>
           </div>
+
+          {/* Collection rate donut ring — hero metric */}
           <div
-            className="hidden md:flex items-center justify-center w-20 h-20 rounded-2xl flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
+            className="flex items-center gap-4 rounded-2xl px-5 py-3 shrink-0"
+            style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(12px)" }}
           >
-            <Building2 size={38} className="text-white" />
+            <svg width="92" height="92" viewBox="0 0 96 96" className="-rotate-90">
+              <circle cx="48" cy="48" r={ringRadius} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="8" />
+              <circle
+                cx="48"
+                cy="48"
+                r={ringRadius}
+                fill="none"
+                stroke="white"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringOffset}
+                style={{ transition: "stroke-dashoffset 700ms cubic-bezier(0.16,1,0.3,1)" }}
+              />
+              <text
+                x="48"
+                y="54"
+                textAnchor="middle"
+                fontSize="22"
+                fontWeight="900"
+                fill="white"
+                className="rotate-90"
+                style={{ transformOrigin: "48px 48px" }}
+              >
+                {dashboardTotals.paidPct}%
+              </text>
+            </svg>
+            <div>
+              <p className="text-white text-sm font-black leading-tight">
+                {isEn ? "Collection" : "نسبة التحصيل"}
+              </p>
+              <p className="text-white/60 text-[11px]">{isEn ? "Rate" : "معدل التحصيل"}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -274,214 +384,104 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
         </div>
       )}
 
-      {/* Quick Access Panel */}
-      <QuickAccessPanel
-        locale={locale}
-        buildLocalizedPath={schoolScope.buildLocalizedPath}
-        can={can}
-        canAny={canAny}
-        schoolId={schoolScope.selectedSchoolId}
-        availableClassNames={availableClassNames}
-        onOpenClassesModal={() => setShowClassesModal(true)}
-        onOpenAddStudentModal={() => {
-          setAddStudentForm(DEFAULT_STUDENT_FORM);
-          setAddStudentStep(1);
-          setAddStudentError("");
-          setShowAddStudentModal(true);
-        }}
-        onOpenPaymentModal={() => setShowPaymentModal(true)}
-        onOpenTeacherModal={() => setShowTeacherModal(true)}
-        onOpenExpenseModal={() => setShowExpenseModal(true)}
-        onOpenIncomeModal={() => setShowIncomeModal(true)}
-        onOpenFeeModal={() => feeManagement.openNewFee()}
-      />
+      {/* Row 2: Bento KPI grid — varied sizes, big typography */}
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-4 gap-4 md:auto-rows-[100px]"
+        variants={getVariants(reduced, containerVariants(0.05))}
+        initial="hidden"
+        animate="visible"
+      >
+        {kpiCards.map((item) => (
+          <motion.div
+            key={item.label}
+            variants={getVariants(reduced, cardVariants)}
+            className={`group relative rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-4 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${item.span ?? ""}`}
+            style={{ willChange: "transform" }}
+          >
+            <div
+              className="absolute -top-6 -end-6 w-24 h-24 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+              style={{ background: item.bg }}
+            />
+            <div className="relative flex items-start justify-between mb-2">
+              <span
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: item.bg, color: item.color }}
+              >
+                {item.icon}
+              </span>
+            </div>
+            <p
+              className={`relative font-black tabular-nums leading-none mb-1.5 ${item.big ? "text-3xl md:text-4xl" : "text-xl md:text-2xl"}`}
+              style={{ color: item.color }}
+            >
+              {item.value}
+            </p>
+            <p className="relative text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+              {item.label}
+            </p>
+          </motion.div>
+        ))}
+      </motion.div>
 
-      {/* ② Progress Card — collection rate + expanded KPIs */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5">
-        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">
-          {isEn ? "Fee Collection Rate" : "نسبة تحصيل الرسوم الدراسية"}
-        </p>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-2xl font-black tabular-nums" style={{ color: "var(--success)" }}>
-            {dashboardTotals.paidPct}%
-          </p>
-          <p className="text-sm font-semibold text-[var(--text-secondary)]">
-            {isEn ? "collected" : "محصّل"}
-          </p>
-        </div>
-        <div className="h-2.5 rounded-full bg-[var(--surface-soft)] overflow-hidden mb-5">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{
-              width: `${Math.min(dashboardTotals.paidPct, 100)}%`,
-              background: "linear-gradient(90deg, var(--success), var(--primary))",
+      {/* Row 3: Bento 2-col — QuickAccessPanel + mini stat cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-5">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-1">
+          <QuickAccessPanel
+            locale={locale}
+            buildLocalizedPath={schoolScope.buildLocalizedPath}
+            can={can}
+            canAny={canAny}
+            schoolId={schoolScope.selectedSchoolId}
+            availableClassNames={availableClassNames}
+            onOpenClassesModal={() => setShowClassesModal(true)}
+            onOpenAddStudentModal={() => {
+              setAddStudentForm(DEFAULT_STUDENT_FORM);
+              setAddStudentStep(1);
+              setAddStudentError("");
+              setShowAddStudentModal(true);
             }}
+            onOpenPaymentModal={() => setShowPaymentModal(true)}
+            onOpenTeacherModal={() => setShowTeacherModal(true)}
+            onOpenExpenseModal={() => setShowExpenseModal(true)}
+            onOpenIncomeModal={() => setShowIncomeModal(true)}
+            onOpenFeeModal={() => feeManagement.openNewFee()}
           />
         </div>
 
-        {/* Row 1: Financial KPIs */}
-        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
-          {isEn ? "Financials" : "الماليات"}
-        </p>
-        <div className="rounded-xl border border-[var(--border)] overflow-hidden mb-4">
-          {[
-            {
-              label: isEn ? "Collected" : "محصّل",
-              value: formatNumber(dashboardTotals.totalPaid),
-              color: "var(--success)",
-              icon: <TrendingUp size={15} />,
-            },
-            {
-              label: isEn ? "Remaining" : "متبقي",
-              value: formatNumber(dashboardTotals.totalRemaining),
-              color: "var(--warning)",
-              icon: <Wallet size={15} />,
-            },
-            {
-              label: isEn ? "Today Income" : "إيرادات اليوم",
-              value: formatNumber(dashboardTotals.todayIncomes),
-              color: "var(--success)",
-              icon: <Landmark size={15} />,
-            },
-            {
-              label: isEn ? "Today Expenses" : "مصروفات اليوم",
-              value: formatNumber(dashboardTotals.todayExpenses),
-              color: "var(--danger)",
-              icon: <ReceiptText size={15} />,
-            },
-          ].map((item, i, arr) => (
-            <div
-              key={item.label}
-              className="flex items-center justify-between px-4 py-2.5"
-              style={{
-                background: i % 2 === 0 ? "var(--card-bg)" : "var(--surface-soft)",
-                borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)`, color: item.color }}
-                >
-                  {item.icon}
-                </span>
-                <span className="text-sm font-medium text-[var(--text-secondary)]">{item.label}</span>
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-4">
+          <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">
+            {isEn ? "Structure & Staff" : "الهيكل والهيئة"}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {miniStats.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl p-3 transition-all duration-200 hover:-translate-y-0.5"
+                style={{ background: "var(--surface-soft)" }}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span
+                    className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: `color-mix(in srgb, ${item.color} 14%, transparent)`, color: item.color }}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="text-[10px] font-semibold text-[var(--text-secondary)] truncate">
+                    {item.label}
+                  </span>
+                </div>
+                <p className="text-lg font-black tabular-nums" style={{ color: item.color }}>
+                  {item.value}
+                </p>
               </div>
-              <span className="text-sm font-black tabular-nums" style={{ color: item.color }}>
-                {item.value}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Row 2: Students & Staff KPIs */}
-        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
-          {isEn ? "Students & Staff" : "الطلاب والهيئة"}
-        </p>
-        <div className="rounded-xl border border-[var(--border)] overflow-hidden mb-4">
-          {[
-            {
-              label: isEn ? "Students" : "الطلاب",
-              value: dashboardTotals.studentsCount,
-              color: "var(--primary)",
-              icon: <Users size={15} />,
-            },
-            {
-              label: isEn ? "Transferred" : "منقولون",
-              value: dashboardTotals.transferredCount,
-              color: "var(--text-secondary)",
-              icon: <ArrowLeftRight size={15} />,
-            },
-            {
-              label: isEn ? "Overdue" : "متأخرون",
-              value: overdueStudents?.length ?? 0,
-              color: "var(--danger)",
-              icon: <AlertTriangle size={15} />,
-            },
-            {
-              label: isEn ? "Teachers" : "الأساتذة",
-              value: teachersCount ?? "—",
-              color: "#8b5cf6",
-              icon: <GraduationCap size={15} />,
-            },
-          ].map((item, i, arr) => (
-            <div
-              key={item.label}
-              className="flex items-center justify-between px-4 py-2.5"
-              style={{
-                background: i % 2 === 0 ? "var(--card-bg)" : "var(--surface-soft)",
-                borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)`, color: item.color }}
-                >
-                  {item.icon}
-                </span>
-                <span className="text-sm font-medium text-[var(--text-secondary)]">{item.label}</span>
-              </div>
-              <span className="text-sm font-black tabular-nums" style={{ color: item.color }}>
-                {item.value}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Row 3: Structure & Notifications */}
-        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">
-          {isEn ? "Structure" : "الهيكل"}
-        </p>
-        <div className="rounded-xl border border-[var(--border)] overflow-hidden">
-          {[
-            {
-              label: isEn ? "Classes" : "الصفوف",
-              value: classesSections.classes?.length ?? 0,
-              color: "#0ea5e9",
-              icon: <BookOpen size={15} />,
-            },
-            {
-              label: isEn ? "Sections" : "الشعب",
-              value: classesSections.sections?.length ?? 0,
-              color: "#f97316",
-              icon: <Layers size={15} />,
-            },
-            {
-              label: isEn ? "Notifications" : "الإشعارات",
-              value: notificationsCount ?? "—",
-              color: "#ec4899",
-              icon: <Bell size={15} />,
-            },
-          ].map((item, i, arr) => (
-            <div
-              key={item.label}
-              className="flex items-center justify-between px-4 py-2.5"
-              style={{
-                background: i % 2 === 0 ? "var(--card-bg)" : "var(--surface-soft)",
-                borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)`, color: item.color }}
-                >
-                  {item.icon}
-                </span>
-                <span className="text-sm font-medium text-[var(--text-secondary)]">{item.label}</span>
-              </div>
-              <span className="text-sm font-black tabular-nums" style={{ color: item.color }}>
-                {item.value}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Two-col: Recent Payments + Overdue Students */}
+      {/* Row 4: Recent Payments + Overdue Students */}
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 gap-5"
         variants={getVariants(reduced, containerVariants(0.06))}
         initial="hidden"
         animate="visible"
@@ -508,7 +508,7 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
         </motion.div>
       </motion.div>
 
-      {/* ⑤ Classes Table */}
+      {/* Row 5: Classes Table */}
       {dashboardData.classFees && dashboardData.classFees.length > 0 && (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
           <div className="px-5 py-4 border-b border-[var(--border)]">
@@ -520,7 +520,7 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)] bg-[var(--surface-soft)]">
-                  <th className="px-4 py-3 text-right text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+                  <th className="px-4 py-3 text-start text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
                     {isEn ? "Class" : "الصف"}
                   </th>
                   <th className="px-4 py-3 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wide">
@@ -652,191 +652,14 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
         </div>
       )}
 
-      {/* Activity Logs Section */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span
-                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}
-              >
-                <ClipboardList size={16} />
-              </span>
-              <div>
-                <h3 className="text-sm font-black text-[var(--text-primary)]">
-                  {isEn ? "Operation Logs" : "سجل العمليات"}
-                </h3>
-                <p className="text-[11px] text-[var(--text-muted)]">
-                  {isEn ? "Who did what in this branch" : "ما فعله مستخدمو الفرع"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {activityLogs.length > 0 && (
-                <span
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black"
-                  style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}
-                >
-                  {activityLogs.length}
-                </span>
-              )}
-              <button
-                onClick={() => { setActivityLoaded(false); }}
-                disabled={activityLoading}
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--surface-soft)] disabled:opacity-40"
-                style={{ color: "var(--text-muted)" }}
-                title={isEn ? "Refresh" : "تحديث"}
-              >
-                <RefreshCw size={14} className={activityLoading ? "animate-spin" : ""} />
-              </button>
-            </div>
-          </div>
-
-          {activityLoading && !activityLoaded ? (
-            <div className="divide-y divide-[var(--border)]">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="px-5 py-3.5 flex items-center gap-3 animate-pulse">
-                  <div className="w-7 h-7 rounded-lg bg-[var(--surface-soft)] shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3 bg-[var(--surface-soft)] rounded w-1/3" />
-                    <div className="h-2.5 bg-[var(--surface-soft)] rounded w-2/3" />
-                  </div>
-                  <div className="h-2.5 bg-[var(--surface-soft)] rounded w-16 shrink-0" />
-                </div>
-              ))}
-            </div>
-          ) : activityLoaded && activityLogs.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <ClipboardList size={28} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }} />
-              <p className="text-sm text-[var(--text-muted)]">
-                {isEn ? "No operations recorded yet" : "لا توجد عمليات مسجلة بعد"}
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-[var(--border)]">
-              {activityLogs.map((log, i) => {
-                const actionConfig: Record<string, { icon: React.ReactNode; color: string; label: string; labelEn: string }> = {
-                  create: { icon: <Plus size={13} />, color: "var(--success)", label: "إضافة", labelEn: "Create" },
-                  insert: { icon: <Plus size={13} />, color: "var(--success)", label: "إضافة", labelEn: "Insert" },
-                  update: { icon: <Pencil size={13} />, color: "var(--primary)", label: "تعديل", labelEn: "Update" },
-                  edit: { icon: <Pencil size={13} />, color: "var(--primary)", label: "تعديل", labelEn: "Edit" },
-                  delete: { icon: <Trash2 size={13} />, color: "var(--danger)", label: "حذف", labelEn: "Delete" },
-                  login: { icon: <KeyRound size={13} />, color: "var(--text-muted)", label: "تسجيل دخول", labelEn: "Login" },
-                  export: { icon: <Upload size={13} />, color: "#f97316", label: "تصدير", labelEn: "Export" },
-                };
-                const actionKey = log.action_type?.toLowerCase() ?? "";
-                const cfg = actionConfig[actionKey] ?? { icon: <ClipboardList size={13} />, color: "var(--text-muted)", label: log.action_type, labelEn: log.action_type };
-
-                const entityLabels: Record<string, { ar: string; en: string }> = {
-                  student: { ar: "طالب", en: "Student" },
-                  payment: { ar: "دفعة", en: "Payment" },
-                  expense: { ar: "مصروف", en: "Expense" },
-                  income: { ar: "إيراد", en: "Income" },
-                  teacher: { ar: "أستاذ", en: "Teacher" },
-                  class: { ar: "صف", en: "Class" },
-                  user: { ar: "مستخدم", en: "User" },
-                };
-                const entityKey = log.entity_type?.toLowerCase() ?? "";
-                const entityLabel = entityLabels[entityKey]
-                  ? (isEn ? entityLabels[entityKey].en : entityLabels[entityKey].ar)
-                  : log.entity_type ?? "";
-
-                const roleColors: Record<string, string> = {
-                  admin: "#8b5cf6",
-                  super_admin: "#ef4444",
-                  employee: "#3b82f6",
-                };
-                const roleColor = roleColors[log.actor_role ?? ""] ?? "var(--text-muted)";
-                const roleLabel = log.actor_role === "admin"
-                  ? (isEn ? "Admin" : "مدير")
-                  : log.actor_role === "super_admin"
-                    ? (isEn ? "Super Admin" : "مدير عام")
-                    : log.actor_role === "employee"
-                      ? (isEn ? "Employee" : "موظف")
-                      : log.actor_role ?? "";
-
-                const now = Date.now();
-                const ts = new Date(log.created_at).getTime();
-                const diff = Math.floor((now - ts) / 1000);
-                const relativeTime = diff < 60
-                  ? (isEn ? `${diff}s ago` : `منذ ${diff} ث`)
-                  : diff < 3600
-                    ? (isEn ? `${Math.floor(diff / 60)}m ago` : `منذ ${Math.floor(diff / 60)} د`)
-                    : diff < 86400
-                      ? (isEn ? `${Math.floor(diff / 3600)}h ago` : `منذ ${Math.floor(diff / 3600)} س`)
-                      : new Date(log.created_at).toLocaleDateString(isEn ? "en-US" : "ar-IQ");
-
-                return (
-                  <div
-                    key={log.id}
-                    className="px-5 py-3 flex items-start gap-3 hover:bg-[var(--surface-soft)] transition-colors"
-                    style={{ background: i % 2 === 0 ? "var(--card-bg)" : undefined }}
-                  >
-                    {/* Action icon */}
-                    <span
-                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                      style={{
-                        background: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
-                        color: cfg.color,
-                      }}
-                    >
-                      {cfg.icon}
-                    </span>
-
-                    {/* Main content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
-                        {/* Actor name */}
-                        <span className="text-sm font-bold text-[var(--text-primary)] truncate">
-                          {log.actor_name ?? (isEn ? "Unknown" : "غير معروف")}
-                        </span>
-                        {/* Role badge */}
-                        {roleLabel && (
-                          <span
-                            className="inline-flex items-center px-1.5 py-px rounded text-[10px] font-black"
-                            style={{
-                              background: `color-mix(in srgb, ${roleColor} 12%, transparent)`,
-                              color: roleColor,
-                            }}
-                          >
-                            {roleLabel}
-                          </span>
-                        )}
-                        {/* Action label */}
-                        <span
-                          className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-black"
-                          style={{
-                            background: `color-mix(in srgb, ${cfg.color} 10%, transparent)`,
-                            color: cfg.color,
-                          }}
-                        >
-                          {isEn ? cfg.labelEn : cfg.label}
-                        </span>
-                        {/* Entity label */}
-                        {entityLabel && (
-                          <span className="text-[11px] text-[var(--text-muted)]">
-                            {entityLabel}
-                          </span>
-                        )}
-                      </div>
-                      {log.summary && (
-                        <p className="text-xs text-[var(--text-secondary)] truncate">{log.summary}</p>
-                      )}
-                    </div>
-
-                    {/* Time */}
-                    <span
-                      className="text-[11px] text-[var(--text-muted)] shrink-0 mt-0.5 tabular-nums"
-                      title={new Date(log.created_at).toLocaleString(isEn ? "en-US" : "ar-IQ")}
-                    >
-                      {relativeTime}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* Row 6: Activity Logs — styled as timeline */}
+      <ActivityLogsTimeline
+        isEn={isEn}
+        activityLogs={activityLogs}
+        activityLoading={activityLoading}
+        activityLoaded={activityLoaded}
+        onRefresh={() => setActivityLoaded(false)}
+      />
 
       {/* Modals */}
 
