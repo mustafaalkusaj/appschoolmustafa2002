@@ -436,6 +436,12 @@ export default function IncomesPage() {
       return;
     }
 
+    if (!form.income_type_id) {
+      setError(locale === "en" ? "Please select a revenue type before saving." : "يجب اختيار نوع الإيراد قبل الحفظ");
+      setSaving(false);
+      return;
+    }
+
     const payload: Record<string, any> = {
       school_id: targetSchoolId,
       income_type_id: form.income_type_id,

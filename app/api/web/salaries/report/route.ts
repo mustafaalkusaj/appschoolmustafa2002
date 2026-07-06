@@ -79,6 +79,40 @@ export async function GET(req: NextRequest) {
   }
 
   if (view === "summary") {
+    // Query salary payment data per teacher in parallel
+    let salaryQuery = applyBranchScopeToQuery(
+      actorSupabase
+        .from("salaries")
+        .select("teacher_id, gross_salary, deductions, is_paid")
+        .eq("school_id", targetSchoolId),
+      branchScope.value,
+    );
+
+    if (teacherId) {
+      salaryQuery = salaryQuery.eq("teacher_id", teacherId);
+    }
+
+    if (validMonth) {
+      salaryQuery = salaryQuery.eq("month", validMonth);
+    }
+
+    const { data: salaryData } = await salaryQuery;
+
+    // Build salary totals per teacher
+    const salaryByTeacher = new Map<string, { paid: number; pending: number }>();
+    for (const row of salaryData ?? []) {
+      const key = String(row.teacher_id ?? "");
+      if (!key) continue;
+      const current = salaryByTeacher.get(key) ?? { paid: 0, pending: 0 };
+      const net = (Number(row.gross_salary ?? 0) || 0) - (Number(row.deductions ?? 0) || 0);
+      if (row.is_paid) {
+        current.paid += net;
+      } else {
+        current.pending += net;
+      }
+      salaryByTeacher.set(key, current);
+    }
+
     const summaryMap = new Map<
       string,
       {
@@ -87,6 +121,8 @@ export async function GET(req: NextRequest) {
         subject: string;
         lectureCount: number;
         lectureTotal: number;
+        salaryPaid: number;
+        salaryPending: number;
         byGrade: Record<string, number>;
       }
     >();
@@ -96,6 +132,7 @@ export async function GET(req: NextRequest) {
       const key = String(lecture.teacher_id ?? "");
       if (!key) continue;
 
+      const salaryInfo = salaryByTeacher.get(key) ?? { paid: 0, pending: 0 };
       const current =
         summaryMap.get(key) ??
         {
@@ -104,6 +141,8 @@ export async function GET(req: NextRequest) {
           subject: String(teacher?.subject ?? ""),
           lectureCount: 0,
           lectureTotal: 0,
+          salaryPaid: salaryInfo.paid,
+          salaryPending: salaryInfo.pending,
           byGrade: {},
         };
 
@@ -114,6 +153,22 @@ export async function GET(req: NextRequest) {
       summaryMap.set(key, current);
     }
 
+    // Include teachers who have salary records but no lectures
+    salaryByTeacher.forEach((salaryInfo, teacherKey) => {
+      if (!summaryMap.has(teacherKey)) {
+        summaryMap.set(teacherKey, {
+          teacher_id: teacherKey,
+          full_name: "—",
+          subject: "",
+          lectureCount: 0,
+          lectureTotal: 0,
+          salaryPaid: salaryInfo.paid,
+          salaryPending: salaryInfo.pending,
+          byGrade: {},
+        });
+      }
+    });
+
     const summary = Array.from(summaryMap.values()).sort((left, right) => right.lectureTotal - left.lectureTotal);
     return NextResponse.json({
       ok: true,
@@ -121,6 +176,8 @@ export async function GET(req: NextRequest) {
       totals: {
         lectureCount: summary.reduce((sum, item) => sum + item.lectureCount, 0),
         total: summary.reduce((sum, item) => sum + item.lectureTotal, 0),
+        salaryPaid: summary.reduce((sum, item) => sum + item.salaryPaid, 0),
+        salaryPending: summary.reduce((sum, item) => sum + item.salaryPending, 0),
       },
     });
   }

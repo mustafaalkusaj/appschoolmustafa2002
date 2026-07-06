@@ -705,6 +705,13 @@
         "confirm": "Yes, Delete",
         "cancel": "Cancel"
       },
+      "suspendTitle": "Confirm Suspension",
+      "suspendConfirm": {
+        "message": "Are you sure you want to suspend this student?",
+        "warning": "Student will be moved to suspended status",
+        "confirm": "Yes, Suspend",
+        "cancel": "Cancel"
+      },
       "import": {
         "title": "Import Students from Excel",
         "columnsTitle": "File Columns:",
@@ -887,6 +894,31 @@
       "deletePaymentDescriptionWithStudent": "The payment for {student} will be deleted and the remaining balance will be recalculated.",
       "deletePaymentDescription": "The selected payment will be deleted and the remaining balance will be recalculated.",
       "deletePaymentConfirm": "Yes, delete payment"
+    },
+    "modal": {
+      "title": "Record new payment",
+      "studentName": "Student name",
+      "studentSearchPlaceholder": "Search by student name...",
+      "searching": "Searching...",
+      "noResults": "No results",
+      "total": "Total",
+      "paid": "Paid",
+      "remaining": "Remaining",
+      "receiptDate": "Receipt date",
+      "amount": "Amount",
+      "paperReceiptNumber": "Paper receipt number",
+      "optional": "Optional",
+      "exampleReceipt": "e.g. 1042",
+      "electronicReceiptNumber": "Electronic receipt number",
+      "paymentMethod": "Payment method",
+      "methodCash": "Cash",
+      "methodBankTransfer": "Bank transfer",
+      "methodCheck": "Check",
+      "notes": "Notes",
+      "notesPlaceholder": "Enter any notes...",
+      "recordButton": "Record payment",
+      "cancelButton": "Cancel",
+      "currency": "IQD"
     }
   },
   "salaries": {

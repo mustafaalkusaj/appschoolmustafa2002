@@ -35,6 +35,7 @@ export const ALL_PERMISSIONS = [
   "moderate_teacher_activity",
   "view_fee_notifications",
   "send_fee_notifications",
+  "manage_schedule",
   "full_access",
 ] as const;
 

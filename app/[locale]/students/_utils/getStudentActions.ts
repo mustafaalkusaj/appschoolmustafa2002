@@ -15,6 +15,11 @@ interface GetStudentActionsOptions {
   onOpenEdit: (s: StudentWithFees) => void;
   onOpenCredentials: (s: StudentWithFees) => void;
   onInitDelete: (s: StudentWithFees) => void;
+  onViewPayments: (s: StudentWithFees) => void;
+  onQuickPay: (s: StudentWithFees) => void;
+  onCopyData: (s: StudentWithFees) => void;
+  onWhatsApp: (s: StudentWithFees) => void;
+  onChangeClass: (s: StudentWithFees) => void;
   setActiveMenu: (menu: string | null) => void;
 }
 
@@ -34,6 +39,9 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
     onOpenEdit,
     onOpenCredentials,
     onInitDelete,
+    onViewPayments,
+    onQuickPay,
+    onChangeClass,
     setActiveMenu,
   } = options;
   const copy = locale === "en"
@@ -50,6 +58,9 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
         restoreSuccess: "Student restored successfully.",
         reactivate: "Reactivate student",
         reactivateSuccess: "Student reactivated successfully.",
+        payments: "Payment history",
+        quickPay: "Quick payment",
+        changeClass: "Change class",
       }
     : {
         credentials: "بطاقة الدخول",
@@ -64,6 +75,9 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
         restoreSuccess: "تم استعادة الطالب ✓",
         reactivate: "إعادة التفعيل",
         reactivateSuccess: "تم تفعيل الطالب ✓",
+        payments: "سجل الدفعات",
+        quickPay: "دفعة سريعة",
+        changeClass: "تغيير الصف",
       };
 
   const credentialActions: StudentActionItem[] = canManageStudentAccounts
@@ -92,12 +106,38 @@ export function getStudentActions(options: GetStudentActionsOptions): StudentAct
     return [...credentialActions, printAction];
   }
 
+  const paymentAction: StudentActionItem = {
+    icon: "💰",
+    label: copy.payments,
+    fn: () => {
+      onViewPayments(student);
+      setActiveMenu(null);
+    },
+  };
+
   if (activeTab === "active") {
     return [
       ...credentialActions,
       printAction,
+      paymentAction,
+      {
+        icon: "💳",
+        label: copy.quickPay,
+        fn: () => {
+          onQuickPay(student);
+          setActiveMenu(null);
+        },
+      },
       ...(canEditStudents
         ? [
+            {
+              icon: "🔄",
+              label: copy.changeClass,
+              fn: () => {
+                onChangeClass(student);
+                setActiveMenu(null);
+              },
+            },
             {
               icon: "📦",
               label: copy.transfer,

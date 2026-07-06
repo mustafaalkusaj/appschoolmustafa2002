@@ -254,12 +254,16 @@ export interface ReportSummary {
   subject?: string;
   lectureCount: number;
   lectureTotal: number;
+  salaryPaid: number;
+  salaryPending: number;
   byGrade: Record<string, number>;
 }
 
 export interface ReportTotals {
   lectureCount: number;
   total: number;
+  salaryPaid: number;
+  salaryPending: number;
 }
 
 // Props types for components

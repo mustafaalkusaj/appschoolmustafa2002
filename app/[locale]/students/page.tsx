@@ -41,6 +41,7 @@ import { StudentDropdownMenu } from "./_components/StudentDropdownMenu";
 import { AddStudentModal } from "./_components/AddStudentModal";
 import { EditStudentModal } from "./_components/EditStudentModal";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
+import { SuspendConfirmModal } from "./_components/SuspendConfirmModal";
 import { TransferStudentModal } from "./_components/TransferStudentModal";
 import { ImportExcelModal } from "./_components/ImportExcelModal";
 import { AccountCardModal } from "./_components/AccountCardModal";
@@ -659,6 +660,15 @@ export default function StudentsPage() {
           onConfirm={operations.handleDeleteConfirmed}
           onCancel={() => {
             modals.setShowDeleteConfirm(false);
+            modals.setSelectedStudent(null);
+          }}
+        />
+        <SuspendConfirmModal
+          show={modals.showSuspendConfirm}
+          selectedStudent={modals.selectedStudent}
+          onConfirm={operations.confirmSuspend}
+          onCancel={() => {
+            modals.setShowSuspendConfirm(false);
             modals.setSelectedStudent(null);
           }}
         />

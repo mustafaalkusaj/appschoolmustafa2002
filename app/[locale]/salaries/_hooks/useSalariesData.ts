@@ -119,7 +119,7 @@ export function useSalariesData(
 
   // Report states
   const [reportSummary, setReportSummary] = useState<ReportSummary[]>([]);
-  const [reportTotals, setReportTotals] = useState<ReportTotals>({ lectureCount: 0, total: 0 });
+  const [reportTotals, setReportTotals] = useState<ReportTotals>({ lectureCount: 0, total: 0, salaryPaid: 0, salaryPending: 0 });
   const [reportLoading, setReportLoading] = useState(false);
 
   const getBranchId = useCallback(async (): Promise<string | null> => {
@@ -290,7 +290,7 @@ export function useSalariesData(
       cacheKey,
       () => fetchJsonWithAuthorizedSession<{
         summary?: ReportSummary[];
-        totals?: { lectureCount?: number; total?: number };
+        totals?: { lectureCount?: number; total?: number; salaryPaid?: number; salaryPending?: number };
         error?: { message?: string };
       }>(`/api/web/salaries/report?${params.toString()}`)
     );
@@ -299,6 +299,8 @@ export function useSalariesData(
       setReportTotals({
         lectureCount: Number(payload?.totals?.lectureCount ?? 0) || 0,
         total: Number(payload?.totals?.total ?? 0) || 0,
+        salaryPaid: Number(payload?.totals?.salaryPaid ?? 0) || 0,
+        salaryPending: Number(payload?.totals?.salaryPending ?? 0) || 0,
       });
     } else {
       setError(payload?.error?.message || "تعذر تحميل ملخص الرواتب.");
@@ -414,7 +416,7 @@ export function useSalariesData(
       setDeductionsList([]);
       setCalLectureDates([]);
       setReportSummary([]);
-      setReportTotals({ lectureCount: 0, total: 0 });
+      setReportTotals({ lectureCount: 0, total: 0, salaryPaid: 0, salaryPending: 0 });
       setReferenceLoaded(false);
       setArchivesLoaded(false);
       setReferenceLoading(false);

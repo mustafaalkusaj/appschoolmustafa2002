@@ -37,6 +37,7 @@ export interface UseStudentsOperationsOptions {
     setShowModal: (show: boolean) => void;
     setShowEdit: (show: boolean) => void;
     setShowDeleteConfirm: (show: boolean) => void;
+    setShowSuspendConfirm: (show: boolean) => void;
     setShowTransferConfirm: (show: boolean) => void;
     setShowImport: (show: boolean) => void;
     setAddStep: (step: number) => void;
@@ -455,66 +456,66 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
 
   const initSuspend = useCallback((student: StudentWithFees) => {
     modals.setSelectedStudent(student);
-    // Handle only suspension here; restores/reactivation use a dedicated handler.
+    modals.setShowSuspendConfirm(true);
+  }, [modals]);
+
+  const confirmSuspend = useCallback(async () => {
+    const student = modals.selectedStudent;
+    if (!student) return;
+
+    modals.setShowSuspendConfirm(false);
+
+    const currentStatus = student.status;
     let newStatus: StudentStatus;
     let nextTab: string;
     let successMsg: string;
 
-    const currentStatus = student.status;
-
     if (currentStatus === "active") {
-      // Suspend active student
       newStatus = "suspended";
       nextTab = "suspended";
       successMsg = isEnglish ? "Student suspended successfully." : "تم توقيف الطالب ✓";
     } else if (currentStatus === "suspended") {
-      // Reactivate suspended student
       newStatus = "active";
       nextTab = "active";
       successMsg = isEnglish ? "Student reactivated successfully." : "تم تفعيل الطالب ✓";
     } else if (currentStatus === "transferred") {
-      // Restore student from transferred
       newStatus = "active";
       nextTab = "active";
       successMsg = isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓";
     } else if (currentStatus === "deleted") {
-      // Restore student from deleted
       newStatus = "active";
       nextTab = "active";
       successMsg = isEnglish ? "Student restored successfully." : "تم استعادة الطالب ✓";
     } else {
-      // Unknown status - default to active
       newStatus = "active";
       nextTab = "active";
       successMsg = isEnglish ? "Student status updated." : "تم تحديث حالة الطالب.";
     }
 
-    void (async () => {
-      modals.setSaving(true);
-      const { school_id } = await getSchoolBranch();
-      if (!school_id) {
-        modals.setError(copy.selectSchoolBeforeEdit);
-        modals.setSaving(false);
-        return;
-      }
-      const response = await fetchWithAuthorizedSession(`/api/web/students/${student.id}`, {
-        method: "PATCH",
-        headers: withJsonHeaders(),
-        body: JSON.stringify({ school_id, status: newStatus }),
-      });
-      const payload = await response.json().catch(() => null);
+    modals.setSaving(true);
+    const { school_id } = await getSchoolBranch();
+    if (!school_id) {
+      modals.setError(copy.selectSchoolBeforeEdit);
       modals.setSaving(false);
+      return;
+    }
+    const response = await fetchWithAuthorizedSession(`/api/web/students/${student.id}`, {
+      method: "PATCH",
+      headers: withJsonHeaders(),
+      body: JSON.stringify({ school_id, status: newStatus }),
+    });
+    const payload = await response.json().catch(() => null);
+    modals.setSaving(false);
 
-      if (!response.ok) {
-        modals.setError(readApiError(payload, isEnglish ? "Could not update student status." : "تعذر تحديث حالة الطالب."));
-        return;
-      }
+    if (!response.ok) {
+      modals.setError(readApiError(payload, isEnglish ? "Could not update student status." : "تعذر تحديث حالة الطالب."));
+      return;
+    }
 
-      setActiveTab(nextTab);
-      modals.setSuccess(successMsg);
-      removeStudentOptimistically(student.id);
-      setTimeout(() => modals.setSuccess(""), 3000);
-    })();
+    setActiveTab(nextTab);
+    modals.setSuccess(successMsg);
+    removeStudentOptimistically(student.id);
+    setTimeout(() => modals.setSuccess(""), 3000);
   }, [modals, copy, getSchoolBranch, isEnglish, removeStudentOptimistically, setActiveTab]);
 
   const initRestore = useCallback((student: StudentWithFees) => {
@@ -839,6 +840,7 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     initTransfer,
     confirmTransfer,
     initSuspend,
+    confirmSuspend,
     initRestore,
     handleDeleteConfirmed,
     exportExcel,
@@ -847,5 +849,5 @@ export function useStudentsOperations(options: UseStudentsOperationsOptions) {
     downloadTemplate,
     openStudentCredentialsCard,
     getSchoolBranch,
-  }), [handleAdd, handleEdit, changeStatus, initTransfer, confirmTransfer, initSuspend, initRestore, handleDeleteConfirmed, exportExcel, handleFileChange, handleImport, downloadTemplate, openStudentCredentialsCard, getSchoolBranch]);
+  }), [handleAdd, handleEdit, changeStatus, initTransfer, confirmTransfer, initSuspend, confirmSuspend, initRestore, handleDeleteConfirmed, exportExcel, handleFileChange, handleImport, downloadTemplate, openStudentCredentialsCard, getSchoolBranch]);
 }

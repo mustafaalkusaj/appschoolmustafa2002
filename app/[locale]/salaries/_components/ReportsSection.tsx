@@ -17,6 +17,7 @@ interface ReportsSectionProps {
   reportTotals: ReportTotals;
   dailyLectures: DailyLecture[];
   teachers: Teacher[];
+  locale: "ar" | "en";
   onViewChange: (view: "summary" | "details") => void;
   onTeacherChange: (id: string) => void;
   onPrintReport: () => void;
@@ -30,10 +31,64 @@ export function ReportsSection({
   reportTotals,
   dailyLectures,
   teachers,
+  locale,
   onViewChange,
   onTeacherChange,
   onPrintReport,
 }: ReportsSectionProps) {
+  const isEn = locale === "en";
+  const cur = isEn ? "IQD" : "د.ع";
+  const txt = isEn ? {
+    summary: "Summary",
+    details: "Detailed records",
+    printReport: "Print report",
+    loading: "Loading...",
+    noLectures: "No lectures recorded",
+    noLecturesDesc: "No lectures have been recorded yet",
+    lectureCount: "Lectures:",
+    salaryPaid: "Salary paid:",
+    salaryPending: "Salary pending:",
+    totalLectures: "Total lectures:",
+    totalSalaryPaid: "Total salaries paid:",
+    totalSalaryPending: "Total salaries pending:",
+    allTeachers: "All teachers",
+    noRecords: "No records",
+    noRecordsDesc: "No lectures recorded for the selected period",
+    colDate: "Date",
+    colGrade: "Grade",
+    colSection: "Section",
+    colLesson: "Lesson",
+    colType: "Type",
+    colPrice: "Price",
+    lessonN: "Lesson",
+    morning: "Morning",
+    afternoon: "Afternoon",
+  } : {
+    summary: "ملخص",
+    details: "تفاصيل السجلات",
+    printReport: "طباعة التقرير",
+    loading: "جارٍ التحميل...",
+    noLectures: "لا توجد محاضرات مسجلة",
+    noLecturesDesc: "لم يتم تسجيل أي محاضرات بعد",
+    lectureCount: "عدد المحاضرات:",
+    salaryPaid: "الراتب المدفوع:",
+    salaryPending: "الراتب المعلق:",
+    totalLectures: "إجمالي جميع المحاضرات:",
+    totalSalaryPaid: "إجمالي الرواتب المدفوعة:",
+    totalSalaryPending: "إجمالي الرواتب المعلقة:",
+    allTeachers: "كل الأساتذة",
+    noRecords: "لا توجد سجلات",
+    noRecordsDesc: "لا توجد محاضرات مسجلة للفترة المحددة",
+    colDate: "التاريخ",
+    colGrade: "الصف",
+    colSection: "الشعبة",
+    colLesson: "الدرس",
+    colType: "النوع",
+    colPrice: "السعر",
+    lessonN: "الدرس",
+    morning: "صباحي",
+    afternoon: "ظهري",
+  };
   return (
     <div className="space-y-6">
       {/* Header with tabs and print button */}
@@ -48,7 +103,7 @@ export function ReportsSection({
                 : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             )}
           >
-            ملخص
+            {txt.summary}
           </button>
           <button
             onClick={() => onViewChange("details")}
@@ -59,12 +114,12 @@ export function ReportsSection({
                 : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             )}
           >
-            تفاصيل السجلات
+            {txt.details}
           </button>
         </div>
         <Button onClick={onPrintReport}>
           <AppIcon token="🖨️" size={14} />
-          طباعة التقرير
+          {txt.printReport}
         </Button>
       </div>
 
@@ -74,12 +129,12 @@ export function ReportsSection({
           {reportLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="h-10 w-10 border-4 border-[var(--primary)]/20 border-t-[var(--primary)] rounded-full animate-spin" />
-              <span className="text-sm font-medium text-[var(--text-muted)]">جارٍ التحميل...</span>
+              <span className="text-sm font-medium text-[var(--text-muted)]">{txt.loading}</span>
             </div>
           ) : reportSummary.length === 0 ? (
             <EmptyState
-              title="لا توجد محاضرات مسجلة"
-              description="لم يتم تسجيل أي محاضرات بعد"
+              title={txt.noLectures}
+              description={txt.noLecturesDesc}
             />
           ) : (
             <>
@@ -104,26 +159,60 @@ export function ReportsSection({
                         ))}
                       </div>
                     </div>
-                    <div className="text-start">
-                      <div className="text-xs text-[var(--text-muted)] mb-1">
-                        عدد المحاضرات: <strong className="text-[var(--text-primary)]">{t.lectureCount}</strong>
+                    <div className="text-start space-y-1">
+                      <div className="text-xs text-[var(--text-muted)]">
+                        {txt.lectureCount} <strong className="text-[var(--text-primary)]">{t.lectureCount}</strong>
                       </div>
                       <div className="text-lg font-bold text-[var(--success)]">
-                        د.ع {formatNumber(t.lectureTotal)}
+                        {cur} {formatNumber(t.lectureTotal)}
                       </div>
+                      {(t.salaryPaid > 0 || t.salaryPending > 0) && (
+                        <div className="flex flex-wrap gap-3 pt-1 border-t border-[var(--border)]">
+                          {t.salaryPaid > 0 && (
+                            <div className="text-xs">
+                              <span className="text-[var(--text-muted)]">{txt.salaryPaid} </span>
+                              <strong className="text-[var(--success)]">{cur} {formatNumber(t.salaryPaid)}</strong>
+                            </div>
+                          )}
+                          {t.salaryPending > 0 && (
+                            <div className="text-xs">
+                              <span className="text-[var(--text-muted)]">{txt.salaryPending} </span>
+                              <strong className="text-[var(--warning)]">{cur} {formatNumber(t.salaryPending)}</strong>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
 
               {/* Totals Card */}
-              <div className="rounded-xl bg-[var(--primary)] p-5 text-white flex flex-wrap justify-between items-center gap-4">
-                <span className="font-semibold">
-                  إجمالي جميع المحاضرات: {reportTotals.lectureCount}
-                </span>
-                <span className="text-xl font-bold">
-                  د.ع {formatNumber(reportTotals.total)}
-                </span>
+              <div className="rounded-xl bg-[var(--primary)] p-5 text-white space-y-3">
+                <div className="flex flex-wrap justify-between items-center gap-4">
+                  <span className="font-semibold">
+                    {txt.totalLectures} {reportTotals.lectureCount}
+                  </span>
+                  <span className="text-xl font-bold">
+                    {cur} {formatNumber(reportTotals.total)}
+                  </span>
+                </div>
+                {(reportTotals.salaryPaid > 0 || reportTotals.salaryPending > 0) && (
+                  <div className="flex flex-wrap gap-6 pt-3 border-t border-white/20">
+                    {reportTotals.salaryPaid > 0 && (
+                      <div className="text-sm">
+                        <span className="text-white/70">{txt.totalSalaryPaid} </span>
+                        <strong>{cur} {formatNumber(reportTotals.salaryPaid)}</strong>
+                      </div>
+                    )}
+                    {reportTotals.salaryPending > 0 && (
+                      <div className="text-sm">
+                        <span className="text-white/70">{txt.totalSalaryPending} </span>
+                        <strong className="text-yellow-200">{cur} {formatNumber(reportTotals.salaryPending)}</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -138,7 +227,7 @@ export function ReportsSection({
             onChange={(e) => onTeacherChange(e.target.value)}
             className="max-w-xs"
           >
-            <option value="">كل الأساتذة</option>
+            <option value="">{txt.allTeachers}</option>
             {teachers.map((t) => (
               <option key={t.id} value={t.id}>{t.full_name}</option>
             ))}
@@ -155,20 +244,20 @@ export function ReportsSection({
                 : dailyLectures;
               return filtered.length === 0 ? (
                 <EmptyState
-                  title="لا توجد سجلات"
-                  description="لا توجد محاضرات مسجلة للفترة المحددة"
+                  title={txt.noRecords}
+                  description={txt.noRecordsDesc}
                 />
               ) : (
                 <table className="w-full">
                   <thead>
                     <tr className="bg-[var(--surface-muted)] border-b border-[var(--border)]">
                       <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">#</th>
-                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">التاريخ</th>
-                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الصف</th>
-                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الشعبة</th>
-                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">الدرس</th>
-                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">النوع</th>
-                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">السعر</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">{txt.colDate}</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">{txt.colGrade}</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">{txt.colSection}</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">{txt.colLesson}</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">{txt.colType}</th>
+                      <th className="px-4 py-3 text-start text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">{txt.colPrice}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
@@ -178,14 +267,14 @@ export function ReportsSection({
                         <td className="px-4 py-3 text-sm">{l.lecture_date}</td>
                         <td className="px-4 py-3 text-sm font-semibold">{l.grade}</td>
                         <td className="px-4 py-3 text-sm">({l.section})</td>
-                        <td className="px-4 py-3 text-sm">الدرس {l.period}</td>
+                        <td className="px-4 py-3 text-sm">{txt.lessonN} {l.period}</td>
                         <td className="px-4 py-3">
                           <Badge variant={l.session_type === "morning" ? "info" : "warning"} size="sm">
-                            {l.session_type === "morning" ? "صباحي" : "ظهري"}
+                            {l.session_type === "morning" ? txt.morning : txt.afternoon}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-sm font-bold text-[var(--primary)]">
-                          د.ع {formatNumber(l.price)}
+                          {cur} {formatNumber(l.price)}
                         </td>
                       </tr>
                     ))}

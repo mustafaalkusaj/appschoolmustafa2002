@@ -19,8 +19,14 @@ export interface UseStudentsModalsReturn {
   setShowEdit: (show: boolean) => void;
   showDeleteConfirm: boolean;
   setShowDeleteConfirm: (show: boolean) => void;
+  showSuspendConfirm: boolean;
+  setShowSuspendConfirm: (show: boolean) => void;
   showTransferConfirm: boolean;
   setShowTransferConfirm: (show: boolean) => void;
+  showQuickPay: boolean;
+  setShowQuickPay: (show: boolean) => void;
+  showChangeClass: boolean;
+  setShowChangeClass: (show: boolean) => void;
 
   // Selected student
   selectedStudent: StudentWithFees | null;
@@ -81,7 +87,10 @@ export function useStudentsModals(): UseStudentsModalsReturn {
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showSuspendConfirm, setShowSuspendConfirm] = useState(false);
   const [showTransferConfirm, setShowTransferConfirm] = useState(false);
+  const [showQuickPay, setShowQuickPay] = useState(false);
+  const [showChangeClass, setShowChangeClass] = useState(false);
 
   const [selectedStudent, setSelectedStudent] = useState<StudentWithFees | null>(null);
   
@@ -170,7 +179,10 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     setShowImport(false);
     setShowEdit(false);
     setShowDeleteConfirm(false);
+    setShowSuspendConfirm(false);
     setShowTransferConfirm(false);
+    setShowQuickPay(false);
+    setShowChangeClass(false);
     setImportPreview([]);
     setImportError("");
     setAddStep(1);
@@ -187,8 +199,14 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     setShowEdit,
     showDeleteConfirm,
     setShowDeleteConfirm,
+    showSuspendConfirm,
+    setShowSuspendConfirm,
     showTransferConfirm,
     setShowTransferConfirm,
+    showQuickPay,
+    setShowQuickPay,
+    showChangeClass,
+    setShowChangeClass,
     selectedStudent,
     setSelectedStudent,
     form,
@@ -222,5 +240,5 @@ export function useStudentsModals(): UseStudentsModalsReturn {
     openMenu,
     resetForm,
     closeAllModals,
-  }), [showModal, setShowModal, addStep, setAddStep, showImport, setShowImport, showEdit, setShowEdit, showDeleteConfirm, setShowDeleteConfirm, showTransferConfirm, setShowTransferConfirm, selectedStudent, setSelectedStudent, form, setForm, editForm, setEditForm, saving, setSaving, importing, setImporting, printingCards, setPrintingCards, success, setSuccess, error, setError, accountCard, setAccountCard, revealedPassword, setRevealedPassword, importPreview, setImportPreview, importError, setImportError, activeMenu, setActiveMenu, menuPos, setMenuPos, fileRef, openEdit, openMenu, resetForm, closeAllModals]);
+  }), [showModal, setShowModal, addStep, setAddStep, showImport, setShowImport, showEdit, setShowEdit, showDeleteConfirm, setShowDeleteConfirm, showSuspendConfirm, setShowSuspendConfirm, showTransferConfirm, setShowTransferConfirm, showQuickPay, setShowQuickPay, showChangeClass, setShowChangeClass, selectedStudent, setSelectedStudent, form, setForm, editForm, setEditForm, saving, setSaving, importing, setImporting, printingCards, setPrintingCards, success, setSuccess, error, setError, accountCard, setAccountCard, revealedPassword, setRevealedPassword, importPreview, setImportPreview, importError, setImportError, activeMenu, setActiveMenu, menuPos, setMenuPos, fileRef, openEdit, openMenu, resetForm, closeAllModals]);
 }
