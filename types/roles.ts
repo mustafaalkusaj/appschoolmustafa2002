@@ -200,6 +200,17 @@ export function buildTemplatePermissions(role: UserRole): Permission[] {
   return [...ROLE_PERMISSIONS[role]];
 }
 
+export function resolveEffectivePermissions(
+  customPermissions: unknown,
+  basePermissions: unknown,
+  role: UserRole,
+): Permission[] {
+  if (Array.isArray(customPermissions) && customPermissions.length > 0) {
+    return normalizePermissions(customPermissions, role);
+  }
+  return normalizePermissions(basePermissions, role);
+}
+
 export function normalizePermissions(input: unknown, role: UserRole): Permission[] {
   if (!Array.isArray(input) || input.length === 0) {
     return buildTemplatePermissions(role);
