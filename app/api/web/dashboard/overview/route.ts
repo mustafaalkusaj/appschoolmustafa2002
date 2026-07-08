@@ -151,6 +151,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorUserId, targetSchoolId } = context.value;
+  console.log("[dashboard-debug] entry", { schoolId, targetSchoolId, actorUserId });
   // Resolve branch access via resolveBranchScope — handles all cases: school-level, branch-level, multi-branch
   const branchScope = resolveBranchScope(context.value, branchId ?? null);
   if (!branchScope.ok) {
@@ -470,6 +471,7 @@ export async function GET(req: NextRequest) {
         todayExpenses,
       };
 
+      console.log("[dashboard-debug] totals", { studentsCount: resolvedStudents.length, totalFees: totals.totalFees, totalPaid: totals.totalPaid, totalRemaining: totals.totalRemaining });
       const afterDiscount = totals.totalFees - totals.totalDiscount;
       const paidPct = calculateStudentPaidPercentage({
         total_fee: totals.totalFees,
