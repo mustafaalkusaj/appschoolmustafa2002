@@ -595,8 +595,8 @@ export function DashboardExperience({
                       />
                     )}
 
-                    {/* Order-driven widget list */}
-                    {renderItems.map((item, idx) => {
+                    {/* Order-driven widget list — only for branch-scoped views */}
+                    {branchScoped && renderItems.map((item, idx) => {
                       if (item.type === "pair") {
                         return (
                           <div key={`pair-${idx}`} className="grid gap-6 md:grid-cols-2">
