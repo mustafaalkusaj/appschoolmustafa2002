@@ -312,6 +312,7 @@ export const APP_ICON_MAP: Record<string, LucideIcon> = {
   "🔍": Search,
   "🔢": Hash,
   "📝": NotebookPen,
+  "💬": MessageSquare,
   "📞": Phone,
   "🚫": Ban,
   "⛔": Ban,
@@ -346,5 +347,6 @@ export const APP_ICON_MAP: Record<string, LucideIcon> = {
   "📣": Megaphone,
   "🧑‍🏫": UserCheck,
   "🔑": KeyRound,
+  "👨‍👧": Users,
   "🌿": Sparkles,
 };
