@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardExperience } from "../../dashboard/_components/DashboardExperience";
 
-const SCHOOL_PARAM = "schoolId";
+const SCHOOL_PARAM = "school";
 
 interface GroupDashboardClientProps {
   schoolId: string;
