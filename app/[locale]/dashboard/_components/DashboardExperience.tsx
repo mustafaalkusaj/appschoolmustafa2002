@@ -59,6 +59,7 @@ interface DashboardExperienceProps {
   titleOverride?: string;
   subtitleOverride?: string;
   branchScoped?: boolean;
+  schoolIdOverride?: string | null;
 }
 
 export function DashboardExperience({
@@ -66,6 +67,7 @@ export function DashboardExperience({
   titleOverride,
   subtitleOverride,
   branchScoped = false,
+  schoolIdOverride,
 }: DashboardExperienceProps) {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
@@ -73,6 +75,7 @@ export function DashboardExperience({
   const commonT = useTranslations("common");
   const { profile, canAny, can } = useRole();
   const schoolScope = useSchoolScope(profile);
+  const effectiveSchoolId = schoolIdOverride ?? schoolScope.selectedSchoolId;
 
   // Check if a dashboard section is enabled. Defaults to true when sections map is null/undefined
   // (admins and super_admins without a school_role_id see everything).
@@ -89,21 +92,21 @@ export function DashboardExperience({
 
   const dashboardData = useDashboardData({
     profile,
-    selectedSchoolId: schoolScope.selectedSchoolId,
+    selectedSchoolId: effectiveSchoolId,
     scopeLoading: schoolScope.scopeLoading,
     branchScoped,
   });
 
   const recentActivity = useRecentActivity({
     profile,
-    selectedSchoolId: schoolScope.selectedSchoolId,
+    selectedSchoolId: effectiveSchoolId,
     scopeLoading: schoolScope.scopeLoading,
     branchScoped,
   });
 
   const classesSections = useClassesSections({
     profile,
-    selectedSchoolId: schoolScope.selectedSchoolId,
+    selectedSchoolId: effectiveSchoolId,
     scopeLoading: schoolScope.scopeLoading,
     branchScoped,
   });
@@ -114,7 +117,7 @@ export function DashboardExperience({
 
   const feeManagement = useFeeManagement({
     profile,
-    selectedSchoolId: schoolScope.selectedSchoolId,
+    selectedSchoolId: effectiveSchoolId,
     classFees: dashboardData.classFees || [],
     studentCountByClass: dashboardData.studentCountByClass || {},
     availableClassNames,
@@ -124,7 +127,7 @@ export function DashboardExperience({
 
   const branding = useBranding({
     profile,
-    selectedSchoolId: schoolScope.selectedSchoolId,
+    selectedSchoolId: effectiveSchoolId,
     scopeLoading: schoolScope.scopeLoading,
   });
 
@@ -147,7 +150,7 @@ export function DashboardExperience({
 
   const handleAddStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schoolScope.selectedSchoolId) return;
+    if (!effectiveSchoolId) return;
     setAddStudentSaving(true);
     setAddStudentError("");
     try {
@@ -155,7 +158,7 @@ export function DashboardExperience({
         method: "POST",
         headers: withJsonHeaders(),
         body: JSON.stringify({
-          school_id: schoolScope.selectedSchoolId,
+          school_id: effectiveSchoolId,
           role: "student",
           full_name: addStudentForm.full_name,
           email: "",
@@ -583,7 +586,7 @@ export function DashboardExperience({
                         buildLocalizedPath={schoolScope.buildLocalizedPath}
                         can={can}
                         canAny={canAny}
-                        schoolId={schoolScope.selectedSchoolId}
+                        schoolId={effectiveSchoolId}
                         availableClassNames={availableClassNames}
                         onOpenClassesModal={() => setShowClassesModal(true)}
                         onOpenAddStudentModal={() => { setAddStudentForm(DEFAULT_STUDENT_FORM); setAddStudentStep(1); setAddStudentError(""); setShowAddStudentModal(true); }}
@@ -664,14 +667,14 @@ export function DashboardExperience({
 
       <DashboardPaymentModal
         show={showPaymentModal}
-        schoolId={schoolScope.selectedSchoolId}
+        schoolId={effectiveSchoolId}
         onClose={() => setShowPaymentModal(false)}
         onSuccess={() => { setShowPaymentModal(false); dashboardData.refetch(); }}
       />
 
       <DashboardTeacherModal
         show={showTeacherModal}
-        schoolId={schoolScope.selectedSchoolId}
+        schoolId={effectiveSchoolId}
         locale={locale}
         onClose={() => setShowTeacherModal(false)}
         onSuccess={() => setShowTeacherModal(false)}
@@ -679,7 +682,7 @@ export function DashboardExperience({
 
       <DashboardExpenseModal
         show={showExpenseModal}
-        schoolId={schoolScope.selectedSchoolId}
+        schoolId={effectiveSchoolId}
         locale={locale}
         onClose={() => setShowExpenseModal(false)}
         onSuccess={() => { setShowExpenseModal(false); dashboardData.refetch(); }}
@@ -687,7 +690,7 @@ export function DashboardExperience({
 
       <DashboardIncomeModal
         show={showIncomeModal}
-        schoolId={schoolScope.selectedSchoolId}
+        schoolId={effectiveSchoolId}
         locale={locale}
         onClose={() => setShowIncomeModal(false)}
         onSuccess={() => { setShowIncomeModal(false); dashboardData.refetch(); }}
@@ -706,7 +709,7 @@ export function DashboardExperience({
         error={addStudentError}
         onClose={() => { setShowAddStudentModal(false); setAddStudentStep(1); setAddStudentForm(DEFAULT_STUDENT_FORM); }}
         onSubmit={handleAddStudentSubmit}
-        schoolId={schoolScope.selectedSchoolId}
+        schoolId={effectiveSchoolId}
       />
 
       <FeeModal
