@@ -33,9 +33,13 @@ async function generateUsername(supabase: any, schoolId: string): Promise<string
 }
 
 function generatePassword(): string {
-  const bytes = randomBytes(3);
-  const n = (bytes[0] * 65536 + bytes[1] * 256 + bytes[2]) % 900000 + 100000;
-  return String(n);
+  const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = randomBytes(12);
+  let password = "";
+  for (let i = 0; i < 12; i++) {
+    password += charset[bytes[i] % charset.length];
+  }
+  return password;
 }
 
 async function resolveAppAccountContext(

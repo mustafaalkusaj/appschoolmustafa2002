@@ -328,6 +328,7 @@ export default function SalariesPage() {
     else if (selectedTeacher.salary_type === "hourly") gross = lectureSalaryCalc.total;
     else if (selectedTeacher.salary_type === "mixed") gross = (Number(selectedTeacher.base_salary) || 0) + lectureSalaryCalc.total;
     else gross = parseFloat(salaryForm.gross_salary) || Number(selectedTeacher.base_salary) || 0;
+    if (gross <= 0) { setError("مبلغ الراتب يجب أن يكون أكبر من صفر. تحقق من إعدادات الراتب للأستاذ."); setSavingSalary(false); return; }
     const { response, payload } = await fetchJsonWithAuthorizedSession<SalaryPaymentResponse>("/api/web/salaries/pay", { method: "POST", headers: withJsonHeaders(), body: JSON.stringify({ school_id: schoolId, teacher_id: selectedTeacher.id, gross_salary: gross, deductions: parseFloat(salaryForm.deductions) || 0, month: salaryForm.month, notes: salaryForm.notes || null, branch_id: runtimeBranding.branchId || null }) });
     if (!response.ok) setError(payload?.error?.message || "تعذر صرف الراتب.");
     else { setSuccess(`تم دفع الراتب بنجاح ✓`); setShowPaySalary(false); fetchAll(); setTimeout(() => setSuccess(""), 3000); }

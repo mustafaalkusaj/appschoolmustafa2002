@@ -184,7 +184,7 @@ export function SendNotificationForm({ schoolId, branchId, locale, onSuccess }: 
     if (targetType !== "class" && targetType !== "section") return;
     if (classes.length > 0) return;
     setLoadingClasses(true);
-    fetchWithAuthorizedSession(`/api/web/dashboard/structure?schoolId=${schoolId}${branchId ? `&branchId=${branchId}` : ""}`)
+    fetchWithAuthorizedSession(`/api/web/dashboard/structure?schoolId=${schoolId}${branchId ? `&branchId=${branchId}&branchScoped=1` : ""}`)
       .then((r) => r.json()).then((data) => { if (data?.ok && data.classes) setClasses(data.classes as ClassItem[]); })
       .catch(() => {}).finally(() => setLoadingClasses(false));
   }, [targetType, schoolId, branchId, classes.length]);

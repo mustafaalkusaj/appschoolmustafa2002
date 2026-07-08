@@ -58,6 +58,17 @@ export function LeavesTab({ teacherId, schoolId, leaves, leavesLoading, fetchLea
     }
   }, [fetchLeaves]);
 
+  useEffect(() => {
+    if (form.start_date && form.end_date) {
+      const start = new Date(form.start_date);
+      const end = new Date(form.end_date);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+        const diff = Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1;
+        setForm((f) => ({ ...f, days_count: diff }));
+      }
+    }
+  }, [form.start_date, form.end_date]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!schoolId) return;
