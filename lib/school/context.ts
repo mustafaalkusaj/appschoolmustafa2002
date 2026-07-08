@@ -17,8 +17,11 @@ export async function resolveSchoolIdForProfile(
 ): Promise<string | null> {
   if (profile?.school_id) return profile.school_id;
 
+  const override = options?.selectedSchoolId?.trim();
+  if (override) return override;
+
   if (profile?.role === "super_admin") {
-    return options?.selectedSchoolId?.trim() || readSchoolScopeFromWindow();
+    return readSchoolScopeFromWindow();
   }
 
   return null;
