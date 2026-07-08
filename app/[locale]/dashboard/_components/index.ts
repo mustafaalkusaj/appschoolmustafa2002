@@ -17,5 +17,14 @@ export { DashboardTeacherModal } from "./DashboardTeacherModal";
 export { DashboardExpenseModal } from "./DashboardExpenseModal";
 export { DashboardIncomeModal } from "./DashboardIncomeModal";
 
+// New Dashboard Components
+export { DashboardKPICards } from "./DashboardKPICards";
+export { DashboardAlerts } from "./DashboardAlerts";
+export { DashboardBranchPerformance } from "./DashboardBranchPerformance";
+export { DashboardInsights } from "./DashboardInsights";
+export { DashboardOverdueNew } from "./DashboardOverdueNew";
+export { DashboardTransactions } from "./DashboardTransactions";
+export { DashboardFooterStats } from "./DashboardFooterStats";
+
 // Types
 export * from "./types";

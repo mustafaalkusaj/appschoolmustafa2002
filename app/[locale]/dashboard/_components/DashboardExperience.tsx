@@ -44,6 +44,13 @@ import {
   DashboardTeacherModal,
   DashboardExpenseModal,
   DashboardIncomeModal,
+  DashboardKPICards,
+  DashboardAlerts,
+  DashboardBranchPerformance,
+  DashboardInsights,
+  DashboardOverdueNew,
+  DashboardTransactions,
+  DashboardFooterStats,
 } from ".";
 
 
@@ -474,15 +481,25 @@ export function DashboardExperience({
                       </div>
                     )}
 
-                    {/* DashboardActions — only on main dashboard; branch-overview uses QuickAccessPanel instead */}
+                    {/* New Dashboard Layout — main dashboard */}
                     {!branchScoped && (
-                      <DashboardActions
-                        canManageClasses={canManageClasses}
-                        showFeesTable={showFeesTable}
-                        onToggleFeesTable={() => setShowFeesTable(v => !v)}
-                        onOpenNewFee={() => { setShowFeesTable(true); feeManagement.openNewFee(); }}
-                        onOpenClassesModal={() => setShowClassesModal(true)}
-                      />
+                      <>
+                        <DashboardKPICards dashboardTotals={dashboardData.dashboardTotals} loading={dashboardData.loading} />
+                        <DashboardAlerts dashboardTotals={dashboardData.dashboardTotals} overdueStudents={dashboardData.overdueStudents} />
+                        <DashboardBranchPerformance classFees={dashboardData.classFees} dashboardTotals={dashboardData.dashboardTotals} loading={dashboardData.loading} />
+                        <DashboardInsights dashboardTotals={dashboardData.dashboardTotals} classFees={dashboardData.classFees} loading={dashboardData.loading} />
+                        <DashboardOverdueNew overdueStudents={dashboardData.overdueStudents} classFees={dashboardData.classFees} loading={dashboardData.loading} />
+                        <DashboardTransactions recentPayments={dashboardData.recentPayments} loading={dashboardData.loading} />
+                        <DashboardFooterStats dashboardTotals={dashboardData.dashboardTotals} />
+
+                        <DashboardActions
+                          canManageClasses={canManageClasses}
+                          showFeesTable={showFeesTable}
+                          onToggleFeesTable={() => setShowFeesTable(v => !v)}
+                          onOpenNewFee={() => { setShowFeesTable(true); feeManagement.openNewFee(); }}
+                          onOpenClassesModal={() => setShowClassesModal(true)}
+                        />
+                      </>
                     )}
 
                     {/* Branch Summary Header — compact data-rich banner for branch-overview */}
