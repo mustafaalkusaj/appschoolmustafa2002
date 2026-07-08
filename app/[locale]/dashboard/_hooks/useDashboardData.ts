@@ -60,8 +60,9 @@ export function useDashboardData({
       // fall through with null ids — API will handle auth
     }
 
+    console.log("[dashboard-debug-client] fetchAll", { schoolId, branchId, profileId: profile?.id, profileSchoolId: profile?.school_id, selectedSchoolId });
     if (!schoolId) {
-      // Don't wipe existing data — just stop loading; the scope may still be resolving
+      console.log("[dashboard-debug-client] bailing: no schoolId");
       setLoading(false);
       return;
     }
@@ -82,6 +83,7 @@ export function useDashboardData({
         )
       );
 
+      console.log("[dashboard-debug-client] response", { ok: response.ok, status: response.status, hasTotals: !!payload?.totals, studentsCount: payload?.totals?.studentsCount });
       if (!response.ok) {
         if (branchScoped) {
           // In branch-scoped mode, treat API failures as degraded — show zeros rather than an error block.
@@ -124,6 +126,7 @@ export function useDashboardData({
   }, [branchScoped, profile, selectedSchoolId]);
 
   useEffect(() => {
+    console.log("[dashboard-debug-client] useEffect gate", { hasProfile: !!profile, scopeLoading, profileRole: profile?.role });
     if (!profile || scopeLoading) return;
     void fetchAll();
   }, [profile, scopeLoading, fetchAll]);
