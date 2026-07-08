@@ -214,6 +214,9 @@ export function StudentsTable({
                 {t("paid")}
               </th>
               <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {t("discount")}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                 {t("balance")}
               </th>
               <th className="px-4 py-3 text-start text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
@@ -285,6 +288,15 @@ export function StudentsTable({
                   </td>
                   <td className={cn("px-4 text-sm font-semibold text-[var(--success)]", rowPad)}>
                     {commonT("currency")} {formatNumber(s.paid_fee)}
+                  </td>
+                  <td className={cn("px-4 text-sm", rowPad)}
+                    title={s.discount_value && s.discount_value > 0
+                      ? `${formatNumber(s.total_fee)} − ${formatNumber(s.discount_value)} = ${formatNumber(Math.max((s.total_fee ?? 0) - (s.discount_value ?? 0), 0))}`
+                      : undefined}
+                  >
+                    {s.discount_value && s.discount_value > 0
+                      ? <span className="font-bold text-[var(--warning)]">{commonT("currency")} {formatNumber(s.discount_value)}</span>
+                      : <span className="text-[var(--text-muted)]">—</span>}
                   </td>
                   <td
                     className={cn(
