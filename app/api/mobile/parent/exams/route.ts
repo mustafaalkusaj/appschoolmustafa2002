@@ -27,12 +27,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "خطأ في جلب بيانات الطلاب." }, { status: 500 });
     }
 
-    if (!links || links.length === 0) {
-      return NextResponse.json({ ok: true, exams: [] });
-    }
+    let studentIds: string[];
+    let schoolId: string;
 
-    const studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
-    const schoolId = (links[0] as { school_id: string }).school_id;
+    if (links && links.length > 0) {
+      studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+      schoolId = (links[0] as { school_id: string }).school_id;
+    } else {
+      const { data: mp } = await serviceSupabase
+        .from("managed_user_profiles")
+        .select("student_id, school_id")
+        .eq("auth_user_id", authResult.data.user.id)
+        .not("student_id", "is", null)
+        .maybeSingle();
+      if (!mp?.student_id || !mp?.school_id) {
+        return NextResponse.json({ ok: true, exams: [] });
+      }
+      studentIds = [mp.student_id];
+      schoolId = mp.school_id;
+    }
 
     const { data, error } = await serviceSupabase
       .from("exam_attempts")

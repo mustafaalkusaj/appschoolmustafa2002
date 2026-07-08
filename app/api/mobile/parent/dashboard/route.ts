@@ -44,21 +44,36 @@ export async function GET(req: NextRequest) {
       return jsonError("خطأ في جلب بيانات الطلاب المرتبطين.", 500);
     }
 
-    if (!links || links.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        students: [],
-        grades: [],
-        attendance_stats: [],
-        payments: [],
-        behavior: [],
-        message: "لا يوجد طلاب مرتبطين بحسابك.",
-      });
-    }
+    let schoolId: string;
+    let studentIds: string[];
 
-    // Use the school_id from the first link (a parent belongs to one school).
-    const schoolId = (links[0] as { school_id: string }).school_id;
-    const studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+    if (links && links.length > 0) {
+      schoolId = (links[0] as { school_id: string }).school_id;
+      studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+    } else {
+      // Fallback: student viewing their own data in parent/guardian mode
+      const { data: managedProfile } = await serviceSupabase
+        .from("managed_user_profiles")
+        .select("student_id, school_id")
+        .eq("auth_user_id", authUserId)
+        .not("student_id", "is", null)
+        .maybeSingle();
+
+      if (!managedProfile?.student_id || !managedProfile?.school_id) {
+        return NextResponse.json({
+          ok: true,
+          students: [],
+          grades: [],
+          attendance_stats: [],
+          payments: [],
+          behavior: [],
+          message: "لا يوجد طلاب مرتبطين بحسابك.",
+        });
+      }
+
+      schoolId = managedProfile.school_id;
+      studentIds = [managedProfile.student_id];
+    }
 
     // Fetch all data in parallel.
     const thirtyDaysAgo = new Date();

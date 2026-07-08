@@ -41,12 +41,25 @@ export async function GET(req: NextRequest) {
       return jsonError("خطأ في جلب بيانات الطلاب المرتبطين.", 500);
     }
 
-    if (!links || links.length === 0) {
-      return NextResponse.json({ ok: true, teachers: [] });
-    }
+    let schoolId: string;
+    let studentIds: string[];
 
-    const schoolId = (links[0] as { school_id: string }).school_id;
-    const studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+    if (links && links.length > 0) {
+      schoolId = (links[0] as { school_id: string }).school_id;
+      studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+    } else {
+      const { data: mp } = await serviceSupabase
+        .from("managed_user_profiles")
+        .select("student_id, school_id")
+        .eq("auth_user_id", authResult.data.user.id)
+        .not("student_id", "is", null)
+        .maybeSingle();
+      if (!mp?.student_id || !mp?.school_id) {
+        return NextResponse.json({ ok: true, teachers: [] });
+      }
+      schoolId = mp.school_id;
+      studentIds = [mp.student_id];
+    }
 
     // 2. Get class names for linked students
     const { data: students } = await serviceSupabase

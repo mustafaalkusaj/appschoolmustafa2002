@@ -53,19 +53,30 @@ export async function POST(req: NextRequest) {
 
     const serviceSupabase = createServiceSupabaseClient();
 
-    // 1. Verify teacher exists in the same school as the parent
+    // 1. Resolve school from parent_student_links or managed_user_profiles
     const { data: links } = await serviceSupabase
       .from("parent_student_links")
       .select("school_id")
       .eq("parent_user_id", parentUserId)
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (!links) {
-      return jsonError("لا يوجد ربط بمدرسة لحساب ولي الأمر.", 403);
+    let schoolId: string;
+
+    if (links) {
+      schoolId = (links as { school_id: string }).school_id;
+    } else {
+      const { data: mp } = await serviceSupabase
+        .from("managed_user_profiles")
+        .select("school_id")
+        .eq("auth_user_id", parentUserId)
+        .not("school_id", "is", null)
+        .maybeSingle();
+      if (!mp?.school_id) {
+        return jsonError("لا يوجد ربط بمدرسة لحساب ولي الأمر.", 403);
+      }
+      schoolId = mp.school_id;
     }
-
-    const schoolId = (links as { school_id: string }).school_id;
 
     const { data: teacher } = await serviceSupabase
       .from("teachers")

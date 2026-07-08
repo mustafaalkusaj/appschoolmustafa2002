@@ -94,7 +94,9 @@ export async function POST(req: NextRequest) {
       return jsonError("student_id مطلوب.", 400);
     }
 
-    // Verify this student belongs to the parent and get school_id.
+    // Verify student belongs to user via parent_student_links or managed_user_profiles
+    let resolvedSchoolId: string | null = null;
+
     const { data: link, error: linkError } = await serviceSupabase
       .from("parent_student_links")
       .select("school_id")
@@ -106,14 +108,26 @@ export async function POST(req: NextRequest) {
       return jsonError("خطأ في التحقق من بيانات الطالب.", 500);
     }
 
-    if (!link) {
+    if (link) {
+      resolvedSchoolId = (link as { school_id: string }).school_id;
+    } else {
+      const { data: mp } = await serviceSupabase
+        .from("managed_user_profiles")
+        .select("school_id")
+        .eq("auth_user_id", userId)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      resolvedSchoolId = mp?.school_id ?? null;
+    }
+
+    if (!resolvedSchoolId) {
       return jsonError("الطالب غير مرتبط بحسابك.", 403);
     }
 
     const { data: appointment, error: insertError } = await serviceSupabase
       .from("teacher_appointments")
       .insert({
-        school_id: link.school_id,
+        school_id: resolvedSchoolId,
         parent_user_id: userId,
         student_id: studentId,
         teacher_id: null,
