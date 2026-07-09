@@ -197,24 +197,46 @@ export async function DELETE(
     // Check if this is a permanent delete request
     const hardDelete = req.nextUrl.searchParams.get("hardDelete") === "true";
     const purgeArchive = req.nextUrl.searchParams.get("purgeArchive") === "true";
-    const snapshot =
-      hardDelete && purgeArchive
-        ? null
-        : await buildSchoolArchivePayload(context.value.dataSupabase, normalizedSchoolId);
+    let snapshot: Awaited<ReturnType<typeof buildSchoolArchivePayload>> | null = null;
+    let archiveRecord: { id: string } | null = null;
+    const archiveWarnings: string[] = [];
+
+    if (!(hardDelete && purgeArchive)) {
+      try {
+        snapshot = await buildSchoolArchivePayload(context.value.dataSupabase, normalizedSchoolId);
+      } catch (archiveError) {
+        logger.warn("Failed to build school archive payload — proceeding with delete", {
+          requestId,
+          schoolId: normalizedSchoolId,
+          error: archiveError instanceof Error ? archiveError.message : String(archiveError),
+        });
+        archiveWarnings.push("تعذر إنشاء نسخة أرشيف قبل الحذف.");
+      }
+    }
+
     const schoolName =
       typeof snapshot?.school.name === "string" && snapshot.school.name.trim()
         ? snapshot.school.name.trim()
         : "school";
 
-    const archiveRecord = snapshot
-      ? await persistSchoolArchiveSnapshot(context.value.dataSupabase, {
+    if (snapshot) {
+      try {
+        archiveRecord = await persistSchoolArchiveSnapshot(context.value.dataSupabase, {
           schoolId: normalizedSchoolId,
           schoolName,
           actorUserId: context.value.actorUserId,
           source: hardDelete ? "hard_delete" : "soft_delete",
           payload: snapshot,
-        })
-      : null;
+        });
+      } catch (persistError) {
+        logger.warn("Failed to persist school archive snapshot — proceeding with delete", {
+          requestId,
+          schoolId: normalizedSchoolId,
+          error: persistError instanceof Error ? persistError.message : String(persistError),
+        });
+        archiveWarnings.push("تعذر حفظ نسخة الأرشيف.");
+      }
+    }
 
     if (hardDelete) {
       // Permanent delete — remove the record completely
@@ -269,7 +291,7 @@ export async function DELETE(
         ok: true,
         school,
         archiveId: archiveRecord?.id ?? null,
-        warnings: purgeResult.warnings,
+        warnings: [...archiveWarnings, ...purgeResult.warnings],
         purgedTables: purgeResult.purgedTables,
       });
     } else {
@@ -320,6 +342,7 @@ export async function DELETE(
         ok: true,
         school,
         archiveId: archiveRecord?.id ?? null,
+        warnings: archiveWarnings.length > 0 ? archiveWarnings : undefined,
       });
     }
   } catch (error) {
