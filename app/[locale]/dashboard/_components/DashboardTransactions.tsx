@@ -37,7 +37,7 @@ export function DashboardTransactions({ recentPayments, loading }: DashboardTran
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[var(--border)]">
-                {["رقم المعاملة", "التاريخ", "الطالب", "الفرع", "الحالة", "المبلغ"].map(h => (
+                {["رقم المعاملة", "التاريخ", "الطالب", "الصف", "الحالة", "المبلغ"].map(h => (
                   <th key={h} className="text-start py-2.5 px-2 font-semibold text-[var(--text-muted)]">{h}</th>
                 ))}
               </tr>

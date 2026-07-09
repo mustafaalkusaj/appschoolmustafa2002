@@ -75,6 +75,7 @@ type DashboardStudentRow = {
   remaining_fee: number | null;
   discount_value: number | null;
   status: string | null;
+  branch_id: string | null;
 };
 
 type ResolvedDashboardStudentRow = DashboardStudentRow & {
@@ -151,7 +152,6 @@ export async function GET(req: NextRequest) {
   }
 
   const { actorUserId, targetSchoolId } = context.value;
-  console.log("[dashboard-debug] entry", { schoolId, targetSchoolId, actorUserId });
   // Resolve branch access via resolveBranchScope — handles all cases: school-level, branch-level, multi-branch
   const branchScope = resolveBranchScope(context.value, branchId ?? null);
   if (!branchScope.ok) {
@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
 
       let studentsPromise = serviceSupabase
         .from("students")
-        .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .select("id, full_name, class_name, total_fee, paid_fee, remaining_fee, discount_value, status, branch_id")
         .eq("school_id", targetSchoolId);
       if (studentsStatusScope) {
         studentsPromise = studentsPromise.or("status.neq.deleted,status.is.null");
@@ -251,13 +251,66 @@ export async function GET(req: NextRequest) {
         expensesPromise = expensesPromise.eq("branch_id", effectiveBranchId);
       }
 
-      const [studentsResult, recentPaymentsResult, classFeesResult, monthlySalariesResult, incomesResult, expensesResult] = await Promise.allSettled([
+      const branchesPromise = serviceSupabase
+        .from("branches")
+        .select("id, name_ar, name_en, is_active, principal_name")
+        .eq("school_id", targetSchoolId)
+        .eq("is_active", true);
+
+      const employeesPromise = serviceSupabase
+        .from("employees")
+        .select("id, branch_id, position, full_name_ar")
+        .eq("school_id", targetSchoolId)
+        .eq("is_active", true)
+        .is("deleted_at", null);
+
+      const attendancePromise = serviceSupabase
+        .from("attendance_records")
+        .select("status")
+        .eq("school_id", targetSchoolId)
+        .eq("attendance_date", todayDate);
+
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      let paymentsMonthlyPromise = serviceSupabase
+        .from("payments")
+        .select("amount, created_at, branch_id")
+        .eq("school_id", targetSchoolId)
+        .is("deleted_at", null)
+        .gte("created_at", sixMonthsAgo.toISOString());
+      if (effectiveBranchId && paymentsBranchScope) {
+        paymentsMonthlyPromise = paymentsMonthlyPromise.eq("branch_id", effectiveBranchId);
+      }
+
+      const subjectsPromise = serviceSupabase
+        .from("subjects")
+        .select("id, name, is_active")
+        .eq("school_id", targetSchoolId);
+
+      const gradesTeacherPromise = serviceSupabase
+        .from("grades")
+        .select("teacher_id, subject")
+        .eq("school_id", targetSchoolId)
+        .not("teacher_id", "is", null)
+        .not("subject", "is", null)
+        .limit(5000);
+
+      const [
+        studentsResult, recentPaymentsResult, classFeesResult, monthlySalariesResult, incomesResult, expensesResult,
+        branchesResult, employeesResult, attendanceResult, paymentsMonthlyResult, subjectsResult, gradesTeacherResult,
+      ] = await Promise.allSettled([
         studentsPromise,
         recentPaymentsPromise,
         classFeesPromise,
         monthlySalariesPromise,
         incomesPromise,
         expensesPromise,
+        branchesPromise,
+        employeesPromise,
+        attendancePromise,
+        paymentsMonthlyPromise,
+        subjectsPromise,
+        gradesTeacherPromise,
       ]);
 
       const studentsFailed = studentsResult.status !== "fulfilled" || Boolean(studentsResult.value?.error);
@@ -471,13 +524,153 @@ export async function GET(req: NextRequest) {
         todayExpenses,
       };
 
-      console.log("[dashboard-debug] totals", { studentsCount: resolvedStudents.length, totalFees: totals.totalFees, totalPaid: totals.totalPaid, totalRemaining: totals.totalRemaining });
       const afterDiscount = totals.totalFees - totals.totalDiscount;
       const paidPct = calculateStudentPaidPercentage({
         total_fee: totals.totalFees,
         paid_fee: totals.totalPaid,
         discount_value: totals.totalDiscount,
       });
+
+      // --- Branch breakdown ---
+      const branches =
+        branchesResult.status === "fulfilled" && !branchesResult.value?.error
+          ? (branchesResult.value.data ?? []) as { id: string; name_ar: string; name_en: string }[]
+          : [];
+
+      const employees =
+        employeesResult.status === "fulfilled" && !employeesResult.value?.error
+          ? (employeesResult.value.data ?? []) as { id: string; branch_id: string; position: string; full_name_ar: string }[]
+          : [];
+
+      const teachersByBranchMap = new Map<string, number>();
+      for (const emp of employees) {
+        if (emp.position === "teacher") {
+          teachersByBranchMap.set(emp.branch_id, (teachersByBranchMap.get(emp.branch_id) ?? 0) + 1);
+        }
+      }
+
+      const branchBreakdown = branches.map((branch) => {
+        const branchStudents = resolvedStudents.filter((s) => s.branch_id === branch.id && s.status !== "transferred");
+        const branchTotalFees = branchStudents.reduce((sum, s) => sum + Number(s.resolved_total_fee ?? 0), 0);
+        const branchTotalPaid = branchStudents.reduce((sum, s) => sum + Number(s.paid_fee ?? 0), 0);
+        const branchTotalRemaining = branchStudents.reduce((sum, s) => sum + Number(s.remaining_fee ?? 0), 0);
+        const branchDiscount = branchStudents.reduce((sum, s) => sum + Number(s.discount_value ?? 0), 0);
+        const branchPaidPct = branchTotalFees > branchDiscount
+          ? Math.min(100, Math.round((branchTotalPaid / (branchTotalFees - branchDiscount)) * 100))
+          : 0;
+        return {
+          id: branch.id,
+          nameAr: branch.name_ar,
+          nameEn: branch.name_en,
+          studentsCount: branchStudents.length,
+          teachersCount: teachersByBranchMap.get(branch.id) ?? 0,
+          totalFees: branchTotalFees,
+          totalPaid: branchTotalPaid,
+          totalRemaining: branchTotalRemaining,
+          paidPct: branchPaidPct,
+        };
+      });
+
+      // --- Teacher-subject mapping ---
+      const gradesRows =
+        gradesTeacherResult.status === "fulfilled" && !gradesTeacherResult.value?.error
+          ? (gradesTeacherResult.value.data ?? []) as { teacher_id: string; subject: string }[]
+          : [];
+
+      const subjectTeacherSets = new Map<string, Set<string>>();
+      for (const g of gradesRows) {
+        const subName = (g.subject ?? "").trim();
+        if (!subName || !g.teacher_id) continue;
+        if (!subjectTeacherSets.has(subName)) subjectTeacherSets.set(subName, new Set());
+        subjectTeacherSets.get(subName)!.add(g.teacher_id);
+      }
+
+      const subjectsRows =
+        subjectsResult.status === "fulfilled" && !subjectsResult.value?.error
+          ? (subjectsResult.value.data ?? []) as { id: string; name: string; is_active: boolean }[]
+          : [];
+
+      const teachersBySubject = subjectsRows
+        .filter((s) => s.is_active !== false)
+        .map((s) => ({
+          subjectName: s.name ?? "",
+          teacherCount: subjectTeacherSets.get(s.name ?? "")?.size ?? 0,
+        }))
+        .sort((a, b) => b.teacherCount - a.teacherCount);
+
+      // --- Monthly income/payments chart ---
+      const paymentRows =
+        paymentsMonthlyResult.status === "fulfilled" && !paymentsMonthlyResult.value?.error
+          ? (paymentsMonthlyResult.value.data ?? []) as { amount: number; created_at: string }[]
+          : [];
+
+      const monthlyMap = new Map<string, { income: number; payments: number }>();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const key = d.toISOString().slice(0, 7);
+        monthlyMap.set(key, { income: 0, payments: 0 });
+      }
+
+      for (const row of incomeRows) {
+        const incDate = String((row as Record<string, unknown>).income_date ?? "");
+        const monthKey = incDate.slice(0, 7);
+        if (monthlyMap.has(monthKey)) {
+          monthlyMap.get(monthKey)!.income += Number((row as Record<string, unknown>).amount ?? 0);
+        }
+      }
+
+      for (const row of paymentRows) {
+        const monthKey = String(row.created_at ?? "").slice(0, 7);
+        if (monthlyMap.has(monthKey)) {
+          monthlyMap.get(monthKey)!.payments += Number(row.amount ?? 0);
+        }
+      }
+
+      const monthlyIncome = Array.from(monthlyMap.entries()).map(([month, data]) => ({
+        month,
+        income: data.income,
+        payments: data.payments,
+      }));
+
+      // --- Month-over-month change ---
+      const now = new Date();
+      const thisMonthKey = now.toISOString().slice(0, 7);
+      const lastMonth = new Date(now);
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      const lastMonthKey = lastMonth.toISOString().slice(0, 7);
+
+      const thisMonthData = monthlyMap.get(thisMonthKey) ?? { income: 0, payments: 0 };
+      const lastMonthData = monthlyMap.get(lastMonthKey) ?? { income: 0, payments: 0 };
+
+      function pctChange(current: number, previous: number): number | null {
+        if (previous === 0) return current > 0 ? 100 : null;
+        return Math.round(((current - previous) / previous) * 1000) / 10;
+      }
+
+      const monthChange = {
+        paidChange: pctChange(thisMonthData.payments, lastMonthData.payments),
+        incomeChange: pctChange(thisMonthData.income, lastMonthData.income),
+        studentsChange: null as number | null,
+        remainingChange: null as number | null,
+        collectionChange: pctChange(paidPct, paidPct),
+      };
+
+      // --- Attendance summary ---
+      const attendanceRows =
+        attendanceResult.status === "fulfilled" && !attendanceResult.value?.error
+          ? (attendanceResult.value.data ?? []) as { status: string }[]
+          : [];
+
+      const attendanceSummary = {
+        totalToday: attendanceRows.length,
+        presentCount: attendanceRows.filter((r) => r.status === "present").length,
+        absentCount: attendanceRows.filter((r) => r.status === "absent").length,
+        lateCount: attendanceRows.filter((r) => r.status === "late").length,
+        attendancePct: attendanceRows.length > 0
+          ? Math.round((attendanceRows.filter((r) => r.status === "present" || r.status === "late").length / attendanceRows.length) * 100)
+          : 0,
+      };
 
       return {
         totals: {
@@ -501,6 +694,11 @@ export async function GET(req: NextRequest) {
         studentCountByClass: Object.fromEntries(
           Object.values(classStatsByKey).map((stats) => [stats.className, stats.count]),
         ),
+        branchBreakdown,
+        teachersBySubject,
+        monthlyIncome,
+        monthChange,
+        attendanceSummary,
         ...(warning ? { warning } : {}),
       };
     };

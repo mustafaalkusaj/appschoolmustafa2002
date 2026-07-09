@@ -11,6 +11,13 @@ import {
   DashboardOverdueStudent,
   ClassFee,
   EMPTY_DASHBOARD_TOTALS,
+  BranchBreakdown,
+  TeacherSubjectCount,
+  MonthlyDataPoint,
+  AttendanceSummary,
+  MonthOverMonthChange,
+  EMPTY_MONTH_CHANGE,
+  EMPTY_ATTENDANCE,
 } from "../_components/types";
 
 interface UseDashboardDataProps {
@@ -26,6 +33,11 @@ interface DashboardOverviewResponse {
   overdueStudents?: DashboardOverdueStudent[];
   classFees?: ClassFee[];
   studentCountByClass?: Record<string, number>;
+  branchBreakdown?: BranchBreakdown[];
+  teachersBySubject?: TeacherSubjectCount[];
+  monthlyIncome?: MonthlyDataPoint[];
+  monthChange?: MonthOverMonthChange;
+  attendanceSummary?: AttendanceSummary;
   warning?: string;
   error?: { message?: string };
 }
@@ -41,9 +53,27 @@ export function useDashboardData({
   const [overdueStudents, setOverdueStudents] = useState<DashboardOverdueStudent[]>([]);
   const [studentCountByClass, setStudentCountByClass] = useState<Record<string, number>>({});
   const [classFees, setClassFees] = useState<ClassFee[]>([]);
+  const [branchBreakdown, setBranchBreakdown] = useState<BranchBreakdown[]>([]);
+  const [teachersBySubject, setTeachersBySubject] = useState<TeacherSubjectCount[]>([]);
+  const [monthlyIncome, setMonthlyIncome] = useState<MonthlyDataPoint[]>([]);
+  const [monthChange, setMonthChange] = useState<MonthOverMonthChange>(EMPTY_MONTH_CHANGE);
+  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary>(EMPTY_ATTENDANCE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+
+  const resetAll = useCallback(() => {
+    setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
+    setRecentPayments([]);
+    setOverdueStudents([]);
+    setStudentCountByClass({});
+    setClassFees([]);
+    setBranchBreakdown([]);
+    setTeachersBySubject([]);
+    setMonthlyIncome([]);
+    setMonthChange(EMPTY_MONTH_CHANGE);
+    setAttendanceSummary(EMPTY_ATTENDANCE);
+  }, []);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -57,12 +87,10 @@ export function useDashboardData({
       schoolId = resolved.school_id;
       branchId = resolved.branch_id;
     } catch {
-      // fall through with null ids — API will handle auth
+      // fall through with null ids
     }
 
-    console.log("[dashboard-debug-client] fetchAll", { schoolId, branchId, profileId: profile?.id, profileSchoolId: profile?.school_id, selectedSchoolId });
     if (!schoolId) {
-      console.log("[dashboard-debug-client] bailing: no schoolId");
       setLoading(false);
       return;
     }
@@ -74,7 +102,6 @@ export function useDashboardData({
       }
 
       const cacheKey = `dashboard-overview:${schoolId}:${branchScoped ? branchId : "none"}`;
-      // Clear stale cache so refetch after mutations gets fresh data
       clearCacheFor(cacheKey);
       const { response, payload } = await deduplicatedFetch(
         cacheKey,
@@ -83,15 +110,9 @@ export function useDashboardData({
         )
       );
 
-      console.log("[dashboard-debug-client] response", { ok: response.ok, status: response.status, hasTotals: !!payload?.totals, studentsCount: payload?.totals?.studentsCount });
       if (!response.ok) {
         if (branchScoped) {
-          // In branch-scoped mode, treat API failures as degraded — show zeros rather than an error block.
-          setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
-          setRecentPayments([]);
-          setOverdueStudents([]);
-          setStudentCountByClass({});
-          setClassFees([]);
+          resetAll();
           setError(null);
           setWarning("degraded_dashboard_overview");
           return;
@@ -104,16 +125,16 @@ export function useDashboardData({
       setOverdueStudents(payload?.overdueStudents ?? []);
       setStudentCountByClass(payload?.studentCountByClass ?? {});
       setClassFees(payload?.classFees ?? []);
+      setBranchBreakdown(payload?.branchBreakdown ?? []);
+      setTeachersBySubject(payload?.teachersBySubject ?? []);
+      setMonthlyIncome(payload?.monthlyIncome ?? []);
+      setMonthChange(payload?.monthChange ?? EMPTY_MONTH_CHANGE);
+      setAttendanceSummary(payload?.attendanceSummary ?? EMPTY_ATTENDANCE);
       setError(null);
       setWarning(typeof payload?.warning === "string" ? payload.warning : null);
     } catch (caughtError) {
-      setDashboardTotals(EMPTY_DASHBOARD_TOTALS);
-      setRecentPayments([]);
-      setOverdueStudents([]);
-      setStudentCountByClass({});
-      setClassFees([]);
+      resetAll();
       if (branchScoped) {
-        // In branch-scoped mode, network/parse errors also show as degraded rather than blocking.
         setError(null);
         setWarning("degraded_dashboard_overview");
       } else {
@@ -123,10 +144,9 @@ export function useDashboardData({
     } finally {
       setLoading(false);
     }
-  }, [branchScoped, profile, selectedSchoolId]);
+  }, [branchScoped, profile, selectedSchoolId, resetAll]);
 
   useEffect(() => {
-    console.log("[dashboard-debug-client] useEffect gate", { hasProfile: !!profile, scopeLoading, profileRole: profile?.role });
     if (!profile || scopeLoading) return;
     void fetchAll();
   }, [profile, scopeLoading, fetchAll]);
@@ -137,9 +157,14 @@ export function useDashboardData({
     overdueStudents,
     studentCountByClass,
     classFees,
+    branchBreakdown,
+    teachersBySubject,
+    monthlyIncome,
+    monthChange,
+    attendanceSummary,
     loading,
     error,
     warning,
     refetch: fetchAll,
-  }), [dashboardTotals, recentPayments, overdueStudents, studentCountByClass, classFees, loading, error, warning, fetchAll]);
+  }), [dashboardTotals, recentPayments, overdueStudents, studentCountByClass, classFees, branchBreakdown, teachersBySubject, monthlyIncome, monthChange, attendanceSummary, loading, error, warning, fetchAll]);
 }

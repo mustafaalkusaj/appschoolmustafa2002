@@ -1,9 +1,19 @@
 "use client";
 
 import { formatNumber } from "@/lib/formatting";
-import { DashboardTotals } from "./types";
+import type { DashboardTotals, MonthOverMonthChange, AttendanceSummary } from "./types";
+import { EMPTY_MONTH_CHANGE, EMPTY_ATTENDANCE } from "./types";
 import { DollarSign, TrendingUp, Banknote, Wallet, Users } from "@/lib/icons";
 import type { LucideIcon } from "@/lib/icons";
+
+function formatChange(val: number | null): { text: string; type: "up" | "down" | "neutral" } {
+  if (val === null) return { text: "", type: "neutral" };
+  const sign = val >= 0 ? "+" : "";
+  return {
+    text: `${sign}${val.toFixed(1)}%`,
+    type: val > 0 ? "up" : val < 0 ? "down" : "neutral",
+  };
+}
 
 interface KPICardProps {
   label: string;
@@ -41,28 +51,6 @@ function KPICard({ label, value, subtitle, change, changeType = "neutral", icon:
           <p className="text-xs text-[var(--text-muted)] mt-0.5">{subtitle}</p>
         )}
       </div>
-      <div className="h-8 w-full">
-        <svg viewBox="0 0 120 32" className="w-full h-full" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id={`kpi-grad-${label.replace(/\s/g, "")}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.15" />
-              <stop offset="100%" stopColor={color} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <polyline
-            points="0,28 15,24 30,26 45,20 60,22 75,16 90,12 105,14 120,8"
-            fill="none"
-            stroke={color}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <polygon
-            points="0,28 15,24 30,26 45,20 60,22 75,16 90,12 105,14 120,8 120,32 0,32"
-            fill={`url(#kpi-grad-${label.replace(/\s/g, "")})`}
-          />
-        </svg>
-      </div>
       {change && (
         <p className={`text-[11px] font-semibold ${changeColor}`}>
           {change}
@@ -75,37 +63,42 @@ function KPICard({ label, value, subtitle, change, changeType = "neutral", icon:
 
 interface DashboardKPICardsProps {
   dashboardTotals: DashboardTotals;
+  monthChange?: MonthOverMonthChange;
+  attendanceSummary?: AttendanceSummary;
   loading?: boolean;
 }
 
-export function DashboardKPICards({ dashboardTotals, loading }: DashboardKPICardsProps) {
+export function DashboardKPICards({ dashboardTotals, monthChange = EMPTY_MONTH_CHANGE, attendanceSummary = EMPTY_ATTENDANCE, loading }: DashboardKPICardsProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 h-40 animate-pulse">
+          <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 h-32 animate-pulse">
             <div className="h-3 w-20 rounded bg-[var(--border)] mb-4" />
             <div className="h-7 w-28 rounded bg-[var(--border)] mb-2" />
-            <div className="h-8 w-full rounded bg-[var(--border)] mt-4" />
+            <div className="h-3 w-16 rounded bg-[var(--border)] mt-4" />
           </div>
         ))}
       </div>
     );
   }
 
-  const avgTransaction = dashboardTotals.studentsCount > 0
-    ? Math.round(dashboardTotals.totalPaid / dashboardTotals.studentsCount)
-    : 0;
+  const paidChange = formatChange(monthChange.paidChange);
+  const incomeChange = formatChange(monthChange.incomeChange);
+  const remainingChange = formatChange(monthChange.remainingChange);
+  const collectionChange = formatChange(monthChange.collectionChange);
+  const studentsChange = formatChange(monthChange.studentsChange);
 
   const cards: KPICardProps[] = [
     {
-      label: "متوسط المعاملة",
-      value: `${formatNumber(avgTransaction)} IQD`,
+      label: "نسبة التحصيل",
+      value: `${dashboardTotals.paidPct}%`,
+      subtitle: `${formatNumber(dashboardTotals.totalPaid)} من ${formatNumber(dashboardTotals.afterDiscount)}`,
       icon: DollarSign,
       color: "#8b5cf6",
       bgColor: "#f3f0ff",
-      change: "+6.8%",
-      changeType: "up",
+      change: collectionChange.text || undefined,
+      changeType: collectionChange.type,
     },
     {
       label: "إجمالي الدخل",
@@ -113,8 +106,8 @@ export function DashboardKPICards({ dashboardTotals, loading }: DashboardKPICard
       icon: TrendingUp,
       color: "#3b82f6",
       bgColor: "#eff6ff",
-      change: "-12.5%",
-      changeType: "down",
+      change: incomeChange.text || undefined,
+      changeType: incomeChange.type,
     },
     {
       label: "المبالغ المستلمة",
@@ -122,8 +115,8 @@ export function DashboardKPICards({ dashboardTotals, loading }: DashboardKPICard
       icon: Banknote,
       color: "#10b981",
       bgColor: "#ecfdf5",
-      change: "+8.4%",
-      changeType: "up",
+      change: paidChange.text || undefined,
+      changeType: paidChange.type,
     },
     {
       label: "المبالغ المتبقية",
@@ -131,18 +124,18 @@ export function DashboardKPICards({ dashboardTotals, loading }: DashboardKPICard
       icon: Wallet,
       color: "#f59e0b",
       bgColor: "#fffbeb",
-      change: "-15.2%",
-      changeType: "down",
+      change: remainingChange.text || undefined,
+      changeType: remainingChange.type === "down" ? "up" : remainingChange.type === "up" ? "down" : "neutral",
     },
     {
-      label: "إجمالي المعاملات",
+      label: "إجمالي الطلاب",
       value: `${formatNumber(dashboardTotals.studentsCount)}`,
-      subtitle: "معاملة",
+      subtitle: attendanceSummary.totalToday > 0 ? `حضور اليوم: ${attendanceSummary.attendancePct}%` : "طالب",
       icon: Users,
       color: "#6366f1",
       bgColor: "#eef2ff",
-      change: "+6.8%",
-      changeType: "up",
+      change: studentsChange.text || undefined,
+      changeType: studentsChange.type,
     },
   ];
 

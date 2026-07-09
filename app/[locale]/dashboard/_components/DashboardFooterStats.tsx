@@ -1,23 +1,37 @@
 "use client";
 
 import { formatNumber } from "@/lib/formatting";
-import type { DashboardTotals } from "./types";
+import type { DashboardTotals, MonthOverMonthChange } from "./types";
+import { EMPTY_MONTH_CHANGE } from "./types";
+
+function formatChange(val: number | null): { text: string; up: boolean } {
+  if (val === null) return { text: "—", up: true };
+  const sign = val >= 0 ? "+" : "";
+  return { text: `${sign}${val.toFixed(1)}%`, up: val >= 0 };
+}
 
 interface DashboardFooterStatsProps {
   dashboardTotals: DashboardTotals;
+  monthChange?: MonthOverMonthChange;
 }
 
-export function DashboardFooterStats({ dashboardTotals }: DashboardFooterStatsProps) {
+export function DashboardFooterStats({ dashboardTotals, monthChange = EMPTY_MONTH_CHANGE }: DashboardFooterStatsProps) {
   const avgTransaction = dashboardTotals.studentsCount > 0
     ? Math.round(dashboardTotals.totalPaid / dashboardTotals.studentsCount)
     : 0;
 
+  const collection = formatChange(monthChange.collectionChange);
+  const paid = formatChange(monthChange.paidChange);
+  const remaining = formatChange(monthChange.remainingChange);
+  const income = formatChange(monthChange.incomeChange);
+  const students = formatChange(monthChange.studentsChange);
+
   const items = [
-    { label: "نسبة التحصيل", value: `${dashboardTotals.paidPct}%`, change: "+2.1%", up: true },
-    { label: "المبالغ المستلمة", value: `${formatNumber(dashboardTotals.totalPaid)} IQD`, change: "+8.4%", up: true },
-    { label: "المبالغ المتبقية", value: `${formatNumber(dashboardTotals.totalRemaining)} IQD`, change: "-15.2%", up: false },
-    { label: "إجمالي الدخل", value: `${formatNumber(dashboardTotals.totalIncomes)} IQD`, change: "-12.5%", up: false },
-    { label: "متوسط المعاملة", value: `${formatNumber(avgTransaction)} IQD`, change: "+6.8%", up: true },
+    { label: "نسبة التحصيل", value: `${dashboardTotals.paidPct}%`, ...collection },
+    { label: "المبالغ المستلمة", value: `${formatNumber(dashboardTotals.totalPaid)} IQD`, ...paid },
+    { label: "المبالغ المتبقية", value: `${formatNumber(dashboardTotals.totalRemaining)} IQD`, change: remaining.text, up: !remaining.up },
+    { label: "إجمالي الدخل", value: `${formatNumber(dashboardTotals.totalIncomes)} IQD`, ...income },
+    { label: "متوسط لكل طالب", value: `${formatNumber(avgTransaction)} IQD`, ...students },
   ];
 
   return (

@@ -25,6 +25,8 @@ export { DashboardInsights } from "./DashboardInsights";
 export { DashboardOverdueNew } from "./DashboardOverdueNew";
 export { DashboardTransactions } from "./DashboardTransactions";
 export { DashboardFooterStats } from "./DashboardFooterStats";
+export { DashboardTeacherSubjects } from "./DashboardTeacherSubjects";
+export { DashboardAttendanceRing } from "./DashboardAttendanceRing";
 
 // Types
 export * from "./types";

@@ -62,6 +62,61 @@ export type DashboardOverdueStudent = {
   remaining_fee: number;
 };
 
+export type BranchBreakdown = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  studentsCount: number;
+  teachersCount: number;
+  totalFees: number;
+  totalPaid: number;
+  totalRemaining: number;
+  paidPct: number;
+};
+
+export type TeacherSubjectCount = {
+  subjectName: string;
+  teacherCount: number;
+};
+
+export type MonthlyDataPoint = {
+  month: string;
+  income: number;
+  payments: number;
+};
+
+export type AttendanceSummary = {
+  totalToday: number;
+  presentCount: number;
+  absentCount: number;
+  lateCount: number;
+  attendancePct: number;
+};
+
+export type MonthOverMonthChange = {
+  paidChange: number | null;
+  incomeChange: number | null;
+  studentsChange: number | null;
+  remainingChange: number | null;
+  collectionChange: number | null;
+};
+
+export const EMPTY_MONTH_CHANGE: MonthOverMonthChange = {
+  paidChange: null,
+  incomeChange: null,
+  studentsChange: null,
+  remainingChange: null,
+  collectionChange: null,
+};
+
+export const EMPTY_ATTENDANCE: AttendanceSummary = {
+  totalToday: 0,
+  presentCount: 0,
+  absentCount: 0,
+  lateCount: 0,
+  attendancePct: 0,
+};
+
 export const EMPTY_DASHBOARD_TOTALS: DashboardTotals = {
   studentsCount: 0,
   transferredCount: 0,

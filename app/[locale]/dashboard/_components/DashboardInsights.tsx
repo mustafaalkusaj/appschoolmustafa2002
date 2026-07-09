@@ -2,15 +2,17 @@
 
 import { formatNumber } from "@/lib/formatting";
 import { Building2, TrendingUp, DollarSign, Users } from "@/lib/icons";
-import type { DashboardTotals, ClassFee } from "./types";
+import type { DashboardTotals, ClassFee, MonthOverMonthChange } from "./types";
+import { EMPTY_MONTH_CHANGE } from "./types";
 
 interface DashboardInsightsProps {
   dashboardTotals: DashboardTotals;
   classFees: ClassFee[];
+  monthChange?: MonthOverMonthChange;
   loading?: boolean;
 }
 
-export function DashboardInsights({ dashboardTotals, classFees, loading }: DashboardInsightsProps) {
+export function DashboardInsights({ dashboardTotals, classFees, monthChange = EMPTY_MONTH_CHANGE, loading }: DashboardInsightsProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -68,7 +70,13 @@ export function DashboardInsights({ dashboardTotals, classFees, loading }: Dashb
         <div className="mt-5 pt-4 border-t border-[var(--border)]">
           <div className="flex items-center justify-between">
             <span className="text-xs text-[var(--text-muted)]">نمو الدخل الشهري</span>
-            <span className="text-xs font-bold text-emerald-600">+8.4%</span>
+            {monthChange.incomeChange !== null ? (
+              <span className={`text-xs font-bold ${monthChange.incomeChange >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                {monthChange.incomeChange >= 0 ? "+" : ""}{monthChange.incomeChange.toFixed(1)}%
+              </span>
+            ) : (
+              <span className="text-xs text-[var(--text-muted)]">—</span>
+            )}
           </div>
         </div>
       </div>
@@ -81,7 +89,7 @@ export function DashboardInsights({ dashboardTotals, classFees, loading }: Dashb
             { icon: Building2, label: "أعلى فرع تحصيل", value: topCollectionBranch?.class_name ?? "—", color: "#10b981", bg: "#ecfdf5" },
             { icon: Users, label: "أعلى فرع اشتراك", value: topSubscriptionBranch?.class_name ?? "—", color: "#3b82f6", bg: "#eff6ff" },
             { icon: DollarSign, label: "متوسط المعاملة", value: `${formatNumber(avgTransaction)} IQD`, color: "#8b5cf6", bg: "#f3f0ff" },
-            { icon: TrendingUp, label: "إجمالي المعاملات", value: `${formatNumber(dashboardTotals.studentsCount)}`, color: "#f59e0b", bg: "#fffbeb" },
+            { icon: TrendingUp, label: "إجمالي الطلاب", value: `${formatNumber(dashboardTotals.studentsCount)}`, color: "#f59e0b", bg: "#fffbeb" },
           ].map(item => {
             const Icon = item.icon;
             return (

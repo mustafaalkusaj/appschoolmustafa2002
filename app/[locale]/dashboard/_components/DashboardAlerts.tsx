@@ -2,7 +2,8 @@
 
 import { AlertTriangle, TrendingUp, Wallet, Clock } from "@/lib/icons";
 import type { LucideIcon } from "@/lib/icons";
-import type { DashboardTotals, DashboardOverdueStudent } from "./types";
+import type { DashboardTotals, DashboardOverdueStudent, MonthOverMonthChange, AttendanceSummary } from "./types";
+import { EMPTY_MONTH_CHANGE, EMPTY_ATTENDANCE } from "./types";
 
 interface AlertItem {
   icon: LucideIcon;
@@ -16,38 +17,40 @@ interface AlertItem {
 interface DashboardAlertsProps {
   dashboardTotals: DashboardTotals;
   overdueStudents: DashboardOverdueStudent[];
+  monthChange?: MonthOverMonthChange;
+  attendanceSummary?: AttendanceSummary;
 }
 
-export function DashboardAlerts({ dashboardTotals, overdueStudents }: DashboardAlertsProps) {
+export function DashboardAlerts({ dashboardTotals, overdueStudents, monthChange = EMPTY_MONTH_CHANGE, attendanceSummary = EMPTY_ATTENDANCE }: DashboardAlertsProps) {
   const alerts: AlertItem[] = [];
 
   if (overdueStudents.length > 0) {
     alerts.push({
       icon: Clock,
-      title: "دفعة متأخرة",
-      description: `طالب ${overdueStudents.length} لديه دفعة متأخرة منذ 15 يوم`,
+      title: "مبالغ متبقية",
+      description: `${overdueStudents.length} طالب لديهم مبالغ متبقية`,
       color: "#dc2626",
       bgColor: "#fef2f2",
       borderColor: "#fecaca",
     });
   }
 
-  if (dashboardTotals.totalIncomes > 0) {
+  if (monthChange.incomeChange !== null && monthChange.incomeChange < 0) {
     alerts.push({
       icon: TrendingUp,
       title: "انخفاض في الدخل",
-      description: "انخفض الدخل بنسبة 12% عن الشهر الماضي",
+      description: `انخفض الدخل بنسبة ${Math.abs(monthChange.incomeChange).toFixed(1)}% عن الشهر الماضي`,
       color: "#d97706",
       bgColor: "#fffbeb",
       borderColor: "#fde68a",
     });
   }
 
-  if (dashboardTotals.todayExpenses > 0) {
+  if (attendanceSummary.totalToday > 0 && attendanceSummary.attendancePct < 70) {
     alerts.push({
       icon: Wallet,
-      title: "زيادة في المصروفات",
-      description: "إجمالي المصروفات زاد بنسبة 8%",
+      title: "نسبة حضور منخفضة",
+      description: `حضور اليوم ${attendanceSummary.attendancePct}% — ${attendanceSummary.absentCount} غائب`,
       color: "#7c3aed",
       bgColor: "#f5f3ff",
       borderColor: "#ddd6fe",

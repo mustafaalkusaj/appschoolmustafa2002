@@ -51,6 +51,8 @@ import {
   DashboardOverdueNew,
   DashboardTransactions,
   DashboardFooterStats,
+  DashboardTeacherSubjects,
+  DashboardAttendanceRing,
 } from ".";
 
 
@@ -487,13 +489,15 @@ export function DashboardExperience({
                     {/* New Dashboard Layout — main dashboard */}
                     {!branchScoped && (
                       <>
-                        <DashboardKPICards dashboardTotals={dashboardData.dashboardTotals} loading={dashboardData.loading} />
-                        <DashboardAlerts dashboardTotals={dashboardData.dashboardTotals} overdueStudents={dashboardData.overdueStudents} />
-                        <DashboardBranchPerformance classFees={dashboardData.classFees} dashboardTotals={dashboardData.dashboardTotals} loading={dashboardData.loading} />
-                        <DashboardInsights dashboardTotals={dashboardData.dashboardTotals} classFees={dashboardData.classFees} loading={dashboardData.loading} />
+                        <DashboardKPICards dashboardTotals={dashboardData.dashboardTotals} monthChange={dashboardData.monthChange} attendanceSummary={dashboardData.attendanceSummary} loading={dashboardData.loading} />
+                        <DashboardAlerts dashboardTotals={dashboardData.dashboardTotals} overdueStudents={dashboardData.overdueStudents} monthChange={dashboardData.monthChange} attendanceSummary={dashboardData.attendanceSummary} />
+                        <DashboardBranchPerformance branchBreakdown={dashboardData.branchBreakdown} monthlyIncome={dashboardData.monthlyIncome} teachersBySubject={dashboardData.teachersBySubject} dashboardTotals={dashboardData.dashboardTotals} loading={dashboardData.loading} />
+                        <DashboardTeacherSubjects teachersBySubject={dashboardData.teachersBySubject} branchBreakdown={dashboardData.branchBreakdown} />
+                        <DashboardAttendanceRing attendanceSummary={dashboardData.attendanceSummary} loading={dashboardData.loading} />
+                        <DashboardInsights dashboardTotals={dashboardData.dashboardTotals} classFees={dashboardData.classFees} monthChange={dashboardData.monthChange} loading={dashboardData.loading} />
                         <DashboardOverdueNew overdueStudents={dashboardData.overdueStudents} classFees={dashboardData.classFees} loading={dashboardData.loading} />
                         <DashboardTransactions recentPayments={dashboardData.recentPayments} loading={dashboardData.loading} />
-                        <DashboardFooterStats dashboardTotals={dashboardData.dashboardTotals} />
+                        <DashboardFooterStats dashboardTotals={dashboardData.dashboardTotals} monthChange={dashboardData.monthChange} />
 
                         <DashboardActions
                           canManageClasses={canManageClasses}
