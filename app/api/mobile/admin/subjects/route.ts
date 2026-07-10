@@ -11,18 +11,16 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await serviceSupabase
       .from("subjects")
-      .select("id, name_ar, name_en, code, teacher_assignments(count)")
+      .select("id, name, is_active, teacher_assignments(count)")
       .eq("school_id", schoolId)
-      .is("deleted_at", null)
-      .order("name_ar", { ascending: true });
+      .order("name", { ascending: true });
 
     if (error) throw error;
 
     const items = (data ?? []).map((s) => ({
       id: s.id as string,
-      name: (s.name_ar as string | null) ?? (s.name_en as string | null) ?? "",
-      name_en: (s.name_en as string | null) ?? "",
-      code: (s.code as string | null) ?? null,
+      name: (s.name as string | null) ?? "",
+      is_active: (s.is_active as boolean | null) ?? true,
       teacher_count: Array.isArray(s.teacher_assignments)
         ? (s.teacher_assignments[0] as { count: number } | undefined)?.count ?? 0
         : 0,
@@ -40,15 +38,15 @@ export async function POST(req: NextRequest) {
     if (context.ok === false) return context.response;
 
     const { schoolId, serviceSupabase } = context.value;
-    const body = await req.json();
+    const body = (await req.json()) as Record<string, unknown>;
 
-    const { name_ar, name_en, code } = body as {
-      name_ar?: string;
-      name_en?: string;
-      code?: string;
-    };
+    // Canonical column `name`, with legacy client field-name fallback for OTA rollout.
+    const name =
+      (typeof body.name === "string" && body.name) ||
+      (typeof body.name_ar === "string" && body.name_ar) ||
+      "";
 
-    if (!name_ar || typeof name_ar !== "string" || !name_ar.trim()) {
+    if (!name.trim()) {
       return NextResponse.json(
         { ok: false, error: "missing_required_field" },
         { status: 400 },
@@ -59,9 +57,8 @@ export async function POST(req: NextRequest) {
       .from("subjects")
       .insert({
         school_id: schoolId,
-        name_ar: name_ar.trim(),
-        name_en: name_en ?? null,
-        code: code ?? null,
+        name: name.trim(),
+        is_active: true,
       })
       .select("id")
       .single();
@@ -70,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      item: { id: data.id, name: name_ar.trim() },
+      item: { id: data.id, name: name.trim() },
     });
   } catch {
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });

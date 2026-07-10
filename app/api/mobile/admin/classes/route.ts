@@ -11,20 +11,18 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await serviceSupabase
       .from("classes")
-      .select("id, name_ar, name_en, grade_level, academic_year_id")
+      .select("id, name, grade, section")
       .eq("school_id", schoolId)
-      .is("deleted_at", null)
-      .order("grade_level", { ascending: true })
-      .order("name_ar", { ascending: true });
+      .order("grade", { ascending: true })
+      .order("name", { ascending: true });
 
     if (error) throw error;
 
     const items = (data ?? []).map((c) => ({
       id: c.id as string,
-      name: (c.name_ar as string | null) ?? (c.name_en as string | null) ?? "",
-      name_en: (c.name_en as string | null) ?? "",
-      grade_level: (c.grade_level as number | null) ?? null,
-      academic_year_id: (c.academic_year_id as string | null) ?? null,
+      name: (c.name as string | null) ?? "",
+      grade: (c.grade as string | null) ?? null,
+      section: (c.section as string | null) ?? null,
     }));
 
     return NextResponse.json({ ok: true, items });
@@ -39,15 +37,19 @@ export async function POST(req: NextRequest) {
     if (context.ok === false) return context.response;
 
     const { schoolId, serviceSupabase } = context.value;
-    const body = await req.json();
+    const body = (await req.json()) as Record<string, unknown>;
 
-    const { name_ar, name_en, grade_level } = body as {
-      name_ar?: string;
-      name_en?: string;
-      grade_level?: number;
-    };
+    // Canonical column names, with legacy client field-name fallback for OTA rollout.
+    const name =
+      (typeof body.name === "string" && body.name) ||
+      (typeof body.name_ar === "string" && body.name_ar) ||
+      "";
+    const grade =
+      (typeof body.grade === "string" && body.grade) ||
+      (body.grade_level != null ? String(body.grade_level) : null);
+    const section = (typeof body.section === "string" && body.section) || null;
 
-    if (!name_ar || typeof name_ar !== "string" || !name_ar.trim()) {
+    if (!name.trim()) {
       return NextResponse.json(
         { ok: false, error: "missing_required_field" },
         { status: 400 },
@@ -58,9 +60,9 @@ export async function POST(req: NextRequest) {
       .from("classes")
       .insert({
         school_id: schoolId,
-        name_ar: name_ar.trim(),
-        name_en: name_en ?? null,
-        grade_level: grade_level ?? null,
+        name: name.trim(),
+        grade,
+        section,
       })
       .select("id")
       .single();
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      item: { id: data.id, name: name_ar.trim() },
+      item: { id: data.id, name: name.trim() },
     });
   } catch {
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });

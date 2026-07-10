@@ -13,14 +13,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!context.ok)
     return jsonError("message" in context ? context.message : "غير مصرح", "status" in context ? context.status : 403);
 
+  const { targetSchoolId } = context.value;
   const service = createServiceSupabaseClient();
 
+  // Cross-tenant guard: the activity MUST belong to the actor's school. The
+  // service-role client bypasses RLS, so this school_id filter is the only
+  // isolation boundary here.
   const { data: activity } = await service
     .from("teacher_activities")
     .select("id, target_count, viewed_count, homework_submitted_count, activity_type")
     .eq("id", id)
-    .single();
+    .eq("school_id", targetSchoolId)
+    .maybeSingle();
 
+  if (!activity) {
+    return jsonError("النشاط غير موجود", 404);
+  }
+
+  // activity_views has no school_id column; it is scoped transitively via the
+  // activity_id we just confirmed belongs to targetSchoolId.
   const { data: views } = await service
     .from("activity_views")
     .select(

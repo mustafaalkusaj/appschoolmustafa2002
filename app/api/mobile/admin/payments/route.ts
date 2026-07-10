@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     let studentsQuery = serviceSupabase
       .from("students")
       .select(
-        "id, name_ar, name_en, class_id, total_fee, paid_fee, remaining_fee",
+        "id, full_name, class_name, section, total_fee, paid_fee, remaining_fee",
         { count: "exact" },
       )
       .eq("school_id", schoolId)
@@ -66,9 +66,7 @@ export async function GET(req: NextRequest) {
       .range(from, to);
 
     if (search.trim()) {
-      studentsQuery = studentsQuery.or(
-        `name_ar.ilike.%${search.trim()}%,name_en.ilike.%${search.trim()}%`,
-      );
+      studentsQuery = studentsQuery.ilike("full_name", `%${search.trim()}%`);
     }
 
     const { data, error, count } = await studentsQuery;
@@ -77,9 +75,10 @@ export async function GET(req: NextRequest) {
 
     const items = (data ?? []).map((s) => ({
       id: s.id as string,
-      full_name: (s.name_ar as string | null) ?? (s.name_en as string | null) ?? "",
-      class_name: null,
-      section: null,
+      student_id: s.id as string,
+      full_name: (s.full_name as string | null) ?? "",
+      class_name: (s.class_name as string | null) ?? null,
+      section: (s.section as string | null) ?? null,
       total_fee: Number((s as Record<string, unknown>).total_fee ?? 0),
       paid_fee: Number((s as Record<string, unknown>).paid_fee ?? 0),
       remaining_fee: Number((s as Record<string, unknown>).remaining_fee ?? 0),

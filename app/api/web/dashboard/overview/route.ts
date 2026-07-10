@@ -183,6 +183,7 @@ export async function GET(req: NextRequest) {
       } = await getSchemaColumns(serviceSupabase);
 
       const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+      const todayDate = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
       let studentsPromise = serviceSupabase
         .from("students")
@@ -468,8 +469,6 @@ export async function GET(req: NextRequest) {
         (sum, row) => sum + Math.max(0, Number(row.gross_salary ?? 0) - Number(row.deductions ?? 0)),
         0,
       );
-
-      const todayDate = new Date().toISOString().slice(0, 10);
 
       const incomeRows =
         incomesResult.status === "fulfilled" && !incomesResult.value?.error
