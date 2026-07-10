@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ teac
   const total = Object.values(counts).reduce((s, c) => s + c, 0);
   const avgViewRate = activities?.length
     ? Math.round(
-        (activities.filter((a) => a.target_count > 0).reduce((s, a) => s + a.viewed_count / a.target_count, 0) /
+        (activities.filter((a) => (a.target_count ?? 0) > 0).reduce((s, a) => s + (a.viewed_count ?? 0) / (a.target_count ?? 1), 0) /
           activities.length) *
           100,
       )

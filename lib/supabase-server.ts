@@ -5,13 +5,14 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { getPublicEnv } from "@/lib/env/public";
 import { getServerEnv } from "@/lib/env/server";
+import type { Database } from "@/types/database.types";
 
 export async function createRouteSupabaseClient() {
   const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
 
   const cookieStore = await cookies();
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -31,7 +32,7 @@ export async function createRouteSupabaseClient() {
   });
 }
 
-let _serviceClient: ReturnType<typeof createClient> | null = null;
+let _serviceClient: ReturnType<typeof createClient<Database>> | null = null;
 
 export function createServiceSupabaseClient() {
   if (_serviceClient) return _serviceClient;
@@ -43,7 +44,7 @@ export function createServiceSupabaseClient() {
     throw new Error("Missing Supabase env vars (SUPABASE_SERVICE_ROLE_KEY).");
   }
 
-  _serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+  _serviceClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
