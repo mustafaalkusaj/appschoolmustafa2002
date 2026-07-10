@@ -381,7 +381,6 @@ function buildCSP(): string {
 
   const scriptSrc: string[] = [
     "'self'",
-    "'unsafe-inline'",
     // Cloudflare injects its RUM beacon on proxied responses; allow it so the
     // console isn't flooded with CSP violations on every page.
     "https://static.cloudflareinsights.com",

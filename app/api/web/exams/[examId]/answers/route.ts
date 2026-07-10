@@ -45,6 +45,16 @@ export async function GET(
     .order("created_at", { ascending: true });
 
   if (attemptId) {
+    const { data: attempt } = await actorSupabase
+      .from("exam_attempts")
+      .select("id")
+      .eq("id", attemptId)
+      .eq("exam_id", examId)
+      .eq("school_id", targetSchoolId)
+      .maybeSingle();
+    if (!attempt) {
+      return NextResponse.json({ ok: false, error: "attempt not found" }, { status: 404 });
+    }
     answersQuery = answersQuery.eq("attempt_id", attemptId);
   } else {
     const { data: attempts } = await actorSupabase

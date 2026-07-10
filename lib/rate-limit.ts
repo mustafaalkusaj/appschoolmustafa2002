@@ -507,7 +507,7 @@ export async function enforceRateLimit(
     return null;
   } catch (error) {
     console.error(`enforceRateLimit threw unexpectedly for namespace="${options.namespace}".`, error);
-    if (isProduction() && (options.productionFailureMode ?? "fail-open") === "fail-closed") {
+    if (isProduction() && (options.productionFailureMode ?? "fail-closed") === "fail-closed") {
       return buildCustomRateLimitedResponse(
         {
           allowed: false,

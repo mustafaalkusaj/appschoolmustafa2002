@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -176,9 +177,19 @@ export async function GET(request: NextRequest) {
 // POST with { body, threadId }                 -> send a message into an existing thread
 // POST with { body, participantIds[], title? } -> create a conversation then send first message
 export async function POST(request: NextRequest) {
+  const rateLimited = await enforceRateLimit(request, {
+    namespace: "messaging:send",
+    maxHits: 30,
+    windowMs: 60_000,
+  });
+  if (rateLimited) return rateLimited;
+
   const reqBody = await request.json().catch(() => null);
   if (!reqBody?.body || typeof reqBody.body !== "string" || !reqBody.body.trim()) {
     return NextResponse.json({ ok: false, error: "body is required" }, { status: 400 });
+  }
+  if (reqBody.body.length > 5000) {
+    return NextResponse.json({ ok: false, error: "body too long (max 5000)" }, { status: 400 });
   }
 
   const context = await resolveSchoolScopedActorContext(

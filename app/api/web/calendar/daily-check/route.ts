@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { createInsiteNotification } from "@/lib/notifications/insite-service";
+import { isOpsTokenAuthorized } from "@/lib/ops/security";
 import type { NotificationCategory } from "@/lib/notifications/types";
 
 export const dynamic = "force-dynamic";
 
 // Called by Vercel Cron daily at 21:00 UTC (00:00 Baghdad GMT+3)
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isOpsTokenAuthorized(request, [process.env.CRON_SECRET])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
