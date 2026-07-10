@@ -1,15 +1,15 @@
-name: Deploy to Server (DISABLED — manual only)
+name: Deploy to Server (DISABLED — use ssh deploy instead)
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type 'deploy' to confirm"
+        description: "DISABLED: use 'ssh school-prod' manual deploy instead"
         required: true
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
