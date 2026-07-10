@@ -1,4 +1,3 @@
-"use client";
 
 // CSS variables (defined in globals.css via html.dark) drive the skeleton shimmer colour.
 // The card wrappers use var(--surface-card) / var(--border) to adapt automatically.

@@ -1,4 +1,3 @@
-"use client";
 
 import { APP_ICON_MAP } from "@/lib/icons";
 

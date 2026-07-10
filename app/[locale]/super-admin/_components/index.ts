@@ -1,4 +1,3 @@
-"use client";
 
 // Types
 export * from "./types";

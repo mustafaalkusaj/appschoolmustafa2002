@@ -1,4 +1,3 @@
-"use client";
 
 import { SchoolLogo } from "@/components/brand/SchoolLogo";
 import { useRuntimeBranding } from "@/hooks/brand";

@@ -1,4 +1,3 @@
-"use client";
 
 interface OutstandingStudent { id: string; full_name: string | null; branch_id: string | null; remaining_fee: number; }
 interface BranchStat { id: string; name: string; students: number; collected: number; expenses: number; net: number; collectionRate: number; prevCollected: number; expected: number; }

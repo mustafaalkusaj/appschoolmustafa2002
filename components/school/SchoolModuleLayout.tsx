@@ -1,4 +1,3 @@
-"use client";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/school/Breadcrumb";

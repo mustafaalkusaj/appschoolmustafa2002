@@ -1,4 +1,3 @@
-"use client";
 
 import { UltrathinkLogo } from "@/components/brand";
 

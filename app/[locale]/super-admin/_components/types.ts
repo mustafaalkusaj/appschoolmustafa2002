@@ -1,4 +1,3 @@
-"use client";
 
 import type { Permission } from "@/lib/auth";
 

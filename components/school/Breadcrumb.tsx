@@ -1,4 +1,3 @@
-"use client";
 
 export type BreadcrumbItem = { label: string; href?: string };
 

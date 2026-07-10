@@ -1,4 +1,3 @@
-"use client";
 
 import * as React from "react";
 import { BarChart3, CheckCircle2, FileText, ReceiptText, TrendingUp, Users, Wallet } from "@/lib/icons";

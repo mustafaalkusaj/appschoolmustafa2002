@@ -1,4 +1,3 @@
-"use client";
 
 import { DAY_IN_MS, type SchoolRelation } from "./types";
 import { endOfDayBaghdad } from "@/lib/tz";
