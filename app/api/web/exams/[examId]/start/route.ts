@@ -66,6 +66,18 @@ export async function POST(
     .select("id, school_id, title, status, starts_at, ends_at, total_marks, class_name")
     .eq("id", examId)
     .eq("school_id", targetSchoolId)
+    .returns<
+      {
+        id: string;
+        school_id: string | null;
+        title: string;
+        status: string | null;
+        starts_at: string | null;
+        ends_at: string | null;
+        total_marks: number | null;
+        class_name: string | null;
+      }[]
+    >()
     .single();
 
   if (examError || !exam) {

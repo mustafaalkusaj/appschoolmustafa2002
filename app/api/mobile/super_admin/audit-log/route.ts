@@ -20,7 +20,19 @@ export async function GET(req: NextRequest) {
       .from("audit_logs")
       .select("id, school_id, user_id, action, resource, resource_id, ip_address, created_at", { count: "exact" })
       .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit - 1)
+      .returns<
+        {
+          id: string;
+          school_id: string | null;
+          user_id: string | null;
+          action: string | null;
+          resource: string | null;
+          resource_id: string | null;
+          ip_address: string | null;
+          created_at: string;
+        }[]
+      >();
 
     if (action) query = query.eq("action", action);
     if (schoolId) query = query.eq("school_id", schoolId);

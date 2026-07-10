@@ -179,7 +179,18 @@ export async function GET(req: NextRequest) {
           .from("students")
           .select("full_name, class_name, section_name, phone, phone_secondary, status, enrollment_date")
           .eq("school_id", targetSchoolId)
-          .limit(5000),
+          .limit(5000)
+          .returns<
+            {
+              full_name: string | null;
+              class_name: string | null;
+              section_name: string | null;
+              phone: string | null;
+              phone_secondary: string | null;
+              status: string | null;
+              enrollment_date: string | null;
+            }[]
+          >(),
         branchScope.value,
       );
       if (error) throw new Error(error.message);

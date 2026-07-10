@@ -1112,22 +1112,33 @@ export async function queryMobileConversations(
 
   const conversations = Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [];
 
-  const withLastMessage = await Promise.all(
-    conversations.map(async (conversation) => {
-      const conversationId = normalizeText(conversation.id);
-      if (!conversationId) return { ...conversation, last_message: null };
+  // Batch-fetch last messages for all conversations in a single query
+  // instead of one query per conversation (N+1 fix).
+  const pageConvIds = conversations
+    .map((c) => normalizeText(c.id))
+    .filter(Boolean);
 
-      const lastMessage = await ctx.serviceSupabase
-        .from("messages")
-        .select("id, conversation_id, sender_id, body, created_at, read_at")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+  const lastMessageByConv = new Map<string, Record<string, unknown>>();
 
-      return { ...conversation, last_message: lastMessage.data ?? null };
-    }),
-  );
+  if (pageConvIds.length > 0) {
+    const { data: allMessages } = await ctx.serviceSupabase
+      .from("messages")
+      .select("id, conversation_id, sender_id, body, created_at, read_at")
+      .in("conversation_id", pageConvIds)
+      .order("created_at", { ascending: false });
+
+    for (const msg of (allMessages ?? []) as Record<string, unknown>[]) {
+      const cid = normalizeText(msg.conversation_id);
+      if (cid && !lastMessageByConv.has(cid)) {
+        lastMessageByConv.set(cid, msg);
+      }
+    }
+  }
+
+  const withLastMessage = conversations.map((conversation) => {
+    const cid = normalizeText(conversation.id);
+    return { ...conversation, last_message: (cid && lastMessageByConv.get(cid)) ?? null };
+  });
 
   return { gate: AVAILABLE_GATE, items: withLastMessage };
 }
@@ -1418,13 +1429,22 @@ export async function sendConversationMessage(
     };
   }
 
-  // Conversation must belong to the caller's school.
-  const conversation = await ctx.serviceSupabase
-    .from("conversations")
-    .select("id, school_id")
-    .eq("id", conversationId)
-    .eq("school_id", ctx.schoolId)
-    .maybeSingle();
+  // Conversation ownership + participant membership are independent checks.
+  // Run them in parallel instead of sequentially.
+  const [conversation, participant] = await Promise.all([
+    ctx.serviceSupabase
+      .from("conversations")
+      .select("id, school_id")
+      .eq("id", conversationId)
+      .eq("school_id", ctx.schoolId)
+      .maybeSingle(),
+    ctx.serviceSupabase
+      .from("conversation_participants")
+      .select("user_id")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", ctx.authUserId)
+      .maybeSingle(),
+  ]);
 
   if (conversation.error) {
     return {
@@ -1436,14 +1456,6 @@ export async function sendConversationMessage(
   if (!conversation.data) {
     return { ok: false, gate: AVAILABLE_GATE, message: "المحادثة غير موجودة داخل المدرسة." };
   }
-
-  // Sender must be a participant.
-  const participant = await ctx.serviceSupabase
-    .from("conversation_participants")
-    .select("user_id")
-    .eq("conversation_id", conversationId)
-    .eq("user_id", ctx.authUserId)
-    .maybeSingle();
 
   if (participant.error) {
     return {

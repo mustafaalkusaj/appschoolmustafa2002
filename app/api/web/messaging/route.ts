@@ -76,22 +76,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
-    const { data: conversation } = await actorSupabase
-      .from("conversations")
-      .select("id, school_id, title, created_at")
-      .eq("id", threadId)
-      .single();
+    // Conversation metadata and messages are independent -- fetch in parallel.
+    const [convResult, messagesResult] = await Promise.all([
+      actorSupabase
+        .from("conversations")
+        .select("id, school_id, title, created_at")
+        .eq("id", threadId)
+        .single(),
+      actorSupabase
+        .from("messages")
+        .select("id, conversation_id, sender_id, body, created_at, read_at")
+        .eq("conversation_id", threadId)
+        .order("created_at", { ascending: true }),
+    ]);
 
-    const { data: messages, error } = await actorSupabase
-      .from("messages")
-      .select("id, conversation_id, sender_id, body, created_at, read_at")
-      .eq("conversation_id", threadId)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (messagesResult.error) {
+      return NextResponse.json({ ok: false, error: messagesResult.error.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, conversation, items: messages ?? [] });
+    return NextResponse.json({ ok: true, conversation: convResult.data, items: messagesResult.data ?? [] });
   }
 
   // Inbox

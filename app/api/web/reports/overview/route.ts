@@ -75,6 +75,31 @@ function jsonError(message: string, status: number) {
 
 
 
+/** Helper: safely unwrap a settled Supabase result. */
+function unwrapSettled<T>(
+  result: PromiseSettledResult<{ data: T | null; error: unknown; count?: number | null }>,
+): { data: T | null; count: number; ok: boolean; errorMessage: string | null } {
+  if (result.status !== "fulfilled") {
+    return { data: null, count: 0, ok: false, errorMessage: null };
+  }
+  const { data, error, count } = result.value;
+  if (error) {
+    const msg = typeof (error as any)?.message === "string" ? (error as any).message : null;
+    return { data: null, count: 0, ok: false, errorMessage: msg };
+  }
+  return { data, count: count ?? 0, ok: true, errorMessage: null };
+}
+
+/** Read a single numeric aggregate value (e.g. `.sum()`) from the first row. */
+function readAggSum(data: unknown): number {
+  if (!Array.isArray(data) || data.length === 0) return 0;
+  const row = data[0];
+  if (typeof row !== "object" || row === null) return 0;
+  // PostgREST returns aggregate as the function name key, e.g. { sum: 123 }
+  const val = (row as Record<string, unknown>).sum;
+  return Number(val ?? 0);
+}
+
 async function loadFallbackMetrics(
   actorSupabase: RouteSupabaseClient,
   schoolId: string,
@@ -82,15 +107,48 @@ async function loadFallbackMetrics(
   currentMonth: string,
   todayDate: string,
 ) {
-  const [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult, incomesResult] = await Promise.allSettled([
+  // Compute tomorrow for date-range filter on today's payments
+  const tomorrowDate = (() => {
+    const d = new Date(todayDate + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  // ---------------------------------------------------------------------------
+  // Fire all queries in parallel.
+  //
+  // Payments / expenses / incomes use SQL COUNT + SUM via PostgREST aggregates
+  // so the database returns a single summary row instead of shipping every row
+  // over the wire for JS to reduce.
+  //
+  // Students + class_fees stay row-level because the resolved-fee logic
+  // (COALESCE class_fee vs student.total_fee) cannot be expressed in the
+  // PostgREST query builder.
+  //
+  // Salaries stay row-level (small dataset) because per-row net = gross -
+  // deductions must be computed before grouping by month.
+  // ---------------------------------------------------------------------------
+  const [
+    studentsResult,
+    classFeesResult,
+    paymentsAggResult,
+    todayPaymentsResult,
+    expensesAggResult,
+    expensesByTypeResult,
+    salariesResult,
+    currentMonthSalaryResult,
+    incomesAggResult,
+  ] = await Promise.allSettled([
+    // 0 — Students (row-level: needs class_fees resolution)
     applyBranchScopeToQuery(
       actorSupabase
         .from("students")
-        .select("id, class_name, total_fee, paid_fee, remaining_fee, discount_value, status")
+        .select("class_name, total_fee, paid_fee, discount_value, status")
         .eq("school_id", schoolId)
         .neq("status", "deleted"),
       branchScope,
     ),
+    // 1 — Class fees lookup (small table)
     applyBranchScopeToQuery(
       actorSupabase
         .from("class_fees")
@@ -98,96 +156,144 @@ async function loadFallbackMetrics(
         .eq("school_id", schoolId),
       branchScope,
     ),
+    // 2 — Payments: SQL SUM(amount) + COUNT via { count: "exact" }
     applyBranchScopeToQuery(
       actorSupabase
         .from("payments")
-        .select("id, amount, created_at")
+        .select("amount.sum()", { count: "exact" })
         .eq("school_id", schoolId)
         .is("deleted_at", null),
       branchScope,
     ),
+    // 3 — Today's payments: SQL COUNT only (head: true = no data transferred)
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("payments")
+        .select("*", { count: "exact", head: true })
+        .eq("school_id", schoolId)
+        .is("deleted_at", null)
+        .gte("created_at", todayDate)
+        .lt("created_at", tomorrowDate),
+      branchScope,
+    ),
+    // 4 — Expenses: SQL SUM(amount) + COUNT
     applyBranchScopeToQuery(
       actorSupabase
         .from("expenses")
-        .select("id, amount, expense_types(name)")
+        .select("amount.sum()", { count: "exact" })
         .eq("school_id", schoolId)
         .is("deleted_at", null),
       branchScope,
     ),
+    // 5 — Expenses grouped by type: SQL SUM + GROUP BY (PostgREST auto-groups
+    //     non-aggregate columns when aggregates are present in the select)
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("expenses")
+        .select("expense_types(name), amount.sum()")
+        .eq("school_id", schoolId)
+        .is("deleted_at", null),
+      branchScope,
+    ),
+    // 6 — Salaries (row-level: needs per-row net = gross - deductions)
     applyBranchScopeToQuery(
       actorSupabase
         .from("salaries")
-        .select("id, gross_salary, deductions, month")
+        .select("gross_salary, deductions, month")
         .eq("school_id", schoolId),
       branchScope,
     ),
+    // 7 — Current-month salary: SQL COUNT only
+    applyBranchScopeToQuery(
+      actorSupabase
+        .from("salaries")
+        .select("*", { count: "exact", head: true })
+        .eq("school_id", schoolId)
+        .eq("month", currentMonth),
+      branchScope,
+    ),
+    // 8 — Incomes: SQL SUM(amount) + COUNT
     applyBranchScopeToQuery(
       actorSupabase
         .from("incomes")
-        .select("id, amount")
+        .select("amount.sum()", { count: "exact" })
         .eq("school_id", schoolId)
         .is("deleted_at", null),
       branchScope,
     ),
   ]);
 
-  const students =
-    studentsResult.status === "fulfilled"
-      ? studentsResult.value.error
-        ? []
-        : ((studentsResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+  // ---- Unwrap results -------------------------------------------------------
 
-  const classFees =
-    classFeesResult.status === "fulfilled"
-      ? classFeesResult.value.error
-        ? []
-        : ((classFeesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+  const studentsU = unwrapSettled(studentsResult as PromiseSettledResult<any>);
+  const classFeesU = unwrapSettled(classFeesResult as PromiseSettledResult<any>);
+  const paymentsAggU = unwrapSettled(paymentsAggResult as PromiseSettledResult<any>);
+  const todayPaymentsU = unwrapSettled(todayPaymentsResult as PromiseSettledResult<any>);
+  const expensesAggU = unwrapSettled(expensesAggResult as PromiseSettledResult<any>);
+  const expensesByTypeU = unwrapSettled(expensesByTypeResult as PromiseSettledResult<any>);
+  const salariesU = unwrapSettled(salariesResult as PromiseSettledResult<any>);
+  const currentMonthSalaryU = unwrapSettled(currentMonthSalaryResult as PromiseSettledResult<any>);
+  const incomesAggU = unwrapSettled(incomesAggResult as PromiseSettledResult<any>);
 
-  const payments =
-    paymentsResult.status === "fulfilled"
-      ? paymentsResult.value.error
-        ? []
-        : ((paymentsResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+  const students = (studentsU.data ?? []) as Array<Record<string, unknown>>;
+  const classFees = (classFeesU.data ?? []) as Array<Record<string, unknown>>;
+  const salaries = (salariesU.data ?? []) as Array<Record<string, unknown>>;
 
-  const expenses =
-    expensesResult.status === "fulfilled"
-      ? expensesResult.value.error
-        ? []
-        : ((expensesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+  // ---- Payments (SQL aggregated) --------------------------------------------
 
-  const salaries =
-    salariesResult.status === "fulfilled"
-      ? salariesResult.value.error
-        ? []
-        : ((salariesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+  const paymentsCount = paymentsAggU.count;
+  const paymentVolume = readAggSum(paymentsAggU.data);
+  const todayPayments = todayPaymentsU.count;
 
-  const incomes =
-    incomesResult.status === "fulfilled"
-      ? incomesResult.value.error
-        ? []
-        : ((incomesResult.value.data ?? []) as Array<Record<string, unknown>>)
-      : [];
+  // ---- Expenses (SQL aggregated) --------------------------------------------
 
-  // Build class_name -> total_fee map
-  const classFeeMap = new Map<string, number>();
-  classFees.forEach((cf: any) => {
-    if (cf.class_name && typeof cf.total_fee === "number") {
-      classFeeMap.set(String(cf.class_name), cf.total_fee);
+  const expensesCount = expensesAggU.count;
+  const expenseVolume = readAggSum(expensesAggU.data);
+
+  // Expenses grouped by type — PostgREST returns one row per type with { expense_types: {name}, sum }
+  const expensesByTypeRaw = (expensesByTypeU.data ?? []) as Array<Record<string, unknown>>;
+  const expensesByTypeMap = new Map<string, number>();
+  for (const row of expensesByTypeRaw) {
+    const typeName = readRelationName((row as any).expense_types) || "أخرى";
+    expensesByTypeMap.set(typeName, (expensesByTypeMap.get(typeName) ?? 0) + Number((row as any).sum ?? 0));
+  }
+  const expensesByType = Array.from(expensesByTypeMap.entries())
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total);
+  const expenseTypeCount = expensesByTypeMap.size;
+
+  // ---- Incomes (SQL aggregated) ---------------------------------------------
+
+  const incomesCount = incomesAggU.count;
+  const otherRevenueTotal = readAggSum(incomesAggU.data);
+
+  // ---- Salaries (row-level: per-row net needed) -----------------------------
+
+  const salaryByMonthMap = new Map<string, number>();
+  let salaryVolume = 0;
+  for (const s of salaries) {
+    const net = Math.max(0, Number((s as any).gross_salary ?? 0) - Number((s as any).deductions ?? 0));
+    salaryVolume += net;
+    const month = String((s as any).month ?? "");
+    if (month) {
+      salaryByMonthMap.set(month, (salaryByMonthMap.get(month) ?? 0) + net);
     }
-  });
+  }
+  const salaryByMonth = Array.from(salaryByMonthMap.entries())
+    .map(([month, total]) => ({ month, total }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 
-  const expenseTypeCount = new Set(
-    expenses
-      .map((item) => readRelationName(item.expense_types))
-      .filter(Boolean),
-  ).size;
+  const currentMonthSalaryCount = currentMonthSalaryU.count;
 
-  // Calculate metrics with resolved class fees — split by current vs transferred
+  // ---- Students (row-level: class_fees resolution logic) --------------------
+
+  const classFeeMap = new Map<string, number>();
+  for (const cf of classFees) {
+    if ((cf as any).class_name && typeof (cf as any).total_fee === "number") {
+      classFeeMap.set(String((cf as any).class_name), (cf as any).total_fee);
+    }
+  }
+
   let totalFees = 0;
   let totalPaid = 0;
   let totalRemaining = 0;
@@ -202,72 +308,40 @@ async function loadFallbackMetrics(
   let transferredStudentsDiscounts = 0;
   let transferredStudentsRemaining = 0;
 
-  students.forEach((student: any) => {
-    const className = student.class_name;
+  for (const student of students) {
+    const s = student as any;
+    const className = s.class_name;
     const classFeeTotal = className ? classFeeMap.get(className) : undefined;
     const resolved = buildResolvedStudentFinancials(
       {
-        total_fee: Number(student.total_fee ?? 0),
-        paid_fee: Number(student.paid_fee ?? 0),
-        discount_value: Number(student.discount_value ?? 0),
+        total_fee: Number(s.total_fee ?? 0),
+        paid_fee: Number(s.paid_fee ?? 0),
+        discount_value: Number(s.discount_value ?? 0),
       },
       classFeeTotal,
     );
 
-    if (student.status === "transferred") {
+    if (s.status === "transferred") {
       // Transferred students: completely isolated from all global accumulators.
       // Their data only appears in the dedicated "الطلاب المنقولين" card.
       transferredStudentsTotalFees += resolved.paid_fee;
       transferredStudentsCollected += resolved.paid_fee;
-      transferredStudentsDiscounts += Number(student.discount_value ?? 0);
+      transferredStudentsDiscounts += Number(s.discount_value ?? 0);
       transferredStudentsRemaining += 0; // always 0 — remaining is written off
       // Do NOT add to totalPaid — transferred students are excluded from all revenue totals
     } else {
       currentStudentsTotalFees += resolved.resolved_total_fee;
       currentStudentsCollected += resolved.paid_fee;
-      currentStudentsDiscounts += Number(student.discount_value ?? 0);
+      currentStudentsDiscounts += Number(s.discount_value ?? 0);
       currentStudentsRemaining += resolved.remaining_fee;
       // Current students contribute to all global accumulators
       totalFees += resolved.resolved_total_fee;
       totalPaid += resolved.paid_fee;
       totalRemaining += resolved.remaining_fee;
     }
-  });
+  }
 
-  // Salary totals grouped by month
-  const salaryByMonthMap = new Map<string, number>();
-  salaries.forEach((s: any) => {
-    const net = Math.max(0, Number(s.gross_salary ?? 0) - Number(s.deductions ?? 0));
-    const month = String(s.month ?? "");
-    if (month) {
-      salaryByMonthMap.set(month, (salaryByMonthMap.get(month) ?? 0) + net);
-    }
-  });
-  const salaryByMonth = Array.from(salaryByMonthMap.entries())
-    .map(([month, total]) => ({ month, total }))
-    .sort((a, b) => a.month.localeCompare(b.month));
-
-  // Other revenue from incomes table
-  const otherRevenueTotal = incomes.reduce(
-    (sum, item) => sum + Number(item.amount ?? 0), 0,
-  );
-
-  // Expenses by type
-  const expensesByTypeMap = new Map<string, number>();
-  expenses.forEach((item) => {
-    const typeName = readRelationName(item.expense_types) || "أخرى";
-    expensesByTypeMap.set(typeName, (expensesByTypeMap.get(typeName) ?? 0) + Number(item.amount ?? 0));
-  });
-  const expensesByType = Array.from(expensesByTypeMap.entries())
-    .map(([name, total]) => ({ name, total }))
-    .sort((a, b) => b.total - a.total);
-
-  const paymentVolume = payments.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
-  const expenseVolume = expenses.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
-  const salaryVolume = salaries.reduce(
-    (sum, item) => sum + Number(item.gross_salary ?? 0) - Number(item.deductions ?? 0),
-    0,
-  );
+  // ---- Assemble final metrics -----------------------------------------------
 
   const netRevenue = totalPaid;
   const netPayments = expenseVolume + salaryVolume;
@@ -278,16 +352,16 @@ async function loadFallbackMetrics(
     totalFees,
     totalPaid,
     totalRemaining,
-    paymentsCount: payments.length,
+    paymentsCount,
     paymentVolume,
-    todayPayments: payments.filter((item) => String(item.created_at ?? "").slice(0, 10) === todayDate).length,
-    expensesCount: expenses.length,
+    todayPayments,
+    expensesCount,
     expenseVolume,
     expenseTypeCount,
     salariesCount: salaries.length,
     salaryVolume,
-    currentMonthSalaryCount: salaries.filter((item) => item.month === currentMonth).length,
-    incomesCount: incomes.length,
+    currentMonthSalaryCount,
+    incomesCount,
 
     netRevenue,
     netPayments,
@@ -315,17 +389,25 @@ async function loadFallbackMetrics(
     netBalance: metrics.paymentVolume - metrics.expenseVolume - metrics.salaryVolume,
   } satisfies ReportsMetrics;
 
-  return {
-    metrics: finalMetrics,
-    warnings: [studentsResult, classFeesResult, paymentsResult, expensesResult, salariesResult, incomesResult]
-      .map((result, index) => {
-        const labels = ["بيانات الطلاب", "بيانات رسوم الفئات", "بيانات الدفعات", "بيانات المصروفات", "بيانات الرواتب", "بيانات الواردات"];
-        if (result.status !== "fulfilled") return `تعذر تحميل ${labels[index]} حالياً.`;
-        if (result.value.error) return result.value.error.message || `تعذر تحميل ${labels[index]} حالياً.`;
-        return null;
-      })
-      .filter(Boolean),
-  };
+  // ---- Warnings for failed queries ------------------------------------------
+
+  const warningInputs: Array<{ result: PromiseSettledResult<any>; label: string }> = [
+    { result: studentsResult, label: "بيانات الطلاب" },
+    { result: classFeesResult, label: "بيانات رسوم الفئات" },
+    { result: paymentsAggResult, label: "بيانات الدفعات" },
+    { result: expensesAggResult, label: "بيانات المصروفات" },
+    { result: salariesResult, label: "بيانات الرواتب" },
+    { result: incomesAggResult, label: "بيانات الواردات" },
+  ];
+  const warnings = warningInputs
+    .map(({ result, label }) => {
+      if (result.status !== "fulfilled") return `تعذر تحميل ${label} حالياً.`;
+      if (result.value.error) return result.value.error.message || `تعذر تحميل ${label} حالياً.`;
+      return null;
+    })
+    .filter(Boolean);
+
+  return { metrics: finalMetrics, warnings };
 }
 
 

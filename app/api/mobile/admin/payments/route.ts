@@ -27,7 +27,19 @@ export async function GET(req: NextRequest) {
         )
         .eq("school_id", schoolId)
         .order("remaining_fee", { ascending: false })
-        .range(from, to);
+        .range(from, to)
+        .returns<
+          {
+            id: string;
+            student_id: string | null;
+            full_name: string | null;
+            class_name: string | null;
+            section: string | null;
+            total_fee: number | null;
+            paid_fee: number | null;
+            remaining_fee: number | null;
+          }[]
+        >();
 
       if (search.trim()) {
         paymentsQuery = paymentsQuery.ilike("full_name", `%${search.trim()}%`);
