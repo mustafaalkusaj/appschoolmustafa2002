@@ -1,4 +1,3 @@
-'use client'
 import type { SubjectAnalytics } from '../_hooks/useGradeAnalytics'
 
 interface Props {

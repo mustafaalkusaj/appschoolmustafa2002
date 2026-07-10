@@ -1,4 +1,3 @@
-'use client'
 import type { GradeStatus } from '@/lib/grades/types'
 
 interface Props {

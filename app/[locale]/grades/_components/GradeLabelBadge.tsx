@@ -1,4 +1,3 @@
-'use client'
 import { computeGradeLabel } from '@/lib/grades/grade-calculator'
 
 interface Props {
