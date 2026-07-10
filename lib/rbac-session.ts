@@ -9,7 +9,7 @@ import {
 import type { DeepPermissionMap, SidebarModuleNode } from "@/types/deep-permissions";
 
 export const RBAC_COOKIE_NAME = "school_rbac";
-export const RBAC_SESSION_MAX_AGE = 60 * 60 * 8;
+export const RBAC_SESSION_MAX_AGE = 60 * 60 * 1;
 let devFallbackSecret = "";
 
 export interface RBACSessionPayload {

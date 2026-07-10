@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import { escapeFilterValue } from "@/lib/supabase-query-helpers";
 
 /**
  * Today's class schedule for the signed-in student.
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
 
     // Match the student's section, or section-less (whole-class) rows.
     if (section) {
-      query = query.or(`section.eq.${section},section.is.null`);
+      query = query.or(`section.eq."${escapeFilterValue(section)}",section.is.null`);
     }
 
     const { data, error } = await query;
