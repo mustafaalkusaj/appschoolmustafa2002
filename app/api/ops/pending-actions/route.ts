@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
   const { data: pending, error: fetchError } = await supabase
     .from("ops_pending_actions")
-    .select("*")
+    .select("id, expires_at, type, payload, status")
     .eq("id", id.trim())
     .eq("status", "pending")
     .maybeSingle();

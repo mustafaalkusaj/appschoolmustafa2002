@@ -113,7 +113,7 @@ export async function getCrmLeadDetail(nameOrId: string): Promise<string> {
     // Try by name first (ILIKE)
     const { data, error } = await supabase
       .from("crm_leads")
-      .select("*")
+      .select("id, school_name, contact_name, phone, status, last_contact_at, notes")
       .ilike("school_name", `%${nameOrId}%`)
       .limit(1)
       .single();
@@ -122,7 +122,7 @@ export async function getCrmLeadDetail(nameOrId: string): Promise<string> {
       // Try by ID prefix
       const { data: byId } = await supabase
         .from("crm_leads")
-        .select("*")
+        .select("id, school_name, contact_name, phone, status, last_contact_at, notes")
         .gte("id" as never, nameOrId)
         .limit(1)
         .single();

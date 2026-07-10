@@ -102,7 +102,7 @@ export async function POST(
     // Get settings
     const { data: settings } = await supabase
       .from("exam_settings")
-      .select("*")
+      .select("id, exam_id, max_attempts, shuffle_questions, duration_minutes, auto_submit, lock_browser, shuffle_options, allow_review, instructions")
       .eq("exam_id", examId)
       .maybeSingle();
 

@@ -293,7 +293,7 @@ async function fetchSchoolContext(schoolId: string) {
 async function fetchUserProfileById(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("*")
+    .select("id, full_name, job_title, email, role, permissions, custom_permissions, school_id, is_active, phone, branch_id, allowed_branch_ids, allowed_pages, is_single_page_user, default_path, scope_level, permissions_version")
     .eq("id", userId)
     .maybeSingle();
 

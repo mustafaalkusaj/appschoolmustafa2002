@@ -632,7 +632,7 @@ export async function handleTelegramCommand(
       const supabase = createServiceSupabaseClient();
       const { data: actions } = await supabase
         .from("ops_pending_actions")
-        .select("*")
+        .select("id, expires_at, payload")
         .eq("type", "add_user")
         .eq("status", "pending");
 

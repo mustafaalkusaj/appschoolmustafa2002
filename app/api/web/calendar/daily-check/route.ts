@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   // Fetch events happening tomorrow through next 7 days
   const { data: events, error: eventsError } = await supabase
     .from("calendar_events")
-    .select("*")
+    .select("id, title, date, type, is_global, school_id")
     .gte("date", tomorrowStr)
     .lte("date", nextWeekStr);
 
