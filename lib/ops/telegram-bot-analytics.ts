@@ -94,7 +94,7 @@ export async function getUserJourneyStats(): Promise<string> {
       .from("managed_user_profiles")
       .select("role, created_at, last_sign_in_at");
 
-    const profiles = (profilesData ?? []) as Array<{
+    const profiles = (profilesData ?? []) as unknown as Array<{
       role: string | null;
       created_at: string;
       last_sign_in_at: string | null;
@@ -223,7 +223,7 @@ export async function sendSatisfactionSurvey(): Promise<string> {
       .limit(500);
 
     if (users && users.length > 0) {
-      const notifications = (users as Array<{ user_id: string; role: string | null }>).map(
+      const notifications = (users as unknown as Array<{ user_id: string; role: string | null }>).map(
         (u) => ({
           user_id: u.user_id,
           title: "استبيان رضا المستخدمين",
@@ -234,7 +234,8 @@ export async function sendSatisfactionSurvey(): Promise<string> {
       );
 
       // Batch insert notifications
-      await supabase.from("notifications").insert(notifications);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await supabase.from("notifications").insert(notifications as any);
     }
 
     return [
@@ -347,7 +348,7 @@ export async function getRealtimeStats(): Promise<string> {
     if (error || !data || (data as Array<unknown>).length === 0) {
       lines.push("لا توجد بيانات realtime حديثة في hourly_stats.");
     } else {
-      const stats = data as Array<{
+      const stats = data as unknown as Array<{
         active_users_web: number | null;
         active_users_mobile: number | null;
         recorded_at: string;

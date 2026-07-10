@@ -689,7 +689,8 @@ export async function saveOpsReport(report: OpsReport) {
     metadata: report.metadata,
   };
 
-  const insertResult = await client.from("ops_health_reports").insert(payload).select("id, created_at").single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertResult = await client.from("ops_health_reports").insert(payload as any).select("id, created_at").single();
   if (insertResult.error) {
     throw insertResult.error;
   }
@@ -701,7 +702,8 @@ export async function saveOpsReport(report: OpsReport) {
     expiring_30_days_count: report.subscriptionSnapshot.expiring_30_days_count,
     details: report.subscriptionSnapshot.details,
   };
-  const snapshotResult = await client.from("ops_subscription_snapshots").insert(snapshotPayload).select("id").single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snapshotResult = await client.from("ops_subscription_snapshots").insert(snapshotPayload as any).select("id").single();
   if (snapshotResult.error) {
     throw snapshotResult.error;
   }
@@ -735,7 +737,8 @@ export async function saveOpsAlert(input: {
       sent_via: input.sent_via ?? null,
       sent_status: input.sent_status,
       metadata: input.metadata ?? {},
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .select("id, created_at")
     .single();
 

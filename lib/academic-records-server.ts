@@ -319,7 +319,8 @@ async function resolveSubjectId(
 
   const { data: insertedRow, error: insertError } = await client
     .from("subjects")
-    .insert(insertPayload)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(insertPayload as any)
     .select("id")
     .maybeSingle();
 
@@ -418,7 +419,7 @@ async function resolveClassScopeIds(
 
   const sectionsHaveSchoolId = await safeTableHasColumn(client, "sections", "school_id");
 
-  let sectionQuery = client.from("sections").select("*").eq("class_id", preferredClassRow.id);
+  let sectionQuery = client.from("sections").select("*").eq("class_id", String(preferredClassRow.id));
   if (sectionsHaveSchoolId) {
     sectionQuery = sectionQuery.eq("school_id", schoolId);
   }
@@ -665,7 +666,11 @@ export async function createTeacherAssignmentRecord(
     payload.attachment_size_bytes = attachment.attachment?.size_bytes ?? null;
   }
 
-  const { data, error } = await ctx.serviceSupabase.from("assignments").insert(payload).select("id");
+  const { data, error } = await ctx.serviceSupabase
+    .from("assignments")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(payload as any)
+    .select("id");
 
   if (error) {
     return {
@@ -830,7 +835,11 @@ export async function createTeacherGradeRecord(
     payload.section_id = scopeIds.sectionId;
   }
 
-  const { data, error } = await ctx.serviceSupabase.from("grades").insert(payload).select("id");
+  const { data, error } = await ctx.serviceSupabase
+    .from("grades")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(payload as any)
+    .select("id");
 
   if (error) {
     return {
@@ -875,7 +884,10 @@ async function fetchLookupMap(
   }
 
   try {
-    const { data, error } = await client.from(table).select(select).in(key, ids);
+    const { data, error } = await (client as unknown as { from: (table: string) => any })
+      .from(table)
+      .select(select)
+      .in(key, ids);
     if (error) {
       throw error;
     }

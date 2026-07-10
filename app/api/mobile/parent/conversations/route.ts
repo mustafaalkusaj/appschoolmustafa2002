@@ -126,7 +126,8 @@ export async function POST(req: NextRequest) {
       .insert({
         school_id: schoolId,
         title: teacher_name ?? null,
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
       .select("id")
       .single();
 
@@ -151,7 +152,8 @@ export async function POST(req: NextRequest) {
           school_id: schoolId,
           role: "teacher",
         },
-      ]);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
 
     if (participantsError) {
       // Clean up the orphaned conversation

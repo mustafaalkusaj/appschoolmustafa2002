@@ -38,7 +38,7 @@ export async function getUsersOverview(): Promise<string> {
         .gte("created_at", monthStart.toISOString()),
     ]);
 
-    const all = (allResult.data ?? []) as Array<{ role: string }>;
+    const all = (allResult.data ?? []) as unknown as Array<{ role: string }>;
     const roleCounts: Record<string, number> = {};
     for (const row of all) {
       const r = row.role ?? "unknown";
@@ -87,7 +87,7 @@ export async function searchUser(query: string): Promise<string> {
       return `❌ تعذر البحث: ${escHtml(error.message.slice(0, 100))}`;
     }
 
-    const users = (data ?? []) as Array<{
+    const users = (data ?? []) as unknown as Array<{
       id: string;
       full_name: string | null;
       role: string | null;
@@ -136,7 +136,7 @@ export async function getNewUsers(days = 1): Promise<string> {
       return `❌ تعذر جلب المستخدمين الجدد: ${escHtml(error.message.slice(0, 100))}`;
     }
 
-    const users = (data ?? []) as Array<{
+    const users = (data ?? []) as unknown as Array<{
       id: string;
       full_name: string | null;
       role: string | null;
@@ -195,7 +195,7 @@ export async function getInactiveUsers(): Promise<string> {
         .select("id", { head: true, count: "exact" }),
     ]);
 
-    const inactive = (inactiveResult.data ?? []) as Array<{ role: string }>;
+    const inactive = (inactiveResult.data ?? []) as unknown as Array<{ role: string }>;
     const total = totalResult.count ?? 0;
 
     const roleCounts: Record<string, number> = {};

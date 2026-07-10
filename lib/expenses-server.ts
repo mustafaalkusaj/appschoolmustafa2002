@@ -142,7 +142,8 @@ async function fetchExpenseSummaryViaRpc(
   schoolId: string,
   filters: Pick<ExpensesListFilters, "search" | "expenseTypeId" | "fromDate" | "toDate">,
 ) {
-  const { data, error } = await actorSupabase.rpc("school_expenses_summary", {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (actorSupabase.rpc as any)("school_expenses_summary", {
     p_school_id: schoolId,
     p_search: filters.search,
     p_expense_type_id: filters.expenseTypeId,
@@ -154,7 +155,7 @@ async function fetchExpenseSummaryViaRpc(
     throw error;
   }
 
-  const record = (Array.isArray(data) ? data[0] : data) as ExpenseSummaryRpcRecord | null;
+  const record = (Array.isArray(data) ? data[0] : data) as unknown as ExpenseSummaryRpcRecord | null;
   if (!record || typeof record !== "object") {
     return null;
   }
@@ -303,7 +304,8 @@ async function fetchExpenseTypesOverviewViaRpc(
   schoolId: string,
   search: string,
 ) {
-  const { data, error } = await actorSupabase.rpc("school_expense_types_overview", {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (actorSupabase.rpc as any)("school_expense_types_overview", {
     p_school_id: schoolId,
     p_search: search,
   });

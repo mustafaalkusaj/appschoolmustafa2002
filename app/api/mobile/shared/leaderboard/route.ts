@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
     // Aggregate points per student in JS
     const pointsMap = new Map<string, number>();
     for (const log of logs ?? []) {
+      if (!log.student_id) continue;
       const current = pointsMap.get(log.student_id) ?? 0;
       pointsMap.set(log.student_id, current + (log.points ?? 0));
     }

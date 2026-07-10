@@ -264,7 +264,8 @@ export async function POST(req: NextRequest) {
   try {
     const { data: insertedData, error: insertError } = await actorSupabase
       .from('student_badges')
-      .upsert(insertRows, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert(insertRows as any, {
         onConflict: 'school_id,student_id,subject_id,badge_type,earned_at',
         ignoreDuplicates: true,
       })
@@ -274,7 +275,8 @@ export async function POST(req: NextRequest) {
       // نحاول insert عادي إذا فشل upsert
       const { data: plainInsert } = await actorSupabase
         .from('student_badges')
-        .insert(insertRows)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(insertRows as any)
         .select('id, student_id, badge_type')
       awarded = (plainInsert ?? []).length
     } else {

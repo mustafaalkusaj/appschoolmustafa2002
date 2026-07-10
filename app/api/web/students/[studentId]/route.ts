@@ -488,7 +488,8 @@ export async function PATCH(
   const { data, error } = await applyBranchScopeToQuery(
     serviceSupabase
       .from("students")
-      .update(updatePayload)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update(updatePayload as any)
       .eq("id", studentId)
       .eq("school_id", targetSchoolId),
     branchScope,

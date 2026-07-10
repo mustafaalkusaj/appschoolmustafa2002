@@ -90,7 +90,8 @@ export async function PUT(req: NextRequest) {
 
   const { error } = await service
     .from("activity_monitoring_settings")
-    .upsert(payload, { onConflict: "school_id,branch_id" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .upsert(payload as any, { onConflict: "school_id,branch_id" });
 
   if (error) return jsonError("تعذر حفظ الإعدادات", 500);
   return NextResponse.json({ ok: true });

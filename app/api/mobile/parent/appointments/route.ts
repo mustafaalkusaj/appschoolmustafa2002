@@ -9,6 +9,15 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
+// `teacher_appointments` is not present in the generated Database types yet,
+// so we intentionally bypass the typed `.from()` overloads for this table to
+// avoid excessively-deep type instantiation while preserving existing
+// runtime behavior.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function teacherAppointmentsTable(client: unknown): any {
+  return (client as { from: (table: string) => any }).from("teacher_appointments");
+}
+
 /**
  * GET /api/mobile/parent/appointments
  * Returns the parent's teacher appointment requests.
@@ -28,8 +37,7 @@ export async function GET(req: NextRequest) {
     const userId = authResult.data.user.id;
     const serviceSupabase = createServiceSupabaseClient();
 
-    const { data, error } = await serviceSupabase
-      .from("teacher_appointments")
+    const { data, error } = await teacherAppointmentsTable(serviceSupabase)
       .select(
         `id, status, parent_notes, scheduled_at, created_at,
          students(full_name),
@@ -42,7 +50,7 @@ export async function GET(req: NextRequest) {
       return jsonError("خطأ في جلب المواعيد.", 500);
     }
 
-    const items = (data ?? []).map((row: Record<string, unknown>) => {
+    const items = ((data ?? []) as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
       const student = row.students as { full_name?: string } | null;
       const teacher = row["managed_user_profiles!teacher_id"] as {
         full_name?: string;
@@ -124,8 +132,7 @@ export async function POST(req: NextRequest) {
       return jsonError("الطالب غير مرتبط بحسابك.", 403);
     }
 
-    const { data: appointment, error: insertError } = await serviceSupabase
-      .from("teacher_appointments")
+    const { data: appointment, error: insertError } = await teacherAppointmentsTable(serviceSupabase)
       .insert({
         school_id: resolvedSchoolId,
         parent_user_id: userId,

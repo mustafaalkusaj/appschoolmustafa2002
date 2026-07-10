@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
       data: { grade_entry_id: entryId, exam_photos: photos },
       is_read: false,
       created_at: new Date().toISOString(),
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
 
     // Mark sent
     await actorSupabase

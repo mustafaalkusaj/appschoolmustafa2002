@@ -75,7 +75,8 @@ export async function POST(req: NextRequest) {
         subject: subject ?? null,
         phone: phone ?? null,
         is_active: true,
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
       .select("id")
       .single();
 

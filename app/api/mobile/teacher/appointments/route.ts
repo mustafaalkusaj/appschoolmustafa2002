@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
 
+// `teacher_appointments` is not present in the generated Database types yet,
+// so we intentionally bypass the typed `.from()` overloads for this table to
+// avoid excessively-deep type instantiation while preserving existing
+// runtime behavior.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function teacherAppointmentsTable(client: unknown): any {
+  return (client as { from: (table: string) => any }).from("teacher_appointments");
+}
+
 /**
  * GET /api/mobile/teacher/appointments
  * Returns all appointment requests for this teacher.
@@ -19,8 +28,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "المعلم غير موجود." }, { status: 403 });
     }
 
-    const { data, error } = await serviceSupabase
-      .from("teacher_appointments")
+    const { data, error } = await teacherAppointmentsTable(serviceSupabase)
       .select(`id, status, parent_notes, scheduled_at, created_at, students(full_name)`)
       .eq("teacher_id", teacherId)
       .eq("school_id", schoolId)
@@ -30,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "خطأ في جلب المواعيد." }, { status: 500 });
     }
 
-    const items = (data ?? []).map((row: Record<string, unknown>) => {
+    const items = ((data ?? []) as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
       const student = row.students as { full_name?: string } | null;
       return {
         id: row.id,
@@ -81,8 +89,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Verify the appointment belongs to this teacher and school.
-    const { data: existing, error: fetchError } = await serviceSupabase
-      .from("teacher_appointments")
+    const { data: existing, error: fetchError } = await teacherAppointmentsTable(serviceSupabase)
       .select("id")
       .eq("id", appointmentId)
       .eq("teacher_id", teacherId)
@@ -97,8 +104,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "الموعد غير موجود أو غير مصرح." }, { status: 404 });
     }
 
-    const { error: updateError } = await serviceSupabase
-      .from("teacher_appointments")
+    const { error: updateError } = await teacherAppointmentsTable(serviceSupabase)
       .update({ status, scheduled_at: scheduledAt, updated_at: new Date().toISOString() })
       .eq("id", appointmentId);
 

@@ -6,7 +6,7 @@ import nextIntl from "next-intl/plugin";
  */
 
 const nextConfig: NextConfig = {
-  typescript: { ignoreBuildErrors: true },
+  typescript: { ignoreBuildErrors: false },
   // Allows deploy scripts to build into a staging dir (NEXT_DIST_DIR=.next-build)
   // and swap it in atomically, instead of overwriting the served .next in place.
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",

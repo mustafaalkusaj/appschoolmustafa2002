@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
         behavior_type: behavior_type ?? null,
         points,
         note: note ?? null,
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
       .select("id, student_id, student_name, behavior_type, points, note, created_at")
       .single();
 

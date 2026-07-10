@@ -364,7 +364,8 @@ export async function captureOpsError(input: CaptureOpsErrorInput): Promise<void
       user_agent: input.user_agent ?? null,
       metadata: input.metadata ?? {},
       fix_prompt,
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
 
     if (insertError) {
       console.error("[ops-errors] insert failed:", insertError.message);

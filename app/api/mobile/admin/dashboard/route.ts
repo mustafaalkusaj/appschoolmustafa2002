@@ -39,7 +39,10 @@ async function buildAdminDashboard(schoolId: string) {
       .select("id, title, message, created_at, sender_name")
       .eq("school_id", schoolId)
       .order("created_at", { ascending: false })
-      .limit(5),
+      .limit(5)
+      .returns<
+        { id: string; title: string | null; message: string | null; created_at: string | null; sender_name: string | null }[]
+      >(),
     serviceSupabase
       .from("assignments")
       .select("id, title, subject, created_at")
@@ -70,7 +73,7 @@ async function buildAdminDashboard(schoolId: string) {
 
   let overduePaymentsCount = 0;
   try {
-    const { count } = await serviceSupabase
+    const { count } = await (serviceSupabase as unknown as { from: (table: string) => any })
       .from("student_payments")
       .select("id", { count: "exact", head: true })
       .eq("school_id", schoolId)

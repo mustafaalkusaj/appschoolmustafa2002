@@ -92,7 +92,8 @@ export async function POST(req: NextRequest) {
     // external receipts still flow through manual_receipt_number.
     p_receipt_number: null,
     p_manual_receipt_number: (manualReceiptNumber ?? receiptNumber) ?? null,
-  });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
 
   if (rpcError) {
     // Postgres unique violation (error code 23505) → duplicate payment → 409
@@ -184,7 +185,7 @@ export async function POST(req: NextRequest) {
 
   // create_payment_atomic does not return verification_token; fetch it from the
   // payments row so the receipt verification link/QR can be built. Null-safe.
-  let verificationToken: string | null = row.verification_token ?? null;
+  let verificationToken: string | null = (row as { verification_token?: string | null }).verification_token ?? null;
   if (!verificationToken && row.id) {
     const { data: tokenRow } = await actorSupabase
       .from("payments")

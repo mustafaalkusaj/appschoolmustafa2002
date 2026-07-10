@@ -82,7 +82,10 @@ export async function tableHasColumn(
   }
 
   const nextProbe = (async () => {
-    const { error } = await actorSupabase.from(table).select(column).limit(1);
+    const { error } = await (actorSupabase as unknown as { from: (table: string) => any })
+      .from(table)
+      .select(column)
+      .limit(1);
 
     if (!error) {
       schemaCapabilityCache.set(cacheKey, {
@@ -773,7 +776,7 @@ export async function resolveClassAndSectionIds(
     .from("sections")
     .select("*")
     .eq("school_id", schoolId)
-    .eq("class_id", preferredClassRow.id);
+    .eq("class_id", String(preferredClassRow.id));
 
   if (sectionError) throw sectionError;
   const sectionRow = ((sectionRows ?? []) as LookupRecord[]).find((row) =>

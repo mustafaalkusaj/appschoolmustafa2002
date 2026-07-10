@@ -96,7 +96,8 @@ export async function POST(req: NextRequest) {
         section,
         parent_phone: parentPhone,
         status: "active",
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
       .select("id")
       .single();
 

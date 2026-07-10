@@ -16,9 +16,14 @@ export async function GET(req: NextRequest) {
     const action = url.searchParams.get("action") || null;
     const schoolId = url.searchParams.get("school_id") || null;
 
-    let query = serviceSupabase
+    let filterQuery = serviceSupabase
       .from("audit_logs")
-      .select("id, school_id, user_id, action, resource, resource_id, ip_address, created_at", { count: "exact" })
+      .select("id, school_id, user_id, action, resource, resource_id, ip_address, created_at", { count: "exact" });
+
+    if (action) filterQuery = filterQuery.eq("action", action);
+    if (schoolId) filterQuery = filterQuery.eq("school_id", schoolId);
+
+    const query = filterQuery
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1)
       .returns<
@@ -33,9 +38,6 @@ export async function GET(req: NextRequest) {
           created_at: string;
         }[]
       >();
-
-    if (action) query = query.eq("action", action);
-    if (schoolId) query = query.eq("school_id", schoolId);
 
     const { data, error, count } = await query;
     if (error) throw error;

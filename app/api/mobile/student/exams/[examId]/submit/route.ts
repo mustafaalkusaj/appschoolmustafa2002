@@ -192,7 +192,8 @@ export async function POST(
     // Insert student answers
     const { error: answersError } = await supabase
       .from("student_answers")
-      .upsert(studentAnswerRows, { onConflict: "attempt_id,question_id" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert(studentAnswerRows as any, { onConflict: "attempt_id,question_id" });
 
     if (answersError) {
       return NextResponse.json(
@@ -215,7 +216,8 @@ export async function POST(
         score: totalScore,
         submitted_at: now.toISOString(),
         time_spent_seconds: timeSpentSeconds,
-        answers_json: studentAnswerRows,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        answers_json: studentAnswerRows as any,
       })
       .eq("id", attemptId);
 

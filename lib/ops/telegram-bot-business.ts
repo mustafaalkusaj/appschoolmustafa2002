@@ -535,7 +535,7 @@ export async function getSubscriptionsDetail(): Promise<string> {
 
     if (error) return `❌ خطأ: ${escHtml(error.message.slice(0, 100))}`;
 
-    const schools = (data ?? []) as Array<{
+    const schools = (data ?? []) as unknown as Array<{
       id: string;
       name: string;
       subscription_status: string | null;

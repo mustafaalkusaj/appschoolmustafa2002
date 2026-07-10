@@ -70,7 +70,18 @@ export async function GET(
       .from("class_schedules")
       .select("id, day_of_week, period_number, subject, teacher_name, class_name, section")
       .eq("school_id", targetSchoolId)
-      .ilike("teacher_name", teacher.full_name);
+      .ilike("teacher_name", teacher.full_name)
+      .returns<
+        {
+          id: string;
+          day_of_week: string;
+          period_number: number;
+          subject: string | null;
+          teacher_name: string | null;
+          class_name: string | null;
+          section: string | null;
+        }[]
+      >();
 
     if (error) {
       logRouteError("teachers-schedule", error, { teacherId, schoolId: targetSchoolId });

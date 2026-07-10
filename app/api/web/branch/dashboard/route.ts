@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
   // ── Process classes ──────────────────────────────────────────────────────
 
   type ClassRow = { id: string; name: string | null; grade: number | null; section: string | null };
-  const classes = (classesResult.data ?? []) as ClassRow[];
+  const classes = (classesResult.data ?? []) as unknown as ClassRow[];
 
   const classesList = classes.map((c) => ({
     id: c.id,

@@ -138,7 +138,8 @@ export async function POST(
   // Insert student answers
   const { error: answersError } = await actorSupabase
     .from("student_answers")
-    .upsert(studentAnswerRows, { onConflict: "attempt_id,question_id" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .upsert(studentAnswerRows as any, { onConflict: "attempt_id,question_id" });
 
   if (answersError) {
     return NextResponse.json({ ok: false, error: answersError.message }, { status: 500 });
@@ -158,7 +159,8 @@ export async function POST(
       score: totalScore,
       submitted_at: now.toISOString(),
       time_spent_seconds: timeSpentSeconds,
-      answers_json: studentAnswerRows,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      answers_json: studentAnswerRows as any,
     })
     .eq("id", body.attemptId);
 
@@ -169,7 +171,8 @@ export async function POST(
   // Update question usage stats
   for (const ans of studentAnswerRows) {
     try {
-      await actorSupabase.rpc("increment_question_times_used", { qid: ans.question_id });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (actorSupabase.rpc as any)("increment_question_times_used", { qid: ans.question_id });
     } catch {
       // Non-critical
     }
@@ -189,7 +192,7 @@ export async function POST(
       await notifyExamResult({
         supabase: actorSupabase,
         schoolId: targetSchoolId,
-        studentId: attempt.student_id,
+        studentId: attempt.student_id ?? "",
         examTitle: examId,
         score: totalScore,
       });

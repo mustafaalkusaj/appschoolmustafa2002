@@ -103,7 +103,8 @@ export async function POST(req: NextRequest) {
       is_paid: true,
       paid_at: new Date().toISOString(),
       notes,
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .select("id, school_id, branch_id, teacher_id, gross_salary, deductions, month, is_paid, paid_at, notes, created_at, teachers(full_name,subject)")
     .single();
 

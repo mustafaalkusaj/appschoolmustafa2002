@@ -195,7 +195,8 @@ export async function POST(request: NextRequest) {
 
     await supabase
       .from("ops_pending_actions")
-      .update({ status: "confirmed", result })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ status: "confirmed", result: result as any })
       .eq("id", id.trim());
 
     return NextResponse.json(

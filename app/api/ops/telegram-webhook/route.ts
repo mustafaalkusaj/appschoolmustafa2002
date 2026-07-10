@@ -271,7 +271,7 @@ async function handleCallbackQuery(
         .order("start_date", { ascending: true })
         .limit(10);
 
-      const events = (data ?? []) as Array<{ title: string | null; start_date: string }>;
+      const events = (data ?? []) as unknown as Array<{ title: string | null; start_date: string }>;
       const text =
         events.length === 0
           ? "📅 لا توجد أحداث في الأيام السبعة القادمة."

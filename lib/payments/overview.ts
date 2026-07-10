@@ -674,7 +674,7 @@ async function fetchStudentsPageViaRpc(actorSupabase: RouteSupabaseClient, schoo
     p_dir: filters.dir,
     p_page: filters.page,
     p_page_size: filters.pageSize,
-    p_branch_ids: branchIds && branchIds.length > 0 ? branchIds : null,
+    p_branch_ids: branchIds && branchIds.length > 0 ? branchIds : undefined,
   });
 
   if (error) {

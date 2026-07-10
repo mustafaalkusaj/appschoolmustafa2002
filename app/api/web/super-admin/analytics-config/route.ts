@@ -64,7 +64,8 @@ export async function PUT(request: NextRequest) {
 
   const { error } = await db
     .from("admin_kv_store")
-    .upsert({ key: body.key, value: body.value, updated_at: new Date().toISOString() });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .upsert({ key: body.key, value: body.value, updated_at: new Date().toISOString() } as any);
 
   if (error) {
     return jsonError("تعذر حفظ الإعدادات.", 500);

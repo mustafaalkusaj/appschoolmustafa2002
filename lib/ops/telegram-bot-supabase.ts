@@ -220,7 +220,8 @@ export async function getTableSchema(tableName: string): Promise<string> {
     const supabase = createServiceSupabaseClient();
 
     // Use RPC or raw query for information_schema
-    const { data, error } = await supabase.rpc("get_table_schema" as never, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)("get_table_schema", {
       p_table: tableName,
     });
 

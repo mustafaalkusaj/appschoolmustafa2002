@@ -159,7 +159,10 @@ export async function GET(req: NextRequest) {
     // sent to the client in bulk — it is only needed transiently at account
     // creation time. TODO(C1-MIGRATION): drop app_password_plain from the DB
     // schema once managed_user_credentials is the canonical credential store.
-    const teachers = (data ?? []).map(({ app_password_plain: _pwd, ...t }) => t);
+    const teachers = (data ?? []).map((row) => {
+      const { app_password_plain: _pwd, ...t } = row as typeof row & { app_password_plain?: unknown };
+      return t;
+    });
 
     return NextResponse.json({ ok: true, teachers, total: count ?? 0 }, { headers: getCacheHeaders(CACHE_STRATEGIES.TEACHERS_LIST) });
   } catch (error) {
@@ -288,7 +291,8 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await actorSupabase
       .from("teachers")
-      .insert(insertPayload)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert(insertPayload as any)
       .select("*")
       .single();
 

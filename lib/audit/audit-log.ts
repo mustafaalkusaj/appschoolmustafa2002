@@ -37,7 +37,8 @@ export async function writeAuditLog(input: AuditLogInput): Promise<void> {
       ip_address: input.ip_address ?? null,
       user_agent: input.user_agent ? input.user_agent.slice(0, 500) : null,
       metadata: maskAuditMetadata(input.metadata ?? {}),
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
   } catch {
     // swallow — audit log must not break the main flow
   }

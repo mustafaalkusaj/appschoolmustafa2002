@@ -94,7 +94,8 @@ export async function PUT(request: NextRequest) {
 
   const { data, error } = await actorSupabase
     .from("exam_settings")
-    .upsert(settingsPayload, { onConflict: "exam_id" })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .upsert(settingsPayload as any, { onConflict: "exam_id" })
     .select()
     .single();
 

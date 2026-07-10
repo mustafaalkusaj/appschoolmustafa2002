@@ -13,6 +13,15 @@ type SchoolArchiveSupabaseClient =
   | ReturnType<typeof createServiceSupabaseClient>
   | Awaited<ReturnType<typeof createRouteSupabaseClient>>;
 
+// Table names used in these archive operations are dynamic (driven by
+// SCHOOL_ARCHIVE_DEFINITIONS), so we intentionally bypass the generated
+// Database type's literal table-name union here. This preserves existing
+// runtime behavior while satisfying the type checker.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fromDynamicTable(client: SchoolArchiveSupabaseClient, table: string): any {
+  return (client as unknown as { from: (table: string) => any }).from(table);
+}
+
 type SchoolArchiveDataset = {
   table: string;
   rows: Array<Record<string, unknown>>;
@@ -87,7 +96,7 @@ async function querySchoolScopedTable(
     }
   }
 
-  let query = client.from(definition.table).select("*");
+  let query = fromDynamicTable(client, definition.table).select("*");
 
   if (definition.schoolScoped !== false) {
     query = query.eq("school_id", schoolId);
@@ -141,7 +150,7 @@ async function tableHasColumnForArchive(
   table: string,
   column: string,
 ) {
-  const result = await client.from(table).select(column).limit(1);
+  const result = await fromDynamicTable(client, table).select(column).limit(1);
   if (!result.error) {
     return true;
   }
@@ -203,8 +212,7 @@ export async function persistSchoolArchiveSnapshot(
   client: SchoolArchiveSupabaseClient,
   options: PersistArchiveOptions,
 ) {
-  const insertResult = await client
-    .from("school_data_archives")
+  const insertResult = await fromDynamicTable(client, "school_data_archives")
     .insert({
       school_id: options.schoolId,
       school_name: options.schoolName,
@@ -245,8 +253,7 @@ export async function purgeSchoolArchiveData(
       continue;
     }
 
-    const deleteResult = await client
-      .from(definition.table)
+    const deleteResult = await fromDynamicTable(client, definition.table)
       .delete()
       .eq("school_id", schoolId)
       .select("id");
@@ -310,8 +317,7 @@ async function upsertArchiveDataset(
   const sanitizedRows = rows.map((row) => resetArchiveRow(definition, row, targetSchoolId));
 
   for (const chunk of chunkArray(sanitizedRows, 200)) {
-    const insertResult = await client
-      .from(definition.table)
+    const insertResult = await fromDynamicTable(client, definition.table)
       .upsert(chunk, { onConflict: "id", ignoreDuplicates: false });
 
     if (insertResult.error) {

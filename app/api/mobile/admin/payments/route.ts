@@ -19,37 +19,25 @@ export async function GET(req: NextRequest) {
 
     // Try student_payments table first
     try {
-      let paymentsQuery = serviceSupabase
+      let paymentsQuery = (serviceSupabase as unknown as { from: (table: string) => any })
         .from("student_payments")
         .select(
           "id, student_id, full_name, class_name, section, total_fee, paid_fee, remaining_fee",
           { count: "exact" },
         )
-        .eq("school_id", schoolId)
-        .order("remaining_fee", { ascending: false })
-        .range(from, to)
-        .returns<
-          {
-            id: string;
-            student_id: string | null;
-            full_name: string | null;
-            class_name: string | null;
-            section: string | null;
-            total_fee: number | null;
-            paid_fee: number | null;
-            remaining_fee: number | null;
-          }[]
-        >();
+        .eq("school_id", schoolId);
 
       if (search.trim()) {
         paymentsQuery = paymentsQuery.ilike("full_name", `%${search.trim()}%`);
       }
 
-      const { data, error, count } = await paymentsQuery;
+      const { data, error, count } = await paymentsQuery
+        .order("remaining_fee", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
-      const items = (data ?? []).map((p) => ({
+      const items = ((data ?? []) as Record<string, unknown>[]).map((p) => ({
         id: p.id as string,
         student_id: (p.student_id as string | null) ?? null,
         full_name: (p.full_name as string | null) ?? "",

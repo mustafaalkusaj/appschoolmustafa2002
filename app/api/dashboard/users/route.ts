@@ -1014,7 +1014,7 @@ export async function POST(req: NextRequest) {
         .from("students")
         .select("id, auth_user_id, section, full_name, class_name, branch_id")
         .eq("school_id", targetSchoolId)
-        .eq("branch_id", branchId)
+        .eq("branch_id", branchId!)
         .neq("status", "deleted")
         .limit(25);
 
@@ -1078,7 +1078,7 @@ export async function POST(req: NextRequest) {
         const { error: reuseStudentError } = await actorSupabase
           .from("students")
           .update({
-            branch_id: branchId,
+            branch_id: branchId ?? undefined,
             full_name: validation.value.full_name,
             class_name: validation.value.student!.class_name,
             section: requestedSection,
@@ -1111,7 +1111,7 @@ export async function POST(req: NextRequest) {
           .from("students")
           .insert({
             school_id: targetSchoolId,
-            branch_id: branchId,
+            branch_id: branchId ?? undefined,
             full_name: validation.value.full_name,
             class_name: validation.value.student!.class_name,
             section: requestedSection,
@@ -1127,7 +1127,8 @@ export async function POST(req: NextRequest) {
             gender: validation.value.student!.gender ?? null,
             photo_url: validation.value.student!.photo_url ?? null,
             phone2: validation.value.student!.phone2 ?? null,
-          })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any)
           .select("id")
           .single();
 
@@ -1227,7 +1228,8 @@ export async function POST(req: NextRequest) {
       } else {
         const { data: teacher, error: teacherError } = await actorSupabase
           .from("teachers")
-          .insert(teacherInsertPayload)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert(teacherInsertPayload as any)
           .select("id")
           .single();
 

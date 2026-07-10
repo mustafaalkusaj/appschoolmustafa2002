@@ -32,7 +32,8 @@ export async function executeSafeQuery(sql: string): Promise<string> {
     const startTime = Date.now();
 
     // Use rpc to execute raw SQL via service role
-    const { data, error } = await supabase.rpc("exec_readonly_sql", {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)("exec_readonly_sql", {
       query: trimmed,
     });
 
@@ -245,7 +246,7 @@ export async function getNotificationsSummary(): Promise<string> {
       supabase.from("app_notifications").select("is_read"),
     ]);
 
-    const appNotifs = (appNotifResult.data ?? []) as Array<{ is_read: boolean | null }>;
+    const appNotifs = (appNotifResult.data ?? []) as unknown as Array<{ is_read: boolean | null }>;
     const unread = appNotifs.filter((n) => !n.is_read).length;
     const read = appNotifs.filter((n) => n.is_read).length;
 

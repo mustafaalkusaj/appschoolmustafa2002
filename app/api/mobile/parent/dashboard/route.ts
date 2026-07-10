@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
     // Build per-student attendance stats.
     const attendanceStats = studentIds.map((sid: string) => {
       const records = (attendance ?? []).filter(
-        (a: { student_id: string }) => a.student_id === sid,
+        (a: { student_id: string | null }) => a.student_id === sid,
       );
       const total = records.length;
       const present = records.filter((a: { status: string }) => a.status === "present").length;

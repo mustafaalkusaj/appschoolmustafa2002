@@ -63,7 +63,8 @@ export async function POST(req: NextRequest) {
         name: name.trim(),
         grade,
         section,
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
       .select("id")
       .single();
 

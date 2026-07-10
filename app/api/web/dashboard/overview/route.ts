@@ -258,7 +258,7 @@ export async function GET(req: NextRequest) {
         .eq("school_id", targetSchoolId)
         .eq("is_active", true);
 
-      const employeesPromise = serviceSupabase
+      const employeesPromise = (serviceSupabase as unknown as { from: (table: string) => any })
         .from("employees")
         .select("id, branch_id, position, full_name_ar")
         .eq("school_id", targetSchoolId)
@@ -533,12 +533,12 @@ export async function GET(req: NextRequest) {
       // --- Branch breakdown ---
       const branches =
         branchesResult.status === "fulfilled" && !branchesResult.value?.error
-          ? (branchesResult.value.data ?? []) as { id: string; name_ar: string; name_en: string }[]
+          ? (branchesResult.value.data ?? []) as unknown as { id: string; name_ar: string; name_en: string }[]
           : [];
 
       const employees =
         employeesResult.status === "fulfilled" && !employeesResult.value?.error
-          ? (employeesResult.value.data ?? []) as { id: string; branch_id: string; position: string; full_name_ar: string }[]
+          ? (employeesResult.value.data ?? []) as unknown as { id: string; branch_id: string; position: string; full_name_ar: string }[]
           : [];
 
       const teachersByBranchMap = new Map<string, number>();

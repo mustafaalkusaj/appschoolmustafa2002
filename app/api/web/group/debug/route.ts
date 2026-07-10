@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     const { data: branches, error: branchesError } = await actorSupabase
       .from("branches")
       .select("id, name, group_id, school_id")
-      .eq("group_id", groupId)
+      .eq("group_id", groupId ?? "")
       .order("name", { ascending: true });
 
     // Get students

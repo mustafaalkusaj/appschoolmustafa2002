@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
       .from("class_schedules")
       .select("id, day_of_week, period_number, time_slot_id, is_locked, subject, teacher_name, class_name, section")
       .eq("school_id", targetSchoolId)
-      .eq("day_of_week", day);
+      .eq("day_of_week", day as unknown as number);
     if (error) return jsonError(error.message, 500);
     return NextResponse.json({ ok: true, schedule: data ?? [], mode: "overview" }, { headers: getCacheHeaders(CACHE_STRATEGIES.SCHEDULE_LIST) });
   }
@@ -211,7 +211,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: true, count: 0 });
   }
 
-  const { error: insertError } = await actorSupabase.from("class_schedules").insert(sanitized);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: insertError } = await actorSupabase.from("class_schedules").insert(sanitized as any);
   if (insertError) return jsonError(insertError.message || "تعذر حفظ الجدول.", 500);
 
   // Delete only the rows that existed before our insert.

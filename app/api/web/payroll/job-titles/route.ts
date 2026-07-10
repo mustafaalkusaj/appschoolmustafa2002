@@ -150,7 +150,8 @@ export async function POST(req: NextRequest) {
       sort_order: Number(body.sort_order) || 0,
       is_active: body.is_active !== false,
       description: typeof body.description === "string" ? body.description.trim() || null : null,
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .select()
     .single();
 

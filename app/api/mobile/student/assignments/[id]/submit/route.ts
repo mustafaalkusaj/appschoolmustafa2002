@@ -5,6 +5,14 @@ import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 type Params = { params: Promise<{ id: string }> };
 
+// `assignment_submissions` is not present in the generated Database types
+// yet, so we intentionally bypass the typed `.from()` overloads for this
+// table while preserving existing runtime behavior.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function assignmentSubmissionsTable(client: unknown): any {
+  return (client as { from: (table: string) => any }).from("assignment_submissions");
+}
+
 export async function GET(req: NextRequest, { params }: Params) {
   try {
     const { id: assignmentId } = await params;
@@ -21,8 +29,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 
     const supabase = createServiceSupabaseClient();
-    const { data, error } = await supabase
-      .from("assignment_submissions")
+    const { data, error } = await assignmentSubmissionsTable(supabase)
       .select("id, notes, file_url, file_name, file_mime_type, submitted_at")
       .eq("school_id", schoolId)
       .eq("assignment_id", assignmentId)
@@ -72,8 +79,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     const supabase = createServiceSupabaseClient();
-    const { data, error } = await supabase
-      .from("assignment_submissions")
+    const { data, error } = await assignmentSubmissionsTable(supabase)
       .upsert(
         {
           school_id: schoolId,

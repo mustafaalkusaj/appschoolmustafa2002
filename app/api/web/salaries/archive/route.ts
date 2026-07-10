@@ -224,7 +224,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await actorSupabase.rpc("purge_old_salary_archives");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (actorSupabase.rpc as any)("purge_old_salary_archives");
   } catch {
     // Ignore when migration has not been applied yet.
   }

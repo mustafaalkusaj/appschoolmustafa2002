@@ -927,7 +927,7 @@ export async function handleTelegramCommand(
         ].join("\n");
       }
 
-      const debtors = (data ?? []) as Array<Record<string, unknown>>;
+      const debtors = (data ?? []) as unknown as Array<Record<string, unknown>>;
       const count = debtors.length;
       const total = debtors.reduce((sum, s) => {
         const bal = typeof s.outstanding_balance === "number"
@@ -1005,7 +1005,7 @@ export async function handleTelegramCommand(
         return `❌ تعذر جلب أحداث التقويم: ${escHtml(error.message.slice(0, 100))}`;
       }
 
-      const events = (data ?? []) as Array<{
+      const events = (data ?? []) as unknown as Array<{
         id: string;
         title: string | null;
         start_date: string;

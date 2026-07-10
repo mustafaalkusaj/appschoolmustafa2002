@@ -1474,7 +1474,8 @@ export async function sendConversationMessage(
       conversation_id: conversationId,
       sender_id: ctx.authUserId,
       body,
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .select("id, conversation_id, sender_id, body, created_at, read_at")
     .maybeSingle();
 

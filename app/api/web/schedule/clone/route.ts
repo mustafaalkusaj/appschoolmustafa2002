@@ -74,7 +74,8 @@ export async function POST(req: NextRequest) {
     is_locked: false,
   }));
 
-  const { error: insertError } = await actorSupabase.from("class_schedules").insert(cloned);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: insertError } = await actorSupabase.from("class_schedules").insert(cloned as any);
   if (insertError) return jsonError(insertError.message, 500);
 
   return NextResponse.json({ ok: true, count: cloned.length });

@@ -391,7 +391,8 @@ async function logTeacherActivityAuditAction(options: {
         old_value: options.oldValue ?? null,
         new_value: options.newValue ?? null,
       },
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
 
     if (error && !isMissingTableError(error, "audit_logs")) {
       console.error("[teacher-activity audit] insert failed", error);
@@ -771,7 +772,8 @@ export async function deleteTeacherMessageByAdmin(
       moderation_reason: input.reason,
       deleted_by: scope.actorUserId,
       deleted_at: now,
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .eq("message_group_id", groupId)
     .eq("school_id", scope.schoolId)
     .is("deleted_at", null)
@@ -912,7 +914,7 @@ export async function updateHomeworkByAdmin(
       description: input.description,
       subject: input.subject,
       due_at: input.dueAt,
-      content_kind: input.contentKind ?? current.value.contentKind,
+      content_kind: input.contentKind ?? current.value.contentKind ?? undefined,
       status: "edited_by_admin",
       updated_by: scope.actorUserId,
       updated_at: now,
@@ -954,7 +956,7 @@ export async function updateHomeworkByAdmin(
       description: input.description,
       subject: input.subject,
       due_at: input.dueAt,
-      content_kind: input.contentKind ?? current.value.contentKind,
+      content_kind: input.contentKind ?? current.value.contentKind ?? undefined,
       status: "edited_by_admin",
     },
   });
@@ -1180,7 +1182,7 @@ export async function createFeeNotification(request: NextRequest, input: FeeNoti
   studentQuery = scopedStudents.value;
 
   if (input.targetMode === "class_section") {
-    studentQuery = studentQuery.eq("class_name", input.className);
+    studentQuery = studentQuery.eq("class_name", input.className ?? "");
     if (input.section) studentQuery = studentQuery.eq("section", input.section);
   }
 

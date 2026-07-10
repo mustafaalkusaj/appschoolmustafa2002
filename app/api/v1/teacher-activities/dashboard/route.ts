@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 
   const lastActivityByTeacher: Record<string, string> = {};
   for (const a of lastActivities ?? []) {
-    if (!lastActivityByTeacher[a.teacher_id]) lastActivityByTeacher[a.teacher_id] = a.created_at;
+    if (!lastActivityByTeacher[a.teacher_id]) lastActivityByTeacher[a.teacher_id] = a.created_at ?? "";
   }
 
   const sevenDaysAgo = new Date();

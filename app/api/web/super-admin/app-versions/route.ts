@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
 
     await context.value.dataSupabase
       .from("school_apps")
-      .update({ current_version: String(version).trim(), updated_at: new Date().toISOString() })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ current_version: String(version).trim(), updated_at: new Date().toISOString() } as any)
       .eq("school_id", school_id);
 
     return NextResponse.json({ ok: true, version: data });

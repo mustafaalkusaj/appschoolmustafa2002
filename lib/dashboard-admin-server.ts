@@ -74,7 +74,10 @@ const SCHEMA_COMPAT_TTL_MS = 10 * 60 * 1000;
 
 async function probeColumn(client: DashboardServiceSupabase, table: string, column: string) {
   try {
-    const { error } = await client.from(table).select(`id, ${column}`).limit(1);
+    const { error } = await (client as unknown as { from: (table: string) => any })
+      .from(table)
+      .select(`id, ${column}`)
+      .limit(1);
     if (!error) {
       return true;
     }
@@ -394,7 +397,8 @@ export async function saveDashboardClass(
 
     const { data: insertedClass, error: insertClassError } = await client
       .from("classes")
-      .insert(classPayload)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert(classPayload as any)
       .select("id")
       .single();
 
@@ -774,7 +778,8 @@ async function ensureClassExists(
     classPayload.branch_id = options.branchId;
   }
 
-  await client.from("classes").insert(classPayload);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await client.from("classes").insert(classPayload as any);
 }
 
 export async function saveDashboardClassFee(
@@ -860,7 +865,8 @@ export async function saveDashboardClassFee(
     payload.branch_id = normalizedBranchId;
   }
 
-  const { error } = await client.from("class_fees").insert(payload);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await client.from("class_fees").insert(payload as any);
   if (error) {
     if (error.code === "23505") {
       const existingFee = await findExistingClassFee(client, compat, {

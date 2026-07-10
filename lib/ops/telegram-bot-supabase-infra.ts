@@ -136,7 +136,8 @@ export async function getRlsPolicies(tableName?: string): Promise<string> {
       query = `SELECT tablename, policyname, cmd FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename LIMIT 30`;
     }
 
-    const { data, error } = await supabase.rpc("execute_sql" as never, { sql: query });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)("execute_sql", { sql: query });
 
     if (error || !data) {
       return [
@@ -195,7 +196,8 @@ export async function runRlsSecurityCheck(): Promise<string> {
       ORDER BY c.relname
     `;
 
-    const { data, error } = await supabase.rpc("execute_sql" as never, { sql: checkQuery });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)("execute_sql", { sql: checkQuery });
 
     const noRlsTables = (error || !data)
       ? []

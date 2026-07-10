@@ -133,7 +133,8 @@ export async function POST(req: NextRequest) {
       earned_at: new Date().toISOString(),
       metadata: metadata ?? {},
       created_at: new Date().toISOString(),
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .select('id')
     .maybeSingle()
 
