@@ -363,7 +363,7 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-function buildCSP(): string {
+function buildCSP(nonce: string): string {
   const publicEnv = getPublicEnv();
   const supabaseOrigin = resolveOptionalOrigin(publicEnv.supabaseUrl);
   const supabaseHost = supabaseOrigin ? new URL(supabaseOrigin).hostname : undefined;
@@ -381,8 +381,8 @@ function buildCSP(): string {
 
   const scriptSrc: string[] = [
     "'self'",
-    // Cloudflare injects its RUM beacon on proxied responses; allow it so the
-    // console isn't flooded with CSP violations on every page.
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
     "https://static.cloudflareinsights.com",
   ];
 
@@ -483,7 +483,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   const requestId = resolveRequestId(request);
   const nonce = generateNonce();
-  const csp = buildCSP();
+  const csp = buildCSP(nonce);
   const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
   const isPageMethod = request.method === "GET" || request.method === "HEAD" || request.method === "OPTIONS";
 
