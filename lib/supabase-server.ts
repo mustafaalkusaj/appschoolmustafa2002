@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { getPublicEnv } from "@/lib/env/public";
@@ -32,6 +33,47 @@ export async function createRouteSupabaseClient() {
   });
 }
 
+export interface PendingCookie {
+  name: string;
+  value: string;
+  options?: Record<string, unknown>;
+}
+
+export async function createRouteSupabaseClientWithCookies() {
+  const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
+  const cookieStore = await cookies();
+  const pendingCookies: PendingCookie[] = [];
+
+  const client = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          pendingCookies.push({ name, value, options });
+          try {
+            cookieStore.set(name, value, options);
+          } catch {
+            // ignored in Server Components
+          }
+        });
+      },
+    },
+  });
+
+  return { client, pendingCookies };
+}
+
+export function applyPendingCookies(
+  response: NextResponse,
+  pending: PendingCookie[],
+) {
+  for (const { name, value, options } of pending) {
+    response.cookies.set(name, value, options as Record<string, unknown>);
+  }
+}
+
 let _serviceClient: ReturnType<typeof createClient<Database>> | null = null;
 
 export function createServiceSupabaseClient() {
@@ -51,7 +93,9 @@ export function createServiceSupabaseClient() {
   return _serviceClient;
 }
 
-function extractBearerToken(authHeader: string | null | undefined): string | null {
+function extractBearerToken(
+  authHeader: string | null | undefined,
+): string | null {
   if (!authHeader) return null;
   const value = authHeader.trim();
   if (!value.toLowerCase().startsWith("bearer ")) return null;

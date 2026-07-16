@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import type { UserProfile } from "@/lib/auth";
 import { resolveWebUserProfileWithStatus } from "@/lib/authorization/snapshot";
 import { loginRequestSchema } from "@/lib/api-schemas";
-import { buildAuthRateLimitIdentifier, enforceRateLimit, normalizeRateLimitEmail } from "@/lib/rate-limit";
+import {
+  buildAuthRateLimitIdentifier,
+  enforceRateLimit,
+  normalizeRateLimitEmail,
+} from "@/lib/rate-limit";
 import {
   RBAC_COOKIE_NAME,
   buildRBACSessionPayload,
@@ -13,7 +17,10 @@ import {
   signRBACSession,
 } from "@/lib/rbac-session";
 import { jsonValidationError, logRouteError } from "@/lib/route-utils";
-import { createRouteSupabaseClient } from "@/lib/supabase-server";
+import {
+  applyPendingCookies,
+  createRouteSupabaseClientWithCookies,
+} from "@/lib/supabase-server";
 import type { Permission } from "@/types/roles";
 
 type LoginFailureReason =
@@ -88,17 +95,27 @@ export async function POST(req: NextRequest) {
 
     _step = "rbac_secret_check";
     if (!hasRBACSecret()) {
-      logRouteError("auth-login-config", new Error("RBAC session secret is unavailable."));
-      return buildFailureResponse("server_config", 500, "AUTH_LOGIN_SERVER_CONFIG");
+      logRouteError(
+        "auth-login-config",
+        new Error("RBAC session secret is unavailable."),
+      );
+      return buildFailureResponse(
+        "server_config",
+        500,
+        "AUTH_LOGIN_SERVER_CONFIG",
+      );
     }
 
     _step = "supabase_client";
-    const supabase = await createRouteSupabaseClient();
+    const { client: supabase, pendingCookies } =
+      await createRouteSupabaseClientWithCookies();
     _step = "supabase_signin";
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail || parsed.data.email,
-      password: parsed.data.password,
-    });
+    const { data, error: signInError } = await supabase.auth.signInWithPassword(
+      {
+        email: normalizedEmail || parsed.data.email,
+        password: parsed.data.password,
+      },
+    );
 
     if (signInError || !data.user?.id) {
       if (signInError) {
@@ -115,7 +132,10 @@ export async function POST(req: NextRequest) {
 
     _step = "profile_lookup";
     let profileLookupFailed = false;
-    const resolved = await resolveWebUserProfileWithStatus(supabase, data.user.id).catch((error) => {
+    const resolved = await resolveWebUserProfileWithStatus(
+      supabase,
+      data.user.id,
+    ).catch((error) => {
       profileLookupFailed = true;
       logRouteError("auth-login-profile", error, {
         userId: data.user.id,
@@ -142,9 +162,13 @@ export async function POST(req: NextRequest) {
     if (resolved.status === "profile_missing") {
       // SECURITY: return the generic invalid_credentials response so a caller
       // cannot distinguish "no profile" from "wrong password" (account enumeration).
-      logRouteError("auth-login-profile-missing", new Error("Login profile missing."), {
-        userId: data.user.id,
-      });
+      logRouteError(
+        "auth-login-profile-missing",
+        new Error("Login profile missing."),
+        {
+          userId: data.user.id,
+        },
+      );
       const response = buildFailureResponse(
         "invalid_credentials",
         401,
@@ -163,10 +187,14 @@ export async function POST(req: NextRequest) {
         "AUTH_LOGIN_INVALID_CREDENTIALS",
       );
       clearRBACCookie(response);
-      logRouteError("auth-login-role", new Error("Unknown role for login profile."), {
-        userId: data.user.id,
-        role: resolved.role,
-      });
+      logRouteError(
+        "auth-login-role",
+        new Error("Unknown role for login profile."),
+        {
+          userId: data.user.id,
+          role: resolved.role,
+        },
+      );
       await supabase.auth.signOut();
       return response;
     }
@@ -210,7 +238,11 @@ export async function POST(req: NextRequest) {
     const signed = await signRBACSession(payload);
     if (!signed) {
       await supabase.auth.signOut();
-      return buildFailureResponse("server_config", 500, "AUTH_LOGIN_SERVER_CONFIG");
+      return buildFailureResponse(
+        "server_config",
+        500,
+        "AUTH_LOGIN_SERVER_CONFIG",
+      );
     }
 
     const response = NextResponse.json(
@@ -238,6 +270,7 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    applyPendingCookies(response, pendingCookies);
     response.cookies.set(RBAC_COOKIE_NAME, signed, getRBACCookieOptions());
     return response;
   } catch (error) {
