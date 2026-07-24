@@ -23,9 +23,9 @@ const SECTIONS = [
   {
     title: "Where Your Data Is Stored",
     titleAr: "أين تُخزَّن بياناتك",
-    body: "Data is stored on Supabase servers (Frankfurt, EU) behind Row Level Security (RLS) that prevents cross-school data access.",
+    body: "Data is stored on Supabase servers in the EU. Access is restricted by authenticated APIs, role checks, school scope, and database Row Level Security.",
     bodyAr:
-      "تُخزَّن البيانات على خوادم Supabase (فرانكفورت، الاتحاد الأوروبي) خلف طبقة أمان تمنع أي مدرسة من الوصول إلى بيانات مدرسة أخرى.",
+      "تُخزَّن البيانات على خوادم Supabase داخل الاتحاد الأوروبي، ويُقيّد الوصول عبر API موثّق وفحص الدور ونطاق المدرسة وسياسات أمان قاعدة البيانات.",
   },
   {
     title: "Children's Data",
@@ -37,9 +37,9 @@ const SECTIONS = [
   {
     title: "Account Deletion",
     titleAr: "حذف الحساب",
-    body: "Request deletion via: Settings, Privacy and Security, Request Account Deletion. Processed within a few days by school administration.",
+    body: "Request deletion in the app or at /account-deletion. Identity is verified first; requests are normally processed within 7 business days. Legally required school or financial records may be retained with restricted access.",
     bodyAr:
-      "يمكنك طلب حذف حسابك عبر: الإعدادات، الخصوصية والأمان، طلب حذف الحساب. تتم المعالجة خلال أيام قليلة.",
+      "يمكنك طلب الحذف من داخل التطبيق أو عبر /account-deletion. نتحقق من الهوية أولاً، وتُعالج الطلبات عادة خلال 7 أيام عمل. قد نحتفظ بالسجلات المدرسية أو المالية التي يفرض القانون بقاءها مع تقييد الوصول إليها.",
   },
   {
     title: "Third-Party Sharing",
