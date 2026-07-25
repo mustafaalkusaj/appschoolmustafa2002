@@ -566,7 +566,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 const CDN_CACHE_RULES: Array<{ match: (p: string, isApi: boolean) => boolean; sMaxAge: number; staleRevalidate: number }> = [
   { match: (p) => p === "/api/ping" || p === "/api/health", sMaxAge: 30, staleRevalidate: 60 },
-  { match: (p) => p.endsWith("/login") || p.endsWith("/forgot-password"), sMaxAge: 300, staleRevalidate: 600 },
+  // Page-only rule. API auth endpoints must never be CDN/browser cached — a cached
+  // login response gets replayed without its Set-Cookie headers, leaving the client
+  // "logged in" with no session cookie and bouncing straight back to /login.
+  { match: (p, isApi) => !isApi && (p.endsWith("/login") || p.endsWith("/forgot-password")), sMaxAge: 300, staleRevalidate: 600 },
   { match: (_p, isApi) => !isApi, sMaxAge: 0, staleRevalidate: 0 },
 ];
 
