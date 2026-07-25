@@ -44,7 +44,7 @@ describe("RBAC Session - buildRBACSessionPayload", () => {
   const buildTestInput = (overrides: Record<string, unknown> = {}) => ({
     userId: "user-1",
     role: "admin" as const,
-    permissions: ["view_students"] as any[],
+    permissions: ["view_students"] as unknown[],
     schoolId: "school-1",
     branchId: "branch-1",
     allowedBranchIds: ["branch-1"],
@@ -64,13 +64,14 @@ describe("RBAC Session - buildRBACSessionPayload", () => {
     ...overrides,
   });
 
-  it("يجب أن تكون RBAC_SESSION_MAX_AGE تساوي 8 * 60 * 60 = 28800", async () => {
+  it("يجب أن تكون RBAC_SESSION_MAX_AGE ساعة واحدة لتقليل نافذة سرقة الجلسة", async () => {
     const { RBAC_SESSION_MAX_AGE } = await import("@/lib/rbac-session");
-    expect(RBAC_SESSION_MAX_AGE).toBe(28800);
+    expect(RBAC_SESSION_MAX_AGE).toBe(3600);
   });
 
-  it("يجب أن تحسب exp = iat + 28800", async () => {
-    const { buildRBACSessionPayload, RBAC_SESSION_MAX_AGE } = await import("@/lib/rbac-session");
+  it("يجب أن تحسب exp = iat + 3600", async () => {
+    const { buildRBACSessionPayload, RBAC_SESSION_MAX_AGE } =
+      await import("@/lib/rbac-session");
 
     const before = Math.floor(Date.now() / 1000);
     const payload = buildRBACSessionPayload(buildTestInput());
@@ -79,7 +80,7 @@ describe("RBAC Session - buildRBACSessionPayload", () => {
     expect(payload.iat).toBeGreaterThanOrEqual(before);
     expect(payload.iat).toBeLessThanOrEqual(after);
     expect(payload.exp).toBe(payload.iat + RBAC_SESSION_MAX_AGE);
-    expect(payload.exp - payload.iat).toBe(28800);
+    expect(payload.exp - payload.iat).toBe(3600);
   });
 
   it("يجب أن يضع version=2 عندما لا توجد deepPermissions", async () => {
@@ -93,16 +94,18 @@ describe("RBAC Session - buildRBACSessionPayload", () => {
   it("يجب أن يضع version=3 عندما توجد deepPermissions", async () => {
     const { buildRBACSessionPayload } = await import("@/lib/rbac-session");
 
-    const payload = buildRBACSessionPayload(buildTestInput({
-      deepPermissions: {
-        students: {
-          actions: { read: true, create: false },
-          fields: {},
-          special: {},
-          data_scope: "all",
+    const payload = buildRBACSessionPayload(
+      buildTestInput({
+        deepPermissions: {
+          students: {
+            actions: { read: true, create: false },
+            fields: {},
+            special: {},
+            data_scope: "all",
+          },
         },
-      },
-    }));
+      }),
+    );
 
     expect(payload.version).toBe(3);
   });
@@ -112,7 +115,9 @@ describe("RBAC Session - buildRBACSessionPayload", () => {
     const { buildRBACSessionPayload } = await import("@/lib/rbac-session");
 
     const defaultPerms = buildTemplatePermissions("admin");
-    const payload = buildRBACSessionPayload(buildTestInput({ permissions: defaultPerms }));
+    const payload = buildRBACSessionPayload(
+      buildTestInput({ permissions: defaultPerms }),
+    );
 
     // الصلاحيات الافتراضية تُضغط إلى []
     expect(payload.permissions).toEqual([]);
@@ -122,7 +127,9 @@ describe("RBAC Session - buildRBACSessionPayload", () => {
     const { buildRBACSessionPayload } = await import("@/lib/rbac-session");
 
     const customPerms = ["view_students", "view_payments"];
-    const payload = buildRBACSessionPayload(buildTestInput({ permissions: customPerms }));
+    const payload = buildRBACSessionPayload(
+      buildTestInput({ permissions: customPerms }),
+    );
 
     expect(payload.permissions).toEqual(["view_students", "view_payments"]);
   });
@@ -135,7 +142,8 @@ describe("RBAC Session - signRBACSession و verifyRBACSession", () => {
   });
 
   it("يجب أن يوقّع الجلسة ويتحقق منها بنجاح", async () => {
-    const { buildRBACSessionPayload, signRBACSession, verifyRBACSession } = await import("@/lib/rbac-session");
+    const { buildRBACSessionPayload, signRBACSession, verifyRBACSession } =
+      await import("@/lib/rbac-session");
 
     const payload = buildRBACSessionPayload({
       userId: "user-sign-test",
@@ -186,7 +194,8 @@ describe("RBAC Session - signRBACSession و verifyRBACSession", () => {
 
   it("يجب أن يستعيد الصلاحيات الافتراضية بعد التحقق من token مضغوط", async () => {
     const { buildTemplatePermissions } = await import("@/types/roles");
-    const { buildRBACSessionPayload, signRBACSession, verifyRBACSession } = await import("@/lib/rbac-session");
+    const { buildRBACSessionPayload, signRBACSession, verifyRBACSession } =
+      await import("@/lib/rbac-session");
 
     const defaultPerms = buildTemplatePermissions("super_admin");
     const payload = buildRBACSessionPayload({
@@ -566,7 +575,10 @@ describe("Roles - normalizePermissions", () => {
   });
 
   it("يجب أن يحتفظ بالصلاحيات الصالحة فقط ويتجاهل غير الصالحة", () => {
-    const result = normalizePermissions(["view_students", "invalid_perm", "view_payments"], "admin");
+    const result = normalizePermissions(
+      ["view_students", "invalid_perm", "view_payments"],
+      "admin",
+    );
     expect(result).toContain("view_students");
     expect(result).toContain("view_payments");
     expect(result).not.toContain("invalid_perm");
@@ -575,9 +587,11 @@ describe("Roles - normalizePermissions", () => {
   it("يجب أن يزيل الصلاحيات المكررة", () => {
     const result = normalizePermissions(
       ["view_students", "view_students", "view_payments"],
-      "admin"
+      "admin",
     );
-    const countViewStudents = result.filter((p: string) => p === "view_students").length;
+    const countViewStudents = result.filter(
+      (p: string) => p === "view_students",
+    ).length;
     expect(countViewStudents).toBe(1);
   });
 
@@ -589,17 +603,23 @@ describe("Roles - normalizePermissions", () => {
 
 describe("Roles - hasPermissionInList", () => {
   it("يجب أن يرجع true عند تطابق دقيق", () => {
-    expect(hasPermissionInList(["view_students", "view_payments"], "view_students")).toBe(true);
+    expect(
+      hasPermissionInList(["view_students", "view_payments"], "view_students"),
+    ).toBe(true);
   });
 
   it("يجب أن يرجع false عند عدم وجود الصلاحية", () => {
-    expect(hasPermissionInList(["view_students"], "delete_students")).toBe(false);
+    expect(hasPermissionInList(["view_students"], "delete_students")).toBe(
+      false,
+    );
   });
 
   it('يجب أن يرجع true لأي صلاحية عندما تحتوي القائمة على "full_access"', () => {
     expect(hasPermissionInList(["full_access"], "delete_students")).toBe(true);
     expect(hasPermissionInList(["full_access"], "manage_schools")).toBe(true);
-    expect(hasPermissionInList(["full_access"], "view_grade_analytics")).toBe(true);
+    expect(hasPermissionInList(["full_access"], "view_grade_analytics")).toBe(
+      true,
+    );
   });
 
   it("يجب أن يرجع false عند تمرير مصفوفة فارغة", () => {

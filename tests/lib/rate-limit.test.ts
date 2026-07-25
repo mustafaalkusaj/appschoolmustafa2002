@@ -9,7 +9,11 @@ const upstashMocks = vi.hoisted(() => {
   const incr = vi.fn(async () => 1);
   const expire = vi.fn(async () => 1);
   const ttl = vi.fn(async () => 60);
-  const redisConstructor = vi.fn(function Redis(this: { incr: typeof incr; expire: typeof expire; ttl: typeof ttl }) {
+  const redisConstructor = vi.fn(function Redis(this: {
+    incr: typeof incr;
+    expire: typeof expire;
+    ttl: typeof ttl;
+  }) {
     this.incr = incr;
     this.expire = expire;
     this.ttl = ttl;
@@ -60,7 +64,11 @@ describe("Rate Limiting", () => {
     upstashMocks.expire.mockClear();
     upstashMocks.ttl.mockClear();
     upstashMocks.redisConstructor.mockClear();
-    upstashMocks.redisConstructor.mockImplementation(function Redis(this: { incr: typeof upstashMocks.incr; expire: typeof upstashMocks.expire; ttl: typeof upstashMocks.ttl }) {
+    upstashMocks.redisConstructor.mockImplementation(function Redis(this: {
+      incr: typeof upstashMocks.incr;
+      expire: typeof upstashMocks.expire;
+      ttl: typeof upstashMocks.ttl;
+    }) {
       this.incr = upstashMocks.incr;
       this.expire = upstashMocks.expire;
       this.ttl = upstashMocks.ttl;
@@ -78,10 +86,14 @@ describe("Rate Limiting", () => {
 
   describe("development memory fallback", () => {
     it("allows first request", async () => {
-      const { isWithinRateLimit, RATE_LIMIT_CONFIG, resetRateLimit } = await importRateLimit();
+      const { isWithinRateLimit, RATE_LIMIT_CONFIG, resetRateLimit } =
+        await importRateLimit();
       resetRateLimit(testClientId);
 
-      const result = isWithinRateLimit(testClientId, RATE_LIMIT_CONFIG.API_ENDPOINT);
+      const result = isWithinRateLimit(
+        testClientId,
+        RATE_LIMIT_CONFIG.API_ENDPOINT,
+      );
 
       expect(result).toBe(true);
       expect(upstashMocks.redisConstructor).not.toHaveBeenCalled();
@@ -155,7 +167,9 @@ describe("Rate Limiting", () => {
         message: "محاولات كثيرة، حاول لاحقاً",
       });
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Production rate limiting backend failed for namespace="auth-login" reason="missing-config".'),
+        expect.stringContaining(
+          'Production rate limiting backend failed for namespace="auth-login" reason="missing-config".',
+        ),
       );
     });
 
@@ -191,7 +205,9 @@ describe("Rate Limiting", () => {
         url: "https://example-upstash.test",
         token: "test-token",
       });
-      expect(upstashMocks.incr).toHaveBeenCalledWith(expect.stringContaining(`:${testClientId}`));
+      expect(upstashMocks.incr).toHaveBeenCalledWith(
+        expect.stringContaining(`:${testClientId}`),
+      );
       expect(upstashMocks.expire).toHaveBeenCalledTimes(1);
     });
 
@@ -261,7 +277,9 @@ describe("Rate Limiting", () => {
 
       expect(response?.status).toBe(429);
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Production rate limiting backend failed for namespace="auth-login" reason="init-error".'),
+        expect.stringContaining(
+          'Production rate limiting backend failed for namespace="auth-login" reason="init-error".',
+        ),
         initError,
       );
     });
@@ -305,7 +323,9 @@ describe("Rate Limiting", () => {
 
       expect(response?.status).toBe(429);
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Production rate limiting backend failed for namespace="auth-login" reason="runtime-error".'),
+        expect.stringContaining(
+          'Production rate limiting backend failed for namespace="auth-login" reason="runtime-error".',
+        ),
         runtimeError,
       );
     });
@@ -315,7 +335,10 @@ describe("Rate Limiting", () => {
     it("builds a safe identifier from IP and normalized email", async () => {
       const { buildAuthRateLimitIdentifier } = await importRateLimit();
 
-      const identifier = buildAuthRateLimitIdentifier(request(), " User@example.com ");
+      const identifier = buildAuthRateLimitIdentifier(
+        request(),
+        " User@example.com ",
+      );
 
       expect(identifier).toMatch(/^203\.0\.113\.10:[a-f0-9]{24}$/);
       expect(identifier).not.toContain("User@example.com");

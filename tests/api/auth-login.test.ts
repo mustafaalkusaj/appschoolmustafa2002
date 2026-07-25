@@ -62,6 +62,11 @@ vi.mock("@/lib/rbac-session", () => ({
 
 vi.mock("@/lib/supabase-server", () => ({
   createRouteSupabaseClient: mockState.createRouteSupabaseClient,
+  createRouteSupabaseClientWithCookies: vi.fn(async () => ({
+    client: await mockState.createRouteSupabaseClient(),
+    pendingCookies: [],
+  })),
+  applyPendingCookies: vi.fn(),
 }));
 
 vi.mock("@/lib/authorization/snapshot", () => ({
@@ -69,7 +74,10 @@ vi.mock("@/lib/authorization/snapshot", () => ({
 }));
 
 vi.mock("@/lib/route-utils", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/route-utils")>("@/lib/route-utils");
+  const actual =
+    await vi.importActual<typeof import("@/lib/route-utils")>(
+      "@/lib/route-utils",
+    );
   return { ...actual, logRouteError: mockState.logRouteError };
 });
 
@@ -113,7 +121,12 @@ const RESOLVED_ACTIVE_PROFILE = {
     permissions: [],
     phone: null,
     school: { id: VALID_SCHOOL_ID, name: "Test School", is_active: true },
-    subscription: { id: "sub-1", school_id: VALID_SCHOOL_ID, status: "active", end_date: "2027-01-01" },
+    subscription: {
+      id: "sub-1",
+      school_id: VALID_SCHOOL_ID,
+      status: "active",
+      end_date: "2027-01-01",
+    },
     branch_id: null,
     allowed_branch_ids: [],
     allowed_pages: ["dashboard"],
@@ -157,16 +170,24 @@ describe("POST /api/auth/login", () => {
     mockState.enforceRateLimit.mockReturnValue(null);
     mockState.hasRBACSecret.mockReturnValue(true);
     mockState.signRBACSession.mockResolvedValue("mock-signed-cookie");
-    mockState.buildAuthRateLimitIdentifier.mockReturnValue("127.0.0.1:test-hash");
-    mockState.normalizeRateLimitEmail.mockImplementation((e: string) => e.trim().toLowerCase());
-    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({ status: "profile_missing" });
+    mockState.buildAuthRateLimitIdentifier.mockReturnValue(
+      "127.0.0.1:test-hash",
+    );
+    mockState.normalizeRateLimitEmail.mockImplementation((e: string) =>
+      e.trim().toLowerCase(),
+    );
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
+      status: "profile_missing",
+    });
   });
 
   // ── Schema validation (400) ─────────────────────────────────────────────
 
   it("returns 400 for invalid email format", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "not-an-email", password: "password123" }));
+    const res = await POST(
+      makeRequest({ email: "not-an-email", password: "password123" }),
+    );
     const body = await res.json();
 
     expect(res.status).toBe(400);
@@ -176,7 +197,9 @@ describe("POST /api/auth/login", () => {
 
   it("returns 400 for password shorter than 8 characters", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "user@example.com", password: "short" }));
+    const res = await POST(
+      makeRequest({ email: "user@example.com", password: "short" }),
+    );
     const body = await res.json();
 
     expect(res.status).toBe(400);
@@ -211,7 +234,9 @@ describe("POST /api/auth/login", () => {
     mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
 
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "wrong@example.com", password: "wrongpass1" }));
+    const res = await POST(
+      makeRequest({ email: "wrong@example.com", password: "wrongpass1" }),
+    );
     const body = await res.json();
 
     expect(res.status).toBe(401);
@@ -228,7 +253,9 @@ describe("POST /api/auth/login", () => {
     mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
 
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "ghost@example.com", password: "password99" }));
+    const res = await POST(
+      makeRequest({ email: "ghost@example.com", password: "password99" }),
+    );
 
     expect(res.status).toBe(401);
   });
@@ -248,7 +275,9 @@ describe("POST /api/auth/login", () => {
     });
 
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "inactive@example.com", password: "password99" }));
+    const res = await POST(
+      makeRequest({ email: "inactive@example.com", password: "password99" }),
+    );
     const body = await res.json();
 
     expect(res.status).toBe(403);
@@ -262,26 +291,30 @@ describe("POST /api/auth/login", () => {
     expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 
-  // ── Missing profile (403) ────────────────────────────────────────────────
+  // ── Missing profile (generic 401 to prevent account enumeration) ─────────
 
-  it("returns 403 when profile lookup resolves as profile_missing", async () => {
+  it("returns generic 401 when profile lookup resolves as profile_missing", async () => {
     const supabase = makeSupabase({
       data: { user: { id: "user-no-profile", user_metadata: {} } },
       error: null,
     });
     mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
-    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({ status: "profile_missing" });
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
+      status: "profile_missing",
+    });
 
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "noprofile@example.com", password: "password99" }));
+    const res = await POST(
+      makeRequest({ email: "noprofile@example.com", password: "password99" }),
+    );
     const body = await res.json();
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
     expect(body).toMatchObject({
       ok: false,
       error: "login_failed",
-      code: "AUTH_LOGIN_PROFILE_MISSING",
-      reason: "profile_missing",
+      code: "AUTH_LOGIN_INVALID_CREDENTIALS",
+      reason: "invalid_credentials",
     });
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
   });
@@ -292,7 +325,9 @@ describe("POST /api/auth/login", () => {
     mockState.hasRBACSecret.mockReturnValue(false);
 
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "admin@example.com", password: "password99" }));
+    const res = await POST(
+      makeRequest({ email: "admin@example.com", password: "password99" }),
+    );
     const body = await res.json();
 
     expect(res.status).toBe(500);
@@ -319,10 +354,14 @@ describe("POST /api/auth/login", () => {
       error: null,
     });
     mockState.createRouteSupabaseClient.mockResolvedValue(supabase);
-    mockState.resolveWebUserProfileWithStatus.mockResolvedValue(RESOLVED_ACTIVE_PROFILE);
+    mockState.resolveWebUserProfileWithStatus.mockResolvedValue(
+      RESOLVED_ACTIVE_PROFILE,
+    );
 
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "Admin@School.com", password: "securepass1" }));
+    const res = await POST(
+      makeRequest({ email: "Admin@School.com", password: "securepass1" }),
+    );
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -334,7 +373,9 @@ describe("POST /api/auth/login", () => {
       school_id: VALID_SCHOOL_ID,
     });
     // Cookie must contain the signed token
-    expect(res.headers.get("set-cookie")).toContain("school_rbac=mock-signed-cookie");
+    expect(res.headers.get("set-cookie")).toContain(
+      "school_rbac=mock-signed-cookie",
+    );
     // Emails are normalized to lowercase before being passed to Supabase
     expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith(
       expect.objectContaining({ email: "admin@school.com" }),
@@ -345,11 +386,16 @@ describe("POST /api/auth/login", () => {
 
   it("returns 429 when rate limit is exceeded", async () => {
     mockState.enforceRateLimit.mockReturnValue(
-      NextResponse.json({ error: "too_many_attempts", message: "محاولات كثيرة، حاول لاحقاً" }, { status: 429 }),
+      NextResponse.json(
+        { error: "too_many_attempts", message: "محاولات كثيرة، حاول لاحقاً" },
+        { status: 429 },
+      ),
     );
 
     const { POST } = await import("@/app/api/auth/login/route");
-    const res = await POST(makeRequest({ email: "user@example.com", password: "password99" }));
+    const res = await POST(
+      makeRequest({ email: "user@example.com", password: "password99" }),
+    );
 
     expect(res.status).toBe(429);
     expect(mockState.createRouteSupabaseClient).not.toHaveBeenCalled();

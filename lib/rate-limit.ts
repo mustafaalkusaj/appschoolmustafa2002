@@ -25,7 +25,8 @@ type RateLimitDecision = {
   retryAfter: number;
 };
 
-type ProductionFailureReason = "missing-config" | "init-error" | "runtime-error";
+type ProductionFailureReason =
+  "missing-config" | "init-error" | "runtime-error";
 type ProductionFailureMode = "fail-open" | "fail-closed" | "memory-fallback";
 
 // Development-only memory store. It is not shared across serverless instances.
@@ -34,8 +35,10 @@ let redisClient: Redis | null = null;
 let hasLoggedMissingProductionConfig = false;
 const rateLimitFailureLogKeys = new Set<string>();
 // NOTE: Design decision: fail-open for rate limiting. Monitor via ops alerts.
-export const RATE_LIMIT_FAIL_OPEN_TODO = "Replace fail-open with alert-backed resilient limiter before high traffic";
-const DEFAULT_RATE_LIMIT_ERROR_MESSAGE = "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً.";
+export const RATE_LIMIT_FAIL_OPEN_TODO =
+  "Replace fail-open with alert-backed resilient limiter before high traffic";
+const DEFAULT_RATE_LIMIT_ERROR_MESSAGE =
+  "تم تجاوز حد الطلبات المسموح. يرجى المحاولة لاحقاً.";
 
 /**
  * Configuration for rate limiting
@@ -77,7 +80,10 @@ function isLocalhost() {
 }
 
 function hasUpstashConfig() {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim() && process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
+  return Boolean(
+    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
+    process.env.UPSTASH_REDIS_REST_TOKEN?.trim(),
+  );
 }
 
 function getUpstashConfig() {
@@ -112,7 +118,11 @@ function logMissingProductionConfig() {
   );
 }
 
-function logProductionRateLimitBackendFailure(namespace: string, reason: ProductionFailureReason, error?: unknown) {
+function logProductionRateLimitBackendFailure(
+  namespace: string,
+  reason: ProductionFailureReason,
+  error?: unknown,
+) {
   const logKey = `${namespace}:${reason}`;
   if (rateLimitFailureLogKeys.has(logKey)) {
     return;
@@ -180,7 +190,10 @@ function getClientId(req: NextRequest): string {
 /**
  * Development-only token bucket implementation.
  */
-function isWithinMemoryRateLimit(clientId: string, config: RateLimitConfig): RateLimitDecision {
+function isWithinMemoryRateLimit(
+  clientId: string,
+  config: RateLimitConfig,
+): RateLimitDecision {
   const now = Date.now() / 1000;
   const bucket = store[clientId];
 
@@ -213,7 +226,9 @@ function isWithinMemoryRateLimit(clientId: string, config: RateLimitConfig): Rat
     };
   }
 
-  const secondsUntilNextToken = Math.ceil((1 - bucket.tokens) * (config.window / config.requests));
+  const secondsUntilNextToken = Math.ceil(
+    (1 - bucket.tokens) * (config.window / config.requests),
+  );
   return {
     allowed: false,
     limit: config.requests,
@@ -259,7 +274,8 @@ async function checkRateLimit(
       }
 
       const ttl = await redis.ttl(key);
-      const retryAfter = typeof ttl === "number" && ttl > 0 ? ttl : config.window;
+      const retryAfter =
+        typeof ttl === "number" && ttl > 0 ? ttl : config.window;
 
       return {
         allowed: current <= config.requests,
@@ -288,12 +304,17 @@ async function checkRateLimit(
  * This synchronous compatibility helper is development-only because production
  * rate limiting must use Redis-backed async storage.
  */
-export function isWithinRateLimit(clientId: string, config: RateLimitConfig): boolean {
+export function isWithinRateLimit(
+  clientId: string,
+  config: RateLimitConfig,
+): boolean {
   if (isProduction()) {
     if (!hasUpstashConfig()) {
       logMissingProductionConfig();
     }
-    throw new Error("Synchronous in-memory rate limiting is not allowed in production.");
+    throw new Error(
+      "Synchronous in-memory rate limiting is not allowed in production.",
+    );
   }
 
   return isWithinMemoryRateLimit(clientId, config).allowed;
@@ -306,7 +327,12 @@ export function isWithinRateLimit(clientId: string, config: RateLimitConfig): bo
 export async function rateLimitMiddleware(
   req: NextRequest,
   limits: (typeof RATE_LIMIT_CONFIG)[keyof typeof RATE_LIMIT_CONFIG] = RATE_LIMIT_CONFIG.API_ENDPOINT,
-): Promise<{ ok: boolean; clientId: string; status?: number; message?: string }> {
+): Promise<{
+  ok: boolean;
+  clientId: string;
+  status?: number;
+  message?: string;
+}> {
   const clientId = getClientId(req);
   let decision = await checkRateLimit("middleware", clientId, limits);
 
@@ -396,10 +422,15 @@ function hashRateLimitValue(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export function buildAuthRateLimitIdentifier(req: NextRequest, email: string | null | undefined) {
+export function buildAuthRateLimitIdentifier(
+  req: NextRequest,
+  email: string | null | undefined,
+) {
   const normalizedEmail = normalizeRateLimitEmail(email);
   const ip = getRateLimitClientIp(req) || "unknown";
-  const emailHash = normalizedEmail ? hashRateLimitValue(normalizedEmail).slice(0, 24) : "anon";
+  const emailHash = normalizedEmail
+    ? hashRateLimitValue(normalizedEmail).slice(0, 24)
+    : "anon";
   return `${ip}:${emailHash}`;
 }
 
@@ -465,22 +496,30 @@ export async function enforceRateLimit(
 ): Promise<Response | null> {
   try {
     const clientId = options.identifier || getRateLimitClientIp(req);
-    const config = { requests: options.maxHits, window: Math.ceil(options.windowMs / 1000) };
+    const config = {
+      requests: options.maxHits,
+      window: Math.ceil(options.windowMs / 1000),
+    };
     const decision = await checkRateLimit(options.namespace, clientId, config);
     // Default to memory-fallback: this deployment is a single long-lived PM2
     // process, so the in-process token bucket is a real limiter — strictly
     // better than fail-open when Upstash is not configured.
-    const productionFailureMode = options.productionFailureMode ?? "memory-fallback";
+    const productionFailureMode =
+      options.productionFailureMode ?? "memory-fallback";
 
     if ("productionFailure" in decision) {
       if (isProduction()) {
-        if (productionFailureMode !== "memory-fallback") {
-          logProductionRateLimitBackendFailure(options.namespace, decision.productionFailure);
-        }
+        logProductionRateLimitBackendFailure(
+          options.namespace,
+          decision.productionFailure,
+        );
         if (productionFailureMode === "memory-fallback") {
           const memoryDecision = isWithinMemoryRateLimit(clientId, config);
           if (!memoryDecision.allowed) {
-            return buildCustomRateLimitedResponse(memoryDecision, options.onRateLimited);
+            return buildCustomRateLimitedResponse(
+              memoryDecision,
+              options.onRateLimited,
+            );
           }
           return null;
         }
@@ -506,8 +545,14 @@ export async function enforceRateLimit(
 
     return null;
   } catch (error) {
-    console.error(`enforceRateLimit threw unexpectedly for namespace="${options.namespace}".`, error);
-    if (isProduction() && (options.productionFailureMode ?? "fail-closed") === "fail-closed") {
+    console.error(
+      `enforceRateLimit threw unexpectedly for namespace="${options.namespace}".`,
+      error,
+    );
+    if (
+      isProduction() &&
+      (options.productionFailureMode ?? "fail-closed") === "fail-closed"
+    ) {
       return buildCustomRateLimitedResponse(
         {
           allowed: false,

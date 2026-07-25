@@ -49,6 +49,11 @@ vi.mock("@/lib/rbac-session", () => ({
 
 vi.mock("@/lib/supabase-server", () => ({
   createRouteSupabaseClient: mockState.createRouteSupabaseClient,
+  createRouteSupabaseClientWithCookies: vi.fn(async () => ({
+    client: await mockState.createRouteSupabaseClient(),
+    pendingCookies: [],
+  })),
+  applyPendingCookies: vi.fn(),
 }));
 
 vi.mock("@/lib/authorization/snapshot", () => ({
@@ -56,7 +61,10 @@ vi.mock("@/lib/authorization/snapshot", () => ({
 }));
 
 vi.mock("@/lib/route-utils", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/route-utils")>("@/lib/route-utils");
+  const actual =
+    await vi.importActual<typeof import("@/lib/route-utils")>(
+      "@/lib/route-utils",
+    );
   return {
     ...actual,
     logRouteError: mockState.logRouteError,
@@ -80,9 +88,7 @@ function createQueryBuilder(result: QueryResult) {
   return builder;
 }
 
-function createSupabaseClientMock(input: {
-  signInResult: QueryResult;
-}) {
+function createSupabaseClientMock(input: { signInResult: QueryResult }) {
   return {
     auth: {
       signInWithPassword: vi.fn(async () => input.signInResult),
@@ -111,8 +117,12 @@ describe("POST /api/auth/login", () => {
     vi.clearAllMocks();
     vi.resetModules();
     mockState.enforceRateLimit.mockReturnValue(null);
-    mockState.buildAuthRateLimitIdentifier.mockReturnValue("127.0.0.1:rate-limit-hash");
-    mockState.normalizeRateLimitEmail.mockImplementation((email: string) => email.trim().toLowerCase());
+    mockState.buildAuthRateLimitIdentifier.mockReturnValue(
+      "127.0.0.1:rate-limit-hash",
+    );
+    mockState.normalizeRateLimitEmail.mockImplementation((email: string) =>
+      email.trim().toLowerCase(),
+    );
     mockState.hasRBACSecret.mockReturnValue(true);
     mockState.signRBACSession.mockResolvedValue("signed-cookie");
     mockState.resolveWebUserProfileWithStatus.mockResolvedValue({
@@ -336,7 +346,9 @@ describe("POST /api/auth/login", () => {
     expect(payload.profile.subscription).toMatchObject({
       status: "active",
     });
-    expect(response.headers.get("set-cookie")).toContain("school_rbac=signed-cookie");
+    expect(response.headers.get("set-cookie")).toContain(
+      "school_rbac=signed-cookie",
+    );
     expect(mockState.enforceRateLimit).toHaveBeenCalledWith(
       expect.any(NextRequest),
       {
@@ -351,7 +363,9 @@ describe("POST /api/auth/login", () => {
         },
       },
     );
-    expect(mockState.normalizeRateLimitEmail).toHaveBeenCalledWith("user@example.com");
+    expect(mockState.normalizeRateLimitEmail).toHaveBeenCalledWith(
+      "user@example.com",
+    );
     expect(mockState.buildAuthRateLimitIdentifier).toHaveBeenCalledWith(
       expect.any(NextRequest),
       "user@example.com",
@@ -393,7 +407,7 @@ describe("POST /api/auth/login", () => {
     expect(JSON.stringify(payload)).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
   });
 
-  it("returns 403 when the authenticated user has no web profile", async () => {
+  it("returns generic 401 when the authenticated user has no web profile", async () => {
     const supabase = createSupabaseClientMock({
       signInResult: {
         data: {
@@ -419,18 +433,18 @@ describe("POST /api/auth/login", () => {
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(401);
     expect(payload).toMatchObject({
       ok: false,
       error: "login_failed",
-      code: "AUTH_LOGIN_PROFILE_MISSING",
-      reason: "profile_missing",
+      code: "AUTH_LOGIN_INVALID_CREDENTIALS",
+      reason: "invalid_credentials",
     });
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 
-  it("returns 403 when the authenticated user role is unknown", async () => {
+  it("returns generic 401 when the authenticated user role is unknown", async () => {
     const supabase = createSupabaseClientMock({
       signInResult: {
         data: {
@@ -457,12 +471,12 @@ describe("POST /api/auth/login", () => {
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(401);
     expect(payload).toMatchObject({
       ok: false,
       error: "login_failed",
-      code: "AUTH_LOGIN_UNKNOWN_ROLE",
-      reason: "unknown_role",
+      code: "AUTH_LOGIN_INVALID_CREDENTIALS",
+      reason: "invalid_credentials",
     });
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
   });
