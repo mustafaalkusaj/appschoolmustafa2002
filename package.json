@@ -26,50 +26,65 @@
     "qa:seed:e2e": "npx tsx scripts/qa-seed-e2e-accounts.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:migrate:dev": "prisma migrate dev"
+    "prisma:migrate:dev": "prisma migrate dev",
+    "check:schema": "node scripts/check-schema-drift.mjs",
+    "db:preflight": "node scripts/check-supabase-target.mjs",
+    "db:push:safe": "npm run db:preflight && npx supabase db push",
+    "db:validate-migrations": "node scripts/validate-migrations-rollback.mjs supabase/migrations/20260713171635_teacher_mobile_release_security.sql supabase/migrations/20260713171933_messaging_safety_and_account_deletion.sql supabase/migrations/20260713191144_exam_atomic_creation.sql"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.96.0",
-    "@prisma/client": "^6.19.3",
-    "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.99.2",
-    "@types/qrcode": "^1.5.6",
-    "@upstash/redis": "^1.37.0",
-    "bcryptjs": "^3.0.3",
-    "clsx": "^2.1.1",
-    "exceljs": "^4.4.0",
-    "framer-motion": "^12.40.0",
-    "lucide-react": "^0.577.0",
-    "next": "^16.2.10",
-    "next-intl": "^4.9.1",
-    "next-themes": "^0.4.6",
-    "qrcode": "^1.5.4",
-    "qrcode.react": "^4.2.0",
+    "@anthropic-ai/sdk": "0.96.0",
+    "@prisma/client": "6.19.3",
+    "@supabase/ssr": "0.9.0",
+    "@supabase/supabase-js": "2.99.2",
+    "@types/qrcode": "1.5.6",
+    "@upstash/redis": "1.37.0",
+    "bcryptjs": "3.0.3",
+    "clsx": "2.1.1",
+    "exceljs": "4.4.0",
+    "framer-motion": "12.40.0",
+    "lucide-react": "0.577.0",
+    "next": "16.2.12",
+    "next-intl": "^4.13.2",
+    "next-themes": "0.4.6",
+    "qrcode": "1.5.4",
+    "qrcode.react": "4.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "recharts": "^3.8.0",
-    "tailwind-merge": "^3.5.0",
-    "zod": "^4.3.6"
+    "recharts": "3.8.0",
+    "sharp": "0.35.3",
+    "tailwind-merge": "3.5.0",
+    "zod": "4.3.6"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@vitest/coverage-v8": "^4.1.5",
-    "eslint": "^9",
+    "@playwright/test": "1.59.1",
+    "@tailwindcss/postcss": "4",
+    "@types/node": "20",
+    "@types/react": "19",
+    "@types/react-dom": "19",
+    "@vitest/coverage-v8": "4.1.5",
+    "eslint": "9",
     "eslint-config-next": "16.2.3",
-    "prisma": "^6.2.1",
-    "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.0.3"
+    "prisma": "6.2.1",
+    "tailwindcss": "4",
+    "typescript": "5",
+    "vitest": "4.1.5"
   },
   "pnpm": {
     "overrides": {
       "fast-uri": ">=3.1.2",
       "postcss": ">=8.5.10"
     }
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    },
+    "next": {
+      "postcss": "^8.5.23",
+      "sharp": "0.35.3"
+    },
+    "brace-expansion": "^5.0.8"
   },
   "engines": {
     "node": ">=18.18.0"
