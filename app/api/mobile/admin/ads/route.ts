@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, items: data ?? [] });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const { schoolId, serviceSupabase } = context.value;
 
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       type?: string;
       title?: string;
       body?: string;
@@ -82,13 +85,18 @@ export async function POST(req: NextRequest) {
         starts_at: body.starts_at ?? null,
         ends_at: body.ends_at ?? null,
       })
-      .select("id, type, title, body, bg_color, image_url, target_date, social_url, social_label, video_url, doc_url, doc_pages, is_active, starts_at, ends_at, created_at")
+      .select(
+        "id, type, title, body, bg_color, image_url, target_date, social_url, social_label, video_url, doc_url, doc_pages, is_active, starts_at, ends_at, created_at",
+      )
       .single();
 
     if (error) throw error;
 
     return NextResponse.json({ ok: true, item: data });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

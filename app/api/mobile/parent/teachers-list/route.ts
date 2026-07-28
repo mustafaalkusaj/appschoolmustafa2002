@@ -46,7 +46,9 @@ export async function GET(req: NextRequest) {
 
     if (links && links.length > 0) {
       schoolId = (links[0] as { school_id: string }).school_id;
-      studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+      studentIds = (links as Array<{ student_id: string }>).map(
+        (l) => l.student_id,
+      );
     } else {
       const { data: mp } = await serviceSupabase
         .from("managed_user_profiles")
@@ -68,11 +70,13 @@ export async function GET(req: NextRequest) {
       .in("id", studentIds)
       .eq("school_id", schoolId);
 
-    const classNames = Array.from(new Set(
+    const classNames = Array.from(
+      new Set(
         (students ?? [])
           .map((s: { class_name: string | null }) => s.class_name)
           .filter(Boolean) as string[],
-      ));
+      ),
+    );
 
     // 3. Get teachers for this school (filter by class if possible)
     let teachersQuery = serviceSupabase

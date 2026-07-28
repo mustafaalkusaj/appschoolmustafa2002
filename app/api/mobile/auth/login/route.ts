@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildAuthRateLimitIdentifier, enforceRateLimit } from "@/lib/rate-limit";
+import {
+  buildAuthRateLimitIdentifier,
+  enforceRateLimit,
+} from "@/lib/rate-limit";
 import { getPublicEnv } from "@/lib/env/public";
 import { createClient } from "@supabase/supabase-js";
 import z from "zod";
@@ -46,7 +49,8 @@ export async function POST(req: NextRequest) {
     // - Already @schoolapp.local → use as-is (managed account)
     // - Contains @ (real email like user@school.edu) → try as-is first (web account)
     // - No @ (plain username) → append @schoolapp.local (managed account)
-    const isRealEmail = identifier.includes("@") && !identifier.endsWith("@schoolapp.local");
+    const isRealEmail =
+      identifier.includes("@") && !identifier.endsWith("@schoolapp.local");
     const managedEmail = identifier.endsWith("@schoolapp.local")
       ? identifier
       : `${identifier}@schoolapp.local`;
@@ -55,17 +59,26 @@ export async function POST(req: NextRequest) {
     let error;
 
     if (isRealEmail) {
-      const result = await supabase.auth.signInWithPassword({ email: identifier, password });
+      const result = await supabase.auth.signInWithPassword({
+        email: identifier,
+        password,
+      });
       if (!result.error && result.data.session) {
         data = result.data;
         error = null;
       } else {
-        const fallback = await supabase.auth.signInWithPassword({ email: managedEmail, password });
+        const fallback = await supabase.auth.signInWithPassword({
+          email: managedEmail,
+          password,
+        });
         data = fallback.data;
         error = fallback.error;
       }
     } else {
-      const result = await supabase.auth.signInWithPassword({ email: managedEmail, password });
+      const result = await supabase.auth.signInWithPassword({
+        email: managedEmail,
+        password,
+      });
       data = result.data;
       error = result.error;
     }

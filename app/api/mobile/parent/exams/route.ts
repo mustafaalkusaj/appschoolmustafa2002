@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
     );
 
     if (authResult.error || !authResult.data.user?.id) {
-      return NextResponse.json({ ok: false, error: "يجب تسجيل الدخول أولاً." }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: "يجب تسجيل الدخول أولاً." },
+        { status: 401 },
+      );
     }
 
     const serviceSupabase = createServiceSupabaseClient();
@@ -24,14 +27,19 @@ export async function GET(req: NextRequest) {
       .eq("parent_user_id", authResult.data.user.id);
 
     if (linksError) {
-      return NextResponse.json({ ok: false, error: "خطأ في جلب بيانات الطلاب." }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "خطأ في جلب بيانات الطلاب." },
+        { status: 500 },
+      );
     }
 
     let studentIds: string[];
     let schoolId: string;
 
     if (links && links.length > 0) {
-      studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+      studentIds = (links as Array<{ student_id: string }>).map(
+        (l) => l.student_id,
+      );
       schoolId = (links[0] as { school_id: string }).school_id;
     } else {
       const { data: mp } = await serviceSupabase
@@ -49,18 +57,26 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await serviceSupabase
       .from("exam_attempts")
-      .select("id, student_id, score, submitted_at, status, exams!inner(id, title, subject, total_marks, starts_at)")
+      .select(
+        "id, student_id, score, submitted_at, status, exams!inner(id, title, subject, total_marks, starts_at)",
+      )
       .in("student_id", studentIds)
       .eq("school_id", schoolId)
       .order("submitted_at", { ascending: false })
       .limit(100);
 
     if (error) {
-      return NextResponse.json({ ok: false, error: "تعذر تحميل نتائج الاختبارات." }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "تعذر تحميل نتائج الاختبارات." },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ ok: true, exams: data ?? [] });
   } catch {
-    return NextResponse.json({ ok: false, error: "خطأ داخلي في الخادم." }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "خطأ داخلي في الخادم." },
+      { status: 500 },
+    );
   }
 }

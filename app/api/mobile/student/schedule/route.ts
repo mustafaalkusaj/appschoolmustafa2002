@@ -41,7 +41,9 @@ export async function GET(req: NextRequest) {
 
     let query = serviceSupabase
       .from("class_schedules")
-      .select("id, subject_name, teacher_name, start_time, end_time, room, section")
+      .select(
+        "id, subject_name, teacher_id, start_time, end_time, room, section",
+      )
       .eq("school_id", schoolId)
       .eq("class_name", className)
       .eq("day_of_week", dayOfWeek)
@@ -49,17 +51,57 @@ export async function GET(req: NextRequest) {
 
     // Match the student's section, or section-less (whole-class) rows.
     if (section) {
-      query = query.or(`section.eq."${escapeFilterValue(section)}",section.is.null`);
+      query = query.or(
+        `section.eq."${escapeFilterValue(section)}",section.is.null`,
+      );
     }
 
     const { data, error } = await query;
     if (error) {
-      return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "internal_error" },
+        { status: 500 },
+      );
     }
 
-    return NextResponse.json({ ok: true, items: data ?? [], serverNow: clockNow() });
-  } catch (e) {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    // class_schedules stores teacher_id with no FK to teachers, so PostgREST
+    // cannot embed the name — resolve it in a single batched lookup.
+    const rows = (data ?? []) as Array<{
+      teacher_id: string | null;
+      [key: string]: unknown;
+    }>;
+    const teacherIds = Array.from(
+      new Set(rows.map((row) => row.teacher_id).filter(Boolean) as string[]),
+    );
+
+    const teacherNames = new Map<string, string>();
+    if (teacherIds.length > 0) {
+      const { data: teachers } = await serviceSupabase
+        .from("teachers")
+        .select("id, full_name")
+        .eq("school_id", schoolId)
+        .in("id", teacherIds);
+      for (const teacher of (teachers ?? []) as Array<{
+        id: string;
+        full_name: string | null;
+      }>) {
+        if (teacher.full_name) teacherNames.set(teacher.id, teacher.full_name);
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      items: rows.map(({ teacher_id, ...slot }) => ({
+        ...slot,
+        teacher_name: teacher_id ? (teacherNames.get(teacher_id) ?? null) : null,
+      })),
+      serverNow: clockNow(),
+    });
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }
 

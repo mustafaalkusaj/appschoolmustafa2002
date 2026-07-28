@@ -1,4 +1,7 @@
-import { isMissingColumnError, isMissingTableError } from "@/lib/admin-infrastructure";
+import {
+  isMissingColumnError,
+  isMissingTableError,
+} from "@/lib/admin-infrastructure";
 import type { ManagedTeacherAssignmentRecord } from "@/lib/managed-users";
 import { tableHasColumn } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
@@ -29,6 +32,11 @@ export interface TeacherAssignmentCreateInput {
   metadata?: unknown;
 }
 
+export interface TeacherAssignmentUpdateInput
+  extends TeacherAssignmentCreateInput {
+  id?: unknown;
+}
+
 export interface TeacherGradeCreateInput {
   student_id?: unknown;
   subject?: unknown;
@@ -39,6 +47,10 @@ export interface TeacherGradeCreateInput {
 }
 
 type ServiceSupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
+
+export interface TeacherGradeUpdateInput extends TeacherGradeCreateInput {
+  id?: unknown;
+}
 
 export interface AcademicTeacherRouteContext {
   schoolId: string;
@@ -81,10 +93,19 @@ function readErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function featureGateFromError(error: unknown, fallbackName: string): AcademicFeatureGate {
-  const message = readErrorMessage(error, `تعذر تحميل ${fallbackName}.`).toLowerCase();
+function featureGateFromError(
+  error: unknown,
+  fallbackName: string,
+): AcademicFeatureGate {
+  const message = readErrorMessage(
+    error,
+    `تعذر تحميل ${fallbackName}.`,
+  ).toLowerCase();
 
-  if (isMissingTableError(error, fallbackName) || message.includes("could not find the table")) {
+  if (
+    isMissingTableError(error, fallbackName) ||
+    message.includes("could not find the table")
+  ) {
     return {
       available: false,
       code: "missing_table",
@@ -92,7 +113,11 @@ function featureGateFromError(error: unknown, fallbackName: string): AcademicFea
     };
   }
 
-  if (message.includes("permission") || message.includes("unauthorized") || message.includes("not allowed")) {
+  if (
+    message.includes("permission") ||
+    message.includes("unauthorized") ||
+    message.includes("not allowed")
+  ) {
     return {
       available: false,
       code: "forbidden",
@@ -141,7 +166,9 @@ function matchesLookupText(left: unknown, right: unknown) {
 }
 
 function normalizeContentKind(value: unknown) {
-  return normalizeText(value).toLowerCase() === "exam_material" ? "exam_material" : "homework";
+  return normalizeText(value).toLowerCase() === "exam_material"
+    ? "exam_material"
+    : "homework";
 }
 
 function normalizeIsoTimestamp(value: unknown) {
@@ -197,7 +224,10 @@ function extractAttachmentMetadata(value: unknown) {
   const attachment = {
     bucket,
     path,
-    file_name: nullableText(row.file_name) ?? path.split("/").filter(Boolean).pop() ?? "attachment",
+    file_name:
+      nullableText(row.file_name) ??
+      path.split("/").filter(Boolean).pop() ??
+      "attachment",
     mime_type: nullableText(row.mime_type),
     size_bytes: normalizeNumber(row.size_bytes),
     kind: nullableText(row.kind),
@@ -216,11 +246,18 @@ function extractAttachmentMetadata(value: unknown) {
   };
 }
 
-async function safeTableHasColumn(client: ServiceSupabaseClient, table: string, column: string) {
+async function safeTableHasColumn(
+  client: ServiceSupabaseClient,
+  table: string,
+  column: string,
+) {
   try {
     return await tableHasColumn(client as never, table, column);
   } catch (error) {
-    if (isMissingTableError(error, table) || readErrorMessage(error, "").toLowerCase().includes("could not find")) {
+    if (
+      isMissingTableError(error, table) ||
+      readErrorMessage(error, "").toLowerCase().includes("could not find")
+    ) {
       return false;
     }
 
@@ -228,9 +265,16 @@ async function safeTableHasColumn(client: ServiceSupabaseClient, table: string, 
   }
 }
 
-async function loadColumnSupport(client: ServiceSupabaseClient, table: string, columns: string[]) {
+async function loadColumnSupport(
+  client: ServiceSupabaseClient,
+  table: string,
+  columns: string[],
+) {
   const entries = await Promise.all(
-    columns.map(async (column) => [column, await safeTableHasColumn(client, table, column)] as const),
+    columns.map(
+      async (column) =>
+        [column, await safeTableHasColumn(client, table, column)] as const,
+    ),
   );
 
   return Object.fromEntries(entries) as TableColumnSupport;
@@ -241,7 +285,11 @@ async function resolveScopedStudent(
   schoolId: string,
   studentId: string,
 ): Promise<StudentScopeRecord | null> {
-  const studentsHaveSchoolId = await safeTableHasColumn(client, "students", "school_id");
+  const studentsHaveSchoolId = await safeTableHasColumn(
+    client,
+    "students",
+    "school_id",
+  );
   let query = client
     .from("students")
     .select("id, full_name, class_name, section")
@@ -285,7 +333,10 @@ async function resolveSubjectId(
     return null;
   }
 
-  const subjectColumns = await loadColumnSupport(client, "subjects", ["school_id", "is_active"]);
+  const subjectColumns = await loadColumnSupport(client, "subjects", [
+    "school_id",
+    "is_active",
+  ]);
 
   let lookup = client.from("subjects").select("id, name");
   if (subjectColumns.school_id) {
@@ -370,7 +421,11 @@ async function resolveClassScopeIds(
     };
   }
 
-  const classesHaveSchoolId = await safeTableHasColumn(client, "classes", "school_id");
+  const classesHaveSchoolId = await safeTableHasColumn(
+    client,
+    "classes",
+    "school_id",
+  );
 
   let classQuery = client.from("classes").select("*");
   if (classesHaveSchoolId) {
@@ -382,17 +437,21 @@ async function resolveClassScopeIds(
     throw classError;
   }
 
-  const matchingClassRows = ((classRows ?? []) as LookupRecord[]).filter((row) =>
-    matchesLookupText(getClassLookupName(row), normalizedClassName),
+  const matchingClassRows = ((classRows ?? []) as LookupRecord[]).filter(
+    (row) => matchesLookupText(getClassLookupName(row), normalizedClassName),
   );
 
   if (matchingClassRows.length === 0) {
-    throw new Error(`الصف "${normalizedClassName}" غير موجود ضمن إعدادات المدرسة الحالية.`);
+    throw new Error(
+      `الصف "${normalizedClassName}" غير موجود ضمن إعدادات المدرسة الحالية.`,
+    );
   }
 
   const normalizedSection = nullableText(section);
   const legacySectionMatch = normalizedSection
-    ? matchingClassRows.find((row) => matchesLookupText(getSectionLookupName(row), normalizedSection))
+    ? matchingClassRows.find((row) =>
+        matchesLookupText(getSectionLookupName(row), normalizedSection),
+      )
     : null;
 
   if (legacySectionMatch?.id) {
@@ -402,7 +461,9 @@ async function resolveClassScopeIds(
     };
   }
 
-  const preferredClassRow = matchingClassRows.find((row) => !getSectionLookupName(row)) ?? matchingClassRows[0];
+  const preferredClassRow =
+    matchingClassRows.find((row) => !getSectionLookupName(row)) ??
+    matchingClassRows[0];
 
   if (!normalizedSection) {
     return {
@@ -412,14 +473,27 @@ async function resolveClassScopeIds(
   }
 
   const sectionsHasId = await safeTableHasColumn(client, "sections", "id");
-  const sectionsHaveClassId = await safeTableHasColumn(client, "sections", "class_id");
+  const sectionsHaveClassId = await safeTableHasColumn(
+    client,
+    "sections",
+    "class_id",
+  );
   if (!sectionsHasId || !sectionsHaveClassId) {
-    throw new Error(`الشعبة "${normalizedSection}" غير موجودة ضمن الصف "${normalizedClassName}".`);
+    throw new Error(
+      `الشعبة "${normalizedSection}" غير موجودة ضمن الصف "${normalizedClassName}".`,
+    );
   }
 
-  const sectionsHaveSchoolId = await safeTableHasColumn(client, "sections", "school_id");
+  const sectionsHaveSchoolId = await safeTableHasColumn(
+    client,
+    "sections",
+    "school_id",
+  );
 
-  let sectionQuery = client.from("sections").select("*").eq("class_id", String(preferredClassRow.id));
+  let sectionQuery = client
+    .from("sections")
+    .select("*")
+    .eq("class_id", String(preferredClassRow.id));
   if (sectionsHaveSchoolId) {
     sectionQuery = sectionQuery.eq("school_id", schoolId);
   }
@@ -434,7 +508,9 @@ async function resolveClassScopeIds(
   );
 
   if (!sectionRow?.id) {
-    throw new Error(`الشعبة "${normalizedSection}" غير موجودة ضمن الصف "${normalizedClassName}".`);
+    throw new Error(
+      `الشعبة "${normalizedSection}" غير موجودة ضمن الصف "${normalizedClassName}".`,
+    );
   }
 
   return {
@@ -462,7 +538,10 @@ export function teacherHasSubjectScope(
       return false;
     }
 
-    if (normalizedSubject && normalizeLookupKey(assignment.subject_name) !== normalizedSubject) {
+    if (
+      normalizedSubject &&
+      normalizeLookupKey(assignment.subject_name) !== normalizedSubject
+    ) {
       return false;
     }
 
@@ -476,8 +555,11 @@ export function teacherHasSubjectScope(
   });
 }
 
-async function loadTeacherTableSupport(client: ServiceSupabaseClient, table: "assignments" | "grades") {
-  if (!await safeTableHasColumn(client, table, "id")) {
+async function loadTeacherTableSupport(
+  client: ServiceSupabaseClient,
+  table: "assignments" | "grades",
+) {
+  if (!(await safeTableHasColumn(client, table, "id"))) {
     return null;
   }
 
@@ -521,9 +603,18 @@ export async function createTeacherAssignmentRecord(
     };
   }
 
-  const columnSupport = await loadTeacherTableSupport(ctx.serviceSupabase, "assignments");
+  const columnSupport = await loadTeacherTableSupport(
+    ctx.serviceSupabase,
+    "assignments",
+  );
   if (!columnSupport) {
-    const gate = featureGateFromError({ message: "Could not find the table 'public.assignments' in the schema cache" }, "assignments");
+    const gate = featureGateFromError(
+      {
+        message:
+          "Could not find the table 'public.assignments' in the schema cache",
+      },
+      "assignments",
+    );
     return {
       ok: false,
       gate,
@@ -550,7 +641,11 @@ export async function createTeacherAssignmentRecord(
   let section = nullableText(input.section);
 
   if (requestedStudentId) {
-    scopedStudent = await resolveScopedStudent(ctx.serviceSupabase, ctx.schoolId, requestedStudentId);
+    scopedStudent = await resolveScopedStudent(
+      ctx.serviceSupabase,
+      ctx.schoolId,
+      requestedStudentId,
+    );
     if (!scopedStudent) {
       return {
         ok: false,
@@ -565,7 +660,8 @@ export async function createTeacherAssignmentRecord(
 
   const subject =
     nullableText(input.subject) ??
-    teacher.assignments.find((assignment) => assignment.is_active)?.subject_name ??
+    teacher.assignments.find((assignment) => assignment.is_active)
+      ?.subject_name ??
     teacher.assignments[0]?.subject_name ??
     null;
 
@@ -585,27 +681,41 @@ export async function createTeacherAssignmentRecord(
     };
   }
 
-  if (!teacherHasSubjectScope(teacher.assignments, subject, className, section)) {
+  if (
+    !teacherHasSubjectScope(teacher.assignments, subject, className, section)
+  ) {
     return {
       ok: false,
       gate: AVAILABLE_GATE,
-      message: "لا يمكن إنشاء واجب خارج المادة والصفوف والشعب المسندة لهذا المعلم.",
+      message:
+        "لا يمكن إنشاء واجب خارج المادة والصفوف والشعب المسندة لهذا المعلم.",
     };
   }
 
   let subjectId: string | null = null;
-  let scopeIds = { classId: null as string | null, sectionId: null as string | null };
+  let scopeIds = {
+    classId: null as string | null,
+    sectionId: null as string | null,
+  };
 
   try {
     [subjectId, scopeIds] = await Promise.all([
       resolveSubjectId(ctx.serviceSupabase, ctx.schoolId, subject),
-      resolveClassScopeIds(ctx.serviceSupabase, ctx.schoolId, className, section),
+      resolveClassScopeIds(
+        ctx.serviceSupabase,
+        ctx.schoolId,
+        className,
+        section,
+      ),
     ]);
   } catch (error) {
     return {
       ok: false,
       gate: AVAILABLE_GATE,
-      message: readErrorMessage(error, "تعذر تحديد المادة أو الصف أو الشعبة للواجب."),
+      message: readErrorMessage(
+        error,
+        "تعذر تحديد المادة أو الصف أو الشعبة للواجب.",
+      ),
     };
   }
 
@@ -641,7 +751,11 @@ export async function createTeacherAssignmentRecord(
   if (columnSupport.metadata) {
     payload.metadata = mergeMetadata(input.metadata, {
       content_kind: contentKind,
-      target_mode: scopedStudent?.id ? "student" : section ? "section" : "class",
+      target_mode: scopedStudent?.id
+        ? "student"
+        : section
+          ? "section"
+          : "class",
       ...attachment.metadata,
     });
   }
@@ -705,6 +819,329 @@ export async function createTeacherAssignmentRecord(
   };
 }
 
+/**
+ * Edit an assignment the teacher already published.
+ *
+ * The mobile assignments tab opens `add-assignment` with `editId` and labels
+ * the submit button "تحديث", but there was no update path — every "edit"
+ * silently inserted a duplicate row. This closes that gap.
+ *
+ * Ownership is enforced on (id, school_id, teacher_id) so one teacher can
+ * never rewrite another's work, and the target scope is re-validated exactly
+ * like the create path (a teacher must not be able to move an assignment onto
+ * a class/section/student outside their own assignments). No notification is
+ * re-sent — students were already told about this assignment.
+ */
+export async function updateTeacherAssignmentRecord(
+  ctx: AcademicTeacherRouteContext,
+  input: TeacherAssignmentUpdateInput,
+): Promise<AcademicMutationResult> {
+  const teacher = ctx.account.teacher;
+
+  if (!teacher?.id) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "حساب المعلم الحالي غير مرتبط بسجل صالح.",
+    };
+  }
+
+  const assignmentId = nullableText(input.id);
+  if (!assignmentId) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "معرّف الواجب مطلوب للتعديل.",
+    };
+  }
+
+  const columnSupport = await loadTeacherTableSupport(
+    ctx.serviceSupabase,
+    "assignments",
+  );
+  if (!columnSupport) {
+    const gate = featureGateFromError(
+      {
+        message:
+          "Could not find the table 'public.assignments' in the schema cache",
+      },
+      "assignments",
+    );
+    return {
+      ok: false,
+      gate,
+      message: gate.message ?? "جدول assignments غير جاهز بعد.",
+    };
+  }
+
+  const { data: existing, error: loadError } = await ctx.serviceSupabase
+    .from("assignments")
+    .select("id, teacher_id, school_id")
+    .eq("id", assignmentId)
+    .eq("school_id", ctx.schoolId)
+    .eq("teacher_id", teacher.id)
+    .maybeSingle();
+
+  if (loadError) {
+    return {
+      ok: false,
+      gate: featureGateFromError(loadError, "assignments"),
+      message: readErrorMessage(loadError, "تعذر تحميل الواجب المطلوب."),
+    };
+  }
+
+  if (!existing) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "الواجب غير موجود أو لا يخصّ هذا المعلم.",
+    };
+  }
+
+  const title = normalizeText(input.title).slice(0, 240);
+  if (!title) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "أدخل عنوان الواجب أولاً.",
+    };
+  }
+
+  const description = nullableText(input.description);
+  const requestedStudentId = nullableText(input.student_id);
+  const contentKind = normalizeContentKind(input.content_kind);
+  const dueAt = normalizeIsoTimestamp(input.due_at);
+
+  let scopedStudent: StudentScopeRecord | null = null;
+  let className = nullableText(input.class_name);
+  let section = nullableText(input.section);
+
+  if (requestedStudentId) {
+    scopedStudent = await resolveScopedStudent(
+      ctx.serviceSupabase,
+      ctx.schoolId,
+      requestedStudentId,
+    );
+    if (!scopedStudent) {
+      return {
+        ok: false,
+        gate: AVAILABLE_GATE,
+        message: "الطالب المحدد غير موجود داخل المدرسة الحالية.",
+      };
+    }
+
+    className = scopedStudent.class_name;
+    section = scopedStudent.section;
+  }
+
+  const subject =
+    nullableText(input.subject) ??
+    teacher.assignments.find((assignment) => assignment.is_active)
+      ?.subject_name ??
+    teacher.assignments[0]?.subject_name ??
+    null;
+
+  if (!subject) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "اختر المادة أولاً قبل حفظ الواجب.",
+    };
+  }
+
+  if (!className) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "اختر الصف المستهدف أولاً.",
+    };
+  }
+
+  if (
+    !teacherHasSubjectScope(teacher.assignments, subject, className, section)
+  ) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message:
+        "لا يمكن نقل الواجب خارج المادة والصفوف والشعب المسندة لهذا المعلم.",
+    };
+  }
+
+  let subjectId: string | null = null;
+  let scopeIds = {
+    classId: null as string | null,
+    sectionId: null as string | null,
+  };
+
+  try {
+    [subjectId, scopeIds] = await Promise.all([
+      resolveSubjectId(ctx.serviceSupabase, ctx.schoolId, subject),
+      resolveClassScopeIds(
+        ctx.serviceSupabase,
+        ctx.schoolId,
+        className,
+        section,
+      ),
+    ]);
+  } catch (error) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: readErrorMessage(
+        error,
+        "تعذر تحديد المادة أو الصف أو الشعبة للواجب.",
+      ),
+    };
+  }
+
+  const attachment = extractAttachmentMetadata(input.attachment);
+  const payload: Record<string, unknown> = {
+    student_id: scopedStudent?.id ?? null,
+    class_name: className,
+    section,
+    subject,
+    title,
+    description,
+    due_at: dueAt,
+  };
+
+  if (columnSupport.subject_id) {
+    payload.subject_id = subjectId;
+  }
+
+  if (columnSupport.class_id) {
+    payload.class_id = scopeIds.classId;
+  }
+
+  if (columnSupport.section_id) {
+    payload.section_id = scopeIds.sectionId;
+  }
+
+  if (columnSupport.content_kind) {
+    payload.content_kind = contentKind;
+  }
+
+  if (columnSupport.metadata) {
+    payload.metadata = mergeMetadata(input.metadata, {
+      content_kind: contentKind,
+      target_mode: scopedStudent?.id
+        ? "student"
+        : section
+          ? "section"
+          : "class",
+      ...attachment.metadata,
+    });
+  }
+
+  // Attachment columns are only rewritten when the caller sent a replacement,
+  // so saving a text-only edit never drops the file already attached.
+  if (attachment.attachment) {
+    if (columnSupport.attachment_bucket) {
+      payload.attachment_bucket = attachment.attachment.bucket ?? null;
+    }
+
+    if (columnSupport.attachment_path) {
+      payload.attachment_path = attachment.attachment.path ?? null;
+    }
+
+    if (columnSupport.attachment_name) {
+      payload.attachment_name = attachment.attachment.file_name ?? null;
+    }
+
+    if (columnSupport.attachment_mime_type) {
+      payload.attachment_mime_type = attachment.attachment.mime_type ?? null;
+    }
+
+    if (columnSupport.attachment_size_bytes) {
+      payload.attachment_size_bytes = attachment.attachment.size_bytes ?? null;
+    }
+  }
+
+  const { data, error } = await ctx.serviceSupabase
+    .from("assignments")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .update(payload as any)
+    .eq("id", assignmentId)
+    .eq("school_id", ctx.schoolId)
+    .eq("teacher_id", teacher.id)
+    .select("id");
+
+  if (error) {
+    return {
+      ok: false,
+      gate: featureGateFromError(error, "assignments"),
+      message: readErrorMessage(error, "تعذر تحديث الواجب."),
+    };
+  }
+
+  return {
+    ok: true,
+    gate: AVAILABLE_GATE,
+    message: "تم تحديث الواجب بنجاح.",
+    affectedCount: data?.length ?? 1,
+  };
+}
+
+/**
+ * Remove an assignment the teacher published. Scoped the same way as the
+ * update path: (id, school_id, teacher_id).
+ */
+export async function deleteTeacherAssignmentRecord(
+  ctx: AcademicTeacherRouteContext,
+  assignmentIdInput: unknown,
+): Promise<AcademicMutationResult> {
+  const teacher = ctx.account.teacher;
+
+  if (!teacher?.id) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "حساب المعلم الحالي غير مرتبط بسجل صالح.",
+    };
+  }
+
+  const assignmentId = nullableText(assignmentIdInput);
+  if (!assignmentId) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "معرّف الواجب مطلوب للحذف.",
+    };
+  }
+
+  const { data, error } = await ctx.serviceSupabase
+    .from("assignments")
+    .delete()
+    .eq("id", assignmentId)
+    .eq("school_id", ctx.schoolId)
+    .eq("teacher_id", teacher.id)
+    .select("id");
+
+  if (error) {
+    return {
+      ok: false,
+      gate: featureGateFromError(error, "assignments"),
+      message: readErrorMessage(error, "تعذر حذف الواجب."),
+    };
+  }
+
+  if (!data?.length) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "الواجب غير موجود أو لا يخصّ هذا المعلم.",
+    };
+  }
+
+  return {
+    ok: true,
+    gate: AVAILABLE_GATE,
+    message: "تم حذف الواجب.",
+    affectedCount: data.length,
+  };
+}
+
 export async function createTeacherGradeRecord(
   ctx: AcademicTeacherRouteContext,
   input: TeacherGradeCreateInput,
@@ -719,9 +1156,17 @@ export async function createTeacherGradeRecord(
     };
   }
 
-  const columnSupport = await loadTeacherTableSupport(ctx.serviceSupabase, "grades");
+  const columnSupport = await loadTeacherTableSupport(
+    ctx.serviceSupabase,
+    "grades",
+  );
   if (!columnSupport) {
-    const gate = featureGateFromError({ message: "Could not find the table 'public.grades' in the schema cache" }, "grades");
+    const gate = featureGateFromError(
+      {
+        message: "Could not find the table 'public.grades' in the schema cache",
+      },
+      "grades",
+    );
     return {
       ok: false,
       gate,
@@ -739,7 +1184,7 @@ export async function createTeacherGradeRecord(
   }
 
   const score = normalizeNumber(input.score);
-  if (score === null) {
+  if (score === null || score < 0) {
     return {
       ok: false,
       gate: AVAILABLE_GATE,
@@ -756,7 +1201,19 @@ export async function createTeacherGradeRecord(
     };
   }
 
-  const scopedStudent = await resolveScopedStudent(ctx.serviceSupabase, ctx.schoolId, studentId);
+  if (maxScore !== null && score > maxScore) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "لا يمكن أن تتجاوز الدرجة الدرجة النهائية.",
+    };
+  }
+
+  const scopedStudent = await resolveScopedStudent(
+    ctx.serviceSupabase,
+    ctx.schoolId,
+    studentId,
+  );
   if (!scopedStudent) {
     return {
       ok: false,
@@ -767,7 +1224,8 @@ export async function createTeacherGradeRecord(
 
   const subject =
     nullableText(input.subject) ??
-    teacher.assignments.find((assignment) => assignment.is_active)?.subject_name ??
+    teacher.assignments.find((assignment) => assignment.is_active)
+      ?.subject_name ??
     teacher.assignments[0]?.subject_name ??
     null;
 
@@ -787,27 +1245,46 @@ export async function createTeacherGradeRecord(
     };
   }
 
-  if (!teacherHasSubjectScope(teacher.assignments, subject, scopedStudent.class_name, scopedStudent.section)) {
+  if (
+    !teacherHasSubjectScope(
+      teacher.assignments,
+      subject,
+      scopedStudent.class_name,
+      scopedStudent.section,
+    )
+  ) {
     return {
       ok: false,
       gate: AVAILABLE_GATE,
-      message: "لا يمكن تسجيل درجة لطالب خارج المادة والصفوف والشعب المسندة لهذا المعلم.",
+      message:
+        "لا يمكن تسجيل درجة لطالب خارج المادة والصفوف والشعب المسندة لهذا المعلم.",
     };
   }
 
   let subjectId: string | null = null;
-  let scopeIds = { classId: null as string | null, sectionId: null as string | null };
+  let scopeIds = {
+    classId: null as string | null,
+    sectionId: null as string | null,
+  };
 
   try {
     [subjectId, scopeIds] = await Promise.all([
       resolveSubjectId(ctx.serviceSupabase, ctx.schoolId, subject),
-      resolveClassScopeIds(ctx.serviceSupabase, ctx.schoolId, scopedStudent.class_name, scopedStudent.section),
+      resolveClassScopeIds(
+        ctx.serviceSupabase,
+        ctx.schoolId,
+        scopedStudent.class_name,
+        scopedStudent.section,
+      ),
     ]);
   } catch (error) {
     return {
       ok: false,
       gate: AVAILABLE_GATE,
-      message: readErrorMessage(error, "تعذر تحديد المادة أو الصف أو الشعبة للدرجة."),
+      message: readErrorMessage(
+        error,
+        "تعذر تحديد المادة أو الصف أو الشعبة للدرجة.",
+      ),
     };
   }
 
@@ -872,6 +1349,160 @@ export async function createTeacherGradeRecord(
   };
 }
 
+/**
+ * Correct a mark this teacher recorded.
+ *
+ * Grade writes were insert-only, so a teacher fixing one score by re-saving
+ * the class sheet produced a second row for every student. The mobile grid now
+ * pre-fills existing marks and sends this for the ones that already exist.
+ * Scoped on (id, school_id, teacher_id); no notification is re-sent.
+ */
+export async function updateTeacherGradeRecord(
+  ctx: AcademicTeacherRouteContext,
+  input: TeacherGradeUpdateInput,
+): Promise<AcademicMutationResult> {
+  const teacher = ctx.account.teacher;
+
+  if (!teacher?.id) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "حساب المعلم الحالي غير مرتبط بسجل صالح.",
+    };
+  }
+
+  const gradeId = nullableText(input.id);
+  if (!gradeId) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "معرّف الدرجة مطلوب للتعديل.",
+    };
+  }
+
+  const score = normalizeNumber(input.score);
+  if (score === null || score < 0) {
+    return { ok: false, gate: AVAILABLE_GATE, message: "أدخل درجة صحيحة." };
+  }
+
+  const maxScore = normalizeNumber(input.max_score);
+  if (maxScore !== null && maxScore <= 0) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "الدرجة النهائية يجب أن تكون أكبر من صفر.",
+    };
+  }
+
+  if (maxScore !== null && score > maxScore) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "لا يمكن أن تتجاوز الدرجة الدرجة النهائية.",
+    };
+  }
+
+  const payload: Record<string, unknown> = {
+    score,
+    max_score: maxScore,
+    note: nullableText(input.note),
+    graded_at: new Date().toISOString(),
+  };
+
+  const examType = nullableText(input.exam_type);
+  if (examType) {
+    payload.exam_type = examType;
+  }
+
+  const { data, error } = await ctx.serviceSupabase
+    .from("grades")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .update(payload as any)
+    .eq("id", gradeId)
+    .eq("school_id", ctx.schoolId)
+    .eq("teacher_id", teacher.id)
+    .select("id");
+
+  if (error) {
+    return {
+      ok: false,
+      gate: featureGateFromError(error, "grades"),
+      message: readErrorMessage(error, "تعذر تحديث الدرجة."),
+    };
+  }
+
+  if (!data?.length) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "الدرجة غير موجودة أو لا تخصّ هذا المعلم.",
+    };
+  }
+
+  return {
+    ok: true,
+    gate: AVAILABLE_GATE,
+    message: "تم تحديث الدرجة بنجاح.",
+    affectedCount: data.length,
+  };
+}
+
+/** Remove a mark this teacher recorded. Scoped on (id, school_id, teacher_id). */
+export async function deleteTeacherGradeRecord(
+  ctx: AcademicTeacherRouteContext,
+  gradeIdInput: unknown,
+): Promise<AcademicMutationResult> {
+  const teacher = ctx.account.teacher;
+
+  if (!teacher?.id) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "حساب المعلم الحالي غير مرتبط بسجل صالح.",
+    };
+  }
+
+  const gradeId = nullableText(gradeIdInput);
+  if (!gradeId) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "معرّف الدرجة مطلوب للحذف.",
+    };
+  }
+
+  const { data, error } = await ctx.serviceSupabase
+    .from("grades")
+    .delete()
+    .eq("id", gradeId)
+    .eq("school_id", ctx.schoolId)
+    .eq("teacher_id", teacher.id)
+    .select("id");
+
+  if (error) {
+    return {
+      ok: false,
+      gate: featureGateFromError(error, "grades"),
+      message: readErrorMessage(error, "تعذر حذف الدرجة."),
+    };
+  }
+
+  if (!data?.length) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "الدرجة غير موجودة أو لا تخصّ هذا المعلم.",
+    };
+  }
+
+  return {
+    ok: true,
+    gate: AVAILABLE_GATE,
+    message: "تم حذف الدرجة.",
+    affectedCount: data.length,
+  };
+}
+
 async function fetchLookupMap(
   client: ServiceSupabaseClient,
   table: string,
@@ -884,7 +1515,11 @@ async function fetchLookupMap(
   }
 
   try {
-    const { data, error } = await (client as unknown as { from: (table: string) => any })
+    const { data, error } = await (
+      client as unknown as {
+        from: (table: string) => ReturnType<typeof client.from>;
+      }
+    )
       .from(table)
       .select(select)
       .in(key, ids);
@@ -915,29 +1550,54 @@ export async function enrichAssignmentRows(
 ) {
   const normalizedRows = rows.map((row) => asObject(row));
   const studentIds = Array.from(
-    new Set(normalizedRows.map((row) => nullableText(row.student_id)).filter((value): value is string => Boolean(value))),
+    new Set(
+      normalizedRows
+        .map((row) => nullableText(row.student_id))
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
   const teacherIds = Array.from(
-    new Set(normalizedRows.map((row) => nullableText(row.teacher_id)).filter((value): value is string => Boolean(value))),
+    new Set(
+      normalizedRows
+        .map((row) => nullableText(row.teacher_id))
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
   const subjectIds = Array.from(
-    new Set(normalizedRows.map((row) => nullableText(row.subject_id)).filter((value): value is string => Boolean(value))),
+    new Set(
+      normalizedRows
+        .map((row) => nullableText(row.subject_id))
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
 
   const [studentsById, teachersById, subjectsById] = await Promise.all([
-    fetchLookupMap(client, "students", studentIds, "id, full_name, class_name, section", "id"),
+    fetchLookupMap(
+      client,
+      "students",
+      studentIds,
+      "id, full_name, class_name, section",
+      "id",
+    ),
     fetchLookupMap(client, "teachers", teacherIds, "id, full_name", "id"),
     fetchLookupMap(client, "subjects", subjectIds, "id, name", "id"),
   ]);
 
   return normalizedRows.map((row) => {
-    const student = nullableText(row.student_id) ? studentsById.get(String(row.student_id)) ?? null : null;
-    const teacher = nullableText(row.teacher_id) ? teachersById.get(String(row.teacher_id)) ?? null : null;
-    const subject = nullableText(row.subject_id) ? subjectsById.get(String(row.subject_id)) ?? null : null;
+    const student = nullableText(row.student_id)
+      ? (studentsById.get(String(row.student_id)) ?? null)
+      : null;
+    const teacher = nullableText(row.teacher_id)
+      ? (teachersById.get(String(row.teacher_id)) ?? null)
+      : null;
+    const subject = nullableText(row.subject_id)
+      ? (subjectsById.get(String(row.subject_id)) ?? null)
+      : null;
 
     return {
       ...row,
-      class_name: nullableText(row.class_name) ?? nullableText(student?.class_name),
+      class_name:
+        nullableText(row.class_name) ?? nullableText(student?.class_name),
       section: nullableText(row.section) ?? nullableText(student?.section),
       subject: nullableText(row.subject) ?? nullableText(subject?.name),
       student_name: nullableText(student?.full_name),
@@ -952,25 +1612,49 @@ export async function enrichGradeRows(
 ) {
   const normalizedRows = rows.map((row) => asObject(row));
   const studentIds = Array.from(
-    new Set(normalizedRows.map((row) => nullableText(row.student_id)).filter((value): value is string => Boolean(value))),
+    new Set(
+      normalizedRows
+        .map((row) => nullableText(row.student_id))
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
   const teacherIds = Array.from(
-    new Set(normalizedRows.map((row) => nullableText(row.teacher_id)).filter((value): value is string => Boolean(value))),
+    new Set(
+      normalizedRows
+        .map((row) => nullableText(row.teacher_id))
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
   const subjectIds = Array.from(
-    new Set(normalizedRows.map((row) => nullableText(row.subject_id)).filter((value): value is string => Boolean(value))),
+    new Set(
+      normalizedRows
+        .map((row) => nullableText(row.subject_id))
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
 
   const [studentsById, teachersById, subjectsById] = await Promise.all([
-    fetchLookupMap(client, "students", studentIds, "id, full_name, class_name, section", "id"),
+    fetchLookupMap(
+      client,
+      "students",
+      studentIds,
+      "id, full_name, class_name, section",
+      "id",
+    ),
     fetchLookupMap(client, "teachers", teacherIds, "id, full_name", "id"),
     fetchLookupMap(client, "subjects", subjectIds, "id, name", "id"),
   ]);
 
   return normalizedRows.map((row) => {
-    const student = nullableText(row.student_id) ? studentsById.get(String(row.student_id)) ?? null : null;
-    const teacher = nullableText(row.teacher_id) ? teachersById.get(String(row.teacher_id)) ?? null : null;
-    const subject = nullableText(row.subject_id) ? subjectsById.get(String(row.subject_id)) ?? null : null;
+    const student = nullableText(row.student_id)
+      ? (studentsById.get(String(row.student_id)) ?? null)
+      : null;
+    const teacher = nullableText(row.teacher_id)
+      ? (teachersById.get(String(row.teacher_id)) ?? null)
+      : null;
+    const subject = nullableText(row.subject_id)
+      ? (subjectsById.get(String(row.subject_id)) ?? null)
+      : null;
 
     return {
       ...row,

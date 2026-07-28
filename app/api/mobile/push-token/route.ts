@@ -27,17 +27,24 @@ export async function POST(req: NextRequest) {
       return rateLimited;
     }
 
-    const body = (await req.json().catch(() => null)) as
-      | { token?: unknown; platform?: unknown }
-      | null;
+    const body = (await req.json().catch(() => null)) as {
+      token?: unknown;
+      platform?: unknown;
+    } | null;
 
     const token = typeof body?.token === "string" ? body.token.trim() : "";
     if (!token) {
-      return NextResponse.json({ ok: false, error: "token is required" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "token is required" },
+        { status: 400 },
+      );
     }
 
     // Validate Expo token format (parity with web push-token route).
-    if (!token.startsWith("ExponentPushToken[") && !token.startsWith("ExpoPushToken[")) {
+    if (
+      !token.startsWith("ExponentPushToken[") &&
+      !token.startsWith("ExpoPushToken[")
+    ) {
       return NextResponse.json(
         { ok: false, error: "Invalid Expo push token format" },
         { status: 400 },
@@ -45,20 +52,27 @@ export async function POST(req: NextRequest) {
     }
 
     const ALLOWED_PLATFORMS = new Set(["ios", "android", "web", "mobile"]);
-    const rawPlatform = typeof body?.platform === "string" ? body.platform.trim().toLowerCase() : "";
-    const platform = ALLOWED_PLATFORMS.has(rawPlatform) ? rawPlatform : "mobile";
+    const rawPlatform =
+      typeof body?.platform === "string"
+        ? body.platform.trim().toLowerCase()
+        : "";
+    const platform = ALLOWED_PLATFORMS.has(rawPlatform)
+      ? rawPlatform
+      : "mobile";
     const { authUserId, schoolId, serviceSupabase } = context.value;
 
-    const { error } = await serviceSupabase.from("user_push_subscriptions").upsert(
-      {
-        user_id: authUserId,
-        school_id: schoolId,
-        subscription_json: { type: "expo", token },
-        platform,
-        is_active: true,
-      },
-      { onConflict: "user_id,school_id" },
-    );
+    const { error } = await serviceSupabase
+      .from("user_push_subscriptions")
+      .upsert(
+        {
+          user_id: authUserId,
+          school_id: schoolId,
+          subscription_json: { type: "expo", token },
+          platform,
+          is_active: true,
+        },
+        { onConflict: "user_id,school_id,platform" },
+      );
 
     if (error) {
       return NextResponse.json(
@@ -69,6 +83,50 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const context = await resolveMobileRouteContext(req);
+    if (context.ok === false) return context.response;
+
+    const body = (await req.json().catch(() => null)) as {
+      token?: unknown;
+      platform?: unknown;
+    } | null;
+    const token = typeof body?.token === "string" ? body.token.trim() : "";
+    const platform =
+      typeof body?.platform === "string"
+        ? body.platform.trim().toLowerCase()
+        : "";
+    const { authUserId, schoolId, serviceSupabase } = context.value;
+
+    let query = serviceSupabase
+      .from("user_push_subscriptions")
+      .update({ is_active: false })
+      .eq("user_id", authUserId)
+      .eq("school_id", schoolId);
+
+    if (platform) query = query.eq("platform", platform);
+    if (token) query = query.contains("subscription_json", { token });
+
+    const { error } = await query;
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: "Failed to deactivate push token" },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

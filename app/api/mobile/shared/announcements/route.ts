@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
       limit: params.limit,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

@@ -28,12 +28,17 @@ export async function GET(req: NextRequest) {
       query = query.eq("is_active", false);
     }
 
-    const { data, error } = await query.order("created_at", { ascending: false });
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) throw error;
 
     return NextResponse.json({ ok: true, items: data ?? [] });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

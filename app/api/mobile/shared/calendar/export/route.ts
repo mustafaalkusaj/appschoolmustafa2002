@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
     // Require the Authorization header. A query-param token would leak into
     // browser history, server logs and referrers, so it is not accepted.
     if (!req.headers.get("authorization")) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: "unauthorized" },
+        { status: 401 },
+      );
     }
 
     const context = await resolveMobileRouteContext(req);
@@ -37,7 +40,10 @@ export async function GET(req: NextRequest) {
       .limit(500);
 
     if (error || !events) {
-      return NextResponse.json({ ok: false, error: error?.message ?? "failed" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: error?.message ?? "failed" },
+        { status: 500 },
+      );
     }
 
     const lines: string[] = [
@@ -84,6 +90,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     const context = await resolveAdminMobileRouteContext(req);
     if (context.ok === false) return context.response;
 
-    const { schoolId, authUserId, serviceSupabase } = context.value;
+    const { schoolId, branchId, authUserId, serviceSupabase } = context.value;
 
     const body = (await req.json().catch(() => null)) as {
       date?: unknown;
@@ -185,9 +185,7 @@ export async function POST(req: NextRequest) {
     const { error } = await serviceSupabase.from("attendance_records").upsert(
       entries.map((entry) => ({
         school_id: schoolId,
-        // The student's own branch is the correct scope for the record; null
-        // when the school has not been split into branches.
-        branch_id: branchByStudent.get(entry.student_id) ?? null,
+        branch_id: branchByStudent.get(entry.student_id) ?? branchId,
         student_id: entry.student_id,
         attendance_date: date,
         status: entry.status,

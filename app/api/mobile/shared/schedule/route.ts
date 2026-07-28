@@ -44,7 +44,10 @@ export async function GET(req: NextRequest) {
     if (role === "student") {
       const student = account.student;
       if (!student) {
-        return NextResponse.json({ ok: false, error: "لم يتم ربط حساب الطالب." }, { status: 403 });
+        return NextResponse.json(
+          { ok: false, error: "لم يتم ربط حساب الطالب." },
+          { status: 403 },
+        );
       }
 
       if (!student.class_name) {
@@ -53,7 +56,9 @@ export async function GET(req: NextRequest) {
 
       const { data, error } = await serviceSupabase
         .from("class_schedules")
-        .select("id, day_of_week, start_time, end_time, subject_name, class_name, room, teachers(full_name)")
+        .select(
+          "id, day_of_week, start_time, end_time, subject_name, class_name, room, teachers(full_name)",
+        )
         .eq("school_id", schoolId)
         .eq("class_name", student.class_name)
         .order("day_of_week")
@@ -62,7 +67,9 @@ export async function GET(req: NextRequest) {
       if (error) throw error;
 
       const items: ScheduleItem[] = (data ?? []).map((row) => {
-        const teacher = Array.isArray(row.teachers) ? row.teachers[0] : row.teachers;
+        const teacher = Array.isArray(row.teachers)
+          ? row.teachers[0]
+          : row.teachers;
         return {
           id: row.id as string,
           day: DAY_NAMES[row.day_of_week as number] ?? String(row.day_of_week),
@@ -70,7 +77,8 @@ export async function GET(req: NextRequest) {
           end_time: row.end_time as string,
           subject_name: row.subject_name as string,
           class_name: (row.class_name as string | null) ?? null,
-          teacher_name: (teacher as { full_name: string | null } | null)?.full_name ?? null,
+          teacher_name:
+            (teacher as { full_name: string | null } | null)?.full_name ?? null,
           room: (row.room as string | null) ?? null,
         };
       });
@@ -84,12 +92,17 @@ export async function GET(req: NextRequest) {
     if (role === "teacher") {
       const teacher = account.teacher;
       if (!teacher) {
-        return NextResponse.json({ ok: false, error: "لم يتم ربط حساب المعلم." }, { status: 403 });
+        return NextResponse.json(
+          { ok: false, error: "لم يتم ربط حساب المعلم." },
+          { status: 403 },
+        );
       }
 
       const { data, error } = await serviceSupabase
         .from("class_schedules")
-        .select("id, day_of_week, start_time, end_time, subject_name, class_name, section, room")
+        .select(
+          "id, day_of_week, start_time, end_time, subject_name, class_name, section, room",
+        )
         .eq("school_id", schoolId)
         .eq("teacher_id", teacher.id)
         .order("day_of_week")
@@ -113,6 +126,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, items: [] });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

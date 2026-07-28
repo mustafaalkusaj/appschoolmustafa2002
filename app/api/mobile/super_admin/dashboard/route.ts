@@ -16,8 +16,12 @@ export async function GET(req: NextRequest) {
       inactiveResult,
       activitiesResult,
     ] = await Promise.all([
-      serviceSupabase.from("students").select("*", { count: "exact", head: true }),
-      serviceSupabase.from("teachers").select("*", { count: "exact", head: true }),
+      serviceSupabase
+        .from("students")
+        .select("*", { count: "exact", head: true }),
+      serviceSupabase
+        .from("teachers")
+        .select("*", { count: "exact", head: true }),
       serviceSupabase
         .from("managed_user_profiles")
         .select("*", { count: "exact", head: true })
@@ -55,6 +59,9 @@ export async function GET(req: NextRequest) {
       recentActivities,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

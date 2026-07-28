@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { parseMobileListParams, queryTeacherStudents, resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import {
+  parseMobileListParams,
+  queryTeacherStudents,
+  resolveMobileRouteContext,
+} from "@/lib/mobile-api-server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +26,9 @@ export async function GET(req: NextRequest) {
       has_more: result.has_more,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

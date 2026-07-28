@@ -54,7 +54,9 @@ export async function POST(
     // with "exam not found" for every start. Only select real columns.
     const { data: exam, error: examError } = await supabase
       .from("exams")
-      .select("id, school_id, title, starts_at, ends_at, total_marks, class_name")
+      .select(
+        "id, school_id, title, starts_at, ends_at, total_marks, class_name",
+      )
       .eq("id", examId)
       .eq("school_id", schoolId)
       .single();
@@ -67,8 +69,10 @@ export async function POST(
     }
 
     const examRow = exam as {
-      id: string; starts_at: string | null;
-      ends_at: string | null; class_name: string | null;
+      id: string;
+      starts_at: string | null;
+      ends_at: string | null;
+      class_name: string | null;
     };
 
     // Check class match. When the exam targets a specific class, the student
@@ -102,101 +106,109 @@ export async function POST(
     // Get settings
     const { data: settings } = await supabase
       .from("exam_settings")
-      .select("id, exam_id, max_attempts, shuffle_questions, duration_minutes, auto_submit, lock_browser, shuffle_options, allow_review, instructions")
+      .select(
+        "id, exam_id, max_attempts, shuffle_questions, duration_minutes, auto_submit, lock_browser, shuffle_options, allow_review, instructions",
+      )
       .eq("exam_id", examId)
       .maybeSingle();
 
-    const maxAttempts = (settings as { max_attempts?: number } | null)?.max_attempts ?? 1;
+    // Attempt counting, resume detection and creation must be one database
+    // transaction. The service-only RPC also serializes concurrent starts for
+    // the same student/exam pair.
+    const { data: attemptResult, error: attemptError } = await (
+      supabase.rpc as unknown as (
+        name: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>
+    )("start_or_resume_exam_attempt", {
+      p_school_id: schoolId,
+      p_exam_id: examId,
+      p_student_id: studentId,
+    });
 
-    // Check attempt count
-    const { count: attemptCount } = await supabase
-      .from("exam_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("exam_id", examId)
-      .eq("student_id", studentId);
-
-    if ((attemptCount ?? 0) >= maxAttempts) {
+    if (attemptError) {
+      const safeMessage = mapStartAttemptError(attemptError.message);
       return NextResponse.json(
-        { ok: false, error: { message: "لقد استنفدت جميع المحاولات المتاحة." } },
-        { status: 400 },
+        { ok: false, error: { message: safeMessage.message } },
+        { status: safeMessage.status },
       );
     }
 
-    // Check for in-progress attempt (resume)
-    const { data: existingAttempt } = await supabase
-      .from("exam_attempts")
-      .select("id, started_at")
-      .eq("exam_id", examId)
-      .eq("student_id", studentId)
-      .eq("status", "in_progress")
-      .maybeSingle();
+    const attemptRow = (
+      Array.isArray(attemptResult) ? attemptResult[0] : attemptResult
+    ) as {
+      attempt_id: string;
+      started_at: string | null;
+      resumed: boolean;
+    } | null;
 
-    if (existingAttempt) {
-      const existing = existingAttempt as { id: string; started_at: string | null };
-      const { data: questions } = await supabase
-        .from("exam_questions")
-        .select("question_id, sort_order, marks, questions!inner(id, prompt, options, type, difficulty)")
-        .eq("exam_id", examId)
-        .order("sort_order", { ascending: true });
-
-      return NextResponse.json({
-        ok: true,
-        attempt_id: existing.id,
-        attemptId: existing.id,
-        resumed: true,
-        questions: (questions ?? []).map(toStudentQuestion),
-        remaining_seconds: computeRemainingSeconds(settings, existing.started_at),
-        settings: sanitizeSettingsForStudent(settings),
-      });
-    }
-
-    // Create new attempt
-    const { data: attempt, error: attemptError } = await supabase
-      .from("exam_attempts")
-      .insert({
-        exam_id: examId,
-        student_id: studentId,
-        school_id: schoolId,
-        started_at: now.toISOString(),
-        status: "in_progress",
-      })
-      .select("id, started_at")
-      .single();
-
-    if (attemptError) {
+    if (!attemptRow?.attempt_id) {
       return NextResponse.json(
-        { ok: false, error: { message: attemptError.message } },
+        { ok: false, error: { message: "تعذر إنشاء محاولة الامتحان." } },
         { status: 500 },
       );
     }
 
-    const attemptRow = attempt as { id: string; started_at: string | null };
-
     // Fetch questions
     const { data: rawQuestions } = await supabase
       .from("exam_questions")
-      .select("question_id, sort_order, marks, questions!inner(id, prompt, options, type, difficulty)")
+      .select(
+        "question_id, sort_order, marks, questions!inner(id, prompt, options, type, difficulty)",
+      )
       .eq("exam_id", examId)
       .order("sort_order", { ascending: true });
 
     let questions = rawQuestions ?? [];
 
-    if ((settings as { shuffle_questions?: boolean } | null)?.shuffle_questions) {
-      questions = shuffleArray(questions, `${attemptRow.id}-questions`);
+    if (
+      (settings as { shuffle_questions?: boolean } | null)?.shuffle_questions
+    ) {
+      questions = shuffleArray(questions, `${attemptRow.attempt_id}-questions`);
     }
 
     return NextResponse.json({
       ok: true,
-      attempt_id: attemptRow.id,
-      attemptId: attemptRow.id,
-      resumed: false,
+      attempt_id: attemptRow.attempt_id,
+      attemptId: attemptRow.attempt_id,
+      resumed: attemptRow.resumed,
       questions: questions.map(toStudentQuestion),
-      remaining_seconds: computeRemainingSeconds(settings, attemptRow.started_at),
+      remaining_seconds: computeRemainingSeconds(
+        settings,
+        attemptRow.started_at,
+      ),
       settings: sanitizeSettingsForStudent(settings),
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
+}
+
+function mapStartAttemptError(message: string): {
+  message: string;
+  status: number;
+} {
+  if (message.includes("exam_attempt_limit_reached")) {
+    return { message: "لقد استنفدت جميع المحاولات المتاحة.", status: 400 };
+  }
+  if (message.includes("exam_not_started")) {
+    return { message: "لم يبدأ الامتحان بعد.", status: 400 };
+  }
+  if (message.includes("exam_ended")) {
+    return { message: "انتهى وقت الامتحان.", status: 400 };
+  }
+  if (message.includes("exam_class_mismatch")) {
+    return { message: "هذا الامتحان غير مخصص لصفك.", status: 403 };
+  }
+  if (message.includes("student_inactive")) {
+    return { message: "حساب الطالب غير نشط.", status: 403 };
+  }
+  if (message.includes("exam_not_found") || message.includes("student_not_found")) {
+    return { message: "الامتحان أو الطالب غير موجود.", status: 404 };
+  }
+  return { message: "تعذر بدء الامتحان الآن.", status: 500 };
 }
 
 /**
@@ -205,7 +217,9 @@ export async function POST(
  * { id, prompt, type, options, sort_order, marks }. The correct answer is
  * stripped so it never reaches the student.
  */
-function toStudentQuestion(eq: Record<string, unknown>): Record<string, unknown> {
+function toStudentQuestion(
+  eq: Record<string, unknown>,
+): Record<string, unknown> {
   const q = (eq.questions as Record<string, unknown> | undefined) ?? {};
   return {
     id: q.id ?? eq.question_id ?? null,
@@ -222,20 +236,28 @@ function computeRemainingSeconds(
   settings: Record<string, unknown> | null,
   startedAt: string | null,
 ): number {
-  const durationMinutes = (settings as { duration_minutes?: number } | null)?.duration_minutes ?? 60;
+  const durationMinutes =
+    (settings as { duration_minutes?: number } | null)?.duration_minutes ?? 60;
   const totalSeconds = durationMinutes * 60;
   if (!startedAt) return totalSeconds;
-  const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+  const elapsed = Math.floor(
+    (Date.now() - new Date(startedAt).getTime()) / 1000,
+  );
   return Math.max(0, totalSeconds - Math.max(0, elapsed));
 }
 
-function sanitizeSettingsForStudent(settings: Record<string, unknown> | null): Record<string, unknown> {
+function sanitizeSettingsForStudent(
+  settings: Record<string, unknown> | null,
+): Record<string, unknown> {
   if (!settings) return {};
   return {
-    duration_minutes: (settings as { duration_minutes?: number }).duration_minutes ?? null,
+    duration_minutes:
+      (settings as { duration_minutes?: number }).duration_minutes ?? null,
     auto_submit: (settings as { auto_submit?: boolean }).auto_submit ?? true,
-    lock_browser: (settings as { lock_browser?: boolean }).lock_browser ?? false,
-    shuffle_options: (settings as { shuffle_options?: boolean }).shuffle_options ?? false,
+    lock_browser:
+      (settings as { lock_browser?: boolean }).lock_browser ?? false,
+    shuffle_options:
+      (settings as { shuffle_options?: boolean }).shuffle_options ?? false,
     allow_review: (settings as { allow_review?: boolean }).allow_review ?? true,
     instructions: (settings as { instructions?: string }).instructions ?? null,
   };

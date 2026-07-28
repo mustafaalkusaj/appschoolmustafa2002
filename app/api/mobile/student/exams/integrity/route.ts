@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
 
-const VALID_EVENT_TYPES = ["app_switch", "tab_change", "screenshot_attempt", "copy_paste", "focus_lost"];
+const VALID_EVENT_TYPES = [
+  "app_switch",
+  "tab_change",
+  "screenshot_attempt",
+  "copy_paste",
+  "focus_lost",
+];
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,7 +30,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     // Mobile sends snake_case (attempt_id / event_type); accept camelCase too.
     const attemptId: string | undefined = body?.attempt_id ?? body?.attemptId;
-    const rawEventType: string | undefined = body?.event_type ?? body?.eventType;
+    const rawEventType: string | undefined =
+      body?.event_type ?? body?.eventType;
     if (!attemptId || !rawEventType) {
       return NextResponse.json(
         { ok: false, error: { message: "attempt_id و event_type مطلوبان." } },
@@ -35,7 +42,12 @@ export async function POST(req: NextRequest) {
     const eventType = String(rawEventType).trim().toLowerCase();
     if (!VALID_EVENT_TYPES.includes(eventType)) {
       return NextResponse.json(
-        { ok: false, error: { message: `نوع الحدث غير صالح. الأنواع المسموحة: ${VALID_EVENT_TYPES.join(", ")}` } },
+        {
+          ok: false,
+          error: {
+            message: `نوع الحدث غير صالح. الأنواع المسموحة: ${VALID_EVENT_TYPES.join(", ")}`,
+          },
+        },
         { status: 400 },
       );
     }
@@ -84,6 +96,9 @@ export async function POST(req: NextRequest) {
       item: data,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

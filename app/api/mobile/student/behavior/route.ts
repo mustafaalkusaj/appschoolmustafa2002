@@ -15,7 +15,13 @@ export async function GET(req: NextRequest) {
 
     const student = context.value.account.student;
     if (!student?.id) {
-      return NextResponse.json({ ok: true, gate: { available: true }, items: [], page: 1, limit: 20 });
+      return NextResponse.json({
+        ok: true,
+        gate: { available: true },
+        items: [],
+        page: 1,
+        limit: 20,
+      });
     }
 
     const params = parseMobileListParams(req, { limit: 20, maxLimit: 100 });
@@ -33,6 +39,9 @@ export async function GET(req: NextRequest) {
       limit: params.limit,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

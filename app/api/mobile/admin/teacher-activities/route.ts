@@ -28,7 +28,9 @@ export async function GET(req: NextRequest) {
     const [activitiesResult, teachersResult] = await Promise.all([
       serviceSupabase
         .from("teacher_activities")
-        .select("id, teacher_id, activity_type, review_status, created_at, teachers(id, full_name, subject)")
+        .select(
+          "id, teacher_id, activity_type, review_status, created_at, teachers(id, full_name, subject)",
+        )
         .eq("school_id", schoolId)
         .gte("created_at", `${fromDate}T00:00:00.000Z`)
         .eq("is_deleted", false),
@@ -45,7 +47,10 @@ export async function GET(req: NextRequest) {
 
     const byType: Record<string, number> = {};
     let pendingReview = 0;
-    const teacherActivityCount = new Map<string, { name: string; count: number }>();
+    const teacherActivityCount = new Map<
+      string,
+      { name: string; count: number }
+    >();
 
     for (const act of activities) {
       const type = (act.activity_type as string) ?? "other";
@@ -56,7 +61,10 @@ export async function GET(req: NextRequest) {
       const tid = act.teacher_id as string;
       const info = act.teachers as { id?: string; full_name?: string } | null;
       if (!teacherActivityCount.has(tid)) {
-        teacherActivityCount.set(tid, { name: info?.full_name ?? "—", count: 0 });
+        teacherActivityCount.set(tid, {
+          name: info?.full_name ?? "—",
+          count: 0,
+        });
       }
       teacherActivityCount.get(tid)!.count += 1;
     }
@@ -64,7 +72,11 @@ export async function GET(req: NextRequest) {
     const activeTeachers = teacherActivityCount.size;
 
     const topTeachers = Array.from(teacherActivityCount.entries())
-      .map(([teacher_id, val]) => ({ teacher_id, teacher_name: val.name, count: val.count }))
+      .map(([teacher_id, val]) => ({
+        teacher_id,
+        teacher_name: val.name,
+        count: val.count,
+      }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
@@ -79,6 +91,9 @@ export async function GET(req: NextRequest) {
       period,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

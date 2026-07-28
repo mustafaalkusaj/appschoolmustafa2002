@@ -49,7 +49,9 @@ export async function GET(req: NextRequest) {
 
     if (links && links.length > 0) {
       schoolId = (links[0] as { school_id: string }).school_id;
-      studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+      studentIds = (links as Array<{ student_id: string }>).map(
+        (l) => l.student_id,
+      );
     } else {
       // Fallback: student viewing their own data in parent/guardian mode
       const { data: managedProfile } = await serviceSupabase
@@ -89,13 +91,19 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       serviceSupabase
         .from("students")
-        .select("id, full_name, class_name, section, phone, status, total_fee, paid_fee, remaining_fee, discount_value")
+        .select(
+          "id, full_name, class_name, section, phone, status, total_fee, paid_fee, remaining_fee, discount_value",
+        )
         .in("id", studentIds)
         .eq("school_id", schoolId),
 
+      // `grade_entries` keys the subject by FK, so pull the name through the
+      // subjects relation rather than a non-existent `subject` column.
       serviceSupabase
         .from("grade_entries")
-        .select("id, student_id, subject, score, max_score, grade_type_id, created_at")
+        .select(
+          "id, student_id, subject_id, subjects(name), score, max_score, grade_type_id, created_at",
+        )
         .in("student_id", studentIds)
         .eq("school_id", schoolId)
         .order("created_at", { ascending: false })
@@ -110,15 +118,21 @@ export async function GET(req: NextRequest) {
 
       serviceSupabase
         .from("payments")
-        .select("id, student_id, amount, payment_method, created_at, receipt_number")
+        .select(
+          "id, student_id, amount, payment_method, created_at, receipt_number",
+        )
         .in("student_id", studentIds)
         .eq("school_id", schoolId)
         .order("created_at", { ascending: false })
         .limit(10),
 
+      // `behavior_records` names these columns kind/note; alias them to the
+      // type/description shape the client already renders.
       serviceSupabase
         .from("behavior_records")
-        .select("id, student_id, type, category, description, points, created_at")
+        .select(
+          "id, student_id, type:kind, description:note, points, created_at",
+        )
         .in("student_id", studentIds)
         .eq("school_id", schoolId)
         .order("created_at", { ascending: false })
@@ -131,9 +145,15 @@ export async function GET(req: NextRequest) {
         (a: { student_id: string | null }) => a.student_id === sid,
       );
       const total = records.length;
-      const present = records.filter((a: { status: string }) => a.status === "present").length;
-      const absent = records.filter((a: { status: string }) => a.status === "absent").length;
-      const late = records.filter((a: { status: string }) => a.status === "late").length;
+      const present = records.filter(
+        (a: { status: string }) => a.status === "present",
+      ).length;
+      const absent = records.filter(
+        (a: { status: string }) => a.status === "absent",
+      ).length;
+      const late = records.filter(
+        (a: { status: string }) => a.status === "late",
+      ).length;
       return {
         student_id: sid,
         total,
@@ -144,11 +164,21 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // Flatten the embedded subjects relation back to a plain `subject` string.
+    const gradeRows = (grades ?? []) as Array<
+      Record<string, unknown> & { subjects?: { name?: string | null } | null }
+    >;
+    const gradesFlat = gradeRows.map(({ subjects, ...grade }) => ({
+      ...grade,
+      subject: subjects?.name ?? null,
+    }));
+
     return NextResponse.json({
       ok: true,
       students: students ?? [],
-      grades: grades ?? [],
+      grades: gradesFlat,
       attendance_stats: attendanceStats,
+      attendance_records: attendance ?? [],
       payments: payments ?? [],
       behavior: behavior ?? [],
     });

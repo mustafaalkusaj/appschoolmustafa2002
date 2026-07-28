@@ -42,7 +42,11 @@ export async function GET(req: NextRequest) {
     >();
 
     for (const row of data ?? []) {
-      const teacherInfo = row.teachers as { id?: string; full_name?: string; subject?: string } | null;
+      const teacherInfo = row.teachers as {
+        id?: string;
+        full_name?: string;
+        subject?: string;
+      } | null;
       const tid = row.teacher_id as string;
 
       if (!teacherMap.has(tid)) {
@@ -63,11 +67,21 @@ export async function GET(req: NextRequest) {
       entry.total_days += 1;
 
       switch (row.status) {
-        case "present": entry.present += 1; break;
-        case "absent":  entry.absent  += 1; break;
-        case "late":    entry.late    += 1; break;
-        case "excused": entry.excused += 1; break;
-        case "holiday": entry.holiday += 1; break;
+        case "present":
+          entry.present += 1;
+          break;
+        case "absent":
+          entry.absent += 1;
+          break;
+        case "late":
+          entry.late += 1;
+          break;
+        case "excused":
+          entry.excused += 1;
+          break;
+        case "holiday":
+          entry.holiday += 1;
+          break;
       }
     }
 
@@ -77,6 +91,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, teachers, year, month });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

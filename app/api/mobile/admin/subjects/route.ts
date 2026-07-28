@@ -22,13 +22,17 @@ export async function GET(req: NextRequest) {
       name: (s.name as string | null) ?? "",
       is_active: (s.is_active as boolean | null) ?? true,
       teacher_count: Array.isArray(s.teacher_assignments)
-        ? (s.teacher_assignments[0] as { count: number } | undefined)?.count ?? 0
+        ? ((s.teacher_assignments[0] as { count: number } | undefined)?.count ??
+          0)
         : 0,
     }));
 
     return NextResponse.json({ ok: true, items });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -70,6 +74,9 @@ export async function POST(req: NextRequest) {
       item: { id: data.id, name: name.trim() },
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

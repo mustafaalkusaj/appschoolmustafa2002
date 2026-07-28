@@ -78,6 +78,16 @@ export async function POST(req: NextRequest) {
       schoolId = mp.school_id;
     }
 
+    const { data: parentProfile } = await serviceSupabase
+      .from("managed_user_profiles")
+      .select("full_name")
+      .eq("auth_user_id", parentUserId)
+      .maybeSingle();
+
+    const parentDisplayName =
+      (parentProfile as { full_name?: string | null } | null)?.full_name?.trim() ||
+      "ولي الأمر";
+
     const { data: teacher } = await serviceSupabase
       .from("teachers")
       .select("id, auth_user_id")
@@ -92,15 +102,17 @@ export async function POST(req: NextRequest) {
 
     // 2. Check if a conversation already exists between these two users
     //    Find conversations where parent is a participant
+    // conversation_participants has no school_id column — filtering on it made
+    // this query error out, so the "already talking" check never matched.
     const { data: parentParticipations } = await serviceSupabase
       .from("conversation_participants")
       .select("conversation_id")
-      .eq("user_id", parentUserId)
-      .eq("school_id", schoolId);
+      .eq("user_id", parentUserId);
 
     if (parentParticipations && parentParticipations.length > 0) {
-      const parentConvIds = (parentParticipations as Array<{ conversation_id: string }>)
-        .map((p) => p.conversation_id);
+      const parentConvIds = (
+        parentParticipations as Array<{ conversation_id: string }>
+      ).map((p) => p.conversation_id);
 
       // Find if teacher is also in any of those conversations
       const { data: overlap } = await serviceSupabase
@@ -114,17 +126,22 @@ export async function POST(req: NextRequest) {
       if (overlap) {
         return NextResponse.json({
           ok: true,
-          conversation_id: (overlap as { conversation_id: string }).conversation_id,
+          conversation_id: (overlap as { conversation_id: string })
+            .conversation_id,
           created: false,
         });
       }
     }
 
     // 3. Create new conversation + add both participants
+    // type and created_by are NOT NULL with no default; omitting them made
+    // every create fail, which is why no conversation ever existed.
     const { data: newConversation, error: convError } = await serviceSupabase
       .from("conversations")
       .insert({
         school_id: schoolId,
+        type: "direct",
+        created_by: parentUserId,
         title: teacher_name ?? null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
@@ -139,25 +156,29 @@ export async function POST(req: NextRequest) {
 
     const { error: participantsError } = await serviceSupabase
       .from("conversation_participants")
+      // No school_id column here, and display_name is NOT NULL.
       .insert([
         {
           conversation_id: conversationId,
           user_id: parentUserId,
-          school_id: schoolId,
           role: "parent",
+          display_name: parentDisplayName,
         },
         {
           conversation_id: conversationId,
           user_id: teacher_auth_user_id,
-          school_id: schoolId,
           role: "teacher",
+          display_name: teacher_name?.trim() || "المعلم",
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
 
     if (participantsError) {
       // Clean up the orphaned conversation
-      await serviceSupabase.from("conversations").delete().eq("id", conversationId);
+      await serviceSupabase
+        .from("conversations")
+        .delete()
+        .eq("id", conversationId);
       return jsonError("فشل إضافة المشاركين للمحادثة.", 500);
     }
 

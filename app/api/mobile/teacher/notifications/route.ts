@@ -25,7 +25,10 @@ export async function GET(req: NextRequest) {
       limit: params.limit,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -37,7 +40,10 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = (await req.json().catch(() => null)) ?? {};
-    const result = await sendTeacherBroadcast(context.value, payload as Record<string, unknown>);
+    const result = await sendTeacherBroadcast(
+      context.value,
+      payload as Record<string, unknown>,
+    );
 
     return NextResponse.json(
       {

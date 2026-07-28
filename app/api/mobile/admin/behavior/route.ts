@@ -33,7 +33,10 @@ export async function GET(req: NextRequest) {
       limit: params.limit,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (context.ok === false) return context.response;
 
     const { schoolId, serviceSupabase } = context.value;
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       student_id?: string;
       student_name?: string;
       behavior_type?: string;
@@ -53,7 +56,11 @@ export async function POST(req: NextRequest) {
 
     const { student_id, student_name, behavior_type, points, note } = body;
 
-    if (!student_name || typeof student_name !== "string" || !student_name.trim()) {
+    if (
+      !student_name ||
+      typeof student_name !== "string" ||
+      !student_name.trim()
+    ) {
       return NextResponse.json(
         { ok: false, error: "missing_required_field", field: "student_name" },
         { status: 400 },
@@ -84,13 +91,18 @@ export async function POST(req: NextRequest) {
         note: note ?? null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
-      .select("id, student_id, student_name, behavior_type, points, note, created_at")
+      .select(
+        "id, student_id, student_name, behavior_type, points, note, created_at",
+      )
       .single();
 
     if (error) throw error;
 
     return NextResponse.json({ ok: true, item: data });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

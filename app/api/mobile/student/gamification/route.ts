@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
     const studentId = account.student?.id;
 
     if (!studentId) {
-      return NextResponse.json({ ok: false, error: "student_not_linked" }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, error: "student_not_linked" },
+        { status: 403 },
+      );
     }
 
     const supabase = createServiceSupabaseClient();
@@ -54,11 +57,17 @@ export async function GET(req: NextRequest) {
 
     // Compute streak from attendance records
     const streak = computeStreak(
-      (attendanceResult.data ?? []) as Array<{ attendance_date: string; status: string }>,
+      (attendanceResult.data ?? []) as Array<{
+        attendance_date: string;
+        status: string;
+      }>,
     );
 
     // Compute rank: aggregate leaderboard by student_id, find this student's position
-    const allRows = (leaderboardResult.data ?? []) as Array<{ student_id: string; points: number }>;
+    const allRows = (leaderboardResult.data ?? []) as Array<{
+      student_id: string;
+      points: number;
+    }>;
     const totalsMap = new Map<string, number>();
     for (const row of allRows) {
       const id = row.student_id;
@@ -77,7 +86,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, xp, streak, level, rank });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }
 

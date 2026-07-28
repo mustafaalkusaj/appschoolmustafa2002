@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildStudentDashboardPayload, resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import {
+  buildStudentDashboardPayload,
+  resolveMobileRouteContext,
+} from "@/lib/mobile-api-server";
 import { buildSchoolCacheTag, rememberWithTtl } from "@/lib/server-cache";
 
 export async function GET(req: NextRequest) {
@@ -20,6 +23,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, ...payload });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

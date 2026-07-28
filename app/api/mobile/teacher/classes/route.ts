@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildTeacherClassesPayload, resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import {
+  buildTeacherClassesPayload,
+  resolveMobileRouteContext,
+} from "@/lib/mobile-api-server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,6 +17,9 @@ export async function GET(req: NextRequest) {
       ...buildTeacherClassesPayload(context.value.account),
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

@@ -10,7 +10,9 @@ type Params = { params: Promise<{ id: string }> };
 // table while preserving existing runtime behavior.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function assignmentSubmissionsTable(client: unknown): any {
-  return (client as { from: (table: string) => any }).from("assignment_submissions");
+  return (client as { from: (table: string) => unknown }).from(
+    "assignment_submissions",
+  );
 }
 
 export async function GET(req: NextRequest, { params }: Params) {

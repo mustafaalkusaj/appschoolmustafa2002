@@ -42,7 +42,10 @@ export async function GET(req: NextRequest) {
     );
 
     if (authResult.error || !authResult.data.user?.id) {
-      return NextResponse.json({ ok: false, error: "يجب تسجيل الدخول أولاً." }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: "يجب تسجيل الدخول أولاً." },
+        { status: 401 },
+      );
     }
 
     const serviceSupabase = createServiceSupabaseClient();
@@ -53,7 +56,10 @@ export async function GET(req: NextRequest) {
       .eq("parent_user_id", authResult.data.user.id);
 
     if (linksError) {
-      return NextResponse.json({ ok: false, error: "خطأ في جلب بيانات الطلاب." }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "خطأ في جلب بيانات الطلاب." },
+        { status: 500 },
+      );
     }
 
     let schoolId: string;
@@ -61,7 +67,9 @@ export async function GET(req: NextRequest) {
 
     if (links && links.length > 0) {
       schoolId = (links[0] as { school_id: string }).school_id;
-      studentIds = (links as Array<{ student_id: string }>).map((l) => l.student_id);
+      studentIds = (links as Array<{ student_id: string }>).map(
+        (l) => l.student_id,
+      );
     } else {
       const { data: mp } = await serviceSupabase
         .from("managed_user_profiles")
@@ -83,7 +91,10 @@ export async function GET(req: NextRequest) {
       .eq("school_id", schoolId);
 
     if (studentsError) {
-      return NextResponse.json({ ok: false, error: "خطأ في جلب بيانات الطلاب." }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "خطأ في جلب بيانات الطلاب." },
+        { status: 500 },
+      );
     }
 
     const students = (studentsData ?? []) as Array<{
@@ -93,7 +104,9 @@ export async function GET(req: NextRequest) {
       section: string | null;
     }>;
 
-    const classNames = Array.from(new Set(students.map((s) => s.class_name).filter(Boolean))) as string[];
+    const classNames = Array.from(
+      new Set(students.map((s) => s.class_name).filter(Boolean)),
+    ) as string[];
 
     if (classNames.length === 0) {
       return NextResponse.json({ ok: true, students, items: [] });
@@ -112,7 +125,9 @@ export async function GET(req: NextRequest) {
     if (error) throw error;
 
     const items: ParentScheduleItem[] = (data ?? []).map((row) => {
-      const teacher = Array.isArray(row.teachers) ? row.teachers[0] : row.teachers;
+      const teacher = Array.isArray(row.teachers)
+        ? row.teachers[0]
+        : row.teachers;
       return {
         id: row.id as string,
         day: DAY_NAMES[row.day_of_week as number] ?? String(row.day_of_week),
@@ -120,13 +135,17 @@ export async function GET(req: NextRequest) {
         end_time: row.end_time as string,
         subject_name: row.subject_name as string,
         class_name: (row.class_name as string | null) ?? null,
-        teacher_name: (teacher as { full_name: string | null } | null)?.full_name ?? null,
+        teacher_name:
+          (teacher as { full_name: string | null } | null)?.full_name ?? null,
         room: (row.room as string | null) ?? null,
       };
     });
 
     return NextResponse.json({ ok: true, students, items });
   } catch {
-    return NextResponse.json({ ok: false, error: "خطأ داخلي في الخادم." }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "خطأ داخلي في الخادم." },
+      { status: 500 },
+    );
   }
 }

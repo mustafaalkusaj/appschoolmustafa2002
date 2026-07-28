@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { recordTeacherAttendance, resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import {
+  recordTeacherAttendance,
+  recordTeacherAttendanceBatch,
+  resolveMobileRouteContext,
+} from "@/lib/mobile-api-server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,8 +13,16 @@ export async function POST(req: NextRequest) {
       return context.response;
     }
 
-    const payload = (await req.json().catch(() => null)) ?? {};
-    const result = await recordTeacherAttendance(context.value, payload as Record<string, unknown>);
+    const payload = ((await req.json().catch(() => null)) ?? {}) as Record<
+      string,
+      unknown
+    >;
+
+    // `records: [...]` saves a whole roster in one round trip; a bare object
+    // stays supported for callers that mark a single student.
+    const result = Array.isArray(payload.records)
+      ? await recordTeacherAttendanceBatch(context.value, payload.records)
+      : await recordTeacherAttendance(context.value, payload);
 
     return NextResponse.json(
       {

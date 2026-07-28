@@ -25,13 +25,23 @@ export async function GET(req: NextRequest) {
       .limit(24);
 
     if (error) {
-      return NextResponse.json({ ok: false, error: "تعذر تحميل سجل الرواتب." }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "تعذر تحميل سجل الرواتب." },
+        { status: 500 },
+      );
     }
 
     // `items` is what the mobile client's getList()/readItems() reads; `salaries`
     // is kept for any caller still using the old envelope key.
-    return NextResponse.json({ ok: true, items: data ?? [], salaries: data ?? [] });
+    return NextResponse.json({
+      ok: true,
+      items: data ?? [],
+      salaries: data ?? [],
+    });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }

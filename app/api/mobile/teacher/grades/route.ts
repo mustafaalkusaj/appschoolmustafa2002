@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createTeacherGradeRecord, type TeacherGradeCreateInput } from "@/lib/academic-records-server";
-import { parseMobileListParams, queryTeacherGrades, resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import {
+  createTeacherGradeRecord,
+  deleteTeacherGradeRecord,
+  updateTeacherGradeRecord,
+  type TeacherGradeCreateInput,
+  type TeacherGradeUpdateInput,
+} from "@/lib/academic-records-server";
+import {
+  parseMobileListParams,
+  queryTeacherGrades,
+  resolveMobileRouteContext,
+} from "@/lib/mobile-api-server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,7 +31,10 @@ export async function GET(req: NextRequest) {
       limit: params.limit,
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "internal_error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -35,24 +48,8 @@ export async function POST(req: NextRequest) {
     const payload = await req.json().catch(() => null);
     const result = await createTeacherGradeRecord(
       context.value,
-      ((payload ?? {}) as TeacherGradeCreateInput),
+      (payload ?? {}) as TeacherGradeCreateInput,
     );
-
-    if (result.ok && payload && typeof payload.student_id === "string") {
-      try {
-        const { notifyNewGrade } = await import("@/lib/notify-events");
-        await notifyNewGrade({
-          supabase: context.value.serviceSupabase,
-          schoolId: context.value.schoolId,
-          studentId: payload.student_id as string,
-          subject: typeof payload.subject === "string" ? payload.subject : null,
-          score: typeof payload.score === "number" ? payload.score : null,
-          maxScore: typeof payload.max_score === "number" ? payload.max_score : null,
-        });
-      } catch {
-        // never break the grade write
-      }
-    }
 
     return NextResponse.json({
       ok: result.ok,
@@ -60,6 +57,72 @@ export async function POST(req: NextRequest) {
       message: result.message,
       affectedCount: result.affectedCount ?? 0,
     });
+  } catch {
+    return NextResponse.json(
+      { ok: false, gate: { available: false }, message: "حدث خطأ" },
+      { status: 500 },
+    );
+  }
+}
+
+/** Correct a mark this teacher recorded. Body must carry `id`. */
+export async function PATCH(req: NextRequest) {
+  try {
+    const context = await resolveMobileRouteContext(req, "teacher");
+    if (context.ok === false) {
+      return context.response;
+    }
+
+    const payload = await req.json().catch(() => null);
+    const result = await updateTeacherGradeRecord(
+      context.value,
+      (payload ?? {}) as TeacherGradeUpdateInput,
+    );
+
+    return NextResponse.json(
+      {
+        ok: result.ok,
+        gate: result.gate,
+        message: result.message,
+        affectedCount: result.affectedCount ?? 0,
+      },
+      { status: result.ok ? 200 : 400 },
+    );
+  } catch {
+    return NextResponse.json(
+      { ok: false, gate: { available: false }, message: "حدث خطأ" },
+      { status: 500 },
+    );
+  }
+}
+
+/** Delete a mark this teacher recorded. `?id=` or `{ id }` in the body. */
+export async function DELETE(req: NextRequest) {
+  try {
+    const context = await resolveMobileRouteContext(req, "teacher");
+    if (context.ok === false) {
+      return context.response;
+    }
+
+    const queryId = req.nextUrl.searchParams.get("id");
+    const payload = queryId
+      ? null
+      : ((await req.json().catch(() => null)) as { id?: unknown } | null);
+
+    const result = await deleteTeacherGradeRecord(
+      context.value,
+      queryId ?? payload?.id,
+    );
+
+    return NextResponse.json(
+      {
+        ok: result.ok,
+        gate: result.gate,
+        message: result.message,
+        affectedCount: result.affectedCount ?? 0,
+      },
+      { status: result.ok ? 200 : 400 },
+    );
   } catch {
     return NextResponse.json(
       { ok: false, gate: { available: false }, message: "حدث خطأ" },

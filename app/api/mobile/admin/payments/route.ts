@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
     const context = await resolveAdminMobileRouteContext(req);
     if (context.ok === false) return context.response;
 
-    const { schoolId, serviceSupabase } = context.value;
+    const { schoolId, branchId, serviceSupabase } = context.value;
 
     const body = (await req.json().catch(() => null)) as {
       student_id?: unknown;
@@ -195,9 +195,8 @@ export async function POST(req: NextRequest) {
       {
         p_school_id: schoolId,
         p_student_id: studentId,
-        // The student's own branch is the correct scope for the payment; null
-        // when the school has not been split into branches.
-        p_branch_id: (student as { branch_id: string | null }).branch_id ?? null,
+        p_branch_id:
+          (student as { branch_id: string | null }).branch_id ?? branchId,
         p_amount: amount,
         p_payment_method: paymentMethod,
         p_notes: notes,

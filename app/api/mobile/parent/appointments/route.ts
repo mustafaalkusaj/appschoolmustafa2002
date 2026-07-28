@@ -15,7 +15,9 @@ function jsonError(message: string, status: number) {
 // runtime behavior.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function teacherAppointmentsTable(client: unknown): any {
-  return (client as { from: (table: string) => any }).from("teacher_appointments");
+  return (client as { from: (table: string) => unknown }).from(
+    "teacher_appointments",
+  );
 }
 
 /**
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest) {
       .select(
         `id, status, parent_notes, scheduled_at, created_at,
          students(full_name),
-         managed_user_profiles!teacher_id(full_name, subject)`,
+         teachers(full_name, subject)`,
       )
       .eq("parent_user_id", userId)
       .order("created_at", { ascending: false });
@@ -50,23 +52,25 @@ export async function GET(req: NextRequest) {
       return jsonError("خطأ في جلب المواعيد.", 500);
     }
 
-    const items = ((data ?? []) as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
-      const student = row.students as { full_name?: string } | null;
-      const teacher = row["managed_user_profiles!teacher_id"] as {
-        full_name?: string;
-        subject?: string;
-      } | null;
-      return {
-        id: row.id,
-        status: row.status,
-        parent_notes: row.parent_notes,
-        scheduled_at: row.scheduled_at,
-        created_at: row.created_at,
-        student_name: student?.full_name ?? null,
-        teacher_name: teacher?.full_name ?? null,
-        teacher_subject: teacher?.subject ?? null,
-      };
-    });
+    const items = ((data ?? []) as Record<string, unknown>[]).map(
+      (row: Record<string, unknown>) => {
+        const student = row.students as { full_name?: string } | null;
+        const teacher = row.teachers as {
+          full_name?: string;
+          subject?: string;
+        } | null;
+        return {
+          id: row.id,
+          status: row.status,
+          parent_notes: row.parent_notes,
+          scheduled_at: row.scheduled_at,
+          created_at: row.created_at,
+          student_name: student?.full_name ?? null,
+          teacher_name: teacher?.full_name ?? null,
+          teacher_subject: teacher?.subject ?? null,
+        };
+      },
+    );
 
     return NextResponse.json({ ok: true, items });
   } catch {
@@ -132,17 +136,18 @@ export async function POST(req: NextRequest) {
       return jsonError("الطالب غير مرتبط بحسابك.", 403);
     }
 
-    const { data: appointment, error: insertError } = await teacherAppointmentsTable(serviceSupabase)
-      .insert({
-        school_id: resolvedSchoolId,
-        parent_user_id: userId,
-        student_id: studentId,
-        teacher_id: null,
-        parent_notes: parentNotes,
-        status: "pending",
-      })
-      .select("id, status, created_at")
-      .single();
+    const { data: appointment, error: insertError } =
+      await teacherAppointmentsTable(serviceSupabase)
+        .insert({
+          school_id: resolvedSchoolId,
+          parent_user_id: userId,
+          student_id: studentId,
+          teacher_id: null,
+          parent_notes: parentNotes,
+          status: "pending",
+        })
+        .select("id, status, created_at")
+        .single();
 
     if (insertError) {
       return jsonError("تعذر إنشاء طلب الموعد.", 500);

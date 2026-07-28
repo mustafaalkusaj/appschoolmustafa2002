@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { enrichAssignmentRows, enrichGradeRows } from "@/lib/academic-records-server";
+import {
+  enrichAssignmentRows,
+  enrichGradeRows,
+} from "@/lib/academic-records-server";
 import { isMissingTableError } from "@/lib/admin-infrastructure";
+import { moderateSchoolMessage } from "@/lib/content-moderation";
 import type {
   ManagedAppAccountContext,
   ManagedAppStudentPreview,
   ManagedAppTeacherPreview,
 } from "@/lib/managed-user-app-context";
 import { buildManagedAppAccountContext } from "@/lib/managed-user-app-context";
-import type { ManagedTeacherAssignmentRecord, ManagedUserRole } from "@/lib/managed-users";
+import type {
+  ManagedTeacherAssignmentRecord,
+  ManagedUserRole,
+} from "@/lib/managed-users";
 import { tableHasColumn } from "@/lib/managed-users-server";
 import { sendPushNotification } from "@/lib/push-notifications";
 import {
@@ -50,6 +57,13 @@ export interface MobileResourceResult<T> {
 }
 
 const AVAILABLE_GATE: MobileFeatureGate = { available: true };
+
+// Used only for tables introduced by migrations newer than the checked-in
+// generated Database type. Regenerate types after applying migrations.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function untypedTable(client: unknown, table: string): any {
+  return (client as { from: (name: string) => unknown }).from(table);
+}
 
 // ============================================================================
 // MOBILE FEATURE FLAGS + APP CONFIG (Phase 4)
@@ -97,9 +111,16 @@ export async function getEnabledFeatures(
 
         if (error || !Array.isArray(data)) return defaults;
 
-        for (const row of data as Array<{ feature_key: string; is_enabled: boolean }>) {
-          if ((MOBILE_FEATURE_KEYS as readonly string[]).includes(row.feature_key)) {
-            defaults[row.feature_key as MobileFeatureKey] = Boolean(row.is_enabled);
+        for (const row of data as Array<{
+          feature_key: string;
+          is_enabled: boolean;
+        }>) {
+          if (
+            (MOBILE_FEATURE_KEYS as readonly string[]).includes(row.feature_key)
+          ) {
+            defaults[row.feature_key as MobileFeatureKey] = Boolean(
+              row.is_enabled,
+            );
           }
         }
         return defaults;
@@ -135,16 +156,24 @@ export async function getAppConfigValue(
           .from("app_config")
           .select("school_id, value")
           .eq("key", key)
-          .or(schoolId ? `school_id.eq.${schoolId},school_id.is.null` : "school_id.is.null");
+          .or(
+            schoolId
+              ? `school_id.eq.${schoolId},school_id.is.null`
+              : "school_id.is.null",
+          );
 
         if (error || !Array.isArray(data) || data.length === 0) return null;
 
-        const rows = data as Array<{ school_id: string | null; value: unknown }>;
+        const rows = data as Array<{
+          school_id: string | null;
+          value: unknown;
+        }>;
         const scoped = rows.find((row) => row.school_id === schoolId);
-        const chosen = scoped ?? rows.find((row) => row.school_id === null) ?? rows[0];
-        return (chosen?.value && typeof chosen.value === "object"
+        const chosen =
+          scoped ?? rows.find((row) => row.school_id === null) ?? rows[0];
+        return chosen?.value && typeof chosen.value === "object"
           ? (chosen.value as Record<string, unknown>)
-          : null);
+          : null;
       } catch {
         return null;
       }
@@ -152,7 +181,8 @@ export async function getAppConfigValue(
     { tags },
   );
 }
-const NOTIFICATION_SELECT = "id, user_id, school_id, type, title, message, is_read, link, metadata, created_at";
+const NOTIFICATION_SELECT =
+  "id, user_id, school_id, type, title, message, is_read, link, metadata, created_at";
 const PAYMENT_SELECT = [
   "id",
   "school_id",
@@ -168,7 +198,8 @@ const PAYMENT_SELECT = [
   "created_at",
   "manual_receipt_number",
 ].join(", ");
-const ATTENDANCE_SELECT = "id, student_id, school_id, branch_id, attendance_date, status, note, created_at, updated_at";
+const ATTENDANCE_SELECT =
+  "id, student_id, school_id, branch_id, attendance_date, status, note, created_at, updated_at";
 
 function readErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) {
@@ -192,10 +223,19 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ ok: false, error: { message } }, { status });
 }
 
-function featureGateFromError(error: unknown, fallbackName: string): MobileFeatureGate {
-  const message = readErrorMessage(error, `تعذر تحميل ${fallbackName}.`).toLowerCase();
+function featureGateFromError(
+  error: unknown,
+  fallbackName: string,
+): MobileFeatureGate {
+  const message = readErrorMessage(
+    error,
+    `تعذر تحميل ${fallbackName}.`,
+  ).toLowerCase();
 
-  if (isMissingTableError(error, fallbackName) || message.includes("could not find the table")) {
+  if (
+    isMissingTableError(error, fallbackName) ||
+    message.includes("could not find the table")
+  ) {
     return {
       available: false,
       code: "missing_table",
@@ -203,7 +243,11 @@ function featureGateFromError(error: unknown, fallbackName: string): MobileFeatu
     };
   }
 
-  if (message.includes("permission") || message.includes("unauthorized") || message.includes("not allowed")) {
+  if (
+    message.includes("permission") ||
+    message.includes("unauthorized") ||
+    message.includes("not allowed")
+  ) {
     return {
       available: false,
       code: "forbidden",
@@ -222,6 +266,24 @@ function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * Canonicalize a free-text class label (e.g. "السادس - أ" vs "السادس أ" vs
+ * "السادس  -أ") into a stable comparison key: trims, collapses whitespace,
+ * unifies dash variants (-, –, —) to a single space, then lowercases. Teacher
+ * screens store class_name as free text with no shared picker against
+ * student.class_name, so exact string equality silently drops matches on
+ * formatting differences alone. Callers that filter student-visible rows by
+ * class_name should compare normalizeClassKey(a) === normalizeClassKey(b)
+ * instead of raw equality.
+ */
+export function normalizeClassKey(value: unknown): string {
+  return normalizeText(value)
+    .replace(/[-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function getTimestamp(row: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = row[key];
@@ -233,7 +295,10 @@ function getTimestamp(row: Record<string, unknown>, keys: string[]) {
   return null;
 }
 
-function sortRowsByDateDesc<T extends Record<string, unknown>>(items: T[], keys: string[]) {
+function sortRowsByDateDesc<T extends Record<string, unknown>>(
+  items: T[],
+  keys: string[],
+) {
   return [...items].sort((left, right) => {
     const leftTime = new Date(getTimestamp(left, keys) ?? 0).getTime();
     const rightTime = new Date(getTimestamp(right, keys) ?? 0).getTime();
@@ -264,7 +329,10 @@ type ModerationVisibilityScope = {
   hasDeletedAt: boolean;
 };
 
-const moderationVisibilityScopeCache = new Map<"notifications" | "assignments", Promise<ModerationVisibilityScope>>();
+const moderationVisibilityScopeCache = new Map<
+  "notifications" | "assignments",
+  Promise<ModerationVisibilityScope>
+>();
 
 async function getModerationVisibilityScope(
   client: ReturnType<typeof createServiceSupabaseClient>,
@@ -287,7 +355,10 @@ type ModerationVisibilityQueryLike = {
   is: (column: string, value: unknown) => ModerationVisibilityQueryLike;
 };
 
-function applyModerationVisibilityScope<TQuery>(query: TQuery, scope: ModerationVisibilityScope): TQuery {
+function applyModerationVisibilityScope<TQuery>(
+  query: TQuery,
+  scope: ModerationVisibilityScope,
+): TQuery {
   let next = query as unknown as ModerationVisibilityQueryLike;
   if (scope.hasStatus) {
     next = next.neq("status", "deleted_by_admin");
@@ -298,7 +369,10 @@ function applyModerationVisibilityScope<TQuery>(query: TQuery, scope: Moderation
   return next as unknown as TQuery;
 }
 
-export function parseMobileListParams(req: NextRequest, defaults?: { limit?: number; maxLimit?: number }): MobileListParams {
+export function parseMobileListParams(
+  req: NextRequest,
+  defaults?: { limit?: number; maxLimit?: number },
+): MobileListParams {
   const url = new URL(req.url);
   const limit = Math.min(
     safeNumber(url.searchParams.get("limit"), defaults?.limit ?? 20),
@@ -314,7 +388,10 @@ export function parseMobileListParams(req: NextRequest, defaults?: { limit?: num
   };
 }
 
-export function paginateItems<T>(items: T[], params: Pick<MobileListParams, "page" | "limit" | "offset">) {
+export function paginateItems<T>(
+  items: T[],
+  params: Pick<MobileListParams, "page" | "limit" | "offset">,
+) {
   return {
     items: items.slice(params.offset, params.offset + params.limit),
     page: params.page,
@@ -327,18 +404,30 @@ export function paginateItems<T>(items: T[], params: Pick<MobileListParams, "pag
 export async function resolveMobileRouteContext(
   req: NextRequest,
   expectedRole?: ManagedUserRole,
-): Promise<{ ok: true; value: MobileRouteContext } | { ok: false; response: NextResponse }> {
+): Promise<
+  | { ok: true; value: MobileRouteContext }
+  | { ok: false; response: NextResponse }
+> {
   try {
     const routeSupabase = await createRouteSupabaseClient();
-    const authResult = await getRouteAuthenticatedUser(routeSupabase, req.headers.get("authorization"));
+    const authResult = await getRouteAuthenticatedUser(
+      routeSupabase,
+      req.headers.get("authorization"),
+    );
 
     if (authResult.error || !authResult.data.user?.id) {
       return { ok: false, response: jsonError("يجب تسجيل الدخول أولاً.", 401) };
     }
 
-    const account = await buildManagedAppAccountContext(authResult.data.user.id);
+    const account = await buildManagedAppAccountContext(
+      authResult.data.user.id,
+    );
 
-    if (!account.identity.role || !account.access.allowed || !account.identity.school_id) {
+    if (
+      !account.identity.role ||
+      !account.access.allowed ||
+      !account.identity.school_id
+    ) {
       return {
         ok: false,
         response: NextResponse.json(
@@ -356,7 +445,13 @@ export async function resolveMobileRouteContext(
     }
 
     if (expectedRole && account.identity.role !== expectedRole) {
-      return { ok: false, response: jsonError("هذا الحساب لا يملك صلاحية استخدام هذا المسار.", 403) };
+      return {
+        ok: false,
+        response: jsonError(
+          "هذا الحساب لا يملك صلاحية استخدام هذا المسار.",
+          403,
+        ),
+      };
     }
 
     return {
@@ -372,7 +467,10 @@ export async function resolveMobileRouteContext(
   } catch (error) {
     return {
       ok: false,
-      response: jsonError(readErrorMessage(error, "تعذر التحقق من جلسة تطبيق الموبايل."), 500),
+      response: jsonError(
+        readErrorMessage(error, "تعذر التحقق من جلسة تطبيق الموبايل."),
+        500,
+      ),
     };
   }
 }
@@ -415,14 +513,20 @@ async function queryStudentNotificationsInternal(
   ctx: MobileRouteContext,
   params: MobileListParams,
 ) {
-  const notificationsVisibility = await getModerationVisibilityScope(ctx.serviceSupabase, "notifications");
+  const notificationsVisibility = await getModerationVisibilityScope(
+    ctx.serviceSupabase,
+    "notifications",
+  );
   let notificationsQuery = ctx.serviceSupabase
     .from("notifications")
     .select(NOTIFICATION_SELECT)
     .eq("user_id", ctx.authUserId)
     .eq("school_id", ctx.schoolId);
 
-  notificationsQuery = applyModerationVisibilityScope(notificationsQuery, notificationsVisibility);
+  notificationsQuery = applyModerationVisibilityScope(
+    notificationsQuery,
+    notificationsVisibility,
+  );
 
   const response = await notificationsQuery
     .order("created_at", { ascending: false })
@@ -444,15 +548,21 @@ async function queryStudentNotificationsInternal(
     .eq("school_id", ctx.schoolId)
     .eq("is_read", false);
 
-  unreadQuery = applyModerationVisibilityScope(unreadQuery, notificationsVisibility);
+  unreadQuery = applyModerationVisibilityScope(
+    unreadQuery,
+    notificationsVisibility,
+  );
 
   const unreadResponse = await unreadQuery;
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(response.data) ? (response.data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(response.data)
+      ? (response.data as unknown as Record<string, unknown>[])
+      : [],
     total: response.data?.length ?? 0,
-    unreadCount: typeof unreadResponse.count === "number" ? unreadResponse.count : 0,
+    unreadCount:
+      typeof unreadResponse.count === "number" ? unreadResponse.count : 0,
   };
 }
 
@@ -473,39 +583,40 @@ export async function queryStudentAssignments(
     return { gate: AVAILABLE_GATE, items: [] };
   }
 
-  const assignmentsVisibility = await getModerationVisibilityScope(ctx.serviceSupabase, "assignments");
+  const assignmentsVisibility = await getModerationVisibilityScope(
+    ctx.serviceSupabase,
+    "assignments",
+  );
 
   const buildQueries = () => {
     const queries = [
-      ctx.serviceSupabase.from("assignments").select("*").eq("student_id", student.id).eq("school_id", ctx.schoolId),
+      ctx.serviceSupabase
+        .from("assignments")
+        .select("*")
+        .eq("student_id", student.id)
+        .eq("school_id", ctx.schoolId),
     ];
 
+    // Class/section is stored as free text on both sides with no shared
+    // picker, so an exact DB-level .eq() drops assignments on formatting
+    // differences alone (dashes, extra spaces). Fetch all school-wide
+    // (student_id null) assignments and filter by a normalized key in JS
+    // instead of matching class_name/section at the query level.
     if (student.class_name) {
       queries.push(
         ctx.serviceSupabase
           .from("assignments")
           .select("*")
           .eq("school_id", ctx.schoolId)
-          .is("student_id", null)
-          .eq("class_name", student.class_name)
-          .is("section", null),
+          .is("student_id", null),
       );
-
-      if (student.section) {
-        queries.push(
-          ctx.serviceSupabase
-            .from("assignments")
-            .select("*")
-            .eq("school_id", ctx.schoolId)
-            .is("student_id", null)
-            .eq("class_name", student.class_name)
-            .eq("section", student.section),
-        );
-      }
     }
 
     return queries.map(async (query) => {
-      const scoped = applyModerationVisibilityScope(query, assignmentsVisibility);
+      const scoped = applyModerationVisibilityScope(
+        query,
+        assignmentsVisibility,
+      );
       const response = await scoped
         .order("created_at", { ascending: false })
         .limit(Math.max(params.limit * 3, 60));
@@ -525,15 +636,40 @@ export async function queryStudentAssignments(
     };
   }
 
-  const rows = dedupeRowsById(
-    results.flatMap((result) => (Array.isArray(result.data) ? (result.data as Record<string, unknown>[]) : [])),
+  const studentClassKey = student.class_name
+    ? normalizeClassKey(student.class_name)
+    : null;
+  const studentSectionKey = student.section
+    ? normalizeClassKey(student.section)
+    : null;
+
+  const [ownRows, schoolWideRows] = results.map((result) =>
+    Array.isArray(result.data)
+      ? (result.data as Record<string, unknown>[])
+      : [],
   );
+
+  const matchedSchoolWide = (schoolWideRows ?? []).filter((row) => {
+    if (!studentClassKey) return false;
+    if (normalizeClassKey(row.class_name) !== studentClassKey) return false;
+    const rowSection = row.section;
+    if (rowSection == null) return true; // whole-class assignment
+    return (
+      studentSectionKey !== null &&
+      normalizeClassKey(rowSection) === studentSectionKey
+    );
+  });
+
+  const rows = dedupeRowsById([...(ownRows ?? []), ...matchedSchoolWide]);
 
   return {
     gate: AVAILABLE_GATE,
     items: await enrichAssignmentRows(
       ctx.serviceSupabase,
-      sortRowsByDateDesc(rows, ["due_at", "created_at"]).slice(params.offset, params.offset + params.limit),
+      sortRowsByDateDesc(rows, ["due_at", "created_at"]).slice(
+        params.offset,
+        params.offset + params.limit,
+      ),
     ),
   };
 }
@@ -582,7 +718,11 @@ export async function queryStudentPayments(
     return { gate: AVAILABLE_GATE, items: [] };
   }
 
-  const paymentsHaveSchoolId = await tableHasColumn(ctx.serviceSupabase, "payments", "school_id");
+  const paymentsHaveSchoolId = await tableHasColumn(
+    ctx.serviceSupabase,
+    "payments",
+    "school_id",
+  );
   if (!paymentsHaveSchoolId) {
     // Without a school_id column the query cannot be scoped to the student's
     // school, which would leak cross-tenant rows. Fail closed instead.
@@ -606,7 +746,9 @@ export async function queryStudentPayments(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -620,11 +762,18 @@ export async function queryStudentAttendance(
     return { gate: AVAILABLE_GATE, items: [] };
   }
 
-  const attendanceHasSchoolId = await tableHasColumn(ctx.serviceSupabase, "attendance_records", "school_id");
+  const attendanceHasSchoolId = await tableHasColumn(
+    ctx.serviceSupabase,
+    "attendance_records",
+    "school_id",
+  );
   if (!attendanceHasSchoolId) {
     // Without a school_id column the query cannot be scoped to the student's
     // school, which would leak cross-tenant rows. Fail closed instead.
-    return { gate: featureGateFromError(null, "attendance_records"), items: [] };
+    return {
+      gate: featureGateFromError(null, "attendance_records"),
+      items: [],
+    };
   }
 
   const { data, error } = await ctx.serviceSupabase
@@ -644,7 +793,9 @@ export async function queryStudentAttendance(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -664,7 +815,10 @@ export async function queryTeacherAssignments(
     .eq("school_id", ctx.schoolId)
     .eq("teacher_id", teacher.id);
 
-  query = applyModerationVisibilityScope(query, await getModerationVisibilityScope(ctx.serviceSupabase, "assignments"));
+  query = applyModerationVisibilityScope(
+    query,
+    await getModerationVisibilityScope(ctx.serviceSupabase, "assignments"),
+  );
 
   const { data, error } = await query
     .order("created_at", { ascending: false })
@@ -735,7 +889,8 @@ export async function queryTeacherNotifications(
   if (authUserId) {
     const { data: recipients, error: recipErr } = await ctx.serviceSupabase
       .from("notification_recipients")
-      .select(`
+      .select(
+        `
         id,
         notification_id,
         is_read,
@@ -753,28 +908,37 @@ export async function queryTeacherNotifications(
           sent_by_user_id,
           created_at
         )
-      `)
+      `,
+      )
       .eq("user_id", authUserId)
       .order("created_at", { ascending: false })
       .range(params.offset, params.offset + params.limit - 1);
 
     if (!recipErr && recipients && recipients.length > 0) {
-      const items = recipients.map((r: Record<string, unknown>) => {
-        const notif = r.school_notifications as Record<string, unknown> | null;
-        return {
-          id: r.notification_id ?? r.id,
-          title: notif?.title ?? "",
-          body: notif?.body ?? "",
-          category: notif?.category ?? "general",
-          priority: notif?.priority ?? "normal",
-          type: notif?.type ?? "insite",
-          is_read: r.is_read ?? false,
-          read_at: r.read_at ?? null,
-          media_url: notif?.media_url ?? null,
-          media_type: notif?.media_type ?? null,
-          created_at: notif?.created_at ?? r.created_at,
-        };
-      });
+      const items = await Promise.all(
+        recipients.map(async (r: Record<string, unknown>) => {
+          const notif = r.school_notifications as Record<
+            string,
+            unknown
+          > | null;
+          return {
+            id: r.notification_id ?? r.id,
+            title: notif?.title ?? "",
+            body: notif?.body ?? "",
+            category: notif?.category ?? "general",
+            priority: notif?.priority ?? "normal",
+            type: notif?.type ?? "insite",
+            is_read: r.is_read ?? false,
+            read_at: r.read_at ?? null,
+            media_url: await resolveProtectedNotificationMediaUrl(
+              ctx,
+              notif?.media_url,
+            ),
+            media_type: notif?.media_type ?? null,
+            created_at: notif?.created_at ?? r.created_at,
+          };
+        }),
+      );
       return { gate: AVAILABLE_GATE, items };
     }
   }
@@ -786,7 +950,10 @@ export async function queryTeacherNotifications(
     .eq("school_id", ctx.schoolId)
     .contains("metadata", { teacher_id: teacher.id });
 
-  query = applyModerationVisibilityScope(query, await getModerationVisibilityScope(ctx.serviceSupabase, "notifications"));
+  query = applyModerationVisibilityScope(
+    query,
+    await getModerationVisibilityScope(ctx.serviceSupabase, "notifications"),
+  );
 
   const { data, error } = await query
     .order("created_at", { ascending: false })
@@ -801,8 +968,37 @@ export async function queryTeacherNotifications(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
+}
+
+async function resolveProtectedNotificationMediaUrl(
+  ctx: MobileRouteContext,
+  value: unknown,
+): Promise<string | null> {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  try {
+    const url = new URL(value);
+    if (url.pathname !== "/api/web/storage/file") return value;
+    const bucket = url.searchParams.get("bucket");
+    const path = url.searchParams.get("path");
+    if (
+      bucket !== "notification-media" ||
+      !path?.startsWith(`${ctx.schoolId}/`) ||
+      path.includes("..")
+    ) {
+      return null;
+    }
+    const { data, error } = await ctx.serviceSupabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 15 * 60);
+    return error ? null : (data?.signedUrl ?? null);
+  } catch {
+    return value;
+  }
 }
 
 export async function queryTeacherStudents(
@@ -831,7 +1027,11 @@ export async function queryTeacherStudents(
 export function buildTeacherClassesPayload(account: ManagedAppAccountContext) {
   const assignments = account.teacher?.assignments ?? [];
   const subjects = Array.from(
-    new Set(assignments.map((assignment) => normalizeText(assignment.subject_name)).filter(Boolean)),
+    new Set(
+      assignments
+        .map((assignment) => normalizeText(assignment.subject_name))
+        .filter(Boolean),
+    ),
   );
 
   return {
@@ -850,7 +1050,8 @@ export async function buildStudentDashboardPayload(ctx: MobileRouteContext) {
 
   return {
     summary: {
-      student_name: ctx.account.student?.full_name ?? ctx.account.profile.full_name,
+      student_name:
+        ctx.account.student?.full_name ?? ctx.account.profile.full_name,
       class_name: ctx.account.student?.class_name ?? null,
       section: ctx.account.student?.section ?? null,
       unread_notifications: notifications.unreadCount,
@@ -860,7 +1061,9 @@ export async function buildStudentDashboardPayload(ctx: MobileRouteContext) {
       payment_summary: ctx.account.student?.payment_summary ?? null,
       attendance_summary: ctx.account.student?.attendance_summary ?? null,
     },
-    linked_teachers: ctx.account.student?.linked_teachers ?? ([] satisfies ManagedAppTeacherPreview[]),
+    linked_teachers:
+      ctx.account.student?.linked_teachers ??
+      ([] satisfies ManagedAppTeacherPreview[]),
     recent_notifications: notifications.items,
     recent_assignments: assignments.items,
     recent_grades: grades.items,
@@ -901,7 +1104,9 @@ export async function queryMobileSubjects(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -912,7 +1117,9 @@ export async function queryMobileQuestions(
 ): Promise<MobileResourceResult<Record<string, unknown>>> {
   let query = ctx.serviceSupabase
     .from("questions")
-    .select("id, school_id, subject, unit, difficulty, type, prompt, options, answer, created_by, created_at")
+    .select(
+      "id, school_id, subject, unit, difficulty, type, prompt, options, answer, created_by, created_at",
+    )
     .eq("school_id", ctx.schoolId)
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
@@ -929,7 +1136,9 @@ export async function queryMobileQuestions(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -939,7 +1148,9 @@ export async function queryMobileExams(
 ): Promise<MobileResourceResult<Record<string, unknown>>> {
   const { data, error } = await ctx.serviceSupabase
     .from("exams")
-    .select("id, school_id, title, type, subject, class_name, total_marks, starts_at, ends_at, created_by, created_at")
+    .select(
+      "id, school_id, title, type, subject, class_name, total_marks, starts_at, ends_at, created_by, created_at",
+    )
     .eq("school_id", ctx.schoolId)
     .order("starts_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
@@ -950,7 +1161,9 @@ export async function queryMobileExams(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -973,13 +1186,19 @@ export async function queryMobileBehaviorLogs(
   const isTeacher = ctx.account.teacher != null;
 
   // A teacher requesting a specific student must own them in their roster.
-  if (isTeacher && filters.studentId && !rosterIds.includes(filters.studentId)) {
+  if (
+    isTeacher &&
+    filters.studentId &&
+    !rosterIds.includes(filters.studentId)
+  ) {
     return { gate: AVAILABLE_GATE, items: [] };
   }
 
   let query = ctx.serviceSupabase
     .from("behavior_logs")
-    .select("id, school_id, student_id, student_name, behavior_type, points, note, created_at")
+    .select(
+      "id, school_id, student_id, student_name, behavior_type, points, note, created_at",
+    )
     .eq("school_id", ctx.schoolId)
     .order("created_at", { ascending: false })
     .range(params.offset, params.offset + params.limit - 1);
@@ -1001,7 +1220,9 @@ export async function queryMobileBehaviorLogs(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -1020,7 +1241,12 @@ function safeOrFilterValue(value: string | undefined): string | null {
 export async function queryMobileCalendarEvents(
   ctx: MobileRouteContext,
   params: MobileListParams,
-  filters: { from?: string; to?: string; targetClass?: string; targetSection?: string },
+  filters: {
+    from?: string;
+    to?: string;
+    targetClass?: string;
+    targetSection?: string;
+  },
 ): Promise<MobileResourceResult<Record<string, unknown>>> {
   let query = ctx.serviceSupabase
     .from("calendar_events")
@@ -1035,10 +1261,14 @@ export async function queryMobileCalendarEvents(
   if (filters.to) query = query.lte("date", filters.to);
 
   const safeTargetClass = safeOrFilterValue(filters.targetClass);
-  if (safeTargetClass) query = query.or(`target_class.is.null,target_class.eq.${safeTargetClass}`);
+  if (safeTargetClass)
+    query = query.or(`target_class.is.null,target_class.eq.${safeTargetClass}`);
 
   const safeTargetSection = safeOrFilterValue(filters.targetSection);
-  if (safeTargetSection) query = query.or(`target_section.is.null,target_section.eq.${safeTargetSection}`);
+  if (safeTargetSection)
+    query = query.or(
+      `target_section.is.null,target_section.eq.${safeTargetSection}`,
+    );
 
   const { data, error } = await query;
   if (error) {
@@ -1047,7 +1277,9 @@ export async function queryMobileCalendarEvents(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -1057,7 +1289,9 @@ export async function queryMobileAnnouncements(
 ): Promise<MobileResourceResult<Record<string, unknown>>> {
   const { data, error } = await ctx.serviceSupabase
     .from("announcements")
-    .select("id, school_id, author_id, author_name, title, body, kind, link_url, audience, is_active, created_at")
+    .select(
+      "id, school_id, author_id, author_name, title, body, kind, link_url, audience, is_active, created_at",
+    )
     .eq("school_id", ctx.schoolId)
     .eq("is_active", true)
     .order("created_at", { ascending: false })
@@ -1069,7 +1303,9 @@ export async function queryMobileAnnouncements(
 
   return {
     gate: AVAILABLE_GATE,
-    items: Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [],
+    items: Array.isArray(data)
+      ? (data as unknown as Record<string, unknown>[])
+      : [],
   };
 }
 
@@ -1083,13 +1319,21 @@ export async function queryMobileConversations(
     .eq("user_id", ctx.authUserId);
 
   if (participantResponse.error) {
-    return { gate: featureGateFromError(participantResponse.error, "conversation_participants"), items: [] };
+    return {
+      gate: featureGateFromError(
+        participantResponse.error,
+        "conversation_participants",
+      ),
+      items: [],
+    };
   }
 
   const conversationIds = Array.from(
     new Set(
       (participantResponse.data ?? [])
-        .map((row) => normalizeText((row as Record<string, unknown>).conversation_id))
+        .map((row) =>
+          normalizeText((row as Record<string, unknown>).conversation_id),
+        )
         .filter(Boolean),
     ),
   );
@@ -1110,7 +1354,9 @@ export async function queryMobileConversations(
     return { gate: featureGateFromError(error, "conversations"), items: [] };
   }
 
-  const conversations = Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [];
+  const conversations = Array.isArray(data)
+    ? (data as unknown as Record<string, unknown>[])
+    : [];
 
   // Batch-fetch last messages for all conversations in a single query
   // instead of one query per conversation (N+1 fix).
@@ -1119,28 +1365,91 @@ export async function queryMobileConversations(
     .filter(Boolean);
 
   const lastMessageByConv = new Map<string, Record<string, unknown>>();
+  const participantsByConv = new Map<string, Record<string, unknown>[]>();
+  // Unread = inbound messages the caller has not read yet. Mirrors exactly what
+  // PATCH /api/mobile/shared/messages/[id] stamps when the thread is opened.
+  const unreadByConv = new Map<string, number>();
 
   if (pageConvIds.length > 0) {
-    const { data: allMessages } = await ctx.serviceSupabase
-      .from("messages")
-      .select("id, conversation_id, sender_id, body, created_at, read_at")
-      .in("conversation_id", pageConvIds)
-      .order("created_at", { ascending: false });
+    const [{ data: allMessages }, { data: allParticipants }] =
+      await Promise.all([
+        ctx.serviceSupabase
+          .from("messages")
+          .select("id, conversation_id, sender_id, body, created_at, read_at")
+          .in("conversation_id", pageConvIds)
+          .order("created_at", { ascending: false }),
+        ctx.serviceSupabase
+          .from("conversation_participants")
+          .select("conversation_id, user_id, role, display_name")
+          .in("conversation_id", pageConvIds),
+      ]);
 
     for (const msg of (allMessages ?? []) as Record<string, unknown>[]) {
       const cid = normalizeText(msg.conversation_id);
-      if (cid && !lastMessageByConv.has(cid)) {
+      if (!cid) continue;
+      if (!lastMessageByConv.has(cid)) {
         lastMessageByConv.set(cid, msg);
       }
+      const senderId = normalizeText(msg.sender_id);
+      const readAt = normalizeText(msg.read_at);
+      if (senderId !== ctx.authUserId && !readAt) {
+        unreadByConv.set(cid, (unreadByConv.get(cid) ?? 0) + 1);
+      }
+    }
+
+    for (const participant of (allParticipants ?? []) as Record<
+      string,
+      unknown
+    >[]) {
+      const cid = normalizeText(participant.conversation_id);
+      if (!cid) continue;
+      const current = participantsByConv.get(cid) ?? [];
+      current.push(participant);
+      participantsByConv.set(cid, current);
     }
   }
 
   const withLastMessage = conversations.map((conversation) => {
     const cid = normalizeText(conversation.id);
-    return { ...conversation, last_message: (cid && lastMessageByConv.get(cid)) ?? null };
+    return {
+      ...conversation,
+      last_message: (cid && lastMessageByConv.get(cid)) ?? null,
+      participants: (cid && participantsByConv.get(cid)) ?? [],
+      unread_count: (cid && unreadByConv.get(cid)) ?? 0,
+    };
   });
 
-  return { gate: AVAILABLE_GATE, items: withLastMessage };
+  // A block is symmetric for visibility: if either side blocked the other,
+  // hide their shared conversation from both users as well as preventing send.
+  const blocks = await untypedTable(ctx.serviceSupabase, "messaging_blocks")
+    .select("blocker_user_id, blocked_user_id")
+    .eq("school_id", ctx.schoolId)
+    .or(
+      `blocker_user_id.eq.${ctx.authUserId},blocked_user_id.eq.${ctx.authUserId}`,
+    );
+  if (blocks.error) {
+    return {
+      gate: featureGateFromError(blocks.error, "messaging_blocks"),
+      items: [],
+    };
+  }
+
+  const blockedPeerIds = new Set<string>();
+  for (const row of (blocks.data ?? []) as Record<string, unknown>[]) {
+    const blocker = normalizeText(row.blocker_user_id);
+    const blocked = normalizeText(row.blocked_user_id);
+    if (blocker === ctx.authUserId && blocked) blockedPeerIds.add(blocked);
+    if (blocked === ctx.authUserId && blocker) blockedPeerIds.add(blocker);
+  }
+
+  const visibleConversations = withLastMessage.filter((conversation) =>
+    (conversation.participants as Record<string, unknown>[]).every((participant) => {
+      const participantId = normalizeText(participant.user_id);
+      return participantId === ctx.authUserId || !blockedPeerIds.has(participantId);
+    }),
+  );
+
+  return { gate: AVAILABLE_GATE, items: visibleConversations };
 }
 
 // ============================================================================
@@ -1161,7 +1470,12 @@ export interface MobileMutationResult<T = Record<string, unknown>> {
 async function loadScopedStudent(
   ctx: MobileRouteContext,
   studentId: string,
-): Promise<{ id: string; branch_id: string | null; full_name: string; status: string } | null> {
+): Promise<{
+  id: string;
+  branch_id: string | null;
+  full_name: string;
+  status: string;
+} | null> {
   const { data, error } = await ctx.serviceSupabase
     .from("students")
     .select("id, branch_id, full_name, status")
@@ -1169,7 +1483,12 @@ async function loadScopedStudent(
     .eq("school_id", ctx.schoolId)
     .maybeSingle();
   if (error || !data) return null;
-  return data as { id: string; branch_id: string | null; full_name: string; status: string };
+  return data as {
+    id: string;
+    branch_id: string | null;
+    full_name: string;
+    status: string;
+  };
 }
 
 /**
@@ -1194,12 +1513,40 @@ export async function recordTeacherAttendance(
     return { ok: false, gate: AVAILABLE_GATE, message: "اختر طالبًا أولاً." };
   }
   if (!validStatuses.includes(status)) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "حالة الحضور غير صحيحة." };
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "حالة الحضور غير صحيحة.",
+    };
   }
 
   const student = await loadScopedStudent(ctx, studentId);
   if (!student) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "الطالب المحدد غير موجود داخل المدرسة." };
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "الطالب المحدد غير موجود داخل المدرسة.",
+    };
+  }
+
+  // school_id alone lets a teacher write attendance for ANY student in the
+  // school (IDOR). Constrain to the teacher's own assigned roster, mirroring
+  // queryMobileBehaviorLogs. Non-teacher callers (e.g. admin) have no
+  // assigned_students, so this check is skipped for them.
+  const isTeacher = ctx.account.teacher != null;
+  if (isTeacher) {
+    const rosterIds = new Set(
+      (ctx.account.teacher?.assigned_students ?? [])
+        .map((s) => normalizeText(s.student_id))
+        .filter(Boolean),
+    );
+    if (!rosterIds.has(studentId)) {
+      return {
+        ok: false,
+        gate: AVAILABLE_GATE,
+        message: "هذا الطالب غير مرتبط بصفوفك.",
+      };
+    }
   }
 
   const rawDate = normalizeText(input.attendance_date);
@@ -1257,6 +1604,389 @@ export async function recordTeacherAttendance(
 }
 
 /**
+ * Open (or reuse) a direct conversation between the teacher and one student's
+ * guardian, or the student themselves.
+ *
+ * Nothing in the app could create a conversation — the mobile side only ever
+ * listed and replied — which is why `conversations` was still empty in
+ * production. The peer is resolved server-side from the teacher's own roster
+ * so a teacher cannot open a thread with an arbitrary user id.
+ */
+export async function startTeacherConversation(
+  ctx: MobileRouteContext,
+  input: { student_id?: unknown; peer?: unknown; subject?: unknown },
+): Promise<MobileMutationResult<{ conversation_id: string }>> {
+  const studentId = normalizeText(input.student_id);
+  const peerKind = normalizeText(input.peer) || "parent";
+
+  if (!studentId) {
+    return { ok: false, gate: AVAILABLE_GATE, message: "اختر طالبًا أولاً." };
+  }
+
+  if (peerKind !== "parent" && peerKind !== "student") {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "نوع المستلم غير مدعوم.",
+    };
+  }
+
+  const teacherId = ctx.account.teacher?.id;
+  if (!teacherId) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "حساب المعلم الحالي غير مرتبط بسجل صالح.",
+    };
+  }
+
+  const rosterIds = new Set(
+    (ctx.account.teacher?.assigned_students ?? [])
+      .map((student) => normalizeText(student.student_id))
+      .filter(Boolean),
+  );
+  if (!rosterIds.has(studentId)) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "هذا الطالب غير مرتبط بصفوفك.",
+    };
+  }
+
+  const { data: student, error: studentError } = await ctx.serviceSupabase
+    .from("students")
+    .select("id, full_name, auth_user_id")
+    .eq("id", studentId)
+    .eq("school_id", ctx.schoolId)
+    .maybeSingle();
+
+  if (studentError) {
+    return {
+      ok: false,
+      gate: featureGateFromError(studentError, "students"),
+      message: readErrorMessage(studentError, "تعذر تحميل بيانات الطالب."),
+    };
+  }
+
+  if (!student) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "الطالب غير موجود داخل المدرسة.",
+    };
+  }
+
+  let peerUserId: string | null = null;
+  let peerRole: string = peerKind;
+  let peerName = student.full_name ?? "الطالب";
+
+  if (peerKind === "student") {
+    peerUserId = normalizeText(student.auth_user_id) || null;
+  } else {
+    const { data: link, error: linkError } = await ctx.serviceSupabase
+      .from("parent_student_links")
+      .select("parent_user_id")
+      .eq("student_id", studentId)
+      .eq("school_id", ctx.schoolId)
+      .limit(1)
+      .maybeSingle();
+
+    if (linkError) {
+      return {
+        ok: false,
+        gate: featureGateFromError(linkError, "parent_student_links"),
+        message: readErrorMessage(linkError, "تعذر تحديد ولي أمر الطالب."),
+      };
+    }
+
+    peerUserId = normalizeText(link?.parent_user_id) || null;
+    peerName = `ولي أمر ${student.full_name ?? ""}`.trim();
+    peerRole = "parent";
+  }
+
+  if (!peerUserId) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message:
+        peerKind === "student"
+          ? "هذا الطالب لا يملك حساب تطبيق بعد."
+          : "لا يوجد ولي أمر مرتبط بحساب لهذا الطالب.",
+    };
+  }
+
+  // Reuse an existing direct thread rather than stacking duplicates every time
+  // the teacher taps the same student.
+  const mine = await ctx.serviceSupabase
+    .from("conversation_participants")
+    .select("conversation_id")
+    .eq("user_id", ctx.authUserId);
+
+  if (mine.error) {
+    return {
+      ok: false,
+      gate: featureGateFromError(mine.error, "conversation_participants"),
+      message: "تعذر التحقق من المحادثات الحالية.",
+    };
+  }
+
+  const myConversationIds = (mine.data ?? [])
+    .map((row) => normalizeText((row as Record<string, unknown>).conversation_id))
+    .filter(Boolean);
+
+  if (myConversationIds.length) {
+    const shared = await ctx.serviceSupabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", peerUserId)
+      .in("conversation_id", myConversationIds)
+      .limit(1)
+      .maybeSingle();
+
+    if (shared.error) {
+      return {
+        ok: false,
+        gate: featureGateFromError(shared.error, "conversation_participants"),
+        message: "تعذر التحقق من المحادثات الحالية.",
+      };
+    }
+
+    const existingId = normalizeText(shared.data?.conversation_id);
+    if (existingId) {
+      return {
+        ok: true,
+        gate: AVAILABLE_GATE,
+        message: "تم فتح المحادثة.",
+        data: { conversation_id: existingId },
+      };
+    }
+  }
+
+  const teacherName =
+    normalizeText(ctx.account.profile?.full_name) || "المعلم";
+  const subject = normalizeText(input.subject).slice(0, 200) || null;
+
+  const { data: conversation, error: conversationError } =
+    await ctx.serviceSupabase
+      .from("conversations")
+      .insert({
+        school_id: ctx.schoolId,
+        type: "direct",
+        subject,
+        created_by: ctx.authUserId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+      .select("id")
+      .maybeSingle();
+
+  if (conversationError || !conversation?.id) {
+    return {
+      ok: false,
+      gate: featureGateFromError(conversationError, "conversations"),
+      message: readErrorMessage(conversationError, "تعذر إنشاء المحادثة."),
+    };
+  }
+
+  const { error: participantsError } = await ctx.serviceSupabase
+    .from("conversation_participants")
+    .insert([
+      {
+        conversation_id: conversation.id,
+        user_id: ctx.authUserId,
+        role: "teacher",
+        display_name: teacherName,
+      },
+      {
+        conversation_id: conversation.id,
+        user_id: peerUserId,
+        role: peerRole,
+        display_name: peerName || "مستخدم",
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+  if (participantsError) {
+    // Roll the empty conversation back so a half-built thread never shows up
+    // in either party's list.
+    await ctx.serviceSupabase
+      .from("conversations")
+      .delete()
+      .eq("id", conversation.id);
+
+    return {
+      ok: false,
+      gate: featureGateFromError(
+        participantsError,
+        "conversation_participants",
+      ),
+      message: readErrorMessage(participantsError, "تعذر إنشاء المحادثة."),
+    };
+  }
+
+  return {
+    ok: true,
+    gate: AVAILABLE_GATE,
+    message: "تم فتح المحادثة.",
+    data: { conversation_id: conversation.id as string },
+  };
+}
+
+/**
+ * Record attendance for a whole roster in one request.
+ *
+ * The mobile attendance screen used to fire one POST per student, so a class
+ * of forty produced forty round trips (each re-reading the student row) every
+ * time the teacher pressed save. This does the roster read once and the write
+ * as a single upsert.
+ */
+export async function recordTeacherAttendanceBatch(
+  ctx: MobileRouteContext,
+  records: unknown,
+): Promise<MobileMutationResult<{ saved: number }>> {
+  if (!Array.isArray(records) || records.length === 0) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "لا توجد سجلات حضور للحفظ.",
+    };
+  }
+
+  if (records.length > 300) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "عدد السجلات أكبر من الحد المسموح (300).",
+    };
+  }
+
+  const validStatuses = ["present", "absent", "late", "excused"];
+  const today = new Date().toISOString().slice(0, 10);
+
+  const parsed = (records as Record<string, unknown>[]).map((record) => {
+    const rawDate = normalizeText(record.attendance_date);
+    return {
+      studentId: normalizeText(record.student_id),
+      status: normalizeText(record.status),
+      attendanceDate: /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today,
+      note: normalizeText(record.note) || null,
+    };
+  });
+
+  if (parsed.some((record) => !record.studentId)) {
+    return { ok: false, gate: AVAILABLE_GATE, message: "اختر طالبًا أولاً." };
+  }
+
+  if (parsed.some((record) => !validStatuses.includes(record.status))) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "حالة الحضور غير صحيحة.",
+    };
+  }
+
+  const studentIds = Array.from(
+    new Set(parsed.map((record) => record.studentId)),
+  );
+
+  // Same IDOR guard as the single-record path: a teacher may only mark the
+  // students on their own assigned roster.
+  const isTeacher = ctx.account.teacher != null;
+  if (isTeacher) {
+    const rosterIds = new Set(
+      (ctx.account.teacher?.assigned_students ?? [])
+        .map((student) => normalizeText(student.student_id))
+        .filter(Boolean),
+    );
+    if (studentIds.some((studentId) => !rosterIds.has(studentId))) {
+      return {
+        ok: false,
+        gate: AVAILABLE_GATE,
+        message: "أحد الطلاب غير مرتبط بصفوفك.",
+      };
+    }
+  }
+
+  const { data: studentRows, error: studentsError } = await ctx.serviceSupabase
+    .from("students")
+    .select("id, branch_id")
+    .eq("school_id", ctx.schoolId)
+    .in("id", studentIds);
+
+  if (studentsError) {
+    return {
+      ok: false,
+      gate: featureGateFromError(studentsError, "students"),
+      message: readErrorMessage(studentsError, "تعذر التحقق من قائمة الطلاب."),
+    };
+  }
+
+  const branchByStudent = new Map(
+    ((studentRows ?? []) as { id: string; branch_id: string | null }[]).map(
+      (row) => [row.id, row.branch_id],
+    ),
+  );
+
+  if (studentIds.some((studentId) => !branchByStudent.has(studentId))) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "أحد الطلاب المحددين غير موجود داخل المدرسة.",
+    };
+  }
+
+  const payload = parsed.map((record) => ({
+    school_id: ctx.schoolId,
+    branch_id: branchByStudent.get(record.studentId) ?? null,
+    student_id: record.studentId,
+    attendance_date: record.attendanceDate,
+    status: record.status,
+    note: record.note,
+  }));
+
+  const { data, error } = await ctx.serviceSupabase
+    .from("attendance_records")
+    .upsert(payload, { onConflict: "school_id,student_id,attendance_date" })
+    .select("id");
+
+  if (error) {
+    return {
+      ok: false,
+      gate: featureGateFromError(error, "attendance_records"),
+      message: readErrorMessage(error, "تعذر حفظ سجلات الحضور."),
+    };
+  }
+
+  const absentees = parsed.filter(
+    (record) => record.status === "absent" || record.status === "late",
+  );
+
+  if (absentees.length) {
+    try {
+      const { notifyAbsence } = await import("@/lib/notify-events");
+      for (const record of absentees) {
+        await notifyAbsence({
+          supabase: ctx.serviceSupabase,
+          schoolId: ctx.schoolId,
+          branchId: branchByStudent.get(record.studentId) ?? null,
+          studentId: record.studentId,
+          attendanceDate: record.attendanceDate,
+          status: record.status as "absent" | "late",
+        });
+      }
+    } catch {
+      // notification failure must never break the attendance write
+    }
+  }
+
+  return {
+    ok: true,
+    gate: AVAILABLE_GATE,
+    message: "تم حفظ سجلات الحضور.",
+    data: { saved: data?.length ?? payload.length },
+  };
+}
+
+/**
  * Teacher-initiated broadcast to their own assigned students. Replaces the
  * previous mobile path that POSTed per-recipient to the admin-only
  * /api/web/notifications/send (always 403 for teachers, and per-recipient
@@ -1272,28 +2002,64 @@ export async function sendTeacherBroadcast(
     section?: unknown;
     student_id?: unknown;
     type?: unknown;
+    attachment?: unknown;
   },
 ): Promise<MobileMutationResult> {
   const title = normalizeText(input.title);
   const message = normalizeText(input.message);
   if (!title || !message) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "عنوان الإشعار ومحتواه مطلوبان." };
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "عنوان الإشعار ومحتواه مطلوبان.",
+    };
   }
 
   const teacher = ctx.account.teacher;
   if (!teacher) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "تعذر تحديد بيانات المعلم." };
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "تعذر تحديد بيانات المعلم.",
+    };
   }
 
   const targetStudentId = normalizeText(input.student_id);
   const targetClass = normalizeText(input.class_name).toLowerCase();
   const targetSection = normalizeText(input.section).toLowerCase();
+  const rawAttachment =
+    input.attachment && typeof input.attachment === "object"
+      ? (input.attachment as Record<string, unknown>)
+      : null;
+  const attachmentBucket = normalizeText(rawAttachment?.bucket);
+  const attachmentPath = normalizeText(rawAttachment?.path);
+  const expectedAttachmentPrefix = `${ctx.schoolId}/${teacher.id}/notifications/`;
+  if (
+    rawAttachment &&
+    (attachmentBucket !== "school-media" ||
+      !attachmentPath.startsWith(expectedAttachmentPrefix) ||
+      attachmentPath.includes(".."))
+  ) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "المرفق لا يطابق نطاق المعلم.",
+    };
+  }
 
   // assigned_students is already the authoritative, branch-scoped roster.
   const recipients = teacher.assigned_students.filter((student) => {
     if (targetStudentId) return student.student_id === targetStudentId;
-    if (targetClass && normalizeText(student.class_name).toLowerCase() !== targetClass) return false;
-    if (targetSection && normalizeText(student.section).toLowerCase() !== targetSection) return false;
+    if (
+      targetClass &&
+      normalizeText(student.class_name).toLowerCase() !== targetClass
+    )
+      return false;
+    if (
+      targetSection &&
+      normalizeText(student.section).toLowerCase() !== targetSection
+    )
+      return false;
     return true;
   });
 
@@ -1305,7 +2071,8 @@ export async function sendTeacherBroadcast(
     return {
       ok: false,
       gate: AVAILABLE_GATE,
-      message: "لا توجد حسابات طلاب مرتبطة بالشعب المحددة أو أن الطلاب غير مرتبطين بحسابات دخول.",
+      message:
+        "لا توجد حسابات طلاب مرتبطة بالشعب المحددة أو أن الطلاب غير مرتبطين بحسابات دخول.",
     };
   }
 
@@ -1319,7 +2086,21 @@ export async function sendTeacherBroadcast(
     type: normalizeText(input.type) || "teacher_broadcast",
     title,
     message,
-    metadata: { teacher_id: teacher.id },
+    metadata: {
+      teacher_id: teacher.id,
+      attachment_bucket: rawAttachment ? attachmentBucket : null,
+      attachment_path: rawAttachment ? attachmentPath : null,
+      attachment_name: rawAttachment
+        ? normalizeText(rawAttachment.file_name).slice(0, 180) || null
+        : null,
+      attachment_mime_type: rawAttachment
+        ? normalizeText(rawAttachment.mime_type).slice(0, 120) || null
+        : null,
+      attachment_size_bytes:
+        rawAttachment && typeof rawAttachment.size_bytes === "number"
+          ? rawAttachment.size_bytes
+          : null,
+    },
   });
 
   return {
@@ -1332,72 +2113,6 @@ export async function sendTeacherBroadcast(
       failed: result.failed,
       in_app_saved: result.inAppSaved,
     },
-  };
-}
-
-/** Create a behavior log entry (teacher surface). */
-export async function createBehaviorLog(
-  ctx: MobileRouteContext,
-  input: {
-    student_id?: unknown;
-    student_name?: unknown;
-    behavior_type?: unknown;
-    points?: unknown;
-    note?: unknown;
-  },
-): Promise<MobileMutationResult> {
-  const behaviorType = normalizeText(input.behavior_type);
-  if (!behaviorType) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "نوع السلوك مطلوب." };
-  }
-
-  const studentId = normalizeText(input.student_id) || null;
-  let studentName = normalizeText(input.student_name);
-
-  if (studentId) {
-    const student = await loadScopedStudent(ctx, studentId);
-    if (!student) {
-      return { ok: false, gate: AVAILABLE_GATE, message: "الطالب المحدد غير موجود داخل المدرسة." };
-    }
-    if (!studentName) studentName = student.full_name;
-  }
-
-  if (!studentName) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "اسم الطالب مطلوب." };
-  }
-
-  const parsedPoints = Number(
-    typeof input.points === "number" || typeof input.points === "string" ? input.points : NaN,
-  );
-  const pointsValue = Number.isFinite(parsedPoints) ? Math.trunc(parsedPoints) : 0;
-  const note = normalizeText(input.note) || null;
-
-  const { data, error } = await ctx.serviceSupabase
-    .from("behavior_logs")
-    .insert({
-      school_id: ctx.schoolId,
-      student_id: studentId,
-      student_name: studentName,
-      behavior_type: behaviorType,
-      points: pointsValue,
-      note,
-    })
-    .select("id, school_id, student_id, student_name, behavior_type, points, note, created_at")
-    .maybeSingle();
-
-  if (error) {
-    return {
-      ok: false,
-      gate: featureGateFromError(error, "behavior_logs"),
-      message: readErrorMessage(error, "تعذر حفظ سجل السلوك."),
-    };
-  }
-
-  return {
-    ok: true,
-    gate: AVAILABLE_GATE,
-    message: "تم حفظ سجل السلوك.",
-    data: (data ?? undefined) as Record<string, unknown> | undefined,
   };
 }
 
@@ -1429,6 +2144,15 @@ export async function sendConversationMessage(
     };
   }
 
+  const moderation = moderateSchoolMessage(body);
+  if (!moderation.allowed) {
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "تعذر إرسال الرسالة لأنها تخالف قواعد سلامة مجتمع المدرسة.",
+    };
+  }
+
   // Conversation ownership + participant membership are independent checks.
   // Run them in parallel instead of sequentially.
   const [conversation, participant] = await Promise.all([
@@ -1440,7 +2164,8 @@ export async function sendConversationMessage(
       .maybeSingle(),
     ctx.serviceSupabase
       .from("conversation_participants")
-      .select("user_id")
+      // display_name is the fallback for the message's NOT NULL sender_name.
+      .select("user_id, display_name")
       .eq("conversation_id", conversationId)
       .eq("user_id", ctx.authUserId)
       .maybeSingle(),
@@ -1454,25 +2179,103 @@ export async function sendConversationMessage(
     };
   }
   if (!conversation.data) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "المحادثة غير موجودة داخل المدرسة." };
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "المحادثة غير موجودة داخل المدرسة.",
+    };
   }
 
   if (participant.error) {
     return {
       ok: false,
-      gate: featureGateFromError(participant.error, "conversation_participants"),
-      message: readErrorMessage(participant.error, "تعذر التحقق من المشاركة في المحادثة."),
+      gate: featureGateFromError(
+        participant.error,
+        "conversation_participants",
+      ),
+      message: readErrorMessage(
+        participant.error,
+        "تعذر التحقق من المشاركة في المحادثة.",
+      ),
     };
   }
   if (!participant.data) {
-    return { ok: false, gate: AVAILABLE_GATE, message: "لا تملك صلاحية المراسلة في هذه المحادثة." };
+    return {
+      ok: false,
+      gate: AVAILABLE_GATE,
+      message: "لا تملك صلاحية المراسلة في هذه المحادثة.",
+    };
   }
 
+  const participants = await ctx.serviceSupabase
+    .from("conversation_participants")
+    .select("user_id")
+    .eq("conversation_id", conversationId)
+    .neq("user_id", ctx.authUserId);
+
+  if (participants.error) {
+    return {
+      ok: false,
+      gate: featureGateFromError(
+        participants.error,
+        "conversation_participants",
+      ),
+      message: "تعذر التحقق من سلامة المحادثة.",
+    };
+  }
+
+  const peerIds = (participants.data ?? [])
+    .map((row) => normalizeText((row as Record<string, unknown>).user_id))
+    .filter(Boolean);
+
+  if (peerIds.length > 0) {
+    const [outgoingBlock, incomingBlock] = await Promise.all([
+      untypedTable(ctx.serviceSupabase, "messaging_blocks")
+        .select("id")
+        .eq("school_id", ctx.schoolId)
+        .eq("blocker_user_id", ctx.authUserId)
+        .in("blocked_user_id", peerIds)
+        .limit(1)
+        .maybeSingle(),
+      untypedTable(ctx.serviceSupabase, "messaging_blocks")
+        .select("id")
+        .eq("school_id", ctx.schoolId)
+        .eq("blocked_user_id", ctx.authUserId)
+        .in("blocker_user_id", peerIds)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (outgoingBlock.error || incomingBlock.error) {
+      return {
+        ok: false,
+        gate: { available: false, code: "unknown" },
+        message: "تعذر التحقق من إعدادات الحظر.",
+      };
+    }
+
+    if (outgoingBlock.data || incomingBlock.data) {
+      return {
+        ok: false,
+        gate: AVAILABLE_GATE,
+        message: "لا يمكن إرسال رسائل لأن أحد طرفي المحادثة قام بالحظر.",
+      };
+    }
+  }
+
+  // sender_name and sender_role are NOT NULL with no default and no trigger to
+  // fill them, so omitting them made every send fail on the insert — which is
+  // why the messages table was still empty in production.
   const { data, error } = await ctx.serviceSupabase
     .from("messages")
     .insert({
       conversation_id: conversationId,
       sender_id: ctx.authUserId,
+      sender_name:
+        normalizeText(ctx.account.profile?.full_name) ||
+        normalizeText(participant.data?.display_name) ||
+        "مستخدم",
+      sender_role: ctx.role,
       body,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
@@ -1505,7 +2308,8 @@ export async function buildTeacherDashboardPayload(ctx: MobileRouteContext) {
 
   return {
     summary: {
-      teacher_name: ctx.account.teacher?.full_name ?? ctx.account.profile.full_name,
+      teacher_name:
+        ctx.account.teacher?.full_name ?? ctx.account.profile.full_name,
       subject: ctx.account.teacher?.specialization ?? null,
       classes_count: ctx.account.teacher?.assignments.length ?? 0,
       students_count: ctx.account.teacher?.assigned_students.length ?? 0,
@@ -1513,8 +2317,12 @@ export async function buildTeacherDashboardPayload(ctx: MobileRouteContext) {
       assignments_count: assignments.items.length,
       grades_count: grades.items.length,
     },
-    assignments: ctx.account.teacher?.assignments ?? ([] satisfies ManagedTeacherAssignmentRecord[]),
-    assigned_students_preview: (ctx.account.teacher?.assigned_students ?? []).slice(0, 6),
+    assignments:
+      ctx.account.teacher?.assignments ??
+      ([] satisfies ManagedTeacherAssignmentRecord[]),
+    assigned_students_preview: (
+      ctx.account.teacher?.assigned_students ?? []
+    ).slice(0, 6),
     recent_notifications: notifications.items,
     recent_assignments: assignments.items,
     recent_grades: grades.items,
