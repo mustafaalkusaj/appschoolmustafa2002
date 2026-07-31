@@ -179,9 +179,23 @@ ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
   cd '$APP_DIR'
   npm install
   rm -rf .next-build
-  NEXT_DIST_DIR=.next-build \
-  SKIP_BUILD_TYPECHECK=1 \
-  NODE_OPTIONS='--max-old-space-size=4096' npm run build
+  mkdir -p .next-build
+
+  # Seed the webpack cache from the live build. Without it every deploy is a
+  # cold compile, and a cold compile is what OOM-kills this 7.7 GB host — the
+  # builds that succeeded here were all reusing that cache in place.
+  if [ -d .next/cache ]; then
+    echo \"[deploy:direct] Seeding build cache (\$(du -sh .next/cache | cut -f1))...\"
+    cp -a .next/cache .next-build/cache
+  fi
+
+  if ! NEXT_DIST_DIR=.next-build \
+       SKIP_BUILD_TYPECHECK=1 \
+       NODE_OPTIONS='--max-old-space-size=4096' npm run build; then
+    echo 'Remote build failed; leaving the running build untouched.' >&2
+    rm -rf .next-build
+    exit 1
+  fi
 
   if [ ! -s .next-build/BUILD_ID ]; then
     echo 'Build produced no BUILD_ID; refusing to swap it in.' >&2
