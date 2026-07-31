@@ -56,6 +56,15 @@ else
   echo "[deploy:direct] WARN local production env is incomplete; will preserve existing remote secrets."
 fi
 
+# Gate: the remote build skips its own type-check to stay inside the host's
+# memory budget, so this run is the only thing standing between a type error
+# and production. Failing here must abort the deploy.
+echo "[deploy:direct] Type-checking locally before shipping..."
+if ! (cd "$ROOT_DIR" && npm run typecheck); then
+  echo "[deploy:direct] Type-check failed; refusing to deploy." >&2
+  exit 1
+fi
+
 echo "[deploy:direct] Checking SSH reachability for $REMOTE..."
 ssh "${SSH_ARGS[@]}" "$REMOTE" "printf '%s\n' connected" >/dev/null
 
@@ -160,10 +169,30 @@ else
 fi
 
 echo "[deploy:direct] Installing dependencies and building remotely..."
+# Build into a staging dir and swap it in only on success. Building straight
+# into the served .next means a build that dies midway (the 7.7 GB host has
+# been OOM-killed during the type-check phase) leaves the running app pointing
+# at a half-written directory with no BUILD_ID — fine until the next restart,
+# then fatal. SKIP_BUILD_TYPECHECK is safe here because the local typecheck
+# gate above already passed; it just avoids running tsc twice on the small host.
 ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
   cd '$APP_DIR'
   npm install
-  NODE_OPTIONS='--max-old-space-size=4096' npm run build"
+  rm -rf .next-build
+  NEXT_DIST_DIR=.next-build \
+  SKIP_BUILD_TYPECHECK=1 \
+  NODE_OPTIONS='--max-old-space-size=4096' npm run build
+
+  if [ ! -s .next-build/BUILD_ID ]; then
+    echo 'Build produced no BUILD_ID; refusing to swap it in.' >&2
+    rm -rf .next-build
+    exit 1
+  fi
+
+  rm -rf .next.previous
+  [ -d .next ] && mv .next .next.previous
+  mv .next-build .next
+  echo \"[deploy:direct] Swapped in build \$(cat .next/BUILD_ID)\""
 
 echo "[deploy:direct] Restarting the application..."
 ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail

@@ -24,6 +24,9 @@ artifacts/reliability-audit/*storage-state.json
 /out/
 .next_tmp_build_*/
 .next_bak_*/
+# deploy staging dir (NEXT_DIST_DIR) and the build it displaces
+/.next-build/
+/.next.previous/
 
 # production
 /build

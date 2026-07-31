@@ -6,7 +6,12 @@ import nextIntl from "next-intl/plugin";
  */
 
 const nextConfig: NextConfig = {
-  typescript: { ignoreBuildErrors: false },
+  // Strict by default. The deploy script sets SKIP_BUILD_TYPECHECK=1 for the
+  // REMOTE build only, and solely because it already ran `npm run typecheck`
+  // locally and aborts on any error. Type-checking a second time inside
+  // `next build` pushed the 7.7 GB host past its limit and the kernel
+  // OOM-killed the build mid-write. Never set this by hand to dodge an error.
+  typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_TYPECHECK === "1" },
   // Allows deploy scripts to build into a staging dir (NEXT_DIST_DIR=.next-build)
   // and swap it in atomically, instead of overwriting the served .next in place.
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
