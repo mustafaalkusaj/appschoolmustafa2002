@@ -189,9 +189,13 @@ ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
     cp -a .next/cache .next-build/cache
   fi
 
+  # Memory budget for a 4-core / 7 GB host: 2 build workers plus a 3 GB main
+  # heap. The 4-worker / 4 GB default reached 7.4 GB resident and was
+  # OOM-killed three times in a row.
   if ! NEXT_DIST_DIR=.next-build \
        SKIP_BUILD_TYPECHECK=1 \
-       NODE_OPTIONS='--max-old-space-size=4096' npm run build; then
+       BUILD_CPUS=2 \
+       NODE_OPTIONS='--max-old-space-size=3072' npm run build; then
     echo 'Remote build failed; leaving the running build untouched.' >&2
     rm -rf .next-build
     exit 1

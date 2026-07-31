@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts", "framer-motion", "zod", "@supabase/supabase-js", "exceljs"],
+    // One worker per core is what the build defaults to, and each carries its
+    // own heap. On the 4-core / 7 GB production host that put resident memory
+    // at 7.4 GB and the kernel OOM-killed the build. BUILD_CPUS lets the deploy
+    // throttle it there without slowing builds down anywhere else.
+    ...(process.env.BUILD_CPUS ? { cpus: Number(process.env.BUILD_CPUS) } : {}),
   },
   async headers() {
     return [

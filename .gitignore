@@ -74,3 +74,4 @@ logs/
 .tmp-*
 .env.bak*
 *.bak-fra-*
+/.next-cputest/
