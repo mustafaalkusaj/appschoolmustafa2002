@@ -88,6 +88,23 @@ rsync -az --delete \
   --exclude "school-saas-next" \
   "$ROOT_DIR"/ "$REMOTE:$APP_DIR"/
 
+# rsync excludes .git, so the checkout on the server stays frozen at whatever
+# commit it was cloned at and `git log` there reports a version that has not
+# run in months. Stamp what was actually shipped instead.
+echo "[deploy:direct] Stamping the deployed revision..."
+DEPLOYED_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+DEPLOYED_BRANCH="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+DEPLOYED_DIRTY="$(git -C "$ROOT_DIR" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+ssh "${SSH_ARGS[@]}" "$REMOTE" "cat > '$APP_DIR/DEPLOYED_VERSION' <<'STAMP'
+commit=$DEPLOYED_COMMIT
+branch=$DEPLOYED_BRANCH
+uncommitted_files_at_deploy=$DEPLOYED_DIRTY
+deployed_at=$DEPLOYED_AT
+STAMP"
+echo "[deploy:direct] Shipped $DEPLOYED_BRANCH @ ${DEPLOYED_COMMIT:0:8} (${DEPLOYED_DIRTY} uncommitted files)."
+
 if [[ "$GENERATED_ENV" -eq 1 ]]; then
   echo "[deploy:direct] Uploading regenerated production env file..."
   scp "${SSH_ARGS[@]}" "$TMP_ENV_FILE" "$REMOTE:$APP_DIR/.env.production.tmp" >/dev/null
