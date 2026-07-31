@@ -293,7 +293,12 @@ async function fetchSchoolContext(schoolId: string) {
 async function fetchUserProfileById(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("id, full_name, job_title, email, role, permissions, custom_permissions, school_id, is_active, phone, branch_id, allowed_branch_ids, allowed_pages, is_single_page_user, default_path, scope_level, permissions_version")
+    // Schema-tolerant on purpose: allowed_branch_ids / allowed_pages /
+    // default_path are derived at runtime and are not columns, and PostgREST
+    // fails the WHOLE query with 42703 when an explicit list names a missing
+    // column — which nulls the profile and bounces the user back to /login.
+    // Mirrors selectProfileCompat() in lib/authorization/snapshot.ts.
+    .select("*")
     .eq("id", userId)
     .maybeSingle();
 
