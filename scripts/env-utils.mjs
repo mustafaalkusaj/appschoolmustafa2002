@@ -97,13 +97,59 @@ export function loadProductionEnv(cwd = process.cwd(), { skipLocalOverrides = fa
     loadedFiles.push(fileName);
   }
 
+  // process.env may only OVERRIDE application config — it must never
+  // contribute keys of its own. This output is uploaded verbatim as the
+  // server's .env.production and loaded into pm2, so copying the whole shell
+  // environment would ship the operator's laptop into production: macOS PATH /
+  // HOME / TMPDIR / SHELL (which break Node resolution on the Linux host),
+  // plus unrelated session tokens from whatever tool ran the deploy.
+  const fileDeclaredKeys = new Set(Object.keys(env));
+
   for (const [key, value] of Object.entries(process.env)) {
-    if (typeof value === "string" && value.length > 0) {
-      env[key] = value;
+    if (typeof value !== "string" || value.length === 0) {
+      continue;
     }
+
+    if (!fileDeclaredKeys.has(key) && !isApplicationEnvKey(key)) {
+      continue;
+    }
+
+    env[key] = value;
   }
 
   return { env, loadedFiles };
+}
+
+// Keys the application itself owns. Anything outside this set can only reach
+// the rendered env file by being declared in an env file first.
+const APP_ENV_KEY_PREFIXES = [
+  "NEXT_PUBLIC_",
+  "SUPABASE_",
+  "TELEGRAM_",
+  "OPS_",
+  "SEED_",
+  "JWT_",
+  "RBAC_",
+];
+
+const APP_ENV_KEY_NAMES = new Set([
+  "APP_URL",
+  "OFFICIAL_DOMAIN_URL",
+  "DATABASE_URL",
+  "DIRECT_URL",
+  "HEALTHCHECK_TOKEN",
+  "API_TIMEOUT_MS",
+  "SESSION_COOKIE_SECURE",
+  "NODE_ENV",
+  "HOSTNAME",
+  "PORT",
+]);
+
+export function isApplicationEnvKey(key) {
+  return (
+    APP_ENV_KEY_NAMES.has(key) ||
+    APP_ENV_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))
+  );
 }
 
 function normalizeProductionDbUrl(value) {
@@ -157,7 +203,27 @@ export function buildProductionEnv(cwd = process.cwd()) {
     output.DATABASE_URL = output.SUPABASE_DB_URL;
   }
 
+  for (const key of Object.keys(output)) {
+    if (isNeverShippedEnvKey(key)) {
+      delete output[key];
+    }
+  }
+
   return { env: output, loadedFiles };
+}
+
+// Build-tool state that must never reach the server, even when a local env
+// file declares it. VERCEL_OIDC_TOKEN is a short-lived credential that would
+// arrive already rotating; the Turbo/Nx keys are local build cache settings
+// that no runtime code reads.
+const NEVER_SHIPPED_ENV_KEYS = new Set(["VERCEL_OIDC_TOKEN", "NX_DAEMON"]);
+const NEVER_SHIPPED_ENV_PREFIXES = ["TURBO_"];
+
+export function isNeverShippedEnvKey(key) {
+  return (
+    NEVER_SHIPPED_ENV_KEYS.has(key) ||
+    NEVER_SHIPPED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix))
+  );
 }
 
 export function writeEnvFile(filePath, env) {
