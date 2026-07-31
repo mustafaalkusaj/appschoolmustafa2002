@@ -91,7 +91,37 @@ rsync -az --delete \
 if [[ "$GENERATED_ENV" -eq 1 ]]; then
   echo "[deploy:direct] Uploading regenerated production env file..."
   scp "${SSH_ARGS[@]}" "$TMP_ENV_FILE" "$REMOTE:$APP_DIR/.env.production.tmp" >/dev/null
-  ssh "${SSH_ARGS[@]}" "$REMOTE" "chmod 600 '$APP_DIR/.env.production.tmp' && mv '$APP_DIR/.env.production.tmp' '$APP_DIR/.env.production'"
+  # Merge, never replace. Some secrets only ever existed on the server
+  # (CRON_SECRET, for one), so overwriting wholesale silently strips them and
+  # every endpoint authenticating with them starts returning 401. Rendered
+  # values win; remote-only keys are carried forward and their names logged.
+  ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
+    cd '$APP_DIR'
+    chmod 600 .env.production.tmp
+
+    if [ -f .env.production ]; then
+      PRESERVED=\$(awk -F= '
+        /^[A-Za-z_][A-Za-z0-9_]*=/ {
+          key = substr(\$0, 1, index(\$0, \"=\") - 1)
+          if (NR == FNR) { rendered[key] = 1; next }
+          if (!(key in rendered)) print key
+        }
+      ' .env.production.tmp .env.production)
+
+      if [ -n \"\$PRESERVED\" ]; then
+        echo \"[deploy:direct] Preserving server-only env keys: \$(echo \$PRESERVED | tr '\\n' ' ')\"
+        awk -F= '
+          /^[A-Za-z_][A-Za-z0-9_]*=/ {
+            key = substr(\$0, 1, index(\$0, \"=\") - 1)
+            if (NR == FNR) { rendered[key] = 1; next }
+            if (!(key in rendered)) print
+          }
+        ' .env.production.tmp .env.production >> .env.production.tmp
+      fi
+    fi
+
+    mv .env.production.tmp .env.production
+    chmod 600 .env.production"
 else
   echo "[deploy:direct] Rewriting runtime keys in the existing remote env file..."
   ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
