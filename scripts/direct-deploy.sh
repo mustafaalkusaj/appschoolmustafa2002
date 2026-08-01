@@ -100,19 +100,12 @@ rsync -az --delete \
 # rsync excludes .git, so the checkout on the server stays frozen at whatever
 # commit it was cloned at and `git log` there reports a version that has not
 # run in months. Stamp what was actually shipped instead.
-echo "[deploy:direct] Stamping the deployed revision..."
 DEPLOYED_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
 DEPLOYED_BRANCH="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 DEPLOYED_DIRTY="$(git -C "$ROOT_DIR" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
-DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-ssh "${SSH_ARGS[@]}" "$REMOTE" "cat > '$APP_DIR/DEPLOYED_VERSION' <<'STAMP'
-commit=$DEPLOYED_COMMIT
-branch=$DEPLOYED_BRANCH
-uncommitted_files_at_deploy=$DEPLOYED_DIRTY
-deployed_at=$DEPLOYED_AT
-STAMP"
-echo "[deploy:direct] Shipped $DEPLOYED_BRANCH @ ${DEPLOYED_COMMIT:0:8} (${DEPLOYED_DIRTY} uncommitted files)."
+echo "[deploy:direct] Shipping $DEPLOYED_BRANCH @ ${DEPLOYED_COMMIT:0:8} (${DEPLOYED_DIRTY} uncommitted files)..."
+# DEPLOYED_VERSION is written after the swap, not here: stamping up front
+# claimed a revision that a failed build never actually put into service.
 
 if [[ "$GENERATED_ENV" -eq 1 ]]; then
   echo "[deploy:direct] Uploading regenerated production env file..."
@@ -181,20 +174,15 @@ ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
   rm -rf .next-build
   mkdir -p .next-build
 
-  # Seed the webpack cache from the live build. Without it every deploy is a
-  # cold compile, and a cold compile is what OOM-kills this 7.7 GB host — the
-  # builds that succeeded here were all reusing that cache in place.
-  if [ -d .next/cache ]; then
-    echo \"[deploy:direct] Seeding build cache (\$(du -sh .next/cache | cut -f1))...\"
-    cp -a .next/cache .next-build/cache
-  fi
-
-  # Memory budget for a 4-core / 7 GB host: 2 build workers plus a 3 GB main
-  # heap. The 4-worker / 4 GB default reached 7.4 GB resident and was
-  # OOM-killed three times in a row.
+  # Memory budget for a 4-core / 7 GB host. The default build reached 7.4 GB
+  # resident and was OOM-killed four deploys running; capping the workers and
+  # the heap was not enough on its own, because webpack assembles its
+  # filesystem cache in memory before serialising it. DISABLE_BUILD_CACHE
+  # removes that peak at the cost of a slower, always-cold compile.
   if ! NEXT_DIST_DIR=.next-build \
        SKIP_BUILD_TYPECHECK=1 \
        BUILD_CPUS=2 \
+       DISABLE_BUILD_CACHE=1 \
        NODE_OPTIONS='--max-old-space-size=3072' npm run build; then
     echo 'Remote build failed; leaving the running build untouched.' >&2
     rm -rf .next-build
@@ -210,7 +198,16 @@ ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
   rm -rf .next.previous
   [ -d .next ] && mv .next .next.previous
   mv .next-build .next
-  echo \"[deploy:direct] Swapped in build \$(cat .next/BUILD_ID)\""
+  echo \"[deploy:direct] Swapped in build \$(cat .next/BUILD_ID)\"
+
+  # Only now is this revision actually in service, so only now is it true.
+  cat > DEPLOYED_VERSION <<STAMP
+commit=$DEPLOYED_COMMIT
+branch=$DEPLOYED_BRANCH
+uncommitted_files_at_deploy=$DEPLOYED_DIRTY
+build_id=\$(cat .next/BUILD_ID)
+deployed_at=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+STAMP"
 
 echo "[deploy:direct] Restarting the application..."
 ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail

@@ -36,6 +36,17 @@ const nextConfig: NextConfig = {
     // throttle it there without slowing builds down anywhere else.
     ...(process.env.BUILD_CPUS ? { cpus: Number(process.env.BUILD_CPUS) } : {}),
   },
+  // The filesystem cache is assembled in memory before it is serialised, which
+  // on the 4-core / 7 GB production host is the difference between a build that
+  // finishes and one the kernel OOM-kills (resident peaked at 7.4 GB). The
+  // deploy sets DISABLE_BUILD_CACHE=1 there and trades build time for headroom;
+  // everywhere else the cache stays on.
+  webpack(config) {
+    if (process.env.DISABLE_BUILD_CACHE === "1") {
+      config.cache = false;
+    }
+    return config;
+  },
   async headers() {
     return [
       {
