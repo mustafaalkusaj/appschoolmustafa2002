@@ -1,7 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import { formatNumber } from "@/lib/formatting";
 import { CheckCircle2 } from "@/lib/icons";
+import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import type { DashboardRecentPayment } from "./types";
 
 interface DashboardTransactionsProps {
@@ -16,6 +20,8 @@ function formatDate(dateStr: string | null): string {
 }
 
 export function DashboardTransactions({ recentPayments, loading }: DashboardTransactionsProps) {
+  const pathname = usePathname();
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6 h-64 animate-pulse" />
@@ -28,7 +34,12 @@ export function DashboardTransactions({ recentPayments, loading }: DashboardTran
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6">
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-sm font-bold text-[var(--text-primary)]">المعاملات الأخيرة</h3>
-        <button className="text-xs text-[var(--primary)] font-semibold hover:underline">عرض الكل</button>
+        <Link
+          href={localizeAppPath("/payments", getLocaleFromPath(pathname))}
+          className="text-xs text-[var(--primary)] font-semibold hover:underline"
+        >
+          عرض الكل
+        </Link>
       </div>
       {payments.length === 0 ? (
         <p className="text-xs text-[var(--text-muted)] text-center py-8">لا توجد معاملات</p>

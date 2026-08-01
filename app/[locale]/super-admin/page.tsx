@@ -33,8 +33,6 @@ import {
 import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useToast } from "@/components/toast";
 import { ROLE_LABELS, type Permission } from "@/lib/auth";
-import { AppSidebar } from "@/components/AppSidebar";
-import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useRole } from "@/hooks/useRole";
@@ -538,17 +536,13 @@ export default function SuperAdminPage() {
 
   return (
     <ProtectedRoute roles={["super_admin"]}>
-      <div className="flex min-h-screen bg-[var(--surface-muted)]">
-        <AppSidebar currentPath="/super-admin" />
-
+      {/* The shell — sidebar, topbar and <main> — comes from
+          super-admin/layout.tsx. Rendering it again here stacked a second fixed
+          sidebar and a second header over the content and nested a <main>
+          inside a <main>. */}
+      <div className="flex min-h-full">
         <div className="flex-1 flex flex-col min-w-0">
-          <AppShellTopbar 
-            title={t("title")} 
-            subtitle="مركز التحكم الرئيسي لإدارة المنصة والمدارس والاشتراكات" 
-            fixed 
-          />
-
-          <main className="app-shell-frame--with-fixed-topbar flex-1 min-h-0 flex flex-col overflow-hidden xl:flex-row">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden xl:flex-row">
             {/* Super Admin Vertical Tabs Sidebar */}
             <div className="w-80 shrink-0 border-e border-[var(--border)] bg-[var(--surface-muted)] hidden xl:flex flex-col p-4">
               <div className="space-y-1">
@@ -698,7 +692,7 @@ export default function SuperAdminPage() {
                 )}
               </div>
             </div>
-          </main>
+          </div>
         </div>
 
         <SchoolForm isOpen={showSchoolForm} editSchool={editSchool} schemaCompat={schemaCompat} onClose={() => setShowSchoolForm(false)} onSave={handleSaveSchool} />

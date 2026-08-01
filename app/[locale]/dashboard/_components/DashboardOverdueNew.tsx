@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import { formatNumber } from "@/lib/formatting";
+import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import type { DashboardOverdueStudent, ClassFee } from "./types";
 
 const DONUT_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4", "#ec4899"];
@@ -12,6 +16,8 @@ interface DashboardOverdueNewProps {
 }
 
 export function DashboardOverdueNew({ overdueStudents, classFees, loading }: DashboardOverdueNewProps) {
+  const pathname = usePathname();
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -49,7 +55,12 @@ export function DashboardOverdueNew({ overdueStudents, classFees, loading }: Das
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-sm font-bold text-[var(--text-primary)]">أعلى الطلاب المتأخرين</h3>
-          <button className="text-xs text-[var(--primary)] font-semibold hover:underline">عرض الكل</button>
+          <Link
+            href={localizeAppPath("/payments", getLocaleFromPath(pathname))}
+            className="text-xs text-[var(--primary)] font-semibold hover:underline"
+          >
+            عرض الكل
+          </Link>
         </div>
         {topOverdue.length === 0 ? (
           <p className="text-xs text-[var(--text-muted)] text-center py-8">لا يوجد طلاب متأخرين</p>
