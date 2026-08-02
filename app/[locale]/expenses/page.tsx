@@ -1072,10 +1072,17 @@ export default function ExpensesPage() {
                                         <td className="p-4 text-xs font-bold text-[var(--text-secondary)]">
                                           {Math.max(1, expenseTotalCount - ((expensePage - 1) * EXPENSES_PAGE_SIZE + i))}
                                         </td>
-                                        <td className="p-4">
-                                          <span className="px-2.5 py-1 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] text-[11px] font-black">
-                                            {e.expense_types?.name || "—"}
-                                          </span>
+                                        <td className="p-4 align-top">
+                                          <div className="flex flex-col gap-1.5 min-w-[10rem] max-w-[22rem]">
+                                            <span className="self-start px-2.5 py-1 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] text-[11px] font-black">
+                                              {e.expense_types?.name || "—"}
+                                            </span>
+                                            {e.notes ? (
+                                              <span className="text-[11px] font-semibold leading-relaxed text-[var(--text-secondary)] whitespace-pre-wrap break-words">
+                                                {e.notes}
+                                              </span>
+                                            ) : null}
+                                          </div>
                                         </td>
                                         <td className="p-4 text-sm font-black text-[var(--danger)]">{formatCurrencyWithSymbol(e.amount, currency)}</td>
                                         <td className="p-4 text-xs font-bold text-[var(--text-secondary)]">{formatDate(e.expense_date)}</td>
