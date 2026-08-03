@@ -188,7 +188,37 @@ function isAuthorizedOpsProbe(request: NextRequest, normalizedPath: string) {
     return process.env.OPS_ALERT_TOKEN === providedToken;
   }
 
+  // Scheduled jobs driven by the host crontab.
+  //
+  // Every one of these was permanently 401 before this branch existed:
+  // /api/cron/* never reached this function at all, warm and weekly-report
+  // fell through to `return false`, calendar/daily-check is not under
+  // /api/ops/ so it was never routed here, and daily-report was gated on
+  // OPS_REPORT_CRON_SECRET — an env var that does not exist in production,
+  // so the comparison was always `undefined === token`.
+  //
+  // CRON_SECRET is the scheduler credential; OPS_ALERT_TOKEN is accepted for
+  // manual incident runs. This mirrors the guard each route handler already
+  // applies via isOpsTokenAuthorized, so the proxy no longer rejects requests
+  // that the route itself would have accepted.
+  if (isScheduledJobPath(normalizedPath)) {
+    return [process.env.CRON_SECRET, process.env.OPS_ALERT_TOKEN].some(
+      (token) => token && token === providedToken,
+    );
+  }
+
   return false;
+}
+
+/** Paths invoked by the host crontab rather than by a signed-in user. */
+function isScheduledJobPath(normalizedPath: string) {
+  return (
+    normalizedPath.startsWith("/api/cron/") ||
+    normalizedPath === "/api/ops/warm" ||
+    normalizedPath === "/api/ops/daily-report" ||
+    normalizedPath === "/api/ops/weekly-report" ||
+    normalizedPath === "/api/web/calendar/daily-check"
+  );
 }
 
 async function getGuardRedirect(request: NextRequest): Promise<URL | NextResponse | null> {
@@ -220,7 +250,12 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     return null;
   }
 
-  if (isApiRequest && normalizedPath.startsWith("/api/ops/") && isAuthorizedOpsProbe(request, normalizedPath)) {
+  if (
+    isApiRequest &&
+    (normalizedPath.startsWith("/api/ops/") ||
+      isScheduledJobPath(normalizedPath)) &&
+    isAuthorizedOpsProbe(request, normalizedPath)
+  ) {
     return null;
   }
 
