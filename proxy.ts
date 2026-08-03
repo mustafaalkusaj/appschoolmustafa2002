@@ -145,10 +145,6 @@ function isAuthorizedOpsProbe(request: NextRequest, normalizedPath: string) {
     return [process.env.OPS_ALERT_TOKEN, process.env.HEALTHCHECK_TOKEN].some((token) => token && token === providedToken);
   }
 
-  if (normalizedPath === "/api/ops/daily-report") {
-    return process.env.OPS_REPORT_CRON_SECRET === providedToken;
-  }
-
   if (
     normalizedPath === "/api/ops/whatsapp-test" ||
     normalizedPath === "/api/ops/latest" ||
@@ -201,10 +197,16 @@ function isAuthorizedOpsProbe(request: NextRequest, normalizedPath: string) {
   // manual incident runs. This mirrors the guard each route handler already
   // applies via isOpsTokenAuthorized, so the proxy no longer rejects requests
   // that the route itself would have accepted.
+  // NOTE: this branch must not be preceded by a path-specific check for any
+  // path it covers — an earlier `return` short-circuits it. /api/ops/daily-report
+  // used to have its own branch gated on OPS_REPORT_CRON_SECRET, which is unset
+  // in production, so that route stayed 401 even after this branch was added.
   if (isScheduledJobPath(normalizedPath)) {
-    return [process.env.CRON_SECRET, process.env.OPS_ALERT_TOKEN].some(
-      (token) => token && token === providedToken,
-    );
+    return [
+      process.env.CRON_SECRET,
+      process.env.OPS_ALERT_TOKEN,
+      process.env.OPS_REPORT_CRON_SECRET,
+    ].some((token) => token && token === providedToken);
   }
 
   return false;
