@@ -54,10 +54,16 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: true, items: [] });
       }
 
+      // class_schedules.teacher_id has no FK to teachers, so the PostgREST
+      // embed `teachers(full_name)` failed with PGRST200 ("Could not find a
+      // relationship between 'class_schedules' and 'teachers'") and this route
+      // returned 500 for every student. Resolve the names with one batched
+      // lookup instead — the same approach app/api/mobile/student/schedule
+      // already uses and documents.
       const { data, error } = await serviceSupabase
         .from("class_schedules")
         .select(
-          "id, day_of_week, start_time, end_time, subject_name, class_name, room, teachers(full_name)",
+          "id, day_of_week, start_time, end_time, subject_name, class_name, room, teacher_id",
         )
         .eq("school_id", schoolId)
         .eq("class_name", student.class_name)
@@ -66,10 +72,32 @@ export async function GET(req: NextRequest) {
 
       if (error) throw error;
 
-      const items: ScheduleItem[] = (data ?? []).map((row) => {
-        const teacher = Array.isArray(row.teachers)
-          ? row.teachers[0]
-          : row.teachers;
+      const scheduleRows = data ?? [];
+      const teacherIds = Array.from(
+        new Set(
+          scheduleRows
+            .map((row) => row.teacher_id as string | null)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
+
+      const teacherNames = new Map<string, string | null>();
+      if (teacherIds.length > 0) {
+        const { data: teacherRows } = await serviceSupabase
+          .from("teachers")
+          .select("id, full_name")
+          .eq("school_id", schoolId)
+          .in("id", teacherIds);
+        for (const teacherRow of teacherRows ?? []) {
+          teacherNames.set(
+            teacherRow.id as string,
+            (teacherRow.full_name as string | null) ?? null,
+          );
+        }
+      }
+
+      const items: ScheduleItem[] = scheduleRows.map((row) => {
+        const teacherId = row.teacher_id as string | null;
         return {
           id: row.id as string,
           day: DAY_NAMES[row.day_of_week as number] ?? String(row.day_of_week),
@@ -77,8 +105,9 @@ export async function GET(req: NextRequest) {
           end_time: row.end_time as string,
           subject_name: row.subject_name as string,
           class_name: (row.class_name as string | null) ?? null,
-          teacher_name:
-            (teacher as { full_name: string | null } | null)?.full_name ?? null,
+          teacher_name: teacherId
+            ? (teacherNames.get(teacherId) ?? null)
+            : null,
           room: (row.room as string | null) ?? null,
         };
       });
