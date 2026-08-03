@@ -1176,14 +1176,17 @@ export async function queryMobileBehaviorLogs(
   // ANY student's records in the school (IDOR). Constrain to the teacher's own
   // assigned roster. For non-teacher callers (e.g. admin) assigned_students is
   // empty/undefined, so this scoping does not apply.
+  // Admin routes pass an AdminMobileRouteContext (no `account` field) cast to
+  // MobileRouteContext, so `ctx.account` is undefined there. Reading through it
+  // threw a TypeError that the caller's bare `catch` turned into a blind 500.
   const rosterIds = Array.from(
     new Set(
-      (ctx.account.teacher?.assigned_students ?? [])
+      (ctx.account?.teacher?.assigned_students ?? [])
         .map((student) => normalizeText(student.student_id))
         .filter(Boolean),
     ),
   );
-  const isTeacher = ctx.account.teacher != null;
+  const isTeacher = ctx.account?.teacher != null;
 
   // A teacher requesting a specific student must own them in their roster.
   if (

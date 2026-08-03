@@ -32,7 +32,10 @@ export async function GET(req: NextRequest) {
       page: params.page,
       limit: params.limit,
     });
-  } catch {
+  } catch (error) {
+    // A bare `catch {}` here hid a TypeError: the response said "internal_error"
+    // with no way to tell a schema fault from a null deref.
+    console.error("[mobile/admin/behavior] GET failed", error);
     return NextResponse.json(
       { ok: false, error: "internal_error" },
       { status: 500 },

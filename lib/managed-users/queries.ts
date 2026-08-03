@@ -390,7 +390,13 @@ export async function resolveManagedAccountBase(authUserId: string): Promise<Man
   }
 
   const user = schoolId ? await fetchManagedUserByAuthUserId(serviceSupabase, { authUserId, schoolId }) : null;
-  const resolvedRole = user?.role ?? role;
+  // `role` above is strictly validated against student/teacher and is null for
+  // an admin/super_admin managed row. `user.role` comes from
+  // normalizeManagedUserRecord, which collapses ANY non-teacher role to
+  // "student" — so preferring it made an admin look like a student with no
+  // student record and produced "حساب الطالب لا يملك سجل طالب" on /session and
+  // /shared/*. Trust the validated value first.
+  const resolvedRole = role ?? user?.role ?? null;
   const loginIdentifier = getManagedAccountLoginIdentifier(authUser, user);
   const linkedRecordId =
     resolvedRole === "student"
