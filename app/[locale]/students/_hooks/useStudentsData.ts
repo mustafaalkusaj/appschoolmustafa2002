@@ -163,7 +163,16 @@ export function useStudentsData(options: UseStudentsDataOptions): UseStudentsDat
     if (effectiveBranchId) {
       query = query.eq("branch_id", effectiveBranchId);
     }
-    const { data } = await query;
+    const { data, error } = await query;
+    // Discarding `error` made an RLS denial indistinguishable from "this school
+    // has no class fees": the Add/Edit Student class dropdown silently rendered
+    // empty and the admin had to type the class name by hand, which drifts
+    // `students.class_name` away from `class_fees.class_name`. Surface it.
+    if (error) {
+      console.error(
+        `[students] class_fees fetch failed (${error.code ?? "no-code"}): ${error.message}`,
+      );
+    }
     // Only apply results if this is still the latest fetch (prevents stale overwrites)
     if (requestId === classFeesRequestRef.current) {
       setClassFees(data || []);
