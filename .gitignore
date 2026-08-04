@@ -78,3 +78,8 @@ logs/
 .env.bak*
 *.bak-fra-*
 /.next-cputest/
+
+# Bulk-provisioning output: usernames + passwords for real students.
+# Never commit, never rsync to a server.
+student-credentials-*.txt
+*-credentials-*.txt

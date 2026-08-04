@@ -89,6 +89,8 @@ rsync -az --delete \
   --exclude ".qoder" \
   --exclude ".vscode" \
   --exclude ".DS_Store" \
+  --exclude "student-credentials-*.txt" \
+  --exclude "*-credentials-*.txt" \
   --exclude "00990090" \
   --exclude "artifacts" \
   --exclude "logs" \
