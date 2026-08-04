@@ -11,7 +11,12 @@ import {
   usePrefersReducedMotion,
   getVariants,
 } from "@/lib/motion-variants";
-import { fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
+import {
+  fetchJsonWithAuthorizedSession,
+  fetchWithAuthorizedSession,
+  withJsonHeaders,
+} from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { formatDate } from "@/lib/formatting";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/brand/brand-utils";
@@ -61,11 +66,17 @@ export function NotificationBell({ userId, schoolId, locale }: Props) {
   // تحميل العدد الأولي
   const loadUnread = useCallback(async () => {
     try {
-      const res = await fetchWithAuthorizedSession(
-        `/api/web/notifications/insite/unread?schoolId=${schoolId}`,
+      // BranchDashboardExperience fetches the same count on mount, so the bell
+      // and the dashboard each issued their own request on every load. Share
+      // one through deduplicatedFetch, keyed on the URL both of them build.
+      // fetchJsonWithAuthorizedSession is used here rather than the raw-Response
+      // helper on purpose: it hands back already-parsed JSON, so two callers
+      // awaiting the same promise cannot fight over a single consumable body.
+      const url = `/api/web/notifications/insite/unread?schoolId=${schoolId}`;
+      const { payload } = await deduplicatedFetch(url, () =>
+        fetchJsonWithAuthorizedSession<{ ok: boolean; count: number }>(url),
       );
-      const data = await res.json().catch(() => null);
-      if (data?.ok) setUnreadCount(data.count ?? 0);
+      if (payload?.ok) setUnreadCount(payload.count ?? 0);
     } catch {
       // silent
     }

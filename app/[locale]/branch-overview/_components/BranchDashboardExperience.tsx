@@ -44,6 +44,7 @@ import { AddStudentModal } from "@/app/[locale]/students/_components/AddStudentM
 import { DEFAULT_STUDENT_FORM } from "@/app/[locale]/students/_constants";
 import type { StudentFormData } from "@/app/[locale]/students/_types";
 import { fetchWithAuthorizedSession, withJsonHeaders, fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { formatNumber } from "@/lib/formatting";
 import { SchoolScopeEmptyState } from "@/components/SchoolScopeBanner";
 import { motion } from "framer-motion";
@@ -121,8 +122,12 @@ export function BranchDashboardExperience({ titleOverride }: BranchDashboardExpe
       if (payload?.ok) setTeachersCount(payload.total ?? 0);
     }).catch(() => {});
 
-    fetchJsonWithAuthorizedSession<{ ok: boolean; count: number }>(
-      `/api/web/notifications/insite/unread?schoolId=${sid}`
+    // The topbar's NotificationBell fetches this exact count on every page, so
+    // each load issued the request twice. Share one through deduplicatedFetch,
+    // keyed on the identical URL both sides build.
+    const unreadUrl = `/api/web/notifications/insite/unread?schoolId=${sid}`;
+    deduplicatedFetch(unreadUrl, () =>
+      fetchJsonWithAuthorizedSession<{ ok: boolean; count: number }>(unreadUrl)
     ).then(({ payload }) => {
       if (payload?.ok) setNotificationsCount(payload.count ?? 0);
     }).catch(() => {});
