@@ -1242,7 +1242,7 @@ function safeOrFilterValue(value: string | undefined): string | null {
 }
 
 export async function queryMobileCalendarEvents(
-  ctx: MobileRouteContext,
+  ctx: MobileSharedQueryContext,
   params: MobileListParams,
   filters: {
     from?: string;
@@ -1286,8 +1286,20 @@ export async function queryMobileCalendarEvents(
   };
 }
 
+/**
+ * Announcements and calendar events are school-wide reads: they need a service
+ * client and a school id, nothing about a student or a teacher. Declaring that
+ * narrowly lets an admin/super_admin context satisfy them without the
+ * `as unknown as MobileRouteContext` cast that already turned one admin route
+ * into a blind 500.
+ */
+export type MobileSharedQueryContext = Pick<
+  MobileRouteContext,
+  "serviceSupabase" | "schoolId"
+>;
+
 export async function queryMobileAnnouncements(
-  ctx: MobileRouteContext,
+  ctx: MobileSharedQueryContext,
   params: MobileListParams,
 ): Promise<MobileResourceResult<Record<string, unknown>>> {
   const { data, error } = await ctx.serviceSupabase
