@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
-import { deduplicatedFetch, clearCacheFor } from "@/lib/request-cache";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import {
@@ -102,7 +102,12 @@ export function useDashboardData({
       }
 
       const cacheKey = `dashboard-overview:${schoolId}:${branchScoped ? branchId : "none"}`;
-      clearCacheFor(cacheKey);
+      // Do NOT clearCacheFor(cacheKey) here. deduplicatedFetch caches the
+      // in-flight promise for 5s to collapse bursts — it is not a data cache.
+      // Clearing the key immediately before using it guaranteed that two
+      // near-simultaneous callers both missed and both fetched. This hook is
+      // mounted by three components, so /dashboard/overview was hit twice on
+      // every load.
       const { response, payload } = await deduplicatedFetch(
         cacheKey,
         () => fetchJsonWithAuthorizedSession<DashboardOverviewResponse>(

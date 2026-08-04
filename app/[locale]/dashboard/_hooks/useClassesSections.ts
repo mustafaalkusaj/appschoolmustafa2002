@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { fetchJsonWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
-import { deduplicatedFetch, clearCacheFor } from "@/lib/request-cache";
+import { deduplicatedFetch } from "@/lib/request-cache";
 import { resolveSchoolBranchForProfile } from "@/lib/school/context";
 import type { UserProfile } from "@/lib/auth";
 import { ClassItem, SectionItem } from "../_components/types";
@@ -74,8 +74,12 @@ export function useClassesSections({
     }
 
     const cacheKey = `dashboard-structure:${schoolId}:${branchScoped ? branchId : "none"}`;
-    // Clear stale cache so mutations get fresh data
-    clearCacheFor(cacheKey);
+    // The old clearCacheFor(cacheKey) here was meant to keep post-mutation data
+    // fresh, but deduplicatedFetch only holds the in-flight promise for 5s — a
+    // user-driven refetch always lands well outside that window, so nothing was
+    // gained. What it did cost: two near-simultaneous callers both missed the
+    // key and both fetched, and this hook is mounted by three components, so
+    // /dashboard/structure was requested twice on every load.
     const { response, payload } = await deduplicatedFetch(
       cacheKey,
       () => fetchJsonWithAuthorizedSession<DashboardStructureResponse>(
