@@ -1392,6 +1392,9 @@ export async function queryMobileConversations(
           .from("messages")
           .select("id, conversation_id, sender_id, body, created_at, read_at")
           .in("conversation_id", pageConvIds)
+          // Moderation-removed messages must not survive as a thread preview
+          // or feed the unread badge (Apple 1.2).
+          .is("deleted_at", null)
           .order("created_at", { ascending: false }),
         ctx.serviceSupabase
           .from("conversation_participants")

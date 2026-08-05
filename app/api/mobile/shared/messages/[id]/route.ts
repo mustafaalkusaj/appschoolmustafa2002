@@ -63,6 +63,9 @@ export async function GET(req: NextRequest, { params }: Params) {
         .from("messages")
         .select("id, conversation_id, sender_id, body, created_at, read_at")
         .eq("conversation_id", id)
+        // Messages removed by moderation must disappear for every participant,
+        // including the reporter (Apple 1.2).
+        .is("deleted_at", null)
         .order("created_at", { ascending: true })
         .limit(500),
       serviceSupabase
