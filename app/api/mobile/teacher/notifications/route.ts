@@ -6,6 +6,7 @@ import {
   resolveMobileRouteContext,
   sendTeacherBroadcast,
 } from "@/lib/mobile-api-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,6 +38,18 @@ export async function POST(req: NextRequest) {
     const context = await resolveMobileRouteContext(req, "teacher");
     if (context.ok === false) {
       return context.response;
+    }
+
+    // A broadcast fans out to a whole class, so an unthrottled loop here is a
+    // push-spam amplifier aimed at students' devices.
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: "mobile-teacher-broadcast",
+      windowMs: 60 * 60_000,
+      maxHits: 30,
+      identifier: context.value.authUserId,
+    });
+    if (rateLimited) {
+      return rateLimited;
     }
 
     const payload = (await req.json().catch(() => null)) ?? {};
