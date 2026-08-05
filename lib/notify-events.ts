@@ -68,18 +68,15 @@ export async function notifyNewGrade(
   if (!userId) return EMPTY_RESULT;
 
   const subjectPart = ctx.subject ? ` في مادة ${ctx.subject}` : "";
-  const scorePart =
-    typeof ctx.score === "number"
-      ? ` (${ctx.score}${typeof ctx.maxScore === "number" ? `/${ctx.maxScore}` : ""})`
-      : "";
-
+  // Store policy (Apple 4.5.4): the visible notification text must not carry
+  // the actual score — it can appear on a locked screen. Details stay in-app.
   return sendPushNotification(ctx.supabase, {
     schoolId: ctx.schoolId,
     branchId: ctx.branchId ?? null,
     userIds: [userId],
     type: "grade",
     title: "درجة جديدة",
-    message: `تم رصد درجة جديدة${subjectPart}${scorePart}.`,
+    message: `تم رصد درجة جديدة${subjectPart}. اطّلع على التفاصيل داخل التطبيق.`,
     link: "/grades",
     recipientRole: "student",
     metadata: { student_id: ctx.studentId, subject: ctx.subject ?? null },
@@ -266,18 +263,14 @@ export async function notifyExamGraded(
   const userId = await resolveStudentAuthUserId(ctx.supabase, ctx.schoolId, ctx.studentId);
   if (!userId) return EMPTY_RESULT;
 
-  const scorePart =
-    typeof ctx.score === "number"
-      ? ` (${ctx.score}${typeof ctx.totalMarks === "number" ? `/${ctx.totalMarks}` : ""})`
-      : "";
-
+  // Store policy (Apple 4.5.4): no scores in the visible notification text.
   return sendPushNotification(ctx.supabase, {
     schoolId: ctx.schoolId,
     branchId: ctx.branchId ?? null,
     userIds: [userId],
     type: "exam",
     title: "نتيجة الامتحان",
-    message: `تم تصحيح امتحان ${ctx.examTitle}${scorePart}.`,
+    message: `تم تصحيح امتحان ${ctx.examTitle}. اطّلع على النتيجة داخل التطبيق.`,
     link: "/exams",
     recipientRole: "student",
     metadata: {
@@ -301,15 +294,14 @@ export async function notifyExamResult(
   const userId = await resolveStudentAuthUserId(ctx.supabase, ctx.schoolId, ctx.studentId);
   if (!userId) return EMPTY_RESULT;
 
-  const scorePart = typeof ctx.score === "number" ? ` - الدرجة: ${ctx.score}` : "";
-
+  // Store policy (Apple 4.5.4): no scores in the visible notification text.
   return sendPushNotification(ctx.supabase, {
     schoolId: ctx.schoolId,
     branchId: ctx.branchId ?? null,
     userIds: [userId],
     type: "exam",
     title: "تم تسليم الامتحان",
-    message: `تم تسليم إجاباتك بنجاح${scorePart}.`,
+    message: "تم تسليم إجاباتك بنجاح.",
     link: "/exams",
     recipientRole: "student",
     metadata: { student_id: ctx.studentId, exam_title: ctx.examTitle, score: ctx.score ?? null },
