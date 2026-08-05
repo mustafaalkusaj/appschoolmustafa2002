@@ -56,7 +56,7 @@ export async function GET(
 
     if (examError) {
       return NextResponse.json(
-        { ok: false, error: { message: examError.message } },
+        { ok: false, error: { message: "internal_error" } },
         { status: 500 },
       );
     }
@@ -120,7 +120,7 @@ export async function GET(
 
     if (attemptsResult.error) {
       return NextResponse.json(
-        { ok: false, error: { message: attemptsResult.error.message } },
+        { ok: false, error: { message: "internal_error" } },
         { status: 500 },
       );
     }

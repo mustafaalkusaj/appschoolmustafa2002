@@ -42,7 +42,7 @@ export async function PATCH(
 
   if (recipient.error) {
     return NextResponse.json(
-      { ok: false, error: { message: recipient.error.message } },
+      { ok: false, error: { message: "internal_error" } },
       { status: 500 },
     );
   }
@@ -73,7 +73,7 @@ export async function PATCH(
 
   if (legacy.error) {
     return NextResponse.json(
-      { ok: false, error: { message: legacy.error.message } },
+      { ok: false, error: { message: "internal_error" } },
       { status: 500 },
     );
   }

@@ -261,7 +261,7 @@ export async function POST(
     if (submitError) {
       const safeError = mapSubmitAttemptError(submitError.message);
       return NextResponse.json(
-        { ok: false, error: { message: safeError.message } },
+        { ok: false, error: { message: "internal_error" } },
         { status: safeError.status },
       );
     }

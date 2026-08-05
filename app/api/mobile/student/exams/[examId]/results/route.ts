@@ -46,7 +46,7 @@ export async function GET(
 
     if (attemptsError) {
       return NextResponse.json(
-        { ok: false, error: { message: attemptsError.message } },
+        { ok: false, error: { message: "internal_error" } },
         { status: 500 },
       );
     }

@@ -24,7 +24,7 @@ export async function PATCH(
       {
         ok: false,
         error: {
-          message: error.message,
+          message: "internal_error",
         },
       },
       { status: 500 },

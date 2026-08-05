@@ -34,7 +34,7 @@ export async function GET(
 
     if (examError) {
       return NextResponse.json(
-        { ok: false, error: examError.message },
+        { ok: false, error: "internal_error" },
         { status: 500 },
       );
     }
@@ -127,7 +127,7 @@ export async function DELETE(
 
     if (loadError) {
       return NextResponse.json(
-        { ok: false, error: loadError.message },
+        { ok: false, error: "internal_error" },
         { status: 500 },
       );
     }
@@ -153,7 +153,7 @@ export async function DELETE(
 
     if (attemptsError) {
       return NextResponse.json(
-        { ok: false, error: attemptsError.message },
+        { ok: false, error: "internal_error" },
         { status: 500 },
       );
     }
@@ -173,7 +173,7 @@ export async function DELETE(
 
     if (deleteError) {
       return NextResponse.json(
-        { ok: false, error: deleteError.message },
+        { ok: false, error: "internal_error" },
         { status: 500 },
       );
     }

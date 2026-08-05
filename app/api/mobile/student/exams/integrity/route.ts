@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       return NextResponse.json(
-        { ok: false, error: { message: error.message } },
+        { ok: false, error: { message: "internal_error" } },
         { status: 500 },
       );
     }

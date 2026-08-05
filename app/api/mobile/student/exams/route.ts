@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error: { message: error.message },
+          error: { message: "internal_error" },
         },
         { status: 500 },
       );
