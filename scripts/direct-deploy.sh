@@ -111,7 +111,18 @@ echo "[deploy:direct] Shipping $DEPLOYED_BRANCH @ ${DEPLOYED_COMMIT:0:8} (${DEPL
 
 if [[ "$GENERATED_ENV" -eq 1 ]]; then
   echo "[deploy:direct] Uploading regenerated production env file..."
-  scp "${SSH_ARGS[@]}" "$TMP_ENV_FILE" "$REMOTE:$APP_DIR/.env.production.tmp" >/dev/null
+  # scp takes the port as -P (capital); reusing ssh's -p makes scp treat the
+  # port number as a local file and abort the deploy.
+  SCP_ARGS=(
+    -o BatchMode=yes
+    -o StrictHostKeyChecking=accept-new
+    -o ConnectTimeout=10
+    -P "$APP_SSH_PORT"
+  )
+  if [[ -n "$SSH_KEY" ]]; then
+    SCP_ARGS+=(-i "$SSH_KEY")
+  fi
+  scp "${SCP_ARGS[@]}" "$TMP_ENV_FILE" "$REMOTE:$APP_DIR/.env.production.tmp" >/dev/null
   # Merge, never replace. Some secrets only ever existed on the server
   # (CRON_SECRET, for one), so overwriting wholesale silently strips them and
   # every endpoint authenticating with them starts returning 401. Rendered

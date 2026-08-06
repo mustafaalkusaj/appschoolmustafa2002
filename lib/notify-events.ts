@@ -165,16 +165,15 @@ export async function notifyNewBehavior(
   const userId = await resolveStudentAuthUserId(ctx.supabase, ctx.schoolId, ctx.studentId);
   if (!userId) return EMPTY_RESULT;
 
-  const typePart = ctx.behaviorType ? ` (${ctx.behaviorType})` : "";
-  const pointsPart = typeof ctx.points === "number" ? ` — ${ctx.points > 0 ? `+${ctx.points}` : ctx.points} نقطة` : "";
-
+  // Apple 4.5.4: keep behavior type and points out of the visible push text;
+  // they stay in metadata for the in-app screen.
   return sendPushNotification(ctx.supabase, {
     schoolId: ctx.schoolId,
     branchId: ctx.branchId ?? null,
     userIds: [userId],
     type: "behavior",
     title: "ملاحظة سلوكية",
-    message: `تم تسجيل ملاحظة سلوكية${typePart}${pointsPart}.`,
+    message: "تم تسجيل ملاحظة سلوكية جديدة. اطّلع على التفاصيل داخل التطبيق.",
     link: "/behavior",
     recipientRole: "student",
     metadata: { student_id: ctx.studentId, behavior_type: ctx.behaviorType ?? null, points: ctx.points ?? null },
@@ -194,15 +193,15 @@ export async function notifyPayment(
   const userId = await resolveStudentAuthUserId(ctx.supabase, ctx.schoolId, ctx.studentId);
   if (!userId) return EMPTY_RESULT;
 
-  const amountPart = typeof ctx.amount === "number" ? ` بمبلغ ${ctx.amount}` : "";
-
+  // Apple 4.5.4: keep the paid amount out of the visible push text; it stays
+  // in metadata for the in-app screen.
   return sendPushNotification(ctx.supabase, {
     schoolId: ctx.schoolId,
     branchId: ctx.branchId ?? null,
     userIds: [userId],
     type: "payment",
     title: "دفعة مالية",
-    message: `تم تسجيل دفعة مالية${amountPart}.`,
+    message: "تم تسجيل دفعة مالية جديدة. اطّلع على التفاصيل داخل التطبيق.",
     link: "/payments",
     recipientRole: "student",
     metadata: {
