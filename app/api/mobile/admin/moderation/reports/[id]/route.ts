@@ -110,7 +110,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
             deleted_by: authUserId,
             deletion_reason: "moderation_report_upheld",
           })
-          .eq("id", messageId);
+          .eq("id", messageId)
+          // The id comes from a school-scoped report row already; the tenant
+          // predicate is defense-in-depth on a service-role write.
+          .eq("school_id", schoolId);
         enforcement.message_removed = !removeError;
       }
 

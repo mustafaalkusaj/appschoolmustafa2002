@@ -18,10 +18,11 @@ function unavailableStatus(error: { code?: string } | null | undefined) {
 
 /**
  * Mobile account-deletion request. Any authenticated role (teacher, student,
- * parent) can file one. Writes into the same `support_tickets` table + admin
- * Telegram alert pipeline already used by the web dashboard's support-ticket
- * flow, so requests land in a real, reviewed inbox instead of a bare audit-log
- * row nobody reads. Deletion is manual/reviewed on purpose — a self-serve
+ * parent) can file one. Writes an `account_deletion_requests` row first (the
+ * queue the daily cron drains), then mirrors it into the `support_tickets` +
+ * admin Telegram alert pipeline — rolling the queue row back if the ticket
+ * insert fails — so requests land in a real, reviewed inbox instead of a bare
+ * audit-log row nobody reads. Deletion is manual/reviewed on purpose — a self-serve
  * hard-delete from an unauthenticated-adjacent mobile endpoint is not safe for
  * a multi-tenant school system with linked financial/academic records.
  */
