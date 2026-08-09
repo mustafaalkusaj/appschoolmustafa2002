@@ -40,8 +40,11 @@ export async function GET(req: NextRequest) {
       .limit(500);
 
     if (error || !events) {
+      // Raw PostgREST error text names tables/columns — log it server-side,
+      // return a generic code to the client.
+      console.error("[mobile/calendar/export]", error?.message);
       return NextResponse.json(
-        { ok: false, error: error?.message ?? "failed" },
+        { ok: false, error: "internal_error" },
         { status: 500 },
       );
     }
