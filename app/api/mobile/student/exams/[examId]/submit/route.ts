@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const OBJECTIVE_TYPES = [
   "multiple_choice",
@@ -36,6 +37,15 @@ export async function POST(
     if (context.ok === false) {
       return context.response;
     }
+
+    // Final submission writes answers + grade; bound retry storms per user.
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: "mobile-student-exam-submit",
+      windowMs: 10 * 60_000,
+      maxHits: 10,
+      identifier: context.value.authUserId,
+    });
+    if (rateLimited) return rateLimited;
 
     const { examId } = await params;
     const { schoolId, account, serviceSupabase: supabase } = context.value;

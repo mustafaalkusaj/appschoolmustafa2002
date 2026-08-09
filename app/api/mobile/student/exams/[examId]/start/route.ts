@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 function shuffleArray<T>(array: T[], seed?: string): T[] {
   const result = [...array];
@@ -27,6 +28,15 @@ export async function POST(
     if (context.ok === false) {
       return context.response;
     }
+
+    // Starting an attempt creates rows; keep retry loops bounded per user.
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: "mobile-student-exam-start",
+      windowMs: 10 * 60_000,
+      maxHits: 10,
+      identifier: context.value.authUserId,
+    });
+    if (rateLimited) return rateLimited;
 
     const { examId } = await params;
     const { schoolId, account, serviceSupabase: supabase } = context.value;

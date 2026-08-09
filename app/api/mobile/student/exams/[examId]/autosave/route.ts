@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Partial (non-final) answer persistence for an in-progress exam attempt.
@@ -125,6 +126,16 @@ export async function POST(
     if (context.ok === false) {
       return context.response;
     }
+
+    // Autosave fires on a timer for the whole exam duration — generous but
+    // bounded, per user, so a stuck client can't hammer the DB.
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: "mobile-student-exam-autosave",
+      windowMs: 60_000,
+      maxHits: 60,
+      identifier: context.value.authUserId,
+    });
+    if (rateLimited) return rateLimited;
 
     const { examId } = await params;
     const { schoolId, account, serviceSupabase: supabase } = context.value;

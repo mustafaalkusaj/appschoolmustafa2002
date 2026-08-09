@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 type Params = { params: Promise<{ id: string }> };
@@ -60,6 +61,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     const { id: assignmentId } = await params;
     const context = await resolveMobileRouteContext(req, "student");
     if (context.ok === false) return context.response;
+
+    // Submissions carry user content; keep the write path from becoming a
+    // spam amplifier.
+    const rateLimited = await enforceRateLimit(req, {
+      namespace: "mobile-student-assignment-submit",
+      windowMs: 10 * 60_000,
+      maxHits: 20,
+      identifier: context.value.authUserId,
+    });
+    if (rateLimited) return rateLimited;
 
     const { schoolId, account } = context.value;
     const studentId = account.student?.id;
