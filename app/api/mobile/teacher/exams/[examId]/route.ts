@@ -21,7 +21,7 @@ export async function GET(
     }
 
     const { examId } = await context.params;
-    const { serviceSupabase, schoolId } = resolved.value;
+    const { serviceSupabase, schoolId, authUserId } = resolved.value;
 
     const { data: exam, error: examError } = await serviceSupabase
       .from("exams")
@@ -43,6 +43,16 @@ export async function GET(
       return NextResponse.json(
         { ok: false, error: "الامتحان غير موجود." },
         { status: 404 },
+      );
+    }
+
+    // This detail payload includes the question answer key. Restrict it to the
+    // authoring teacher — school scope alone would let any teacher read another
+    // teacher's exam answers (same gate DELETE already enforces).
+    if (exam.created_by !== authUserId) {
+      return NextResponse.json(
+        { ok: false, error: "لا يمكنك عرض امتحان أنشأه معلم آخر." },
+        { status: 403 },
       );
     }
 

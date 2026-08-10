@@ -33,7 +33,7 @@ export async function resolveSuperAdminMobileRouteContext(
 
     const { data: profile, error: profileError } = await serviceSupabase
       .from("managed_user_profiles")
-      .select("role")
+      .select("role, is_active")
       .eq("auth_user_id", userId)
       .maybeSingle();
 
@@ -52,6 +52,18 @@ export async function resolveSuperAdminMobileRouteContext(
         ok: false,
         response: NextResponse.json(
           { ok: false, error: "هذا الحساب لا يملك صلاحية الوصول." },
+          { status: 403 },
+        ),
+      };
+    }
+
+    // Deactivated super_admins keep a valid session; every query below uses the
+    // service-role client (RLS bypassed), so gate on is_active explicitly.
+    if ((profile as { is_active?: boolean }).is_active === false) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { ok: false, error: "تم إيقاف هذا الحساب." },
           { status: 403 },
         ),
       };

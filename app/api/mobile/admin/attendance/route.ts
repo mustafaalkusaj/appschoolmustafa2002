@@ -43,25 +43,34 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const date =
       searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
-    const classId = searchParams.get("class_id") ?? null;
+    // The class filter is keyed by class_name — `students` has no class_id
+    // column. The param name is kept for client compatibility.
+    const className = searchParams.get("class_id") ?? null;
     const status = searchParams.get("status") ?? null;
 
+    // Read the canonical `attendance_records` table (the same one POST writes and
+    // the teacher mobile routes write). The legacy `attendance` table this route
+    // used to read is only a mirror and misses rows written directly to records.
+    // `students!inner(...)` makes the class filter actually constrain the rows.
     let query = serviceSupabase
-      .from("attendance")
-      .select("id, date, status, notes, students(id, full_name, class_name)")
+      .from("attendance_records")
+      .select(
+        "id, attendance_date, status, note, students!inner(id, full_name, class_name)",
+      )
       .eq("school_id", schoolId)
-      .eq("date", date);
+      .eq("attendance_date", date);
 
     if (status) {
       query = query.eq("status", status);
     }
 
-    if (classId) {
-      // Filter via the joined students table
-      query = query.eq("students.class_id", classId);
+    if (className) {
+      query = query.eq("students.class_name", className);
     }
 
-    const { data, error } = await query.order("date", { ascending: false });
+    const { data, error } = await query.order("attendance_date", {
+      ascending: false,
+    });
 
     if (error) throw error;
 
@@ -69,9 +78,9 @@ export async function GET(req: NextRequest) {
       const student = Array.isArray(a.students) ? a.students[0] : a.students;
       return {
         id: a.id as string,
-        date: a.date as string,
+        date: a.attendance_date as string,
         status: a.status as string,
-        notes: (a.notes as string | null) ?? null,
+        notes: (a.note as string | null) ?? null,
         student_id: (student as { id: string } | null)?.id ?? null,
         student_name:
           (student as { full_name: string | null } | null)?.full_name ?? null,
