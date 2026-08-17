@@ -343,7 +343,6 @@ export function generateFinancialSummaryReport(opts: {
   const isEn = locale === "en";
   const currency = isEn ? "IQD" : "د.ع";
 
-  const netProfit = data.totalPaid + data.totalIncomes - data.totalExpenses - data.totalSalaries;
   const collectionRate = data.totalFees > 0 ? (data.totalPaid / data.totalFees) * 100 : 0;
 
   const summaryHtml = `
@@ -377,10 +376,6 @@ export function generateFinancialSummaryReport(opts: {
       <div class="rpt-stat">
         <div class="rpt-stat-label">${isEn ? "Other Income" : "إيرادات أخرى"}</div>
         <div class="rpt-stat-value" style="font-size:16px;color:#16a34a">${currency} ${fmt(data.totalIncomes)}</div>
-      </div>
-      <div class="rpt-stat">
-        <div class="rpt-stat-label">${isEn ? "Net Profit" : "صافي الربح"}</div>
-        <div class="rpt-stat-value" style="font-size:18px;color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${netProfit >= 0 ? "+" : ""}${currency} ${fmt(netProfit)}</div>
       </div>
     </div>
     <div class="rpt-summary">

@@ -157,7 +157,6 @@ export default function ReportsPage() {
   const t = useTranslations("reports");
   const commonT = useTranslations("common");
   const dashboardT = useTranslations("dashboard");
-  const navT = useTranslations("nav");
   const isEnglish = locale === "en";
 
   const reportCopy = useMemo(() => isEnglish
@@ -853,7 +852,6 @@ export default function ReportsPage() {
   }, [loadDataset, printDocument, isEnglish, currency, reportCopy.loadDatasetFailed]);
 
   const printSummary = useCallback(() => {
-    const netProfit = metrics.totalPaid + metrics.otherRevenueTotal + metrics.transferredStudentsCollected - metrics.expenseVolume - metrics.salaryVolume;
     printDocument(
       isEnglish ? "Financial summary" : "الملخص المالي",
       isEnglish ? "School financial snapshot" : "ملخص مالي سريع للمدرسة",
@@ -865,7 +863,6 @@ export default function ReportsPage() {
         <div class="total-item"><span class="total-label">${isEnglish ? "Expenses" : "المصروفات"}: </span><span class="total-val">${currency} ${formatNumber(metrics.expenseVolume)}</span></div>
         <div class="total-item"><span class="total-label">${isEnglish ? "Net salaries" : "صافي الرواتب"}: </span><span class="total-val">${currency} ${formatNumber(metrics.salaryVolume)}</span></div>
         <div class="total-item"><span class="total-label">${isEnglish ? "Transferred students revenue" : "إيراد الطلاب المنقولين"}: </span><span class="total-val">${currency} ${formatNumber(metrics.transferredStudentsCollected)}</span></div>
-        <div class="total-item" style="border-top:2px solid #333;padding-top:8px;margin-top:8px"><span class="total-label" style="font-size:1.2em"><strong>${isEnglish ? "Net Profit" : "صافي الربح"}: </strong></span><span class="total-val" style="font-size:1.3em;color:${netProfit >= 0 ? "#10b981" : "#ef4444"}"><strong>${currency} ${formatNumber(netProfit)}</strong></span></div>
       </div>`,
     );
   }, [printDocument, metrics, isEnglish, currency]);
@@ -969,7 +966,6 @@ export default function ReportsPage() {
   // ─── Content renderers ────────────────────────────────────────────────────────
 
   function renderSummaryTab() {
-    const netProfit = metrics.totalPaid + metrics.otherRevenueTotal + metrics.transferredStudentsCollected - metrics.expenseVolume - metrics.salaryVolume;
     const collectionRate = metrics.totalFees > 0 ? (metrics.totalPaid / metrics.totalFees) * 100 : 0;
     const collectionRateRounded = Math.round(collectionRate);
     const expenseRatio = metrics.totalPaid > 0 ? (metrics.expenseVolume / metrics.totalPaid) * 100 : 0;
@@ -1175,21 +1171,6 @@ export default function ReportsPage() {
                   style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(12px)" }}>
                   <TrendingUp size={26} className="text-white" />
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-black"
-                  style={{
-                    background: netProfit >= 0
-                      ? "color-mix(in srgb, var(--success) 22%, transparent)"
-                      : "color-mix(in srgb, var(--danger) 22%, transparent)",
-                    border: netProfit >= 0
-                      ? "1px solid color-mix(in srgb, var(--success) 35%, transparent)"
-                      : "1px solid color-mix(in srgb, var(--danger) 35%, transparent)",
-                    color: "white",
-                  }}>
-                  <span style={{ color: netProfit >= 0 ? "var(--success)" : "var(--danger)" }}>
-                    {netProfit >= 0 ? "+" : "−"}
-                  </span>
-                  <span>{currency} {formatNumber(Math.abs(netProfit))}</span>
-                </div>
               </div>
             </div>
 
@@ -1292,15 +1273,6 @@ export default function ReportsPage() {
               desc: "عدد الدفعات المسجّلة اليوم",
               icon: CreditCard,
               color: "var(--info)",
-              bar: null as number | null,
-            },
-            {
-              label: "صافي الربح",
-              value: `${netProfit >= 0 ? "+" : ""}${currency} ${formatNumber(netProfit)}`,
-              rawValue: null as number | null,
-              desc: netProfit >= 0 ? "الوضع المالي إيجابي" : "تجاوزت المصاريف الإيرادات",
-              icon: Banknote,
-              color: netProfit >= 0 ? "var(--success)" : "var(--danger)",
               bar: null as number | null,
             },
           ].map((kpi, i) => {
