@@ -90,15 +90,27 @@ function unwrapSettled<T>(
   return { data, count: count ?? 0, ok: true, errorMessage: null };
 }
 
-/** Read a single numeric aggregate value (e.g. `.sum()`) from the first row. */
-function readAggSum(data: unknown): number {
-  if (!Array.isArray(data) || data.length === 0) return 0;
-  const row = data[0];
-  if (typeof row !== "object" || row === null) return 0;
-  // PostgREST returns aggregate as the function name key, e.g. { sum: 123 }
-  const val = (row as Record<string, unknown>).sum;
-  return Number(val ?? 0);
+/**
+ * Sum the `amount` column across returned rows.
+ *
+ * PostgREST aggregate functions (`amount.sum()`) are DISABLED on this project
+ * — the API rejects them with PGRST123 "Use of aggregate functions is not
+ * allowed", which silently zeroed every financial total on the reports page.
+ * Summing row-level in JS is the portable path; row counts stay bounded by
+ * MAX_FINANCIAL_ROWS.
+ */
+function sumAmounts(data: unknown): number {
+  if (!Array.isArray(data)) return 0;
+  let total = 0;
+  for (const row of data) {
+    if (typeof row !== "object" || row === null) continue;
+    total += Number((row as Record<string, unknown>).amount ?? 0);
+  }
+  return total;
 }
+
+/** Upper bound on rows pulled for a single financial aggregate. */
+const MAX_FINANCIAL_ROWS = 20_000;
 
 async function loadFallbackMetrics(
   actorSupabase: RouteSupabaseClient,
@@ -117,9 +129,9 @@ async function loadFallbackMetrics(
   // ---------------------------------------------------------------------------
   // Fire all queries in parallel.
   //
-  // Payments / expenses / incomes use SQL COUNT + SUM via PostgREST aggregates
-  // so the database returns a single summary row instead of shipping every row
-  // over the wire for JS to reduce.
+  // Payments / expenses / incomes use SQL COUNT (via { count: "exact" }) plus a
+  // row-level amount fetch that is summed in JS. PostgREST aggregate functions
+  // are disabled on this project (PGRST123), so `amount.sum()` cannot be used.
   //
   // Students + class_fees stay row-level because the resolved-fee logic
   // (COALESCE class_fee vs student.total_fee) cannot be expressed in the
@@ -156,13 +168,14 @@ async function loadFallbackMetrics(
         .eq("school_id", schoolId),
       branchScope,
     ),
-    // 2 — Payments: SQL SUM(amount) + COUNT via { count: "exact" }
+    // 2 — Payments: amounts + COUNT via { count: "exact" }
     applyBranchScopeToQuery(
       actorSupabase
         .from("payments")
-        .select("amount.sum()", { count: "exact" })
+        .select("amount", { count: "exact" })
         .eq("school_id", schoolId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .limit(MAX_FINANCIAL_ROWS),
       branchScope,
     ),
     // 3 — Today's payments: SQL COUNT only (head: true = no data transferred)
@@ -176,23 +189,24 @@ async function loadFallbackMetrics(
         .lt("created_at", tomorrowDate),
       branchScope,
     ),
-    // 4 — Expenses: SQL SUM(amount) + COUNT
+    // 4 — Expenses: amounts + COUNT
     applyBranchScopeToQuery(
       actorSupabase
         .from("expenses")
-        .select("amount.sum()", { count: "exact" })
+        .select("amount", { count: "exact" })
         .eq("school_id", schoolId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .limit(MAX_FINANCIAL_ROWS),
       branchScope,
     ),
-    // 5 — Expenses grouped by type: SQL SUM + GROUP BY (PostgREST auto-groups
-    //     non-aggregate columns when aggregates are present in the select)
+    // 5 — Expenses with their type, grouped in JS
     applyBranchScopeToQuery(
       actorSupabase
         .from("expenses")
-        .select("expense_types(name), amount.sum()")
+        .select("amount, expense_types(name)")
         .eq("school_id", schoolId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .limit(MAX_FINANCIAL_ROWS),
       branchScope,
     ),
     // 6 — Salaries (row-level: needs per-row net = gross - deductions)
@@ -212,13 +226,14 @@ async function loadFallbackMetrics(
         .eq("month", currentMonth),
       branchScope,
     ),
-    // 8 — Incomes: SQL SUM(amount) + COUNT
+    // 8 — Incomes: amounts + COUNT
     applyBranchScopeToQuery(
       actorSupabase
         .from("incomes")
-        .select("amount.sum()", { count: "exact" })
+        .select("amount", { count: "exact" })
         .eq("school_id", schoolId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .limit(MAX_FINANCIAL_ROWS),
       branchScope,
     ),
   ]);
@@ -239,33 +254,33 @@ async function loadFallbackMetrics(
   const classFees = (classFeesU.data ?? []) as Array<Record<string, unknown>>;
   const salaries = (salariesU.data ?? []) as Array<Record<string, unknown>>;
 
-  // ---- Payments (SQL aggregated) --------------------------------------------
+  // ---- Payments (row-level sum) ---------------------------------------------
 
   const paymentsCount = paymentsAggU.count;
-  const paymentVolume = readAggSum(paymentsAggU.data);
+  const paymentVolume = sumAmounts(paymentsAggU.data);
   const todayPayments = todayPaymentsU.count;
 
-  // ---- Expenses (SQL aggregated) --------------------------------------------
+  // ---- Expenses (row-level sum) ---------------------------------------------
 
   const expensesCount = expensesAggU.count;
-  const expenseVolume = readAggSum(expensesAggU.data);
+  const expenseVolume = sumAmounts(expensesAggU.data);
 
-  // Expenses grouped by type — PostgREST returns one row per type with { expense_types: {name}, sum }
+  // Expenses grouped by type — one row per expense with { amount, expense_types: {name} }
   const expensesByTypeRaw = (expensesByTypeU.data ?? []) as Array<Record<string, unknown>>;
   const expensesByTypeMap = new Map<string, number>();
   for (const row of expensesByTypeRaw) {
     const typeName = readRelationName((row as any).expense_types) || "أخرى";
-    expensesByTypeMap.set(typeName, (expensesByTypeMap.get(typeName) ?? 0) + Number((row as any).sum ?? 0));
+    expensesByTypeMap.set(typeName, (expensesByTypeMap.get(typeName) ?? 0) + Number((row as any).amount ?? 0));
   }
   const expensesByType = Array.from(expensesByTypeMap.entries())
     .map(([name, total]) => ({ name, total }))
     .sort((a, b) => b.total - a.total);
   const expenseTypeCount = expensesByTypeMap.size;
 
-  // ---- Incomes (SQL aggregated) ---------------------------------------------
+  // ---- Incomes (row-level sum) ----------------------------------------------
 
   const incomesCount = incomesAggU.count;
-  const otherRevenueTotal = readAggSum(incomesAggU.data);
+  const otherRevenueTotal = sumAmounts(incomesAggU.data);
 
   // ---- Salaries (row-level: per-row net needed) -----------------------------
 
