@@ -216,6 +216,18 @@ export default function ReportsPage() {
         incomeRecords: "Income records",
         incomeTotalAmount: "Total amount",
         allFile: "full_report",
+        collectionRate: "Collection rate",
+        expenseRatio: "Expense ratio",
+        expensesVsSalaries: "Expenses vs salaries",
+        todayPaymentsDesc: "Payments recorded today",
+        collectedOutOf: (paid: string, total: string) => `${paid} of ${total}`,
+        ofCollected: (amount: string) => `${amount} of collected`,
+        detailedReports: "Detailed exportable reports",
+        archiveModeLabel: "Archive mode",
+        archiveModeNote: (year: string | number) =>
+          `You are viewing the ${year} archive · report metrics show the current year · payments and students are filtered to the selected year`,
+        archiveExit: "Exit",
+        partialDataTitle: "Some figures could not be loaded",
       }
     : {
         loadReportsFailed: "تعذر تحميل التقارير.",
@@ -273,6 +285,18 @@ export default function ReportsPage() {
         incomeRecords: "سجلات الإيرادات",
         incomeTotalAmount: "إجمالي المبلغ",
         allFile: "تقرير_شامل",
+        collectionRate: "نسبة التحصيل",
+        expenseRatio: "نسبة المصاريف",
+        expensesVsSalaries: "المصاريف مقابل الرواتب",
+        todayPaymentsDesc: "عدد الدفعات المسجّلة اليوم",
+        collectedOutOf: (paid: string, total: string) => `${paid} من أصل ${total}`,
+        ofCollected: (amount: string) => `${amount} من المستحصل`,
+        detailedReports: "تقارير تفصيلية قابلة للتصدير",
+        archiveModeLabel: "وضع الأرشيف",
+        archiveModeNote: (year: string | number) =>
+          `أنت في وضع أرشيف سنة ${year} · بيانات التقارير تعرض السنة الحالية · المدفوعات والطلاب مفلترة للسنة المختارة`,
+        archiveExit: "خروج",
+        partialDataTitle: "تعذر تحميل بعض الأرقام",
       }, [isEnglish]);
 
   const currency = commonT("currency");
@@ -303,6 +327,10 @@ export default function ReportsPage() {
   const [metrics, setMetrics] = useState<ReportsMetrics>(EMPTY_REPORTS_METRICS);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  // The overview endpoint answers 200 with a `warnings` array when one of its
+  // queries fails. Dropping it on the floor is how expenses silently rendered
+  // as 0 for every school.
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [actionLoading, setActionLoading] = useState<DatasetType | null>(null);
 
   // Teacher attendance
@@ -337,6 +365,7 @@ export default function ReportsPage() {
     if (!profile) return;
     setLoading(true);
     setFetchError(null);
+    setWarnings([]);
     try {
       const schoolId = await resolveSchoolIdForProfile(profile, {
         selectedSchoolId: schoolScope.selectedSchoolId,
@@ -348,7 +377,7 @@ export default function ReportsPage() {
       }
       const params = new URLSearchParams({ schoolId });
       if (runtimeBranding.branchId) params.set("branchId", runtimeBranding.branchId);
-      const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics; error?: { message?: string } }>(
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{ metrics?: ReportsMetrics; warnings?: string[]; error?: { message?: string } }>(
         `/api/web/reports/overview?${params.toString()}`,
       );
       if (!response.ok) {
@@ -356,9 +385,11 @@ export default function ReportsPage() {
       }
       datasetCacheRef.current = {};
       setMetrics(payload?.metrics ?? EMPTY_REPORTS_METRICS);
+      setWarnings(Array.isArray(payload?.warnings) ? payload.warnings.filter(Boolean) : []);
     } catch (err) {
       datasetCacheRef.current = {};
       setMetrics(EMPTY_REPORTS_METRICS);
+      setWarnings([]);
       setFetchError(err instanceof Error ? err.message : reportCopy.loadReportsFailed);
     } finally {
       setLoading(false);
@@ -965,6 +996,31 @@ export default function ReportsPage() {
 
   // ─── Content renderers ────────────────────────────────────────────────────────
 
+  function renderWarnings() {
+    if (warnings.length === 0) return null;
+    return (
+      <div className="rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/5 p-4 mb-4 flex items-start gap-3">
+        <div className="h-9 w-9 rounded-xl bg-[var(--warning)]/10 flex items-center justify-center text-[var(--warning)] shrink-0">
+          <span className="text-base font-black">!</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-black text-[var(--warning)]">{reportCopy.partialDataTitle}</div>
+          <ul className="mt-1 space-y-0.5">
+            {warnings.map((warning, i) => (
+              <li key={i} className="text-xs font-bold text-[var(--text-muted)]">{warning}</li>
+            ))}
+          </ul>
+        </div>
+        <button
+          className="shrink-0 h-9 px-4 rounded-xl bg-[var(--warning)]/10 text-[var(--warning)] text-xs font-black hover:bg-[var(--warning)]/20 transition-colors"
+          onClick={() => void fetchAll()}
+        >
+          {isEnglish ? "Retry" : "إعادة المحاولة"}
+        </button>
+      </div>
+    );
+  }
+
   function renderSummaryTab() {
     const collectionRate = metrics.totalFees > 0 ? (metrics.totalPaid / metrics.totalFees) * 100 : 0;
     const collectionRateRounded = Math.round(collectionRate);
@@ -1014,7 +1070,7 @@ export default function ReportsPage() {
         onExcel: exportStudentsExcel,
         onPrint: printStudents,
         progressBar: metrics.totalFees > 0
-          ? { label: "نسبة التحصيل", pct: (metrics.totalPaid / metrics.totalFees) * 100, dual: false }
+          ? { label: reportCopy.collectionRate, pct: (metrics.totalPaid / metrics.totalFees) * 100, dual: false }
           : null,
       },
       {
@@ -1050,7 +1106,7 @@ export default function ReportsPage() {
         onPrint: printExpenses,
         progressBar: metrics.salaryVolume > 0
           ? {
-              label: "المصاريف مقابل الرواتب",
+              label: reportCopy.expensesVsSalaries,
               pct: (metrics.expenseVolume / (metrics.expenseVolume + metrics.salaryVolume)) * 100,
               dual: true,
             }
@@ -1208,7 +1264,7 @@ export default function ReportsPage() {
             {/* Collection rate bar */}
             <div className="mt-6 pt-5" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
               <div className="flex justify-between items-center mb-2.5">
-                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.8)" }}>نسبة التحصيل</span>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.8)" }}>{reportCopy.collectionRate}</span>
                 <span className="text-sm font-black">{collectionRateRounded}%</span>
               </div>
               <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.12)" }}>
@@ -1246,31 +1302,34 @@ export default function ReportsPage() {
         </motion.section>
 
         {/* ── KPI STRIP ── */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
-              label: "نسبة التحصيل",
+              label: reportCopy.collectionRate,
               value: `${collectionRateRounded}%`,
               rawValue: null as number | null,
-              desc: `${currency} ${formatNumber(metrics.totalPaid)} من أصل ${currency} ${formatNumber(metrics.totalFees)}`,
+              desc: reportCopy.collectedOutOf(
+                `${currency} ${formatNumber(metrics.totalPaid)}`,
+                `${currency} ${formatNumber(metrics.totalFees)}`,
+              ),
               icon: TrendingUp,
               color: collColor,
               bar: collectionRate as number | null,
             },
             {
-              label: "نسبة المصاريف",
+              label: reportCopy.expenseRatio,
               value: `${Math.round(Math.min(expenseRatio, 999))}%`,
               rawValue: null as number | null,
-              desc: `${currency} ${formatNumber(metrics.expenseVolume)} من المستحصل`,
+              desc: reportCopy.ofCollected(`${currency} ${formatNumber(metrics.expenseVolume)}`),
               icon: Wallet,
               color: expColor,
               bar: Math.min(expenseRatio, 100) as number | null,
             },
             {
-              label: "دفعات اليوم",
+              label: reportCopy.todayPayments,
               value: null as string | null,
               rawValue: metrics.todayPayments as number | null,
-              desc: "عدد الدفعات المسجّلة اليوم",
+              desc: reportCopy.todayPaymentsDesc,
               icon: CreditCard,
               color: "var(--info)",
               bar: null as number | null,
@@ -1339,7 +1398,7 @@ export default function ReportsPage() {
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--border)] shrink-0">
             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--primary)" }} />
             <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-              تقارير تفصيلية قابلة للتصدير
+              {reportCopy.detailedReports}
             </span>
             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--primary)" }} />
           </div>
@@ -1511,12 +1570,12 @@ export default function ReportsPage() {
                     <Archive size={15} className="text-indigo-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">وضع الأرشيف</p>
-                    <p className="text-sm font-black text-white">أنت في وضع أرشيف سنة {archiveMode.archiveData.year} · بيانات التقارير تعرض السنة الحالية · المدفوعات والطلاب مفلترة للسنة المختارة</p>
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{reportCopy.archiveModeLabel}</p>
+                    <p className="text-sm font-black text-white">{reportCopy.archiveModeNote(archiveMode.archiveData.year)}</p>
                   </div>
                   <button onClick={archiveMode.exitArchiveMode}
                     className="text-[11px] font-black text-indigo-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition flex-shrink-0">
-                    خروج
+                    {reportCopy.archiveExit}
                   </button>
                 </div>
               )}
@@ -1551,6 +1610,7 @@ export default function ReportsPage() {
                 </div>
               ) : (
                 <div className="mt-4">
+                  {renderWarnings()}
                   {renderSummaryTab()}
                 </div>
               )}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { formatNumber } from "@/lib/formatting";
 import {
   TrendingUp,
@@ -18,6 +19,7 @@ import { motion } from "framer-motion";
 import { downloadExcelExport } from "@/lib/excel-client";
 import { printHtmlDocument, wrapPrintDocument } from "@/lib/print/branding";
 import { useRuntimeBranding } from "@/hooks/brand/useRuntimeBranding";
+import { getLocaleFromPath } from "@/lib/locale-routing";
 
 type ReportsMetrics = {
   netRevenue: number;
@@ -50,19 +52,88 @@ const MONTHS_AR = [
   "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
 ];
 
+const MONTHS_EN = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 const BAR_COLORS = [
   "var(--primary)", "var(--info)", "var(--success)",
   "var(--warning)", "var(--danger)",
   "#818cf8", "#34d399", "#f97316", "#a78bfa", "#fb7185",
 ];
 
-function formatMonth(month: string) {
+function formatMonth(month: string, isEn: boolean) {
   const parts = month.split("-");
   const monthIndex = parseInt(parts[1] ?? "0", 10) - 1;
-  return `${MONTHS_AR[monthIndex] ?? month} ${parts[0] ?? ""}`.trim();
+  const names = isEn ? MONTHS_EN : MONTHS_AR;
+  return `${names[monthIndex] ?? month} ${parts[0] ?? ""}`.trim();
 }
 
 export function FinancialDashboard({ metrics, currency }: FinancialDashboardProps) {
+  const pathname = usePathname();
+  const isEn = getLocaleFromPath(pathname) === "en";
+
+  // This panel shipped with every label hardcoded in Arabic, so /en/reports
+  // rendered an Arabic dashboard inside an English page.
+  const c = useMemo(() => isEn ? {
+    exportExcel: "Download Excel", exporting: "Exporting...", print: "Print",
+    fileName: "financial_report", summarySheet: "Financial summary",
+    item: "Item", amount: "Amount",
+    currentTotal: "Current students - total fees",
+    currentCollected: "Current students - collected",
+    currentDiscounts: "Current students - discounts",
+    currentRemaining: "Current students - outstanding",
+    transferredTotal: "Transferred students - total fees",
+    transferredCollected: "Transferred students - collected",
+    otherRevenue: "Other revenue",
+    allTotal: "All revenue - total fees", allCollected: "All revenue - collected",
+    allDiscounts: "All revenue - discounts", allRemaining: "All revenue - outstanding",
+    expenses: "Expenses", salaries: "Salaries",
+    collectionRatePct: "Collection rate %", availableBalance: "Available balance",
+    monthlySalariesSheet: "Monthly salaries", month: "Month",
+    expensesByTypeSheet: "Expenses by type", type: "Type",
+    printTitle: "Financial report", operatingExpenses: "Operating expenses",
+    summaryTitle: "Financial summary", totalRevenue: "Total revenue",
+    totalExpenses: "Total expenses", netBalance: "Net balance",
+    overallCollectionRate: "Overall collection rate",
+    revenueBreakdown: "Revenue breakdown",
+    currentStudents: "Current students", transferredStudents: "Transferred students",
+    total: "Total", collected: "Collected", discounts: "Discounts", outstanding: "Outstanding",
+    collectionRate: "Collection rate",
+    totalAmounts: "Total amounts", collectedAmounts: "Collected", remainingDebts: "Outstanding",
+    expensesByType: "Expenses by type", noExpenses: "No expenses recorded",
+    monthlySalaries: "Monthly salaries", noSalaries: "No salaries recorded",
+  } : {
+    exportExcel: "تحميل اكسل", exporting: "جارٍ التصدير...", print: "طباعة",
+    fileName: "التقرير_المالي", summarySheet: "الملخص المالي",
+    item: "البند", amount: "المبلغ",
+    currentTotal: "واردات الطلاب الحاليين - المبالغ الكلية",
+    currentCollected: "واردات الطلاب الحاليين - المستحصلة",
+    currentDiscounts: "واردات الطلاب الحاليين - الخصومات",
+    currentRemaining: "واردات الطلاب الحاليين - الديون",
+    transferredTotal: "واردات المنقولين - المبالغ الكلية",
+    transferredCollected: "واردات المنقولين - المستحصلة",
+    otherRevenue: "واردات أخرى",
+    allTotal: "جميع الواردات - المبالغ الكلية", allCollected: "جميع الواردات - المستحصلة",
+    allDiscounts: "جميع الواردات - الخصومات", allRemaining: "جميع الواردات - الديون",
+    expenses: "المصروفات", salaries: "الرواتب",
+    collectionRatePct: "نسبة التحصيل %", availableBalance: "الرصيد المتاح",
+    monthlySalariesSheet: "الرواتب الشهرية", month: "الشهر",
+    expensesByTypeSheet: "المصاريف حسب النوع", type: "النوع",
+    printTitle: "التقرير المالي", operatingExpenses: "المصروفات التشغيلية",
+    summaryTitle: "ملخص مالي", totalRevenue: "إجمالي الواردات",
+    totalExpenses: "إجمالي المصاريف", netBalance: "الرصيد الصافي",
+    overallCollectionRate: "نسبة التحصيل الكلي",
+    revenueBreakdown: "تفصيل الواردات",
+    currentStudents: "الطلاب الحاليين", transferredStudents: "الطلاب المنقولين",
+    total: "الكلي", collected: "المستحصل", discounts: "الخصومات", outstanding: "الديون",
+    collectionRate: "نسبة التحصيل",
+    totalAmounts: "المبالغ الكلية", collectedAmounts: "المستحصلة", remainingDebts: "الديون المتبقية",
+    expensesByType: "المصاريف حسب النوع", noExpenses: "لا توجد مصاريف مسجلة",
+    monthlySalaries: "الرواتب الشهرية", noSalaries: "لا توجد رواتب مسجلة",
+  }, [isEn]);
+
   const allRevenueTotalFees = metrics.currentStudentsTotalFees + metrics.transferredStudentsTotalFees + metrics.otherRevenueTotal;
   const allRevenueCollected = metrics.currentStudentsCollected + metrics.transferredStudentsCollected + metrics.otherRevenueTotal;
   const allRevenueDiscounts = metrics.currentStudentsDiscounts + metrics.transferredStudentsDiscounts;
@@ -78,48 +149,48 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
     setExporting(true);
     try {
       await downloadExcelExport({
-        filename: `التقرير_المالي_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        filename: `${c.fileName}_${new Date().toISOString().slice(0, 10)}.xlsx`,
         sheets: [
           {
             name: "financial_summary",
-            title: "الملخص المالي",
+            title: c.summarySheet,
             columns: [
-              { header: "البند", key: "label", width: 35 },
-              { header: "المبلغ", key: "amount", width: 20, numFmt: "#,##0" as const },
+              { header: c.item, key: "label", width: 35 },
+              { header: c.amount, key: "amount", width: 20, numFmt: "#,##0" as const },
             ],
             rows: [
-              { label: "واردات الطلاب الحاليين - المبالغ الكلية", amount: metrics.currentStudentsTotalFees },
-              { label: "واردات الطلاب الحاليين - المستحصلة", amount: metrics.currentStudentsCollected },
-              { label: "واردات الطلاب الحاليين - الخصومات", amount: metrics.currentStudentsDiscounts },
-              { label: "واردات الطلاب الحاليين - الديون", amount: metrics.currentStudentsRemaining },
-              { label: "واردات المنقولين - المبالغ الكلية", amount: metrics.transferredStudentsTotalFees },
-              { label: "واردات المنقولين - المستحصلة", amount: metrics.transferredStudentsCollected },
-              { label: "واردات أخرى", amount: metrics.otherRevenueTotal },
-              { label: "جميع الواردات - المبالغ الكلية", amount: allRevenueTotalFees },
-              { label: "جميع الواردات - المستحصلة", amount: allRevenueCollected },
-              { label: "جميع الواردات - الخصومات", amount: allRevenueDiscounts },
-              { label: "جميع الواردات - الديون", amount: allRevenueRemaining },
-              { label: "المصروفات", amount: metrics.expenseVolume },
-              { label: "الرواتب", amount: metrics.salaryVolume },
-              { label: "نسبة التحصيل %", amount: collectionRate },
-              { label: "الرصيد المتاح", amount: availableBalance },
+              { label: c.currentTotal, amount: metrics.currentStudentsTotalFees },
+              { label: c.currentCollected, amount: metrics.currentStudentsCollected },
+              { label: c.currentDiscounts, amount: metrics.currentStudentsDiscounts },
+              { label: c.currentRemaining, amount: metrics.currentStudentsRemaining },
+              { label: c.transferredTotal, amount: metrics.transferredStudentsTotalFees },
+              { label: c.transferredCollected, amount: metrics.transferredStudentsCollected },
+              { label: c.otherRevenue, amount: metrics.otherRevenueTotal },
+              { label: c.allTotal, amount: allRevenueTotalFees },
+              { label: c.allCollected, amount: allRevenueCollected },
+              { label: c.allDiscounts, amount: allRevenueDiscounts },
+              { label: c.allRemaining, amount: allRevenueRemaining },
+              { label: c.expenses, amount: metrics.expenseVolume },
+              { label: c.salaries, amount: metrics.salaryVolume },
+              { label: c.collectionRatePct, amount: collectionRate },
+              { label: c.availableBalance, amount: availableBalance },
             ],
           },
           ...(metrics.salaryByMonth.length > 0 ? [{
             name: "monthly_salaries",
-            title: "الرواتب الشهرية",
+            title: c.monthlySalariesSheet,
             columns: [
-              { header: "الشهر", key: "month", width: 20 },
-              { header: "المبلغ", key: "total", width: 20, numFmt: "#,##0" as const },
+              { header: c.month, key: "month", width: 20 },
+              { header: c.amount, key: "total", width: 20, numFmt: "#,##0" as const },
             ],
-            rows: metrics.salaryByMonth.map((s) => ({ month: formatMonth(s.month), total: s.total })),
+            rows: metrics.salaryByMonth.map((s) => ({ month: formatMonth(s.month, isEn), total: s.total })),
           }] : []),
           ...(metrics.expensesByType.length > 0 ? [{
             name: "expenses_by_type",
-            title: "المصاريف حسب النوع",
+            title: c.expensesByTypeSheet,
             columns: [
-              { header: "النوع", key: "name", width: 30 },
-              { header: "المبلغ", key: "total", width: 20, numFmt: "#,##0" as const },
+              { header: c.type, key: "name", width: 30 },
+              { header: c.amount, key: "total", width: 20, numFmt: "#,##0" as const },
             ],
             rows: metrics.expensesByType.map((e) => ({ name: e.name, total: e.total })),
           }] : []),
@@ -130,25 +201,25 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
 
   const handlePrint = () => {
     const rows: [string, string][] = [
-      ["واردات الطلاب الحاليين - المستحصلة", `${currency} ${formatNumber(metrics.currentStudentsCollected)}`],
-      ["واردات المنقولين - المستحصلة", `${currency} ${formatNumber(metrics.transferredStudentsCollected)}`],
-      ["واردات أخرى", `${currency} ${formatNumber(metrics.otherRevenueTotal)}`],
-      ["جميع الواردات - المستحصلة", `${currency} ${formatNumber(allRevenueCollected)}`],
-      ["المصروفات التشغيلية", `${currency} ${formatNumber(metrics.expenseVolume)}`],
-      ["الرواتب", `${currency} ${formatNumber(metrics.salaryVolume)}`],
-      ["نسبة التحصيل", `${collectionRate}%`],
-      ["الرصيد المتاح", `${currency} ${formatNumber(availableBalance)}`],
+      [c.currentCollected, `${currency} ${formatNumber(metrics.currentStudentsCollected)}`],
+      [c.transferredCollected, `${currency} ${formatNumber(metrics.transferredStudentsCollected)}`],
+      [c.otherRevenue, `${currency} ${formatNumber(metrics.otherRevenueTotal)}`],
+      [c.allCollected, `${currency} ${formatNumber(allRevenueCollected)}`],
+      [c.operatingExpenses, `${currency} ${formatNumber(metrics.expenseVolume)}`],
+      [c.salaries, `${currency} ${formatNumber(metrics.salaryVolume)}`],
+      [c.collectionRate, `${collectionRate}%`],
+      [c.availableBalance, `${currency} ${formatNumber(availableBalance)}`],
     ];
     const html = wrapPrintDocument({
-      title: "التقرير المالي",
+      title: c.printTitle,
       branding: {
         schoolName: runtimeBranding.schoolName,
         logoUrl: runtimeBranding.logoUrl,
         primaryColor: runtimeBranding.primaryColor,
         secondaryColor: runtimeBranding.secondaryColor,
-        locale: "ar",
+        locale: isEn ? "en" : "ar",
       },
-      bodyHtml: `<table><thead><tr><th>البند</th><th>المبلغ</th></tr></thead>
+      bodyHtml: `<table><thead><tr><th>${c.item}</th><th>${c.amount}</th></tr></thead>
         <tbody>${rows.map(([l, v]) => `<tr><td>${l}</td><td style="font-weight:bold">${v}</td></tr>`).join("")}</tbody>
       </table>`,
     });
@@ -167,7 +238,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
           className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-secondary)] text-xs font-black hover:bg-[color-mix(in_srgb,var(--success)_10%,transparent)] hover:text-[var(--success)] hover:border-[color-mix(in_srgb,var(--success)_25%,transparent)] transition-all disabled:opacity-50"
         >
           <Download size={14} />
-          {exporting ? "جارٍ التصدير..." : "تحميل اكسل"}
+          {exporting ? c.exporting : c.exportExcel}
         </button>
         <button
           type="button"
@@ -175,7 +246,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
           className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-secondary)] text-xs font-black hover:bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] hover:text-[var(--primary)] hover:border-[color-mix(in_srgb,var(--primary)_25%,transparent)] transition-all"
         >
           <Printer size={14} />
-          طباعة
+          {c.print}
         </button>
       </div>
 
@@ -192,15 +263,15 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
             style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}>
             <TrendingUp size={18} />
           </div>
-          <h3 className="text-base font-black text-[var(--text-primary)]">ملخص مالي</h3>
+          <h3 className="text-base font-black text-[var(--text-primary)]">{c.summaryTitle}</h3>
         </div>
 
         {/* Metrics */}
         <div className="grid grid-cols-3 divide-x divide-x-reverse divide-[var(--border)]">
           {[
-            { label: "إجمالي الواردات", value: allRevenueCollected, color: "var(--success)", icon: ArrowUp },
-            { label: "إجمالي المصاريف", value: totalExpenses, color: "var(--danger)", icon: ArrowDown },
-            { label: "الرصيد الصافي", value: availableBalance, color: availableBalance >= 0 ? "var(--success)" : "var(--danger)", icon: TrendingUp },
+            { label: c.totalRevenue, value: allRevenueCollected, color: "var(--success)", icon: ArrowUp },
+            { label: c.totalExpenses, value: totalExpenses, color: "var(--danger)", icon: ArrowDown },
+            { label: c.netBalance, value: availableBalance, color: availableBalance >= 0 ? "var(--success)" : "var(--danger)", icon: TrendingUp },
           ].map((item, i) => {
             const Icon = item.icon;
             return (
@@ -224,7 +295,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
         <div className="px-6 pb-5">
           <div className="rounded-xl p-4" style={{ background: "color-mix(in srgb, var(--success) 5%, var(--surface-soft))" }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">نسبة التحصيل الكلي</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{c.overallCollectionRate}</span>
               <span className="text-sm font-black" style={{ color: collectionRate >= 80 ? "var(--success)" : collectionRate >= 50 ? "var(--warning)" : "var(--danger)" }}>
                 {collectionRate}%
               </span>
@@ -254,13 +325,13 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
             style={{ background: "color-mix(in srgb, var(--success) 12%, transparent)", color: "var(--success)" }}>
             <HandCoins size={18} />
           </div>
-          <h3 className="text-base font-black text-[var(--text-primary)]">تفصيل الواردات</h3>
+          <h3 className="text-base font-black text-[var(--text-primary)]">{c.revenueBreakdown}</h3>
         </div>
 
         <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
-              title: "الطلاب الحاليين",
+              title: c.currentStudents,
               icon: Users,
               color: "var(--info)",
               totalFees: metrics.currentStudentsTotalFees,
@@ -269,7 +340,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
               remaining: metrics.currentStudentsRemaining,
             },
             {
-              title: "الطلاب المنقولين",
+              title: c.transferredStudents,
               icon: Users,
               color: "var(--primary)",
               totalFees: metrics.transferredStudentsTotalFees,
@@ -278,7 +349,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
               remaining: metrics.transferredStudentsRemaining,
             },
             {
-              title: "واردات أخرى",
+              title: c.otherRevenue,
               icon: HandCoins,
               color: "var(--success)",
               totalFees: metrics.otherRevenueTotal,
@@ -301,10 +372,10 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
                 </div>
                 <div className="space-y-2.5">
                   {[
-                    { label: "الكلي", value: src.totalFees, color: "var(--text-primary)" },
-                    { label: "المستحصل", value: src.collected, color: "var(--success)" },
-                    { label: "الخصومات", value: src.discounts, color: "var(--warning)" },
-                    { label: "الديون", value: src.remaining, color: "var(--danger)" },
+                    { label: c.total, value: src.totalFees, color: "var(--text-primary)" },
+                    { label: c.collected, value: src.collected, color: "var(--success)" },
+                    { label: c.discounts, value: src.discounts, color: "var(--warning)" },
+                    { label: c.outstanding, value: src.remaining, color: "var(--danger)" },
                   ].map((row, j) => (
                     <div key={j} className="flex items-center justify-between gap-2 py-0.5">
                       <span className="text-xs font-bold text-[var(--text-muted)] shrink-0">{row.label}</span>
@@ -315,7 +386,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
                 {src.totalFees > 0 && (
                   <div className="mt-3 pt-3 border-t border-[var(--border)]">
                     <div className="flex justify-between text-[9px] font-black mb-1.5 text-[var(--text-muted)]">
-                      <span>نسبة التحصيل</span>
+                      <span>{c.collectionRate}</span>
                       <span style={{ color: src.color }}>{rate}%</span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden bg-[var(--border)]">
@@ -334,10 +405,10 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
         {/* All revenue summary row */}
         <div className="mx-5 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "المبالغ الكلية", value: allRevenueTotalFees, color: "var(--info)" },
-            { label: "المستحصلة", value: allRevenueCollected, color: "var(--success)" },
-            { label: "الخصومات", value: allRevenueDiscounts, color: "var(--warning)" },
-            { label: "الديون المتبقية", value: allRevenueRemaining, color: "var(--danger)" },
+            { label: c.totalAmounts, value: allRevenueTotalFees, color: "var(--info)" },
+            { label: c.collectedAmounts, value: allRevenueCollected, color: "var(--success)" },
+            { label: c.discounts, value: allRevenueDiscounts, color: "var(--warning)" },
+            { label: c.remainingDebts, value: allRevenueRemaining, color: "var(--danger)" },
           ].map((item, i) => (
             <div key={i} className="rounded-xl p-3 bg-[var(--surface-soft)] text-center">
               <div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">{item.label}</div>
@@ -363,7 +434,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
                 style={{ background: "color-mix(in srgb, var(--danger) 12%, transparent)", color: "var(--danger)" }}>
                 <Wallet size={18} />
               </div>
-              <h3 className="text-base font-black text-[var(--text-primary)]">المصاريف حسب النوع</h3>
+              <h3 className="text-base font-black text-[var(--text-primary)]">{c.expensesByType}</h3>
             </div>
             <span className="text-sm font-black" style={{ color: "var(--danger)" }}>{currency} {formatNumber(metrics.expenseVolume)}</span>
           </div>
@@ -375,7 +446,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
                   style={{ background: "color-mix(in srgb, var(--danger) 12%, transparent)", color: "var(--danger)" }}>
                   <Wallet size={18} />
                 </div>
-                <p className="text-sm font-bold text-[var(--text-muted)]">لا توجد مصاريف مسجلة</p>
+                <p className="text-sm font-bold text-[var(--text-muted)]">{c.noExpenses}</p>
               </div>
             ) : (
               metrics.expensesByType.map((item, idx) => {
@@ -419,7 +490,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
                 style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}>
                 <Briefcase size={18} />
               </div>
-              <h3 className="text-base font-black text-[var(--text-primary)]">الرواتب الشهرية</h3>
+              <h3 className="text-base font-black text-[var(--text-primary)]">{c.monthlySalaries}</h3>
             </div>
             <span className="text-sm font-black" style={{ color: "var(--primary)" }}>{currency} {formatNumber(metrics.salaryVolume)}</span>
           </div>
@@ -431,7 +502,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
                   style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}>
                   <Briefcase size={18} />
                 </div>
-                <p className="text-sm font-bold text-[var(--text-muted)]">لا توجد رواتب مسجلة</p>
+                <p className="text-sm font-bold text-[var(--text-muted)]">{c.noSalaries}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -447,7 +518,7 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-black text-[var(--text-muted)]">{formatMonth(item.month)}</span>
+                            <span className="text-[10px] font-black text-[var(--text-muted)]">{formatMonth(item.month, isEn)}</span>
                             <span className="text-xs font-black text-[var(--text-primary)]">{currency} {formatNumber(item.total)}</span>
                           </div>
                           <div className="h-1.5 rounded-full overflow-hidden bg-[var(--surface-soft)]">

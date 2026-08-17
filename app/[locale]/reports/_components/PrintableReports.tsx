@@ -6,6 +6,7 @@ import { FileText, Users, DollarSign, Loader2, CalendarDays, Search } from "@/li
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
+import { useRuntimeBranding } from "@/hooks/brand";
 import { useRole } from "@/hooks/useRole";
 import { resolveSchoolIdForProfile } from "@/lib/school/context";
 import { motion } from "framer-motion";
@@ -16,6 +17,17 @@ type StudentOption = { id: string; full_name: string; class_name: string | null 
 
 type ClassOption = { class_name: string; section_name: string | null };
 
+/**
+ * `toISOString()` is UTC. Baghdad is UTC+3, so before 03:00 local it hands back
+ * yesterday — the default report window opened on the wrong day.
+ */
+function toLocalIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function PrintableReports() {
@@ -24,6 +36,8 @@ export function PrintableReports() {
   const isEn = locale === "en";
   const { profile } = useRole();
   const schoolScope = useSchoolScope(profile);
+  const runtimeBranding = useRuntimeBranding();
+  const branchId = runtimeBranding.branchId;
 
   // Student grade report state
   const [students, setStudents] = useState<StudentOption[]>([]);
@@ -34,7 +48,6 @@ export function PrintableReports() {
   // Class attendance report state
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
-  const [selectedSection, setSelectedSection] = useState("");
   const [attFrom, setAttFrom] = useState("");
   const [attTo, setAttTo] = useState("");
   const [attLoading, setAttLoading] = useState(false);
@@ -43,6 +56,9 @@ export function PrintableReports() {
   const [finFrom, setFinFrom] = useState("");
   const [finTo, setFinTo] = useState("");
   const [finLoading, setFinLoading] = useState(false);
+
+  // Option loading used to fail silently, leaving empty dropdowns with no clue why.
+  const [optionsError, setOptionsError] = useState<string | null>(null);
 
   // ── Load students and classes ──────────────────────────────────────────────
 
@@ -54,9 +70,19 @@ export function PrintableReports() {
     if (!schoolId) return;
 
     const params = new URLSearchParams({ schoolId, type: "students" });
-    const { payload } = await fetchJsonWithAuthorizedSession<{
+    // Without the branch the student list — and the class list derived from it —
+    // spans the whole school while the rest of the page is branch-scoped.
+    if (branchId) params.set("branchId", branchId);
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{
       students?: Array<{ id: string; full_name: string; class_name: string | null }>;
+      error?: { message?: string };
     }>(`/api/web/reports/dataset?${params.toString()}`);
+
+    if (!response.ok) {
+      setOptionsError(payload?.error?.message ?? (isEn ? "Failed to load students." : "تعذر تحميل قائمة الطلاب."));
+      return;
+    }
+    setOptionsError(null);
 
     const studentsList = payload?.students ?? [];
     setStudents(studentsList);
@@ -74,13 +100,13 @@ export function PrintableReports() {
 
     // Default date range: current month
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-    const today = now.toISOString().split("T")[0];
+    const monthStart = toLocalIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    const today = toLocalIsoDate(now);
     setAttFrom(monthStart);
     setAttTo(today);
     setFinFrom(monthStart);
     setFinTo(today);
-  }, [profile, schoolScope.selectedSchoolId]);
+  }, [profile, schoolScope.selectedSchoolId, branchId, isEn]);
 
   useEffect(() => {
     if (!profile || schoolScope.scopeLoading) return;
@@ -101,11 +127,12 @@ export function PrintableReports() {
       const schoolId = await getSchoolId();
       if (!schoolId) return;
       const params = new URLSearchParams({ studentId: selectedStudentId, schoolId, locale });
+      if (branchId) params.set("branchId", branchId);
       window.open(`/api/web/reports/student-grades?${params.toString()}`, "_blank");
     } finally {
       setGradeLoading(false);
     }
-  }, [selectedStudentId, getSchoolId, locale]);
+  }, [selectedStudentId, getSchoolId, locale, branchId]);
 
   const openAttendanceReport = useCallback(async () => {
     if (!selectedClass || !attFrom || !attTo) return;
@@ -115,17 +142,17 @@ export function PrintableReports() {
       if (!schoolId) return;
       const params = new URLSearchParams({
         className: selectedClass,
-        section: selectedSection,
         schoolId,
         from: attFrom,
         to: attTo,
         locale,
       });
+      if (branchId) params.set("branchId", branchId);
       window.open(`/api/web/reports/class-attendance?${params.toString()}`, "_blank");
     } finally {
       setAttLoading(false);
     }
-  }, [selectedClass, selectedSection, attFrom, attTo, getSchoolId, locale]);
+  }, [selectedClass, attFrom, attTo, getSchoolId, locale, branchId]);
 
   const openFinancialReport = useCallback(async () => {
     if (!finFrom || !finTo) return;
@@ -134,11 +161,12 @@ export function PrintableReports() {
       const schoolId = await getSchoolId();
       if (!schoolId) return;
       const params = new URLSearchParams({ schoolId, from: finFrom, to: finTo, locale });
+      if (branchId) params.set("branchId", branchId);
       window.open(`/api/web/reports/financial-summary?${params.toString()}`, "_blank");
     } finally {
       setFinLoading(false);
     }
-  }, [finFrom, finTo, getSchoolId, locale]);
+  }, [finFrom, finTo, getSchoolId, locale, branchId]);
 
   // ── Filtered students ──────────────────────────────────────────────────────
 
@@ -330,6 +358,15 @@ export function PrintableReports() {
         </div>
         <div className="h-px flex-1 bg-[var(--border)]" />
       </div>
+
+      {optionsError && (
+        <div className="rounded-2xl border border-[var(--danger)]/30 bg-[var(--danger)]/5 px-5 py-3.5 flex items-center gap-3">
+          <div className="h-8 w-8 rounded-xl bg-[var(--danger)]/10 flex items-center justify-center text-[var(--danger)] shrink-0">
+            <span className="text-sm font-black">!</span>
+          </div>
+          <p className="text-sm font-black text-[var(--danger)]">{optionsError}</p>
+        </div>
+      )}
 
       {/* Cards */}
       <div className="grid gap-5 md:grid-cols-3">

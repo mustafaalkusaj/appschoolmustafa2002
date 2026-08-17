@@ -157,7 +157,12 @@ async function loadFallbackMetrics(
         .from("students")
         .select("class_name, total_fee, paid_fee, discount_value, status")
         .eq("school_id", schoolId)
-        .neq("status", "deleted"),
+        .neq("status", "deleted")
+        // A soft-deleted student keeps its old status, so filtering on status
+        // alone leaves it in every reports total while it is hidden from the
+        // students page, the exports and the mobile app.
+        .is("deleted_at", null)
+        .limit(MAX_FINANCIAL_ROWS),
       branchScope,
     ),
     // 1 — Class fees lookup (small table)
@@ -165,7 +170,8 @@ async function loadFallbackMetrics(
       actorSupabase
         .from("class_fees")
         .select("class_name, total_fee")
-        .eq("school_id", schoolId),
+        .eq("school_id", schoolId)
+        .limit(MAX_FINANCIAL_ROWS),
       branchScope,
     ),
     // 2 — Payments: amounts + COUNT via { count: "exact" }
@@ -214,7 +220,8 @@ async function loadFallbackMetrics(
       actorSupabase
         .from("salaries")
         .select("gross_salary, deductions, month")
-        .eq("school_id", schoolId),
+        .eq("school_id", schoolId)
+        .limit(MAX_FINANCIAL_ROWS),
       branchScope,
     ),
     // 7 — Current-month salary: SQL COUNT only

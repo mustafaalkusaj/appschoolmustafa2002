@@ -98,8 +98,15 @@ export async function GET(req: NextRequest) {
 
     query = applyBranchScopeToQuery(query, branchScope.value).order("created_at", { ascending: false });
 
+    // Soft-deleted students keep their previous status, so status alone is not
+    // enough to hide them.
+    query = query.is("deleted_at", null);
+
     if (studentStatus === "active") {
-      query = query.in("status", ["active", "graduated", "archived", "withdrawn"]);
+      // Default view: every student the reports page counts. The page excludes
+      // only `deleted`, so listing a narrower set here made the Excel/print
+      // exports disagree with the totals shown on screen.
+      query = query.neq("status", "deleted");
     } else {
       query = query.eq("status", studentStatus);
     }
@@ -276,7 +283,14 @@ export async function GET(req: NextRequest) {
       salaries,
       incomes,
     }, { headers: noStoreHeaders });
-  } catch {
+  } catch (error) {
+    // Without this the real PostgREST failure (a dropped column, a disabled
+    // feature, a broken embed) is invisible and the UI just shows zeros.
+    console.error("[reports/dataset] query failed", {
+      dataset,
+      schoolId: targetSchoolId,
+      error,
+    });
     return jsonError("تعذر تجهيز بيانات التقرير المطلوبة.", 500);
   }
 }

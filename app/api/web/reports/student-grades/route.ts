@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
       .from("students")
       .select("id, full_name, class_name, section")
       .eq("id", studentId)
-      .eq("school_id", targetSchoolId),
+      .eq("school_id", targetSchoolId)
+      .is("deleted_at", null),
     branchScope.value,
   ).maybeSingle();
 
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
   // Fetch grades. The grades table has subject_id (FK -> subjects) and a free-text
   // `exam_type`; it has NO `status`/`grade_type_id`/`grade_types` relation —
   // selecting those errored and rendered an empty report.
-  const { data: grades } = await applyBranchScopeToQuery(
+  const { data: grades, error: gradesError } = await applyBranchScopeToQuery(
     actorSupabase
       .from("grades")
       .select("id, subject_id, score, max_score, exam_type, subjects(name)")
@@ -60,6 +61,17 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: true }),
     branchScope.value,
   );
+
+  if (gradesError) {
+    // Same trap as the attendance report: an errored query is indistinguishable
+    // from "this student has no grades" once it reaches the PDF.
+    console.error("[reports/student-grades] grades query failed", {
+      schoolId: targetSchoolId,
+      studentId,
+      error: gradesError,
+    });
+    return jsonError("تعذر تحميل درجات الطالب.", 500);
+  }
 
   const entries = (grades ?? []).map((g: Record<string, unknown>) => {
     const subj = g.subjects as { name: string } | null;

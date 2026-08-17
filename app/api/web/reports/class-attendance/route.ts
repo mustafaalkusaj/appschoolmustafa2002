@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
       .from("attendance")
       .select("id, date, status, students!inner(full_name, class_name, section)")
       .eq("school_id", targetSchoolId)
+      .is("students.deleted_at", null)
       .gte("date", from)
       .lte("date", to),
     branchScope.value,
@@ -54,7 +55,19 @@ export async function GET(req: NextRequest) {
     query = query.eq("students.section", section);
   }
 
-  const { data: records } = await query.order("date", { ascending: true });
+  const { data: records, error: recordsError } = await query.order("date", {
+    ascending: true,
+  });
+  if (recordsError) {
+    // A failed query used to render as a report with zero rows, which reads as
+    // "nobody was ever marked present" instead of "the query broke".
+    console.error("[reports/class-attendance] attendance query failed", {
+      schoolId: targetSchoolId,
+      className,
+      error: recordsError,
+    });
+    return jsonError("تعذر تحميل بيانات الحضور.", 500);
+  }
 
   const rows = (records ?? []).map((r: Record<string, unknown>) => {
     const student = r.students as { full_name: string; class_name: string; section: string } | null;
