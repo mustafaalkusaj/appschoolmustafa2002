@@ -7,6 +7,7 @@ APP_USER="${APP_USER:-deploy}"
 APP_DIR="${APP_DIR:-/var/www/school-app}"
 APP_URL="${APP_URL:-https://school-iraq.com}"
 APP_PORT="${APP_PORT:-3001}"
+APP_SSH_PORT="${APP_SSH_PORT:-22}"
 SSH_KEY="${SSH_KEY:-/Users/musatafa/.ssh/school_deploy}"
 REMOTE="${APP_USER}@${APP_HOST}"
 
