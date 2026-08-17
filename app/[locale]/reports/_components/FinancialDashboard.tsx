@@ -90,12 +90,12 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
     allTotal: "All revenue - total fees", allCollected: "All revenue - collected",
     allDiscounts: "All revenue - discounts", allRemaining: "All revenue - outstanding",
     expenses: "Expenses", salaries: "Salaries",
-    collectionRatePct: "Collection rate %", availableBalance: "Available balance",
+    collectionRatePct: "Collection rate %",
     monthlySalariesSheet: "Monthly salaries", month: "Month",
     expensesByTypeSheet: "Expenses by type", type: "Type",
     printTitle: "Financial report", operatingExpenses: "Operating expenses",
     summaryTitle: "Financial summary", totalRevenue: "Total revenue",
-    totalExpenses: "Total expenses", netBalance: "Net balance",
+    totalExpenses: "Total expenses",
     overallCollectionRate: "Overall collection rate",
     revenueBreakdown: "Revenue breakdown",
     currentStudents: "Current students", transferredStudents: "Transferred students",
@@ -118,12 +118,12 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
     allTotal: "جميع الواردات - المبالغ الكلية", allCollected: "جميع الواردات - المستحصلة",
     allDiscounts: "جميع الواردات - الخصومات", allRemaining: "جميع الواردات - الديون",
     expenses: "المصروفات", salaries: "الرواتب",
-    collectionRatePct: "نسبة التحصيل %", availableBalance: "الرصيد المتاح",
+    collectionRatePct: "نسبة التحصيل %",
     monthlySalariesSheet: "الرواتب الشهرية", month: "الشهر",
     expensesByTypeSheet: "المصاريف حسب النوع", type: "النوع",
     printTitle: "التقرير المالي", operatingExpenses: "المصروفات التشغيلية",
     summaryTitle: "ملخص مالي", totalRevenue: "إجمالي الواردات",
-    totalExpenses: "إجمالي المصاريف", netBalance: "الرصيد الصافي",
+    totalExpenses: "إجمالي المصاريف",
     overallCollectionRate: "نسبة التحصيل الكلي",
     revenueBreakdown: "تفصيل الواردات",
     currentStudents: "الطلاب الحاليين", transferredStudents: "الطلاب المنقولين",
@@ -139,7 +139,6 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
   const allRevenueDiscounts = metrics.currentStudentsDiscounts + metrics.transferredStudentsDiscounts;
   const allRevenueRemaining = metrics.currentStudentsRemaining + metrics.transferredStudentsRemaining;
   const collectionRate = allRevenueTotalFees > 0 ? Math.round((allRevenueCollected / allRevenueTotalFees) * 100) : 0;
-  const availableBalance = allRevenueCollected - metrics.expenseVolume - metrics.salaryVolume;
   const totalExpenses = metrics.expenseVolume + metrics.salaryVolume;
 
   const runtimeBranding = useRuntimeBranding();
@@ -173,7 +172,6 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
               { label: c.expenses, amount: metrics.expenseVolume },
               { label: c.salaries, amount: metrics.salaryVolume },
               { label: c.collectionRatePct, amount: collectionRate },
-              { label: c.availableBalance, amount: availableBalance },
             ],
           },
           ...(metrics.salaryByMonth.length > 0 ? [{
@@ -208,7 +206,6 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
       [c.operatingExpenses, `${currency} ${formatNumber(metrics.expenseVolume)}`],
       [c.salaries, `${currency} ${formatNumber(metrics.salaryVolume)}`],
       [c.collectionRate, `${collectionRate}%`],
-      [c.availableBalance, `${currency} ${formatNumber(availableBalance)}`],
     ];
     const html = wrapPrintDocument({
       title: c.printTitle,
@@ -267,11 +264,10 @@ export function FinancialDashboard({ metrics, currency }: FinancialDashboardProp
         </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-3 divide-x divide-x-reverse divide-[var(--border)]">
+        <div className="grid grid-cols-2 divide-x divide-x-reverse divide-[var(--border)]">
           {[
             { label: c.totalRevenue, value: allRevenueCollected, color: "var(--success)", icon: ArrowUp },
             { label: c.totalExpenses, value: totalExpenses, color: "var(--danger)", icon: ArrowDown },
-            { label: c.netBalance, value: availableBalance, color: availableBalance >= 0 ? "var(--success)" : "var(--danger)", icon: TrendingUp },
           ].map((item, i) => {
             const Icon = item.icon;
             return (
