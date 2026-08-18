@@ -150,3 +150,36 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   if (error) return transportError("تعذر إزالة الطالب.", 500);
   return NextResponse.json({ ok: true });
 }
+
+/** Toggle a member's subscription flag (paid / due). */
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  const { routeId } = await params;
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const auth = await authorize(
+    req,
+    typeof body?.school_id === "string" ? body.school_id : null,
+    "manage_transport",
+  );
+  if (!auth.ok) return auth.error;
+  const { actorSupabase, targetSchoolId } = auth;
+
+  const membershipId = typeof body?.membership_id === "string" ? body.membership_id : "";
+  const status =
+    body?.subscription_status === "paid" || body?.subscription_status === "due" || body?.subscription_status === "overdue"
+      ? body.subscription_status
+      : null;
+  if (!membershipId || !status) return transportError("membership_id و subscription_status مطلوبة.", 400);
+
+  const { data, error } = await actorSupabase
+    .from("bus_route_students")
+    .update({ subscription_status: status, updated_at: new Date().toISOString() })
+    .eq("id", membershipId)
+    .eq("route_id", routeId)
+    .eq("school_id", targetSchoolId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) return transportError("تعذر تحديث حالة الاشتراك.", 500);
+  if (!data) return transportError("السجل غير موجود.", 404);
+  return NextResponse.json({ ok: true });
+}

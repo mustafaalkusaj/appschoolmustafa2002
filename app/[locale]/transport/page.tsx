@@ -37,6 +37,7 @@ type RouteRow = {
   monthly_fee: number;
   is_active: boolean;
   driver_id: string | null;
+  backup_driver_id: string | null;
   student_count: number;
   drivers: { full_name: string | null } | null;
 };
@@ -316,6 +317,88 @@ export default function TransportPage() {
     }
   }, [memberRoute, saving, getScopedSchoolId, openMembers, fetchAll]);
 
+  const mutate = useCallback(async (
+    path: string,
+    init: RequestInit,
+    failMessage: string,
+  ): Promise<{ credentials?: { username: string; password: string } } | null> => {
+    setSaving(true);
+    setFetchError(null);
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        credentials?: { username: string; password: string };
+        error?: { message?: string };
+      }>(path, init);
+      if (!response.ok) throw new Error(payload?.error?.message || failMessage);
+      await fetchAll();
+      return payload ?? {};
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : failMessage);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }, [fetchAll]);
+
+  const setDriverStatus = useCallback(async (driver: DriverRow, status: string) => {
+    const schoolId = await getScopedSchoolId();
+    if (!schoolId) return;
+    await mutate(`/api/web/transport/drivers/${driver.id}`, {
+      method: "PATCH",
+      headers: withJsonHeaders(),
+      body: JSON.stringify({ school_id: schoolId, status }),
+    }, "تعذر تحديث حالة السائق.");
+  }, [getScopedSchoolId, mutate]);
+
+  const deleteDriver = useCallback(async (driver: DriverRow) => {
+    if (!window.confirm(isEnglish ? `Delete ${driver.full_name}?` : `حذف السائق ${driver.full_name}؟ سيتم إلغاء تفعيل حسابه وفك ربطه من الخطوط.`)) return;
+    const schoolId = await getScopedSchoolId();
+    if (!schoolId) return;
+    await mutate(`/api/web/transport/drivers/${driver.id}?schoolId=${schoolId}`, { method: "DELETE" }, "تعذر حذف السائق.");
+  }, [getScopedSchoolId, mutate, isEnglish]);
+
+  const resetDriverPassword = useCallback(async (driver: DriverRow) => {
+    if (!window.confirm(isEnglish ? `Reset password for ${driver.full_name}?` : `إعادة تعيين كلمة مرور ${driver.full_name}؟ كلمة المرور القديمة ستتوقف فوراً.`)) return;
+    const schoolId = await getScopedSchoolId();
+    if (!schoolId) return;
+    const result = await mutate(`/api/web/transport/drivers/${driver.id}/account`, {
+      method: "PATCH",
+      headers: withJsonHeaders(),
+      body: JSON.stringify({ school_id: schoolId }),
+    }, "تعذر إعادة تعيين كلمة المرور.");
+    if (result?.credentials) setCredentials(result.credentials);
+  }, [getScopedSchoolId, mutate, isEnglish]);
+
+  const patchRoute = useCallback(async (route: RouteRow, patch: Record<string, unknown>, failMessage: string) => {
+    const schoolId = await getScopedSchoolId();
+    if (!schoolId) return;
+    await mutate(`/api/web/transport/routes/${route.id}`, {
+      method: "PATCH",
+      headers: withJsonHeaders(),
+      body: JSON.stringify({ school_id: schoolId, ...patch }),
+    }, failMessage);
+  }, [getScopedSchoolId, mutate]);
+
+  const deleteRoute = useCallback(async (route: RouteRow) => {
+    if (!window.confirm(isEnglish ? `Delete route ${route.name}?` : `حذف خط ${route.name}؟`)) return;
+    const schoolId = await getScopedSchoolId();
+    if (!schoolId) return;
+    await mutate(`/api/web/transport/routes/${route.id}?schoolId=${schoolId}`, { method: "DELETE" }, "تعذر حذف الخط.");
+  }, [getScopedSchoolId, mutate, isEnglish]);
+
+  const toggleSubscription = useCallback(async (m: MemberRow) => {
+    if (!memberRoute) return;
+    const schoolId = await getScopedSchoolId();
+    if (!schoolId) return;
+    const next = m.subscription_status === "paid" ? "due" : "paid";
+    const done = await mutate(`/api/web/transport/routes/${memberRoute.id}/students`, {
+      method: "PATCH",
+      headers: withJsonHeaders(),
+      body: JSON.stringify({ school_id: schoolId, membership_id: m.id, subscription_status: next }),
+    }, "تعذر تحديث حالة الاشتراك.");
+    if (done) await openMembers(memberRoute);
+  }, [memberRoute, getScopedSchoolId, mutate, openMembers]);
+
   const expiringDrivers = useMemo(
     () => drivers.filter((d) => licenseExpiringSoon(d.license_expiry)),
     [drivers],
@@ -521,6 +604,7 @@ export default function TransportPage() {
                                     isEnglish ? "Vehicle" : "السيارة",
                                     isEnglish ? "Status" : "الحالة",
                                     isEnglish ? "Login" : "حساب الدخول",
+                                    isEnglish ? "Actions" : "إجراءات",
                                   ].map((h) => (
                                     <th key={h} className="text-start px-4 py-3 text-[10px] font-black uppercase tracking-widest">{h}</th>
                                   ))}
@@ -529,7 +613,7 @@ export default function TransportPage() {
                               <tbody>
                                 {drivers.length === 0 && (
                                   <tr>
-                                    <td colSpan={7} className="px-4 py-10 text-center text-[var(--text-muted)] font-bold">
+                                    <td colSpan={8} className="px-4 py-10 text-center text-[var(--text-muted)] font-bold">
                                       {isEnglish ? "No drivers yet." : "لا يوجد سواق بعد."}
                                     </td>
                                   </tr>
@@ -552,19 +636,26 @@ export default function TransportPage() {
                                     </td>
                                     <td className="px-4 py-3">{[d.vehicle_model, d.vehicle_plate].filter(Boolean).join(" · ") || "—"}</td>
                                     <td className="px-4 py-3">
-                                      <span className={`px-2 py-0.5 rounded-lg text-xs font-black ${
-                                        d.status === "active"
-                                          ? "bg-[var(--success)]/10 text-[var(--success)]"
-                                          : "bg-[var(--warning)]/10 text-[var(--warning)]"
-                                      }`}>
-                                        {d.status === "active" ? (isEnglish ? "Active" : "نشط") : d.status === "on_leave" ? (isEnglish ? "On leave" : "إجازة") : (isEnglish ? "Suspended" : "موقوف")}
-                                      </span>
+                                      <select
+                                        value={d.status}
+                                        disabled={saving}
+                                        onChange={(e) => void setDriverStatus(d, e.target.value)}
+                                        className="h-8 px-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] text-xs font-black text-[var(--text-primary)] outline-none"
+                                      >
+                                        <option value="active">{isEnglish ? "Active" : "نشط"}</option>
+                                        <option value="on_leave">{isEnglish ? "On leave" : "إجازة"}</option>
+                                        <option value="suspended">{isEnglish ? "Suspended" : "موقوف"}</option>
+                                      </select>
                                     </td>
                                     <td className="px-4 py-3">
                                       {d.user_profile_id ? (
-                                        <span className="px-2 py-0.5 rounded-lg text-xs font-black bg-[var(--success)]/10 text-[var(--success)]">
-                                          {isEnglish ? "Created" : "مفعّل"}
-                                        </span>
+                                        <button
+                                          onClick={() => void resetDriverPassword(d)}
+                                          disabled={saving}
+                                          className="h-8 px-3 rounded-lg bg-[var(--warning)]/10 text-[var(--warning)] text-xs font-black disabled:opacity-40"
+                                        >
+                                          {isEnglish ? "Reset password" : "إعادة تعيين كلمة المرور"}
+                                        </button>
                                       ) : (
                                         <button
                                           onClick={() => void createDriverAccount(d)}
@@ -575,6 +666,15 @@ export default function TransportPage() {
                                           {isEnglish ? "Create login" : "إنشاء حساب"}
                                         </button>
                                       )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <button
+                                        onClick={() => void deleteDriver(d)}
+                                        disabled={saving}
+                                        className="h-8 px-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-black disabled:opacity-40"
+                                      >
+                                        {isEnglish ? "Delete" : "حذف"}
+                                      </button>
                                     </td>
                                   </tr>
                                 ))}
@@ -613,11 +713,59 @@ export default function TransportPage() {
                               <div className="text-xs text-[var(--text-muted)] font-bold flex items-center gap-2">
                                 <Users size={14} />
                                 {formatNumber(route.student_count)} {isEnglish ? "students" : "طالب"}
-                                <span>·</span>
-                                {route.drivers?.full_name ?? (isEnglish ? "No driver" : "بلا سائق")}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1 block">{isEnglish ? "Driver" : "السائق"}</label>
+                                  <select
+                                    value={route.driver_id ?? ""}
+                                    disabled={saving}
+                                    onChange={(e) => void patchRoute(route, { driver_id: e.target.value || null }, "تعذر إسناد السائق.")}
+                                    className="w-full h-9 px-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] text-xs font-black text-[var(--text-primary)] outline-none"
+                                  >
+                                    <option value="">{isEnglish ? "None" : "بلا"}</option>
+                                    {drivers.filter((d) => d.status === "active").map((d) => (
+                                      <option key={d.id} value={d.id}>{d.full_name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1 block">{isEnglish ? "Backup" : "السائق البديل"}</label>
+                                  <select
+                                    value={route.backup_driver_id ?? ""}
+                                    disabled={saving}
+                                    onChange={(e) => void patchRoute(route, { backup_driver_id: e.target.value || null }, "تعذر إسناد البديل.")}
+                                    className="w-full h-9 px-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] text-xs font-black text-[var(--text-primary)] outline-none"
+                                  >
+                                    <option value="">{isEnglish ? "None" : "بلا"}</option>
+                                    {drivers.filter((d) => d.status === "active" && d.id !== route.driver_id).map((d) => (
+                                      <option key={d.id} value={d.id}>{d.full_name}</option>
+                                    ))}
+                                  </select>
+                                </div>
                               </div>
                               <div className="text-sm font-black text-[var(--text-primary)] tabular-nums">
                                 {formatNumber(route.monthly_fee)} {isEnglish ? "IQD / month" : "د.ع / شهرياً"}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => void patchRoute(route, { is_active: !route.is_active }, "تعذر تغيير حالة الخط.")}
+                                  disabled={saving}
+                                  className={`h-9 rounded-xl text-xs font-black disabled:opacity-40 ${
+                                    route.is_active
+                                      ? "bg-[var(--warning)]/10 text-[var(--warning)]"
+                                      : "bg-[var(--success)]/10 text-[var(--success)]"
+                                  }`}
+                                >
+                                  {route.is_active ? (isEnglish ? "Deactivate" : "إيقاف الخط") : (isEnglish ? "Activate" : "تفعيل الخط")}
+                                </button>
+                                <button
+                                  onClick={() => void deleteRoute(route)}
+                                  disabled={saving}
+                                  className="h-9 rounded-xl bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-black disabled:opacity-40"
+                                >
+                                  {isEnglish ? "Delete" : "حذف الخط"}
+                                </button>
                               </div>
                               <button
                                 onClick={() => void openMembers(route)}
@@ -794,6 +942,17 @@ export default function TransportPage() {
                           <span className="font-black text-[var(--text-primary)] ms-1 select-all" dir="ltr">{m.dropoff_pin}</span>
                         </div>
                       </div>
+                      <button
+                        onClick={() => void toggleSubscription(m)}
+                        disabled={saving}
+                        className={`h-8 px-3 rounded-lg text-xs font-black disabled:opacity-40 shrink-0 ${
+                          m.subscription_status === "paid"
+                            ? "bg-[var(--success)]/10 text-[var(--success)]"
+                            : "bg-[var(--warning)]/10 text-[var(--warning)]"
+                        }`}
+                      >
+                        {m.subscription_status === "paid" ? (isEnglish ? "Paid" : "مدفوع") : (isEnglish ? "Due" : "مستحق")}
+                      </button>
                       <button
                         onClick={() => void removeMember(m.id)}
                         disabled={saving}

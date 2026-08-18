@@ -124,3 +124,62 @@ export async function POST(
     { status: 201 },
   );
 }
+
+/** Reset the driver's password. Returned once, like creation. */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ driverId: string }> },
+) {
+  const { driverId } = await params;
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const schoolId = typeof body?.school_id === "string" ? body.school_id : null;
+
+  const context = await resolveSchoolScopedActorContext(
+    schoolId,
+    { allowedRoles: ["super_admin", "admin"], roleDeniedMessage: "النقل المدرسي متاح للإدارة فقط." },
+    req.headers.get("authorization"),
+  );
+  if (!context.ok) {
+    return transportError(
+      "message" in context ? context.message : "غير مصرح.",
+      "status" in context ? context.status : 403,
+    );
+  }
+  const { actorSupabase, actorUserId, targetSchoolId } = context.value;
+  if (!(await routeUserHasPermission(actorSupabase, actorUserId, "manage_transport"))) {
+    return transportError("ليس لديك صلاحية إدارة النقل المدرسي.", 403);
+  }
+  const rateLimited = await enforceRateLimit(req, {
+    namespace: "transport-driver-account", windowMs: 60_000, maxHits: 10, identifier: actorUserId,
+  });
+  if (rateLimited) return rateLimited;
+
+  const service = createServiceSupabaseClient();
+  const { data: driver } = await service
+    .from("drivers")
+    .select("id, user_profile_id")
+    .eq("id", driverId)
+    .eq("school_id", targetSchoolId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!driver?.user_profile_id) return transportError("لا يوجد حساب دخول لهذا السائق.", 404);
+
+  const { data: profile } = await service
+    .from("user_profiles")
+    .select("email")
+    .eq("id", driver.user_profile_id)
+    .maybeSingle();
+
+  const password = generatePassword();
+  const { error } = await service.auth.admin.updateUserById(driver.user_profile_id, { password });
+  if (error) return transportError("تعذر إعادة تعيين كلمة المرور.", 500);
+
+  return NextResponse.json({
+    ok: true,
+    credentials: {
+      username: (profile?.email ?? "").replace("@schoolapp.local", ""),
+      email: profile?.email ?? "",
+      password,
+    },
+  });
+}
