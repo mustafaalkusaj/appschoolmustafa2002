@@ -55,6 +55,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: "مدير مدرسة",
   employee: "موظف",
   parent: "ولي أمر",
+  driver: "سائق",
 };
 
 function createInitialForm(baseRole: UserRole = "admin") {

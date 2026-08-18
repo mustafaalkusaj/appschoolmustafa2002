@@ -1,4 +1,9 @@
-export const ROLES = ["super_admin", "admin", "employee", "parent"] as const;
+// "driver" (school-transport module) is the narrowest role in the system: it
+// owns exactly one page, /driver, and the database gives it nothing outside its
+// own bus routes — current_school_id() returns null for it, which denies every
+// school-scoped policy at once. Everything it legitimately needs is served by
+// /api/web/driver/*, which authorises against public.drivers first.
+export const ROLES = ["super_admin", "admin", "employee", "parent", "driver"] as const;
 
 export type UserRole = (typeof ROLES)[number];
 
@@ -49,6 +54,8 @@ export const ALL_PERMISSIONS = [
   "manage_grade_schemes",
   "export_grades",
   "view_grade_analytics",
+  "view_transport",
+  "manage_transport",
   "full_access",
 ] as const;
 
@@ -63,6 +70,7 @@ const LEGACY_ROLE_MAP: Record<string, UserRole> = {
   employee: "employee",
   parent: "parent",
   guardian: "parent",
+  driver: "driver",
 };
 
 export function resolveKnownUserRole(role: string | null | undefined): UserRole | null {
@@ -120,6 +128,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "manage_grade_schemes",
     "export_grades",
     "view_grade_analytics",
+    "view_transport",
+    "manage_transport",
   ],
   employee: [
     "view_students",
@@ -142,6 +152,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "view_payments",
     "view_grades",
   ],
+  // Intentionally empty: a driver holds no platform permission at all. His page
+  // is gated by ROUTE_ACCESS_RULES on the role itself, and his data comes from
+  // routes that check public.drivers, never from a permission grant.
+  driver: [],
 };
 
 export const PERMISSION_GROUPS: Array<{
@@ -488,6 +502,18 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
     requiresActiveSchool: true,
   },
   {
+    pathPrefix: "/transport",
+    roles: ["super_admin", "admin"],
+    requiresActiveSchool: true,
+  },
+  // Must stay above the "/" catch-all below, which lists only the office roles
+  // and would otherwise lock a driver out of the single page he owns.
+  {
+    pathPrefix: "/driver",
+    roles: ["driver"],
+    requiresActiveSchool: true,
+  },
+  {
     pathPrefix: "/",
     roles: ["super_admin", "admin", "employee"],
     requiresActiveSchool: true,
@@ -505,6 +531,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pathPrefix: "/salaries", permissions: ["view_salaries"] },
   { pathPrefix: "/payroll", permissions: ["manage_salaries"] },
   { pathPrefix: "/reports", permissions: ["view_reports"] },
+  { pathPrefix: "/transport", permissions: ["view_transport"] },
   { pathPrefix: "/schools", permissions: ["manage_schools"] },
   { pathPrefix: "/subscriptions", permissions: ["manage_subscriptions"] },
   { pathPrefix: "/parent", permissions: ["view_students"] },
@@ -521,6 +548,7 @@ export const DEFAULT_PATH_BY_ROLE: Record<UserRole, string> = {
   admin: "/dashboard",
   employee: "/dashboard",
   parent: "/parent",
+  driver: "/driver",
 };
 
 export interface SidebarItem {
@@ -674,6 +702,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     label: "الإشعارات",
     href: "/notifications",
     iconToken: "📣",
+    roles: ["super_admin", "admin"],
+    group: "system",
+  },
+  {
+    id: "transport",
+    label: "النقل المدرسي",
+    href: "/transport",
+    iconToken: "🚌",
     roles: ["super_admin", "admin"],
     group: "system",
   },
