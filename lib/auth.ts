@@ -163,12 +163,12 @@ export function getDefaultRouteForProfile(profile: UserProfile | null) {
     return "/group";
   }
 
-  if (isBranchUserProfile(profile)) {
-    return "/branch-overview";
-  }
-
   if (profile?.default_path && profile.default_path.startsWith("/")) {
     return profile.default_path;
+  }
+
+  if (isBranchUserProfile(profile)) {
+    return "/branch-overview";
   }
 
   return profile ? getDefaultRouteForRole(profile.role) : "/dashboard";
