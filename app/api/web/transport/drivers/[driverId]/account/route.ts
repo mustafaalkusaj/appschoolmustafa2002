@@ -33,7 +33,7 @@ export async function POST(
 
   const context = await resolveSchoolScopedActorContext(
     schoolId,
-    { allowedRoles: ["super_admin", "admin"], roleDeniedMessage: "النقل المدرسي متاح للإدارة فقط." },
+    { allowedRoles: ["super_admin", "admin", "transport_manager"], roleDeniedMessage: "النقل المدرسي متاح للإدارة فقط." },
     req.headers.get("authorization"),
   );
   if (!context.ok) {
@@ -136,7 +136,7 @@ export async function PATCH(
 
   const context = await resolveSchoolScopedActorContext(
     schoolId,
-    { allowedRoles: ["super_admin", "admin"], roleDeniedMessage: "النقل المدرسي متاح للإدارة فقط." },
+    { allowedRoles: ["super_admin", "admin", "transport_manager"], roleDeniedMessage: "النقل المدرسي متاح للإدارة فقط." },
     req.headers.get("authorization"),
   );
   if (!context.ok) {

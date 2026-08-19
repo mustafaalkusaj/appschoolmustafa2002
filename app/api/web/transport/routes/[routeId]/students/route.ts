@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ routeId: string }> };
 async function authorize(req: NextRequest, schoolId: string | null, permission: "view_transport" | "manage_transport") {
   const context = await resolveSchoolScopedActorContext(
     schoolId,
-    { allowedRoles: ["super_admin", "admin"], roleDeniedMessage: "النقل المدرسي متاح للإدارة فقط." },
+    { allowedRoles: ["super_admin", "admin", "transport_manager"], roleDeniedMessage: "النقل المدرسي متاح للإدارة فقط." },
     req.headers.get("authorization"),
   );
   if (!context.ok) {
