@@ -79,6 +79,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   employee: "موظف",
   parent: "ولي الأمر",
   driver: "سائق",
+  transport_manager: "مدير النقل",
 };
 
 export const ROLE_LABELS_BY_LOCALE: Record<UserRole, { ar: string; en: string }> = {
@@ -87,6 +88,7 @@ export const ROLE_LABELS_BY_LOCALE: Record<UserRole, { ar: string; en: string }>
   employee: { ar: "موظف", en: "Employee" },
   parent: { ar: "ولي الأمر", en: "Parent/Guardian" },
   driver: { ar: "سائق", en: "Driver" },
+  transport_manager: { ar: "مدير النقل", en: "Transport Manager" },
 };
 
 export function getRoleLabel(role: UserRole, locale: "ar" | "en" = "ar"): string {
@@ -99,6 +101,7 @@ export const ROLE_COLORS: Record<UserRole, { bg: string; color: string }> = {
   employee: { bg: "#E0F2FE", color: "#0369A1" },
   parent: { bg: "#F3E8FF", color: "#6B21A8" },
   driver: { bg: "#FEF9C3", color: "#854D0E" },
+  transport_manager: { bg: "#D1FAE5", color: "#065F46" },
 };
 
 function normalizeDate(value: string | null | undefined): Date | null {

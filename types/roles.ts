@@ -3,7 +3,7 @@
 // own bus routes — current_school_id() returns null for it, which denies every
 // school-scoped policy at once. Everything it legitimately needs is served by
 // /api/web/driver/*, which authorises against public.drivers first.
-export const ROLES = ["super_admin", "admin", "employee", "parent", "driver"] as const;
+export const ROLES = ["super_admin", "admin", "employee", "parent", "driver", "transport_manager"] as const;
 
 export type UserRole = (typeof ROLES)[number];
 
@@ -71,6 +71,8 @@ const LEGACY_ROLE_MAP: Record<string, UserRole> = {
   parent: "parent",
   guardian: "parent",
   driver: "driver",
+  transport_manager: "transport_manager",
+  transport_admin: "transport_manager",
 };
 
 export function resolveKnownUserRole(role: string | null | undefined): UserRole | null {
@@ -156,6 +158,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // is gated by ROUTE_ACCESS_RULES on the role itself, and his data comes from
   // routes that check public.drivers, never from a permission grant.
   driver: [],
+  transport_manager: [
+    "view_transport",
+    "manage_transport",
+    "view_students",
+  ],
 };
 
 export const PERMISSION_GROUPS: Array<{
@@ -268,6 +275,13 @@ export const PERMISSION_GROUPS: Array<{
       { key: "manage_grade_schemes", label: "إدارة توزيع الدرجات" },
       { key: "export_grades", label: "تصدير الدرجات" },
       { key: "view_grade_analytics", label: "تحليلات الدرجات" },
+    ],
+  },
+  {
+    title: "النقل المدرسي",
+    permissions: [
+      { key: "view_transport", label: "عرض النقل المدرسي" },
+      { key: "manage_transport", label: "إدارة النقل المدرسي" },
     ],
   },
   {
@@ -502,6 +516,11 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
     requiresActiveSchool: true,
   },
   {
+    pathPrefix: "/transport-admin",
+    roles: ["transport_manager"],
+    requiresActiveSchool: true,
+  },
+  {
     pathPrefix: "/transport",
     roles: ["super_admin", "admin"],
     requiresActiveSchool: true,
@@ -531,6 +550,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pathPrefix: "/salaries", permissions: ["view_salaries"] },
   { pathPrefix: "/payroll", permissions: ["manage_salaries"] },
   { pathPrefix: "/reports", permissions: ["view_reports"] },
+  { pathPrefix: "/transport-admin", permissions: ["view_transport"] },
   { pathPrefix: "/transport", permissions: ["view_transport"] },
   { pathPrefix: "/schools", permissions: ["manage_schools"] },
   { pathPrefix: "/subscriptions", permissions: ["manage_subscriptions"] },
@@ -549,6 +569,7 @@ export const DEFAULT_PATH_BY_ROLE: Record<UserRole, string> = {
   employee: "/dashboard",
   parent: "/parent",
   driver: "/driver",
+  transport_manager: "/transport-admin",
 };
 
 export interface SidebarItem {
@@ -759,6 +780,38 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/branch-overview",
     iconToken: "📊",
     roles: ["admin", "employee"],
+    group: "general",
+  },
+  {
+    id: "transport-admin-dashboard",
+    label: "لوحة النقل",
+    href: "/transport-admin",
+    iconToken: "📊",
+    roles: ["transport_manager"],
+    group: "general",
+  },
+  {
+    id: "transport-admin-drivers",
+    label: "السواق",
+    href: "/transport-admin/drivers",
+    iconToken: "🚗",
+    roles: ["transport_manager"],
+    group: "general",
+  },
+  {
+    id: "transport-admin-routes",
+    label: "الخطوط",
+    href: "/transport-admin/routes",
+    iconToken: "🛤️",
+    roles: ["transport_manager"],
+    group: "general",
+  },
+  {
+    id: "transport-admin-trips",
+    label: "الرحلات",
+    href: "/transport-admin/trips",
+    iconToken: "🚌",
+    roles: ["transport_manager"],
     group: "general",
   },
   {
