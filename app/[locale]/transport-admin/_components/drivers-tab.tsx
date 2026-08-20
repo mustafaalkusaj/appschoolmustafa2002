@@ -6,9 +6,10 @@ import { cn } from "@/lib/brand/brand-utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import {
-  Plus, Pencil, Trash2, KeyRound, Phone, CheckCircle2, Loader2, UserRoundPlus, RefreshCw,
+  Plus, Pencil, Trash2, KeyRound, Phone, CheckCircle2, Loader2, UserRoundPlus, RefreshCw, Eye,
 } from "@/lib/icons";
 import { ConfirmDialog, CredentialsDialog } from "./dialogs";
+import { DriverDetail } from "./driver-detail";
 import type { DriverRow, Credentials } from "./types";
 
 type DriverForm = {
@@ -130,6 +131,17 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
   const [credOpen, setCredOpen] = useState(false);
   const [accountLoading, setAccountLoading] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null);
+
+  if (selectedDriver) {
+    return (
+      <DriverDetail
+        driver={selectedDriver}
+        onBack={() => setSelectedDriver(null)}
+        onRefresh={onRefresh}
+      />
+    );
+  }
 
   const openAdd = () => { setEditDriver(null); setFormOpen(true); };
   const openEdit = (d: DriverRow) => { setEditDriver(d); setFormOpen(true); };
@@ -234,6 +246,9 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => setSelectedDriver(d)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--success)_10%,transparent)] hover:text-[var(--success)] transition-colors" title="تفاصيل">
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
                         <button onClick={() => openEdit(d)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] hover:text-[var(--primary)] transition-colors" title="تعديل">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>

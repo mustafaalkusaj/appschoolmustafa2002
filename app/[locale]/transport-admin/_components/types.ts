@@ -45,3 +45,34 @@ export type StudentCandidate = {
   full_name: string;
   class_name: string | null;
 };
+
+export type DriverDocument = {
+  id: string;
+  slot_number: number;
+  label: string;
+  photo_url: string;
+  created_at: string;
+};
+
+export type DriverStudentInfo = {
+  id: string;
+  full_name: string;
+  class_name: string | null;
+  phone: string | null;
+  guardian_name: string | null;
+  guardian_phone: string | null;
+  gender: string | null;
+  photo_url: string | null;
+  section: string | null;
+  address: string | null;
+  date_of_birth: string | null;
+  registration_number: string | null;
+};
+
+export type DriverStudentMember = {
+  id: string;
+  route_id: string;
+  student_id: string;
+  subscription_status: string;
+  students: DriverStudentInfo | null;
+};

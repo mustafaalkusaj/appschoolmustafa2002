@@ -5,12 +5,13 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type StorageBucket = "avatars" | "attachments" | "exam-photos";
+export type StorageBucket = "avatars" | "attachments" | "exam-photos" | "driver-documents";
 
 const BUCKET_CONFIG: Record<StorageBucket, { public: boolean }> = {
   avatars: { public: true },
   attachments: { public: true },
   "exam-photos": { public: true },
+  "driver-documents": { public: true },
 };
 
 /**
