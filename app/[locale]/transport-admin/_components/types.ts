@@ -5,8 +5,18 @@ export type DriverRow = {
   national_id: string | null;
   license_number: string | null;
   license_expiry: string | null;
+  license_type: string | null;
   vehicle_plate: string | null;
   vehicle_model: string | null;
+  vehicle_color: string | null;
+  vehicle_year: string | null;
+  address: string | null;
+  date_of_birth: string | null;
+  blood_type: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  insurance_expiry: string | null;
+  inspection_expiry: string | null;
   status: string;
   notes: string | null;
   user_profile_id: string | null;

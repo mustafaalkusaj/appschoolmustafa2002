@@ -16,16 +16,29 @@ type DriverForm = {
   full_name: string;
   phone: string;
   national_id: string;
+  address: string;
+  date_of_birth: string;
+  blood_type: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
   license_number: string;
   license_expiry: string;
+  license_type: string;
   vehicle_plate: string;
   vehicle_model: string;
+  vehicle_color: string;
+  vehicle_year: string;
+  insurance_expiry: string;
+  inspection_expiry: string;
   notes: string;
 };
 
 const EMPTY_FORM: DriverForm = {
-  full_name: "", phone: "", national_id: "", license_number: "",
-  license_expiry: "", vehicle_plate: "", vehicle_model: "", notes: "",
+  full_name: "", phone: "", national_id: "", address: "",
+  date_of_birth: "", blood_type: "", emergency_contact_name: "",
+  emergency_contact_phone: "", license_number: "", license_expiry: "",
+  license_type: "", vehicle_plate: "", vehicle_model: "", vehicle_color: "",
+  vehicle_year: "", insurance_expiry: "", inspection_expiry: "", notes: "",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -49,7 +62,18 @@ function DriverFormDialog({
   const isEdit = Boolean(driver);
   const [form, setForm] = useState<DriverForm>(
     driver
-      ? { full_name: driver.full_name, phone: driver.phone || "", national_id: driver.national_id || "", license_number: driver.license_number || "", license_expiry: driver.license_expiry || "", vehicle_plate: driver.vehicle_plate || "", vehicle_model: driver.vehicle_model || "", notes: driver.notes || "" }
+      ? {
+          full_name: driver.full_name, phone: driver.phone || "",
+          national_id: driver.national_id || "", address: driver.address || "",
+          date_of_birth: driver.date_of_birth || "", blood_type: driver.blood_type || "",
+          emergency_contact_name: driver.emergency_contact_name || "",
+          emergency_contact_phone: driver.emergency_contact_phone || "",
+          license_number: driver.license_number || "", license_expiry: driver.license_expiry || "",
+          license_type: driver.license_type || "", vehicle_plate: driver.vehicle_plate || "",
+          vehicle_model: driver.vehicle_model || "", vehicle_color: driver.vehicle_color || "",
+          vehicle_year: driver.vehicle_year || "", insurance_expiry: driver.insurance_expiry || "",
+          inspection_expiry: driver.inspection_expiry || "", notes: driver.notes || "",
+        }
       : { ...EMPTY_FORM },
   );
   const [saving, setSaving] = useState(false);
@@ -74,14 +98,24 @@ function DriverFormDialog({
     onClose();
   };
 
-  const fields: { key: keyof DriverForm; label: string; type?: string; required?: boolean }[] = [
-    { key: "full_name", label: "الاسم الكامل", required: true },
-    { key: "phone", label: "رقم الهاتف" },
-    { key: "national_id", label: "رقم الهوية" },
-    { key: "license_number", label: "رقم الرخصة" },
-    { key: "license_expiry", label: "انتهاء الرخصة", type: "date" },
-    { key: "vehicle_plate", label: "لوحة المركبة" },
-    { key: "vehicle_model", label: "نوع المركبة" },
+  const fields: { key: keyof DriverForm; label: string; type?: string; required?: boolean; section?: string }[] = [
+    { key: "full_name", label: "الاسم الكامل", required: true, section: "المعلومات الشخصية" },
+    { key: "phone", label: "رقم الهاتف", section: "المعلومات الشخصية" },
+    { key: "national_id", label: "رقم الهوية", section: "المعلومات الشخصية" },
+    { key: "date_of_birth", label: "تاريخ الميلاد", type: "date", section: "المعلومات الشخصية" },
+    { key: "blood_type", label: "فصيلة الدم", section: "المعلومات الشخصية" },
+    { key: "address", label: "العنوان", section: "المعلومات الشخصية" },
+    { key: "emergency_contact_name", label: "اسم جهة الطوارئ", section: "الطوارئ" },
+    { key: "emergency_contact_phone", label: "هاتف الطوارئ", section: "الطوارئ" },
+    { key: "license_number", label: "رقم الرخصة", section: "الرخصة" },
+    { key: "license_type", label: "نوع الرخصة", section: "الرخصة" },
+    { key: "license_expiry", label: "انتهاء الرخصة", type: "date", section: "الرخصة" },
+    { key: "vehicle_plate", label: "لوحة المركبة", section: "المركبة" },
+    { key: "vehicle_model", label: "نوع المركبة", section: "المركبة" },
+    { key: "vehicle_color", label: "لون المركبة", section: "المركبة" },
+    { key: "vehicle_year", label: "سنة الصنع", section: "المركبة" },
+    { key: "insurance_expiry", label: "انتهاء التأمين", type: "date", section: "المركبة" },
+    { key: "inspection_expiry", label: "انتهاء الفحص", type: "date", section: "المركبة" },
     { key: "notes", label: "ملاحظات" },
   ];
 
@@ -89,30 +123,8 @@ function DriverFormDialog({
     <Modal open={open} onClose={onClose} size="lg">
       <ModalHeader title={isEdit ? "تعديل سائق" : "اضافة سائق"} />
       <ModalBody>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {fields.map((f) => (
-            <div key={f.key} className={f.key === "notes" ? "sm:col-span-2" : ""}>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                {f.label} {f.required && <span className="text-[var(--danger)]">*</span>}
-              </label>
-              {f.key === "notes" ? (
-                <textarea
-                  value={form[f.key]}
-                  onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                  rows={2}
-                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--success)]/30 resize-none"
-                />
-              ) : (
-                <input
-                  type={f.type || "text"}
-                  value={form[f.key]}
-                  onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--success)]/30"
-                  dir={f.key === "phone" || f.key === "license_number" || f.key === "national_id" || f.key === "vehicle_plate" ? "ltr" : undefined}
-                />
-              )}
-            </div>
-          ))}
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pe-1">
+          {renderFormSections(fields, form, setForm)}
         </div>
         {error && <p className="mt-3 text-sm text-[var(--danger)]">{error}</p>}
       </ModalBody>
@@ -127,6 +139,48 @@ function DriverFormDialog({
       </ModalFooter>
     </Modal>
   );
+}
+
+const LTR_KEYS = new Set(["phone", "national_id", "license_number", "vehicle_plate", "vehicle_year", "emergency_contact_phone"]);
+const INPUT_CLS = "w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--success)]/30";
+
+type FormField = { key: keyof DriverForm; label: string; type?: string; required?: boolean; section?: string };
+
+function renderFormSections(
+  fields: FormField[],
+  form: DriverForm,
+  setForm: (f: DriverForm) => void,
+) {
+  const sections: { title: string | null; items: FormField[] }[] = [];
+  for (const f of fields) {
+    const title = f.section ?? null;
+    const last = sections[sections.length - 1];
+    if (last && last.title === title) { last.items.push(f); }
+    else { sections.push({ title, items: [f] }); }
+  }
+  return sections.map((sec, i) => (
+    <div key={i}>
+      {sec.title && (
+        <p className="text-xs font-bold text-[var(--success)] mb-2 border-b border-[var(--border)] pb-1">
+          {sec.title}
+        </p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {sec.items.map((f) => (
+          <div key={f.key} className={f.key === "notes" ? "sm:col-span-2" : ""}>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+              {f.label} {f.required && <span className="text-[var(--danger)]">*</span>}
+            </label>
+            {f.key === "notes" ? (
+              <textarea value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} rows={2} className={cn(INPUT_CLS, "resize-none")} />
+            ) : (
+              <input type={f.type || "text"} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className={INPUT_CLS} dir={LTR_KEYS.has(f.key) ? "ltr" : undefined} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  ));
 }
 
 export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRefresh: () => void }) {

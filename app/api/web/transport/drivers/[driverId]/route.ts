@@ -33,7 +33,10 @@ async function authorize(req: NextRequest, schoolId: string | null) {
 
 const EDITABLE = [
   "full_name", "phone", "national_id", "license_number", "license_expiry",
-  "vehicle_plate", "vehicle_model", "notes",
+  "license_type", "vehicle_plate", "vehicle_model", "vehicle_color",
+  "vehicle_year", "address", "date_of_birth", "blood_type",
+  "emergency_contact_name", "emergency_contact_phone",
+  "insurance_expiry", "inspection_expiry", "notes",
 ] as const;
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {

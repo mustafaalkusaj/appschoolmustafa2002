@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   ArrowLeft, Upload, Trash2, Phone, CalendarDays, User,
   Users, Loader2, Image, FileText, Search, GraduationCap, X,
+  MapPin, Activity, AlertTriangle, Bus,
 } from "@/lib/icons";
 import type { DriverRow, DriverDocument, DriverStudentMember } from "./types";
 
@@ -128,7 +129,7 @@ export function DriverDetail({ driver, onBack, onRefresh }: Props) {
       <Card>
         <CardHeader className="border-b border-[var(--border)]">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
-            <User className="h-4 w-4 text-[var(--success)]" /> معلومات السائق
+            <User className="h-4 w-4 text-[var(--success)]" /> المعلومات الشخصية
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
@@ -136,15 +137,68 @@ export function DriverDetail({ driver, onBack, onRefresh }: Props) {
             <InfoField label="الاسم الكامل" value={driver.full_name} />
             <InfoField label="رقم الهاتف" value={driver.phone} dir="ltr" icon={<Phone className="h-3.5 w-3.5 text-[var(--success)]" />} />
             <InfoField label="رقم الهوية" value={driver.national_id} dir="ltr" />
-            <InfoField label="رقم الرخصة" value={driver.license_number} dir="ltr" />
-            <InfoField label="انتهاء الرخصة" value={driver.license_expiry} icon={<CalendarDays className="h-3.5 w-3.5 text-[var(--warning)]" />} />
-            <InfoField label="لوحة المركبة" value={driver.vehicle_plate} dir="ltr" />
-            <InfoField label="نوع المركبة" value={driver.vehicle_model} />
+            <InfoField label="تاريخ الميلاد" value={driver.date_of_birth} icon={<CalendarDays className="h-3.5 w-3.5 text-[var(--primary)]" />} />
+            <InfoField label="فصيلة الدم" value={driver.blood_type} icon={<Activity className="h-3.5 w-3.5 text-[var(--danger)]" />} />
+            <InfoField label="العنوان" value={driver.address} icon={<MapPin className="h-3.5 w-3.5 text-[var(--primary)]" />} />
             <InfoField label="الحالة" value={driver.status === "active" ? "نشط" : driver.status === "suspended" ? "موقف" : driver.status === "on_leave" ? "اجازة" : "متوقف"} />
-            {driver.notes && <InfoField label="ملاحظات" value={driver.notes} className="sm:col-span-2 lg:col-span-3" />}
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="border-b border-[var(--border)]">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-[var(--danger)]" /> الطوارئ
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InfoField label="اسم جهة الطوارئ" value={driver.emergency_contact_name} />
+            <InfoField label="هاتف الطوارئ" value={driver.emergency_contact_phone} dir="ltr" icon={<Phone className="h-3.5 w-3.5 text-[var(--danger)]" />} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b border-[var(--border)]">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[var(--warning)]" /> الرخصة
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoField label="رقم الرخصة" value={driver.license_number} dir="ltr" />
+            <InfoField label="نوع الرخصة" value={driver.license_type} />
+            <InfoField label="انتهاء الرخصة" value={driver.license_expiry} icon={<CalendarDays className="h-3.5 w-3.5 text-[var(--warning)]" />} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b border-[var(--border)]">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <Bus className="h-4 w-4 text-[var(--primary)]" /> المركبة
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoField label="لوحة المركبة" value={driver.vehicle_plate} dir="ltr" />
+            <InfoField label="نوع المركبة" value={driver.vehicle_model} />
+            <InfoField label="لون المركبة" value={driver.vehicle_color} />
+            <InfoField label="سنة الصنع" value={driver.vehicle_year} dir="ltr" />
+            <InfoField label="انتهاء التأمين" value={driver.insurance_expiry} icon={<CalendarDays className="h-3.5 w-3.5 text-[var(--warning)]" />} />
+            <InfoField label="انتهاء الفحص" value={driver.inspection_expiry} icon={<CalendarDays className="h-3.5 w-3.5 text-[var(--warning)]" />} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {driver.notes && (
+        <Card>
+          <CardContent className="pt-4">
+            <InfoField label="ملاحظات" value={driver.notes} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="border-b border-[var(--border)]">

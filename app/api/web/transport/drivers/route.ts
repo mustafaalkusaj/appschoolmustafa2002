@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await applyBranchScopeToQuery(
     actorSupabase
       .from("drivers")
-      .select("id, full_name, phone, national_id, license_number, license_expiry, vehicle_plate, vehicle_model, vehicle_photo_url, status, notes, user_profile_id, branch_id, created_at")
+      .select("id, full_name, phone, national_id, license_number, license_expiry, license_type, vehicle_plate, vehicle_model, vehicle_color, vehicle_year, vehicle_photo_url, address, date_of_birth, blood_type, emergency_contact_name, emergency_contact_phone, insurance_expiry, inspection_expiry, status, notes, user_profile_id, branch_id, created_at")
       .eq("school_id", targetSchoolId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -105,8 +105,18 @@ export async function POST(req: NextRequest) {
       national_id: asText("national_id"),
       license_number: asText("license_number"),
       license_expiry: asText("license_expiry"),
+      license_type: asText("license_type"),
       vehicle_plate: asText("vehicle_plate"),
       vehicle_model: asText("vehicle_model"),
+      vehicle_color: asText("vehicle_color"),
+      vehicle_year: asText("vehicle_year"),
+      address: asText("address"),
+      date_of_birth: asText("date_of_birth"),
+      blood_type: asText("blood_type"),
+      emergency_contact_name: asText("emergency_contact_name"),
+      emergency_contact_phone: asText("emergency_contact_phone"),
+      insurance_expiry: asText("insurance_expiry"),
+      inspection_expiry: asText("inspection_expiry"),
       notes: asText("notes"),
     })
     .select("id")
