@@ -54,8 +54,8 @@ export async function POST(req: NextRequest) {
         app_name: String(app_name).trim(),
         bundle_id_ios: bundle_id_ios ? String(bundle_id_ios).trim() : null,
         package_name_android: package_name_android ? String(package_name_android).trim() : null,
-        ios_status: ios_status ?? "draft",
-        android_status: android_status ?? "draft",
+        ios_status: typeof ios_status === "string" ? ios_status : "draft",
+        android_status: typeof android_status === "string" ? android_status : "draft",
         app_store_url: app_store_url ? String(app_store_url).trim() : null,
         play_store_url: play_store_url ? String(play_store_url).trim() : null,
         current_version: current_version ? String(current_version) : "1.0.0",
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         force_update: force_update === true,
         app_icon_url: app_icon_url ? String(app_icon_url) : null,
         splash_image_url: splash_image_url ? String(splash_image_url) : null,
-        login_style: login_style ?? "default",
+        login_style: typeof login_style === "string" ? login_style : "default",
         updated_at: new Date().toISOString(),
       }, { onConflict: "school_id" })
       .select("*")
