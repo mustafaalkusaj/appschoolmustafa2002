@@ -38,12 +38,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function DriverFormDialog({
-  open, onClose, driver, onSaved,
+  open, onClose, driver, onSaved, onAccountCreated,
 }: {
   open: boolean;
   onClose: () => void;
   driver: DriverRow | null;
   onSaved: () => void;
+  onAccountCreated?: (creds: Credentials) => void;
 }) {
   const isEdit = Boolean(driver);
   const [form, setForm] = useState<DriverForm>(
@@ -60,9 +61,15 @@ function DriverFormDialog({
     setError(null);
     const url = isEdit ? `/api/web/transport/drivers/${driver!.id}` : "/api/web/transport/drivers";
     const method = isEdit ? "PATCH" : "POST";
-    const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok?: boolean; error?: { message?: string } }>(url, { method, body: JSON.stringify(form) });
+    const { response, payload } = await fetchJsonWithAuthorizedSession<{ ok?: boolean; id?: string; error?: { message?: string } }>(url, { method, body: JSON.stringify(form) });
+    if (!response.ok || !payload?.ok) { setSaving(false); setError(payload?.error?.message || "فشل الحفظ"); return; }
+    if (!isEdit && payload.id && onAccountCreated) {
+      const { payload: accPayload } = await fetchJsonWithAuthorizedSession<{ ok?: boolean; credentials?: Credentials }>(
+        `/api/web/transport/drivers/${payload.id}/account`, { method: "POST", body: "{}" },
+      );
+      if (accPayload?.credentials) onAccountCreated(accPayload.credentials);
+    }
     setSaving(false);
-    if (!response.ok || !payload?.ok) { setError(payload?.error?.message || "فشل الحفظ"); return; }
     onSaved();
     onClose();
   };
@@ -212,7 +219,11 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
               <tbody>
                 {drivers.map((d) => (
                   <tr key={d.id} className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--surface-soft)] transition-colors">
-                    <td className="px-4 py-2.5 font-medium text-[var(--text-primary)]">{d.full_name}</td>
+                    <td className="px-4 py-2.5">
+                          <button onClick={() => setSelectedDriver(d)} className="font-medium text-[var(--primary)] hover:underline">
+                            {d.full_name}
+                          </button>
+                        </td>
                     <td className="px-4 py-2.5 text-[var(--text-secondary)]">
                       {d.phone ? <span className="flex items-center gap-1 text-[var(--success)]"><Phone className="h-3 w-3" /> {d.phone}</span> : "—"}
                     </td>
@@ -271,6 +282,7 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
           onClose={() => { setFormOpen(false); setEditDriver(null); }}
           driver={editDriver}
           onSaved={onRefresh}
+          onAccountCreated={(creds) => { setCredentials(creds); setCredOpen(true); }}
         />
       )}
 
