@@ -34,6 +34,12 @@ export default function Error({
           العودة للرئيسية
         </Button>
       </div>
+      <pre dir="ltr" className="mt-8 max-w-2xl w-full text-start text-xs bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 p-4 rounded-lg overflow-auto whitespace-pre-wrap break-words">
+        {error?.message || "Unknown error"}
+        {error?.digest ? `\nDigest: ${error.digest}` : ""}
+        {"\n\n"}
+        {error?.stack || "No stack trace"}
+      </pre>
     </div>
   );
 }
