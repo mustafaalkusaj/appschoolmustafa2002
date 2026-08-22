@@ -19,8 +19,17 @@ export default function Error({
   useEffect(() => {
     console.error("[LocaleError] Route error:", error?.message || error);
     console.error("[LocaleError] Stack:", error?.stack);
-    void error;
-  }, [error]);
+    fetch("/api/client-error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: error?.message || "Unknown",
+        stack: error?.stack || "No stack",
+        digest: error?.digest,
+        pathname,
+      }),
+    }).catch(() => {});
+  }, [error, pathname]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
