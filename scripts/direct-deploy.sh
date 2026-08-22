@@ -26,6 +26,7 @@ require_cmd scp
 require_cmd curl
 
 SSH_ARGS=(
+  -p "$APP_SSH_PORT"
   -o BatchMode=yes
   -o StrictHostKeyChecking=accept-new
   -o ConnectTimeout=10
@@ -35,7 +36,7 @@ if [[ -n "$SSH_KEY" ]]; then
   SSH_ARGS+=(-i "$SSH_KEY")
 fi
 
-RSYNC_SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+RSYNC_SSH="ssh -p $APP_SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
 if [[ -n "$SSH_KEY" ]]; then
   RSYNC_SSH="$RSYNC_SSH -i $SSH_KEY"
 fi
