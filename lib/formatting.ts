@@ -1,25 +1,23 @@
-export function formatNumber(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n);
-}
+export const formatNumber = (n: number) => n?.toLocaleString("en-US") || "0";
 
-export function formatDate(input: string | Date): string {
-  const d = input instanceof Date ? input : new Date(input);
-  if (isNaN(d.getTime())) return String(input);
-  return d.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
+export const formatDate = (d: string | Date) => new Date(d).toLocaleDateString("en-US");
 
-export function formatDateTime(input: string | Date): string {
-  const d = input instanceof Date ? input : new Date(input);
-  if (isNaN(d.getTime())) return String(input);
-  return d.toLocaleString("en-GB", {
+export const formatDateTime = (d: string | Date) => {
+  const date = new Date(d);
+  return date.toLocaleString("ar-IQ-u-nu-latn", {
     year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    month: "short",
+    day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
-}
+};
+export const formatCurrency = (amount: number, locale?: string, currencySymbol?: string): string => {
+  const displayLocale = locale || "ar";
+  const formatted = formatNumber(amount);
+  const symbol = currencySymbol ?? (displayLocale === "ar" ? "د.ع" : "IQD");
+  if (displayLocale === "ar") {
+    return `${symbol} ${formatted}`;
+  }
+  return `${formatted} ${symbol}`;
+};
