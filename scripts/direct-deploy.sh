@@ -187,7 +187,8 @@ ssh "${SSH_ARGS[@]}" "$REMOTE" "set -euo pipefail
   cd '$APP_DIR'
   npm install
   rm -rf .next-build
-  mkdir -p .next-build
+  mkdir -p .next-build/server
+  echo '{}' > .next-build/server/pages-manifest.json
 
   # Memory budget for a 4-core / 7 GB host. The default build reached 7.4 GB
   # resident and was OOM-killed four deploys running; capping the workers and
