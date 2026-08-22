@@ -1124,7 +1124,9 @@
     "subscriptionExpired": "Subscription expired",
     "subscriptionExpiredDescription": "School subscription has expired. Contact your provider to reactivate access.",
     "subscriptionRenewalHint": "Contact administration to renew subscription",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "accountInactive": "Your account is inactive. Contact administration to reactivate.",
+    "login": "Login"
   },
   "ping": {
     "label": "Response Time (Ping)",

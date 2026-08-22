@@ -1124,7 +1124,9 @@
     "subscriptionExpired": "انتهى الاشتراك",
     "subscriptionExpiredDescription": "انتهى اشتراك المدرسة. يرجى التواصل مع الجهة المزودة لإعادة تفعيل الوصول.",
     "subscriptionRenewalHint": "تواصل مع الإدارة لتجديد الاشتراك",
-    "signOut": "تسجيل الخروج"
+    "signOut": "تسجيل الخروج",
+    "accountInactive": "حسابك معطّل. تواصل مع الإدارة لإعادة التفعيل.",
+    "login": "تسجيل الدخول"
   },
   "ping": {
     "label": "وقت الاستجابة (Ping)",

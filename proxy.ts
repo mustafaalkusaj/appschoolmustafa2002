@@ -280,7 +280,10 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     if (isApiRequest) {
       return buildApiGuardResponse(403, "This account is inactive.");
     }
-    return resolveGuardRedirect("forbidden", request);
+    const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+    const url = new URL(localizePath("/access-denied", locale), request.url);
+    url.searchParams.set("reason", "inactive");
+    return url;
   }
 
   const hasAssignedPageScope = session.allowedPages.length > 0;
@@ -290,6 +293,11 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     !hasAssignedPageScope;
 
   if (!isApiRequest && !isRoleAllowedForPath(session.role, normalizedPath)) {
+    const sessionDefault = normalizePath(session.defaultPath);
+    if (normalizedPath !== sessionDefault) {
+      const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+      return new URL(localizePath(session.defaultPath, locale), request.url);
+    }
     return resolveGuardRedirect("forbidden", request);
   }
 
@@ -300,6 +308,11 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
       : hasAnyPermission(session.permissions, permissionRule.permissions);
 
     if (!allowed) {
+      const sessionDefault = normalizePath(session.defaultPath);
+      if (normalizedPath !== sessionDefault) {
+        const locale = getLocaleFromRequestPath(request.nextUrl.pathname);
+        return new URL(localizePath(session.defaultPath, locale), request.url);
+      }
       return resolveGuardRedirect("forbidden", request);
     }
   }

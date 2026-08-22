@@ -1,17 +1,22 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AppIcon } from "@/components/AppIcon";
 import { getLocaleFromPath, localizeAppPath } from "@/lib/locale-routing";
 import { useTranslations } from "next-intl";
 
 export default function AccessDeniedPage() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const locale = getLocaleFromPath(pathname);
   const t = useTranslations();
+  const reason = searchParams.get("reason");
 
   return (
-    <div className="min-h-screen bg-[var(--surface-muted)] flex items-center justify-center" style={{ direction: "rtl" }}>
+    <div
+      className="min-h-screen bg-[var(--surface-muted)] flex items-center justify-center"
+      style={{ direction: locale === "ar" ? "rtl" : "ltr" }}
+    >
       <div className="text-center p-8">
         <div className="text-[5rem] mb-4 flex justify-center text-[var(--danger)]">
           <AppIcon token="🚫" size={78} />
@@ -20,7 +25,9 @@ export default function AccessDeniedPage() {
           {t("gates.accessDenied")}
         </h1>
         <p className="text-[var(--text-muted)] mb-8 text-[0.95rem]">
-          {t("gates.accessDeniedDescription")}
+          {reason === "inactive"
+            ? t("gates.accountInactive")
+            : t("gates.accessDeniedDescription")}
         </p>
         <div className="flex gap-4 justify-center">
           <button
@@ -31,12 +38,12 @@ export default function AccessDeniedPage() {
           </button>
           <button
             onClick={() => {
-              window.location.href = localizeAppPath("/dashboard", locale);
+              window.location.href = localizeAppPath("/login", locale);
             }}
             className="px-6 py-3 rounded-xl bg-[var(--primary)] text-white font-bold text-sm transition-all hover:brightness-110 inline-flex items-center gap-1"
           >
-            <AppIcon token="🏠" size={16} />
-            {t("gates.dashboard")}
+            <AppIcon token="🔑" size={16} />
+            {t("gates.login")}
           </button>
         </div>
       </div>
