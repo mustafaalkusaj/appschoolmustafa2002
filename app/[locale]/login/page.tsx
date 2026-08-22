@@ -127,15 +127,7 @@ export default function LoginPage() {
         if (nextDecision.allowed) targetUrl = localizedNext;
       }
       if (!targetUrl) {
-        const defaultPath = localizeAppPath(getDefaultRouteForProfile(profile), locale);
-        const defaultDecision = getAccessDecision(profile, defaultPath);
-        if (!defaultDecision.allowed) {
-          if (defaultDecision.reason === "subscription_expired" || defaultDecision.reason === "school_inactive")
-            targetUrl = localizeAppPath("/subscription-expired", locale);
-          else targetUrl = localizeAppPath("/access-denied", locale);
-        } else {
-          targetUrl = defaultPath;
-        }
+        targetUrl = localizeAppPath(getDefaultRouteForProfile(profile), locale);
       }
       setLoginSuccess(true);
       setTimeout(() => {

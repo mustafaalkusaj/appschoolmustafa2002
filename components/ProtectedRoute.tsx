@@ -77,12 +77,14 @@ export function ProtectedRoute({
 
   useEffect(() => {
     if (loading || !blockedReason) return;
-    const focusedDefaultPath =
-      (isGroupOverviewOnlyProfile(profile) || isBranchUserProfile(profile) || hasAssignedPageScope(profile)) &&
-      blockedReason === "forbidden"
+    const defaultPath =
+      profile && blockedReason === "forbidden"
         ? getDefaultRouteForProfile(profile)
         : null;
-    router.replace(resolveRedirect(blockedReason, pathname, focusedDefaultPath));
+    const locale = getLocaleFromPath(pathname);
+    const localizedDefault = defaultPath ? localizeAppPath(defaultPath, locale) : null;
+    const alreadyOnDefault = localizedDefault === pathname;
+    router.replace(resolveRedirect(blockedReason, pathname, alreadyOnDefault ? null : defaultPath));
   }, [blockedReason, loading, pathname, profile, router]);
 
   if (loading || blockedReason) {
