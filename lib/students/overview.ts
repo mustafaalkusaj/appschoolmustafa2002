@@ -173,10 +173,9 @@ function normalizeStudentRows(
 ): StudentListRow[] {
   return (rows ?? []).map((row) => {
     const className = String(row.class_name ?? "");
-    // Resolve fee: prefer class_fees, fallback to student.total_fee if > 0, else 0
     const classFeeTotal = classFeesByClassName?.get(className);
     const studentTotal = normalizeNumber(row.total_fee);
-    const totalFee = classFeeTotal ?? (studentTotal > 0 ? studentTotal : 0);
+    const totalFee = studentTotal > 0 ? studentTotal : (classFeeTotal ?? 0);
 
     const paidFee = normalizeNumber(row.paid_fee);
     const discountValue = normalizeNumber(row.discount_value);

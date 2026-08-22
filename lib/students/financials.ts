@@ -34,13 +34,13 @@ export function resolveStudentFeeTotal(
   studentTotalFee: number | null | undefined,
   classFeeTotal: number | null | undefined,
 ) {
-  const classFee = Number(classFeeTotal ?? 0);
-  if (Number.isFinite(classFee) && classFee > 0) {
-    return classFee;
+  const totalFee = Number(studentTotalFee ?? 0);
+  if (Number.isFinite(totalFee) && totalFee > 0) {
+    return totalFee;
   }
 
-  const totalFee = Number(studentTotalFee ?? 0);
-  return Number.isFinite(totalFee) && totalFee > 0 ? totalFee : 0;
+  const classFee = Number(classFeeTotal ?? 0);
+  return Number.isFinite(classFee) && classFee > 0 ? classFee : 0;
 }
 
 export function buildResolvedStudentFinancials(student: {

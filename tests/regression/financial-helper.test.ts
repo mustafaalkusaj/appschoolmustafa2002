@@ -13,13 +13,13 @@ describe('Financial Helper Regression', () => {
     classFeeAmount: number | null,
     studentTotalFee: number | null
   ): number {
-    // Priority 1: class_fees.total_fee if > 0
-    if (classFeeAmount && classFeeAmount > 0) {
-      return classFeeAmount;
-    }
-    // Priority 2: students.total_fee if exists and > 0
+    // Priority 1: students.total_fee if > 0 (individual override)
     if (studentTotalFee && studentTotalFee > 0) {
       return studentTotalFee;
+    }
+    // Priority 2: class_fees.total_fee if exists and > 0 (class default)
+    if (classFeeAmount && classFeeAmount > 0) {
+      return classFeeAmount;
     }
     // Priority 3: 0
     return 0;
@@ -57,9 +57,9 @@ describe('Financial Helper Regression', () => {
 
   // Tests
 
-  it('resolveStudentFeeTotal: class_fees has priority over students.total_fee', () => {
+  it('resolveStudentFeeTotal: student fee has priority over class_fees', () => {
     const result = resolveStudentFeeTotal(500, 100);
-    expect(result).toBe(500);
+    expect(result).toBe(100);
   });
 
   it('resolveStudentFeeTotal: fallback to students.total_fee when class_fees null', () => {
@@ -188,8 +188,7 @@ describe('Financial Helper Regression', () => {
     expect(dashboardRemaining).toBe(250);
   });
 
-  it('Schema evolution: class_fees overrides when exists', () => {
-    // Simulate schema having both values
+  it('Schema evolution: student fee overrides class_fees when both exist', () => {
     const dbRecord = {
       class_fee_from_lookup: 500,
       student_direct_fee: 100,
@@ -200,7 +199,7 @@ describe('Financial Helper Regression', () => {
       dbRecord.student_direct_fee
     );
 
-    expect(resolved).toBe(500);
+    expect(resolved).toBe(100);
   });
 
   it('Edge case: zero payments tracked correctly', () => {
