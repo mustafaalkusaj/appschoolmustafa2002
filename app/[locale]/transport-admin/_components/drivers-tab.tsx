@@ -194,6 +194,15 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null);
 
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    await fetchJsonWithAuthorizedSession(`/api/web/transport/drivers/${deleteTarget.id}`, { method: "DELETE" });
+    setDeleting(false);
+    setDeleteTarget(null);
+    onRefresh();
+  }, [deleteTarget, onRefresh]);
+
   if (selectedDriver) {
     return (
       <DriverDetail
@@ -206,15 +215,6 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
 
   const openAdd = () => { setEditDriver(null); setFormOpen(true); };
   const openEdit = (d: DriverRow) => { setEditDriver(d); setFormOpen(true); };
-
-  const handleDelete = useCallback(async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    await fetchJsonWithAuthorizedSession(`/api/web/transport/drivers/${deleteTarget.id}`, { method: "DELETE" });
-    setDeleting(false);
-    setDeleteTarget(null);
-    onRefresh();
-  }, [deleteTarget, onRefresh]);
 
   const handleAccount = async (d: DriverRow, action: "create" | "reset") => {
     setAccountLoading(d.id);
