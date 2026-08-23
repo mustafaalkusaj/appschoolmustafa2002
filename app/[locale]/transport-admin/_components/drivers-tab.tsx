@@ -194,56 +194,101 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null);
   const [printLoading, setPrintLoading] = useState<string | null>(null);
+  const [printAllLoading, setPrintAllLoading] = useState(false);
+
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  const fetchPrintData = async (driverId: string) => {
+    const { payload } = await fetchJsonWithAuthorizedSession<{
+      ok?: boolean;
+      students?: { id: string; route_id: string; student_id: string; subscription_status: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string } | null }[];
+      routes?: { id: string; name: string }[];
+    }>(`/api/web/transport/drivers/${driverId}/students`);
+    return { members: payload?.students ?? [], routes: payload?.routes ?? [] };
+  };
+
+  const buildDriverSection = (
+    d: DriverRow,
+    members: { route_id: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string } | null }[],
+    routes: { id: string; name: string }[],
+  ) => {
+    const routeMap = new Map(routes.map((r) => [r.id, r.name]));
+    const grouped = new Map<string, typeof members>();
+    for (const m of members) {
+      if (!m.students) continue;
+      const arr = grouped.get(m.route_id) ?? [];
+      arr.push(m);
+      grouped.set(m.route_id, arr);
+    }
+    const totalStudents = members.filter((m) => m.students).length;
+    const dName = esc(d.full_name);
+    const dPhone = esc(d.phone || "—");
+    const vehicle = esc([d.vehicle_model, d.vehicle_color, d.vehicle_plate].filter(Boolean).join(" · ") || "—");
+    const license = esc(d.license_number || "—");
+    const dateStr = new Date().toLocaleDateString("ar-IQ", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+    const buildTable = (list: typeof members) => {
+      let html = `<table><thead><tr><th class="c" style="width:28px">#</th><th>اسم الطالب</th><th>الصف</th><th>الشعبة</th><th class="c">الجنس</th><th>ولي الأمر</th><th>هاتف ولي الأمر</th><th>هاتف الطالب</th><th>العنوان</th></tr></thead><tbody>`;
+      list.forEach((m, i) => {
+        const s = m.students!;
+        const g = s.gender === "male" ? "ذكر" : s.gender === "female" ? "أنثى" : "—";
+        html += `<tr><td class="c">${i + 1}</td><td class="nm">${esc(s.full_name)}</td><td>${esc(s.class_name || "—")}</td><td>${esc(s.section || "—")}</td><td class="c">${g}</td><td>${esc(s.guardian_name || "—")}</td><td>${esc(s.guardian_phone || "—")}</td><td>${esc(s.phone || "—")}</td><td>${esc(s.address || "—")}</td></tr>`;
+      });
+      return html + `</tbody></table>`;
+    };
+
+    let tables = "";
+    if (routes.length > 0) {
+      for (const route of routes) {
+        const rMembers = grouped.get(route.id);
+        if (!rMembers?.length) continue;
+        tables += `<div class="rsec"><div class="rh"><span class="rn">${esc(route.name)}</span><span class="rc">${rMembers.length} طالب</span></div>${buildTable(rMembers)}</div>`;
+      }
+      const unassigned = members.filter((m) => m.students && !routeMap.has(m.route_id));
+      if (unassigned.length) {
+        tables += `<div class="rsec"><div class="rh"><span class="rn">بدون خط</span><span class="rc">${unassigned.length} طالب</span></div>${buildTable(unassigned)}</div>`;
+      }
+    } else if (totalStudents > 0) {
+      tables = buildTable(members.filter((m) => m.students));
+    }
+
+    if (!tables) tables = `<p class="empty">لا يوجد طلاب مسجلين لهذا السائق</p>`;
+
+    return `<div class="page">
+<div class="hdr"><h1>كشف طلاب النقل المدرسي</h1><p class="dt">${dateStr}</p></div>
+<div class="dinfo">
+<div class="row"><div class="it"><div class="lb">السائق</div><div class="vl">${dName}</div></div><div class="it"><div class="lb">الهاتف</div><div class="vl">${dPhone}</div></div><div class="it"><div class="lb">رقم الرخصة</div><div class="vl">${license}</div></div></div>
+<div class="row"><div class="it"><div class="lb">المركبة</div><div class="vl">${vehicle}</div></div><div class="it"><div class="lb">عدد الخطوط</div><div class="vl">${routes.length}</div></div><div class="it"><div class="lb">اجمالي الطلاب</div><div class="vl hi">${totalStudents}</div></div></div>
+</div>
+${tables}
+<div class="ft"><span>تم الطباعة: ${new Date().toLocaleString("ar-IQ")}</span><span>كشف السائق ${dName}</span></div>
+</div>`;
+  };
+
+  const printDoc = (body: string, title: string) => {
+    const css = `*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#1a1a1a;padding:24px}.page{page-break-after:always}.page:last-child{page-break-after:avoid}.hdr{text-align:center;border-bottom:3px double #333;padding-bottom:10px;margin-bottom:16px}.hdr h1{font-size:20px;font-weight:700;margin-bottom:3px}.hdr .dt{font-size:12px;color:#666}.dinfo{border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:16px;background:#fafafa}.dinfo .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px}.dinfo .row:last-child{margin-bottom:0}.dinfo .it{flex:1;min-width:100px}.dinfo .lb{font-size:10px;color:#888;margin-bottom:1px}.dinfo .vl{font-size:13px;font-weight:600}.dinfo .hi{color:#1d4ed8;font-size:15px}.rsec{margin-bottom:14px}.rh{display:flex;justify-content:space-between;align-items:center;border-right:4px solid #1d4ed8;padding:5px 12px;margin-bottom:5px;background:#eff3ff;border-radius:0 6px 6px 0}.rh .rn{font-size:13px;font-weight:700}.rh .rc{font-size:11px;color:#555;background:#fff;padding:2px 8px;border-radius:10px;border:1px solid #e0e0e0}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:4px 6px;text-align:right}th{background:#f3f4f6;font-weight:600;font-size:10px;color:#444}.c{text-align:center}.nm{font-weight:500}tr:nth-child(even) td{background:#fafafa}.ft{display:flex;justify-content:space-between;margin-top:16px;padding-top:8px;border-top:1px solid #ccc;font-size:10px;color:#888}.empty{text-align:center;padding:24px;color:#999;font-size:13px}@media print{body{padding:10px}.dinfo{background:none!important;border-color:#aaa}.rh{background:none!important;border-right-color:#333}th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body>${body}</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  };
 
   const handlePrint = async (d: DriverRow) => {
     setPrintLoading(d.id);
-    const { payload } = await fetchJsonWithAuthorizedSession<{
-      ok?: boolean;
-      students?: { id: string; student_id: string; subscription_status: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string } | null }[];
-      routes?: { id: string; name: string }[];
-    }>(`/api/web/transport/drivers/${d.id}/students`);
+    const { members, routes } = await fetchPrintData(d.id);
     setPrintLoading(null);
+    printDoc(buildDriverSection(d, members, routes), `كشف طلاب السائق - ${d.full_name}`);
+  };
 
-    const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-    const students = (payload?.students ?? [])
-      .map((m) => m.students)
-      .filter(Boolean) as { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string }[];
-
-    const rows = students
-      .map(
-        (s, i) =>
-          `<tr><td>${i + 1}</td><td>${esc(s.full_name)}</td><td>${esc(s.class_name || "—")}</td><td>${esc(s.section || "—")}</td><td>${esc(s.guardian_name || "—")}</td><td>${esc(s.guardian_phone || "—")}</td><td>${esc(s.phone || "—")}</td><td>${esc(s.address || "—")}</td></tr>`,
-      )
-      .join("");
-
-    const driverName = esc(d.full_name);
-    const driverPhone = esc(d.phone || "—");
-    const vehicle = esc([d.vehicle_model, d.vehicle_color, d.vehicle_plate].filter(Boolean).join(" - ") || "—");
-
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف طلاب السائق - ${driverName}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;padding:24px;color:#1a1a1a}
-.header{text-align:center;margin-bottom:20px;border-bottom:2px solid #333;padding-bottom:12px}
-.header h1{font-size:18px;margin-bottom:6px}.header p{font-size:13px;color:#555}
-.info{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;font-size:13px}
-.info span{background:#f5f5f5;padding:4px 10px;border-radius:6px}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{border:1px solid #ccc;padding:6px 8px;text-align:right}
-th{background:#f0f0f0;font-weight:600}
-tr:nth-child(even){background:#fafafa}
-.count{margin-bottom:12px;font-size:14px;font-weight:600}
-@media print{body{padding:12px}.info span{background:none;border:1px solid #ccc}}
-</style></head><body>
-<div class="header"><h1>كشف طلاب السائق</h1><p>${new Date().toLocaleDateString("ar-IQ")}</p></div>
-<div class="info"><span>السائق: ${driverName}</span><span>الهاتف: ${driverPhone}</span><span>المركبة: ${vehicle}</span></div>
-<p class="count">عدد الطلاب: ${students.length}</p>
-<table><thead><tr><th>#</th><th>اسم الطالب</th><th>الصف</th><th>الشعبة</th><th>ولي الأمر</th><th>هاتف ولي الأمر</th><th>هاتف الطالب</th><th>العنوان</th></tr></thead>
-<tbody>${rows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999">لا يوجد طلاب مسجلين</td></tr>'}</tbody></table>
-</body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 300);
+  const handlePrintAll = async () => {
+    setPrintAllLoading(true);
+    const results = await Promise.all(
+      drivers.map(async (d) => ({ driver: d, ...(await fetchPrintData(d.id)) })),
+    );
+    setPrintAllLoading(false);
+    const body = results.map((r) => buildDriverSection(r.driver, r.members, r.routes)).join("");
+    printDoc(body, "كشف طلاب جميع السواق");
   };
 
   const handleDelete = useCallback(async () => {
@@ -296,9 +341,14 @@ tr:nth-child(even){background:#fafafa}
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-[var(--border)] flex-row items-center justify-between">
           <CardTitle className="text-sm font-bold">قائمة السواق</CardTitle>
-          <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-[var(--success)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 transition-colors">
-            <Plus className="h-3.5 w-3.5" /> اضافة سائق
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handlePrintAll} disabled={printAllLoading || drivers.length === 0} className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--surface)] transition-colors disabled:opacity-50">
+              {printAllLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />} طباعة الكل
+            </button>
+            <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-[var(--success)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 transition-colors">
+              <Plus className="h-3.5 w-3.5" /> اضافة سائق
+            </button>
+          </div>
         </CardHeader>
         {drivers.length === 0 ? (
           <CardContent>
