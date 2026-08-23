@@ -6,7 +6,7 @@ import { cn } from "@/lib/brand/brand-utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import {
-  Plus, Pencil, Trash2, KeyRound, Phone, CheckCircle2, Loader2, UserRoundPlus, RefreshCw, Eye,
+  Plus, Pencil, Trash2, KeyRound, Phone, CheckCircle2, Loader2, UserRoundPlus, RefreshCw, Eye, Printer,
 } from "@/lib/icons";
 import { ConfirmDialog, CredentialsDialog } from "./dialogs";
 import { DriverDetail } from "./driver-detail";
@@ -193,6 +193,58 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
   const [accountLoading, setAccountLoading] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null);
+  const [printLoading, setPrintLoading] = useState<string | null>(null);
+
+  const handlePrint = async (d: DriverRow) => {
+    setPrintLoading(d.id);
+    const { payload } = await fetchJsonWithAuthorizedSession<{
+      ok?: boolean;
+      students?: { id: string; student_id: string; subscription_status: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string } | null }[];
+      routes?: { id: string; name: string }[];
+    }>(`/api/web/transport/drivers/${d.id}/students`);
+    setPrintLoading(null);
+
+    const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    const students = (payload?.students ?? [])
+      .map((m) => m.students)
+      .filter(Boolean) as { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string }[];
+
+    const rows = students
+      .map(
+        (s, i) =>
+          `<tr><td>${i + 1}</td><td>${esc(s.full_name)}</td><td>${esc(s.class_name || "—")}</td><td>${esc(s.section || "—")}</td><td>${esc(s.guardian_name || "—")}</td><td>${esc(s.guardian_phone || "—")}</td><td>${esc(s.phone || "—")}</td><td>${esc(s.address || "—")}</td></tr>`,
+      )
+      .join("");
+
+    const driverName = esc(d.full_name);
+    const driverPhone = esc(d.phone || "—");
+    const vehicle = esc([d.vehicle_model, d.vehicle_color, d.vehicle_plate].filter(Boolean).join(" - ") || "—");
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف طلاب السائق - ${driverName}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;padding:24px;color:#1a1a1a}
+.header{text-align:center;margin-bottom:20px;border-bottom:2px solid #333;padding-bottom:12px}
+.header h1{font-size:18px;margin-bottom:6px}.header p{font-size:13px;color:#555}
+.info{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;font-size:13px}
+.info span{background:#f5f5f5;padding:4px 10px;border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid #ccc;padding:6px 8px;text-align:right}
+th{background:#f0f0f0;font-weight:600}
+tr:nth-child(even){background:#fafafa}
+.count{margin-bottom:12px;font-size:14px;font-weight:600}
+@media print{body{padding:12px}.info span{background:none;border:1px solid #ccc}}
+</style></head><body>
+<div class="header"><h1>كشف طلاب السائق</h1><p>${new Date().toLocaleDateString("ar-IQ")}</p></div>
+<div class="info"><span>السائق: ${driverName}</span><span>الهاتف: ${driverPhone}</span><span>المركبة: ${vehicle}</span></div>
+<p class="count">عدد الطلاب: ${students.length}</p>
+<table><thead><tr><th>#</th><th>اسم الطالب</th><th>الصف</th><th>الشعبة</th><th>ولي الأمر</th><th>هاتف ولي الأمر</th><th>هاتف الطالب</th><th>العنوان</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999">لا يوجد طلاب مسجلين</td></tr>'}</tbody></table>
+</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  };
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
@@ -313,6 +365,9 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setSelectedDriver(d)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--success)_10%,transparent)] hover:text-[var(--success)] transition-colors" title="تفاصيل">
                           <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => handlePrint(d)} disabled={printLoading === d.id} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--info,#3b82f6)_10%,transparent)] hover:text-[var(--info,#3b82f6)] transition-colors" title="طباعة كشف الطلاب">
+                          {printLoading === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
                         </button>
                         <button onClick={() => openEdit(d)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] hover:text-[var(--primary)] transition-colors" title="تعديل">
                           <Pencil className="h-3.5 w-3.5" />
