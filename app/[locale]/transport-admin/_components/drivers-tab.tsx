@@ -201,7 +201,7 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
   const fetchPrintData = async (driverId: string) => {
     const { payload } = await fetchJsonWithAuthorizedSession<{
       ok?: boolean;
-      students?: { id: string; route_id: string; student_id: string; subscription_status: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string } | null }[];
+      students?: { id: string; route_id: string; student_id: string; subscription_status: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string; registration_number: string | null } | null }[];
       routes?: { id: string; name: string }[];
     }>(`/api/web/transport/drivers/${driverId}/students`);
     return { members: payload?.students ?? [], routes: payload?.routes ?? [] };
@@ -209,7 +209,7 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
 
   const buildDriverSection = (
     d: DriverRow,
-    members: { route_id: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string } | null }[],
+    members: { route_id: string; subscription_status: string; students: { full_name: string; class_name: string; phone: string; guardian_name: string; guardian_phone: string; gender: string; section: string; address: string; registration_number: string | null } | null }[],
     routes: { id: string; name: string }[],
   ) => {
     const routeMap = new Map(routes.map((r) => [r.id, r.name]));
@@ -227,12 +227,16 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
     const license = esc(d.license_number || "—");
     const dateStr = new Date().toLocaleDateString("ar-IQ", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
+    const subLabel: Record<string, string> = { paid: "مدفوع", due: "مستحق", overdue: "متأخر" };
+    const subCls: Record<string, string> = { paid: "st-paid", due: "st-due", overdue: "st-overdue" };
+
     const buildTable = (list: typeof members) => {
-      let html = `<table><thead><tr><th class="c" style="width:28px">#</th><th>اسم الطالب</th><th>الصف</th><th>الشعبة</th><th class="c">الجنس</th><th>ولي الأمر</th><th>هاتف ولي الأمر</th><th>هاتف الطالب</th><th>العنوان</th></tr></thead><tbody>`;
+      let html = `<table><thead><tr><th class="c" style="width:24px">#</th><th>رقم التسجيل</th><th>اسم الطالب</th><th>الصف</th><th>الشعبة</th><th class="c">الجنس</th><th class="c">الاشتراك</th><th>ولي الأمر</th><th>هاتف ولي الأمر</th><th>العنوان</th></tr></thead><tbody>`;
       list.forEach((m, i) => {
         const s = m.students!;
         const g = s.gender === "male" ? "ذكر" : s.gender === "female" ? "أنثى" : "—";
-        html += `<tr><td class="c">${i + 1}</td><td class="nm">${esc(s.full_name)}</td><td>${esc(s.class_name || "—")}</td><td>${esc(s.section || "—")}</td><td class="c">${g}</td><td>${esc(s.guardian_name || "—")}</td><td>${esc(s.guardian_phone || "—")}</td><td>${esc(s.phone || "—")}</td><td>${esc(s.address || "—")}</td></tr>`;
+        const ss = m.subscription_status || "due";
+        html += `<tr><td class="c">${i + 1}</td><td>${esc(s.registration_number || "—")}</td><td class="nm">${esc(s.full_name)}</td><td>${esc(s.class_name || "—")}</td><td>${esc(s.section || "—")}</td><td class="c">${g}</td><td class="c"><span class="st ${subCls[ss] || "st-due"}">${subLabel[ss] || ss}</span></td><td>${esc(s.guardian_name || "—")}</td><td>${esc(s.guardian_phone || "—")}</td><td>${esc(s.address || "—")}</td></tr>`;
       });
       return html + `</tbody></table>`;
     };
@@ -254,6 +258,16 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
 
     if (!tables) tables = `<p class="empty">لا يوجد طلاب مسجلين لهذا السائق</p>`;
 
+    const classCounts = new Map<string, number>();
+    for (const m of members) {
+      if (!m.students) continue;
+      const cls = m.students.class_name || "غير محدد";
+      classCounts.set(cls, (classCounts.get(cls) || 0) + 1);
+    }
+    const classBreakdown = classCounts.size > 0
+      ? `<div class="summary"><span class="sl">توزيع حسب الصف:</span>${Array.from(classCounts.entries()).sort((a, b) => b[1] - a[1]).map(([cls, count]) => `<span class="cb">${esc(cls)}: ${count}</span>`).join("")}</div>`
+      : "";
+
     return `<div class="page">
 <div class="hdr"><h1>كشف طلاب النقل المدرسي</h1><p class="dt">${dateStr}</p></div>
 <div class="dinfo">
@@ -261,12 +275,13 @@ export function DriversTab({ drivers, onRefresh }: { drivers: DriverRow[]; onRef
 <div class="row"><div class="it"><div class="lb">المركبة</div><div class="vl">${vehicle}</div></div><div class="it"><div class="lb">عدد الخطوط</div><div class="vl">${routes.length}</div></div><div class="it"><div class="lb">اجمالي الطلاب</div><div class="vl hi">${totalStudents}</div></div></div>
 </div>
 ${tables}
+${classBreakdown}
 <div class="ft"><span>تم الطباعة: ${new Date().toLocaleString("ar-IQ")}</span><span>كشف السائق ${dName}</span></div>
 </div>`;
   };
 
   const printDoc = (body: string, title: string) => {
-    const css = `*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#1a1a1a;padding:24px}.page{page-break-after:always}.page:last-child{page-break-after:avoid}.hdr{text-align:center;border-bottom:3px double #333;padding-bottom:10px;margin-bottom:16px}.hdr h1{font-size:20px;font-weight:700;margin-bottom:3px}.hdr .dt{font-size:12px;color:#666}.dinfo{border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:16px;background:#fafafa}.dinfo .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px}.dinfo .row:last-child{margin-bottom:0}.dinfo .it{flex:1;min-width:100px}.dinfo .lb{font-size:10px;color:#888;margin-bottom:1px}.dinfo .vl{font-size:13px;font-weight:600}.dinfo .hi{color:#1d4ed8;font-size:15px}.rsec{margin-bottom:14px}.rh{display:flex;justify-content:space-between;align-items:center;border-right:4px solid #1d4ed8;padding:5px 12px;margin-bottom:5px;background:#eff3ff;border-radius:0 6px 6px 0}.rh .rn{font-size:13px;font-weight:700}.rh .rc{font-size:11px;color:#555;background:#fff;padding:2px 8px;border-radius:10px;border:1px solid #e0e0e0}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:4px 6px;text-align:right}th{background:#f3f4f6;font-weight:600;font-size:10px;color:#444}.c{text-align:center}.nm{font-weight:500}tr:nth-child(even) td{background:#fafafa}.ft{display:flex;justify-content:space-between;margin-top:16px;padding-top:8px;border-top:1px solid #ccc;font-size:10px;color:#888}.empty{text-align:center;padding:24px;color:#999;font-size:13px}@media print{body{padding:10px}.dinfo{background:none!important;border-color:#aaa}.rh{background:none!important;border-right-color:#333}th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+    const css = `@page{size:landscape}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#1a1a1a;padding:20px}.page{page-break-after:always}.page:last-child{page-break-after:avoid}.hdr{text-align:center;border-bottom:3px double #333;padding-bottom:10px;margin-bottom:14px}.hdr h1{font-size:20px;font-weight:700;margin-bottom:3px}.hdr .dt{font-size:12px;color:#666}.dinfo{border:1px solid #ddd;border-radius:8px;padding:10px 12px;margin-bottom:14px;background:#fafafa}.dinfo .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px}.dinfo .row:last-child{margin-bottom:0}.dinfo .it{flex:1;min-width:100px}.dinfo .lb{font-size:10px;color:#888;margin-bottom:1px}.dinfo .vl{font-size:13px;font-weight:600}.dinfo .hi{color:#1d4ed8;font-size:15px}.rsec{margin-bottom:12px}.rh{display:flex;justify-content:space-between;align-items:center;border-right:4px solid #1d4ed8;padding:5px 12px;margin-bottom:5px;background:#eff3ff;border-radius:0 6px 6px 0}.rh .rn{font-size:13px;font-weight:700}.rh .rc{font-size:11px;color:#555;background:#fff;padding:2px 8px;border-radius:10px;border:1px solid #e0e0e0}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #ddd;padding:3px 5px;text-align:right}th{background:#f3f4f6;font-weight:600;font-size:9px;color:#444}.c{text-align:center}.nm{font-weight:500}tr:nth-child(even) td{background:#fafafa}.st{font-size:8px;font-weight:600;padding:1px 5px;border-radius:8px;white-space:nowrap}.st-paid{background:#dcfce7;color:#166534}.st-due{background:#fef9c3;color:#854d0e}.st-overdue{background:#fee2e2;color:#991b1b}.summary{margin-top:10px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.sl{font-weight:600;color:#475569;margin-inline-end:4px}.cb{background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:2px 8px}.ft{display:flex;justify-content:space-between;margin-top:14px;padding-top:8px;border-top:1px solid #ccc;font-size:10px;color:#888}.empty{text-align:center;padding:24px;color:#999;font-size:13px}@media print{body{padding:8px}.dinfo{background:none!important;border-color:#aaa}.rh{background:none!important;border-right-color:#333}th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.st-paid,.st-due,.st-overdue{-webkit-print-color-adjust:exact;print-color-adjust:exact}.summary{background:none!important;border-color:#ccc}}`;
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body>${body}</body></html>`);
