@@ -260,7 +260,7 @@ export function RoutesTab({ routes, drivers, onRefresh }: { routes: RouteRow[]; 
               <thead>
                 <tr className="border-b border-[var(--border)] bg-[var(--surface-soft)]">
                   {["اسم الخط", "السائق"].map((h) => <th key={h} className="px-4 py-2.5 text-start text-xs font-semibold text-[var(--text-muted)]">{h}</th>)}
-                  {["عدد الطلاب", "الرسوم", "الحالة", "اجراءات"].map((h) => <th key={h} className="px-4 py-2.5 text-center text-xs font-semibold text-[var(--text-muted)]">{h}</th>)}
+                  {["عدد الطلاب", "رسوم الطالب", "المجموع", "الحالة", "اجراءات"].map((h) => <th key={h} className="px-4 py-2.5 text-center text-xs font-semibold text-[var(--text-muted)]">{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -274,6 +274,7 @@ export function RoutesTab({ routes, drivers, onRefresh }: { routes: RouteRow[]; 
                       </button>
                     </td>
                     <td className="px-4 py-2.5 text-center tabular-nums text-[var(--text-primary)]">{formatNumber(r.monthly_fee)} IQD</td>
+                    <td className="px-4 py-2.5 text-center tabular-nums font-semibold text-[var(--text-primary)]">{formatNumber(r.monthly_fee * (r.student_count || 0))} IQD</td>
                     <td className="px-4 py-2.5 text-center">
                       <button onClick={() => toggleActive(r)} disabled={toggleLoading === r.id}>
                         {toggleLoading === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto text-[var(--text-muted)]" /> : <StatusBadge active={r.is_active} />}
