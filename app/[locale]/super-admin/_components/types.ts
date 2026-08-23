@@ -21,7 +21,8 @@ export type ActiveTab =
   | "themes"
   | "features"
   | "global-settings"
-  | "app-versions";
+  | "app-versions"
+  | "transport-managers";
 
 export type SchoolPlan = "basic" | "premium" | "enterprise";
 export type SubscriptionStatus = "active" | "suspended" | "inactive" | "expired";

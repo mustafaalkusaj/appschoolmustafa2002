@@ -29,6 +29,7 @@ import {
   Check,
   Settings,
   Tag,
+  Bus,
 } from "@/lib/icons";
 import { fetchJsonWithAuthorizedSession, fetchWithAuthorizedSession, withJsonHeaders } from "@/lib/authorized-api";
 import { useToast } from "@/components/toast";
@@ -59,6 +60,7 @@ import { ThemesTab } from "./components/ThemesTab";
 import { FeaturesTab } from "./components/FeaturesTab";
 import { GlobalSettingsTab } from "./components/GlobalSettingsTab";
 import { AppVersionsTab } from "./components/AppVersionsTab";
+import { TransportManagersTab } from "./components/TransportManagersTab";
 
 import {
   OverviewTab,
@@ -162,6 +164,7 @@ export default function SuperAdminPage() {
     { id: "features", label: "الميزات", hint: "Feature Flags لكل مدرسة", icon: Check },
     { id: "global-settings", label: "إعدادات عامة", hint: "إعدادات النظام والأمان", icon: Settings },
     { id: "app-versions", label: "الإصدارات", hint: "سجل تحديثات التطبيقات", icon: Tag },
+    { id: "transport-managers", label: "مدراء النقل", hint: "إنشاء وإدارة حسابات مدراء النقل", icon: Bus },
   ], [t]);
 
   const flashSuccess = useCallback((m: string) => { setSuccess(m); toast.success(m); window.setTimeout(() => setSuccess(""), 2600); }, [toast]);
@@ -688,6 +691,7 @@ export default function SuperAdminPage() {
                     {activeTab === "features" && <FeaturesTab schools={schools.filter(s => !s.deleted_at).map(s => ({ id: s.id, name: s.name }))} />}
                     {activeTab === "global-settings" && <GlobalSettingsTab />}
                     {activeTab === "app-versions" && <AppVersionsTab schools={schools.filter(s => !s.deleted_at).map(s => ({ id: s.id, name: s.name }))} />}
+                    {activeTab === "transport-managers" && <TransportManagersTab schools={schools.filter(s => !s.deleted_at).map(s => ({ id: s.id, name: s.name }))} branches={branches} />}
                   </div>
                 )}
               </div>
