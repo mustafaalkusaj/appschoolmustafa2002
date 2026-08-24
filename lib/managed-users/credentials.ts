@@ -449,6 +449,11 @@ export async function upsertManagedUserCredential(
       school_id: options.schoolId,
       login_identifier: options.loginIdentifier,
       temporary_password_hash: passwordHash,
+      // Printable credential cards need the plaintext: the hash is one-way, so
+      // without this the next card print cannot show the password and instead
+      // rotates a brand new one, silently invalidating the card already handed
+      // out. The account-creation and provisioning paths already store it.
+      temporary_password_plain: options.temporaryPassword,
       has_pending_setup: true,
       password_last_reset_at: now,
       ...(options.touchPrintTimestamp ? { card_last_printed_at: now } : {}),
