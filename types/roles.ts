@@ -3,7 +3,7 @@
 // own bus routes — current_school_id() returns null for it, which denies every
 // school-scoped policy at once. Everything it legitimately needs is served by
 // /api/web/driver/*, which authorises against public.drivers first.
-export const ROLES = ["super_admin", "admin", "employee", "parent", "driver", "transport_manager"] as const;
+export const ROLES = ["super_admin", "admin", "employee", "parent", "driver", "transport_manager", "student"] as const;
 
 export type UserRole = (typeof ROLES)[number];
 
@@ -73,6 +73,7 @@ const LEGACY_ROLE_MAP: Record<string, UserRole> = {
   driver: "driver",
   transport_manager: "transport_manager",
   transport_admin: "transport_manager",
+  student: "student",
 };
 
 export function resolveKnownUserRole(role: string | null | undefined): UserRole | null {
@@ -163,6 +164,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "manage_transport",
     "view_students",
   ],
+  // Intentionally empty, like `driver`. The student portal is gated on the role
+  // itself (ROUTE_ACCESS_RULES for "/student") and every /api/student route
+  // re-derives the caller's own student row via resolveStudentContext, so no
+  // permission grant is needed. Granting "view_students" here would be actively
+  // harmful: routeUserHasPermission reads the RBAC session cookie, so it would
+  // let a student call /api/web/schedule, .../working-days and .../time-slots
+  // and read school-wide scheduling data.
+  student: [],
 };
 
 export const PERMISSION_GROUPS: Array<{
@@ -396,9 +405,15 @@ export interface RoutePermissionRule {
   requireAll?: boolean;
 }
 
-export const PUBLIC_PATHS = ["/login", "/forgot-password", "/access-denied", "/subscription-expired", "/upload"] as const;
+export const PUBLIC_PATHS = ["/login", "/student-login", "/forgot-password", "/access-denied", "/subscription-expired", "/upload"] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
+  {
+    pathPrefix: "/student",
+    roles: ["student"],
+    readOnlyRoles: ["student"],
+    requiresActiveSchool: true,
+  },
   {
     pathPrefix: "/parent",
     roles: ["parent"],
@@ -570,6 +585,7 @@ export const DEFAULT_PATH_BY_ROLE: Record<UserRole, string> = {
   parent: "/parent",
   driver: "/driver",
   transport_manager: "/transport-admin",
+  student: "/student",
 };
 
 export interface SidebarItem {
@@ -578,7 +594,7 @@ export interface SidebarItem {
   href: string;
   iconToken: string;
   roles: UserRole[];
-  group: "general" | "academic" | "finance" | "system" | "admin";
+  group: "general" | "academic" | "finance" | "system" | "admin" | "student";
 }
 
 export const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -853,6 +869,70 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     iconToken: "📋",
     roles: ["parent"],
     group: "academic",
+  },
+  {
+    id: "student-dashboard",
+    label: "الرئيسية",
+    href: "/student",
+    iconToken: "🏠",
+    roles: ["student"],
+    group: "student",
+  },
+  {
+    id: "student-attendance",
+    label: "حضوري",
+    href: "/student/attendance",
+    iconToken: "📋",
+    roles: ["student"],
+    group: "student",
+  },
+  {
+    id: "student-grades",
+    label: "درجاتي",
+    href: "/student/grades",
+    iconToken: "🎓",
+    roles: ["student"],
+    group: "student",
+  },
+  {
+    id: "student-schedule",
+    label: "جدولي",
+    href: "/student/schedule",
+    iconToken: "🗓️",
+    roles: ["student"],
+    group: "student",
+  },
+  {
+    id: "student-exams",
+    label: "امتحاناتي",
+    href: "/student/exams",
+    iconToken: "📝",
+    roles: ["student"],
+    group: "student",
+  },
+  {
+    id: "student-behavior",
+    label: "سلوكي",
+    href: "/student/behavior",
+    iconToken: "⭐",
+    roles: ["student"],
+    group: "student",
+  },
+  {
+    id: "student-payments",
+    label: "الأقساط",
+    href: "/student/payments",
+    iconToken: "💳",
+    roles: ["student"],
+    group: "student",
+  },
+  {
+    id: "student-profile",
+    label: "ملفي الشخصي",
+    href: "/student/profile",
+    iconToken: "👤",
+    roles: ["student"],
+    group: "student",
   },
 ];
 

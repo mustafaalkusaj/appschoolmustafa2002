@@ -52,6 +52,7 @@ const GROUP_LABELS: Record<string, { ar: string; en: string }> = {
   finance: { ar: "الحسابات والمالية", en: "Finance" },
   system: { ar: "النظام والمراقبة", en: "System" },
   admin: { ar: "الإدارة العليا", en: "Administration" },
+  student: { ar: "بوابة الطالب", en: "Student Portal" },
 };
 
 const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
@@ -77,6 +78,7 @@ const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   "fee-notifications": { ar: "تنبيهات الأقساط", en: "Fee Alerts" },
   reports: { ar: "التقارير", en: "Reports" },
   "roles-settings": { ar: "إدارة الأدوار", en: "Roles & Permissions" },
+  profile: { ar: "الملف الشخصي", en: "Profile" },
   "super-admin": { ar: "الإدارة العامة", en: "Super Admin" },
   schools: { ar: "المدارس", en: "Schools" },
   subscriptions: { ar: "الاشتراكات", en: "Subscriptions" },

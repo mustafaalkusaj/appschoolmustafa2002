@@ -132,8 +132,10 @@ export async function buildManagedUserAccountCard(
     temporary_password: displayPassword,
     qr_data_url: qrDataUrl,
     instructions: [
+      "هذه البطاقة للدخول عبر تطبيق الهاتف، وليس عبر الموقع.",
       "افتح شاشة تسجيل الدخول الخاصة بالحساب.",
       "أدخل معرّف الدخول وكلمة المرور المؤقتة كما هي تماماً.",
+      "إصدار كلمة مرور جديدة يلغي هذه البطاقة فوراً، فاحتفظ بآخر نسخة مطبوعة فقط.",
       "إذا تعذر الدخول، اطلب من الإدارة إعادة إصدار كلمة مرور مؤقتة جديدة.",
     ],
     generated_at: new Date().toISOString(),
