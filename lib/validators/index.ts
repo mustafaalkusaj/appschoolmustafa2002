@@ -17,14 +17,14 @@ export const loginSchema = z.object({
 
 export const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(10, "Password must be at least 10 characters"),
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
   schoolId: z.string().uuid("Invalid school ID")
 });
 
 export const resetPasswordSchema = z.object({
   currentPassword: z.string().min(6, "Current password required"),
-  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+  newPassword: z.string().min(10, "New password must be at least 10 characters"),
   confirmPassword: z.string()
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",

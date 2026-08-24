@@ -12,7 +12,7 @@ import {
 } from "@/lib/supabase-server";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 10;
 const MAX_PASSWORD_LENGTH = 72;
 
 type CreateUserBody = {
@@ -41,7 +41,7 @@ function validateCreateUserInput(body: unknown) {
 
   const password = data.password || "";
   if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
-    return { ok: false as const, message: "Password must be between 8 and 72 characters." };
+    return { ok: false as const, message: "Password must be between 10 and 72 characters." };
   }
 
   const role = normalizeUserRole(data.role);

@@ -135,7 +135,7 @@ function ForgotPasswordContent() {
 
   const requestDisabled = submitting || email.trim().length === 0;
   const recoveryDisabled =
-    submitting || password.trim().length < 8 || confirmPassword.trim().length < 8;
+    submitting || password.trim().length < 10 || confirmPassword.trim().length < 10;
 
   async function handlePasswordResetRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -187,7 +187,7 @@ function ForgotPasswordContent() {
       return;
     }
 
-    if (password.trim().length < 8) {
+    if (password.trim().length < 10) {
       setError(t("auth.passwordTooShort"));
       return;
     }

@@ -6,7 +6,7 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
 }
 
-function generateRandomPassword(length = 8): string {
+function generateRandomPassword(length = 12): string {
   const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
   const randomBytes = crypto.getRandomValues(new Uint8Array(length));
   let password = "";
@@ -31,7 +31,7 @@ export async function POST(
     return jsonError("معرف المستخدم غير صالح.", 400);
   }
 
-  const newPassword = generateRandomPassword(8);
+  const newPassword = generateRandomPassword(12);
 
   try {
     const serviceSupabase = createServiceSupabaseClient();
