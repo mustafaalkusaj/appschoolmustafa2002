@@ -16,12 +16,13 @@ import {
   hasRBACSecret,
   signRBACSession,
 } from "@/lib/rbac-session";
+import { resolveManagedAccountBase } from "@/lib/managed-users/queries";
 import { jsonValidationError, logRouteError } from "@/lib/route-utils";
 import {
   applyPendingCookies,
   createRouteSupabaseClientWithCookies,
 } from "@/lib/supabase-server";
-import type { Permission } from "@/types/roles";
+import { buildTemplatePermissions, DEFAULT_PATH_BY_ROLE, type Permission } from "@/types/roles";
 
 type LoginFailureReason =
   | "invalid_credentials"
@@ -160,6 +161,59 @@ export async function POST(req: NextRequest) {
     }
 
     if (resolved.status === "profile_missing") {
+      // Fallback: check if this is a managed student (exists in managed_user_profiles, not user_profiles)
+      const managed = await resolveManagedAccountBase(data.user.id).catch(() => null);
+
+      if (managed && managed.role === "student" && managed.identity.is_active && managed.schoolId) {
+        const permissions = buildTemplatePermissions("student");
+        const studentPayload = buildRBACSessionPayload({
+          userId: data.user.id,
+          role: "student",
+          permissions,
+          schoolId: managed.schoolId,
+          branchId: null,
+          allowedBranchIds: [],
+          userActive: managed.identity.is_active,
+          schoolActive: true,
+          subscriptionStatus: null,
+          subscriptionEnd: null,
+          scopeLevel: "restricted",
+          allowedModule: null,
+          allowedModules: [],
+          allowedPages: [],
+          defaultPath: DEFAULT_PATH_BY_ROLE.student,
+          isSinglePageUser: false,
+          hierarchyLevel: null,
+          permissionsVersion: 1,
+          groupId: null,
+        });
+
+        const signed = await signRBACSession(studentPayload);
+        if (signed) {
+          const studentName =
+            managed.user?.full_name ?? data.user.user_metadata?.full_name ?? null;
+          const response = NextResponse.json(
+            {
+              ok: true,
+              profile: {
+                id: data.user.id,
+                full_name: studentName,
+                email: data.user.email ?? parsed.data.email,
+                avatar_url: null,
+                role: "student" as const,
+                permissions,
+                school_id: managed.schoolId,
+                is_active: managed.identity.is_active,
+              },
+            },
+            { headers: { "Cache-Control": "no-store" } },
+          );
+          applyPendingCookies(response, pendingCookies);
+          response.cookies.set(RBAC_COOKIE_NAME, signed, getRBACCookieOptions());
+          return response;
+        }
+      }
+
       // SECURITY: return the generic invalid_credentials response so a caller
       // cannot distinguish "no profile" from "wrong password" (account enumeration).
       logRouteError(
