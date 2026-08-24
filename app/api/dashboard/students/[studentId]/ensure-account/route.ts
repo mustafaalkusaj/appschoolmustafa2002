@@ -91,7 +91,7 @@ export async function POST(
           .eq("school_id", targetSchoolId);
 
         if (relinkStudentError) {
-          return jsonError(relinkStudentError.message || "تعذر إعادة ربط حساب التطبيق الحالي بسجل الطالب.", 500);
+          return jsonError("تعذر إعادة ربط حساب التطبيق الحالي بسجل الطالب.", 500);
         }
       }
     }
@@ -130,7 +130,7 @@ export async function POST(
       });
 
       if (createAuthError || !createdUser.user?.id) {
-        return jsonError(createAuthError?.message || "تعذر إنشاء حساب التطبيق للطالب.", 500);
+        return jsonError("تعذر إنشاء حساب التطبيق للطالب.", 500);
       }
 
       authUserId = createdUser.user.id;
@@ -144,7 +144,7 @@ export async function POST(
 
       if (linkStudentError) {
         await serviceSupabase.auth.admin.deleteUser(authUserId);
-        return jsonError(linkStudentError.message || "تعذر ربط الحساب بسجل الطالب.", 500);
+        return jsonError("تعذر ربط الحساب بسجل الطالب.", 500);
       }
 
       await syncManagedUserAccountState(actorSupabase, {
@@ -167,7 +167,7 @@ export async function POST(
 
     const { data: authUserResponse, error: authUserError } = await serviceSupabase.auth.admin.getUserById(authUserId);
     if (authUserError || !authUserResponse.user) {
-      return jsonError(authUserError?.message || "تعذر تحميل مستخدم المصادقة لهذا الطالب.", 500);
+      return jsonError("تعذر تحميل مستخدم المصادقة لهذا الطالب.", 500);
     }
 
     loginIdentifier = authUserResponse.user.email || loginIdentifier || "";
@@ -187,10 +187,7 @@ export async function POST(
       });
 
       if (updateLoginIdentifierError) {
-        return jsonError(
-          updateLoginIdentifierError.message || "تعذر تثبيت معرّف الدخول لحساب الطالب الحالي.",
-          500,
-        );
+        return jsonError("تعذر تثبيت معرّف الدخول لحساب الطالب الحالي.", 500);
       }
     }
 
@@ -227,7 +224,7 @@ export async function POST(
       });
 
       if (updatePasswordError) {
-        return jsonError(updatePasswordError.message || "تعذر إصدار كلمة مرور مؤقتة لهذا الطالب.", 500);
+        return jsonError("تعذر إصدار كلمة مرور مؤقتة لهذا الطالب.", 500);
       }
 
       await upsertManagedUserCredential(actorSupabase, {
@@ -269,6 +266,6 @@ export async function POST(
       temporary_password: revealedPassword,
     });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر تجهيز حساب التطبيق لهذا الطالب.", 500);
+    return jsonError("تعذر تجهيز حساب التطبيق لهذا الطالب.", 500);
   }
 }

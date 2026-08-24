@@ -54,21 +54,26 @@ function slugifyIdentifier(value: string) {
 
 // Password generation and hashing
 export function generateTemporaryPassword() {
-  // 8-char: A + b + 4 digits + ! — simple, meets Supabase policy (upper+lower+digit+special)
   const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
   const lower = "abcdefghjkmnpqrstuvwxyz";
   const digits = "23456789";
-  const bytes = randomBytes(8);
+  const symbols = "!@#$%*-_?";
+  const all = `${upper}${lower}${digits}${symbols}`;
+  const bytes = randomBytes(12);
   const pick = (charset: string, byte: number) => charset[byte % charset.length];
   return (
     pick(upper, bytes[0]) +
     pick(lower, bytes[1]) +
     pick(digits, bytes[2]) +
-    pick(digits, bytes[3]) +
-    pick(digits, bytes[4]) +
-    pick(digits, bytes[5]) +
-    pick(digits, bytes[6]) +
-    "!"
+    pick(symbols, bytes[3]) +
+    pick(all, bytes[4]) +
+    pick(all, bytes[5]) +
+    pick(all, bytes[6]) +
+    pick(all, bytes[7]) +
+    pick(all, bytes[8]) +
+    pick(all, bytes[9]) +
+    pick(all, bytes[10]) +
+    pick(all, bytes[11])
   );
 }
 

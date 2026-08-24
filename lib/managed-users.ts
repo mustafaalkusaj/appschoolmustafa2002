@@ -8,7 +8,7 @@ export const MANAGED_USER_ROLE_LABELS: Record<ManagedUserRole, string> = {
 };
 
 export const MANAGED_USER_INACTIVE_BAN_DURATION = "876000h";
-export const MIN_PASSWORD_LENGTH = 8;
+export const MIN_PASSWORD_LENGTH = 10;
 export const MAX_PASSWORD_LENGTH = 72;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
