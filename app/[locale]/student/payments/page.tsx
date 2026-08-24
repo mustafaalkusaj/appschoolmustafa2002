@@ -2,9 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import {
+  Wallet,
+  CreditCard,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+} from "lucide-react";
 import { StudentShell } from "@/components/StudentShell";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface PaymentRecord {
   id: string;
@@ -20,16 +37,40 @@ interface PaymentSummary {
   remaining: number;
 }
 
-const STATUS_CONFIG: Record<string, { ar: string; en: string; color: string }> = {
-  paid: { ar: "مدفوع", en: "Paid", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" },
-  pending: { ar: "معلّق", en: "Pending", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" },
-  overdue: { ar: "متأخر", en: "Overdue", color: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300" },
+const STATUS_CFG: Record<
+  string,
+  {
+    ar: string;
+    en: string;
+    variant: "success" | "warning" | "danger";
+    icon: typeof CheckCircle2;
+  }
+> = {
+  paid: {
+    ar: "مدفوع",
+    en: "Paid",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  pending: {
+    ar: "معلّق",
+    en: "Pending",
+    variant: "warning",
+    icon: Clock,
+  },
+  overdue: {
+    ar: "متأخر",
+    en: "Overdue",
+    variant: "danger",
+    icon: AlertTriangle,
+  },
 };
 
 export default function StudentPaymentsPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const isAr = locale === "ar";
+  const t = (ar: string, en: string) => (isAr ? ar : en);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +89,10 @@ export default function StudentPaymentsPage() {
   }, []);
 
   const fmt = (n: number) => `${n.toLocaleString()} IQD`;
+  const paidPercent =
+    summary && summary.total > 0
+      ? Math.round((summary.paid / summary.total) * 100)
+      : 0;
 
   return (
     <StudentShell
@@ -57,70 +102,131 @@ export default function StudentPaymentsPage() {
     >
       <div className="space-y-6">
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[100px] rounded-[var(--card-radius)] bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse"
+                />
+              ))}
+            </div>
+            <div className="h-[200px] rounded-[var(--card-radius)] bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
           </div>
         ) : (
           <>
             {summary && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-lg border p-4 text-center">
-                  <p className="text-xs text-muted-foreground">{isAr ? "الإجمالي" : "Total"}</p>
-                  <p className="text-lg font-bold mt-1">{fmt(summary.total)}</p>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <p className="text-xs text-muted-foreground">{isAr ? "المدفوع" : "Paid"}</p>
-                  <p className="text-lg font-bold mt-1 text-emerald-600">{fmt(summary.paid)}</p>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <p className="text-xs text-muted-foreground">{isAr ? "المتبقي" : "Remaining"}</p>
-                  <p className={`text-lg font-bold mt-1 ${summary.remaining > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                    {fmt(summary.remaining)}
-                  </p>
-                </div>
-              </div>
+              <>
+                <KPIGrid>
+                  <StatsCard
+                    label={t("الإجمالي", "Total Fee")}
+                    value={fmt(summary.total)}
+                    icon={CreditCard}
+                    variant="primary"
+                  />
+                  <StatsCard
+                    label={t("المدفوع", "Paid")}
+                    value={fmt(summary.paid)}
+                    icon={CheckCircle2}
+                    variant="success"
+                  />
+                  <StatsCard
+                    label={t("المتبقي", "Remaining")}
+                    value={fmt(summary.remaining)}
+                    icon={Wallet}
+                    variant={summary.remaining > 0 ? "danger" : "success"}
+                  />
+                </KPIGrid>
+
+                {summary.total > 0 && (
+                  <Card>
+                    <CardContent className="pt-[var(--card-padding)]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-[var(--text-secondary)]">
+                          {t("تقدم الدفع", "Payment Progress")}
+                        </span>
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">
+                          {paidPercent}%
+                        </span>
+                      </div>
+                      <Progress value={paidPercent} className="h-2.5" />
+                      <div className="flex justify-between mt-2 text-xs text-[var(--text-muted)]">
+                        <span>
+                          {t("المدفوع:", "Paid:")} {fmt(summary.paid)}
+                        </span>
+                        <span>
+                          {t("المتبقي:", "Remaining:")}{" "}
+                          {fmt(summary.remaining)}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
 
-            {payments.length === 0 ? (
-              <div className="rounded-xl border p-8 text-center text-muted-foreground">
-                <p className="text-4xl mb-2">💳</p>
-                <p>{isAr ? "لا توجد دفعات" : "No payments recorded"}</p>
-              </div>
-            ) : (
-              <div className="rounded-xl border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "الوصف" : "Description"}</th>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "المبلغ" : "Amount"}</th>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "التاريخ" : "Date"}</th>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "الحالة" : "Status"}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {payments.map((p) => {
-                        const st = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.pending;
-                        return (
-                          <tr key={p.id} className="hover:bg-muted/30">
-                            <td className="px-4 py-3">{p.description ?? "—"}</td>
-                            <td className="px-4 py-3 font-medium">{fmt(p.amount)}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{p.paid_date ?? "—"}</td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                                {isAr ? st.ar : st.en}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-[var(--primary)]" />
+                  <CardTitle className="text-base">
+                    {t("سجل الدفعات", "Payment Records")}
+                  </CardTitle>
                 </div>
-              </div>
-            )}
+              </CardHeader>
+              <CardContent>
+                {payments.length === 0 ? (
+                  <EmptyState
+                    icon={
+                      <CreditCard className="h-10 w-10 text-[var(--text-tertiary)]" />
+                    }
+                    title={t("لا توجد دفعات", "No payments recorded")}
+                    className="py-6 min-h-0"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {payments.map((p) => {
+                      const st = STATUS_CFG[p.status] ?? STATUS_CFG.pending;
+                      const Icon = st.icon;
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-3 rounded-lg border border-[var(--card-border)] p-3 hover:bg-[var(--card-bg)] transition-colors"
+                        >
+                          <div
+                            className="shrink-0 flex items-center justify-center w-9 h-9 rounded-full"
+                            style={{
+                              backgroundColor: `color-mix(in srgb, var(--${st.variant}) 12%, transparent)`,
+                            }}
+                          >
+                            <Icon
+                              className="h-4 w-4"
+                              style={{ color: `var(--${st.variant})` }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                              {p.description ?? t("دفعة", "Payment")}
+                            </p>
+                            <p className="text-xs text-[var(--text-muted)]">
+                              {p.paid_date ?? "—"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-semibold text-[var(--text-primary)]">
+                              {fmt(p.amount)}
+                            </span>
+                            <Badge variant={st.variant} size="sm">
+                              {isAr ? st.ar : st.en}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
       </div>

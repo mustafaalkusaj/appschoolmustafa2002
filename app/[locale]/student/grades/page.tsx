@@ -2,9 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { TrendingUp, BookOpen, Award } from "lucide-react";
 import { StudentShell } from "@/components/StudentShell";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface GradeRecord {
   id: string;
@@ -21,17 +32,37 @@ export default function StudentGradesPage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const isAr = locale === "ar";
+  const t = (ar: string, en: string) => (isAr ? ar : en);
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchJsonWithAuthorizedSession("/api/student/grades")
       .then((res) => {
-        if (res.response.ok) setGrades((res.payload as any)?.data?.grades ?? []);
+        if (res.response.ok)
+          setGrades((res.payload as any)?.data?.grades ?? []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const totalGrades = grades.length;
+  const avgPercentage =
+    totalGrades > 0
+      ? Math.round(grades.reduce((s, g) => s + g.percentage, 0) / totalGrades)
+      : 0;
+  const highestGrade =
+    totalGrades > 0 ? Math.max(...grades.map((g) => g.percentage)) : 0;
+
+  const subjectGroups = grades.reduce<Record<string, GradeRecord[]>>(
+    (acc, g) => {
+      const key = g.subject_name;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(g);
+      return acc;
+    },
+    {},
+  );
 
   return (
     <StudentShell
@@ -41,53 +72,127 @@ export default function StudentGradesPage() {
     >
       <div className="space-y-6">
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[100px] rounded-[var(--card-radius)] bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse"
+                />
+              ))}
+            </div>
+            <div className="h-[300px] rounded-[var(--card-radius)] bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
           </div>
         ) : grades.length === 0 ? (
-          <div className="rounded-xl border p-8 text-center text-muted-foreground">
-            <p className="text-4xl mb-2">🎓</p>
-            <p>{isAr ? "لا توجد درجات مسجلة" : "No grades recorded"}</p>
-          </div>
+          <EmptyState
+            icon={
+              <TrendingUp className="h-12 w-12 text-[var(--text-tertiary)]" />
+            }
+            title={t("لا توجد درجات مسجلة", "No grades recorded")}
+          />
         ) : (
-          <div className="rounded-xl border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-3 text-start font-medium">{isAr ? "المادة" : "Subject"}</th>
-                    <th className="px-4 py-3 text-start font-medium">{isAr ? "الامتحان" : "Exam"}</th>
-                    <th className="px-4 py-3 text-start font-medium">{isAr ? "الدرجة" : "Score"}</th>
-                    <th className="px-4 py-3 text-start font-medium">{isAr ? "النسبة" : "Percentage"}</th>
-                    <th className="px-4 py-3 text-start font-medium">{isAr ? "التاريخ" : "Date"}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {grades.map((g) => (
-                    <tr key={g.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-3 font-medium">{g.subject_name}</td>
-                      <td className="px-4 py-3">{g.exam_name ?? "—"}</td>
-                      <td className="px-4 py-3">{g.score} / {g.max_score}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          g.percentage >= 80
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-                            : g.percentage >= 50
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
-                            : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
-                        }`}>
-                          {g.percentage}%
+          <>
+            <KPIGrid>
+              <StatsCard
+                label={t("عدد الدرجات", "Total Grades")}
+                value={String(totalGrades)}
+                icon={BookOpen}
+                variant="info"
+              />
+              <StatsCard
+                label={t("المعدل العام", "Average")}
+                value={`${avgPercentage}%`}
+                icon={TrendingUp}
+                variant={
+                  avgPercentage >= 80
+                    ? "success"
+                    : avgPercentage >= 50
+                      ? "warning"
+                      : "danger"
+                }
+              />
+              <StatsCard
+                label={t("أعلى درجة", "Highest")}
+                value={`${highestGrade}%`}
+                icon={Award}
+                variant="success"
+              />
+            </KPIGrid>
+
+            {Object.entries(subjectGroups).map(([subject, subGrades]) => {
+              const subAvg = Math.round(
+                subGrades.reduce((s, g) => s + g.percentage, 0) /
+                  subGrades.length,
+              );
+              return (
+                <Card key={subject}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{subject}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[var(--text-muted)]">
+                          {t("المعدل", "Avg")}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{g.date ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        <Badge
+                          variant={
+                            subAvg >= 80
+                              ? "success"
+                              : subAvg >= 50
+                                ? "warning"
+                                : "danger"
+                          }
+                          size="sm"
+                        >
+                          {subAvg}%
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {subGrades.map((g) => (
+                        <div key={g.id} className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm text-[var(--text-primary)] truncate">
+                                {g.exam_name ?? g.type ?? t("اختبار", "Exam")}
+                              </span>
+                              {g.date && (
+                                <span className="text-xs text-[var(--text-muted)] shrink-0">
+                                  {g.date}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                                {g.score}/{g.max_score}
+                              </span>
+                              <Badge
+                                variant={
+                                  g.percentage >= 80
+                                    ? "success"
+                                    : g.percentage >= 50
+                                      ? "warning"
+                                      : "danger"
+                                }
+                                size="sm"
+                              >
+                                {g.percentage}%
+                              </Badge>
+                            </div>
+                          </div>
+                          <Progress
+                            value={g.percentage}
+                            className="h-1.5"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </>
         )}
       </div>
     </StudentShell>

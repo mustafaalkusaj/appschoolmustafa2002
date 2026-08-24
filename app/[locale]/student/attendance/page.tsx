@@ -2,9 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  CalendarCheck,
+  TrendingUp,
+} from "lucide-react";
 import { StudentShell } from "@/components/StudentShell";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
+import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface AttendanceRecord {
   id: string;
@@ -23,17 +40,26 @@ interface AttendanceSummary {
   rate: number;
 }
 
-const STATUS_LABELS: Record<string, { ar: string; en: string; color: string }> = {
-  present: { ar: "حاضر", en: "Present", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" },
-  absent: { ar: "غائب", en: "Absent", color: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300" },
-  late: { ar: "متأخر", en: "Late", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" },
-  excused: { ar: "إجازة", en: "Excused", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300" },
+const STATUS_MAP: Record<
+  string,
+  {
+    ar: string;
+    en: string;
+    variant: "success" | "danger" | "warning" | "info";
+    icon: typeof CheckCircle2;
+  }
+> = {
+  present: { ar: "حاضر", en: "Present", variant: "success", icon: CheckCircle2 },
+  absent: { ar: "غائب", en: "Absent", variant: "danger", icon: XCircle },
+  late: { ar: "متأخر", en: "Late", variant: "warning", icon: Clock },
+  excused: { ar: "إجازة", en: "Excused", variant: "info", icon: CalendarCheck },
 };
 
 export default function StudentAttendancePage() {
   const pathname = usePathname();
   const locale = getLocaleFromPath(pathname);
   const isAr = locale === "ar";
+  const t = (ar: string, en: string) => (isAr ? ar : en);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,73 +85,138 @@ export default function StudentAttendancePage() {
     >
       <div className="space-y-6">
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[100px] rounded-[var(--card-radius)] bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse"
+                />
+              ))}
+            </div>
+            <div className="h-[300px] rounded-[var(--card-radius)] bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
           </div>
         ) : (
           <>
             {summary && (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <MiniStat label={isAr ? "إجمالي الأيام" : "Total Days"} value={summary.total_days} />
-                <MiniStat label={isAr ? "حضور" : "Present"} value={summary.present} />
-                <MiniStat label={isAr ? "غياب" : "Absent"} value={summary.absent} />
-                <MiniStat label={isAr ? "تأخر" : "Late"} value={summary.late} />
-                <MiniStat label={isAr ? "نسبة الحضور" : "Rate"} value={`${summary.rate}%`} />
-              </div>
+              <>
+                <Card>
+                  <CardContent className="pt-[var(--card-padding)]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-[var(--text-secondary)]">
+                        {t("نسبة الحضور", "Attendance Rate")}
+                      </span>
+                      <span
+                        className={`text-2xl font-bold ${
+                          summary.rate >= 80
+                            ? "text-[var(--success)]"
+                            : summary.rate >= 60
+                              ? "text-[var(--warning)]"
+                              : "text-[var(--danger)]"
+                        }`}
+                      >
+                        {summary.rate}%
+                      </span>
+                    </div>
+                    <Progress value={summary.rate} className="h-3" />
+                  </CardContent>
+                </Card>
+
+                <KPIGrid>
+                  <StatsCard
+                    label={t("إجمالي الأيام", "Total Days")}
+                    value={String(summary.total_days)}
+                    icon={CalendarCheck}
+                    variant="primary"
+                  />
+                  <StatsCard
+                    label={t("حضور", "Present")}
+                    value={String(summary.present)}
+                    icon={CheckCircle2}
+                    variant="success"
+                  />
+                  <StatsCard
+                    label={t("غياب", "Absent")}
+                    value={String(summary.absent)}
+                    icon={XCircle}
+                    variant="danger"
+                  />
+                  <StatsCard
+                    label={t("تأخر", "Late")}
+                    value={String(summary.late)}
+                    icon={Clock}
+                    variant="warning"
+                  />
+                </KPIGrid>
+              </>
             )}
 
-            {records.length === 0 ? (
-              <div className="rounded-xl border p-8 text-center text-muted-foreground">
-                <p className="text-4xl mb-2">📋</p>
-                <p>{isAr ? "لا توجد سجلات حضور" : "No attendance records"}</p>
-              </div>
-            ) : (
-              <div className="rounded-xl border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "التاريخ" : "Date"}</th>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "المادة" : "Subject"}</th>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "الحالة" : "Status"}</th>
-                        <th className="px-4 py-3 text-start font-medium">{isAr ? "ملاحظة" : "Note"}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {records.map((r) => {
-                        const st = STATUS_LABELS[r.status] ?? STATUS_LABELS.present;
-                        return (
-                          <tr key={r.id} className="hover:bg-muted/30">
-                            <td className="px-4 py-3">{r.date}</td>
-                            <td className="px-4 py-3">{r.subject_name ?? "—"}</td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                                {isAr ? st.ar : st.en}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground">{r.note ?? "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-[var(--primary)]" />
+                  <CardTitle className="text-base">
+                    {t("سجل الحضور", "Attendance Records")}
+                  </CardTitle>
                 </div>
-              </div>
-            )}
+              </CardHeader>
+              <CardContent>
+                {records.length === 0 ? (
+                  <EmptyState
+                    icon={
+                      <CalendarCheck className="h-10 w-10 text-[var(--text-tertiary)]" />
+                    }
+                    title={t("لا توجد سجلات حضور", "No attendance records")}
+                    className="py-6 min-h-0"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {records.map((r) => {
+                      const st = STATUS_MAP[r.status] ?? STATUS_MAP.present;
+                      const Icon = st.icon;
+                      return (
+                        <div
+                          key={r.id}
+                          className="flex items-center gap-3 rounded-lg border border-[var(--card-border)] p-3 hover:bg-[var(--card-bg)] transition-colors"
+                        >
+                          <div
+                            className="shrink-0 flex items-center justify-center w-9 h-9 rounded-full"
+                            style={{
+                              backgroundColor: `color-mix(in srgb, var(--${st.variant}) 12%, transparent)`,
+                            }}
+                          >
+                            <Icon
+                              className="h-4.5 w-4.5"
+                              style={{ color: `var(--${st.variant})` }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-[var(--text-primary)]">
+                                {r.date}
+                              </span>
+                              <Badge variant={st.variant} size="sm">
+                                {isAr ? st.ar : st.en}
+                              </Badge>
+                            </div>
+                            {(r.subject_name || r.note) && (
+                              <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                                {r.subject_name ?? ""}
+                                {r.subject_name && r.note ? " · " : ""}
+                                {r.note ?? ""}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
     </StudentShell>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border p-3 text-center">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-lg font-bold mt-1">{String(value)}</p>
-    </div>
   );
 }

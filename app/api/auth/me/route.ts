@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveWebUserProfile } from "@/lib/authorization/snapshot";
-import { createRouteSupabaseClient, getRouteAuthenticatedUser } from "@/lib/supabase-server";
+import {
+  createRouteSupabaseClient,
+  createServiceSupabaseClient,
+  getRouteAuthenticatedUser,
+} from "@/lib/supabase-server";
+import { buildTemplatePermissions, DEFAULT_PATH_BY_ROLE } from "@/types/roles";
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "private, no-store, max-age=0",
+} as const;
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ ok: false, error: { message } }, { status });
@@ -33,6 +42,43 @@ export async function GET(req: NextRequest) {
   }
 
   if (!resolved) {
+    const svc = createServiceSupabaseClient();
+    const { data: managed } = await svc
+      .from("managed_user_profiles")
+      .select("auth_user_id, role, school_id, student_id, full_name")
+      .eq("auth_user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (managed?.role === "student") {
+      const permissions = buildTemplatePermissions("student");
+      const studentProfile = {
+        id: managed.auth_user_id,
+        full_name: managed.full_name ?? user.email ?? "Student",
+        email: user.email ?? null,
+        avatar_url: null,
+        role: "student" as const,
+        permissions,
+        school_id: managed.school_id,
+        is_active: true,
+        default_path: DEFAULT_PATH_BY_ROLE.student,
+      };
+
+      return NextResponse.json(
+        {
+          ok: true,
+          user: studentProfile,
+          session: {
+            deepPermissions: permissions,
+            sidebar: [],
+            dashboardSections: [],
+            roleColor: null,
+          },
+        },
+        { headers: NO_STORE_HEADERS },
+      );
+    }
+
     return jsonError("Profile not found", 404);
   }
 

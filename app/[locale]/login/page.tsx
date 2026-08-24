@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Eye, EyeOff, KeyRound, Mail, ShieldCheck, Sparkles, CheckCircle2 } from "@/lib/icons";
+import { Eye, EyeOff, GraduationCap, KeyRound, Mail, ShieldCheck, Sparkles, CheckCircle2 } from "@/lib/icons";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -398,12 +398,21 @@ export default function LoginPage() {
                       {loading ? t("common.loading") : t("auth.login")}
                     </Button>
 
-                    <div className="flex justify-center pt-1">
+                    <div className="flex flex-col items-center gap-2 pt-1">
                       <Link
                         href={localizeAppPath("/forgot-password", locale)}
                         className="inline-flex text-sm font-extrabold text-[var(--primary)] transition hover:text-[var(--primary-strong)]"
                       >
                         {t("auth.forgotPassword")}
+                      </Link>
+                      <Link
+                        href={localizeAppPath("/student-login", locale)}
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-secondary)] transition hover:text-[var(--primary)]"
+                      >
+                        <GraduationCap size={16} />
+                        {isRTL
+                          ? "تسجيل دخول الطالب"
+                          : "Student Login"}
                       </Link>
                     </div>
                   </form>

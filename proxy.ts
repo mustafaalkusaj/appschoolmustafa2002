@@ -232,6 +232,7 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
     // Mobile APIs use their own auth (Supabase token / resolveMobileRouteContext)
     normalizedPath.startsWith("/api/mobile/") ||
     normalizedPath === "/api/auth/login" ||
+    normalizedPath === "/api/auth/student-login" ||
     normalizedPath === "/api/auth/me" ||
     normalizedPath === "/api/auth/demo-users" ||
     normalizedPath === "/api/auth/forgot-password" ||
