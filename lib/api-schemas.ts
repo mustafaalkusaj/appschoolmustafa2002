@@ -103,9 +103,12 @@ export const loginRequestSchema = z.object({
   email: z
     .string()
     .trim()
+    .min(1, "أدخل معرّف الدخول أو البريد الإلكتروني.")
     .max(320)
-    .email("أدخل بريداً إلكترونياً صحيحاً.")
-    .transform((value) => value.toLowerCase()),
+    .transform((value) => {
+      const lower = value.toLowerCase();
+      return lower.includes("@") ? lower : `${lower}@schoolapp.local`;
+    }),
   password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.").max(256),
 });
 
