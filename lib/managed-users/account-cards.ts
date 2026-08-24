@@ -104,6 +104,14 @@ export async function buildManagedUserAccountCard(
     throw new Error("لا توجد كلمة مرور مؤقتة محفوظة لهذا الحساب. أعد تعيين كلمة المرور المؤقتة أولاً.");
   }
 
+  // The hash is one-way, so it cannot be printed. A row that has a hash but no
+  // plaintext (and no caller-supplied password) would render the "••••••••"
+  // placeholder and hand the school an unusable card. Refuse instead, so callers
+  // issue a fresh temporary password the way the card route already does.
+  if (!options?.temporaryPassword && !credential.temporary_password_plain) {
+    throw new Error("لا توجد كلمة مرور مؤقتة قابلة للعرض لهذا الحساب. أعد تعيين كلمة المرور المؤقتة أولاً.");
+  }
+
   const primaryTeacherAssignment =
     user.role === "teacher"
       ? user.teacher?.assignments.find((assignment) => assignment.is_active) ?? user.teacher?.assignments[0] ?? null
