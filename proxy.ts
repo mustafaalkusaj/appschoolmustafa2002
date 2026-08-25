@@ -476,7 +476,7 @@ function applyIntlResponse(target: NextResponse, source: NextResponse) {
 }
 
 function applyBaseSecurityHeaders(response: NextResponse, requestId: string, nonce: string, csp: string) {
-  response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("Content-Security-Policy-Report-Only", csp);
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
