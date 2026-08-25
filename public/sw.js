@@ -1,13 +1,7 @@
-const CACHE_NAME = "student-portal-v1";
-const PRECACHE_URLS = ["/ar/student", "/en/student"];
+const CACHE_NAME = "student-portal-v2";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
@@ -32,10 +26,19 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
+  if (url.origin !== self.location.origin) return;
+
   if (
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/_next/webpack")
   ) {
+    return;
+  }
+
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.match(request).then((cached) => cached || fetch(request))
+    );
     return;
   }
 
@@ -55,15 +58,4 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-
-  if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request))
-    );
-    return;
-  }
-
-  event.respondWith(
-    fetch(request).catch(() => caches.match(request))
-  );
 });
