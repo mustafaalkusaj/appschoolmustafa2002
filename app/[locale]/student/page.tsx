@@ -264,40 +264,40 @@ export default function StudentDashboardPage() {
 
   return (
     <StudentShell currentPath="/student" titleAr="الرئيسية" titleEn="Home">
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto">
         {loading ? (
-          <div className="space-y-6">
-            <div className="h-24 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="h-40 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
-              <div className="h-40 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
+          <div className="space-y-4 sm:space-y-6">
+            <div className="h-16 sm:h-24 rounded-xl sm:rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div className="h-32 sm:h-40 rounded-xl sm:rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
+              <div className="h-32 sm:h-40 rounded-xl sm:rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
             </div>
-            <div className="h-32 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
+            <div className="h-24 sm:h-32 rounded-xl sm:rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse" />
           </div>
         ) : data ? (
           <>
             {/* Welcome Header */}
-            <div className="flex items-center gap-4 p-5 rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[color-mix(in_srgb,var(--primary)_70%,#000)] text-white">
-              <div className="shrink-0 w-14 h-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-xl font-bold">
+            <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[color-mix(in_srgb,var(--primary)_70%,#000)] text-white">
+              <div className="shrink-0 w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-base sm:text-xl font-bold">
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-bold truncate">
+                <h1 className="text-base sm:text-xl font-bold truncate">
                   {t("مرحباً،", "Welcome,")} {studentName}
                 </h1>
                 {data.class_name && (
-                  <p className="text-sm opacity-80 mt-0.5">{data.class_name}</p>
+                  <p className="text-xs sm:text-sm opacity-80 mt-0.5">{data.class_name}</p>
                 )}
               </div>
             </div>
 
             {/* Quick Action Chips */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+            <div className="flex gap-2 overflow-x-auto sm:overflow-x-visible sm:flex-wrap pb-1 scrollbar-hide -mx-1 px-1 snap-x snap-mandatory sm:snap-none">
               {quickLinks.map((link) => (
                 <button
                   key={link.href}
                   onClick={() => router.push(`/${locale}${link.href}`)}
-                  className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] hover:bg-[var(--surface-strong)] transition-colors text-sm font-medium text-[var(--text-primary)]"
+                  className="shrink-0 sm:shrink snap-start flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] hover:bg-[var(--surface-strong)] active:scale-95 transition-all text-xs sm:text-sm font-medium text-[var(--text-primary)]"
                 >
                   <link.icon
                     className="h-4 w-4"
@@ -309,30 +309,30 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Performance Bento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <div
-                className="relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 cursor-pointer hover:shadow-md transition-shadow"
+                className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 sm:p-5 cursor-pointer hover:shadow-md active:scale-[0.98] transition-all"
                 onClick={() => router.push(`/${locale}/student/attendance`)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] sm:text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
                       {t("الحضور", "Attendance")}
                     </p>
-                    <span className="text-sm text-[var(--text-secondary)]">
+                    <span className="text-xs sm:text-sm text-[var(--text-secondary)]">
                       {data.attendance_present} {t("من", "of")}{" "}
                       {data.attendance_total}
                     </span>
-                    <div className="flex gap-3 mt-3">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex gap-2 sm:gap-3 mt-2 sm:mt-3">
+                      <div className="flex items-center gap-1 sm:gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-[var(--success)]" />
-                        <span className="text-xs text-[var(--text-muted)]">
+                        <span className="text-[10px] sm:text-xs text-[var(--text-muted)]">
                           {t("حاضر", "Present")} {data.attendance_present}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 sm:gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-[var(--danger)]" />
-                        <span className="text-xs text-[var(--text-muted)]">
+                        <span className="text-[10px] sm:text-xs text-[var(--text-muted)]">
                           {t("غائب", "Absent")} {data.attendance_absent}
                         </span>
                       </div>
@@ -343,14 +343,14 @@ export default function StudentDashboardPage() {
               </div>
 
               <div
-                className="relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 cursor-pointer hover:shadow-md transition-shadow"
+                className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 sm:p-5 cursor-pointer hover:shadow-md active:scale-[0.98] transition-all"
                 onClick={() => router.push(`/${locale}/student/grades`)}
               >
-                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
+                <p className="text-[10px] sm:text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2 sm:mb-3">
                   {t("المعدل العام", "Grade Average")}
                 </p>
                 <GradeBar average={data.grade_average} />
-                <p className="text-xs text-[var(--text-muted)] mt-2 text-center">
+                <p className="text-[10px] sm:text-xs text-[var(--text-muted)] mt-2 text-center">
                   {data.recent_grades.length > 0
                     ? `${t("آخر درجة:", "Latest:")} ${data.recent_grades[0].subject_name} ${data.recent_grades[0].percentage}%`
                     : t("لا توجد درجات بعد", "No grades yet")}
@@ -359,43 +359,43 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Featured Action Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <div
-                className="rounded-2xl p-4 cursor-pointer transition-transform hover:scale-[1.02]"
+                className="rounded-xl sm:rounded-2xl p-3 sm:p-4 cursor-pointer transition-transform hover:scale-[1.02] active:scale-95"
                 style={{
                   background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
                   color: "white",
                 }}
                 onClick={() => router.push(`/${locale}/student/exams`)}
               >
-                <GraduationCap className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-2xl font-bold">
+                <GraduationCap className="h-5 w-5 sm:h-8 sm:w-8 mb-1 sm:mb-2 opacity-80" />
+                <p className="text-lg sm:text-2xl font-bold">
                   {data.upcoming_exams_count}
                 </p>
-                <p className="text-sm opacity-80">
+                <p className="text-[10px] sm:text-sm opacity-80 leading-tight">
                   {t("امتحان قادم", "Upcoming Exams")}
                 </p>
               </div>
 
               <div
-                className="rounded-2xl p-4 cursor-pointer transition-transform hover:scale-[1.02]"
+                className="rounded-xl sm:rounded-2xl p-3 sm:p-4 cursor-pointer transition-transform hover:scale-[1.02] active:scale-95"
                 style={{
                   background: "linear-gradient(135deg, #0ea5e9, #06b6d4)",
                   color: "white",
                 }}
                 onClick={() => router.push(`/${locale}/student/assignments`)}
               >
-                <FileText className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-2xl font-bold">
+                <FileText className="h-5 w-5 sm:h-8 sm:w-8 mb-1 sm:mb-2 opacity-80" />
+                <p className="text-lg sm:text-2xl font-bold">
                   {data.upcoming_assignments.length}
                 </p>
-                <p className="text-sm opacity-80">
+                <p className="text-[10px] sm:text-sm opacity-80 leading-tight">
                   {t("واجب قادم", "Upcoming Tasks")}
                 </p>
               </div>
 
               <div
-                className="rounded-2xl p-4 cursor-pointer transition-transform hover:scale-[1.02]"
+                className="rounded-xl sm:rounded-2xl p-3 sm:p-4 cursor-pointer transition-transform hover:scale-[1.02] active:scale-95"
                 style={{
                   background:
                     (data.remaining_balance ?? 0) > 0
@@ -405,13 +405,13 @@ export default function StudentDashboardPage() {
                 }}
                 onClick={() => router.push(`/${locale}/student/payments`)}
               >
-                <Wallet className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-2xl font-bold">
+                <Wallet className="h-5 w-5 sm:h-8 sm:w-8 mb-1 sm:mb-2 opacity-80" />
+                <p className="text-lg sm:text-2xl font-bold">
                   {(data.remaining_balance ?? 0) > 0
                     ? `${(data.remaining_balance ?? 0).toLocaleString()}`
                     : t("مسدد", "Paid")}
                 </p>
-                <p className="text-sm opacity-80">
+                <p className="text-[10px] sm:text-sm opacity-80 leading-tight">
                   {(data.remaining_balance ?? 0) > 0
                     ? t("متبقي (د.ع)", "Remaining (IQD)")
                     : t("الأقساط مدفوعة", "All paid")}
@@ -421,8 +421,8 @@ export default function StudentDashboardPage() {
 
             {/* Payment Progress */}
             {data.total_fee > 0 && (
-              <Card className="rounded-2xl">
-                <CardContent className="pt-5">
+              <Card className="rounded-2xl cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push(`/${locale}/student/payments`)}>
+                <CardContent className="pt-4 sm:pt-5">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-[var(--text-secondary)]">
                       {t("تقدم الدفع", "Payment Progress")}
@@ -453,11 +453,19 @@ export default function StudentDashboardPage() {
 
             {/* Today's Schedule */}
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="h-5 w-5 text-[var(--primary)]" />
-                <h2 className="text-base font-semibold text-[var(--text-primary)]">
-                  {t("جدول اليوم", "Today's Schedule")}
-                </h2>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-[var(--primary)]" />
+                  <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">
+                    {t("جدول اليوم", "Today's Schedule")}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => router.push(`/${locale}/student/schedule`)}
+                  className="text-xs font-medium text-[var(--primary)] hover:underline"
+                >
+                  {t("عرض الكل", "View All")}
+                </button>
               </div>
               {data.today_schedule.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[var(--card-border)] p-8 text-center">
@@ -467,7 +475,7 @@ export default function StudentDashboardPage() {
                   </p>
                 </div>
               ) : (
-                <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1 snap-x snap-mandatory">
                   {data.today_schedule.map((slot) => {
                     const startMin = slotMinutes(slot.start_time);
                     const endMin = slotMinutes(slot.end_time);
@@ -479,7 +487,7 @@ export default function StudentDashboardPage() {
                     return (
                       <div
                         key={slot.id}
-                        className="shrink-0 w-44 rounded-2xl border p-4 transition-all"
+                        className="shrink-0 w-36 sm:w-44 rounded-xl sm:rounded-2xl border p-3 sm:p-4 snap-start transition-all"
                         style={{
                           borderColor: isActive
                             ? "var(--primary)"
@@ -530,14 +538,22 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Upcoming Exams + Assignments */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               <Card className="rounded-2xl">
                 <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-[var(--info)]" />
-                    <CardTitle className="text-base">
-                      {t("الامتحانات القادمة", "Upcoming Exams")}
-                    </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-5 w-5 text-[var(--info)]" />
+                      <CardTitle className="text-sm sm:text-base">
+                        {t("الامتحانات القادمة", "Upcoming Exams")}
+                      </CardTitle>
+                    </div>
+                    <button
+                      onClick={() => router.push(`/${locale}/student/exams`)}
+                      className="text-xs font-medium text-[var(--primary)] hover:underline"
+                    >
+                      {t("عرض الكل", "View All")}
+                    </button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -562,10 +578,11 @@ export default function StudentDashboardPage() {
                         return (
                           <div
                             key={exam.id}
-                            className="flex items-center gap-3 rounded-xl border border-[var(--card-border)] p-3 hover:bg-[var(--surface-strong)] transition-colors"
+                            className="flex items-center gap-2 sm:gap-3 rounded-xl border border-[var(--card-border)] p-2.5 sm:p-3 cursor-pointer hover:bg-[var(--surface-strong)] active:scale-[0.98] transition-all"
+                            onClick={() => router.push(`/${locale}/student/exams`)}
                           >
-                            <div className="shrink-0 flex flex-col items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--info)_8%,transparent)] px-3 py-1.5 min-w-[52px]">
-                              <span className="text-lg font-bold text-[var(--info)]">
+                            <div className="shrink-0 flex flex-col items-center justify-center rounded-lg sm:rounded-xl bg-[color-mix(in_srgb,var(--info)_8%,transparent)] px-2.5 sm:px-3 py-1 sm:py-1.5 min-w-[44px] sm:min-w-[52px]">
+                              <span className="text-base sm:text-lg font-bold text-[var(--info)]">
                                 {daysLeft}
                               </span>
                               <span className="text-[10px] text-[var(--info)]">
@@ -573,7 +590,7 @@ export default function StudentDashboardPage() {
                               </span>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                              <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">
                                 {exam.subject_name}
                               </p>
                               <p className="text-xs text-[var(--text-muted)]">
@@ -592,14 +609,22 @@ export default function StudentDashboardPage() {
 
               <Card className="rounded-2xl">
                 <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <FileText
-                      className="h-5 w-5"
-                      style={{ color: "#8b5cf6" }}
-                    />
-                    <CardTitle className="text-base">
-                      {t("الواجبات القادمة", "Upcoming Assignments")}
-                    </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText
+                        className="h-5 w-5"
+                        style={{ color: "#8b5cf6" }}
+                      />
+                      <CardTitle className="text-sm sm:text-base">
+                        {t("الواجبات القادمة", "Upcoming Assignments")}
+                      </CardTitle>
+                    </div>
+                    <button
+                      onClick={() => router.push(`/${locale}/student/assignments`)}
+                      className="text-xs font-medium text-[var(--primary)] hover:underline"
+                    >
+                      {t("عرض الكل", "View All")}
+                    </button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -624,17 +649,18 @@ export default function StudentDashboardPage() {
                         return (
                           <div
                             key={a.id}
-                            className="flex items-center gap-3 rounded-xl border border-[var(--card-border)] p-3 hover:bg-[var(--surface-strong)] transition-colors"
+                            className="flex items-center gap-2 sm:gap-3 rounded-xl border border-[var(--card-border)] p-2.5 sm:p-3 cursor-pointer hover:bg-[var(--surface-strong)] active:scale-[0.98] transition-all"
+                            onClick={() => router.push(`/${locale}/student/assignments`)}
                           >
                             <div
-                              className="shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-1.5 min-w-[52px]"
+                              className="shrink-0 flex flex-col items-center justify-center rounded-lg sm:rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 min-w-[44px] sm:min-w-[52px]"
                               style={{
                                 backgroundColor:
                                   "color-mix(in srgb, #8b5cf6 8%, transparent)",
                               }}
                             >
                               <span
-                                className="text-lg font-bold"
+                                className="text-base sm:text-lg font-bold"
                                 style={{ color: "#8b5cf6" }}
                               >
                                 {daysLeft}
@@ -665,14 +691,22 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Recent Grades + Behavior */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               <Card className="rounded-2xl">
                 <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-[var(--success)]" />
-                    <CardTitle className="text-base">
-                      {t("آخر الدرجات", "Recent Grades")}
-                    </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-[var(--success)]" />
+                      <CardTitle className="text-sm sm:text-base">
+                        {t("آخر الدرجات", "Recent Grades")}
+                      </CardTitle>
+                    </div>
+                    <button
+                      onClick={() => router.push(`/${locale}/student/grades`)}
+                      className="text-xs font-medium text-[var(--primary)] hover:underline"
+                    >
+                      {t("عرض الكل", "View All")}
+                    </button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -722,26 +756,34 @@ export default function StudentDashboardPage() {
 
               <Card className="rounded-2xl">
                 <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-[var(--warning)]" />
-                    <CardTitle className="text-base">
-                      {t("السلوك", "Behavior")}
-                      {data.behavior_points != null && (
-                        <span
-                          className="ms-2 text-sm font-bold"
-                          style={{
-                            color:
-                              (data.behavior_points ?? 0) >= 0
-                                ? "var(--success)"
-                                : "var(--danger)",
-                          }}
-                        >
-                          {data.behavior_points > 0
-                            ? `+${data.behavior_points}`
-                            : data.behavior_points}
-                        </span>
-                      )}
-                    </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-5 w-5 text-[var(--warning)]" />
+                      <CardTitle className="text-sm sm:text-base">
+                        {t("السلوك", "Behavior")}
+                        {data.behavior_points != null && (
+                          <span
+                            className="ms-2 text-sm font-bold"
+                            style={{
+                              color:
+                                (data.behavior_points ?? 0) >= 0
+                                  ? "var(--success)"
+                                  : "var(--danger)",
+                            }}
+                          >
+                            {data.behavior_points > 0
+                              ? `+${data.behavior_points}`
+                              : data.behavior_points}
+                          </span>
+                        )}
+                      </CardTitle>
+                    </div>
+                    <button
+                      onClick={() => router.push(`/${locale}/student/behavior`)}
+                      className="text-xs font-medium text-[var(--primary)] hover:underline"
+                    >
+                      {t("عرض الكل", "View All")}
+                    </button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -809,22 +851,22 @@ export default function StudentDashboardPage() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Megaphone className="h-5 w-5 text-[var(--warning)]" />
-                  <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                  <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">
                     {t("الإعلانات", "Announcements")}
                   </h2>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {data.announcements.map((a) => (
                     <div
                       key={a.id}
-                      className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4"
+                      className="rounded-xl sm:rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-3 sm:p-4"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start justify-between gap-2 sm:gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          <p className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                             {a.title}
                           </p>
-                          <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">
+                          <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">
                             {a.body}
                           </p>
                         </div>
