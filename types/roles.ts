@@ -919,6 +919,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     group: "student",
   },
   {
+    id: "student-assignments",
+    label: "واجباتي",
+    href: "/student/assignments",
+    iconToken: "📚",
+    roles: ["student"],
+    group: "student",
+  },
+  {
     id: "student-payments",
     label: "الأقساط",
     href: "/student/payments",

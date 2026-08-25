@@ -148,7 +148,7 @@ export function AppSidebar({
     return groups;
   }, [navItems]);
 
-  const groupOrder = ["general", "academic", "finance", "system", "admin"];
+  const groupOrder = ["general", "academic", "finance", "system", "admin", "student"];
 
   useEffect(() => {
     const syncScopedSchool = (event?: Event) => setScopedSchoolId(readSchoolScopeFromEvent(event));
