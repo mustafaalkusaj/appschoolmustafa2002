@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { SchoolLogo } from "@/components/brand";
 
@@ -10,7 +9,6 @@ export default function StudentLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const locale = useLocale();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -43,7 +41,7 @@ export default function StudentLoginPage() {
         return;
       }
 
-      router.push(`/${locale}/student`);
+      window.location.href = `/${locale}/student`;
     } catch {
       setError(
         locale === "ar"
