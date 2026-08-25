@@ -313,6 +313,47 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
 
   if (error || !data) {
     if (error) console.error("[Auth] fetchUserProfileById error:", error);
+
+    const { data: managed } = await supabase
+      .from("managed_user_profiles")
+      .select("auth_user_id, role, school_id, full_name")
+      .eq("auth_user_id", userId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (managed?.role === "student") {
+      const permissions = buildTemplatePermissions("student");
+      let school: SchoolProfile | null = null;
+      let subscription: SubscriptionProfile | null = null;
+      if (managed.school_id) {
+        const ctx = await fetchSchoolContext(managed.school_id);
+        school = ctx.school;
+        subscription = ctx.subscription;
+      }
+      return {
+        id: managed.auth_user_id,
+        full_name: managed.full_name ?? "Student",
+        job_title: null,
+        email: null,
+        avatar_url: null,
+        role: "student" as UserRole,
+        permissions,
+        custom_permissions: null,
+        school_id: managed.school_id ?? null,
+        is_active: true,
+        phone: null,
+        school,
+        subscription,
+        branch_id: null,
+        allowed_branch_ids: [],
+        allowed_pages: [],
+        is_single_page_user: false,
+        default_path: DEFAULT_PATH_BY_ROLE.student,
+        scope_level: null,
+        permissions_version: 1,
+      };
+    }
+
     return null;
   }
 
@@ -375,7 +416,32 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
   };
 }
 
-export async function getUserProfile(): Promise<UserProfile | null> {
+let _inflightProfile: Promise<UserProfile | null> | null = null;
+
+export function getUserProfile(): Promise<UserProfile | null> {
+  if (_inflightProfile) return _inflightProfile;
+  _inflightProfile = _getUserProfileImpl();
+  _inflightProfile.finally(() => {
+    _inflightProfile = null;
+  });
+  return _inflightProfile;
+}
+
+async function _fetchAuthMe(): Promise<Response> {
+  const opts: RequestInit = {
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  };
+  const res = await fetch("/api/auth/me", opts);
+  if (res.status === 429) {
+    await new Promise((r) => setTimeout(r, 1500));
+    return fetch("/api/auth/me", opts);
+  }
+  return res;
+}
+
+async function _getUserProfileImpl(): Promise<UserProfile | null> {
   const {
     data: { user },
     error,
@@ -389,13 +455,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   }
 
   try {
-    const response = await fetch("/api/auth/me", {
-      credentials: "include",
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-      },
-    });
+    const response = await _fetchAuthMe();
 
     if (response.ok) {
       const payload = (await response.json().catch(() => null)) as
@@ -413,6 +473,8 @@ export async function getUserProfile(): Promise<UserProfile | null> {
                 : null,
         };
       }
+    } else {
+      console.warn("[Auth] /api/auth/me returned", response.status);
     }
   } catch (error) {
     if (error instanceof Error) {
