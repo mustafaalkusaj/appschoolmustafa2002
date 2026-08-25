@@ -83,10 +83,10 @@ export default function StudentAttendancePage() {
       titleAr="حضوري"
       titleEn="My Attendance"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {loading ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
@@ -103,11 +103,11 @@ export default function StudentAttendancePage() {
                 <Card>
                   <CardContent className="pt-[var(--card-padding)]">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-[var(--text-secondary)]">
+                      <span className="text-xs sm:text-sm font-medium text-[var(--text-secondary)]">
                         {t("نسبة الحضور", "Attendance Rate")}
                       </span>
                       <span
-                        className={`text-2xl font-bold ${
+                        className={`text-xl sm:text-2xl font-bold ${
                           summary.rate >= 80
                             ? "text-[var(--success)]"
                             : summary.rate >= 60
@@ -155,7 +155,7 @@ export default function StudentAttendancePage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-[var(--primary)]" />
-                  <CardTitle className="text-base">
+                  <CardTitle className="text-sm sm:text-base">
                     {t("سجل الحضور", "Attendance Records")}
                   </CardTitle>
                 </div>
@@ -177,7 +177,7 @@ export default function StudentAttendancePage() {
                       return (
                         <div
                           key={r.id}
-                          className="flex items-center gap-3 rounded-lg border border-[var(--card-border)] p-3 hover:bg-[var(--card-bg)] transition-colors"
+                          className="flex items-center gap-2 sm:gap-3 rounded-lg border border-[var(--card-border)] p-2.5 sm:p-3 hover:bg-[var(--card-bg)] active:scale-[0.98] transition-all"
                         >
                           <div
                             className="shrink-0 flex items-center justify-center w-9 h-9 rounded-full"
@@ -192,7 +192,7 @@ export default function StudentAttendancePage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-[var(--text-primary)]">
+                              <span className="text-xs sm:text-sm font-medium text-[var(--text-primary)]">
                                 {r.date}
                               </span>
                               <Badge variant={st.variant} size="sm">

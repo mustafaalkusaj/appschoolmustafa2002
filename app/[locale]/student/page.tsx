@@ -23,6 +23,8 @@ import {
   User,
 } from "lucide-react";
 import { StudentShell } from "@/components/StudentShell";
+import { GradeChart } from "@/components/student/GradeChart";
+import { ExamCountdown } from "@/components/student/ExamCountdown";
 import { getLocaleFromPath } from "@/lib/locale-routing";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
 import { useRole } from "@/hooks/useRole";
@@ -570,38 +572,19 @@ export default function StudentDashboardPage() {
                     />
                   ) : (
                     <div className="space-y-2">
-                      {data.upcoming_exams.map((exam) => {
-                        const daysLeft = Math.ceil(
-                          (new Date(exam.exam_date).getTime() - Date.now()) /
-                            86400000,
-                        );
-                        return (
-                          <div
-                            key={exam.id}
-                            className="flex items-center gap-2 sm:gap-3 rounded-xl border border-[var(--card-border)] p-2.5 sm:p-3 cursor-pointer hover:bg-[var(--surface-strong)] active:scale-[0.98] transition-all"
-                            onClick={() => router.push(`/${locale}/student/exams`)}
-                          >
-                            <div className="shrink-0 flex flex-col items-center justify-center rounded-lg sm:rounded-xl bg-[color-mix(in_srgb,var(--info)_8%,transparent)] px-2.5 sm:px-3 py-1 sm:py-1.5 min-w-[44px] sm:min-w-[52px]">
-                              <span className="text-base sm:text-lg font-bold text-[var(--info)]">
-                                {daysLeft}
-                              </span>
-                              <span className="text-[10px] text-[var(--info)]">
-                                {t("يوم", "days")}
-                              </span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">
-                                {exam.subject_name}
-                              </p>
-                              <p className="text-xs text-[var(--text-muted)]">
-                                {exam.exam_date}
-                                {exam.exam_type ? ` · ${exam.exam_type}` : ""}
-                              </p>
-                            </div>
-                            <Arrow className="h-4 w-4 text-[var(--text-muted)]" />
-                          </div>
-                        );
-                      })}
+                      {data.upcoming_exams.map((exam) => (
+                        <div
+                          key={exam.id}
+                          className="cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all"
+                          onClick={() => router.push(`/${locale}/student/exams`)}
+                        >
+                          <ExamCountdown
+                            examDate={exam.exam_date}
+                            subjectName={`${exam.subject_name}${exam.exam_type ? ` · ${exam.exam_type}` : ""}`}
+                            isAr={isAr}
+                          />
+                        </div>
+                      ))}
                     </div>
                   )}
                 </CardContent>
@@ -719,36 +702,39 @@ export default function StudentDashboardPage() {
                       className="py-6 min-h-0"
                     />
                   ) : (
-                    <div className="space-y-3">
-                      {data.recent_grades.map((g) => (
-                        <div key={g.id} className="flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                              {g.subject_name}
-                            </p>
-                            <p className="text-xs text-[var(--text-muted)]">
-                              {g.exam_type ?? ""} · {g.date}
-                            </p>
+                    <div className="space-y-4">
+                      <GradeChart grades={data.recent_grades} />
+                      <div className="space-y-3">
+                        {data.recent_grades.map((g) => (
+                          <div key={g.id} className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                                {g.subject_name}
+                              </p>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {g.exam_type ?? ""} · {g.date}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                                {g.score}/{g.max_score}
+                              </span>
+                              <Badge
+                                variant={
+                                  g.percentage >= 80
+                                    ? "success"
+                                    : g.percentage >= 50
+                                      ? "warning"
+                                      : "danger"
+                                }
+                                size="sm"
+                              >
+                                {g.percentage}%
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-semibold text-[var(--text-primary)]">
-                              {g.score}/{g.max_score}
-                            </span>
-                            <Badge
-                              variant={
-                                g.percentage >= 80
-                                  ? "success"
-                                  : g.percentage >= 50
-                                    ? "warning"
-                                    : "danger"
-                              }
-                              size="sm"
-                            >
-                              {g.percentage}%
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </CardContent>

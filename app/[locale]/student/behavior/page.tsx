@@ -69,10 +69,10 @@ export default function StudentBehaviorPage() {
       titleAr="سلوكي"
       titleEn="My Behavior"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {loading ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
@@ -143,7 +143,7 @@ export default function StudentBehaviorPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Star className="h-5 w-5 text-[var(--warning)]" />
-                  <CardTitle className="text-base">
+                  <CardTitle className="text-sm sm:text-base">
                     {t("سجل السلوك", "Behavior Log")}
                   </CardTitle>
                 </div>
@@ -165,7 +165,7 @@ export default function StudentBehaviorPage() {
                     {records.map((r) => (
                       <div
                         key={r.id}
-                        className="flex items-start gap-3 rounded-lg border border-[var(--card-border)] p-3"
+                        className="flex items-start gap-2 sm:gap-3 rounded-lg border border-[var(--card-border)] p-2.5 sm:p-3"
                       >
                         <div
                           className={`shrink-0 flex items-center justify-center w-9 h-9 rounded-full mt-0.5 ${
@@ -181,7 +181,7 @@ export default function StudentBehaviorPage() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[var(--text-primary)]">
+                          <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)]">
                             {r.reason ?? t("بدون سبب", "No reason")}
                           </p>
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">

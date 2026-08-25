@@ -129,7 +129,7 @@ export default function StudentSchedulePage() {
                     <Calendar
                       className={`h-5 w-5 ${isToday ? "text-[var(--primary)]" : "text-[var(--text-muted)]"}`}
                     />
-                    <CardTitle className="text-base">
+                    <CardTitle className="text-sm sm:text-base">
                       {label ? (isAr ? label.ar : label.en) : day}
                     </CardTitle>
                     {isToday && (
@@ -148,11 +148,11 @@ export default function StudentSchedulePage() {
                     {daySlots.map((slot, idx) => (
                       <div
                         key={slot.id}
-                        className={`flex items-center gap-3 rounded-lg p-3 ${
+                        className={`flex items-center gap-2 sm:gap-3 rounded-lg p-2.5 sm:p-3 ${
                           isToday
                             ? "border border-[var(--primary)]/15 bg-[var(--primary)]/[0.04]"
                             : "border border-[var(--card-border)]"
-                        } hover:bg-[var(--card-bg)] transition-colors`}
+                        } hover:bg-[var(--card-bg)] active:scale-[0.98] transition-all`}
                       >
                         <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--primary)]/10">
                           <span className="text-xs font-bold text-[var(--primary)]">
@@ -172,7 +172,7 @@ export default function StudentSchedulePage() {
                         <div className="h-8 w-px bg-[var(--border)]" />
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                          <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">
                             {slot.subject_name}
                           </p>
                           {slot.teacher_name && (

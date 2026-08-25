@@ -100,10 +100,10 @@ export default function StudentPaymentsPage() {
       titleAr="الأقساط"
       titleEn="Payments"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {loading ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
@@ -145,7 +145,7 @@ export default function StudentPaymentsPage() {
                         <span className="text-sm font-medium text-[var(--text-secondary)]">
                           {t("تقدم الدفع", "Payment Progress")}
                         </span>
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">
+                        <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                           {paidPercent}%
                         </span>
                       </div>
@@ -169,7 +169,7 @@ export default function StudentPaymentsPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Wallet className="h-5 w-5 text-[var(--primary)]" />
-                  <CardTitle className="text-base">
+                  <CardTitle className="text-sm sm:text-base">
                     {t("سجل الدفعات", "Payment Records")}
                   </CardTitle>
                 </div>
@@ -191,7 +191,7 @@ export default function StudentPaymentsPage() {
                       return (
                         <div
                           key={p.id}
-                          className="flex items-center gap-3 rounded-lg border border-[var(--card-border)] p-3 hover:bg-[var(--card-bg)] transition-colors"
+                          className="flex items-center gap-2 sm:gap-3 rounded-lg border border-[var(--card-border)] p-2.5 sm:p-3 hover:bg-[var(--card-bg)] active:scale-[0.98] transition-all"
                         >
                           <div
                             className="shrink-0 flex items-center justify-center w-9 h-9 rounded-full"
@@ -205,7 +205,7 @@ export default function StudentPaymentsPage() {
                             />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                            <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">
                               {p.description ?? t("دفعة", "Payment")}
                             </p>
                             <p className="text-xs text-[var(--text-muted)]">
@@ -213,7 +213,7 @@ export default function StudentPaymentsPage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-semibold text-[var(--text-primary)]">
+                            <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                               {fmt(p.amount)}
                             </span>
                             <Badge variant={st.variant} size="sm">

@@ -63,10 +63,10 @@ export default function StudentExamsPage() {
       titleAr="امتحاناتي"
       titleEn="My Exams"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {loading ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {Array.from({ length: 2 }).map((_, i) => (
                 <div
                   key={i}
@@ -201,7 +201,7 @@ function ExamCard({
         <div className="flex items-center gap-4">
           {upcoming && daysLeft != null ? (
             <div className="shrink-0 flex flex-col items-center justify-center rounded-xl bg-[var(--info)]/[0.08] px-4 py-2 min-w-[64px]">
-              <span className="text-2xl font-bold text-[var(--info)]">
+              <span className="text-xl sm:text-2xl font-bold text-[var(--info)]">
                 {daysLeft}
               </span>
               <span className="text-[10px] font-medium text-[var(--info)]">
@@ -215,7 +215,7 @@ function ExamCard({
           )}
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+            <p className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] truncate">
               {exam.subject_name}
             </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">

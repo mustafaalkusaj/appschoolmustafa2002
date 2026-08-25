@@ -61,13 +61,13 @@ export default function StudentAssignmentsPage() {
       titleAr="واجباتي"
       titleEn="My Assignments"
     >
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-24 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse"
+                className="h-24 rounded-xl sm:rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] animate-pulse"
               />
             ))}
           </div>
@@ -92,7 +92,7 @@ export default function StudentAssignmentsPage() {
                       className="h-5 w-5"
                       style={{ color: "#8b5cf6" }}
                     />
-                    <CardTitle className="text-base">
+                    <CardTitle className="text-sm sm:text-base">
                       {t("الواجبات القادمة", "Upcoming")} ({upcoming.length})
                     </CardTitle>
                   </div>
@@ -105,11 +105,11 @@ export default function StudentAssignmentsPage() {
                       return (
                         <div
                           key={a.id}
-                          className="rounded-xl border border-[var(--card-border)] p-4 hover:bg-[var(--surface-strong)] transition-colors"
+                          className="rounded-xl border border-[var(--card-border)] p-4 hover:bg-[var(--surface-strong)] active:scale-[0.98] transition-all"
                         >
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start justify-between gap-2 sm:gap-3">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                              <p className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                                 {a.title}
                               </p>
                               <p className="text-xs text-[var(--text-muted)] mt-1">
@@ -145,7 +145,7 @@ export default function StudentAssignmentsPage() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-5 w-5 text-[var(--text-muted)]" />
-                    <CardTitle className="text-base text-[var(--text-muted)]">
+                    <CardTitle className="text-sm sm:text-base text-[var(--text-muted)]">
                       {t("واجبات سابقة", "Past")} ({past.length})
                     </CardTitle>
                   </div>
@@ -157,9 +157,9 @@ export default function StudentAssignmentsPage() {
                         key={a.id}
                         className="rounded-xl border border-[var(--card-border)] p-4 opacity-60"
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-2 sm:gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-[var(--text-primary)]">
+                            <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)]">
                               {a.title}
                             </p>
                             <p className="text-xs text-[var(--text-muted)] mt-1">

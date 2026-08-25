@@ -70,10 +70,10 @@ export default function StudentGradesPage() {
       titleAr="درجاتي"
       titleEn="My Grades"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {loading ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
@@ -128,7 +128,7 @@ export default function StudentGradesPage() {
                 <Card key={subject}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{subject}</CardTitle>
+                      <CardTitle className="text-sm sm:text-base">{subject}</CardTitle>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-[var(--text-muted)]">
                           {t("المعدل", "Avg")}
@@ -154,7 +154,7 @@ export default function StudentGradesPage() {
                         <div key={g.id} className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-sm text-[var(--text-primary)] truncate">
+                              <span className="text-xs sm:text-sm text-[var(--text-primary)] truncate">
                                 {g.exam_name ?? g.type ?? t("اختبار", "Exam")}
                               </span>
                               {g.date && (
@@ -164,7 +164,7 @@ export default function StudentGradesPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                              <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                                 {g.score}/{g.max_score}
                               </span>
                               <Badge

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Providers } from "@/app/[locale]/providers";
 import { ToastProvider } from "@/components/toast";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { primaryFont } from "./fonts";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
     apple: { url: "/icon.png", sizes: "1024x1024" },
     shortcut: "/favicon.ico",
   },
+  manifest: "/manifest.json",
   other: {
     google: "notranslate",
   },
@@ -31,6 +33,7 @@ export default async function AppLayout({
           <ToastProvider>
             {children}
           </ToastProvider>
+          <ServiceWorkerRegister />
         </Providers>
       </body>
     </html>
