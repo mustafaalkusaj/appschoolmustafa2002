@@ -104,8 +104,9 @@ export async function createInsiteNotification(
       }
     }
 
-    // Also insert into `notifications` table so mobile app can see them
+    // Bridge: insert into `notifications` (mobile) + `app_notifications` (web student)
     if (succeededCount > 0) {
+      const targetRole = input.target.targetType === "teachers" ? "teacher" : "student";
       try {
         const mobileRows = userIds.map((userId) => ({
           user_id: userId,
@@ -117,10 +118,24 @@ export async function createInsiteNotification(
           link: null as string | null,
           metadata: { notificationId, source: "insite" },
         }));
+        const appRows = userIds.map((userId) => ({
+          recipient_user_id: userId,
+          recipient_role: targetRole,
+          school_id: input.schoolId,
+          branch_id: input.branchId ?? null,
+          type: input.category ?? "general",
+          title: input.title,
+          message: input.body,
+          status: "unread",
+          metadata: { notificationId, source: "insite" },
+        }));
         for (let i = 0; i < mobileRows.length; i += BATCH_SIZE) {
-          await serviceSupabase
-            .from("notifications")
-            .insert(mobileRows.slice(i, i + BATCH_SIZE));
+          const slice = mobileRows.slice(i, i + BATCH_SIZE);
+          const appSlice = appRows.slice(i, i + BATCH_SIZE);
+          await Promise.all([
+            serviceSupabase.from("notifications").insert(slice),
+            serviceSupabase.from("app_notifications").insert(appSlice),
+          ]);
         }
       } catch {
         // best-effort — insite delivery already succeeded
