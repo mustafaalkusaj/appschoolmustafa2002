@@ -20,6 +20,13 @@ async function registerAndSubscribe() {
   if (!VAPID_PUBLIC_KEY) return;
 
   try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) {
+      if (reg.active?.scriptURL && !reg.active.scriptURL.includes("v=2")) {
+        await reg.unregister();
+      }
+    }
+
     const registration = await navigator.serviceWorker.register("/sw.js?v=2");
     await navigator.serviceWorker.ready;
 
