@@ -104,6 +104,29 @@ export async function createInsiteNotification(
       }
     }
 
+    // Also insert into `notifications` table so mobile app can see them
+    if (succeededCount > 0) {
+      try {
+        const mobileRows = userIds.map((userId) => ({
+          user_id: userId,
+          school_id: input.schoolId,
+          type: input.category ?? "general",
+          title: input.title,
+          message: input.body,
+          is_read: false,
+          link: null as string | null,
+          metadata: { notificationId, source: "insite" },
+        }));
+        for (let i = 0; i < mobileRows.length; i += BATCH_SIZE) {
+          await serviceSupabase
+            .from("notifications")
+            .insert(mobileRows.slice(i, i + BATCH_SIZE));
+        }
+      } catch {
+        // best-effort — insite delivery already succeeded
+      }
+    }
+
     const delivery: InsiteDeliveryStats = {
       targeted: userIds.length,
       sent: succeededCount,
