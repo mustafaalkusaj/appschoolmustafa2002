@@ -4,6 +4,7 @@ import { createInsiteNotification } from "@/lib/notifications/insite-service";
 import { getTargetUsers } from "@/lib/notifications/targeting";
 import { sendExpoPushToTokens } from "@/lib/notifications/push-service";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import type { CreateNotificationInput } from "@/lib/notifications/types";
 
 function jsonError(message: string, status: number) {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
   const branchId = body.branchId && (context.value.actorRole === "super_admin" || !actorBranchId)
     ? body.branchId
     : (actorBranchId ?? null);
-  const channels: string[] = Array.isArray(body.channels) ? body.channels : ["insite"];
+  const channels: string[] = Array.isArray(body.channels) ? body.channels : ["insite", "push"];
 
   const input: CreateNotificationInput = {
     schoolId,
@@ -67,7 +68,8 @@ export async function POST(request: NextRequest) {
   if (channels.includes("push") && insiteResult.ok) {
     const userIds = await getTargetUsers(actorSupabase, schoolId, body.target);
     if (userIds.length > 0) {
-      const { data: subs } = await actorSupabase
+      const serviceSupabase = createServiceSupabaseClient();
+      const { data: subs } = await serviceSupabase
         .from("user_push_subscriptions")
         .select("subscription_json")
         .in("user_id", userIds)

@@ -97,7 +97,7 @@ export function SendNotificationForm({ schoolId, branchId, locale, onSuccess }: 
   const [targetType,    setTargetType]    = useState<NotificationTargetType>("all");
   const [targetClass,   setTargetClass]   = useState("");
   const [targetSection, setTargetSection] = useState("");
-  const [channels, setChannels] = useState<string[]>(["insite"]);
+  const [channels, setChannels] = useState<string[]>(["insite", "push"]);
   const [loading,  setLoading]  = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -241,7 +241,7 @@ export function SendNotificationForm({ schoolId, branchId, locale, onSuccess }: 
         setFeedback({ ok: true, message: t("success", { count: data.recipientCount ?? 0 }) });
         setTitle(""); setBody(""); setPriority("normal"); setCategory("general");
         setTemplate("default"); setMediaUrl(""); setMediaType(null);
-        handleTargetTypeChange("all"); setChannels(["insite"]);
+        handleTargetTypeChange("all"); setChannels(["insite", "push"]);
         onSuccess?.();
       } else {
         setFeedback({ ok: false, message: data?.error ?? t("error") });
