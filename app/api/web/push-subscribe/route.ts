@@ -5,7 +5,10 @@ import { createServiceSupabaseClient } from "@/lib/supabase-server";
 export async function POST(request: NextRequest) {
   const context = await resolveSchoolScopedActorContext(
     null,
-    { allowedRoles: ["admin", "super_admin", "student", "teacher"] },
+    {
+      allowedRoles: ["admin", "super_admin", "employee", "student", "parent", "driver", "transport_manager"],
+      roleDeniedMessage: "ليس لديك صلاحية تسجيل الإشعارات.",
+    },
     request.headers.get("authorization"),
   );
   if (!context.ok) {
