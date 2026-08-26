@@ -5,6 +5,7 @@ import { getTargetUsers } from "@/lib/notifications/targeting";
 import { sendExpoPushToTokens } from "@/lib/notifications/push-service";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { sendWebPushToUsers } from "@/lib/web-push";
 import type { CreateNotificationInput } from "@/lib/notifications/types";
 
 function jsonError(message: string, status: number) {
@@ -14,14 +15,18 @@ function jsonError(message: string, status: number) {
 export async function POST(request: NextRequest) {
   const context = await resolveSchoolScopedActorContext(
     null,
-    { allowedRoles: ["admin", "super_admin"], roleDeniedMessage: "ليس لديك صلاحية إرسال الإشعارات." },
+    {
+      allowedRoles: ["admin", "super_admin"],
+      roleDeniedMessage: "ليس لديك صلاحية إرسال الإشعارات.",
+    },
     request.headers.get("authorization"),
   );
   if (!context.ok) {
     return jsonError(context.message, context.status);
   }
 
-  const { actorSupabase, actorUserId, targetSchoolId, actorBranchId } = context.value;
+  const { actorSupabase, actorUserId, targetSchoolId, actorBranchId } =
+    context.value;
 
   const rateLimited = await enforceRateLimit(request, {
     namespace: "notifications-send-all",
@@ -41,10 +46,14 @@ export async function POST(request: NextRequest) {
 
   // School isolation: super_admin may specify any schoolId via resolveSchoolScopedActorContext
   const schoolId = targetSchoolId;
-  const branchId = body.branchId && (context.value.actorRole === "super_admin" || !actorBranchId)
-    ? body.branchId
-    : (actorBranchId ?? null);
-  const channels: string[] = Array.isArray(body.channels) ? body.channels : ["insite", "push"];
+  const branchId =
+    body.branchId &&
+    (context.value.actorRole === "super_admin" || !actorBranchId)
+      ? body.branchId
+      : (actorBranchId ?? null);
+  const channels: string[] = Array.isArray(body.channels)
+    ? body.channels
+    : ["insite", "push"];
 
   const input: CreateNotificationInput = {
     schoolId,
@@ -63,7 +72,10 @@ export async function POST(request: NextRequest) {
 
   const insiteResult = await createInsiteNotification(actorSupabase, input);
 
-  let pushResult: { sent: number; failed: number; errors?: string[] } | undefined;
+  let pushResult:
+    { sent: number; failed: number; errors?: string[] } | undefined;
+  let webPushResult:
+    { sent: number; failed: number; deactivated: number; errors: string[] } | undefined;
 
   if (channels.includes("push") && insiteResult.ok) {
     const userIds = await getTargetUsers(actorSupabase, schoolId, body.target);
@@ -85,7 +97,8 @@ export async function POST(request: NextRequest) {
         )
         .map(
           (s) =>
-            ((s.subscription_json as Record<string, unknown>).token as string) ?? "",
+            ((s.subscription_json as Record<string, unknown>)
+              .token as string) ?? "",
         )
         .filter(Boolean);
 
@@ -98,13 +111,23 @@ export async function POST(request: NextRequest) {
           notificationId: insiteResult.notificationId,
         },
       });
+
+      webPushResult = await sendWebPushToUsers(userIds, schoolId, {
+        title: body.title,
+        body: body.body,
+        notificationId: insiteResult.notificationId,
+      });
     } else {
       pushResult = { sent: 0, failed: 0, errors: [] };
+      webPushResult = { sent: 0, failed: 0, deactivated: 0, errors: [] };
     }
   }
 
   if (!insiteResult.ok) {
-    return NextResponse.json({ ok: false, error: insiteResult.error }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: insiteResult.error },
+      { status: 500 },
+    );
   }
 
   const partial = insiteResult.delivery.failed > 0;
@@ -115,6 +138,7 @@ export async function POST(request: NextRequest) {
       recipientCount: insiteResult.recipientCount,
       delivery: insiteResult.delivery,
       push: pushResult,
+      webPush: webPushResult,
       ...(partial ? { partial: true } : {}),
     },
     { status: partial ? 207 : 201 },
