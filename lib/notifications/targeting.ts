@@ -91,6 +91,18 @@ export async function getTargetUsers(
       }
     }
 
+    const { data: webAdmins } = await supabase
+      .from("user_profiles")
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("is_active", true)
+      .is("deleted_at", null);
+    if (webAdmins) {
+      for (const r of webAdmins) {
+        if (r.id) allIds.add(r.id);
+      }
+    }
+
     return Array.from(allIds);
   }
 
