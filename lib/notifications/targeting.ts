@@ -63,6 +63,36 @@ export async function getTargetUsers(
     return Array.from(new Set(ids));
   }
 
+  // "all" = جميع مستخدمي المدرسة (طلاب + أساتذة + إدارة)
+  if (targetType === "all") {
+    const allIds = new Set<string>();
+
+    const { data: students } = await excludeDeletedStudents(
+      supabase.from("students").select("auth_user_id"),
+    )
+      .eq("school_id", schoolId)
+      .not("auth_user_id", "is", null);
+    if (students) {
+      for (const r of students) {
+        if (r.auth_user_id) allIds.add(r.auth_user_id);
+      }
+    }
+
+    const { data: staff } = await supabase
+      .from("managed_user_profiles")
+      .select("auth_user_id")
+      .eq("school_id", schoolId)
+      .eq("is_active", true)
+      .not("auth_user_id", "is", null);
+    if (staff) {
+      for (const r of staff) {
+        if (r.auth_user_id) allIds.add(r.auth_user_id);
+      }
+    }
+
+    return Array.from(allIds);
+  }
+
   // بناء استعلام الطلاب
   let query = supabase
     .from("students")
@@ -72,10 +102,7 @@ export async function getTargetUsers(
 
   if (branchId) query = query.eq("branch_id", branchId);
 
-  // طلاب نشطون فقط (ما عدا all الذي يشمل الجميع)
-  if (targetType !== "all") {
-    query = query.eq("status", "active");
-  }
+  query = query.eq("status", "active");
 
   if (targetType === "class" && targetClass) {
     query = query.eq("class_name", targetClass);
@@ -88,7 +115,6 @@ export async function getTargetUsers(
   const { data, error } = await query;
   if (error || !data) return [];
 
-  // إزالة التكرارات
   const ids = data
     .map((r: { auth_user_id: string | null }) => r.auth_user_id)
     .filter((id): id is string => Boolean(id));
