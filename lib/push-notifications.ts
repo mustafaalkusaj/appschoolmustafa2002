@@ -16,6 +16,7 @@
 // ============================================================
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@/types/database.types";
 
 import type { ExpoPushPayload } from "@/lib/notifications/push-service";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
@@ -108,7 +109,7 @@ export async function sendPushNotification(
   const svc = createServiceSupabaseClient();
 
   const type = input.type ?? "general";
-  const metadata = input.metadata ?? {};
+  const metadata = (input.metadata ?? {}) as Record<string, Json>;
   const link = input.link ?? null;
 
   // ----------------------------------------------------------------
