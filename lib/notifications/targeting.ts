@@ -67,10 +67,11 @@ export async function getTargetUsers(
   if (targetType === "all") {
     const allIds = new Set<string>();
 
-    const { data: students } = await excludeDeletedStudents(
-      supabase.from("students").select("auth_user_id"),
-    )
+    const { data: students } = await supabase
+      .from("students")
+      .select("auth_user_id")
       .eq("school_id", schoolId)
+      .eq("status", "active")
       .not("auth_user_id", "is", null);
     if (students) {
       for (const r of students) {
