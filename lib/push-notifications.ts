@@ -18,6 +18,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ExpoPushPayload } from "@/lib/notifications/push-service";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 const EXPO_PUSH_ENDPOINT = "https://exp.host/--/api/v2/push/send";
 const TOKEN_BATCH_SIZE = 100;
@@ -102,6 +103,10 @@ export async function sendPushNotification(
     return result;
   }
 
+  // RLS on `notifications` enforces user_id = auth.uid(), so admin
+  // can't insert rows for students. Use service-role to bypass.
+  const svc = createServiceSupabaseClient();
+
   const type = input.type ?? "general";
   const metadata = input.metadata ?? {};
   const link = input.link ?? null;
@@ -120,7 +125,7 @@ export async function sendPushNotification(
       link,
       metadata,
     }));
-    const { error, data } = await supabase.from("notifications").insert(rows).select("id");
+    const { error, data } = await svc.from("notifications").insert(rows).select("id");
     if (error) {
       result.errors.push(`notifications insert: ${error.message}`);
     } else {
@@ -148,7 +153,7 @@ export async function sendPushNotification(
       status: "unread",
       metadata: link ? { ...metadata, link } : metadata,
     }));
-    const { error } = await supabase.from("app_notifications").insert(appRows);
+    const { error } = await svc.from("app_notifications").insert(appRows);
     if (error) {
       result.errors.push(`app_notifications insert: ${error.message}`);
     }
@@ -163,7 +168,7 @@ export async function sendPushNotification(
   // ----------------------------------------------------------------
   let tokenRows: Array<{ subscription_json: unknown }> = [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await svc
       .from("user_push_subscriptions")
       .select("subscription_json")
       .in("user_id", userIds)
@@ -265,7 +270,7 @@ export async function sendPushNotification(
   if (uniqueDead.length > 0) {
     for (const token of uniqueDead) {
       try {
-        const { error } = await supabase
+        const { error } = await svc
           .from("user_push_subscriptions")
           .update({ is_active: false })
           .eq("school_id", input.schoolId)
