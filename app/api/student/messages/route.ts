@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const ctx = await resolveStudentContext(req);
   if (!ctx) return unauthorized();
 
-  const { supabase, userId } = ctx;
+  const { supabase, userId, schoolId } = ctx;
 
   // 1. Get all conversation IDs the student participates in
   const { data: participantRows, error: partErr } = await supabase
@@ -20,19 +20,28 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const conversationIds = (participantRows ?? []).map(
+  const rawIds = (participantRows ?? []).map(
     (r: Record<string, unknown>) => r.conversation_id as string,
+  );
+
+  if (rawIds.length === 0) {
+    return NextResponse.json({ ok: true, data: [] });
+  }
+
+  // 2. Batch-fetch conversations — scoped by school_id for tenant isolation
+  const { data: conversations } = await supabase
+    .from("conversations")
+    .select("id, title")
+    .in("id", rawIds)
+    .eq("school_id", schoolId);
+
+  const conversationIds = (conversations ?? []).map(
+    (c: Record<string, unknown>) => c.id as string,
   );
 
   if (conversationIds.length === 0) {
     return NextResponse.json({ ok: true, data: [] });
   }
-
-  // 2. Batch-fetch conversations
-  const { data: conversations } = await supabase
-    .from("conversations")
-    .select("id, title")
-    .in("id", conversationIds);
 
   // 3. Batch-fetch all participants for these conversations (to find "other" names)
   const { data: allParticipants } = await supabase

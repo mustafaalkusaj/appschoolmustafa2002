@@ -9,10 +9,24 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const ctx = await resolveStudentContext(req);
   if (!ctx) return unauthorized();
 
-  const { supabase, userId } = ctx;
+  const { supabase, userId, schoolId } = ctx;
   const { threadId } = await params;
 
-  // 1. Verify the student is a participant in this conversation
+  // 1. Verify conversation belongs to this school
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("id", threadId)
+    .eq("school_id", schoolId)
+    .maybeSingle();
+
+  if (!conv) {
+    return NextResponse.json(
+      { ok: false, error: "not_found" },
+      { status: 404 },
+    );
+  }
+
   const { data: membership } = await supabase
     .from("conversation_participants")
     .select("conversation_id")
@@ -96,10 +110,24 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const ctx = await resolveStudentContext(req);
   if (!ctx) return unauthorized();
 
-  const { supabase, userId } = ctx;
+  const { supabase, userId, schoolId } = ctx;
   const { threadId } = await params;
 
-  // 1. Verify the student is a participant
+  // 1. Verify conversation belongs to this school
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("id", threadId)
+    .eq("school_id", schoolId)
+    .maybeSingle();
+
+  if (!conv) {
+    return NextResponse.json(
+      { ok: false, error: "not_found" },
+      { status: 404 },
+    );
+  }
+
   const { data: membership } = await supabase
     .from("conversation_participants")
     .select("conversation_id")
