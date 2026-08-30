@@ -58,6 +58,7 @@ const GROUP_LABELS: Record<string, { ar: string; en: string }> = {
 const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   dashboard: { ar: "لوحة التحكم", en: "Dashboard" },
   students: { ar: "الطلاب", en: "Students" },
+  "student-accounts": { ar: "حسابات الطلبة", en: "Student Accounts" },
   classes: { ar: "الصفوف والشعب", en: "Classes" },
   teachers: { ar: "الأساتذة", en: "Teachers" },
   attendance: { ar: "الحضور", en: "Attendance" },

@@ -409,6 +409,11 @@ export const PUBLIC_PATHS = ["/login", "/student-login", "/forgot-password", "/a
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   {
+    pathPrefix: "/student-accounts",
+    roles: ["super_admin", "admin"],
+    requiresActiveSchool: true,
+  },
+  {
     pathPrefix: "/student",
     roles: ["student"],
     readOnlyRoles: ["student"],
@@ -612,6 +617,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/students",
     iconToken: "👥",
     roles: ["super_admin", "admin", "employee"],
+    group: "academic",
+  },
+  {
+    id: "student-accounts",
+    label: "حسابات الطلبة",
+    href: "/student-accounts",
+    iconToken: "🔑",
+    roles: ["super_admin", "admin"],
     group: "academic",
   },
   {
