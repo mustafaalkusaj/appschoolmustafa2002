@@ -7,7 +7,24 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { useRole } from "@/hooks/useRole";
 import { fetchJsonWithAuthorizedSession } from "@/lib/authorized-api";
-import { MessageSquare, Send, RefreshCw, Loader2, ChevronRight } from "@/lib/icons";
+import {
+  MessageSquare,
+  Send,
+  RefreshCw,
+  Loader2,
+  ChevronRight,
+  Plus,
+  Search,
+  X,
+  User,
+} from "@/lib/icons";
+
+interface Recipient {
+  id: string;
+  name: string;
+  role: string;
+  class_name: string | null;
+}
 
 interface Conversation {
   id: string;
@@ -52,6 +69,15 @@ export default function MessagingPage() {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Recipient[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null);
+  const [newMsgBody, setNewMsgBody] = useState("");
+  const [creatingConv, setCreatingConv] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const fetchInbox = useCallback(async () => {
     setLoadingInbox(true);
     setError(null);
@@ -92,6 +118,71 @@ export default function MessagingPage() {
       setLoadingThread(false);
     }
   }, []);
+
+  const searchRecipients = useCallback(async (q: string) => {
+    if (q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const { payload } = await fetchJsonWithAuthorizedSession<{
+        ok: boolean;
+        items: Recipient[];
+      }>(`/api/web/messaging/recipients?q=${encodeURIComponent(q)}`);
+      setSearchResults(payload?.items ?? []);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  const handleSearchInput = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => {
+        void searchRecipients(value);
+      }, 300);
+    },
+    [searchRecipients],
+  );
+
+  const startConversation = useCallback(async () => {
+    if (!selectedRecipient || !newMsgBody.trim()) return;
+    setCreatingConv(true);
+    setError(null);
+    try {
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        ok: boolean;
+        item: { id: string; conversation_id: string };
+        error?: string;
+      }>("/api/web/messaging", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantIds: [selectedRecipient.id],
+          body: newMsgBody.trim(),
+        }),
+      });
+      if (!response.ok || !payload?.ok)
+        throw new Error(payload?.error ?? "تعذر إنشاء المحادثة");
+      setShowNewDialog(false);
+      setSearchQuery("");
+      setSearchResults([]);
+      setSelectedRecipient(null);
+      setNewMsgBody("");
+      await fetchInbox();
+      if (payload.item?.conversation_id) {
+        void openThread(payload.item.conversation_id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطأ غير متوقع");
+    } finally {
+      setCreatingConv(false);
+    }
+  }, [selectedRecipient, newMsgBody, fetchInbox, openThread]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -151,13 +242,31 @@ export default function MessagingPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
-                    <h3 className="font-black text-[var(--text-primary)]">المحادثات</h3>
-                    <button
-                      onClick={() => void fetchInbox()}
-                      className="w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] transition"
-                    >
-                      <RefreshCw size={14} />
-                    </button>
+                    <h3 className="font-black text-[var(--text-primary)]">
+                      المحادثات
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setShowNewDialog(true);
+                          setSearchQuery("");
+                          setSearchResults([]);
+                          setSelectedRecipient(null);
+                          setNewMsgBody("");
+                        }}
+                        className="h-8 px-3 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 hover:opacity-90 transition"
+                        style={{ background: "var(--primary)" }}
+                      >
+                        <Plus size={14} />
+                        جديدة
+                      </button>
+                      <button
+                        onClick={() => void fetchInbox()}
+                        className="w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] transition"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {loadingInbox ? (
@@ -293,6 +402,154 @@ export default function MessagingPage() {
               </div>
             </div>
           </main>
+
+          {showNewDialog && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+              onClick={() => setShowNewDialog(false)}
+            >
+              <div
+                className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-2xl mx-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+                  <h3 className="font-black text-[var(--text-primary)]">
+                    محادثة جديدة
+                  </h3>
+                  <button
+                    onClick={() => setShowNewDialog(false)}
+                    className="w-8 h-8 rounded-lg border border-[var(--border)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--danger)] transition"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4">
+                  {!selectedRecipient ? (
+                    <>
+                      <div className="relative">
+                        <Search
+                          size={16}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                        />
+                        <input
+                          value={searchQuery}
+                          onChange={(e) => handleSearchInput(e.target.value)}
+                          placeholder="ابحث عن طالب بالاسم..."
+                          autoFocus
+                          className="w-full h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] pr-10 pl-4 text-sm"
+                        />
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                        {searching ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2
+                              size={20}
+                              className="animate-spin text-[var(--primary)]"
+                            />
+                          </div>
+                        ) : searchResults.length > 0 ? (
+                          searchResults.map((r) => (
+                            <button
+                              key={r.id}
+                              onClick={() => setSelectedRecipient(r)}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-soft)] transition text-start"
+                            >
+                              <div className="w-9 h-9 rounded-full bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0">
+                                <User
+                                  size={16}
+                                  className="text-[var(--primary)]"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-[var(--text-primary)] truncate">
+                                  {r.name}
+                                </p>
+                                <p className="text-xs text-[var(--text-muted)]">
+                                  {r.role === "student"
+                                    ? "طالب"
+                                    : r.role === "teacher"
+                                      ? "أستاذ"
+                                      : r.role}
+                                  {r.class_name ? ` · ${r.class_name}` : ""}
+                                </p>
+                              </div>
+                            </button>
+                          ))
+                        ) : searchQuery.length >= 2 ? (
+                          <p className="text-center text-sm text-[var(--text-muted)] py-6">
+                            لا توجد نتائج
+                          </p>
+                        ) : (
+                          <p className="text-center text-sm text-[var(--text-muted)] py-6">
+                            اكتب اسم الطالب للبحث
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-soft)]">
+                        <div className="w-9 h-9 rounded-full bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0">
+                          <User
+                            size={16}
+                            className="text-[var(--primary)]"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-[var(--text-primary)]">
+                            {selectedRecipient.name}
+                          </p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {selectedRecipient.role === "student"
+                              ? "طالب"
+                              : selectedRecipient.role === "teacher"
+                                ? "أستاذ"
+                                : selectedRecipient.role}
+                            {selectedRecipient.class_name
+                              ? ` · ${selectedRecipient.class_name}`
+                              : ""}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setSelectedRecipient(null)}
+                          className="text-[var(--text-muted)] hover:text-[var(--danger)] transition"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <textarea
+                        value={newMsgBody}
+                        onChange={(e) => setNewMsgBody(e.target.value)}
+                        placeholder="اكتب رسالتك..."
+                        rows={3}
+                        autoFocus
+                        className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3 text-sm resize-none"
+                      />
+
+                      <button
+                        onClick={() => void startConversation()}
+                        disabled={creatingConv || !newMsgBody.trim()}
+                        className="w-full h-11 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                        style={{ background: "var(--primary)" }}
+                      >
+                        {creatingConv ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <>
+                            <Send size={14} />
+                            إرسال
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </ProtectedRoute>
