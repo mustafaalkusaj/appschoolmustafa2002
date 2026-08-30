@@ -1,7 +1,15 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Search, Upload, Download, Printer, CreditCard, Plus } from "lucide-react";
+import {
+  Search,
+  Upload,
+  Download,
+  Printer,
+  KeyRound,
+  Plus,
+} from "lucide-react";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -20,13 +28,11 @@ interface StudentsToolbarProps {
   isReadOnlyView: boolean;
   canManageStudentAccounts: boolean;
   datasetLoading: boolean;
-  printingCards: boolean;
   onPromoteYear: () => void;
   filtered: StudentWithFees[];
   onExportCurrentPage: () => void;
   onExportAll: () => void;
   onPrintFiltered: () => void;
-  onPrintAllCards: () => void;
   onAddStudent: () => void;
   onBulkImport: () => void;
 }
@@ -44,11 +50,9 @@ export function StudentsToolbar({
   isReadOnlyView,
   canManageStudentAccounts,
   datasetLoading,
-  printingCards,
   onExportCurrentPage: _onExportCurrentPage,
   onExportAll,
   onPrintFiltered,
-  onPrintAllCards,
   onPromoteYear: _onPromoteYear,
   onAddStudent,
   onBulkImport,
@@ -125,40 +129,42 @@ export function StudentsToolbar({
         </Button>
 
         {canManageStudentAccounts && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onPrintAllCards}
-            disabled={printingCards}
-            className="w-full justify-center xl:w-auto"
-          >
-            <CreditCard className="h-4 w-4" />
-            {printingCards ? t("preparingCards") : t("printAllCards")}
-          </Button>
-        )}
-
-        {activeTab === "active" && !isReadOnlyView && canManageStudentAccounts && (
-          <>
+          <Link href="/ar/student-accounts">
             <Button
               variant="outline"
               size="sm"
-              onClick={onBulkImport}
-              className="w-full justify-center border-[color-mix(in_srgb,var(--primary)_18%,transparent)] text-[var(--primary)] hover:bg-[color-mix(in_srgb,var(--primary)_6%,transparent)] xl:w-auto"
-            >
-              <Upload className="h-4 w-4" />
-              <span>استيراد جماعي</span>
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={onAddStudent}
               className="w-full justify-center xl:w-auto"
             >
-              <Plus className="h-4 w-4" />
-              {t("addStudent")}
+              <KeyRound className="h-4 w-4" />
+              حسابات الطلبة
             </Button>
-          </>
+          </Link>
         )}
+
+        {activeTab === "active" &&
+          !isReadOnlyView &&
+          canManageStudentAccounts && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBulkImport}
+                className="w-full justify-center border-[color-mix(in_srgb,var(--primary)_18%,transparent)] text-[var(--primary)] hover:bg-[color-mix(in_srgb,var(--primary)_6%,transparent)] xl:w-auto"
+              >
+                <Upload className="h-4 w-4" />
+                <span>استيراد جماعي</span>
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onAddStudent}
+                className="w-full justify-center xl:w-auto"
+              >
+                <Plus className="h-4 w-4" />
+                {t("addStudent")}
+              </Button>
+            </>
+          )}
       </div>
     </div>
   );

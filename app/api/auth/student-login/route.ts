@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveManagedAccountBase } from "@/lib/managed-users/queries";
-import { loginRequestSchema } from "@/lib/api-schemas";
+import { studentLoginRequestSchema } from "@/lib/api-schemas";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import {
   buildAuthRateLimitIdentifier,
   enforceRateLimit,
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   let _step = "request_parse";
   try {
     const body = await req.json().catch(() => null);
-    const parsed = loginRequestSchema.safeParse(body);
+    const parsed = studentLoginRequestSchema.safeParse(body);
     if (!parsed.success) {
       return fail(400, "STUDENT_LOGIN_VALIDATION", "invalid_input");
     }
@@ -62,12 +63,31 @@ export async function POST(req: NextRequest) {
       return fail(500, "STUDENT_LOGIN_SERVER_CONFIG", "server_config");
     }
 
+    _step = "resolve_login_identifier";
+    let signInEmail = normalizedEmail || parsed.data.email;
+    if (!signInEmail.includes("@")) {
+      const serviceClient = createServiceSupabaseClient();
+      const { data: credRow } = await serviceClient
+        .from("managed_user_credentials")
+        .select("auth_user_id")
+        .eq("login_identifier", signInEmail)
+        .limit(1)
+        .maybeSingle();
+      if (credRow?.auth_user_id) {
+        const { data: authUser } =
+          await serviceClient.auth.admin.getUserById(credRow.auth_user_id);
+        if (authUser?.user?.email) {
+          signInEmail = authUser.user.email;
+        }
+      }
+    }
+
     _step = "supabase_signin";
     const { client: supabase, pendingCookies } =
       await createRouteSupabaseClientWithCookies();
     const { data, error: signInError } =
       await supabase.auth.signInWithPassword({
-        email: normalizedEmail || parsed.data.email,
+        email: signInEmail,
         password: parsed.data.password,
       });
 

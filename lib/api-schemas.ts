@@ -2,7 +2,8 @@ import { z } from "zod";
 
 const uuidMessage = "المعرّف المرسل غير صالح.";
 const moneyMessage = "أدخل قيمة رقمية صحيحة أكبر من أو تساوي صفراً.";
-const canonicalEntityIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const canonicalEntityIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function entityIdSchema() {
   return z.string().trim().regex(canonicalEntityIdPattern, uuidMessage);
@@ -103,13 +104,26 @@ export const loginRequestSchema = z.object({
   email: z
     .string()
     .trim()
-    .min(1, "أدخل معرّف الدخول أو البريد الإلكتروني.")
     .max(320)
-    .transform((value) => {
-      const lower = value.toLowerCase();
-      return lower.includes("@") ? lower : `${lower}@schoolapp.local`;
-    }),
-  password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.").max(256),
+    .email("أدخل بريداً إلكترونياً صحيحاً.")
+    .transform((value) => value.toLowerCase()),
+  password: z
+    .string()
+    .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.")
+    .max(256),
+});
+
+export const studentLoginRequestSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "أدخل اسم المستخدم أو البريد الإلكتروني.")
+    .max(320)
+    .transform((value) => value.toLowerCase()),
+  password: z
+    .string()
+    .min(4, "كلمة المرور يجب أن تكون 4 أحرف على الأقل.")
+    .max(256),
 });
 
 export const forgotPasswordRequestSchema = z.object({
@@ -198,7 +212,10 @@ export const expenseMutationSchema = z.object({
   expense_date: z
     .string()
     .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ المصروف يجب أن يكون بالصيغة YYYY-MM-DD."),
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "تاريخ المصروف يجب أن يكون بالصيغة YYYY-MM-DD.",
+    ),
   recipient: optionalTrimmedString(160),
   receipt_number: optionalTrimmedString(120),
   notes: optionalTrimmedString(1000),
@@ -212,7 +229,11 @@ export const expenseTypesListQuerySchema = z.object({
 
 export const expenseTypeMutationSchema = z.object({
   school_id: entityIdSchema(),
-  name: z.string().trim().min(1, "اسم النوع مطلوب.").max(120, "اسم النوع طويل جداً."),
+  name: z
+    .string()
+    .trim()
+    .min(1, "اسم النوع مطلوب.")
+    .max(120, "اسم النوع طويل جداً."),
   notes: optionalTrimmedString(1000),
 });
 
@@ -246,7 +267,10 @@ export const incomeMutationSchema = z.object({
   income_date: z
     .string()
     .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ الإيراد يجب أن يكون بالصيغة YYYY-MM-DD."),
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "تاريخ الإيراد يجب أن يكون بالصيغة YYYY-MM-DD.",
+    ),
   source: optionalTrimmedString(160),
   receipt_number: optionalTrimmedString(120),
   notes: optionalTrimmedString(1000),
@@ -260,7 +284,11 @@ export const incomeTypesListQuerySchema = z.object({
 
 export const incomeTypeMutationSchema = z.object({
   school_id: entityIdSchema(),
-  name: z.string().trim().min(1, "اسم النوع مطلوب.").max(120, "اسم النوع طويل جداً."),
+  name: z
+    .string()
+    .trim()
+    .min(1, "اسم النوع مطلوب.")
+    .max(120, "اسم النوع طويل جداً."),
   notes: optionalTrimmedString(1000),
 });
 
@@ -279,13 +307,19 @@ export const teacherAttendanceRecordSchema = z.object({
     .regex(/^\d{2}:\d{2}$/, "وقت الانصراف يجب أن يكون بالصيغة HH:MM.")
     .optional()
     .nullable(),
-  notes: z.string().max(500, "الملاحظات يجب أن تكون أقل من 500 حرف.").optional().nullable(),
+  notes: z
+    .string()
+    .max(500, "الملاحظات يجب أن تكون أقل من 500 حرف.")
+    .optional()
+    .nullable(),
 });
 
 export const teacherAttendanceBulkSchema = z.object({
   schoolId: entityIdSchema(),
   branchId: entityIdSchema().optional().nullable(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "التاريخ يجب أن يكون بالصيغة YYYY-MM-DD."),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "التاريخ يجب أن يكون بالصيغة YYYY-MM-DD."),
   records: z
     .array(teacherAttendanceRecordSchema)
     .min(1, "يجب إرسال سجل واحد على الأقل.")
@@ -294,7 +328,9 @@ export const teacherAttendanceBulkSchema = z.object({
 
 export const teacherAttendancePatchSchema = z.object({
   school_id: entityIdSchema(),
-  status: z.enum(["present", "absent", "late", "excused", "holiday"]).optional(),
+  status: z
+    .enum(["present", "absent", "late", "excused", "holiday"])
+    .optional(),
   check_in_time: z
     .string()
     .regex(/^\d{2}:\d{2}$/, "وقت الحضور يجب أن يكون بالصيغة HH:MM.")
@@ -311,11 +347,25 @@ export const teacherAttendancePatchSchema = z.object({
 export const attendanceSettingsSchema = z.object({
   school_id: entityIdSchema(),
   branch_id: entityIdSchema().optional().nullable(),
-  work_start_time: z.string().regex(/^\d{2}:\d{2}$/, "وقت بدء العمل يجب أن يكون بالصيغة HH:MM."),
-  work_end_time: z.string().regex(/^\d{2}:\d{2}$/, "وقت انتهاء العمل يجب أن يكون بالصيغة HH:MM."),
+  work_start_time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "وقت بدء العمل يجب أن يكون بالصيغة HH:MM."),
+  work_end_time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "وقت انتهاء العمل يجب أن يكون بالصيغة HH:MM."),
   late_threshold_minutes: z.number().int().min(1).max(120),
   work_days: z
-    .array(z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]))
+    .array(
+      z.enum([
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ]),
+    )
     .min(1, "يجب تحديد يوم عمل واحد على الأقل."),
   absent_deduction_type: z.enum(["none", "fixed", "daily_rate"]),
   absent_deduction_amount: z.number().min(0).optional().nullable(),
