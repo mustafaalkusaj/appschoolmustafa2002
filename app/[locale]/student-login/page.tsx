@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { SchoolLogo } from "@/components/brand";
 
@@ -9,6 +10,7 @@ export default function StudentLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const locale = useLocale();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -41,7 +43,7 @@ export default function StudentLoginPage() {
         return;
       }
 
-      window.location.href = `/${locale}/student`;
+      router.push(`/${locale}/student`);
     } catch {
       setError(
         locale === "ar"
@@ -199,16 +201,16 @@ export default function StudentLoginPage() {
         <form className="student-login-form" onSubmit={handleSubmit}>
           <div className="student-login-field">
             <label className="student-login-label" htmlFor="student-email">
-              {isAr ? "البريد الإلكتروني" : "Email"}
+              {isAr ? "اسم المستخدم" : "Username"}
             </label>
             <input
               id="student-email"
               className="student-login-input"
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
               required
               dir="ltr"
-              placeholder="student@school.com"
+              placeholder="s1234"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
