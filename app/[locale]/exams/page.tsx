@@ -202,6 +202,18 @@ const T: Record<string, Record<Locale, string>> = {
   selectExamAndQ: { ar: "اختر امتحاناً وأضف أسئلة أولاً", en: "Select an exam and add questions first" },
   builderSaveError: { ar: "تعذر حفظ بناء الامتحان", en: "Failed to save exam builder" },
   builderSuccess: { ar: "تم حفظ بناء الامتحان والإعدادات بنجاح", en: "Exam builder and settings saved successfully" },
+  addNewQuestion: { ar: "إضافة سؤال جديد", en: "Add New Question" },
+  questionPrompt: { ar: "نص السؤال", en: "Question Text" },
+  questionSubject: { ar: "المادة", en: "Subject" },
+  questionType: { ar: "النوع", en: "Type" },
+  questionDiffLabel: { ar: "المستوى", en: "Difficulty" },
+  questionAnswer: { ar: "الإجابة الصحيحة", en: "Correct Answer" },
+  questionOptions: { ar: "الخيارات (كل سطر = خيار)", en: "Options (one per line)" },
+  addQuestionBtn: { ar: "إضافة", en: "Add" },
+  cancelBtn: { ar: "إلغاء", en: "Cancel" },
+  questionAdded: { ar: "تمت إضافة السؤال بنجاح", en: "Question added successfully" },
+  questionAddError: { ar: "تعذر إضافة السؤال", en: "Failed to add question" },
+  promptRequired: { ar: "نص السؤال مطلوب", en: "Question text is required" },
   // Analytics
   allExams: { ar: "كل الامتحانات", en: "All Exams" },
   noAnalytics: { ar: "لا توجد بيانات تحليلية", en: "No analytics data" },
@@ -982,6 +994,16 @@ function ExamBuilderTab({ schoolId, locale }: { schoolId: string | null; locale:
   const [success, setSuccess] = useState<string | null>(null);
   const [filterDifficulty, setFilterDifficulty] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [addingQuestion, setAddingQuestion] = useState(false);
+  const [newQ, setNewQ] = useState({
+    prompt: "",
+    type: "multiple_choice",
+    difficulty: "medium",
+    subject: "",
+    options: "",
+    answer: "",
+  });
   const [marksPerQuestion, setMarksPerQuestion] = useState(1);
 
   // Settings
@@ -1070,6 +1092,50 @@ function ExamBuilderTab({ schoolId, locale }: { schoolId: string | null; locale:
       [next[index], next[newIndex]] = [next[newIndex], next[index]];
       return next;
     });
+  }
+
+  async function handleAddQuestion() {
+    if (!newQ.prompt.trim()) {
+      setError(t("promptRequired", locale));
+      return;
+    }
+    setAddingQuestion(true);
+    setError(null);
+    try {
+      const optionsArr = newQ.options
+        .split("\n")
+        .map((o) => o.trim())
+        .filter(Boolean);
+      const { response, payload } = await fetchJsonWithAuthorizedSession<{
+        ok: boolean;
+        item?: Question;
+        error?: string;
+      }>("/api/web/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schoolId,
+          prompt: newQ.prompt.trim(),
+          type: newQ.type,
+          difficulty: newQ.difficulty,
+          subject: newQ.subject || selectedExam?.subject || null,
+          options: optionsArr.length > 0 ? optionsArr : null,
+          answer: newQ.answer || null,
+        }),
+      });
+      if (!response.ok || !payload?.ok)
+        throw new Error(payload?.error ?? t("questionAddError", locale));
+      if (payload.item) {
+        setQuestions((prev) => [payload.item!, ...prev]);
+      }
+      setNewQ({ prompt: "", type: "multiple_choice", difficulty: "medium", subject: "", options: "", answer: "" });
+      setShowAddQuestion(false);
+      setSuccess(t("questionAdded", locale));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("questionAddError", locale));
+    } finally {
+      setAddingQuestion(false);
+    }
   }
 
   async function handleSaveBuilder() {
@@ -1162,6 +1228,88 @@ function ExamBuilderTab({ schoolId, locale }: { schoolId: string | null; locale:
                 <option value="fill_blank">{t("fillBlank", locale)}</option>
               </select>
             </div>
+            {/* Add new question button + form */}
+            <button
+              onClick={() => setShowAddQuestion((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-bold text-[var(--primary)] hover:underline"
+            >
+              <Plus size={14} />
+              {t("addNewQuestion", locale)}
+            </button>
+
+            {showAddQuestion && (
+              <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-soft)] p-3 space-y-2">
+                <input
+                  placeholder={t("questionPrompt", locale)}
+                  value={newQ.prompt}
+                  onChange={(e) => setNewQ({ ...newQ, prompt: e.target.value })}
+                  className="h-9 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm focus:border-[var(--primary)] outline-none"
+                  dir="auto"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={newQ.type}
+                    onChange={(e) => setNewQ({ ...newQ, type: e.target.value })}
+                    className="h-9 rounded-lg border border-[var(--border)] bg-white px-2 text-xs focus:border-[var(--primary)] outline-none"
+                  >
+                    <option value="multiple_choice">{t("multipleChoice", locale)}</option>
+                    <option value="true_false">{t("trueFalse", locale)}</option>
+                    <option value="essay">{t("essay", locale)}</option>
+                    <option value="fill_blank">{t("fillBlank", locale)}</option>
+                  </select>
+                  <select
+                    value={newQ.difficulty}
+                    onChange={(e) => setNewQ({ ...newQ, difficulty: e.target.value })}
+                    className="h-9 rounded-lg border border-[var(--border)] bg-white px-2 text-xs focus:border-[var(--primary)] outline-none"
+                  >
+                    <option value="easy">{t("easy", locale)}</option>
+                    <option value="medium">{t("medium", locale)}</option>
+                    <option value="hard">{t("hard", locale)}</option>
+                  </select>
+                </div>
+                <input
+                  placeholder={t("questionSubject", locale)}
+                  value={newQ.subject}
+                  onChange={(e) => setNewQ({ ...newQ, subject: e.target.value })}
+                  className="h-9 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm focus:border-[var(--primary)] outline-none"
+                  dir="auto"
+                />
+                {(newQ.type === "multiple_choice" || newQ.type === "true_false") && (
+                  <textarea
+                    placeholder={t("questionOptions", locale)}
+                    value={newQ.options}
+                    onChange={(e) => setNewQ({ ...newQ, options: e.target.value })}
+                    rows={3}
+                    className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm focus:border-[var(--primary)] outline-none resize-none"
+                    dir="auto"
+                  />
+                )}
+                <input
+                  placeholder={t("questionAnswer", locale)}
+                  value={newQ.answer}
+                  onChange={(e) => setNewQ({ ...newQ, answer: e.target.value })}
+                  className="h-9 w-full rounded-lg border border-[var(--border)] bg-white px-3 text-sm focus:border-[var(--primary)] outline-none"
+                  dir="auto"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddQuestion}
+                    disabled={addingQuestion}
+                    className="flex-1 h-9 rounded-lg bg-[var(--primary)] text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-1"
+                  >
+                    {addingQuestion && <Loader2 size={14} className="animate-spin" />}
+                    {t("addQuestionBtn", locale)}
+                  </button>
+                  <button
+                    onClick={() => setShowAddQuestion(false)}
+                    className="h-9 px-3 rounded-lg border border-[var(--border)] text-xs font-bold text-[var(--text-muted)] hover:bg-[var(--surface-muted)] transition-colors"
+                  >
+                    {t("cancelBtn", locale)}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
               {loading ? (
                 <div className="space-y-2">
