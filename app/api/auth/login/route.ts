@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import type { UserProfile } from "@/lib/auth";
 import { resolveWebUserProfileWithStatus } from "@/lib/authorization/snapshot";
-import { loginRequestSchema } from "@/lib/api-schemas";
+import { studentLoginRequestSchema } from "@/lib/api-schemas";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import {
   buildAuthRateLimitIdentifier,
   enforceRateLimit,
@@ -16,13 +17,12 @@ import {
   hasRBACSecret,
   signRBACSession,
 } from "@/lib/rbac-session";
-import { resolveManagedAccountBase } from "@/lib/managed-users/queries";
 import { jsonValidationError, logRouteError } from "@/lib/route-utils";
 import {
   applyPendingCookies,
   createRouteSupabaseClientWithCookies,
 } from "@/lib/supabase-server";
-import { buildTemplatePermissions, DEFAULT_PATH_BY_ROLE, type Permission } from "@/types/roles";
+import type { Permission } from "@/types/roles";
 
 type LoginFailureReason =
   | "invalid_credentials"
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   let _step = "request_parse";
   try {
     const body = await req.json().catch(() => null);
-    const parsed = loginRequestSchema.safeParse(body);
+    const parsed = studentLoginRequestSchema.safeParse(body);
 
     if (!parsed.success) {
       return jsonValidationError(parsed.error);
@@ -107,13 +107,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    _step = "resolve_login_identifier";
+    let signInEmail = normalizedEmail || parsed.data.email;
+    if (!signInEmail.includes("@")) {
+      const serviceClient = createServiceSupabaseClient();
+      const { data: credRow } = await serviceClient
+        .from("managed_user_credentials")
+        .select("auth_user_id")
+        .eq("login_identifier", signInEmail)
+        .limit(1)
+        .maybeSingle();
+      if (credRow?.auth_user_id) {
+        const { data: authUser } =
+          await serviceClient.auth.admin.getUserById(credRow.auth_user_id);
+        if (authUser?.user?.email) {
+          signInEmail = authUser.user.email;
+        }
+      }
+    }
+
     _step = "supabase_client";
     const { client: supabase, pendingCookies } =
       await createRouteSupabaseClientWithCookies();
     _step = "supabase_signin";
     const { data, error: signInError } = await supabase.auth.signInWithPassword(
       {
-        email: normalizedEmail || parsed.data.email,
+        email: signInEmail,
         password: parsed.data.password,
       },
     );
@@ -161,59 +180,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (resolved.status === "profile_missing") {
-      // Fallback: check if this is a managed student (exists in managed_user_profiles, not user_profiles)
-      const managed = await resolveManagedAccountBase(data.user.id).catch(() => null);
-
-      if (managed && managed.role === "student" && managed.identity.is_active && managed.schoolId) {
-        const permissions = buildTemplatePermissions("student");
-        const studentPayload = buildRBACSessionPayload({
-          userId: data.user.id,
-          role: "student",
-          permissions,
-          schoolId: managed.schoolId,
-          branchId: null,
-          allowedBranchIds: [],
-          userActive: managed.identity.is_active,
-          schoolActive: true,
-          subscriptionStatus: null,
-          subscriptionEnd: null,
-          scopeLevel: "restricted",
-          allowedModule: null,
-          allowedModules: [],
-          allowedPages: [],
-          defaultPath: DEFAULT_PATH_BY_ROLE.student,
-          isSinglePageUser: false,
-          hierarchyLevel: null,
-          permissionsVersion: 1,
-          groupId: null,
-        });
-
-        const signed = await signRBACSession(studentPayload);
-        if (signed) {
-          const studentName =
-            managed.user?.full_name ?? data.user.user_metadata?.full_name ?? null;
-          const response = NextResponse.json(
-            {
-              ok: true,
-              profile: {
-                id: data.user.id,
-                full_name: studentName,
-                email: data.user.email ?? parsed.data.email,
-                avatar_url: null,
-                role: "student" as const,
-                permissions,
-                school_id: managed.schoolId,
-                is_active: managed.identity.is_active,
-              },
-            },
-            { headers: { "Cache-Control": "no-store" } },
-          );
-          applyPendingCookies(response, pendingCookies);
-          response.cookies.set(RBAC_COOKIE_NAME, signed, getRBACCookieOptions());
-          return response;
-        }
-      }
-
       // SECURITY: return the generic invalid_credentials response so a caller
       // cannot distinguish "no profile" from "wrong password" (account enumeration).
       logRouteError(
@@ -326,6 +292,30 @@ export async function POST(req: NextRequest) {
 
     applyPendingCookies(response, pendingCookies);
     response.cookies.set(RBAC_COOKIE_NAME, signed, getRBACCookieOptions());
+
+    // TEMPORARY DIAGNOSTIC — remove once the logout loop is root-caused.
+    // Logs cookie NAMES and LENGTHS only; never cookie values or tokens.
+    if (process.env.LOGIN_DIAG === "1") {
+      console.log(
+        "[LOGIN-DIAG] login-ok " +
+          JSON.stringify({
+            user: data.user.id.slice(0, 8),
+            role: snapshot.role,
+            scopeLevel: snapshot.scopeLevel,
+            defaultPath: snapshot.defaultPath,
+            allowedPages: snapshot.allowedPages.length,
+            supabaseCookies: pendingCookies.map(
+              (c) => `${c.name}:${c.value.length}`,
+            ),
+            supabaseCookieOptions: pendingCookies.map((c) => c.options),
+            rbacLen: signed.length,
+            secretLen: process.env.RBAC_COOKIE_SECRET?.length ?? 0,
+            rbacOptions: getRBACCookieOptions(),
+            setCookieCount: response.cookies.getAll().length,
+          }),
+      );
+    }
+
     return response;
   } catch (error) {
     logRouteError("auth-login-unexpected", error, { step: _step });
