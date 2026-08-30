@@ -47,7 +47,9 @@ export async function GET(req: NextRequest) {
     ok: true,
     data: {
       summary: {
-        total: totalFee - discount,
+        total: totalFee,
+        discount,
+        net: totalFee - discount,
         paid: totalPaid,
         remaining,
       },

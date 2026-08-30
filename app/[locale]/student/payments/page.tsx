@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  Percent,
 } from "lucide-react";
 import { StudentShell } from "@/components/StudentShell";
 import { getLocaleFromPath } from "@/lib/locale-routing";
@@ -33,6 +34,8 @@ interface PaymentRecord {
 
 interface PaymentSummary {
   total: number;
+  discount: number;
+  net: number;
   paid: number;
   remaining: number;
 }
@@ -90,8 +93,8 @@ export default function StudentPaymentsPage() {
 
   const fmt = (n: number) => `${n.toLocaleString()} IQD`;
   const paidPercent =
-    summary && summary.total > 0
-      ? Math.round((summary.paid / summary.total) * 100)
+    summary && summary.net > 0
+      ? Math.round((summary.paid / summary.net) * 100)
       : 0;
 
   return (
@@ -124,6 +127,14 @@ export default function StudentPaymentsPage() {
                     icon={CreditCard}
                     variant="primary"
                   />
+                  {summary.discount > 0 && (
+                    <StatsCard
+                      label={t("التخفيض", "Discount")}
+                      value={fmt(summary.discount)}
+                      icon={Percent}
+                      variant="warning"
+                    />
+                  )}
                   <StatsCard
                     label={t("المدفوع", "Paid")}
                     value={fmt(summary.paid)}
@@ -138,7 +149,7 @@ export default function StudentPaymentsPage() {
                   />
                 </KPIGrid>
 
-                {summary.total > 0 && (
+                {summary.net > 0 && (
                   <Card>
                     <CardContent className="pt-[var(--card-padding)]">
                       <div className="flex items-center justify-between mb-2">
