@@ -19,10 +19,15 @@ export default function StudentLoginPage() {
     setLoading(true);
 
     try {
+      const identifier = email.trim();
+      const resolvedEmail = identifier.includes("@")
+        ? identifier
+        : `${identifier}@schoolapp.local`;
+
       const res = await fetch("/api/auth/student-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: resolvedEmail, password }),
       });
 
       const data = await res.json();
@@ -30,8 +35,8 @@ export default function StudentLoginPage() {
       if (!res.ok || !data.ok) {
         const messages: Record<string, string> = {
           invalid_credentials: locale === "ar"
-            ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
-            : "Invalid email or password",
+            ? "اسم المستخدم أو كلمة المرور غير صحيحة"
+            : "Invalid username or password",
           inactive_account: locale === "ar"
             ? "الحساب معطل، راجع إدارة المدرسة"
             : "Account is disabled, contact school admin",
