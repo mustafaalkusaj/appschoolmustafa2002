@@ -1,8 +1,6 @@
-import { resolvePlaceholderAsset } from "@/lib/brand/shared";
+const envLogo = process.env.NEXT_PUBLIC_BRAND_LOGO_URL;
 
-export const BRAND_LOGO_PLACEHOLDER = "{{SCHOOL_LOGO}}" as const;
-
-export const SCHOOL_BRAND_LOGO = resolvePlaceholderAsset(BRAND_LOGO_PLACEHOLDER);
+export const SCHOOL_BRAND_LOGO: string | null = envLogo || null;
 
 export function hasCustomSchoolLogo(logo: string | null = SCHOOL_BRAND_LOGO) {
   return Boolean(logo);

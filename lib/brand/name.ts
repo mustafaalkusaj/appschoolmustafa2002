@@ -1,10 +1,3 @@
-import { resolvePlaceholderText } from "@/lib/brand/shared";
-
-export const BRAND_NAME_PLACEHOLDERS = {
-  nameAr: "{{SCHOOL_NAME_AR}}",
-  nameEn: "{{SCHOOL_NAME_EN}}",
-} as const;
-
 export const BRAND_NAME_DEFAULTS = {
   nameAr: "School Iraq",
   nameEn: "School Iraq",
@@ -13,8 +6,8 @@ export const BRAND_NAME_DEFAULTS = {
 } as const;
 
 export const SCHOOL_BRAND_NAME = {
-  nameAr: resolvePlaceholderText(BRAND_NAME_PLACEHOLDERS.nameAr, BRAND_NAME_DEFAULTS.nameAr),
-  nameEn: resolvePlaceholderText(BRAND_NAME_PLACEHOLDERS.nameEn, BRAND_NAME_DEFAULTS.nameEn),
-  subtitleAr: BRAND_NAME_DEFAULTS.subtitleAr,
-  subtitleEn: BRAND_NAME_DEFAULTS.subtitleEn,
+  nameAr: process.env.NEXT_PUBLIC_BRAND_NAME_AR || BRAND_NAME_DEFAULTS.nameAr,
+  nameEn: process.env.NEXT_PUBLIC_BRAND_NAME_EN || BRAND_NAME_DEFAULTS.nameEn,
+  subtitleAr: process.env.NEXT_PUBLIC_BRAND_SUBTITLE_AR || BRAND_NAME_DEFAULTS.subtitleAr,
+  subtitleEn: process.env.NEXT_PUBLIC_BRAND_SUBTITLE_EN || BRAND_NAME_DEFAULTS.subtitleEn,
 } as const;
