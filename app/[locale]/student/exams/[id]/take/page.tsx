@@ -43,13 +43,23 @@ export default function TakeExamPage() {
   const [error, setError] = useState<string | null>(null);
 
   const submittedRef = useRef(false);
+  const answersRef = useRef<Record<string, unknown>>({});
+  const currentIdxRef = useRef(0);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    currentIdxRef.current = currentIdx;
+  }, [currentIdx]);
 
   /* ── start / resume exam ── */
   useEffect(() => {
     fetchJsonWithAuthorizedSession(`/api/student/exams/${id}/start`, {
       method: "POST",
     })
-      .then((res) => {
+      .then(async (res) => {
         if (res.response.ok) {
           const payload = res.payload as {
             data: {
@@ -61,6 +71,37 @@ export default function TakeExamPage() {
           setAttemptId(payload.data.attemptId);
           setQuestions(payload.data.questions);
           setEndsAt(new Date(payload.data.endsAt));
+
+          /* resume any previously autosaved draft for this attempt */
+          try {
+            const draftRes = await fetchJsonWithAuthorizedSession(
+              `/api/student/exams/${id}/autosave?attemptId=${payload.data.attemptId}`,
+            );
+            if (draftRes.response.ok) {
+              const draftPayload = draftRes.payload as {
+                data?: {
+                  draft?: {
+                    answers: Array<{ questionId?: string; question_id?: string; answer: unknown }>;
+                    currentIndex?: number;
+                  } | null;
+                };
+              };
+              const draft = draftPayload.data?.draft;
+              if (draft?.answers?.length) {
+                const restored: Record<string, unknown> = {};
+                for (const a of draft.answers) {
+                  const qid = a.questionId ?? a.question_id;
+                  if (qid) restored[qid] = a.answer;
+                }
+                setAnswers(restored);
+              }
+              if (typeof draft?.currentIndex === "number") {
+                setCurrentIdx(draft.currentIndex);
+              }
+            }
+          } catch {
+            /* resuming a draft is a convenience — ignore failures */
+          }
         } else {
           const p = res.payload as { error?: string };
           setError(p.error ?? "start_failed");
@@ -70,6 +111,60 @@ export default function TakeExamPage() {
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ── periodic autosave ── */
+  useEffect(() => {
+    if (!attemptId) return;
+    const iv = setInterval(() => {
+      if (submittedRef.current) return;
+      const currentAnswers = answersRef.current;
+      const answerList = Object.entries(currentAnswers).map(
+        ([questionId, answer]) => ({ questionId, answer }),
+      );
+      if (answerList.length === 0) return;
+      fetchJsonWithAuthorizedSession(`/api/student/exams/${id}/autosave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attemptId,
+          answers: answerList,
+          currentIndex: currentIdxRef.current,
+        }),
+      }).catch(() => {
+        /* best-effort autosave; the final /submit call is authoritative */
+      });
+    }, 20_000);
+    return () => clearInterval(iv);
+  }, [attemptId, id]);
+
+  /* ── integrity signals: tab switch / focus loss ── */
+  useEffect(() => {
+    if (!attemptId) return;
+    const reportIntegrityEvent = (eventType: string) => {
+      if (submittedRef.current) return;
+      fetchJsonWithAuthorizedSession(`/api/student/exams/${id}/integrity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attemptId, eventType }),
+      }).catch(() => {
+        /* integrity logging is best-effort and must never block the exam */
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        reportIntegrityEvent("tab_change");
+      }
+    };
+    const handleBlur = () => reportIntegrityEvent("focus_lost");
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [attemptId, id]);
 
   /* ── countdown timer ── */
   useEffect(() => {

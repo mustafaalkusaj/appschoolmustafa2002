@@ -31,10 +31,29 @@ export async function resolveStudentContext(
     .eq("school_id", session.schoolId)
     .maybeSingle();
 
-  const studentId =
+  let studentId =
     typeof (profile as Record<string, unknown>)?.student_id === "string"
       ? ((profile as Record<string, unknown>).student_id as string)
       : null;
+
+  // Dual-identity fallback: a student who only has a legacy `user_profiles`
+  // row (no `managed_user_profiles` row yet) is linked to `students` via
+  // `students.auth_user_id` instead. Without this, every route built on
+  // resolveStudentContext (dashboard, exams, assignments, messages, ...)
+  // would 401/empty-state for that student despite a valid RBAC session.
+  if (!studentId) {
+    const { data: legacyStudent } = await supabase
+      .from("students")
+      .select("id")
+      .eq("auth_user_id", session.userId)
+      .eq("school_id", session.schoolId)
+      .maybeSingle();
+
+    studentId =
+      typeof (legacyStudent as Record<string, unknown>)?.id === "string"
+        ? ((legacyStudent as Record<string, unknown>).id as string)
+        : null;
+  }
 
   if (!studentId) return null;
 
