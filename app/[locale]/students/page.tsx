@@ -576,12 +576,10 @@ export default function StudentsPage() {
                         isReadOnlyView={isReadOnlyView}
                         canManageStudentAccounts={canManageStudentAccounts}
                         datasetLoading={datasetLoading}
-                        printingCards={modals.printingCards}
                         filtered={filtered}
                         onExportCurrentPage={() => operations.exportExcel(filtered)}
                         onExportAll={exportAllStudentsExcel}
                         onPrintFiltered={() => print.printFilteredStudents(filtered)}
-                        onPrintAllCards={printAllStudentCards}
                         onPromoteYear={() => setShowAcademicYearModal(true)}
                         onAddStudent={() => {
                           if (!effectiveBranchId) {
