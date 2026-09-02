@@ -75,16 +75,22 @@ export async function GET(request: NextRequest) {
 
   const credMap = new Map(allCredentials.map((c) => [c.auth_user_id, c]));
 
-  const students = studentRows.map((s) => {
-    const cred = s.auth_user_id ? credMap.get(s.auth_user_id) : undefined;
-    return {
-      fullName: s.full_name,
-      className: s.class_name,
-      section: s.section,
-      username: cred?.login_identifier ?? "",
-      password: cred?.temporary_password_plain ?? "",
-    };
-  });
+  const students = studentRows
+    .filter((s) => {
+      if (!s.auth_user_id) return false;
+      const cred = credMap.get(s.auth_user_id);
+      return cred?.login_identifier;
+    })
+    .map((s) => {
+      const cred = credMap.get(s.auth_user_id!)!;
+      return {
+        fullName: s.full_name,
+        className: s.class_name,
+        section: s.section,
+        username: cred.login_identifier,
+        password: cred.temporary_password_plain ?? "",
+      };
+    });
 
   return NextResponse.json({ ok: true, students });
 }
