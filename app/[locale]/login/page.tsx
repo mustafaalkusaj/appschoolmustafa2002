@@ -100,7 +100,7 @@ export default function LoginPage() {
   const brandName = runtimeBranding.schoolName || SCHOOL_BRAND.nameAr;
   const brandSubtitle =
     locale === "en" ? SCHOOL_BRAND.subtitleEn : SCHOOL_BRAND.subtitleAr;
-  const logoUrl = runtimeBranding.logoUrl || "/logo-nakheel.jpg";
+  const logoUrl = runtimeBranding.logoUrl || SCHOOL_BRAND.logo || "/logo.png";
   const content = getLandingContent(locale);
 
   const [email, setEmail] = useState("");
