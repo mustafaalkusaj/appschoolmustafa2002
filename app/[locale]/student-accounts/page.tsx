@@ -5,13 +5,21 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRole } from "@/hooks/useRole";
 import { useSchoolScope } from "@/hooks/useSchoolScope";
 import { fetchWithAuthorizedSession } from "@/lib/authorized-api";
-import { Download, Printer, Search, Loader2, QrCode } from "lucide-react";
+import { Download, Printer, Search, Loader2, QrCode, UserPlus } from "lucide-react";
 
 interface StudentAccount {
   fullName: string;
   className: string;
   username: string;
   password: string;
+}
+
+interface ProvisionResult {
+  ok: boolean;
+  created: number;
+  failed: number;
+  total: number;
+  message?: string;
 }
 
 function StudentAccountsContent() {
@@ -24,6 +32,9 @@ function StudentAccountsContent() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterClass, setFilterClass] = useState("");
+  const [withoutAccount, setWithoutAccount] = useState(0);
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisionResult, setProvisionResult] = useState<ProvisionResult | null>(null);
 
   const fetchStudents = useCallback(async () => {
     if (!schoolId) return;
@@ -39,6 +50,7 @@ function StudentAccountsContent() {
         throw new Error(msg ?? "فشل في تحميل البيانات");
       }
       setStudents(data.students ?? []);
+      setWithoutAccount(typeof data.without_account === "number" ? data.without_account : 0);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "خطأ غير متوقع");
     } finally {
@@ -71,6 +83,39 @@ function StudentAccountsContent() {
     }
     return list;
   }, [students, search, filterClass]);
+
+  const handleProvisionAll = useCallback(async () => {
+    if (!schoolId || provisioning) return;
+    setProvisioning(true);
+    setProvisionResult(null);
+    try {
+      const res = await fetchWithAuthorizedSession(
+        "/api/web/student-accounts/provision-all",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ schoolId }),
+        },
+      );
+      const data = await res.json();
+      if (!data.ok) {
+        const msg = typeof data.error === "string" ? data.error : data.error?.message;
+        throw new Error(msg ?? "فشل في إنشاء الحسابات");
+      }
+      setProvisionResult(data as ProvisionResult);
+      fetchStudents();
+    } catch (err: unknown) {
+      setProvisionResult({
+        ok: false,
+        created: 0,
+        failed: 0,
+        total: 0,
+        message: err instanceof Error ? err.message : "خطأ غير متوقع",
+      });
+    } finally {
+      setProvisioning(false);
+    }
+  }, [schoolId, provisioning, fetchStudents]);
 
   const handleExcelDownload = useCallback(() => {
     const header = "الاسم الكامل\tالصف\tاسم المستخدم\tكلمة المرور";
@@ -287,6 +332,20 @@ ${pairs.map((pair) => `<div class="page">${pair.map((s) => cardHtml(s, filtered.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {withoutAccount > 0 && (
+            <button
+              onClick={handleProvisionAll}
+              disabled={provisioning}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-colors"
+            >
+              {provisioning ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              إنشاء حسابات ({withoutAccount} طالب)
+            </button>
+          )}
           <button
             onClick={handleExcelDownload}
             disabled={filtered.length === 0}
@@ -337,6 +396,25 @@ ${pairs.map((pair) => `<div class="page">${pair.map((s) => cardHtml(s, filtered.
           ))}
         </select>
       </div>
+
+      {/* Provision result */}
+      {provisionResult && (
+        <div
+          className={`mb-4 p-3 rounded-lg text-sm border ${
+            provisionResult.ok && provisionResult.created > 0
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300"
+              : provisionResult.ok && provisionResult.created === 0
+                ? "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300"
+                : "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
+          }`}
+        >
+          {provisionResult.ok
+            ? provisionResult.created > 0
+              ? `تم إنشاء ${provisionResult.created} حساب بنجاح.${provisionResult.failed > 0 ? ` فشل ${provisionResult.failed} حساب.` : ""}`
+              : provisionResult.message ?? "جميع الطلبة لديهم حسابات بالفعل."
+            : provisionResult.message ?? "فشل في إنشاء الحسابات."}
+        </div>
+      )}
 
       {/* Results count */}
       {(search || filterClass) && (

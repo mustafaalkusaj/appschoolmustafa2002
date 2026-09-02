@@ -4,6 +4,14 @@ import {
   logAdminMobileRouteError,
   resolveAdminMobileRouteContext,
 } from "@/lib/mobile-admin-server";
+import {
+  buildManagedAuthIdentityPayload,
+  generateManagedLoginIdentifier,
+  generateTemporaryPassword,
+  hashPassword,
+  syncManagedUserAccountState,
+} from "@/lib/managed-users-server";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -131,9 +139,79 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
+    const studentId = data.id as string;
+    let accountCreated = false;
+
+    try {
+      const serviceSupabase = createServiceSupabaseClient();
+      const actorUserId = context.value.authUserId ?? "";
+
+      const loginIdentifier = await generateManagedLoginIdentifier(serviceSupabase, {
+        schoolId,
+        role: "student",
+        fullName: fullName.trim(),
+        preferredEmail: "",
+      });
+      const temporaryPassword = generateTemporaryPassword();
+      const createdAt = new Date().toISOString();
+
+      const authIdentityPayload = buildManagedAuthIdentityPayload({
+        role: "student",
+        schoolId,
+        fullName: fullName.trim(),
+        loginIdentifier,
+        createdBy: actorUserId,
+        credentialPatch: {
+          temporaryPasswordHash: hashPassword(temporaryPassword),
+          hasPendingSetup: true,
+          passwordLastResetAt: createdAt,
+          cardLastPrintedAt: null,
+        },
+      });
+
+      const authEmail = loginIdentifier.includes("@") ? loginIdentifier : `${loginIdentifier}@schoolapp.local`;
+
+      const { data: createdUser, error: createAuthError } = await serviceSupabase.auth.admin.createUser({
+        email: authEmail,
+        password: temporaryPassword,
+        email_confirm: true,
+        ...authIdentityPayload,
+      });
+
+      if (!createAuthError && createdUser.user?.id) {
+        const authUserId = createdUser.user.id;
+
+        const { error: linkError } = await serviceSupabase
+          .from("students")
+          .update({ auth_user_id: authUserId })
+          .eq("id", studentId)
+          .eq("school_id", schoolId);
+
+        if (linkError) {
+          await serviceSupabase.auth.admin.deleteUser(authUserId);
+        } else {
+          await syncManagedUserAccountState(serviceSupabase, {
+            authUserId,
+            schoolId,
+            role: "student",
+            fullName: fullName.trim(),
+            email: loginIdentifier,
+            phone: parentPhone,
+            isActive: true,
+            studentId,
+            temporaryPassword,
+          });
+          accountCreated = true;
+        }
+      }
+    } catch {
+      // Account creation failure must not block the student creation response
+    }
+
     return NextResponse.json({
       ok: true,
-      item: { id: data.id, full_name: fullName.trim() },
+      item: { id: studentId, full_name: fullName.trim() },
+      account_created: accountCreated,
     });
   } catch (error) {
     logAdminMobileRouteError("POST /api/mobile/admin/students", error);

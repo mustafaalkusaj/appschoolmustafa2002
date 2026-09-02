@@ -92,5 +92,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-  return NextResponse.json({ ok: true, students });
+  const withoutAccount = (studentRows ?? []).filter((s) => !s.auth_user_id).length;
+
+  return NextResponse.json({ ok: true, students, without_account: withoutAccount });
 }
