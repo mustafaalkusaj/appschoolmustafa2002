@@ -1105,6 +1105,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     group: "teacher",
   },
   {
+    id: "teacher-reports",
+    label: "التقارير",
+    href: "/teacher/reports",
+    iconToken: "📊",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
     id: "teacher-profile",
     label: "ملفي الشخصي",
     href: "/teacher/profile",

@@ -98,6 +98,7 @@ const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   "teacher-notifications": { ar: "الإشعارات", en: "Notifications" },
   "teacher-salary": { ar: "راتبي", en: "My Salary" },
   "teacher-materials": { ar: "المواد التعليمية", en: "Materials" },
+  "teacher-reports": { ar: "التقارير", en: "Reports" },
   "teacher-profile": { ar: "ملفي الشخصي", en: "My Profile" },
 };
 
