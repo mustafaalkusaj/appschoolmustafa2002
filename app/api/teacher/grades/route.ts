@@ -11,11 +11,29 @@ export async function GET(req: NextRequest) {
   const className = url.searchParams.get("class_name");
   const subject = url.searchParams.get("subject");
 
+  const { data: scheduleData } = await supabase
+    .from("class_schedules")
+    .select("class_name, subject_name")
+    .eq("school_id", schoolId)
+    .eq("teacher_id", ctx.teacherId);
+
+  const schedRows = (scheduleData ?? []) as Array<Record<string, unknown>>;
+  const classNamesSet = new Set<string>();
+  const subjectsSet = new Set<string>();
+  for (const r of schedRows) {
+    if (r.class_name) classNamesSet.add(r.class_name as string);
+    if (r.subject_name) subjectsSet.add(r.subject_name as string);
+  }
+
   if (!className) {
-    return NextResponse.json(
-      { ok: false, error: "class_name_required" },
-      { status: 400 },
-    );
+    return NextResponse.json({
+      ok: true,
+      data: {
+        students: [],
+        class_names: Array.from(classNamesSet),
+        subjects: Array.from(subjectsSet),
+      },
+    });
   }
 
   const { data: students, error: studentsErr } = await supabase
@@ -40,9 +58,7 @@ export async function GET(req: NextRequest) {
   if (studentIds.length > 0) {
     let query = supabase
       .from("grades")
-      .select(
-        "id, student_id, score, max_score, exam_type, subject_id, created_at, subjects(name)",
-      )
+      .select("id, student_id, score, max_score")
       .eq("school_id", schoolId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false });
@@ -51,43 +67,34 @@ export async function GET(req: NextRequest) {
       query = query.eq("subject_id", subject);
     }
 
-    const { data: gradesData, error: gradesErr } = await query;
-
-    if (gradesErr) {
-      return NextResponse.json(
-        { ok: false, error: "fetch_failed" },
-        { status: 500 },
-      );
-    }
-
+    const { data: gradesData } = await query;
     grades = (gradesData ?? []) as Array<Record<string, unknown>>;
   }
 
-  const studentMap = new Map<string, string>();
-  for (const s of studentRows) {
-    studentMap.set(s.id as string, (s.full_name as string) ?? "");
+  const gradeMap = new Map<string, Record<string, unknown>>();
+  for (const g of grades) {
+    const sid = g.student_id as string;
+    if (!gradeMap.has(sid)) {
+      gradeMap.set(sid, g);
+    }
   }
+
+  const mapped = studentRows.map((s) => {
+    const g = gradeMap.get(s.id as string);
+    return {
+      student_id: s.id as string,
+      full_name: (s.full_name as string) ?? "",
+      score: g ? (Number(g.score) || null) : null,
+      max_score: g ? (Number(g.max_score) || 100) : 100,
+    };
+  });
 
   return NextResponse.json({
     ok: true,
     data: {
-      grades: grades.map((g) => {
-        const subj = g.subjects as { name: string } | null;
-        const score = Number(g.score) || 0;
-        const maxScore = Number(g.max_score) || 0;
-        return {
-          id: g.id as string,
-          student_id: g.student_id as string,
-          student_name: studentMap.get(g.student_id as string) ?? "",
-          subject_name: subj?.name ?? "—",
-          exam_type: (g.exam_type as string) ?? null,
-          score,
-          max_score: maxScore,
-          percentage:
-            maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
-          date: (g.created_at as string) ?? null,
-        };
-      }),
+      students: mapped,
+      class_names: Array.from(classNamesSet),
+      subjects: Array.from(subjectsSet),
     },
   });
 }

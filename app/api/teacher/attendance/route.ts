@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    data: { date, class_name: className, attendance: merged },
+    data: { date, class_name: className, students: merged },
   });
 }
 
