@@ -53,6 +53,7 @@ const GROUP_LABELS: Record<string, { ar: string; en: string }> = {
   system: { ar: "النظام والمراقبة", en: "System" },
   admin: { ar: "الإدارة العليا", en: "Administration" },
   student: { ar: "بوابة الطالب", en: "Student Portal" },
+  teacher: { ar: "بوابة الأستاذ", en: "Teacher Portal" },
 };
 
 const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
@@ -85,6 +86,19 @@ const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   subscriptions: { ar: "الاشتراكات", en: "Subscriptions" },
   group: { ar: "لوحة المجموعة", en: "Group Dashboard" },
   "branch-overview": { ar: "لوحة الفرع", en: "Branch Dashboard" },
+  "teacher-dashboard": { ar: "الرئيسية", en: "Home" },
+  "teacher-schedule": { ar: "جدول حصصي", en: "My Schedule" },
+  "teacher-classes": { ar: "صفوفي", en: "My Classes" },
+  "teacher-students": { ar: "طلابي", en: "My Students" },
+  "my-attendance": { ar: "الحضور", en: "Attendance" },
+  "teacher-grades": { ar: "الدرجات", en: "Grades" },
+  "teacher-assignments": { ar: "الواجبات", en: "Assignments" },
+  "teacher-exams": { ar: "الامتحانات", en: "Exams" },
+  "teacher-messages": { ar: "الرسائل", en: "Messages" },
+  "teacher-notifications": { ar: "الإشعارات", en: "Notifications" },
+  "teacher-salary": { ar: "راتبي", en: "My Salary" },
+  "teacher-materials": { ar: "المواد التعليمية", en: "Materials" },
+  "teacher-profile": { ar: "ملفي الشخصي", en: "My Profile" },
 };
 
 export function AppSidebar({
@@ -149,7 +163,7 @@ export function AppSidebar({
     return groups;
   }, [navItems]);
 
-  const groupOrder = ["general", "academic", "finance", "system", "admin", "student"];
+  const groupOrder = ["general", "academic", "finance", "system", "admin", "student", "teacher"];
 
   useEffect(() => {
     const syncScopedSchool = (event?: Event) => setScopedSchoolId(readSchoolScopeFromEvent(event));

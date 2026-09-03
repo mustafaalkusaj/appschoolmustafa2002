@@ -3,7 +3,7 @@
 // own bus routes — current_school_id() returns null for it, which denies every
 // school-scoped policy at once. Everything it legitimately needs is served by
 // /api/web/driver/*, which authorises against public.drivers first.
-export const ROLES = ["super_admin", "admin", "employee", "parent", "driver", "transport_manager", "student"] as const;
+export const ROLES = ["super_admin", "admin", "employee", "parent", "driver", "transport_manager", "student", "teacher"] as const;
 
 export type UserRole = (typeof ROLES)[number];
 
@@ -74,6 +74,8 @@ const LEGACY_ROLE_MAP: Record<string, UserRole> = {
   transport_manager: "transport_manager",
   transport_admin: "transport_manager",
   student: "student",
+  teacher: "teacher",
+  instructor: "teacher",
 };
 
 export function resolveKnownUserRole(role: string | null | undefined): UserRole | null {
@@ -172,6 +174,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // let a student call /api/web/schedule, .../working-days and .../time-slots
   // and read school-wide scheduling data.
   student: [],
+  // Intentionally empty, like `student` and `driver`. The teacher portal is
+  // gated on the role itself (ROUTE_ACCESS_RULES for "/teacher") and every
+  // /api/teacher route re-derives the caller's teacher row, so no permission
+  // grant is needed.
+  teacher: [],
 };
 
 export const PERMISSION_GROUPS: Array<{
@@ -420,6 +427,11 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
     requiresActiveSchool: true,
   },
   {
+    pathPrefix: "/teacher",
+    roles: ["teacher"],
+    requiresActiveSchool: true,
+  },
+  {
     pathPrefix: "/parent",
     roles: ["parent"],
     readOnlyRoles: ["parent"],
@@ -591,6 +603,7 @@ export const DEFAULT_PATH_BY_ROLE: Record<UserRole, string> = {
   driver: "/driver",
   transport_manager: "/transport-admin",
   student: "/student",
+  teacher: "/teacher",
 };
 
 export interface SidebarItem {
@@ -599,7 +612,7 @@ export interface SidebarItem {
   href: string;
   iconToken: string;
   roles: UserRole[];
-  group: "general" | "academic" | "finance" | "system" | "admin" | "student";
+  group: "general" | "academic" | "finance" | "system" | "admin" | "student" | "teacher";
 }
 
 export const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -994,6 +1007,110 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     iconToken: "⚙️",
     roles: ["student"],
     group: "student",
+  },
+  {
+    id: "teacher-dashboard",
+    label: "الرئيسية",
+    href: "/teacher",
+    iconToken: "🏠",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-schedule",
+    label: "جدول حصصي",
+    href: "/teacher/schedule",
+    iconToken: "🗓️",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-classes",
+    label: "صفوفي",
+    href: "/teacher/classes",
+    iconToken: "🏫",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-students",
+    label: "طلابي",
+    href: "/teacher/students",
+    iconToken: "👥",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "my-attendance",
+    label: "الحضور",
+    href: "/teacher/attendance",
+    iconToken: "📋",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-grades",
+    label: "الدرجات",
+    href: "/teacher/grades",
+    iconToken: "🎓",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-assignments",
+    label: "الواجبات",
+    href: "/teacher/assignments",
+    iconToken: "📚",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-exams",
+    label: "الامتحانات",
+    href: "/teacher/exams",
+    iconToken: "📝",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-messages",
+    label: "الرسائل",
+    href: "/teacher/messages",
+    iconToken: "💬",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-notifications",
+    label: "الإشعارات",
+    href: "/teacher/notifications",
+    iconToken: "🔔",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-salary",
+    label: "راتبي",
+    href: "/teacher/salary",
+    iconToken: "💼",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-materials",
+    label: "المواد التعليمية",
+    href: "/teacher/materials",
+    iconToken: "📂",
+    roles: ["teacher"],
+    group: "teacher",
+  },
+  {
+    id: "teacher-profile",
+    label: "ملفي الشخصي",
+    href: "/teacher/profile",
+    iconToken: "👤",
+    roles: ["teacher"],
+    group: "teacher",
   },
 ];
 
