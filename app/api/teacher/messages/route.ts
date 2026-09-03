@@ -43,9 +43,52 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  /* Page expects Thread[]: { id, title, lastMessage, lastMessageAt,
+     otherParticipantName, unreadCount } */
+  const enriched = await Promise.all(
+    (data ?? []).map(async (conv: Record<string, unknown>) => {
+      const convId = conv.id as string;
+
+      /* Latest message */
+      const { data: msgs } = await supabase
+        .from("messages")
+        .select("body, created_at")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const lastMsg = (msgs ?? [])[0] as Record<string, unknown> | undefined;
+
+      /* Other participant name */
+      const { data: parts } = await supabase
+        .from("conversation_participants")
+        .select("display_name")
+        .eq("conversation_id", convId)
+        .neq("user_id", userId)
+        .limit(1);
+      const otherPart = (parts ?? [])[0] as Record<string, unknown> | undefined;
+
+      /* Unread count */
+      const { count: unreadCount } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", convId)
+        .neq("sender_id", userId)
+        .gt("created_at", (conv.updated_at as string) ?? "1970-01-01");
+
+      return {
+        id: convId,
+        title: conv.title ?? "",
+        lastMessage: (lastMsg?.body as string) ?? "",
+        lastMessageAt: (lastMsg?.created_at as string) ?? (conv.updated_at as string) ?? "",
+        otherParticipantName: (otherPart?.display_name as string) ?? "",
+        unreadCount: unreadCount ?? 0,
+      };
+    }),
+  );
+
   return NextResponse.json({
     ok: true,
-    data: (data ?? []) as Record<string, unknown>[],
+    data: enriched,
   });
 }
 

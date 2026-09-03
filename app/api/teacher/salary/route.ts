@@ -23,8 +23,27 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  /* Page expects { records: SalaryRecord[] } with:
+     base_salary (not gross_salary), status (not is_paid), year (derived) */
+  const records = (data ?? []).map((row: Record<string, unknown>) => {
+    const monthStr = String(row.month ?? "");
+    const yearPart = monthStr.includes("-")
+      ? Number(monthStr.split("-")[0])
+      : new Date(monthStr).getFullYear() || 0;
+
+    return {
+      id: row.id,
+      month: monthStr,
+      year: yearPart,
+      base_salary: row.gross_salary ?? 0,
+      deductions: row.deductions ?? 0,
+      net_salary: row.net_salary ?? 0,
+      status: row.is_paid ? "paid" : "pending",
+    };
+  });
+
   return NextResponse.json({
     ok: true,
-    data: (data ?? []) as Record<string, unknown>[],
+    data: { records },
   });
 }

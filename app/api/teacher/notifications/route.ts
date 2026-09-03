@@ -22,10 +22,16 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    data: (data ?? []) as Record<string, unknown>[],
-  });
+  /* Page expects `body` not `message` */
+  const mapped = (data ?? []).map((n: Record<string, unknown>) => ({
+    id: n.id,
+    title: n.title,
+    body: n.message ?? null,
+    created_at: n.created_at,
+    is_read: n.is_read,
+  }));
+
+  return NextResponse.json({ ok: true, data: mapped });
 }
 
 export async function PATCH(req: NextRequest) {

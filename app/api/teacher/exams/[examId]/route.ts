@@ -25,17 +25,62 @@ export async function GET(
     );
   }
 
-  const { data: questions } = await supabase
+  /* Compute duration_minutes from starts_at / ends_at */
+  const row = data as Record<string, unknown>;
+  const startsAt = row.starts_at as string | null;
+  const endsAt = row.ends_at as string | null;
+  let durationMinutes: number | null = null;
+  if (startsAt && endsAt) {
+    const diffMs = new Date(endsAt).getTime() - new Date(startsAt).getTime();
+    if (Number.isFinite(diffMs) && diffMs > 0) {
+      durationMinutes = Math.round(diffMs / 60000);
+    }
+  }
+
+  /* Fetch exam_questions (junction rows) */
+  const { data: eqRows } = await supabase
     .from("exam_questions")
-    .select("id, exam_id, question_id, marks, sort_order")
+    .select("id, question_id, marks, sort_order")
     .eq("exam_id", examId)
     .order("sort_order", { ascending: true });
+
+  /* Batch-fetch the actual question content from the questions table */
+  const eqList = (eqRows ?? []) as Array<Record<string, unknown>>;
+  const questionIds = eqList
+    .map((eq) => eq.question_id as string)
+    .filter(Boolean);
+
+  let questionsMap: Record<string, Record<string, unknown>> = {};
+  if (questionIds.length > 0) {
+    const { data: qRows } = await supabase
+      .from("questions")
+      .select("id, prompt, type")
+      .in("id", questionIds);
+    for (const q of (qRows ?? []) as Array<Record<string, unknown>>) {
+      questionsMap[q.id as string] = q;
+    }
+  }
+
+  /* Map to the shape the page expects:
+     prompt → question_text, type → question_type,
+     marks → points, sort_order → order */
+  const mappedQuestions = eqList.map((eq) => {
+    const q = questionsMap[eq.question_id as string] ?? {};
+    return {
+      id: eq.id,
+      question_text: (q.prompt as string) ?? "",
+      question_type: (q.type as string) ?? null,
+      points: (eq.marks as number) ?? null,
+      order: (eq.sort_order as number) ?? null,
+    };
+  });
 
   return NextResponse.json({
     ok: true,
     data: {
-      ...(data as Record<string, unknown>),
-      questions: (questions ?? []) as Record<string, unknown>[],
+      ...row,
+      duration_minutes: durationMinutes,
+      questions: mappedQuestions,
     },
   });
 }

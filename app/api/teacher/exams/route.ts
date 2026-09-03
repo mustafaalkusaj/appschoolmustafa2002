@@ -23,9 +23,24 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  /* Page expects duration_minutes (computed from starts_at / ends_at) */
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  const withDuration = rows.map((row) => {
+    const s = row.starts_at as string | null;
+    const e = row.ends_at as string | null;
+    let duration_minutes: number | null = null;
+    if (s && e) {
+      const diffMs = new Date(e).getTime() - new Date(s).getTime();
+      if (Number.isFinite(diffMs) && diffMs > 0) {
+        duration_minutes = Math.round(diffMs / 60000);
+      }
+    }
+    return { ...row, duration_minutes, status: null };
+  });
+
   return NextResponse.json({
     ok: true,
-    data: (data ?? []) as Record<string, unknown>[],
+    data: withDuration,
   });
 }
 
