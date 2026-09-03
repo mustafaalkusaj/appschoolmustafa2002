@@ -1172,6 +1172,8 @@ export function isPathReadOnlyForRole(role: UserRole, pathname: string): boolean
   return rule.readOnlyRoles.includes(role);
 }
 
+export const PUBLIC_PATH_PREFIXES = ["/api/mobile/", "/api/auth/", "/api/web/push-subscribe"] as const;
+
 export function getSidebarItemsForRole(role?: UserRole | null) {
   if (!role) return [];
   return SIDEBAR_ITEMS.filter((item) => item.roles.includes(role));
