@@ -721,6 +721,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     group: "academic",
   },
   {
+    id: "assignments",
+    label: "الواجبات",
+    href: "/assignments",
+    iconToken: "📝",
+    roles: ["super_admin", "admin"],
+    group: "academic",
+  },
+  {
     id: "messaging",
     label: "الرسائل",
     href: "/messaging",

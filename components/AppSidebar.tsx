@@ -92,6 +92,7 @@ const ITEM_LABELS: Record<string, { ar: string; en: string }> = {
   "teacher-students": { ar: "طلابي", en: "My Students" },
   "my-attendance": { ar: "الحضور", en: "Attendance" },
   "teacher-grades": { ar: "الدرجات", en: "Grades" },
+  assignments: { ar: "الواجبات", en: "Assignments" },
   "teacher-assignments": { ar: "الواجبات", en: "Assignments" },
   "teacher-exams": { ar: "الامتحانات", en: "Exams" },
   "teacher-messages": { ar: "الرسائل", en: "Messages" },
