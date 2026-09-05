@@ -357,6 +357,39 @@ async function fetchUserProfileById(userId: string): Promise<UserProfile | null>
       };
     }
 
+    if (managed?.role === "teacher") {
+      const permissions = buildTemplatePermissions("teacher");
+      let school: SchoolProfile | null = null;
+      let subscription: SubscriptionProfile | null = null;
+      if (managed.school_id) {
+        const ctx = await fetchSchoolContext(managed.school_id);
+        school = ctx.school;
+        subscription = ctx.subscription;
+      }
+      return {
+        id: managed.auth_user_id,
+        full_name: managed.full_name ?? "Teacher",
+        job_title: null,
+        email: null,
+        avatar_url: null,
+        role: "teacher" as UserRole,
+        permissions,
+        custom_permissions: null,
+        school_id: managed.school_id ?? null,
+        is_active: true,
+        phone: null,
+        school,
+        subscription,
+        branch_id: null,
+        allowed_branch_ids: [],
+        allowed_pages: [],
+        is_single_page_user: false,
+        default_path: DEFAULT_PATH_BY_ROLE.teacher,
+        scope_level: null,
+        permissions_version: 1,
+      };
+    }
+
     return null;
   }
 
