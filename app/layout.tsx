@@ -19,11 +19,10 @@ export const metadata: Metadata = {
   description: "School Management System",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
       { url: "/icon.png", type: "image/png", sizes: "1024x1024" },
     ],
     apple: { url: "/icon.png", sizes: "1024x1024" },
-    shortcut: "/favicon.ico",
+    shortcut: "/icon.png",
   },
   manifest: "/manifest.json",
   other: {
