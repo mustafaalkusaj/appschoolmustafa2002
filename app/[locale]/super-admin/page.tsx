@@ -681,7 +681,7 @@ export default function SuperAdminPage() {
                     {activeTab === "trash" && <TrashTab infrastructure={infrastructure} />}
                     {activeTab === "notifications" && <NotificationsTab infrastructure={infrastructure} />}
                     {activeTab === "monitoring" && <SystemMonitoringTab infrastructure={infrastructure} onAlertCountChange={setMonitoringAlertCount} />}
-                    {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} />}
+                    {activeTab === "branches" && <BranchesTab infrastructure={infrastructure} schemaCompat={schemaCompat} schools={schools.filter(s => !s.deleted_at).map(s => ({ id: s.id, name: s.name }))} />}
                     {activeTab === "analytics" && <AnalyticsTab />}
                     {activeTab === "bulk" && <BulkOperationsTab />}
                     {activeTab === "activity" && <ActivityTimelineTab />}

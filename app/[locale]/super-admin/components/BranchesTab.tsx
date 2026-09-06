@@ -191,12 +191,14 @@ function getBranchSwatch(
 export function BranchesTab({
   infrastructure,
   schemaCompat,
+  schools: externalSchools,
 }: {
   infrastructure: AdminInfrastructure;
   schemaCompat: AppSchemaCompat | null;
+  schools?: BranchSchool[];
 }) {
   const [branches, setBranches] = useState<BranchRecord[]>([]);
-  const [schools, setSchools] = useState<BranchSchool[]>([]);
+  const [schools, setSchools] = useState<BranchSchool[]>(externalSchools ?? []);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchRecord | null>(null);
@@ -324,7 +326,8 @@ export function BranchesTab({
       if (branchesRes.error) throw branchesRes.error;
       if (schoolsResult.error) throw schoolsResult.error;
 
-      const nextSchools = (schoolsResult.data || []) as BranchSchool[];
+      const clientSchools = (schoolsResult.data || []) as BranchSchool[];
+      const nextSchools = clientSchools.length > 0 ? clientSchools : (externalSchools ?? []);
       const schoolNames = new Map(nextSchools.map((school) => [school.id, school.name]));
       const nextBranches = ((branchesRes.data || []) as BranchRecord[]).map((branch) => ({
         ...branch,
