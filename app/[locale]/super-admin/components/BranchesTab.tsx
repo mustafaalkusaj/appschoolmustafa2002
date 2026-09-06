@@ -351,6 +351,12 @@ export function BranchesTab({
     void fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (externalSchools && externalSchools.length > 0) {
+      setSchools((prev) => (prev.length === 0 ? externalSchools : prev));
+    }
+  }, [externalSchools]);
+
   if (!infrastructure.branches) {
     return (
       <MigrationNotice description="جدول `branches` غير موجود في قاعدة البيانات الحالية. شاشة الفروع ستبقى معطلة حتى يتم توفير جدول الفروع أو تشغيل `admin_infrastructure.sql`." />
