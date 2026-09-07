@@ -197,8 +197,10 @@ export function BranchesTab({
   schemaCompat: AppSchemaCompat | null;
   schools?: BranchSchool[];
 }) {
+  const propSchools = externalSchools ?? [];
+  const propSchoolsRef = useRef(propSchools);
+  propSchoolsRef.current = propSchools;
   const [branches, setBranches] = useState<BranchRecord[]>([]);
-  const [schools, setSchools] = useState<BranchSchool[]>(externalSchools ?? []);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchRecord | null>(null);
@@ -221,8 +223,8 @@ export function BranchesTab({
   const branchColorsEnabled = Boolean(schemaCompat?.branchColors);
   const branchUiColorsEnabled = Boolean(schemaCompat?.branchUiColors);
   const schoolNameById = useMemo(
-    () => new Map(schools.map((school) => [school.id, school.name])),
-    [schools],
+    () => new Map(propSchools.map((school) => [school.id, school.name])),
+    [propSchools],
   );
   const quickSuggestions = useMemo(
     () =>
@@ -284,7 +286,6 @@ export function BranchesTab({
   const fetchData = useCallback(async () => {
     if (!infrastructure.branches) {
       setBranches([]);
-      setSchools([]);
       setLoading(false);
       return;
     }
@@ -293,19 +294,13 @@ export function BranchesTab({
     setFetchError(null);
     try {
       let branchesQuery = supabase.from("branches").select("*, schools(name)");
-      let schoolsQuery = supabase.from("schools").select("id, name").eq("is_active", true);
 
       if (infrastructure.softDeleteBranches) {
         branchesQuery = branchesQuery.is("deleted_at", null);
       }
 
-      if (infrastructure.softDeleteSchools) {
-        schoolsQuery = schoolsQuery.is("deleted_at", null);
-      }
-
-      const [branchesResult, schoolsResult] = await Promise.all([
+      const [branchesResult] = await Promise.all([
         branchesQuery.order("created_at", { ascending: false }),
-        schoolsQuery,
       ]);
 
       let branchesRes = branchesResult;
@@ -324,11 +319,9 @@ export function BranchesTab({
       }
 
       if (branchesRes.error) throw branchesRes.error;
-      if (schoolsResult.error) throw schoolsResult.error;
 
-      const clientSchools = (schoolsResult.data || []) as BranchSchool[];
-      const nextSchools = clientSchools.length > 0 ? clientSchools : (externalSchools ?? []);
-      const schoolNames = new Map(nextSchools.map((school) => [school.id, school.name]));
+      const currentSchools = propSchoolsRef.current;
+      const schoolNames = new Map(currentSchools.map((school) => [school.id, school.name]));
       const nextBranches = ((branchesRes.data || []) as BranchRecord[]).map((branch) => ({
         ...branch,
         schools:
@@ -336,7 +329,6 @@ export function BranchesTab({
       }));
 
       setBranches(nextBranches);
-      setSchools(nextSchools);
     } catch (error) {
       console.error("Fetch branches error:", error);
       setFetchError(
@@ -350,12 +342,6 @@ export function BranchesTab({
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
-
-  useEffect(() => {
-    if (externalSchools && externalSchools.length > 0) {
-      setSchools((prev) => (prev.length === 0 ? externalSchools : prev));
-    }
-  }, [externalSchools]);
 
   if (!infrastructure.branches) {
     return (
@@ -754,7 +740,7 @@ export function BranchesTab({
                         }
                       >
                         <option value="">اختر المدرسة</option>
-                        {schools.map((school) => (
+                        {propSchools.map((school) => (
                           <option key={school.id} value={school.id}>{school.name}</option>
                         ))}
                       </select>

@@ -2,6 +2,7 @@ import { getServerEnv, shouldUseSecureCookies } from "@/lib/env/server";
 import { getPathForPageCode } from "@/lib/authorization/page-access";
 import {
   buildTemplatePermissions,
+  DEFAULT_PATH_BY_ROLE,
   normalizePermissions,
   type Permission,
   type UserRole,
@@ -200,7 +201,10 @@ export async function verifyRBACSession(token: string | undefined | null): Promi
       defaultPath:
         typeof parsed.defaultPath === "string" && parsed.defaultPath.trim().length > 0
           ? parsed.defaultPath
-          : getPathForPageCode(typeof parsed.allowedModule === "string" ? parsed.allowedModule : null) ?? "/dashboard",
+          : getPathForPageCode(typeof parsed.allowedModule === "string" ? parsed.allowedModule : null)
+            ?? (typeof parsed.role === "string" && parsed.role in DEFAULT_PATH_BY_ROLE
+              ? DEFAULT_PATH_BY_ROLE[parsed.role as UserRole]
+              : "/dashboard"),
       isSinglePageUser:
         typeof parsed.isSinglePageUser === "boolean"
           ? parsed.isSinglePageUser

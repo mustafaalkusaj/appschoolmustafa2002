@@ -59,14 +59,20 @@ export default function UsersPage() {
         } else {
           const { response, payload: res } =
             await fetchJsonWithAuthorizedSession<{
-              error?: { message?: string };
+              error?: string | { message?: string };
+              message?: string;
             }>("/api/users", {
               method: "POST",
               headers: withJsonHeaders(),
               body: JSON.stringify({ ...payload, password: f.password }),
             });
-          if (!response.ok)
-            throw new Error(res?.error?.message || "فشل إنشاء المستخدم.");
+          if (!response.ok) {
+            const errMsg =
+              (typeof res?.error === "object" ? res?.error?.message : null) ??
+              res?.message ??
+              "فشل إنشاء المستخدم.";
+            throw new Error(errMsg);
+          }
         }
         toast.success("تم حفظ المستخدم بنجاح ✓");
         setShowUserForm(false);

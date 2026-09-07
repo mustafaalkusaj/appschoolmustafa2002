@@ -10,6 +10,7 @@ import {
   createServiceSupabaseClient,
   getRouteAuthenticatedUser,
 } from "@/lib/supabase-server";
+import { RBAC_COOKIE_NAME, verifyRBACSession } from "@/lib/rbac-session";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 10;
@@ -114,7 +115,17 @@ export async function POST(req: NextRequest) {
     error: actorUserError,
   } = await getRouteAuthenticatedUser(actorSupabase, req.headers.get("authorization"));
 
-  if (actorUserError || !actorUser?.id) {
+  let actorUserId: string | null = actorUser?.id ?? null;
+
+  if (actorUserError || !actorUserId) {
+    const rbacToken = req.cookies.get(RBAC_COOKIE_NAME)?.value;
+    const rbacSession = await verifyRBACSession(rbacToken);
+    if (rbacSession?.userId && rbacSession.userActive) {
+      actorUserId = rbacSession.userId;
+    }
+  }
+
+  if (!actorUserId) {
     return NextResponse.json({ error: { message: "Unauthorized." } }, { status: 401 });
   }
 
@@ -122,17 +133,17 @@ export async function POST(req: NextRequest) {
     namespace: "users-create",
     windowMs: 10 * 60 * 1000,
     maxHits: 10,
-    identifier: actorUser.id,
+    identifier: actorUserId,
   });
   if (rateLimitResponse) {
     return rateLimitResponse;
   }
 
-  // Use actorSupabase to check permissions (RLS)
-  const { data: actorProfile, error: actorProfileError } = await actorSupabase
+  const serviceSupabase = createServiceSupabaseClient();
+  const { data: actorProfile, error: actorProfileError } = await serviceSupabase
     .from("user_profiles")
     .select("role, is_active")
-    .eq("id", actorUser.id)
+    .eq("id", actorUserId)
     .maybeSingle();
 
   if (actorProfileError || !actorProfile || actorProfile.is_active === false) {
@@ -146,9 +157,6 @@ export async function POST(req: NextRequest) {
       { status: 403 },
     );
   }
-
-  // Only use service client for admin Auth operations
-  const serviceSupabase = createServiceSupabaseClient();
 
   if (validation.value.school_id) {
     const { data: school, error: schoolError } = await serviceSupabase
@@ -197,7 +205,7 @@ export async function POST(req: NextRequest) {
     email: validation.value.email,
     password: validation.value.password,
     email_confirm: true,
-    user_metadata: { createdBy: actorUser.id },
+    user_metadata: { createdBy: actorUserId },
   });
 
   if (createAuthError || !authData?.user) {
