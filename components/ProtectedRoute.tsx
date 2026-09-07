@@ -7,9 +7,6 @@ import {
   getAccessDecision,
   getDefaultRouteForProfile,
   hasPermission,
-  hasAssignedPageScope,
-  isBranchUserProfile,
-  isGroupOverviewOnlyProfile,
   type Permission,
   type UserRole,
 } from "@/lib/auth";
@@ -40,8 +37,15 @@ function resolveRedirect(
     return localizeAppPath("/subscription-expired", locale);
   }
 
+  if (reason === "inactive_user") {
+    return `${localizeAppPath("/access-denied", locale)}?reason=inactive`;
+  }
+
   if (reason === "forbidden" && focusedDefaultPath) {
-    return localizeAppPath(focusedDefaultPath, locale);
+    const localizedDefault = localizeAppPath(focusedDefaultPath, locale);
+    if (localizedDefault !== pathname) {
+      return localizedDefault;
+    }
   }
 
   return localizeAppPath("/access-denied", locale);
@@ -77,14 +81,9 @@ export function ProtectedRoute({
 
   useEffect(() => {
     if (loading || !blockedReason) return;
-    const defaultPath =
-      profile && blockedReason === "forbidden"
-        ? getDefaultRouteForProfile(profile)
-        : null;
-    const locale = getLocaleFromPath(pathname);
-    const localizedDefault = defaultPath ? localizeAppPath(defaultPath, locale) : null;
-    const alreadyOnDefault = localizedDefault === pathname;
-    router.replace(resolveRedirect(blockedReason, pathname, alreadyOnDefault ? null : defaultPath));
+    const focusedDefaultPath =
+      blockedReason === "forbidden" ? getDefaultRouteForProfile(profile) : null;
+    router.replace(resolveRedirect(blockedReason, pathname, focusedDefaultPath));
   }, [blockedReason, loading, pathname, profile, router]);
 
   if (loading || blockedReason) {
