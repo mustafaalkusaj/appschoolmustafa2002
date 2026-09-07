@@ -317,7 +317,19 @@ function buildDefaultPath(
     return getPathForPageCode(allowedPages[0]) ?? DEFAULT_PATH_BY_ROLE[role];
   }
 
-  return DEFAULT_PATH_BY_ROLE[role];
+  const rolePath = DEFAULT_PATH_BY_ROLE[role];
+
+  // getAccessDecision() forbids branch_user profiles from the /dashboard root.
+  // Handing them "/dashboard" as their default_path dead-ended login: the login
+  // page checks the default route, finds it forbidden, and sends the user to
+  // /access-denied with no reachable landing page - a permanent lockout for any
+  // branch-scoped admin/employee with no assigned pages. Branch-scoped users get
+  // /branch-overview, which their role rule already allows.
+  if (scopeLevel === "branch_user" && rolePath === "/dashboard") {
+    return "/branch-overview";
+  }
+
+  return rolePath;
 }
 
 function buildPermissions(profile: UserProfileRow, role: UserRole) {
