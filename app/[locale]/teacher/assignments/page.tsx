@@ -142,6 +142,16 @@ export default function TeacherAssignmentsPage() {
                                   {a.description}
                                 </p>
                               )}
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/${locale}/teacher/assignments/${a.id}`,
+                                  )
+                                }
+                                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
+                              >
+                                {t("عرض التسليمات", "View Submissions")}
+                              </button>
                             </div>
                             <Badge
                               variant={urgent ? "danger" : "warning"}
@@ -189,6 +199,16 @@ export default function TeacherAssignmentsPage() {
                               {a.subject && <span>{a.subject} · </span>}
                               {a.due_date}
                             </p>
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  `/${locale}/teacher/assignments/${a.id}`,
+                                )
+                              }
+                              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
+                            >
+                              {t("عرض التسليمات", "View Submissions")}
+                            </button>
                           </div>
                           <Badge variant="info" size="sm">
                             {t("انتهى", "Past")}

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveMobileRouteContext } from "@/lib/mobile-api-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { sendPushNotification } from "@/lib/push-notifications";
+import { resolveTeacherAuthUserId } from "@/lib/assignment-notifications";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -92,6 +94,48 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     const supabase = createServiceSupabaseClient();
+
+    const { data: assignment } = await supabase
+      .from("assignments")
+      .select("id, title, teacher_id, due_at")
+      .eq("id", assignmentId)
+      .eq("school_id", schoolId)
+      .maybeSingle();
+
+    const assignmentRow = assignment as Record<string, unknown> | null;
+
+    let allowLate = true; // permissive default until the migration adds the column
+    try {
+      const { data: allowLateRow } = await supabase
+        .from("assignments")
+        .select("allow_late")
+        .eq("id", assignmentId)
+        .maybeSingle();
+      const value = (allowLateRow as Record<string, unknown> | null)
+        ?.allow_late;
+      if (typeof value === "boolean") allowLate = value;
+    } catch {
+      // column not present yet — keep permissive default
+    }
+
+    const dueAt = assignmentRow?.due_at as string | null | undefined;
+    const isLate = Boolean(dueAt) && new Date() > new Date(dueAt as string);
+
+    if (isLate && !allowLate) {
+      return NextResponse.json(
+        { ok: false, error: "التسليم المتأخر غير مسموح لهذا الواجب." },
+        { status: 403 },
+      );
+    }
+
+    const { data: existing } = await assignmentSubmissionsTable(supabase)
+      .select("id")
+      .eq("assignment_id", assignmentId)
+      .eq("student_id", studentId)
+      .eq("school_id", schoolId)
+      .maybeSingle();
+    const isNewSubmission = !existing;
+
     const { data, error } = await assignmentSubmissionsTable(supabase)
       .upsert(
         {
@@ -103,6 +147,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           file_name: file_name ?? null,
           file_mime_type: file_mime_type ?? null,
           submitted_at: new Date().toISOString(),
+          is_late: isLate,
         },
         { onConflict: "assignment_id,student_id" },
       )
@@ -110,6 +155,44 @@ export async function POST(req: NextRequest, { params }: Params) {
       .single();
 
     if (error) throw error;
+
+    if (isNewSubmission) {
+      try {
+        const teacherId = assignmentRow?.teacher_id as string | null | undefined;
+        if (teacherId) {
+          const teacherAuthUserId = await resolveTeacherAuthUserId(
+            supabase,
+            schoolId,
+            teacherId,
+          );
+          if (teacherAuthUserId) {
+            const { data: studentRow } = await supabase
+              .from("students")
+              .select("full_name")
+              .eq("id", studentId)
+              .eq("school_id", schoolId)
+              .maybeSingle();
+            const studentName = (studentRow as Record<string, unknown> | null)
+              ?.full_name as string | undefined;
+
+            await sendPushNotification(supabase, {
+              schoolId,
+              branchId: null,
+              userIds: [teacherAuthUserId],
+              type: "assignment_submission",
+              title: "📥 تسليم جديد",
+              message: `${studentName ?? "طالب"} سلّم واجب: ${assignmentRow?.title as string}`,
+              link: `/teacher/assignments/${assignmentId}`,
+              metadata: { assignmentId, studentId },
+              recipientRole: "teacher",
+            });
+          }
+        }
+      } catch {
+        // notification failure should not block submission
+      }
+    }
+
     return NextResponse.json({ ok: true, submission: data });
   } catch {
     return NextResponse.json(

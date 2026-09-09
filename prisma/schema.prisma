@@ -575,6 +575,9 @@ model MobileAssignment {
   createdAt           DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime? @map("updated_at") @db.Timestamptz(6)
   branchId            String?   @map("branch_id") @db.Uuid
+  maxGrade            Int?      @default(100) @map("max_grade")
+  allowLate           Boolean?  @default(false) @map("allow_late")
+  status              String?   @default("active")
 
   @@index([schoolId])
   @@index([schoolId, studentId])
@@ -583,15 +586,21 @@ model MobileAssignment {
 }
 
 model AssignmentSubmission {
-  id           String   @id @default(uuid()) @db.Uuid
-  schoolId     String   @map("school_id") @db.Uuid
-  assignmentId String   @map("assignment_id") @db.Uuid
-  studentId    String   @map("student_id") @db.Uuid
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  assignmentId String    @map("assignment_id") @db.Uuid
+  studentId    String    @map("student_id") @db.Uuid
   notes        String?
-  fileUrl      String?  @map("file_url")
-  fileName     String?  @map("file_name")
-  fileMimeType String?  @map("file_mime_type")
-  submittedAt  DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  fileUrl      String?   @map("file_url")
+  fileName     String?   @map("file_name")
+  fileMimeType String?   @map("file_mime_type")
+  submittedAt  DateTime  @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  isLate       Boolean?  @default(false) @map("is_late")
+  grade        Int?
+  feedback     String?
+  gradedAt     DateTime? @map("graded_at") @db.Timestamptz(6)
+  gradedBy     String?   @map("graded_by") @db.Uuid
+  status       String?   @default("submitted")
 
   @@index([schoolId, studentId])
   @@index([assignmentId])

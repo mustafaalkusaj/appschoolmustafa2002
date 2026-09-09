@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveSchoolScopedActorContext } from "@/lib/managed-users-server";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { sendPushNotification } from "@/lib/push-notifications";
+import { assignmentsTable } from "@/lib/assignment-grading-tables";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -24,15 +25,45 @@ export async function GET(request: NextRequest) {
   const { targetSchoolId } = context.value;
   const svc = createServiceSupabaseClient();
 
-  const { data, error } = await svc
-    .from("assignments")
-    .select("id, title, description, class_name, subject, due_at, content_kind, created_at")
+  const className = searchParams.get("className") ?? searchParams.get("classId");
+  const subject = searchParams.get("subject");
+  const status = searchParams.get("status");
+  const search = searchParams.get("search");
+
+  let query = assignmentsTable(svc)
+    .select(
+      "id, title, description, class_name, subject, due_at, content_kind, max_grade, allow_late, status, created_at",
+    )
     .eq("school_id", targetSchoolId)
     .order("created_at", { ascending: false })
     .limit(100);
 
+  if (className) query = query.eq("class_name", className);
+  if (subject) query = query.eq("subject", subject);
+  if (status) query = query.eq("status", status);
+  if (search) query = query.ilike("title", `%${search}%`);
+
+  const { data, error } = await query;
+
   if (error) {
-    return jsonError(error.message, 500);
+    // `status`/`max_grade`/`allow_late` may not exist yet on schools that
+    // haven't run the homework_grading_fields migration — retry with the
+    // base column set so listing keeps working either way.
+    let fallback = svc
+      .from("assignments")
+      .select("id, title, description, class_name, subject, due_at, content_kind, created_at")
+      .eq("school_id", targetSchoolId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (className) fallback = fallback.eq("class_name", className);
+    if (subject) fallback = fallback.eq("subject", subject);
+    if (search) fallback = fallback.ilike("title", `%${search}%`);
+
+    const { data: fallbackData, error: fallbackError } = await fallback;
+    if (fallbackError) {
+      return jsonError(fallbackError.message, 500);
+    }
+    return NextResponse.json({ ok: true, data: fallbackData ?? [] });
   }
 
   return NextResponse.json({ ok: true, data: data ?? [] });

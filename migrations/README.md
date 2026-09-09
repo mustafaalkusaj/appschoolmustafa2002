@@ -37,6 +37,14 @@ All tables confirmed present in DB via `information_schema.tables` query.
 No `schema_migrations` tracking table exists — this project applies SQL directly.
 Tracking is done by this README file and git history.
 
+## 2026-09-09 — Homework grading fields (not yet applied)
+
+`20260909_000000_homework_grading_fields.sql` adds grading columns to the
+existing `assignments` and `assignment_submissions` tables (max_grade,
+allow_late, status, is_late, grade, feedback, graded_at, graded_by). File
+only — not yet applied to production. Application code treats these columns
+as optional until the migration runs.
+
 ## Related SQL Files Outside This Folder
 
 - `database_setup.sql`

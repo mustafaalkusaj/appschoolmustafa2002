@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveStudentContext, unauthorized } from "@/lib/student-api";
+import { sendPushNotification } from "@/lib/push-notifications";
+import { resolveTeacherAuthUserId } from "@/lib/assignment-notifications";
 
 export async function POST(
   req: NextRequest,
@@ -32,21 +34,46 @@ export async function POST(
     );
   }
 
-  /* ── verify assignment exists and belongs to student's class ── */
+  /* ── verify assignment exists and belongs to student's class ──
+   * `allow_late` is fetched separately (best-effort) so that a school
+   * whose DB hasn't run the homework_grading_fields migration yet keeps
+   * working — the base lookup never fails because of a missing column. */
   const { data: assignment } = await supabase
     .from("assignments")
-    .select("id, class_name")
+    .select("id, title, class_name, teacher_id, due_at")
     .eq("id", assignmentId)
     .eq("school_id", schoolId)
     .maybeSingle();
 
-  if (
-    !assignment ||
-    (assignment as Record<string, unknown>).class_name !== className
-  ) {
+  const assignmentRow = assignment as Record<string, unknown> | null;
+
+  if (!assignmentRow || assignmentRow.class_name !== className) {
     return NextResponse.json(
       { ok: false, error: "assignment_not_found" },
       { status: 404 },
+    );
+  }
+
+  let allowLate = true; // permissive default until the migration adds the column
+  try {
+    const { data: allowLateRow } = await supabase
+      .from("assignments")
+      .select("allow_late")
+      .eq("id", assignmentId)
+      .maybeSingle();
+    const value = (allowLateRow as Record<string, unknown> | null)?.allow_late;
+    if (typeof value === "boolean") allowLate = value;
+  } catch {
+    // column not present yet — keep permissive default
+  }
+
+  const dueAt = assignmentRow.due_at as string | null;
+  const isLate = Boolean(dueAt) && new Date() > new Date(dueAt as string);
+
+  if (isLate && !allowLate) {
+    return NextResponse.json(
+      { ok: false, error: "late_not_allowed" },
+      { status: 403 },
     );
   }
 
@@ -70,9 +97,10 @@ export async function POST(
       .update({
         notes,
         submitted_at: new Date().toISOString(),
+        is_late: isLate,
       })
       .eq("id", existingId)
-      .select("id, notes, submitted_at")
+      .select("id, notes, submitted_at, is_late")
       .single();
 
     if (error) {
@@ -94,8 +122,9 @@ export async function POST(
       student_id: studentId,
       notes,
       submitted_at: new Date().toISOString(),
+      is_late: isLate,
     })
-    .select("id, notes, submitted_at")
+    .select("id, notes, submitted_at, is_late")
     .single();
 
   if (error) {
@@ -103,6 +132,46 @@ export async function POST(
       { ok: false, error: error.message },
       { status: 500 },
     );
+  }
+
+  /* ── notify the teacher of a new (first-time) submission ── */
+  try {
+    const teacherId = assignmentRow.teacher_id as string | null;
+    if (teacherId) {
+      const teacherAuthUserId = await resolveTeacherAuthUserId(
+        supabase,
+        schoolId,
+        teacherId,
+      );
+
+      if (teacherAuthUserId) {
+        const { data: studentRow } = await supabase
+          .from("students")
+          .select("full_name")
+          .eq("id", studentId)
+          .eq("school_id", schoolId)
+          .maybeSingle();
+
+        const studentName =
+          (studentRow as Record<string, unknown> | null)?.full_name as
+            | string
+            | undefined;
+
+        await sendPushNotification(supabase, {
+          schoolId,
+          branchId: null,
+          userIds: [teacherAuthUserId],
+          type: "assignment_submission",
+          title: "📥 تسليم جديد",
+          message: `${studentName ?? "طالب"} سلّم واجب: ${assignmentRow.title as string}`,
+          link: `/teacher/assignments/${assignmentId}`,
+          metadata: { assignmentId, studentId },
+          recipientRole: "teacher",
+        });
+      }
+    }
+  } catch {
+    // notification failure should not block submission
   }
 
   return NextResponse.json({ ok: true, data: created }, { status: 201 });

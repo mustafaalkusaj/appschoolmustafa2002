@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveTeacherContext, unauthorized } from "@/lib/teacher-api";
+import { sendPushNotification } from "@/lib/push-notifications";
 
 export async function GET(req: NextRequest) {
   const ctx = await resolveTeacherContext(req);
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
   const className = body.class_name as string | undefined;
   const subject = body.subject as string | undefined;
   const dueAt = body.due_at as string | undefined;
+  const maxGrade = body.max_grade as number | undefined;
+  const allowLate = body.allow_late as boolean | undefined;
 
   if (!title || !className || !subject) {
     return NextResponse.json(
@@ -68,6 +71,8 @@ export async function POST(req: NextRequest) {
       due_at: dueAt ?? null,
       teacher_id: teacherId,
       school_id: schoolId,
+      ...(typeof maxGrade === "number" ? { max_grade: maxGrade } : {}),
+      ...(typeof allowLate === "boolean" ? { allow_late: allowLate } : {}),
     })
     .select("id, title, class_name, subject, due_at, created_at")
     .single();
@@ -79,8 +84,40 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const created = data as Record<string, unknown>;
+
+  try {
+    const { data: students } = await supabase
+      .from("managed_user_profiles")
+      .select("auth_user_id")
+      .eq("school_id", schoolId)
+      .eq("role", "student")
+      .eq("class_name", className)
+      .eq("is_active", true);
+
+    const studentIds = (students ?? [])
+      .map((s) => (s as Record<string, unknown>).auth_user_id as string)
+      .filter(Boolean);
+
+    if (studentIds.length > 0) {
+      await sendPushNotification(supabase, {
+        schoolId,
+        branchId: null,
+        userIds: studentIds,
+        type: "assignment",
+        title: "📝 واجب جديد",
+        message: `${title} — ${subject}`,
+        link: "/student/assignments",
+        metadata: { assignmentId: created.id },
+        recipientRole: "student",
+      });
+    }
+  } catch {
+    // notification failure should not block assignment creation
+  }
+
   return NextResponse.json({
     ok: true,
-    data: data as Record<string, unknown>,
+    data: created,
   });
 }

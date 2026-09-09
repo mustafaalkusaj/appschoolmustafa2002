@@ -34,6 +34,10 @@ interface SubmissionDetail {
   file_url: string | null;
   file_name: string | null;
   submitted_at: string | null;
+  is_late: boolean;
+  grade: number | null;
+  feedback: string | null;
+  status: string;
 }
 
 export default function AssignmentDetailPage() {
@@ -207,6 +211,11 @@ export default function AssignmentDetailPage() {
                       <span className="text-sm font-semibold text-[var(--success)]">
                         {t("تم التسليم", "Submitted")}
                       </span>
+                      {submission.is_late && (
+                        <Badge variant="danger" size="sm">
+                          {t("متأخر", "Late")}
+                        </Badge>
+                      )}
                     </div>
                     <button
                       onClick={() => setEditing(true)}
@@ -232,6 +241,21 @@ export default function AssignmentDetailPage() {
                         isAr ? "ar" : "en",
                       )}
                     </p>
+                  )}
+
+                  {submission.status === "graded" && (
+                    <div className="rounded-xl bg-[var(--surface-soft)] p-4 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">
+                          {t("الدرجة:", "Grade:")} {submission.grade}
+                        </span>
+                      </div>
+                      {submission.feedback && (
+                        <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">
+                          {submission.feedback}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </CardContent>
               </Card>

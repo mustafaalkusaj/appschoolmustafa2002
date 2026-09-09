@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { Plus, FileText, Clock } from "lucide-react";
+import { Plus, FileText, Clock, TrendingUp, CheckCircle2 } from "lucide-react";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppShellTopbar } from "@/components/AppShellTopbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -18,6 +18,17 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatsCard, KPIGrid } from "@/components/ui/stats-card";
+
+interface SubjectStat {
+  subject: string;
+  assignments_count: number;
+  total_submissions: number;
+  expected_submissions: number;
+  submission_rate: number;
+  average_grade: number | null;
+  graded_count: number;
+}
 
 interface Assignment {
   id: string;
@@ -43,6 +54,7 @@ export default function AdminAssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [stats, setStats] = useState<SubjectStat[]>([]);
 
   const loadAssignments = useCallback(async () => {
     if (!schoolId) return;
@@ -63,9 +75,41 @@ export default function AdminAssignmentsPage() {
     }
   }, [schoolId]);
 
+  const loadStats = useCallback(async () => {
+    if (!schoolId) return;
+    try {
+      const res = await fetchJsonWithAuthorizedSession(
+        `/api/web/assignments/stats?schoolId=${schoolId}`,
+      );
+      if (res.response.ok) {
+        setStats(((res.payload as { data: SubjectStat[] })?.data ?? []));
+      }
+    } catch {
+      // silent
+    }
+  }, [schoolId]);
+
   useEffect(() => {
     loadAssignments();
-  }, [loadAssignments]);
+    loadStats();
+  }, [loadAssignments, loadStats]);
+
+  const overallSubmissionRate =
+    stats.length > 0
+      ? Math.round(
+          stats.reduce((sum, s) => sum + s.submission_rate, 0) / stats.length,
+        )
+      : 0;
+  const gradesAvailable = stats.filter((s) => s.average_grade !== null);
+  const overallAverageGrade =
+    gradesAvailable.length > 0
+      ? Math.round(
+          (gradesAvailable.reduce((sum, s) => sum + (s.average_grade ?? 0), 0) /
+            gradesAvailable.length) *
+            10,
+        ) / 10
+      : null;
+  const totalGraded = stats.reduce((sum, s) => sum + s.graded_count, 0);
 
   function daysUntil(dateStr: string | null) {
     if (!dateStr) return null;
@@ -93,6 +137,33 @@ export default function AdminAssignmentsPage() {
           />
 
           <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+            {stats.length > 0 && (
+              <div className="mb-6">
+                <KPIGrid>
+                  <StatsCard
+                    label={t("معدل التسليم", "Submission Rate")}
+                    value={`${overallSubmissionRate}%`}
+                    icon={TrendingUp}
+                    variant={overallSubmissionRate >= 70 ? "success" : "warning"}
+                  />
+                  <StatsCard
+                    label={t("متوسط الدرجات", "Average Grade")}
+                    value={
+                      overallAverageGrade !== null ? `${overallAverageGrade}%` : "—"
+                    }
+                    icon={FileText}
+                    variant="info"
+                  />
+                  <StatsCard
+                    label={t("تم تقييمها", "Graded")}
+                    value={String(totalGraded)}
+                    icon={CheckCircle2}
+                    variant="success"
+                  />
+                </KPIGrid>
+              </div>
+            )}
+
             {showForm && (
               <NewAssignmentForm
                 schoolId={schoolId}
@@ -125,7 +196,12 @@ export default function AdminAssignmentsPage() {
                   const days = daysUntil(a.due_at);
                   const isPast = days !== null && days < 0;
                   return (
-                    <Card key={a.id} className="rounded-2xl">
+                    <a
+                      key={a.id}
+                      href={`/${locale}/assignments/${a.id}`}
+                      className="block"
+                    >
+                    <Card className="rounded-2xl hover:shadow-md transition-shadow">
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <CardTitle className="text-base font-semibold line-clamp-2">
@@ -165,6 +241,7 @@ export default function AdminAssignmentsPage() {
                         )}
                       </CardContent>
                     </Card>
+                    </a>
                   );
                 })}
               </div>

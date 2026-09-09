@@ -24,6 +24,11 @@ interface Assignment {
   description: string | null;
   created_at: string;
   is_past: boolean;
+  submitted: boolean;
+  grade: number | null;
+  feedback: string | null;
+  status: string | null;
+  is_late: boolean;
 }
 
 export default function StudentAssignmentsPage() {
@@ -122,6 +127,18 @@ export default function StudentAssignmentsPage() {
                                   {a.description}
                                 </p>
                               )}
+                              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                {a.status === "graded" && (
+                                  <Badge variant="success" size="sm">
+                                    {t("الدرجة:", "Grade:")} {a.grade}
+                                  </Badge>
+                                )}
+                                {a.is_late && (
+                                  <Badge variant="danger" size="sm">
+                                    {t("تسليم متأخر", "Late submission")}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                             <Badge
                               variant={urgent ? "danger" : "warning"}
@@ -165,6 +182,18 @@ export default function StudentAssignmentsPage() {
                             <p className="text-xs text-[var(--text-muted)] mt-1">
                               {a.subject ?? a.content_kind} · {a.due_at}
                             </p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                              {a.status === "graded" && (
+                                <Badge variant="success" size="sm">
+                                  {t("الدرجة:", "Grade:")} {a.grade}
+                                </Badge>
+                              )}
+                              {a.is_late && (
+                                <Badge variant="danger" size="sm">
+                                  {t("تسليم متأخر", "Late submission")}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <Badge variant="info" size="sm">
                             {t("انتهى", "Past")}

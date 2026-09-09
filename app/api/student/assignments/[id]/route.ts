@@ -45,14 +45,35 @@ export async function GET(
     );
   }
 
-  /* ── fetch existing submission ── */
-  const { data: submission } = await supabase
-    .from("assignment_submissions")
-    .select("id, notes, file_url, file_name, file_mime_type, submitted_at")
-    .eq("assignment_id", id)
-    .eq("student_id", studentId)
-    .eq("school_id", schoolId)
-    .maybeSingle();
+  /* ── fetch existing submission ──
+   * Try the grading-fields select first; fall back to the base columns if
+   * the homework_grading_fields migration hasn't been applied yet, so an
+   * existing submission still renders correctly either way. */
+  let submission: Record<string, unknown> | null = null;
+  {
+    const { data, error: submissionError } = await supabase
+      .from("assignment_submissions")
+      .select(
+        "id, notes, file_url, file_name, file_mime_type, submitted_at, is_late, grade, feedback, status",
+      )
+      .eq("assignment_id", id)
+      .eq("student_id", studentId)
+      .eq("school_id", schoolId)
+      .maybeSingle();
+
+    if (submissionError) {
+      const { data: fallback } = await supabase
+        .from("assignment_submissions")
+        .select("id, notes, file_url, file_name, file_mime_type, submitted_at")
+        .eq("assignment_id", id)
+        .eq("student_id", studentId)
+        .eq("school_id", schoolId)
+        .maybeSingle();
+      submission = fallback as Record<string, unknown> | null;
+    } else {
+      submission = data as Record<string, unknown> | null;
+    }
+  }
 
   return NextResponse.json({
     ok: true,
@@ -68,18 +89,15 @@ export async function GET(
       },
       submission: submission
         ? {
-            id: (submission as Record<string, unknown>).id as string,
-            notes:
-              ((submission as Record<string, unknown>).notes as string) ?? null,
-            file_url:
-              ((submission as Record<string, unknown>).file_url as string) ??
-              null,
-            file_name:
-              ((submission as Record<string, unknown>).file_name as string) ??
-              null,
-            submitted_at:
-              ((submission as Record<string, unknown>).submitted_at as string) ??
-              null,
+            id: submission.id as string,
+            notes: (submission.notes as string) ?? null,
+            file_url: (submission.file_url as string) ?? null,
+            file_name: (submission.file_name as string) ?? null,
+            submitted_at: (submission.submitted_at as string) ?? null,
+            is_late: Boolean(submission.is_late),
+            grade: (submission.grade as number | null) ?? null,
+            feedback: (submission.feedback as string) ?? null,
+            status: (submission.status as string) ?? "submitted",
           }
         : null,
     },
