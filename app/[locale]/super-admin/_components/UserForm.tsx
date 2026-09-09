@@ -61,6 +61,7 @@ const PAGE_LABELS: Record<PageCode, string> = {
   subscriptions: "الاشتراكات",
   "super-admin": "الإدارة العامة",
   calendar: "التقويم الذكي",
+  assignments: "الواجبات",
   grades: "الدرجات",
   classes: "الصفوف والشعب",
   schedule: "جدول الحصص",

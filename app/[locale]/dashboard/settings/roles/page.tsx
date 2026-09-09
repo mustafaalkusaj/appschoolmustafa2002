@@ -41,6 +41,7 @@ const PAGE_LABELS: Partial<Record<PageCode, string>> = {
   "teacher-activities": "متابعة نشاط الأساتذة",
   grades: "الدرجات والأعمال",
   calendar: "التقويم الذكي",
+  assignments: "الواجبات",
   classes: "الصفوف والشعب",
   schedule: "جدول الحصص",
   payments: "الحسابات",

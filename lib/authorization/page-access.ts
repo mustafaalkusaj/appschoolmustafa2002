@@ -18,6 +18,7 @@ export const PAGE_PATHS = {
   "teacher-attendance": "/teacher-attendance",
   "teacher-activities": "/teacher-activities",
   calendar: "/calendar",
+  assignments: "/assignments",
   grades: "/grades",
   classes: "/classes",
   schedule: "/schedule",
