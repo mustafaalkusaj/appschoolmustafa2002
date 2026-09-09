@@ -397,10 +397,19 @@ async function getGuardRedirect(request: NextRequest): Promise<URL | NextRespons
       return new URL(localizePath(defaultPath, locale), request.url);
     }
 
-    if (
-      !isPublicUtilityPath &&
-      !isPagePathAllowed(normalizedCurrent, session.allowedPages)
-    ) {
+    const pagePathAllowed = isPagePathAllowed(normalizedCurrent, session.allowedPages);
+    if (normalizedCurrent === "/assignments") {
+      console.log("[DIAG assignments]", JSON.stringify({
+        normalizedCurrent,
+        role: session.role,
+        scopeLevel: session.scopeLevel,
+        allowedPages: session.allowedPages,
+        pagePathAllowed,
+        userId: session.userId,
+      }));
+    }
+
+    if (!isPublicUtilityPath && !pagePathAllowed) {
       // The dashboard is intentionally blocked for focused users unless explicitly granted.
       if (normalizedCurrent === "/dashboard") {
         return new URL(localizePath(defaultPath, locale), request.url);
