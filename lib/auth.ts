@@ -247,11 +247,16 @@ export function getAccessDecision(profile: UserProfile | null, pathname: string)
   }
 
   if (hasFocusedPageRestriction(profile)) {
-    const pageCode = resolvePageCodeFromPath(pathname);
-    const allowedPages = profile.allowed_pages ?? [];
+    const defaultRoute = getDefaultRouteForProfile(profile);
+    const isDefaultPath = defaultRoute && normalizePath(pathname) === normalizePath(defaultRoute);
 
-    if (!pageCode || !allowedPages.includes(pageCode)) {
-      return { allowed: false, reason: "forbidden", readOnly: false };
+    if (!isDefaultPath) {
+      const pageCode = resolvePageCodeFromPath(pathname);
+      const allowedPages = profile.allowed_pages ?? [];
+
+      if (!pageCode || !allowedPages.includes(pageCode)) {
+        return { allowed: false, reason: "forbidden", readOnly: false };
+      }
     }
   }
 
